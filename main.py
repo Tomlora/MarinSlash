@@ -36,11 +36,15 @@ chan_kangourou = int(linecache.getline(params, 8).strip())
 chan_twitch = int(linecache.getline(params, 10).strip())
 chan_lol = int(linecache.getline(params, 12).strip())
 
+guildid = 494217748046544906
+role_admin = 630771107053699132
+
 
 bot = commands.Bot(command_prefix=";", intents=default_intents)
 slash = SlashCommand(bot, sync_commands=True)
 
 bot.remove_command('help')
+
 
 
 @bot.group(invoke_without_command=True)
