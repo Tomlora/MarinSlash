@@ -10,13 +10,16 @@ import plotly.graph_objects as go
 import os
 from fonctions.gestion_fichier import loadData, writeData, reset_records_help
 from discord_slash import cog_ext, SlashContext
+from discord_slash.model import SlashCommandPermissionType
+from discord_slash.model import PermissionData
 
 
 
 from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
+from discord_slash.utils.manage_commands import create_option, create_choice, create_permission
 
 Var_version = 1.0
+
 
         
 
@@ -25,8 +28,11 @@ Var_version = 1.0
 class Recordslol(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        
+        
 
-    @commands.command(brief="Réservé au propriétaire du bot", description='Remet à zéro les records')
+    
+    @cog_ext.cog_slash(name="records_reset", guild_ids=[494217748046544906], description="Remet à zéro les records")
     @main.isOwner2()
     async def records_reset(self, ctx, fichier: int):
         if fichier == 1:

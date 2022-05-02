@@ -10,6 +10,10 @@ import youtube_dl
 from async_timeout import timeout
 from discord.ext import commands
 
+from discord_slash import cog_ext, SlashContext
+from discord_slash.utils.manage_components import *
+from discord_slash.utils.manage_commands import create_option, create_choice
+
 # Silence useless bug reports messages
 youtube_dl.utils.bug_reports_message = lambda: ''
 
@@ -297,8 +301,7 @@ class Music(commands.Cog):
 
         ctx.voice_state.voice = await destination.connect()
 
-    @commands.command(name='summon')
-    @commands.has_permissions(manage_guild=True)
+    @cog_ext.cog_slash(name="summon", description="invoque le DJ dans ton salon")
     async def _summon(self, ctx: commands.Context, *, channel: discord.VoiceChannel = None):
         """Summons the bot to a voice channel.
 
@@ -315,8 +318,7 @@ class Music(commands.Cog):
 
         ctx.voice_state.voice = await destination.connect()
 
-    @commands.command(name='leave', aliases=['disconnect'])
-    @commands.has_permissions(manage_guild=True)
+    @cog_ext.cog_slash(name="leave", description="invoque le DJ dans ton salon")
     async def _leave(self, ctx: commands.Context):
         """Clears the queue and leaves the voice channel."""
 
@@ -327,7 +329,7 @@ class Music(commands.Cog):
         del self.voice_states[ctx.guild.id]
         await ctx.send("Bot déconnecté")
 
-    @commands.command(name='volume')
+    @cog_ext.cog_slash(name="volume", description="règle le volume")
     async def _volume(self, ctx: commands.Context, *, volume: int):
         """Sets the volume of the player."""
 
@@ -340,14 +342,13 @@ class Music(commands.Cog):
         ctx.voice_state.volume = volume / 100
         await ctx.send('Volume of the player set to {}%'.format(volume))
 
-    @commands.command(name='now', aliases=['current', 'playing'])
+    @cog_ext.cog_slash(name="now", description="Musique diffusée en cours")
     async def _now(self, ctx: commands.Context):
         """Displays the currently playing song."""
 
         await ctx.send(embed=ctx.voice_state.current.create_embed())
 
-    @commands.command(name='pause')
-    @commands.has_permissions(manage_guild=True)
+    @cog_ext.cog_slash(name="pause", description="invoque le DJ dans ton salon")
     async def _pause(self, ctx: commands.Context):
         """Pauses the currently playing song."""
 
@@ -355,8 +356,7 @@ class Music(commands.Cog):
             ctx.voice_state.voice.pause()
             await ctx.message.add_reaction('⏯')
 
-    @commands.command(name='resume')
-    @commands.has_permissions(manage_guild=True)
+    @cog_ext.cog_slash(name="resume", description="reprend la musique")
     async def _resume(self, ctx: commands.Context):
         """Resumes a currently paused song."""
 
@@ -364,8 +364,7 @@ class Music(commands.Cog):
             ctx.voice_state.voice.resume()
             await ctx.message.add_reaction('⏯')
 
-    @commands.command(name='stop')
-    @commands.has_permissions(manage_guild=True)
+    @cog_ext.cog_slash(name="stop", description="Le DJ stop la musique")
     async def _stop(self, ctx: commands.Context):
         """Stops playing song and clears the queue."""
 
@@ -375,7 +374,7 @@ class Music(commands.Cog):
             ctx.voice_state.voice.stop()
             await ctx.message.add_reaction('⏹')
 
-    @commands.command(name='skip')
+    @cog_ext.cog_slash(name="skip", description="Skip une musique (vote pour les utilisateurs)")
     async def _skip(self, ctx: commands.Context):
         """Vote to skip a song. The requester can automatically skip.
         3 skip votes are needed for the song to be skipped.
@@ -402,7 +401,7 @@ class Music(commands.Cog):
         else:
             await ctx.send('You have already voted to skip this song.')
 
-    @commands.command(name='queue')
+    @cog_ext.cog_slash(name="queue", description="Liste d'attente des musiques demandées")
     async def _queue(self, ctx: commands.Context, *, page: int = 1):
         """Shows the player's queue.
 
@@ -426,7 +425,7 @@ class Music(commands.Cog):
                  .set_footer(text='Viewing page {}/{}'.format(page, pages)))
         await ctx.send(embed=embed)
 
-    @commands.command(name='shuffle')
+    @cog_ext.cog_slash(name="shuffle", description="?")
     async def _shuffle(self, ctx: commands.Context):
         """Shuffles the queue."""
 
@@ -436,7 +435,7 @@ class Music(commands.Cog):
         ctx.voice_state.songs.shuffle()
         await ctx.message.add_reaction('✅')
 
-    @commands.command(name='remove')
+    @cog_ext.cog_slash(name="remove", description="Retire une musique de la queue")
     async def _remove(self, ctx: commands.Context, index: int):
         """Removes a song from the queue at a given index."""
 
@@ -446,7 +445,7 @@ class Music(commands.Cog):
         ctx.voice_state.songs.remove(index - 1)
         await ctx.message.add_reaction('✅')
 
-    @commands.command(name='loop')
+    @cog_ext.cog_slash(name="loop", description="Le DJ passe la musique en cours en boucle")
     async def _loop(self, ctx: commands.Context):
         """Loops the currently playing song.
 
@@ -460,7 +459,7 @@ class Music(commands.Cog):
         ctx.voice_state.loop = not ctx.voice_state.loop
         await ctx.message.add_reaction('✅')
 
-    @commands.command(name='play')
+    @cog_ext.cog_slash(name="play", description="Le DJ joue une nouvelle musique ou l'ajoute à la queue")
     async def _play(self, ctx: commands.Context, *, search: str):
         """Plays a song.
 
@@ -484,16 +483,7 @@ class Music(commands.Cog):
 
                 await ctx.voice_state.songs.put(song)
                 await ctx.send('Enqueued {}'.format(str(source)))
-
-    @_join.before_invoke
-    @_play.before_invoke
-    async def ensure_voice_state(self, ctx: commands.Context):
-        if not ctx.author.voice or not ctx.author.voice.channel:
-            raise await commands.CommandError('You are not connected to any voice channel.')
-
-        if ctx.voice_client:
-            if ctx.voice_client.channel != ctx.author.voice.channel:
-                 raise await commands.CommandError('Bot is already in a voice channel.')
+                
 
 def setup(bot):
     bot.add_cog(Music(bot))
