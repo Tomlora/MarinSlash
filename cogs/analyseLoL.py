@@ -105,7 +105,7 @@ class analyseLoL(commands.Cog):
                                     create_choice(name='vision', value='vision'),
                                     create_choice(name='position', value='position')])]
                        )
-    
+    @commands.cooldown(1,30, commands.BucketType.guild)
     # async def analyse(self, ctx: SlashContext, summonerName):
     async def analyse(self, ctx:SlashContext, summonername:str, stat:str, stat2:str = "no"):
         
@@ -371,6 +371,13 @@ class analyseLoL(commands.Cog):
 
         except asyncio.TimeoutError:
             await ctx.send("Annulé")
+            
+    @analyse.error
+    async def analyse_error(self, ctx, error):
+        if isinstance(error, commands.CommandOnCooldown):
+            embed = discord.Embed(title='Cooldown', description=f'Description: \n `{error}`',
+                              timestamp=ctx.created_at, color=242424)
+            await ctx.send(embed=embed)
 
     @cog_ext.cog_slash(name="var",
                        description="Voir des stats de fin de game",
@@ -397,6 +404,7 @@ class analyseLoL(commands.Cog):
                                     create_choice(name="heal alliés", value="heal_allies"),
                                     create_choice(name="solokills", value="solokills")
                                 ])])
+    @commands.cooldown(1, 30, commands.BucketType.guild)
     async def var(self, ctx:SlashContext, summonername, stat:str, stat2:str='no', stat3:str='no'):
         
         channel_answer = ctx.channel
@@ -641,6 +649,13 @@ class analyseLoL(commands.Cog):
         except asyncio.TimeoutError:
             await stat.delete()
             await ctx.send("Annulé")
+    
+    @var.error
+    async def var_error(self, ctx, error):
+        if isinstance(error, commands.CommandOnCooldown):
+            embed = discord.Embed(title='Cooldown', description=f'Description: \n `{error}`',
+                              timestamp=ctx.created_at, color=242424)
+            await ctx.send(embed=embed)
 
     @cog_ext.cog_slash(name="var_10games",
                        description="Voir des stats de fin de game sur 10 games",
