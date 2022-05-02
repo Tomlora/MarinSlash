@@ -125,8 +125,8 @@ class Achievements_scoringlol(commands.Cog):
     @cog_ext.cog_slash(name="achievements",
                        description="Voir les couronnes acquis par les joueurs",
                        options=[create_option(name="records", description= "Afficher le cumul des records ?", option_type=3, required=True, choices=[
-                           create_choice(name="yes", value="oui"),
-                           create_choice(name="no", value="non")
+                           create_choice(name="oui", value="oui"),
+                           create_choice(name="non", value="non")
                             ])])
     async def achievements(self, ctx, records):
         channel_answer = ctx.channel

@@ -275,10 +275,36 @@ class Recordslol(commands.Cog):
 
                 if current != previous_page:
                     await msg.edit(embed=self.bot.pages[current])
+                    
+
 
     @cog_ext.cog_slash(name="pantheon",
-                       description="Cumul des statistiques")
-    async def pantheon(self, ctx):
+                       description="Cumul des statistiques",
+                       options=[create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=[
+                                    create_choice(name="KDA", value="KDA"),
+                                    create_choice(name='KDA moyenne', value='KDA moyenne'),
+                                    create_choice(name='vision', value='VISION'),
+                                    create_choice(name='vision moyenne', value='VISION moyenne'),
+                                    create_choice(name='CS', value='CS'),
+                                    create_choice(name='games', value='GAMES')]),
+                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=[
+                                    create_choice(name="KDA", value="KDA"),
+                                    create_choice(name='KDA moyenne', value='KDA moyenne'),
+                                    create_choice(name='vision', value='VISION'),
+                                    create_choice(name='vision moyenne', value='VISION moyenne'),
+                                    create_choice(name='CS', value='CS'),
+                                    create_choice(name='games', value='GAMES')]),
+                                create_option(name="stat3", description="Quel stat ?", option_type=3, required=False, choices=[
+                                    create_choice(name="KDA", value="KDA"),
+                                    create_choice(name='KDA moyenne', value='KDA moyenne'),
+                                    create_choice(name='vision', value='VISION'),
+                                    create_choice(name='vision moyenne', value='VISION moyenne'),
+                                    create_choice(name='CS', value='CS'),
+                                    create_choice(name='games', value='GAMES')])
+                                ])
+    async def pantheon(self, ctx, stat, stat2:str="no", stat3:str="no"):
+        
+        stat = [stat, stat2, stat3]
         channel_answer = ctx.channel
         data = loadData('records3')
 
@@ -304,56 +330,6 @@ class Recordslol(commands.Cog):
         df['DUREE_MOYENNE'] = round(df['DUREE_MOYENNE'] * 60, 2)
         df['WARDS_MOYENNE'] = round(df['WARDS_MOYENNE'], 2)
 
-        buttons = [
-            create_button(
-                style=ButtonStyle.blue,
-                label="KDA",
-                custom_id="KDA",
-            ),
-            create_button(
-                style=ButtonStyle.green,
-                label="Vision",
-                custom_id="VISION",
-            ),
-            create_button(
-                style=ButtonStyle.blurple,
-                label="CS",
-                custom_id="CS",
-            ),
-        ]
-        buttons2 = [
-            create_button(
-                style=ButtonStyle.red,
-                label="KDA moyenne",
-                custom_id="KDA moyenne",
-            ),
-            create_button(
-                style=ButtonStyle.gray,
-                label="Vision moyenne",
-                custom_id="VISION moyenne",
-            ),
-            create_button(
-                style=ButtonStyle.green,
-                label="Temps de jeu",
-                custom_id="GAMES",
-            ),
-        ]
-
-        action_row = create_actionrow(*buttons)
-        action_row2 = create_actionrow(*buttons2)
-
-        fait_choix = await ctx.send(f' Quel stat cumulé veux-tu ?',
-                                    components=[action_row, action_row2])
-
-        def check(m):
-            return m.author_id == ctx.author.id and m.origin_message.id == fait_choix.id
-
-        button_ctx = await wait_for_component(self.bot, components=[action_row, action_row2], check=check)
-        msg = button_ctx.custom_id
-
-        await button_ctx.edit_origin(
-            content=msg + " :", components=[])
-
         def figure_hist(dict, title): # Fonction pour faire l'histogramme en fonction d'un dict
 
             fig = go.Figure()
@@ -371,13 +347,13 @@ class Recordslol(commands.Cog):
 
 
         try:
-            if msg == "KDA":
+            if "KDA" in stat:
                 variables = ['KILLS', 'DEATHS', 'ASSISTS']
 
                 df['KDA'] = (df['KILLS'] + df['ASSISTS']) / df['DEATHS']
                 df['KDA'] = round(df['KDA'],2)
 
-                fig = figure_hist(variables, msg)
+                fig = figure_hist(variables, "KDA")
 
                 fig.write_image('plot.png')
                 await ctx.send(file=discord.File('plot.png'))
@@ -393,10 +369,10 @@ class Recordslol(commands.Cog):
                 await channel_answer.send(
                     f' __ Total : __ \n Kills : {int(df["KILLS"].sum())} \n Morts : {int(df["DEATHS"].sum())} \n Assists : {int(df["ASSISTS"].sum())}')
 
-            elif msg == "VISION":
+            if "VISION" in stat:
                 variables = ['WARDS_POSEES', 'WARDS_DETRUITES', 'WARDS_PINKS']
 
-                fig = figure_hist(variables, msg)
+                fig = figure_hist(variables, "VISION")
                 
                 fig.write_image('plot.png')
                 await ctx.send(file=discord.File('plot.png'))
@@ -405,28 +381,28 @@ class Recordslol(commands.Cog):
                 await channel_answer.send(
                     f' __ Total : __ \n Wards posées : {int(df["WARDS_POSEES"].sum())} \n Wards détruites : {int(df["WARDS_DETRUITES"].sum())} \n Pinks : {int(df["WARDS_PINKS"].sum())}')
 
-            elif msg == "KDA moyenne":
+            if "KDA moyenne" in stat:
                 variables = ['KILLS_MOYENNE', 'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']
 
-                fig = figure_hist(variables, msg)
+                fig = figure_hist(variables, "KDA moyenne")
 
                 fig.write_image('plot.png')
                 await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-            elif msg == "VISION moyenne":
+            if "VISION moyenne" in stat:
                 variables = ['WARDS_MOYENNE']
 
-                fig = figure_hist(variables, msg)
+                fig = figure_hist(variables, "VISION moyenne")
 
                 fig.write_image('plot.png')
                 await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-            elif msg == "CS":
+            if "CS" in stat:
                 variables = ['CS']
 
-                fig = figure_hist(variables, msg)
+                fig = figure_hist(variables, 'CS')
 
                 fig.write_image('plot.png')
                 await ctx.send(file=discord.File('plot.png'))
@@ -435,11 +411,11 @@ class Recordslol(commands.Cog):
                 await channel_answer.send(
                     f' __ Total : __ \n CS : {int(df["CS"].sum())}')
 
-            elif msg == "GAMES":
+            if "GAMES" in stat:
                 variables = ['NBGAMES', 'DUREE_GAME']
                               
 
-                fig = figure_hist(variables, msg)
+                fig = figure_hist(variables, 'GAMES')
 
                 fig.write_image('plot.png')
                 await ctx.send('Durée des games exprimée en heures :')
@@ -449,15 +425,13 @@ class Recordslol(commands.Cog):
                 fig = px.pie(df, values='DUREE_MOYENNE', names='Joueurs', title='DUREE MOYENNE DES GAMES')
                 fig.update_traces(textinfo='value', textfont_size=20)
                 fig.write_image('pie.png')
-                await ctx.send('Durée des games exprimée en minutes :')
+                await channel_answer.send('Durée des games exprimée en minutes :')
                 await channel_answer.send(file=discord.File('pie.png'))
                 os.remove('pie.png')
-
-            elif msg == "Cancel":
-                await ctx.send('Cancel')
+                
 
         except asyncio.TimeoutError:
-            await msg.delete()
+            await stat.delete()
             await ctx.send("Annulé")
 
 
