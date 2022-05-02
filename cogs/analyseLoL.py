@@ -1,3 +1,4 @@
+from turtle import st
 from discord.ext import commands
 
 from riotwatcher import LolWatcher
@@ -89,7 +90,6 @@ class analyseLoL(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-
     # commands.command(brief="Permet d'afficher des statistiques durantla game")
     @cog_ext.cog_slash(name="analyse",
                        description="Permet d'afficher des statistiques durant la game",
@@ -98,17 +98,23 @@ class analyseLoL(commands.Cog):
                                     create_choice(name="gold", value="gold"),
                                     create_choice(name='gold_team', value='gold_team'),
                                     create_choice(name='vision', value='vision'),
-                                    create_choice(name='position', value='position')
-                                ])]
+                                    create_choice(name='position', value='position')]),
+                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=[
+                                    create_choice(name="gold", value="gold"),
+                                    create_choice(name='gold_team', value='gold_team'),
+                                    create_choice(name='vision', value='vision'),
+                                    create_choice(name='position', value='position')])]
                        )
     
     # async def analyse(self, ctx: SlashContext, summonerName):
-    async def analyse(self, ctx:SlashContext, summonername:str, stat:str):
+    async def analyse(self, ctx:SlashContext, summonername:str, stat:str, stat2:str = "no"):
+        
+        stat = [stat, stat2]
+        
         channel_answer = ctx.channel
-        await ctx.send(stat + " :")
+        await ctx.send("Demande en cours d'execution...")
         global id, team
-        warnings.simplefilter(action='ignore',
-                              category=FutureWarning)  # supprime les FutureWarnings dû à l'utilisation de pandas (.append/.drop)
+        warnings.simplefilter(action='ignore', category=FutureWarning)  # supprime les FutureWarnings dû à l'utilisation de pandas (.append/.drop)
         pd.options.mode.chained_assignment = None  # default='warn'
         last_match, match_detail, me = league.match_by_puuid(summonername, 0)
         timeline = lol_watcher.match.timeline_by_match(region, last_match)
@@ -130,7 +136,7 @@ class analyseLoL(commands.Cog):
   
 
         try:
-            if stat == "vision":
+            if "vision" in stat:
 
                 df_timeline = pd.DataFrame(timeline['info']['frames'][1]['events'])
 
@@ -187,8 +193,6 @@ class analyseLoL(commands.Cog):
                                                                })
 
                 df_ward = df_ward[df_ward['joueur'] == summonername]
-                # print('----------------------')
-                # print(timeline['info']['frames'][5]['participantFrames']['1'])
 
                 illustrative_var = np.array(df_ward['wardType'])
                 illustrative_type = np.array(df_ward['type'])
@@ -204,7 +208,7 @@ class analyseLoL(commands.Cog):
                 await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-            elif stat == 'gold':
+            if 'gold' in stat:
 
                 df_timeline = pd.DataFrame(timeline['info']['frames'][1]['participantFrames'])
                 df_timeline = df_timeline.transpose()
@@ -241,7 +245,7 @@ class analyseLoL(commands.Cog):
                 await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-            elif stat == 'gold_team':
+            if 'gold_team' in stat:
 
                 df_timeline = pd.DataFrame(timeline['info']['frames'][1]['participantFrames'])
                 df_timeline = df_timeline.transpose()
@@ -298,7 +302,7 @@ class analyseLoL(commands.Cog):
                 await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-            elif stat == 'position':
+            if 'position' in stat:
 
                 df_timeline = pd.DataFrame(timeline['info']['frames'][1]['participantFrames'])
                 df_timeline = df_timeline.transpose()
@@ -370,8 +374,35 @@ class analyseLoL(commands.Cog):
 
     @cog_ext.cog_slash(name="var",
                        description="Voir des stats de fin de game",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
-    async def var(self, ctx, summonername):
+                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True),
+                                create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=[
+                                    create_choice(name="dmg", value="dmg"),
+                                    create_choice(name="gold", value="gold"),
+                                    create_choice(name="vision", value="vision"),
+                                    create_choice(name="tank", value="tank"),
+                                    create_choice(name="heal alliés", value="heal_allies"),
+                                    create_choice(name="solokills", value="solokills")]),
+                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=[
+                                    create_choice(name="dmg", value="dmg"),
+                                    create_choice(name="gold", value="gold"),
+                                    create_choice(name="vision", value="vision"),
+                                    create_choice(name="tank", value="tank"),
+                                    create_choice(name="heal alliés", value="heal_allies"),
+                                    create_choice(name="solokills", value="solokills")]),
+                                create_option(name="stat3", description="Quel stat ?", option_type=3, required=False, choices=[
+                                    create_choice(name="dmg", value="dmg"),
+                                    create_choice(name="gold", value="gold"),
+                                    create_choice(name="vision", value="vision"),
+                                    create_choice(name="tank", value="tank"),
+                                    create_choice(name="heal alliés", value="heal_allies"),
+                                    create_choice(name="solokills", value="solokills")
+                                ])])
+    async def var(self, ctx:SlashContext, summonername, stat:str, stat2:str='no', stat3:str='no'):
+        
+        channel_answer = ctx.channel
+        await ctx.send('Demande en cours...')
+        stat = [stat, stat2, stat3]
+        
 
         last_match, match_detail_stats, me = league.match_by_puuid(summonername, 0)
 
@@ -414,54 +445,8 @@ class analyseLoL(commands.Cog):
         thisChampName9 = champ_dict[str(thisChamp[8])]
         thisChampName10 = champ_dict[str(thisChamp[9])]
 
-        buttons1 = [
-            create_button(
-                style=ButtonStyle.blue,
-                label="Dmg",
-                custom_id="dmg",
-            ),
-            create_button(
-                style=ButtonStyle.grey,
-                label="Gold",
-                custom_id="gold"
-            ),
-            create_button(
-                style=ButtonStyle.green,
-                label="Vision",
-                custom_id="vision"
-            ),
-        ]
-        buttons2 = [
-            create_button(
-                style=ButtonStyle.red,
-                label="Tank",
-                custom_id="tank"
-            ),
-            create_button(
-                style=ButtonStyle.blue,
-                label="Heal allies",
-                custom_id="heal_allies"
-            ),
-            create_button(
-                style=ButtonStyle.grey,
-                label="Solokills",
-                custom_id="solokills"
-            ),
-        ]
-        action_row = create_actionrow(*buttons1)
-        action_row2 = create_actionrow(*buttons2)
-        fait_choix = await ctx.send(f' Quel stat veux-tu analyser pour la dernière game du joueur {summonername} ?',
-                                    components=[action_row, action_row2])
-
-        def check(m):
-            return m.author_id == ctx.author.id and m.origin_message.id == fait_choix.id
-
-        button_ctx = await wait_for_component(self.bot, components=[action_row, action_row2], check=check)
-        msg = button_ctx.custom_id
-        await button_ctx.edit_origin(content=msg + ' :', components=[])
-
         try:
-            if msg == "dmg":
+            if "dmg" in stat:
 
                 thisStats = dict_data(thisId, match_detail, 'totalDamageDealtToChampions')
 
@@ -490,10 +475,10 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
+                await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-            elif msg == "gold":
+            if "gold" in stat:
 
                 thisStats = dict_data(thisId, match_detail, 'goldEarned')
 
@@ -522,10 +507,10 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
+                await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-            elif msg == "vision":
+            if "vision" in stat:
 
                 thisStats = dict_data(thisId, match_detail, 'visionScore')
 
@@ -550,10 +535,10 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
+                await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-            elif msg == "tank":
+            if "tank" in stat:
 
                 # thisStatsTaken = int(match_detail['info']['participants'][thisId]['totalDamageTaken'])
                 # thisStatsSelfMitigated = match_detail['info']['participants'][thisId]['damageSelfMitigated']
@@ -579,12 +564,6 @@ class analyseLoL(commands.Cog):
                 df = df.reset_index()
                 df = df.rename(columns={"index": "pseudo", 0: 'dmg_tank', 1: 'dmg_reduits'})
 
-                # print(df)
-                # print(df.values)
-
-                # fig = px.histogram(df, y="pseudo", x="dmg_tank", color="pseudo", title="Total Tank", text_auto=True)
-                # fig.update_layout(showlegend=False)
-
                 fig = go.Figure()
                 fig.add_trace(go.Bar(y=df['dmg_reduits'].values, x=df['pseudo'].values, text=df['dmg_reduits'].values,
                                      marker_color='rgb(55,83,109)', name="Dmg reduits"))
@@ -596,10 +575,10 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(barmode='stack')
 
                 fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
+                await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-            elif msg == "heal_allies":
+            if "heal_allies" in stat:
 
                 thisStats = dict_data(thisId, match_detail, 'totalHealsOnTeammates')
 
@@ -626,10 +605,10 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
+                await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-            elif msg == "solokills":
+            if "solokills" in stat:
 
                 thisStats = dict_data(thisId, match_detail, 'soloKills')
 
@@ -656,37 +635,20 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
+                await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
         except asyncio.TimeoutError:
-            await msg.delete()
+            await stat.delete()
             await ctx.send("Annulé")
 
     @cog_ext.cog_slash(name="var_10games",
                        description="Voir des stats de fin de game sur 10 games",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
-    async def var_10games(self, ctx, summonername):
-        buttons = [
-            create_button(
-                style=ButtonStyle.blue,
-                label="Vision",
-                custom_id="vision",
-            ),
-        ]
-        action_row = create_actionrow(*buttons)
-        fait_choix = await ctx.send(f' Quel stat veux-tu analyser pour la dernière game du joueur {summonername} ?',
-                                    components=[action_row])
-
-        def check(m):
-            return m.author_id == ctx.author.id and m.origin_message.id == fait_choix.id
-
-        button_ctx = await wait_for_component(self.bot, components=action_row, check=check)
-        msg = button_ctx.custom_id
-
-        await button_ctx.edit_origin(
-            content=msg + ' :', components=[])
-        channel = ctx.message.channel
+                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True),
+                                create_option(name="stat", description = "Quel stat ?", option_type=3, required=True, choices=[
+                                    create_choice(name="vision", value="vision")
+                                ])])
+    async def var_10games(self, ctx, summonername, stat):
 
         me = lol_watcher.summoner.by_name(my_region, summonername)
         my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'])
@@ -715,10 +677,9 @@ class analyseLoL(commands.Cog):
 
         df = pd.DataFrame(match)
 
-        try:
 
-            if msg == "vision":
-                await channel.send('Score de vision sur les 10 dernières games !')
+        try:
+            if stat == "vision":
 
                 dict_score = {}
 
@@ -726,7 +687,7 @@ class analyseLoL(commands.Cog):
                     dict_score['M' + str(i)] = df['info'][i]['participants'][thisId]['visionScore']
 
                 stats = sns.lineplot(x=dict_score.keys(), y=dict_score.values(), linewidth=2.5)
-                stats.set_title('Score Vision')
+                stats.set_title('Score Vision sur les 10 dernières games')
                 stats.set_xlabel('Match', fontsize=10)
                 stats.set_ylabel('Vision', fontsize=10)
                 plt.legend(title='Joueur', labels=[summonername])
@@ -736,11 +697,8 @@ class analyseLoL(commands.Cog):
                 os.remove('plot.png')
 
 
-            elif msg == "Cancel":
-                await ctx.send('Cancel')
-
         except asyncio.TimeoutError:
-            await msg.delete()
+            await stat.delete()
             await ctx.send("Annulé")
 
 

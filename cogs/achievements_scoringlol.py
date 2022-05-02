@@ -124,9 +124,9 @@ class Achievements_scoringlol(commands.Cog):
         
     @cog_ext.cog_slash(name="achievements",
                        description="Voir les couronnes acquis par les joueurs",
-                       options=[create_option(name="records", description= "+ records ?", option_type=3, required=True, choices=[
-                           create_choice(name="yes", value="yes"),
-                           create_choice(name="no", value="no")
+                       options=[create_option(name="records", description= "Afficher le cumul des records ?", option_type=3, required=True, choices=[
+                           create_choice(name="yes", value="oui"),
+                           create_choice(name="no", value="non")
                             ])])
     async def achievements(self, ctx, records):
         channel_answer = ctx.channel
@@ -142,7 +142,7 @@ class Achievements_scoringlol(commands.Cog):
         df = df.transpose().reset_index()
 
         # Records
-        if records == "yes":
+        if records == "oui":
             df2 = pd.DataFrame(records1).transpose()
             df3 = pd.DataFrame(records2).transpose()
             df4 = pd.DataFrame(records3) # p-e qu'un jour ?
@@ -196,7 +196,7 @@ class Achievements_scoringlol(commands.Cog):
         await ctx.send(f"Couronnes (SoloQ only et {settings['Nb_games']} games minimum) :\n" + result)
 
 
-        if records == "yes":
+        if records == "oui":
             await channel_answer.send('Informations : Les records de la page 3 ne sont pas comptabilisés', file=discord.File('plot.png'))
             os.remove('plot.png')
 
@@ -553,15 +553,35 @@ class Achievements_scoringlol(commands.Cog):
 
         await ctx.send('ML update !')
 
-    @commands.command()
-    @isOwner2()
-    async def scoring(self, ctx, role, pseudo, kills, deaths, assists, kp, wardsplaced, wardskilled, pink, cs, csm):
+    @cog_ext.cog_slash(name="scoring", description="Calcule ton score en fonction des stats associés",
+                       options=[create_option(name="role", description= "Role ingame", option_type=3, required=True, choices=[
+                                create_choice(name="top", value="TOP"),
+                                create_choice(name="jgl", value="JUNGLE"),
+                                create_choice(name="mid", value="MID"),
+                                create_choice(name="adc", value="ADC"),
+                                create_choice(name="support", value="SUPPORT")]),
+                                create_option(name="pseudo", description= "Pseudo ingame", option_type=3, required=True),
+                                create_option(name="kills", description= "Nombre de kills", option_type=4, required=True),
+                                create_option(name="deaths", description= "Nombre de morts", option_type=4, required=True),
+                                create_option(name="assists", description= "Nombre d assists", option_type=3, required=True),
+                                create_option(name="kp", description= "KP en %", option_type=float, required=True),
+                                create_option(name="wardsplaced", description= "Nombre de wards posée", option_type=int, required=True),
+                                create_option(name="wardskilled", description= "Nombre de wards détruite ?", option_type=int, required=True),
+                                create_option(name="pink", description= "Nombre de pinks", option_type=4, required=True),
+                                create_option(name="cs", description= "Farming", option_type=4, required=True),
+                                create_option(name="csm", description= "Farming par minute", option_type=float, required=True)])
+    async def scoring(self, ctx, role, pseudo, kills, deaths, assists, kp:float, wardsplaced, wardskilled, pink, cs, csm:float):
         role = role.upper()
         result = scoring(role, pseudo, kills, deaths, assists, kp, wardsplaced, wardskilled, pink, cs, csm)
         await ctx.send(result)
 
-    @commands.command()
-    @isOwner2()
+    @cog_ext.cog_slash(name="scoring_score", description="Pourcentage de confiaznce dans le score affiché",
+                                options=[create_option(name="role", description= "Role ingame", option_type=3, required=True, choices=[
+                                create_choice(name="top", value="TOP"),
+                                create_choice(name="jgl", value="JUNGLE"),
+                                create_choice(name="mid", value="MID"),
+                                create_choice(name="adc", value="ADC"),
+                                create_choice(name="support", value="SUPPORT")])])
     async def scoring_score(self, ctx, role):
         # Présente le score
         role = role.upper()
@@ -569,8 +589,13 @@ class Achievements_scoringlol(commands.Cog):
         result = round(result, 2)
         await ctx.send(result)
 
-    @commands.command()
-    @isOwner2()
+    @cog_ext.cog_slash(name="scoring_corr", description="Explication du calcul du score",
+                                options=[create_option(name="role", description= "Role ingame", option_type=3, required=True, choices=[
+                                create_choice(name="top", value="TOP"),
+                                create_choice(name="jgl", value="JUNGLE"),
+                                create_choice(name="mid", value="MID"),
+                                create_choice(name="adc", value="ADC"),
+                                create_choice(name="support", value="SUPPORT")])])
     async def scoring_corr(self, ctx, role):
         # Présente la matrice de corrélation du calcul du score
         role = role.upper()

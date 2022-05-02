@@ -7,6 +7,9 @@ import pandas as pd
 import asyncio
 from datetime import datetime
 from fonctions.gestion_fichier import loadDataFL, writeDataFL
+from discord_slash import cog_ext, SlashContext
+from discord_slash.utils.manage_components import *
+from discord_slash.utils.manage_commands import create_option, create_choice
 
 
 
@@ -37,7 +40,13 @@ class Fantasy(commands.Cog):
     async def loldb(self, ctx):
         await ctx.send('https://docs.google.com/spreadsheets/d/1Y7k5kQ2AegbuyiGwEPsa62e883FYVtHqr6UVut9RC4o/pubhtml#')
 
-    @commands.command(brief="Stats d'un joueur")
+    @cog_ext.cog_slash(name="competition",
+                       description="Stats d'un joueur pro sur la saison",
+                       options=[create_option(name="competition", description= "Quelle compétition ?", option_type=3, required=True),
+                                create_option(name="split", description="Spring ou summer ?", option_type=3, required=True, choices=[
+                                    create_choice(name="spring", value="Spring"),
+                                    create_choice(name="summer", value="Summer")]),
+                                create_option(name="joueur", description="Nom du joueur ?", option_type=3, required=True)])
     async def competition(self, ctx, competition, split, *, joueur):
         try:
             competition = competition.upper()
@@ -101,10 +110,12 @@ class Fantasy(commands.Cog):
             await ctx.send(embed=embed)
         except:
             await ctx.send(
-                "Erreur, le format est soit mauvais, soit non-respect des majuscules. Exemple : \n  > ;competition LCS Spring Bwipo")
+                "Erreur, le format est soit mauvais, soit non-respect des majuscules. Exemple : \n  > /competition LCS Spring Bwipo")
 
 
-    @commands.command()
+    @cog_ext.cog_slash(name="liste_joueurs",
+                       description="Stats d'un joueur pro sur la saison",
+                       options=[create_option(name="competition", description= "Quelle compétition ? Si non renseigné : affiche LEC/LCS/LFL", option_type=3, required=False)])
     async def liste_joueurs(self, ctx, competition = None):
 
         if competition is None:
@@ -135,8 +146,15 @@ class Fantasy(commands.Cog):
 
             await ctx.send(embed=embed)
 
-    @commands.command(brief="Stats d'un joueur")
-    async def competition_game(self, ctx, competition, split, game, *, joueur):
+    @cog_ext.cog_slash(name="competition_game",
+                       description="Stats d'un joueur pro sur une game",
+                       options=[create_option(name="competition", description= "Quelle compétition ?", option_type=3, required=True),
+                                create_option(name="split", description="Spring ou summer ?", option_type=3, required=True, choices=[
+                                    create_choice(name="spring", value="Spring"),
+                                    create_choice(name="summer", value="Summer")]),
+                                create_option(name="game", description="Quelle game ? La dernière étant 0", option_type=4, required=True),
+                                create_option(name="joueur", description="Nom du joueur ?", option_type=3, required=True)])
+    async def competition_game(self, ctx, competition, split, game, joueur):
         competition = competition.upper()
 
         # def check(m):

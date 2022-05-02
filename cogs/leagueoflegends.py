@@ -801,7 +801,6 @@ class LeagueofLegends(commands.Cog):
                        options=[create_option(name="summonername", description= "Nom du joueur", option_type=3, required=True),
                                 create_option(name="numerogame", description="Numero de la game, de 0 à 10", option_type=4, required=True),
                                 create_option(name="succes", description="Faut-il la compter dans les records/achievements ?", option_type=5, required=True)])
-    # @commands.command()
     async def game(self, ctx, summonername:str, numerogame:int, succes: bool):
 
         embed = self.printInfo(summonerName=summonername, idgames=int(numerogame), succes=succes)
