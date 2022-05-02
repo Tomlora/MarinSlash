@@ -106,33 +106,33 @@ async def help(ctx):
 
 @help.command()
 async def achievements(ctx):
-    em = discord.Embed(title=";achievements", description="Faire une analyse de sa game")
-    em.add_field(name="**Syntaxe**", value="`;achievements <records> `")
+    em = discord.Embed(title="/achievements", description="Faire une analyse de sa game")
+    em.add_field(name="**Syntaxe**", value="`/achievements <records> `")
     em.add_field(name="**Arguments**", value="`records : 'records' pour afficher le graphique des records `", inline=False)
-    em.add_field(name="**Exemples**", value="`;achievements\n;achièvements records`",
+    em.add_field(name="**Exemples**", value="`/achievements\n/achièvements records`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def achievements_regles(ctx):
-    em = discord.Embed(title=";achievements_règles", description="Conditions pour débloquer des couronnes")
-    em.add_field(name="**Syntaxe**", value="`;achievements_règles`")
+    em = discord.Embed(title="/achievements_règles", description="Conditions pour débloquer des couronnes")
+    em.add_field(name="**Syntaxe**", value="`/achievements_règles`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def records_list(ctx):
-    em = discord.Embed(title=";records_list", description="Voir les records détenus par les joueurs")
-    em.add_field(name="**Syntaxe**", value="`;records_list`")
+    em = discord.Embed(title="/records_list", description="Voir les records détenus par les joueurs")
+    em.add_field(name="**Syntaxe**", value="`/records_list`")
 
     await ctx.send(embed=em)
 
 
 @help.command()
 async def pantheon(ctx):
-    em = discord.Embed(title=";records_list", description="Cumul des statistiques")
-    em.add_field(name="**Syntaxe**", value="`;pantheon`")
+    em = discord.Embed(title="/pantheon", description="Cumul des statistiques")
+    em.add_field(name="**Syntaxe**", value="`/pantheon`")
 
     await ctx.send(embed=em)
 
@@ -140,30 +140,30 @@ async def pantheon(ctx):
 
 @help.command()
 async def analyse(ctx):
-    em = discord.Embed(title=";analyse", description="Faire une analyse de sa game")
-    em.add_field(name="**Syntaxe**", value="`;analyse <Joueur> `")
+    em = discord.Embed(title="/analyse", description="Faire une analyse de sa game")
+    em.add_field(name="**Syntaxe**", value="`/analyse <Joueur> `")
     em.add_field(name="**Arguments**", value="`Joueur : Pseudo LoL`", inline=False)
-    em.add_field(name="**Exemples**", value="`;analyse Tomlora\n;analyse Nami Yeon`",
+    em.add_field(name="**Exemples**", value="`/analyse Tomlora\n;analyse Nami Yeon`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def var(ctx):
-    em = discord.Embed(title=";var", description="Voir des stats de fin de game")
-    em.add_field(name="**Syntaxe**", value="`;var <Joueur> `")
+    em = discord.Embed(title="/var", description="Voir des stats de fin de game")
+    em.add_field(name="**Syntaxe**", value="`/var <Joueur> `")
     em.add_field(name="**Arguments**", value="`Joueur : Pseudo LoL`", inline=False)
-    em.add_field(name="**Exemples**", value="`;var Tomlora\n;var Nami Yeon`",
+    em.add_field(name="**Exemples**", value="`/var Tomlora\n;var Nami Yeon`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def var_10games(ctx):
-    em = discord.Embed(title=";var_10games", description="Voir des stats de fin de game sur 10 games")
-    em.add_field(name="**Syntaxe**", value="`;var_10games <Joueur> `")
+    em = discord.Embed(title="/var_10games", description="Voir des stats de fin de game sur 10 games")
+    em.add_field(name="**Syntaxe**", value="`/var_10games <Joueur> `")
     em.add_field(name="**Arguments**", value="`Joueur : Pseudo LoL`", inline=False)
-    em.add_field(name="**Exemples**", value="`;var_10games Tomlora\n;var_10games Nami Yeon`",
+    em.add_field(name="**Exemples**", value="`/var_10games Tomlora\n/var_10games Nami Yeon`",
                  inline=False)
 
     await ctx.send(embed=em)
@@ -172,39 +172,39 @@ async def var_10games(ctx):
 
 @help.command()
 async def ping(ctx):
-    em = discord.Embed(title=";ping", description="Latence du serveur")
-    em.add_field(name="**Syntaxe**", value="`;ping`")
+    em = discord.Embed(title="/ping", description="Latence du serveur")
+    em.add_field(name="**Syntaxe**", value="`/ping`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def spank(ctx):
-    em = discord.Embed(title=";spank", description="Mute une personne durant 1 minute")
-    em.add_field(name="**Syntaxe**", value="`;spank <mention_discord> `")
+    em = discord.Embed(title="/spank", description="Mute une personne durant 1 minute")
+    em.add_field(name="**Syntaxe**", value="`/spank <mention_discord> `")
     em.add_field(name="**Arguments**", value="`mention_discord : Utilisateur discord`", inline=False)
-    em.add_field(name="**Exemples**", value="`;spank @Djingo\n;spank 254826684478547`",
+    em.add_field(name="**Exemples**", value="`/spank @Djingo\n;spank 254826684478547`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def quiz(ctx):
-    em = discord.Embed(title=";ping", description="Quizz")
-    em.add_field(name="**Syntaxe**", value="`;quiz`")
+    em = discord.Embed(title="/ping", description="Quizz")
+    em.add_field(name="**Syntaxe**", value="`/quiz`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def serverInfo(ctx):
-    em = discord.Embed(title=";serverInfo", description="Info du serveur")
-    em.add_field(name="**Syntaxe**", value="`;serverInfo`")
+    em = discord.Embed(title="/serverInfo", description="Info du serveur")
+    em.add_field(name="**Syntaxe**", value="`/serverInfo`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def versioninfo(ctx):
-    em = discord.Embed(title=";serverinfo", description="Version du bot")
-    em.add_field(name="**Syntaxe**", value="`;versioninfo`")
+    em = discord.Embed(title="/serverinfo", description="Version du bot")
+    em.add_field(name="**Syntaxe**", value="`/versioninfo`")
 
     await ctx.send(embed=em)
 
@@ -212,32 +212,32 @@ async def versioninfo(ctx):
     
 @help.command()
 async def abbedagge(ctx):
-    em = discord.Embed(title=";abbedagge", description="Montre un clip du meilleur joueur de 100t")
-    em.add_field(name="**Syntaxe**", value="`;abbedagge`")
+    em = discord.Embed(title="/abbedagge", description="Montre un clip du meilleur joueur de 100t")
+    em.add_field(name="**Syntaxe**", value="`/abbedagge`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def competition(ctx):
-    em = discord.Embed(title=";competition", description="Stats d'un joueur pro sur la saison")
-    em.add_field(name="**Syntaxe**", value="`;competition <competition> <split> <Joueur> `")
+    em = discord.Embed(title="/competition", description="Stats d'un joueur pro sur la saison")
+    em.add_field(name="**Syntaxe**", value="`/competition <competition> <split> <Joueur> `")
     em.add_field(name="**Arguments**", value="`competition : la competition du joueur \n"
                                              "split : spring ou summer ? \n"
                                              "joueur : Nom du joueur`", inline=False)
-    em.add_field(name="**Exemples**", value="`;competition LCS Spring Bwipo\n;competition LCK Spring Faker`",
+    em.add_field(name="**Exemples**", value="`/competition LCS Spring Bwipo\n/competition LCK Spring Faker`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def competition_game(ctx):
-    em = discord.Embed(title=";competition_game", description="Stats d'un joueur pro sur une game")
-    em.add_field(name="**Syntaxe**", value="`;competition_game <competition> <split> <game> <Joueur> `")
+    em = discord.Embed(title="/competition_game", description="Stats d'un joueur pro sur une game")
+    em.add_field(name="**Syntaxe**", value="`/competition_game <competition> <split> <game> <Joueur> `")
     em.add_field(name="**Arguments**", value="`competition : la competition du joueur \n"
                                              "split : spring ou summer ? \n"
                                              "game : numero de la game \n"
                                              "joueur : Nom du joueur`", inline=False)
-    em.add_field(name="**Exemples**", value="`;competition_game LCS Spring 1 Bwipo\n;competition_game LCK Spring 8 Faker`",
+    em.add_field(name="**Exemples**", value="`/competition_game LCS Spring 1 Bwipo\n/competition_game LCK Spring 8 Faker`",
                  inline=False)
 
     await ctx.send(embed=em)
@@ -247,17 +247,17 @@ async def liste_joueurs(ctx):
     em = discord.Embed(title=";liste_joueurs", description="Liste des joueurs pro ayant joué dans une compétition \n "
                                                            "Si aucune compétition n'est précisé, alors la LEC/LCS/LFL "
                                                            "sont affichés.")
-    em.add_field(name="**Syntaxe**", value="`;liste_joueurs <facultatif : competition> `")
+    em.add_field(name="**Syntaxe**", value="`/liste_joueurs <facultatif : competition> `")
     em.add_field(name="**Arguments**", value="`competition : la competition`", inline=False)
-    em.add_field(name="**Exemples**", value="`;liste_joueurs\n;liste_joueurs LEC`",
+    em.add_field(name="**Exemples**", value="`/liste_joueurs\n/liste_joueurs LEC`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def loldb(ctx):
-    em = discord.Embed(title=";loldb", description="Contrats des joueurs")
-    em.add_field(name="**Syntaxe**", value="`;loldb`")
+    em = discord.Embed(title="/loldb", description="Contrats des joueurs")
+    em.add_field(name="**Syntaxe**", value="`/loldb`")
 
     await ctx.send(embed=em)
 
@@ -265,84 +265,84 @@ async def loldb(ctx):
 
 @help.command()
 async def join(ctx):
-    em = discord.Embed(title=";join", description="Le DJ rejoint ton salon vocal")
-    em.add_field(name="**Syntaxe**", value="`;join`")
+    em = discord.Embed(title="/join", description="Le DJ rejoint ton salon vocal")
+    em.add_field(name="**Syntaxe**", value="`/join`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def leave(ctx):
-    em = discord.Embed(title=";leave", description="Le DJ quitte le salon vocal")
-    em.add_field(name="**Syntaxe**", value="`;leave`")
+    em = discord.Embed(title="/leave", description="Le DJ quitte le salon vocal")
+    em.add_field(name="**Syntaxe**", value="`/leave`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def loop(ctx):
-    em = discord.Embed(title=";loop", description="Le DJ passe la musique en cours en boucle")
-    em.add_field(name="**Syntaxe**", value="`;loop`")
+    em = discord.Embed(title="/loop", description="Le DJ passe la musique en cours en boucle")
+    em.add_field(name="**Syntaxe**", value="`/loop`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def now(ctx):
-    em = discord.Embed(title=";now", description="Musique diffusée en cours")
-    em.add_field(name="**Syntaxe**", value="`;now`")
+    em = discord.Embed(title="/now", description="Musique diffusée en cours")
+    em.add_field(name="**Syntaxe**", value="`/now`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def pause(ctx):
-    em = discord.Embed(title=";pause", description="Le DJ fait une pause")
-    em.add_field(name="**Syntaxe**", value="`;pause`")
+    em = discord.Embed(title="/pause", description="Le DJ fait une pause")
+    em.add_field(name="**Syntaxe**", value="`/pause`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def play(ctx):
-    em = discord.Embed(title=";play", description="Le DJ joue une nouvelle musique ou l'ajoute à la queue")
-    em.add_field(name="**Syntaxe**", value="`;play <url youtube>`")
+    em = discord.Embed(title="/play", description="Le DJ joue une nouvelle musique ou l'ajoute à la queue")
+    em.add_field(name="**Syntaxe**", value="`/play <url youtube>`")
     em.add_field(name="**Arguments**", value="`url : url youtube", inline=False)
-    em.add_field(name="**Exemples**", value="`;play https://www.youtube.com/watch?v=p1bY3lU4jj8`",
+    em.add_field(name="**Exemples**", value="`/play https://www.youtube.com/watch?v=p1bY3lU4jj8`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def queue(ctx):
-    em = discord.Embed(title=";queue", description="Liste d'attente des musiques demandées")
-    em.add_field(name="**Syntaxe**", value="`;queue`")
+    em = discord.Embed(title="/queue", description="Liste d'attente des musiques demandées")
+    em.add_field(name="**Syntaxe**", value="/queue`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def remove(ctx):
-    em = discord.Embed(title=";remove", description="Retire une musique de la queue")
-    em.add_field(name="**Syntaxe**", value="`;remove <numero>`")
+    em = discord.Embed(title="/remove", description="Retire une musique de la queue")
+    em.add_field(name="**Syntaxe**", value="`/remove <numero>`")
     em.add_field(name="**Arguments**", value="`numero : numero de la musique dans la queue", inline=False)
-    em.add_field(name="**Exemples**", value="`;remove 2`",
+    em.add_field(name="**Exemples**", value="`/remove 2`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def skip(ctx):
-    em = discord.Embed(title=";skip", description="Vote pour skip un son. 3 votes sont nécessaires")
-    em.add_field(name="**Syntaxe**", value="`;skip`")
+    em = discord.Embed(title="/skip", description="Vote pour skip un son. 3 votes sont nécessaires")
+    em.add_field(name="**Syntaxe**", value="`/skip`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def summon(ctx):
-    em = discord.Embed(title=";summon", description="Invoque le DJ dans ton salon")
-    em.add_field(name="**Syntaxe**", value="`;summon`")
+    em = discord.Embed(title="/summon", description="Invoque le DJ dans ton salon")
+    em.add_field(name="**Syntaxe**", value="`/summon`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def volume(ctx):
-    em = discord.Embed(title=";volume", description="Règle le volume")
-    em.add_field(name="**Syntaxe**", value="`;volume <1 à 100>`")
+    em = discord.Embed(title="/volume", description="Règle le volume")
+    em.add_field(name="**Syntaxe**", value="`/volume <1 à 100>`")
 
     await ctx.send(embed=em)
 
@@ -350,12 +350,12 @@ async def volume(ctx):
 
 @help.command()
 async def game(ctx):
-    em = discord.Embed(title=";game", description="Voir les statistiques d'une game")
-    em.add_field(name="**Syntaxe**", value="`;game <Joueur> <numero de la game> <achievements : True/False>`")
+    em = discord.Embed(title="/game", description="Voir les statistiques d'une game")
+    em.add_field(name="**Syntaxe**", value="`/game <Joueur> <numero de la game> <achievements : True/False>`")
     em.add_field(name="**Arguments**", value="`Joueur : pseudo ingame \n"
                                              "numero de la game : 0 à 10 \n"
                                              "achievements : la game doit-elle compter dans les achievements/records ?`", inline=False)
-    em.add_field(name="**Exemples**", value="`;game Tomlora 0 False`",
+    em.add_field(name="**Exemples**", value="`/game Tomlora 0 False`",
                  inline=False)
 
     await ctx.send(embed=em)
@@ -364,35 +364,35 @@ async def game(ctx):
 
 @help.command()
 async def loladd(ctx):
-    em = discord.Embed(title=";loladd", description="Ajoute son compte au tracker")
-    em.add_field(name="**Syntaxe**", value="`;loladd <Joueur>`")
+    em = discord.Embed(title="/loladd", description="Ajoute son compte au tracker")
+    em.add_field(name="**Syntaxe**", value="`/loladd <Joueur>`")
     em.add_field(name="**Arguments**", value="`Joueur : pseudo ingame`", inline=False)
-    em.add_field(name="**Exemples**", value="`;loladd Tomlora`",
+    em.add_field(name="**Exemples**", value="`/loladd Tomlora`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def lolremove(ctx):
-    em = discord.Embed(title=";lolremove", description="Retire son compte au tracker")
-    em.add_field(name="**Syntaxe**", value="`;lolremove <Joueur>`")
+    em = discord.Embed(title="/lolremove", description="Retire son compte au tracker")
+    em.add_field(name="**Syntaxe**", value="`/lolremove <Joueur>`")
     em.add_field(name="**Arguments**", value="`Joueur : pseudo ingame`", inline=False)
-    em.add_field(name="**Exemples**", value="`;lolremove Tomlora`",
+    em.add_field(name="**Exemples**", value="`/lolremove Tomlora`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def lollist(ctx):
-    em = discord.Embed(title=";loldb", description="Joueurs suivis par le tracker")
-    em.add_field(name="**Syntaxe**", value="`;lollist`")
+    em = discord.Embed(title="/loldb", description="Joueurs suivis par le tracker")
+    em.add_field(name="**Syntaxe**", value="`/lollist`")
 
     await ctx.send(embed=em)
 
 @help.command()
 async def scoring(ctx):
-    em = discord.Embed(title=";scoring", description="Calcule ton score en fonction des stats associés")
-    em.add_field(name="**Syntaxe**", value="`;scoring <role> <pseudo> <kills> <deaths> <assists> <kp> <wardplaced> <wardkilled> <pink> <cs> <csm>`")
+    em = discord.Embed(title="/scoring", description="Calcule ton score en fonction des stats associés")
+    em.add_field(name="**Syntaxe**", value="`/scoring <role> <pseudo> <kills> <deaths> <assists> <kp> <wardplaced> <wardkilled> <pink> <cs> <csm>`")
     em.add_field(name="**Arguments**", value="`Role : MID/ADC/SUPPORT \n"
                                              "pseudo : pseudo ingame \n"
                                              "kills : nb de kills \n"
@@ -404,27 +404,27 @@ async def scoring(ctx):
                                              "pink : nb de pinks acheté \n"
                                              "cs : minions tués \n"
                                              "csm : minions tués par minute`", inline=False)
-    em.add_field(name="**Exemples**", value="`;scoring SUPPORT NamiYeon 1 5 18 0.56 51 10 12 14 0.41`",
+    em.add_field(name="**Exemples**", value="`/scoring SUPPORT NamiYeon 1 5 18 0.56 51 10 12 14 0.41`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def scoring_corr(ctx):
-    em = discord.Embed(title=";scoring_corr", description="Explique comment est calculé ton score")
-    em.add_field(name="**Syntaxe**", value="`;scoring_corr <role>`")
+    em = discord.Embed(title="/scoring_corr", description="Explique comment est calculé ton score")
+    em.add_field(name="**Syntaxe**", value="`/scoring_corr <role>`")
     em.add_field(name="**Arguments**", value="`Role : MID/ADC/SUPPORT", inline=False)
-    em.add_field(name="**Exemples**", value="`;scoring_corr SUPPORT`",
+    em.add_field(name="**Exemples**", value="`/scoring_corr SUPPORT`",
                  inline=False)
 
     await ctx.send(embed=em)
 
 @help.command()
 async def scoring_score(ctx):
-    em = discord.Embed(title=";scoring_score", description="% de confiance dans le score affiché")
-    em.add_field(name="**Syntaxe**", value="`;scoring_score <role>`")
+    em = discord.Embed(title="/scoring_score", description="% de confiance dans le score affiché")
+    em.add_field(name="**Syntaxe**", value="`/scoring_score <role>`")
     em.add_field(name="**Arguments**", value="`Role : MID/ADC/SUPPORT", inline=False)
-    em.add_field(name="**Exemples**", value="`;scoring_score SUPPORT`",
+    em.add_field(name="**Exemples**", value="`/scoring_score SUPPORT`",
                  inline=False)
 
     await ctx.send(embed=em)
@@ -488,39 +488,6 @@ async def on_command_error(ctx, error):
         embed = discord.Embed(title='Erreur', description=f'Description: \n `{error}`',
                               timestamp=ctx.message.created_at, color=242424)
         await ctx.send(embed=embed)
-
-
-# Général
-
-# @bot.command()
-# async def cuisiner(ctx):
-#     await ctx.send("Envoyez le plat que vous voulez cuisiner")
-#
-#     def checkMessage(message):
-#         return message.author == ctx.message.author and ctx.message.channel == message.channel
-#
-#     try:
-#         recette = await bot.wait_for("message", timeout=10, check=checkMessage)
-#     except:
-#         await ctx.send("Veuillez réitérer la commande.")
-#         return
-#     message = await ctx.send(
-#         f"La préparation de {recette.content} va commencer. Veuillez valider en réagissant avec ✅. Sinon réagissez avec ❌")
-#     await message.add_reaction("✅")
-#     await message.add_reaction("❌")
-#
-#     def checkEmoji(reaction, user):
-#         return ctx.message.author == user and message.id == reaction.message.id and (
-#                 str(reaction.emoji) == "✅" or str(reaction.emoji) == "❌")
-#
-#     try:
-#         reaction, user = await bot.wait_for("reaction_add", timeout=10, check=checkEmoji)
-#         if reaction.emoji == "✅":
-#             await ctx.send("La recette a démarré.")
-#         else:
-#             await ctx.send("La recette a bien été annulé.")
-#     except:
-#         await ctx.send("La recette a bien été annulé.")
 
 
 # -------------------------------- Modération
