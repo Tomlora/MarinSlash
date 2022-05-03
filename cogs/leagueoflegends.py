@@ -1068,7 +1068,7 @@ class LeagueofLegends(commands.Cog):
         print(match['participants'])
         await ctx.send('Fait !')     
         
-    @commands.command()
+    @cog_ext.cog_slash(name="abbedagge", description="Meilleur joueur de LoL")
     async def abbedagge(self, ctx):
         await ctx.send('https://clips.twitch.tv/ShakingCovertAuberginePanicVis-YDRK3JFk7Glm6nbB')
         

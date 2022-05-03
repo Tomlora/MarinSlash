@@ -112,7 +112,7 @@ class analyseLoL(commands.Cog):
         stat = [stat, stat2]
         
         channel_answer = ctx.channel
-        await ctx.send("Demande en cours d'execution...")
+        await ctx.send("Demande en cours...")
         global id, team
         warnings.simplefilter(action='ignore', category=FutureWarning)  # supprime les FutureWarnings dû à l'utilisation de pandas (.append/.drop)
         pd.options.mode.chained_assignment = None  # default='warn'

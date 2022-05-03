@@ -28,7 +28,8 @@ class Recordslol(commands.Cog):
         
 
     
-    @cog_ext.cog_slash(name="records_reset", guild_ids=[494217748046544906], description="Remet à zéro les records. Reservé au propriétaire du bot")
+    # @cog_ext.cog_slash(name="records_reset", guild_ids=[494217748046544906], description="Remet à zéro les records. Reservé au propriétaire du bot")
+    @commands.command()
     @main.isOwner2()
     async def records_reset(self, ctx, fichier: int):
         if fichier == 1:
@@ -306,6 +307,7 @@ class Recordslol(commands.Cog):
         
         stat = [stat, stat2, stat3]
         channel_answer = ctx.channel
+        await ctx.send('Demande en cours....')
         data = loadData('records3')
 
         df = pd.DataFrame.from_dict(data)
@@ -356,7 +358,7 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, "KDA")
 
                 fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
+                await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
                 fig = px.pie(df, values='KDA', names='Joueurs', title='KDA')
@@ -375,7 +377,7 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, "VISION")
                 
                 fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
+                await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
                 await channel_answer.send(
@@ -387,7 +389,7 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, "KDA moyenne")
 
                 fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
+                await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if "VISION moyenne" in stat:
@@ -396,7 +398,7 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, "VISION moyenne")
 
                 fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
+                await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if "CS" in stat:
@@ -405,7 +407,7 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, 'CS')
 
                 fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
+                await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
                 await channel_answer.send(
@@ -418,7 +420,7 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, 'GAMES')
 
                 fig.write_image('plot.png')
-                await ctx.send('Durée des games exprimée en heures :')
+                await channel_answer.send('Durée des games exprimée en heures :')
                 await channel_answer.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
                 
