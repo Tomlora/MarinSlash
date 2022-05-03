@@ -908,7 +908,7 @@ class LeagueofLegends(commands.Cog):
         currentJour = str(self.findDay(str(currentDay + ' ' + currentMonth + " " + currentYear)))
 
         if self.bot.get_channel(main.chan_lol):
-            if currentJour in ['Thursday', 'Friday', 'Saturday', 'Sunday'] and currentHour == str(16):
+            if currentJour in ['Tuesday', 'Wednesday'] and currentHour == str(16):
                 try:
                     await self.alarm(16, 55, self.messageEUM)
                 except:
@@ -917,13 +917,20 @@ class LeagueofLegends(commands.Cog):
 
 
 
-    @commands.command(brief="Permet d'être ping pour les alarmes",
-                      description='Rang disponible : LEC/Main Kayn/LCS/LFL')
-    async def alarm_lol(self, ctx, *, competition: str):
+
+    @cog_ext.cog_slash(name="alarm_lol",
+                       description="Permet d'être ping pour les alarmes",
+                       options=[create_option(name="competition", description="Quelle alarme ?", option_type=3, required=True, choices=[
+                                    create_choice(name="LEC", value="LEC"),
+                                    create_choice(name='Main Kayn', value='Main Kayn'),
+                                    create_choice(name='LCS', value='LCS'),
+                                    create_choice(name='LFL', value='LFL')])])
+                       
+    async def alarm_lol(self, ctx, competition: str):
 
         liste = ['LEC', 'Main Kayn', 'LCS', 'LFL']
-        user = ctx.message.author
-        role = discord.utils.get(ctx.message.guild.roles, name=competition)
+        user = ctx.author
+        role = discord.utils.get(ctx.guild.roles, name=competition)
         if competition in liste:
             if role in user.roles:
                 await user.remove_roles(role)
