@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-import main
+from main import isOwner2, isOwner2_slash, Var_version
 import numpy as np
 import pandas as pd
 import asyncio
@@ -28,9 +28,8 @@ class Recordslol(commands.Cog):
         
 
     
-    # @cog_ext.cog_slash(name="records_reset", guild_ids=[494217748046544906], description="Remet à zéro les records. Reservé au propriétaire du bot")
-    @commands.command()
-    @main.isOwner2()
+    @cog_ext.cog_slash(name="records_reset", description="Remet à zéro les records. Reservé au propriétaire du bot.")
+    @isOwner2_slash()
     async def records_reset(self, ctx, fichier: int):
         if fichier == 1:
             reset_records_help('KDA', 1)
@@ -76,7 +75,7 @@ class Recordslol(commands.Cog):
                     'WARDS_PINKS': {'Personne': 0}, 'CS' : {'Personne' : 0},
                     "KILLS": {'Personne': 0}, 'DEATHS': {'Personne': 0}, 'ASSISTS': {'Personne': 0}}
 
-            writeData(data, 'records3')
+            writeData(data, 'records3')            
 
         await ctx.send(f'Records Page {str(fichier)} réinitialisé !')
 
@@ -148,7 +147,7 @@ class Recordslol(commands.Cog):
                              value="Records : __ " + valeur + " __ \n ** " + str(
                                  value['Joueur']) + " ** (" + str(value['Champion']) + ")")
 
-        embed1.set_footer(text=f'Version {main.Var_version} by Tomlora')
+        embed1.set_footer(text=f'Version {Var_version} by Tomlora')
 
         fichier2 = loadData('records2')
 
@@ -166,7 +165,7 @@ class Recordslol(commands.Cog):
                              value="Records : __ " + valeur2 + " __ \n ** " + str(
                                  value['Joueur']) + " ** (" + str(value['Champion']) + ")")
 
-        embed2.set_footer(text=f'Version {main.Var_version} by Tomlora')
+        embed2.set_footer(text=f'Version {Var_version} by Tomlora')
 
         embed3 = discord.Embed(title="Records Cumul & Moyenne (Page 3/3) :bar_chart: ")
 
@@ -243,7 +242,7 @@ class Recordslol(commands.Cog):
         else:
             embed3.add_field(name="Indisponible", value="Aucun joueur n'a atteint le minimum requis : 10 games")
 
-        embed3.set_footer(text=f'Version {main.Var_version} by Tomlora')
+        embed3.set_footer(text=f'Version {Var_version} by Tomlora')
 
         self.bot.pages = [embed1, embed2, embed3]
         buttons = [u"\u2B05", u"\u27A1"]  # skip to start, left, right, skip to end

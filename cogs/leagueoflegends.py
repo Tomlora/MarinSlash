@@ -915,9 +915,6 @@ class LeagueofLegends(commands.Cog):
                     return False
 
 
-
-
-
     @cog_ext.cog_slash(name="alarm_lol",
                        description="Permet d'être ping pour les alarmes",
                        options=[create_option(name="competition", description="Quelle alarme ?", option_type=3, required=True, choices=[
