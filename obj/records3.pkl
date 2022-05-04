@@ -48,7 +48,7 @@ F0.0
 sg4
 Fnan
 sg5
-F46.0
+F47.0
 sg6
 F16.0
 sg7
@@ -71,7 +71,7 @@ p17
 I27
 sVdjingo
 p18
-I16
+I17
 ssVSOLOKILLS
 p19
 (dp20
@@ -80,7 +80,7 @@ F0.0
 sg4
 Fnan
 sg5
-F46.0
+F47.0
 sg6
 F16.0
 sg7
@@ -103,7 +103,7 @@ p24
 I27
 sVdjingo
 p25
-I16
+I17
 ssVDUREE_GAME
 p26
 (dp27
@@ -112,7 +112,7 @@ F0.0
 sg4
 Fnan
 sg5
-F25.175833333333333
+F25.7595
 sg6
 F8.047500000000001
 sg7
@@ -135,7 +135,7 @@ p31
 F13.51316666666667
 sVdjingo
 p32
-F8.389499999999998
+F8.825666666666665
 ssVWARDS_SCORE
 p33
 (dp34
@@ -144,7 +144,7 @@ F0.0
 sg4
 Fnan
 sg5
-F1438.0
+F1471.0
 sg6
 F403.0
 sg7
@@ -167,7 +167,7 @@ p38
 I2143
 sVdjingo
 p39
-I527
+I553
 ssVWARDS_POSEES
 p40
 (dp41
@@ -176,7 +176,7 @@ F0.0
 sg4
 Fnan
 sg5
-F424.0
+F438.0
 sg6
 F188.0
 sg7
@@ -199,7 +199,7 @@ p45
 I1201
 sVdjingo
 p46
-I220
+I230
 ssVWARDS_DETRUITES
 p47
 (dp48
@@ -208,7 +208,7 @@ F0.0
 sg4
 Fnan
 sg5
-F278.0
+F281.0
 sg6
 F41.0
 sg7
@@ -231,7 +231,7 @@ p52
 I263
 sVdjingo
 p53
-I46
+I48
 ssVWARDS_PINKS
 p54
 (dp55
@@ -240,7 +240,7 @@ F0.0
 sg4
 Fnan
 sg5
-F318.0
+F330.0
 sg6
 F41.0
 sg7
@@ -263,7 +263,7 @@ p59
 I284
 sVdjingo
 p60
-I88
+I93
 ssVCS
 p61
 (dp62
@@ -272,7 +272,7 @@ F0.0
 sg4
 Fnan
 sg5
-F8464.0
+F8640.0
 sg6
 F1963.0
 sg7
@@ -295,7 +295,7 @@ p66
 I541
 sVdjingo
 p67
-I3059
+I3195
 ssVKILLS
 p68
 (dp69
@@ -304,7 +304,7 @@ F0.0
 sg4
 Fnan
 sg5
-F346.0
+F354.0
 sg6
 F39.0
 sg7
@@ -327,7 +327,7 @@ p73
 I73
 sVdjingo
 p74
-I106
+I108
 ssVDEATHS
 p75
 (dp76
@@ -336,7 +336,7 @@ F0.0
 sg4
 Fnan
 sg5
-F310.0
+F316.0
 sg6
 F85.0
 sg7
@@ -359,7 +359,7 @@ p80
 I80
 sVdjingo
 p81
-I75
+I83
 ssVASSISTS
 p82
 (dp83
@@ -368,7 +368,7 @@ F0.0
 sg4
 Fnan
 sg5
-F527.0
+F544.0
 sg6
 F142.0
 sg7
@@ -391,5 +391,5 @@ p87
 I478
 sVdjingo
 p88
-I137
+I143
 ss.

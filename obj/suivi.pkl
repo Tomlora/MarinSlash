@@ -41,9 +41,9 @@ sg8
 VII
 p15
 sg10
-I42
+I43
 sg11
-I53
+I54
 ssVexorblue
 p16
 (dp17
@@ -81,7 +81,7 @@ p23
 sg10
 I23
 sg11
-I20
+I21
 ssVnamiyeon
 p24
 (dp25
