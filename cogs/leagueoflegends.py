@@ -316,6 +316,8 @@ class LeagueofLegends(commands.Cog):
         # total kills
 
         thisKillsListe = dict_data(thisId, match_detail, 'kills')
+        
+        thisTeamKills = thisKillsListe[0] + thisKillsListe[1] + thisKillsListe[2] + thisKillsListe[3] + thisKillsListe[4]
 
         # deaths
 
@@ -329,8 +331,15 @@ class LeagueofLegends(commands.Cog):
 
         thisGoldListe = dict_data(thisId, match_detail, 'goldEarned')
 
-        thisTeamKills = thisKillsListe[0] + thisKillsListe[1] + thisKillsListe[2] + thisKillsListe[3] + thisKillsListe[
-            4]
+
+        
+        thisGold_team1 = thisGoldListe[0] + thisGoldListe[1] + thisGoldListe[2] + thisGoldListe[3] + thisGoldListe[4]
+        thisGold_team2 = thisGoldListe[5] + thisGoldListe[6] + thisGoldListe[7] + thisGoldListe[8] + thisGoldListe[9]
+        
+        thisGold_team1 = "{:,}".format(thisGold_team1).replace(',', ' ').replace('.', ',')
+        thisGold_team2 = "{:,}".format(thisGold_team2).replace(',', ' ').replace('.', ',')
+        
+        
 
         try:
             thisKP = int(round((thisKills + thisAssists) / (thisTeamKills), 2) * 100)
@@ -666,7 +675,7 @@ class LeagueofLegends(commands.Cog):
                                 value="Winrate: " + thisWinrateStat + "%" + "\n Victoires : " + thisVictory +
                                       " | Defaites : " + thisLoose,
                                 inline=False)
-        embed.add_field(name="Team 1",
+        embed.add_field(name=f"Team 1 ({thisGold_team1} Golds)",
                         value=str(thisPseudoListe[0]) + " (" + str(thisChampName1) + ") - " + str(
                             thisKillsListe[0]) + "/" + str(
                             thisDeathsListe[0]) + "/" + str(thisAssistsListe[0]) + "\n" +
@@ -682,7 +691,7 @@ class LeagueofLegends(commands.Cog):
                               str(thisPseudoListe[4]) + " (" + str(thisChampName5) + ") - " + str(
                             thisKillsListe[4]) + "/" + str(
                             thisDeathsListe[4]) + "/" + str(thisAssistsListe[4]), inline=True)
-        embed.add_field(name="Team 2",
+        embed.add_field(name=f"Team 2 ({thisGold_team2} Golds)",
                         value=str(thisPseudoListe[5]) + " (" + str(thisChampName6) + ") - " + str(
                             thisKillsListe[5]) + "/" + str(
                             thisDeathsListe[5]) + "/" + str(
@@ -908,7 +917,7 @@ class LeagueofLegends(commands.Cog):
         currentJour = str(self.findDay(str(currentDay + ' ' + currentMonth + " " + currentYear)))
 
         if self.bot.get_channel(main.chan_lol):
-            if currentJour in ['Tuesday', 'Wednesday'] and currentHour == str(16):
+            if currentJour in ['Tuesday', 'Wednesday', 'Saturday'] and currentHour == str(16):
                 try:
                     await self.alarm(16, 55, self.messageEUM)
                 except:
