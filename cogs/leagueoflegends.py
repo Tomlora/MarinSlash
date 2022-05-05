@@ -960,7 +960,7 @@ class LeagueofLegends(commands.Cog):
 
         if currentHour == str(0):
 
-            suivi2 = loadData('suivi')
+            suivi2 = loadData('suivi_24h')
 
             df = pd.DataFrame.from_dict(suivi2)
             df = df.transpose().reset_index()
@@ -993,7 +993,7 @@ class LeagueofLegends(commands.Cog):
                 pseudo = lol_watcher.summoner.by_name(my_region, key)
                 stats = lol_watcher.league.by_summoner(my_region, pseudo['id'])
 
-                suivi = loadData('suivi')
+                suivi = loadData('suivi_24h')
 
                 if len(stats) > 0:
                     try:
@@ -1061,12 +1061,12 @@ class LeagueofLegends(commands.Cog):
                                           + str(suivi[key]['LP']) + "(" + str(difLP) + ")    " + emote, inline=False)
                     embed.set_footer(text=f'Version {main.Var_version} by Tomlora')
 
-                    writeData(suivi, 'suivi')
+                    writeData(suivi, 'suivi_24h')
 
                 else:
                     suivi[key]["tier"] = "Non-classé"
 
-                    writeData(suivi, 'suivi')
+                    writeData(suivi, 'suivi_24h')
 
             # print(data)
             await channel.send(embed=embed)

@@ -273,6 +273,7 @@ class Fantasy(commands.Cog):
         user = ""
         user = str(ctx.author)
         data = loadDataFL()
+        # nan => vainqueur parié, 0 => points pariés
         data[user] = {'Points' : Nb_points, 1:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
                       2:{'RGE/MSF' : ['nan', 0], 'BDS/XL' : ['nan', 0], 'SK/MAD' : ['nan', 0], 'G2/AST' : ['nan', 0], 'VIT/FNC' : ['nan', 0]}}
         writeDataFL(data)
@@ -302,6 +303,7 @@ class Fantasy(commands.Cog):
     @cog_ext.cog_slash(name="maj_cote",description="Test")
     @main.isOwner2_slash()
     async def maj_cote(self, ctx):
+        # [cote vita, cote mad]
         data = {1:{'VIT/MAD' : [1, 1.5], 'SK/RGE' : [1, 1.5], 'G2/XL' : [1, 1.5], 'MSF/AST' : [1, 1.5], 'BDS/FNC' : [1, 1.5]},
                 2:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]}}
         writeDataRate(data)

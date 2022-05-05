@@ -68,7 +68,7 @@ p16
 I17
 sVnamiyeon
 p17
-I38
+I40
 sVdjingo
 p18
 I24
@@ -100,7 +100,7 @@ p23
 I17
 sVnamiyeon
 p24
-I38
+I40
 sVdjingo
 p25
 I24
@@ -132,7 +132,7 @@ p30
 F8.537166666666666
 sVnamiyeon
 p31
-F19.364333333333338
+F20.562166666666673
 sVdjingo
 p32
 F12.110999999999999
@@ -164,7 +164,7 @@ p37
 I522
 sVnamiyeon
 p38
-I3056
+I3264
 sVdjingo
 p39
 I743
@@ -196,7 +196,7 @@ p44
 I184
 sVnamiyeon
 p45
-I1723
+I1844
 sVdjingo
 p46
 I317
@@ -228,7 +228,7 @@ p51
 I68
 sVnamiyeon
 p52
-I371
+I396
 sVdjingo
 p53
 I70
@@ -260,7 +260,7 @@ p58
 I56
 sVnamiyeon
 p59
-I412
+I443
 sVdjingo
 p60
 I126
@@ -292,7 +292,7 @@ p65
 I4011
 sVnamiyeon
 p66
-I765
+I823
 sVdjingo
 p67
 I4387
@@ -324,7 +324,7 @@ p72
 I107
 sVnamiyeon
 p73
-I94
+I101
 sVdjingo
 p74
 I157
@@ -356,7 +356,7 @@ p79
 I88
 sVnamiyeon
 p80
-I114
+I122
 sVdjingo
 p81
 I117
@@ -388,7 +388,7 @@ p86
 I120
 sVnamiyeon
 p87
-I660
+I693
 sVdjingo
 p88
 I185

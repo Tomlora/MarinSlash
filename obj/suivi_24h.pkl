@@ -98,9 +98,9 @@ sg8
 VII
 p27
 sg10
-I166
+I164
 sg11
-I104
+I103
 ssVkulbutoké
 p28
 (dp29
