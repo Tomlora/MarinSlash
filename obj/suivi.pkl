@@ -79,9 +79,9 @@ sg8
 VII
 p23
 sg10
-I25
+I26
 sg11
-I22
+I23
 ssVnamiyeon
 p24
 (dp25
@@ -98,9 +98,9 @@ sg8
 VII
 p27
 sg10
-I153
+I158
 sg11
-I97
+I99
 ssVkulbutoké
 p28
 (dp29
