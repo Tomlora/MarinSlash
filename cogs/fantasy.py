@@ -6,12 +6,15 @@ import main
 import pandas as pd
 import asyncio
 from datetime import datetime
-from fonctions.gestion_fichier import loadDataFL, writeDataFL
+from fonctions.gestion_fichier import loadDataFL, loadDataRate, writeDataFL, writeDataRate
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 
 
+# Paramètres
+
+Nb_points = 50
 
 Var_version = 1.0
 
@@ -250,7 +253,6 @@ class Fantasy(commands.Cog):
     @main.isOwner2()
     async def new_game(self, ctx):
 
-
         try:
             data = loadDataFL()
             df = pd.DataFrame.from_dict(data, orient="index")
@@ -261,10 +263,94 @@ class Fantasy(commands.Cog):
 
         except Exception as e:
             await ctx.send(str(e))
+            
+    
 
-    # @new_game.error
-    # async def new_game_error(self, ctx, error):
-    #         await ctx.send('Erreur')
+    @cog_ext.cog_slash(name="add_fantasy", description="Test")
+    @main.isOwner2_slash()
+    async def add_fantasy(self, ctx):
+        user = ""
+        user = str(ctx.author)
+        data = loadDataFL()
+        data[user] = {'Points' : Nb_points, 1:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      2:{'RGE/MSF' : ['nan', 0], 'BDS/XL' : ['nan', 0], 'SK/MAD' : ['nan', 0], 'G2/AST' : ['nan', 0], 'VIT/FNC' : ['nan', 0]}}
+        writeDataFL(data)
+        await ctx.send(f'Le joueur {user} a été ajouté !')
+        
+    
+    @cog_ext.cog_slash(name="bet_fantasy",description="Test")
+    @main.isOwner2_slash()
+    async def bet_fantasy(self, ctx):
+        user = str(ctx.author)        
+        data = loadDataFL()
+        print(data) # data entière
+        print('-------')
+        print(data.keys()) #liste des joueurs
+        print('-------')
+        print(data[user]['Points']) # points du joueur
+        print('-------')
+        print(data[user]) # points + ensemble des paris du joueur
+        print('-------')
+        print(data[user][1]) # ensemble des paris du joueur pour la semaine 1
+        print('-------')
+        print(data[user][1].keys()) # match de la semaine 1
+        data[user][1]['VIT/MAD'] = ['VIT', 5]
+        writeDataFL(data)
+        await ctx.send('Done')
+        
+    @cog_ext.cog_slash(name="maj_cote",description="Test")
+    @main.isOwner2_slash()
+    async def maj_cote(self, ctx):
+        data = {1:{'VIT/MAD' : [1, 1.5], 'SK/RGE' : [1, 1.5], 'G2/XL' : [1, 1.5], 'MSF/AST' : [1, 1.5], 'BDS/FNC' : [1, 1.5]},
+                2:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]}}
+        writeDataRate(data)
+        
+    @cog_ext.cog_slash(name="cote",description="Test")
+    @main.isOwner2_slash()
+    async def cote(self, ctx):
+        data = loadDataRate()
+        semaine = 1
+        response = ""
+        
+        for key, value in data[semaine].items():
+            response += str(key) + " : " + str(value) + "\n"
+        
+        embed = discord.Embed(title=f"Côte des matchs Semaine {semaine} ", description=response, colour=discord.Colour.blurple())
+            
+        await ctx.send(embed=embed)
+            
+        
+    @cog_ext.cog_slash(name="list_fantasy",
+                       description="Test")
+    @main.isOwner2_slash()
+    async def list_fantasy(self, ctx):
+        
+        data = loadDataFL()
+        response = ""
+
+        for key, value in data.items():
+            response += key.upper() + " : " + str(data[key]['Points'])  + " points , "
+
+        # response = response[:-2]
+        embed = discord.Embed(title="Live feed list", description=response, colour=discord.Colour.blurple())
+
+        await ctx.send(embed=embed)
+        
+    @cog_ext.cog_slash(name="match_of_the_week",
+                       description="Test")
+    @main.isOwner2_slash()
+    async def match_of_the_week(self, ctx):
+        user = ""
+        user = str(ctx.author)
+        
+        data = loadDataFL()
+        match = ""
+        
+        for key in data[user][1].keys():
+            match = match + key + " , "
+        
+        await ctx.send(str(match))
+        
 
 
 def setup(bot):
