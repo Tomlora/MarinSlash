@@ -21,10 +21,10 @@ VII
 p9
 sVAchievements
 p10
-I116
+I117
 sVgames
 p11
-I130
+I132
 ssVylarabka
 p12
 (dp13
@@ -79,9 +79,9 @@ sg8
 VII
 p23
 sg10
-I26
+I31
 sg11
-I23
+I27
 ssVnamiyeon
 p24
 (dp25
@@ -98,9 +98,9 @@ sg8
 VII
 p27
 sg10
-I158
+I159
 sg11
-I99
+I101
 ssVkulbutoké
 p28
 (dp29
