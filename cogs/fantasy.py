@@ -14,7 +14,8 @@ from discord_slash.utils.manage_commands import create_option, create_choice
 
 # Paramètres
 
-Nb_points = 50
+settings_game = loadDataFL('settings')
+Nb_points = settings_game['Nb_points']
 
 Var_version = 1.0
 
@@ -305,6 +306,9 @@ class Fantasy(commands.Cog):
                 2:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]}}
         writeDataRate(data)
         
+        
+        await ctx.send('Fait !')
+        
     @cog_ext.cog_slash(name="cote",description="Test")
     @main.isOwner2_slash()
     async def cote(self, ctx):
@@ -350,6 +354,14 @@ class Fantasy(commands.Cog):
             match = match + key + " , "
         
         await ctx.send(str(match))
+        
+    @cog_ext.cog_slash(name="settings",
+                       description="Test")
+    @main.isOwner2_slash()
+    async def settings(self, ctx):
+        settings = {'Nb_points': 50}
+        writeDataFL(settings, 'settings')
+        await ctx.send('Fait !')
         
 
 

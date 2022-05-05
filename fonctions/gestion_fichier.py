@@ -34,15 +34,27 @@ def reset_records_help(key: str, fichier: int):
 
 # Fantasy
 
-def loadDataFL():
+def loadDataFL(name="fantasy"):
     try:
-        name = "fantasy"
         with open('FL/' + name + '.pkl', 'rb') as f:
             return pickle.load(f)
     except Exception:
         return {}
 
-def writeDataFL(obj):
-    name = "fantasy"
+def writeDataFL(obj, name="fantasy"):
+    with open('FL/' + name + '.pkl', 'wb+') as f:
+        pickle.dump(obj, f, protocol=0)
+    
+    # cote
+        
+def loadDataRate():
+    try:
+        name = "rate"
+        with open('FL/' + name + '.pkl', 'rb') as f:
+            return pickle.load(f)
+    except Exception:
+        return {}
+
+def writeDataRate(obj, name="rate"):
     with open('FL/' + name + '.pkl', 'wb+') as f:
         pickle.dump(obj, f, protocol=0)
