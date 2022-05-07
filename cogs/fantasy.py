@@ -12,6 +12,8 @@ from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 
 # Certaines cmd devraient être réservés en message privé (prendre exemple sur match_of_the_week)
+# Comment ajouter LEC/LFL/LCS ?
+# https://lol.fandom.com/wiki/Special:RunQuery/MatchCalendarExport?MCE%5B1%5D=LEC%2F2022+Season%2FSpring+Season&_run= s'aider de ça -> transformer en fichier CSV (schedule.csv)
 
 # Paramètres
 
@@ -22,6 +24,12 @@ Nb_points = settings_game['Nb_points']
 # src : https://oracleselixir.com/tools/downloads
 chemin = "FL/2022_LoL_esports_match_data_from_OraclesElixir_20220414.csv"
 data = pd.read_csv(chemin)
+
+schedule = "FL/schedule.csv"
+schedule = pd.read_csv(schedule)
+subject = schedule['Subject'].str.split(pat=" ", expand=True)
+schedule[['Competition', 'Année', 'Split', '-', 'Equipe1', 'vs', 'Equipe2']] = subject
+schedule.drop(['Subject', '-', 'vs'], axis=1, inplace=True)
 
 year = 2022
 
@@ -43,6 +51,10 @@ class Fantasy(commands.Cog):
     @commands.command(brief="DB Rito")
     async def loldb(self, ctx):
         await ctx.send('https://docs.google.com/spreadsheets/d/1Y7k5kQ2AegbuyiGwEPsa62e883FYVtHqr6UVut9RC4o/pubhtml#')
+        
+    @cog_ext.cog_slash(name="schedule", description="schedule")
+    async def schedule(self, ctx):
+        print(schedule)
 
     @cog_ext.cog_slash(name="competition",
                        description="Stats d'un joueur pro sur la saison",

@@ -522,22 +522,10 @@ class LeagueofLegends(commands.Cog):
         if int(thisPenta) >= settings['Pentakill']:
             exploits = exploits + "\n ** :crown: :five: Ce joueur a pentakill ** " + str(thisPenta) + " fois"
             points = points + (1 * int(thisPenta))
-            try:
-                records_cumul["PENTA"][summonerName.lower().replace(" ", "")] = records_cumul["PENTA"][
-                                                                                    summonerName.lower().replace(" ",
-                                                                                                                 "")] + 1
-            except:
-                records_cumul["PENTA"][summonerName.lower().replace(" ", "")] = 1
 
         if int(thisQuadra) >= settings['Quadrakill']:
             exploits = exploits + "\n ** :crown: :four: Ce joueur a quadrakill ** " + str(thisQuadra) + " fois"
             points = points + (1 * int(thisQuadra))
-            try:
-                records_cumul["QUADRA"][summonerName.lower().replace(" ", "")] = records_cumul["QUADRA"][
-                                                                                     summonerName.lower().replace(" ",
-                                                                                                                  "")] + 1
-            except:
-                records_cumul["QUADRA"][summonerName.lower().replace(" ", "")] = 1
 
         if float(thisKDA) >= settings['KDA']:
             exploits = exploits + "\n ** :crown: :star: Ce joueur a un bon KDA avec un KDA de " + str(
@@ -590,7 +578,7 @@ class LeagueofLegends(commands.Cog):
         dict_cumul = {"SOLOKILLS": thisSoloKills, "NBGAMES": 1, "DUREE_GAME": thisTime / 60, "KILLS": thisKills,
                       "DEATHS": thisDeaths, "ASSISTS": thisAssists, "WARDS_SCORE": thisVision,
                       "WARDS_POSEES": thisWards, "WARDS_DETRUITES": thisWardsKilled, "WARDS_PINKS": thisPink,
-                      "CS" : thisMinion}
+                      "CS" : thisMinion, "QUADRA" : thisQuadra, "PENTA" : thisPenta}
 
         for key, value in dict_cumul.items():
             try:
@@ -1073,85 +1061,105 @@ class LeagueofLegends(commands.Cog):
             await channel.send(embed=embed)
             await channel.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
             
+            
+    @commands.command()
+    @main.isOwner2()
+    async def test_df(self, ctx):
+        records3 = loadData('records3')
+        print(records3)
+            
     # @commands.command()
     # @main.isOwner2()
     # async def reset_solokills(self, ctx):
     #     records3 = loadData('records3')
         
-    #     for key in records3['SOLOKILLS'].keys():
-    #         records3['SOLOKILLS'][key] = 0
+    #     for key in records3['QUADRA'].keys():
+    #         records3['QUADRA'][key] = 0
+    #         records3['PENTA'][key] = 0
         
     #     writeData(records3, 'records3')
         
-    #     await ctx.send('Solokills reset')        
+    #     await ctx.send('Reset')        
 
 
 
     # @commands.command()
     # @main.isOwner2()
-    # async def add_solokills(self, ctx, summonerName):
+    # async def add_solokills(self, ctx):
     #     records_cumul = loadData('records3')
-    #     games = records_cumul['NBGAMES'][summonerName.lower().replace(" ", "")]
-    #     games = int(games)
-    #     i = 0
-        
-    #     while i != games:
-    #         last_match, match_detail_stats, me = match_by_puuid(summonerName, i)
-            
-    #         match_detail = pd.DataFrame(match_detail_stats)
-
-    #         dic = {
-    #             (match_detail['info']['participants'][0]['summonerName']).lower().replace(" ", ""): 0,
-    #             (match_detail['info']['participants'][1]['summonerName']).lower().replace(" ", ""): 1,
-    #             (match_detail['info']['participants'][2]['summonerName']).lower().replace(" ", ""): 2,
-    #             (match_detail['info']['participants'][3]['summonerName']).lower().replace(" ", ""): 3,
-    #             (match_detail['info']['participants'][4]['summonerName']).lower().replace(" ", ""): 4,
-    #             (match_detail['info']['participants'][5]['summonerName']).lower().replace(" ", ""): 5,
-    #             (match_detail['info']['participants'][6]['summonerName']).lower().replace(" ", ""): 6,
-    #             (match_detail['info']['participants'][7]['summonerName']).lower().replace(" ", ""): 7,
-    #             (match_detail['info']['participants'][8]['summonerName']).lower().replace(" ", ""): 8,
-    #             (match_detail['info']['participants'][9]['summonerName']).lower().replace(" ", ""): 9
-    #         }
-            
-
-    #         # stats
-    #         thisId = dic[
-    #             summonerName.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
-            
-    #         thisTime = round((int(match_detail['info']['gameDuration']) / 60), 2)
-    #         thisQId = match_detail['info']['queueId']
-    #         ThisQ = ' '
-            
-    #         if thisQId == 420:
-    #             thisQ = "RANKED"
-    #         elif thisQId == 400:
-    #             thisQ = "NORMAL"
-    #         elif thisQId == 440:
-    #             thisQ = "FLEX"
-    #         elif thisQId == 450:
-    #             thisQ = "ARAM"
+    #     for summonerName in records_cumul['NBGAMES'].keys():
+    #         if summonerName in ['Kazsc', 'Personne', 'ylarabka', 'kulbutoké', 'tomlora', 'chatobogan', 'exorblue']:
+    #         #if summonerName in ['Kazsc', 'Personne']:
+    #             pass
     #         else:
-    #             thisQ = "OTHER"
-            
-    #         thisSoloKills = match_detail['info']['participants'][thisId]['challenges']['soloKills']
-            
+    #             games = records_cumul['NBGAMES'][summonerName.lower().replace(" ", "")]
+    #             games = int(games)
+    #             i = 0
+                
+    #             while i != games:
+    #                 last_match, match_detail_stats, me = match_by_puuid(summonerName, i)
+                    
+    #                 match_detail = pd.DataFrame(match_detail_stats)
 
-            
-                
-    #         i = i + 1
-    #         if thisQ == "RANKED" and thisTime > 20:
-    #             records_cumul['SOLOKILLS'][summonerName.lower().replace(" ", "")] = records_cumul['SOLOKILLS'][
-    #                                                                                     summonerName.lower().replace(" ",
-    #                                                                                                                 "")] + int(thisSoloKills)
-                
-    #             cumul = records_cumul['SOLOKILLS'][summonerName.lower().replace(" ", "")]
-    #             writeData(records_cumul, 'records3')
-    #             await ctx.send(f'{summonerName} : \n {i} / {games} games \n {str(thisSoloKills)} solokills ajoutés. \n {cumul} solokills au total')
-    #         else:
-    #             games = games + 1
-    #             await ctx.send(f'{summonerName} : \n {i} / {games} \n Non ajouté. Ne remplit pas les conditions. \n On ajoute une game au process')
-                
-    #         time.sleep(5)
+    #                 dic = {
+    #                     (match_detail['info']['participants'][0]['summonerName']).lower().replace(" ", ""): 0,
+    #                     (match_detail['info']['participants'][1]['summonerName']).lower().replace(" ", ""): 1,
+    #                     (match_detail['info']['participants'][2]['summonerName']).lower().replace(" ", ""): 2,
+    #                     (match_detail['info']['participants'][3]['summonerName']).lower().replace(" ", ""): 3,
+    #                     (match_detail['info']['participants'][4]['summonerName']).lower().replace(" ", ""): 4,
+    #                     (match_detail['info']['participants'][5]['summonerName']).lower().replace(" ", ""): 5,
+    #                     (match_detail['info']['participants'][6]['summonerName']).lower().replace(" ", ""): 6,
+    #                     (match_detail['info']['participants'][7]['summonerName']).lower().replace(" ", ""): 7,
+    #                     (match_detail['info']['participants'][8]['summonerName']).lower().replace(" ", ""): 8,
+    #                     (match_detail['info']['participants'][9]['summonerName']).lower().replace(" ", ""): 9
+    #                 }
+                    
+
+    #                 # stats
+    #                 thisId = dic[
+    #                     summonerName.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
+                    
+    #                 thisTime = round((int(match_detail['info']['gameDuration']) / 60), 2)
+    #                 thisQId = match_detail['info']['queueId']
+    #                 ThisQ = ' '
+                    
+    #                 if thisQId == 420:
+    #                     thisQ = "RANKED"
+    #                 elif thisQId == 400:
+    #                     thisQ = "NORMAL"
+    #                 elif thisQId == 440:
+    #                     thisQ = "FLEX"
+    #                 elif thisQId == 450:
+    #                     thisQ = "ARAM"
+    #                 else:
+    #                     thisQ = "OTHER"
+                        
+                    
+    #                 thisSoloKills = match_detail['info']['participants'][thisId]['challenges']['soloKills']
+    #                 thisQuadra = match_detail['info']['participants'][thisId]['quadraKills']
+    #                 thisPenta = match_detail['info']['participants'][thisId]['pentaKills']
+                    
+
+                    
+                        
+    #                 i = i + 1
+    #                 if thisQ == "RANKED" and thisTime > 20:
+    #                     try:
+    #                         records_cumul['PENTA'][summonerName.lower().replace(" ", "")] = records_cumul['PENTA'][
+    #                                                                                                 summonerName.lower().replace(" ",
+    #                                                                                                                             "")] + int(thisPenta)
+    #                     except:
+    #                         records_cumul['PENTA'][summonerName.lower().replace(" ", "")] = int(thisPenta)                       
+                            
+                        
+    #                     cumul = records_cumul['PENTA'][summonerName.lower().replace(" ", "")]
+    #                     writeData(records_cumul, 'records3')
+    #                     await ctx.send(f'{summonerName} : \n {i} / {games} games \n {str(thisPenta)} ajoutés. \n {cumul} au total')
+    #                 else:
+    #                     games = games + 1
+    #                     await ctx.send(f'{summonerName} : \n {i} / {games} \n Non ajouté. Ne remplit pas les conditions. \n On ajoute une game au process')
+                        
+    #                 time.sleep(3)
         
         
 
