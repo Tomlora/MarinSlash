@@ -16,6 +16,7 @@ from fonctions.gestion_fichier import loadData, writeData
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
+import time
 
 
 
@@ -69,7 +70,7 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
 
 def match_by_puuid(summonerName, idgames: int):
     me = lol_watcher.summoner.by_name(my_region, summonerName)
-    my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'])
+    my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=100)
     last_match = my_matches[idgames]
     match_detail_stats = lol_watcher.match.by_id(region, last_match)
     return last_match, match_detail_stats, me
@@ -586,7 +587,7 @@ class LeagueofLegends(commands.Cog):
                 thisTotalOnTeammatesFormat) + " sur ses alliés **"
             points = points + 1
 
-        dict_cumul = {"SOLOKILLS": 1, "NBGAMES": 1, "DUREE_GAME": thisTime / 60, "KILLS": thisKills,
+        dict_cumul = {"SOLOKILLS": thisSoloKills, "NBGAMES": 1, "DUREE_GAME": thisTime / 60, "KILLS": thisKills,
                       "DEATHS": thisDeaths, "ASSISTS": thisAssists, "WARDS_SCORE": thisVision,
                       "WARDS_POSEES": thisWards, "WARDS_DETRUITES": thisWardsKilled, "WARDS_PINKS": thisPink,
                       "CS" : thisMinion}
@@ -1071,8 +1072,88 @@ class LeagueofLegends(commands.Cog):
             # print(data)
             await channel.send(embed=embed)
             await channel.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
+            
+    # @commands.command()
+    # @main.isOwner2()
+    # async def reset_solokills(self, ctx):
+    #     records3 = loadData('records3')
+        
+    #     for key in records3['SOLOKILLS'].keys():
+    #         records3['SOLOKILLS'][key] = 0
+        
+    #     writeData(records3, 'records3')
+        
+    #     await ctx.send('Solokills reset')        
 
 
+
+    # @commands.command()
+    # @main.isOwner2()
+    # async def add_solokills(self, ctx, summonerName):
+    #     records_cumul = loadData('records3')
+    #     games = records_cumul['NBGAMES'][summonerName.lower().replace(" ", "")]
+    #     games = int(games)
+    #     i = 0
+        
+    #     while i != games:
+    #         last_match, match_detail_stats, me = match_by_puuid(summonerName, i)
+            
+    #         match_detail = pd.DataFrame(match_detail_stats)
+
+    #         dic = {
+    #             (match_detail['info']['participants'][0]['summonerName']).lower().replace(" ", ""): 0,
+    #             (match_detail['info']['participants'][1]['summonerName']).lower().replace(" ", ""): 1,
+    #             (match_detail['info']['participants'][2]['summonerName']).lower().replace(" ", ""): 2,
+    #             (match_detail['info']['participants'][3]['summonerName']).lower().replace(" ", ""): 3,
+    #             (match_detail['info']['participants'][4]['summonerName']).lower().replace(" ", ""): 4,
+    #             (match_detail['info']['participants'][5]['summonerName']).lower().replace(" ", ""): 5,
+    #             (match_detail['info']['participants'][6]['summonerName']).lower().replace(" ", ""): 6,
+    #             (match_detail['info']['participants'][7]['summonerName']).lower().replace(" ", ""): 7,
+    #             (match_detail['info']['participants'][8]['summonerName']).lower().replace(" ", ""): 8,
+    #             (match_detail['info']['participants'][9]['summonerName']).lower().replace(" ", ""): 9
+    #         }
+            
+
+    #         # stats
+    #         thisId = dic[
+    #             summonerName.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
+            
+    #         thisTime = round((int(match_detail['info']['gameDuration']) / 60), 2)
+    #         thisQId = match_detail['info']['queueId']
+    #         ThisQ = ' '
+            
+    #         if thisQId == 420:
+    #             thisQ = "RANKED"
+    #         elif thisQId == 400:
+    #             thisQ = "NORMAL"
+    #         elif thisQId == 440:
+    #             thisQ = "FLEX"
+    #         elif thisQId == 450:
+    #             thisQ = "ARAM"
+    #         else:
+    #             thisQ = "OTHER"
+            
+    #         thisSoloKills = match_detail['info']['participants'][thisId]['challenges']['soloKills']
+            
+
+            
+                
+    #         i = i + 1
+    #         if thisQ == "RANKED" and thisTime > 20:
+    #             records_cumul['SOLOKILLS'][summonerName.lower().replace(" ", "")] = records_cumul['SOLOKILLS'][
+    #                                                                                     summonerName.lower().replace(" ",
+    #                                                                                                                 "")] + int(thisSoloKills)
+                
+    #             cumul = records_cumul['SOLOKILLS'][summonerName.lower().replace(" ", "")]
+    #             writeData(records_cumul, 'records3')
+    #             await ctx.send(f'{summonerName} : \n {i} / {games} games \n {str(thisSoloKills)} solokills ajoutés. \n {cumul} solokills au total')
+    #         else:
+    #             games = games + 1
+    #             await ctx.send(f'{summonerName} : \n {i} / {games} \n Non ajouté. Ne remplit pas les conditions. \n On ajoute une game au process')
+                
+    #         time.sleep(5)
+        
+        
 
     @commands.command()
     @main.isOwner2()

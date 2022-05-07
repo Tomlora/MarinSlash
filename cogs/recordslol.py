@@ -287,6 +287,7 @@ class Recordslol(commands.Cog):
                                     create_choice(name='vision', value='VISION'),
                                     create_choice(name='vision moyenne', value='VISION moyenne'),
                                     create_choice(name='CS', value='CS'),
+                                    create_choice(name='Solokills', value='SOLOKILLS'),
                                     create_choice(name='games', value='GAMES')]),
                                 create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=[
                                     create_choice(name="KDA", value="KDA"),
@@ -294,6 +295,7 @@ class Recordslol(commands.Cog):
                                     create_choice(name='vision', value='VISION'),
                                     create_choice(name='vision moyenne', value='VISION moyenne'),
                                     create_choice(name='CS', value='CS'),
+                                    create_choice(name='Solokills', value='SOLOKILLS'),
                                     create_choice(name='games', value='GAMES')]),
                                 create_option(name="stat3", description="Quel stat ?", option_type=3, required=False, choices=[
                                     create_choice(name="KDA", value="KDA"),
@@ -301,6 +303,7 @@ class Recordslol(commands.Cog):
                                     create_choice(name='vision', value='VISION'),
                                     create_choice(name='vision moyenne', value='VISION moyenne'),
                                     create_choice(name='CS', value='CS'),
+                                    create_choice(name='Solokills', value='SOLOKILLS'),
                                     create_choice(name='games', value='GAMES')])
                                 ])
     async def pantheon(self, ctx, stat, stat2:str="no", stat3:str="no"):
@@ -412,6 +415,16 @@ class Recordslol(commands.Cog):
 
                 await channel_answer.send(
                     f' __ Total : __ \n CS : {int(df["CS"].sum())}')
+                
+            if "SOLOKILLS" in stat:
+                variables = ['SOLOKILLS']
+
+                fig = figure_hist(variables, "Solokills")
+                fig.update_xaxes(categoryorder="total descending")
+
+                fig.write_image('plot.png')
+                await channel_answer.send(file=discord.File('plot.png'))
+                os.remove('plot.png')
 
             if "GAMES" in stat:
                 variables = ['NBGAMES', 'DUREE_GAME']
