@@ -3,7 +3,6 @@ from discord.ext import commands
 from discord_slash import cog_ext, SlashContext
 import main
 
-Var_version = 1.0
 
 
 class Version(commands.Cog):

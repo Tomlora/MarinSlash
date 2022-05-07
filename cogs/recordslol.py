@@ -14,7 +14,8 @@ from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice, create_permission
 
-Var_version = 1.0
+
+
 
 
         

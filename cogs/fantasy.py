@@ -11,13 +11,13 @@ from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 
+# Certaines cmd devraient être réservés en message privé (prendre exemple sur match_of_the_week)
 
 # Paramètres
 
 settings_game = loadDataFL('settings')
 Nb_points = settings_game['Nb_points']
 
-Var_version = 1.0
 
 # src : https://oracleselixir.com/tools/downloads
 chemin = "FL/2022_LoL_esports_match_data_from_OraclesElixir_20220414.csv"
@@ -440,7 +440,7 @@ class Fantasy(commands.Cog):
         await ctx.send(embed=embed)
         
     @cog_ext.cog_slash(name="match_of_the_week", description="Test")
-    @main.isOwner2_slash()
+    @commands.dm_only()
     async def match_of_the_week(self, ctx):
         user = ""
         user = str(ctx.author)
@@ -464,6 +464,13 @@ class Fantasy(commands.Cog):
                     'semaine': 1}
         writeDataFL(settings, 'settings')
         await ctx.send('Fait !')
+        
+    @match_of_the_week.error
+    async def match_of_the_week_error(self, ctx, error):
+        if isinstance(error, commands.PrivateMessageOnly):
+            await ctx.send("Cette commande n'est activée qu'en message privé")
+            
+
         
 
 

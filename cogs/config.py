@@ -4,7 +4,6 @@ import main
 import linecache
 from fonctions.gestion_fichier import loadConfig, writeConfig
 
-Var_version = 1.0
 
 params = main.params
 

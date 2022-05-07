@@ -5,7 +5,6 @@ import pickle
 
 import main
 
-Var_version = 1.0
 
 
 class activity(commands.Cog):

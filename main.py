@@ -45,7 +45,30 @@ slash = SlashCommand(bot, sync_commands=True)
 
 bot.remove_command('help')
 
+@bot.event
+async def on_message(message):
+    if not isinstance(message.channel, discord.abc.PrivateChannel):
+        role = discord.utils.get(message.guild.roles, name="Muted")
 
+    if (isinstance(message.channel, discord.abc.PrivateChannel)) and (int(message.author.id) != int(id_bot)):
+        channel_pm = bot.get_channel(chan_pm)
+        date = str(message.created_at)
+        date_short = date[:-7]
+        embed = discord.Embed(title=f"Message privé reçu de la part de {message.author}",
+                              description=f"{message.content}",
+                              color=discord.Color.blue())
+        embed.set_thumbnail(url=message.author.avatar_url)
+        embed.set_footer(text=f'< userid : {message.author.id} >  < date : {date_short} >')
+        await channel_pm.send(embed=embed)
+
+    if not isinstance(message.channel, discord.abc.PrivateChannel):
+
+        if role in message.author.roles:
+            await message.delete()
+            
+        
+    await bot.process_commands(
+        message)  # Overriding the default provided on_message forbids any extra commands from running. To fix this, add a bot.process_commands(message) line at the end of your on_message.
 
 @bot.group(invoke_without_command=True)
 async def help(ctx):
@@ -430,29 +453,7 @@ async def scoring_score(ctx):
     await ctx.send(embed=em)
 
 
-@bot.event
-async def on_message(message):
-    if not isinstance(message.channel, discord.abc.PrivateChannel):
-        role = discord.utils.get(message.guild.roles, name="Muted")
 
-    if (isinstance(message.channel, discord.abc.PrivateChannel)) and (message.author.id != id_bot):
-        channel_pm = bot.get_channel(chan_pm)
-        date = str(message.created_at)
-        date_short = date[:-7]
-        embed = discord.Embed(title=f"Message privé reçu de la part de {message.author}",
-                              description=f"{message.content}",
-                              color=discord.Color.blue())
-        embed.set_thumbnail(url=message.author.avatar_url)
-        embed.set_footer(text=f'< userid : {message.author.id} >  < date : {date_short} >')
-        await channel_pm.send(embed=embed)
-
-    if not isinstance(message.channel, discord.abc.PrivateChannel):
-
-        if role in message.author.roles:
-            await message.delete()
-
-    await bot.process_commands(
-        message)  # Overriding the default provided on_message forbids any extra commands from running. To fix this, add a bot.process_commands(message) line at the end of your on_message.
 
 
 @bot.event
@@ -482,6 +483,8 @@ async def on_command_error(ctx, error):
         await ctx.send("Cette commande n'existe pas")
     elif isinstance(error, commands.MissingPermissions):
         await ctx.send("Tu n'as pas les permissions nécessaires")
+    elif isinstance(error, commands.PrivateMessageOnly):
+        await ctx.send("Cette commande n'est activée qu'en message privé")
     elif isinstance(error, commands.CommandOnCooldown):
         await ctx.send(f' {error}')
     else:
@@ -511,6 +514,15 @@ def isOwner2():
         if not ctx.message.author.id == id_tom:
             await ctx.send("Cette commande est réservée au propriétaire du bot")
         return ctx.message.author.id == id_tom
+
+    return commands.check(predicate)
+
+# Plus élaboré (msg général)
+def isOwner2_slash():
+    async def predicate(ctx):
+        if not ctx.author.id == id_tom:
+            await ctx.send("Cette commande est réservée au propriétaire du bot")
+        return ctx.author.id == id_tom
 
     return commands.check(predicate)
 
