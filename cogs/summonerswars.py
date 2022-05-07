@@ -21,12 +21,6 @@ def opendatasw():
     
     return data
     
-
-
-
-chan_general = 768637526176432158
-
-
 class SummonersWars(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -41,38 +35,22 @@ class SummonersWars(commands.Cog):
         
         await ctx.send('Done')
         
-    @cog_ext.cog_slash(name="generalsw", description="test")
+    @cog_ext.cog_slash(name="sw_general", description="test")
     @main.isOwner2_slash()
-    async def generalsw(self, ctx):
+    async def sw_general(self, ctx):
         
         data = opendatasw()
         data = data['matchup_info']['guild_list']  # data qui nous intéresse
         df1 = pd.DataFrame(data)  # on transpose en dataframe pour pandas
 
         pd.set_option('display.max_columns', None)  # permet de ne pas cacher les colonnes avec des "..."
-        #print(df1)  # la totalité de la bd
 
         Guilde1 = df1.loc[
             0]  # Toutes les infos de la première ligne etc... on pourrait rajouter [nom_colonne] pour avoir une infos précise.
         Guilde2 = df1.loc[1]
         Guilde3 = df1.loc[2]
 
-
-        # def PresentationGuilde(Guilde):
-        #     print(Guilde["guild_name"] + " : " + chr(10) + str(Guilde) + chr(10))
-
-
-        def NbAttaquesUtilisees(Guilde):
-            Attaque_max = Guilde["play_member_count"] * 10  # Nombre d'attaque max
-            Pourcent_attaques_utilisees = (Guilde['attack_count'] / Attaque_max) * 100  # % attaque utilisees
-            Pourcent_attaques_utilisees = round(Pourcent_attaques_utilisees, 2)  # 2 chiffres après la virgule
-            # print(Guilde["guild_name"] + " : " + chr(10) + str(Guilde['attack_count']) + " attaques utilisées / " + str(
-            #     Attaque_max) + ", soit " + str(Pourcent_attaques_utilisees) + " % " + chr(10))  # Message final
-            
-        # NbAttaquesUtilisees(Guilde1)
-        # NbAttaquesUtilisees(Guilde2)
-        # NbAttaquesUtilisees(Guilde3)
-        
+       
         Solid_gauge = pygal.SolidGauge(inner_radius=0.75, half_pie=True)  # half_pie coupe le cercle en deux.
 
 
@@ -91,15 +69,17 @@ class SummonersWars(commands.Cog):
         await ctx.send(file=discord.File('solid_gauge.png'))
         os.remove('solid_gauge.png')
         
-    @cog_ext.cog_slash(name="atksw", description="test")
+    @cog_ext.cog_slash(name="sw_atk", description="test")
     @main.isOwner2_slash()
-    async def atksw(self, ctx):
+    async def sw_atk(self, ctx):
         
         channel = ctx.channel
             
         data = opendatasw()
         data = data['attack_log']['log_list'][0]['battle_log_list']  # data qui nous intéresse
         df1 = pd.DataFrame(data)  # on transpose en dataframe pour pandas
+        
+        # Nombre victoires / Défaites
 
         nb_victoire = df1[df1["win_lose"] == 1]  # permet une dataframe qui ne contient que les victoires
         nb_victoire = len(nb_victoire)  # nombre de lignes pour connaitre le nombre de victoires
@@ -108,6 +88,8 @@ class SummonersWars(commands.Cog):
         nb_defaite = len(nb_defaite)
 
         await ctx.send(f'La guilde a réussi {nb_victoire} combats et a perdu {nb_defaite} combats')
+        
+        # nombre victoires / défaitesd par rapport aux membres
 
         df1_membre = df1.set_index("wizard_name")  # on index par rapport aux membres
 
@@ -117,7 +99,7 @@ class SummonersWars(commands.Cog):
             "wizard_name").count()  # permet d'additionner le nombre de victoires en fonction des membres par exemple
         df1_atks_counts = df1_membre.groupby(by="wizard_name").count()  # compte le nombre de combats
 
-        # on renomme (surement un moyen plus facile)
+        # on renomme pour plus de facilités :
         df1_victoire = df1_victoire.rename(columns={'win_lose': 'win'})
         df1_defaite = df1_defaite.rename(columns={'win_lose': 'lose'})
         df1_atks_counts = df1_atks_counts.rename(columns={'win_lose': 'nb atks'})
@@ -154,15 +136,13 @@ class SummonersWars(commands.Cog):
         await channel.send(file=discord.File('bar_chart.png'))
         os.remove('bar_chart.png')
         
-    @cog_ext.cog_slash(name="defensesw", description="test")
+    @cog_ext.cog_slash(name="sw_def", description="test")
     @main.isOwner2_slash()
-    async def defensesw(self, ctx):
+    async def sw_def(self, ctx):
         channel = ctx.channel
         data = opendatasw()
         data = data['defense_log']['log_list'][0]['battle_log_list']  # data qui nous intéresse
         df1 = pd.DataFrame(data)  # on transpose en dataframe pour pandas
-
-        pd.set_option('display.max_columns', None)  # permet de ne pas cacher les colonnes avec des "..."
 
         nb_defenses_reussies = df1[df1["win_lose"] == 1]  # permet une dataframe qui ne contient que les victoires
         nb_defenses_reussies = len(nb_defenses_reussies)  # nombre de lignes pour connaitre le nombre de victoires
@@ -214,9 +194,9 @@ class SummonersWars(commands.Cog):
         await channel.send(file=discord.File('bar_chart.png'))
         os.remove('bar_chart.png')
         
-    @cog_ext.cog_slash(name="basesw", description="test")
+    @cog_ext.cog_slash(name="sw_base", description="test")
     @main.isOwner2_slash()
-    async def basesw(self, ctx):
+    async def sw_base(self, ctx):
             
         data = opendatasw()
         data_base = data['matchup_info']['base_list']   #data qui nous intéresse
@@ -246,8 +226,6 @@ class SummonersWars(commands.Cog):
         fig = px.pie(data_base_count, values='base_number', names="guild_id", title='Nombre de bases')
         fig.update_traces(textinfo='value', textfont_size=20)
         
-        print(ctx.guild.id)
-        print(data_base_count)
 
         
         fig.write_image('pie_chart.png')
