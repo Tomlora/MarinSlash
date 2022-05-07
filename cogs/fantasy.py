@@ -274,15 +274,93 @@ class Fantasy(commands.Cog):
         user = str(ctx.author)
         data = loadDataFL()
         # nan => vainqueur parié, 0 => points pariés
-        data[user] = {'Points' : Nb_points, 1:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-                      2:{'RGE/MSF' : ['nan', 0], 'BDS/XL' : ['nan', 0], 'SK/MAD' : ['nan', 0], 'G2/AST' : ['nan', 0], 'VIT/FNC' : ['nan', 0]}}
+        data[user] = {'Points' : Nb_points, 
+                      1:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      2:{'RGE/MSF' : ['nan', 0], 'BDS/XL' : ['nan', 0], 'SK/MAD' : ['nan', 0], 'G2/AST' : ['nan', 0], 'VIT/FNC' : ['nan', 0]},
+                      3:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      4:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      5:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      6:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      7:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      8:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      9:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      10:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      11:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      12:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      13:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      14:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      15:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      16:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      17:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
+                      18:{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}}
         writeDataFL(data)
         await ctx.send(f'Le joueur {user} a été ajouté !')
         
-    
-    @cog_ext.cog_slash(name="bet_fantasy",description="Test")
+        
+    @cog_ext.cog_slash(name="bet", description="test")
     @main.isOwner2_slash()
-    async def bet_fantasy(self, ctx):
+    async def bet(self, ctx):
+        user = str(ctx.author)
+        # settings
+        semaine = loadDataFL('settings')['semaine']
+        
+        await ctx.send(f'Pari pour la semaine {str(semaine)}')
+        
+        #data
+        data = loadDataFL()
+        
+        # rate
+        rate = loadDataRate()
+        
+        channel = ctx.channel
+        author = ctx.author
+        
+        def check(m):
+            return m.author == author and m.channel == channel
+        
+        for match in data[user][semaine].keys():
+            cote = rate[semaine][match]
+            await channel.send(f' Quel victoire pour {match} {cote} ?')
+
+            try:
+                msg = await self.bot.wait_for('message', timeout=60, check=check)
+                await channel.send('Score enregistré!'.format(msg))
+                msg = str(msg.content).split()
+                equipe_gagnante = msg[0]
+                points_mises = int(msg[1])
+                data[user]['Points'] = data[user]['Points'] - points_mises
+                points_user = data[user]['Points']
+                data[user][semaine][match] = [equipe_gagnante, points_mises]
+                await channel.send(f'Il te reste {points_user} points à miser ')
+            except asyncio.TimeoutError:
+                await msg.delete()
+                await ctx.send("Annulé")
+        writeDataFL(data)
+        await channel.send(f'Enregistré pour les matchs de la semaine {semaine}')
+        
+    @cog_ext.cog_slash(name="my_bet", description="test")
+    async def my_bet(self, ctx):
+        user = str(ctx.author)
+        semaine = loadDataFL('settings')['semaine']
+        data = loadDataFL()
+        rate = loadDataRate()
+        
+        embed = discord.Embed(title=f"Pari du joueur {user} pour la semaine {str(semaine)}", color=discord.Color.gold())
+        
+        for match, pari in data[user][semaine].items():
+            equipe_gagnante = pari[0]
+            points_mises = pari[1]
+            embed.add_field(name=match + " " + str(rate[semaine][match]),
+                                value=f"Equipe misée : {equipe_gagnante} | Points misés : {points_mises}", inline=False)
+            
+        await ctx.send(embed=embed)
+            
+    
+        
+    
+    @cog_ext.cog_slash(name="help_fantasy",description="Test")
+    @main.isOwner2_slash()
+    async def help_fantasy(self, ctx):
         user = str(ctx.author)        
         data = loadDataFL()
         print(data) # data entière
@@ -296,7 +374,7 @@ class Fantasy(commands.Cog):
         print(data[user][1]) # ensemble des paris du joueur pour la semaine 1
         print('-------')
         print(data[user][1].keys()) # match de la semaine 1
-        data[user][1]['VIT/MAD'] = ['VIT', 5]
+        data[user][1]['VIT/MAD'] = ['VIT', 5] # proposer vita gagnant et 5 pts
         writeDataFL(data)
         await ctx.send('Done')
         
@@ -305,17 +383,36 @@ class Fantasy(commands.Cog):
     async def maj_cote(self, ctx):
         # [cote vita, cote mad]
         data = {1:{'VIT/MAD' : [1, 1.5], 'SK/RGE' : [1, 1.5], 'G2/XL' : [1, 1.5], 'MSF/AST' : [1, 1.5], 'BDS/FNC' : [1, 1.5]},
-                2:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]}}
+                2:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                3:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                4:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                5:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                6:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                7:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                8:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                9:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                10:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                11:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                12:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                13:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                14:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                15:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                16:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                17:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]},
+                18:{'RGE/MSF' : [1, 1.5], 'BDS/XL' : [1, 1.5], 'SK/MAD' : [1, 1.5], 'G2/AST' : [1, 1.5], 'VIT/FNC' : [1, 1.5]}}
         writeDataRate(data)
         
         
         await ctx.send('Fait !')
         
-    @cog_ext.cog_slash(name="cote",description="Test")
+    @cog_ext.cog_slash(name="cote",
+                       description="Test",
+                    )
     @main.isOwner2_slash()
     async def cote(self, ctx):
         data = loadDataRate()
-        semaine = 1
+        settings = loadDataFL('settings')
+        semaine = settings['semaine']
         response = ""
         
         for key, value in data[semaine].items():
@@ -342,17 +439,19 @@ class Fantasy(commands.Cog):
 
         await ctx.send(embed=embed)
         
-    @cog_ext.cog_slash(name="match_of_the_week",
-                       description="Test")
+    @cog_ext.cog_slash(name="match_of_the_week", description="Test")
     @main.isOwner2_slash()
     async def match_of_the_week(self, ctx):
         user = ""
         user = str(ctx.author)
         
+        settings = loadDataFL('settings')
+        semaine = settings['semaine']
+        
         data = loadDataFL()
         match = ""
         
-        for key in data[user][1].keys():
+        for key in data[user][semaine].keys():
             match = match + key + " , "
         
         await ctx.send(str(match))
@@ -361,7 +460,8 @@ class Fantasy(commands.Cog):
                        description="Test")
     @main.isOwner2_slash()
     async def settings(self, ctx):
-        settings = {'Nb_points': 50}
+        settings = {'Nb_points': 50,
+                    'semaine': 1}
         writeDataFL(settings, 'settings')
         await ctx.send('Fait !')
         
