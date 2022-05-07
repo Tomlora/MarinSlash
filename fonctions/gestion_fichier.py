@@ -1,5 +1,20 @@
 import pickle
 
+def loadConfig(ctx):
+    try:
+        guild = ctx.guild.id
+        with open(f'config/{guild}/config.pkl', 'rb') as f:
+            fichier = pickle.load(f)
+        return fichier
+    except Exception:
+        return {}
+
+
+def writeConfig(ctx, data):
+    guild = ctx.guild.id
+    with open(f'config/{guild}/config.pkl', 'rb') as f:
+        pickle.dump(data, f, protocol=0)
+
 def loadData(name):
     try:
         with open('obj/' + name + '.pkl', 'rb') as f:

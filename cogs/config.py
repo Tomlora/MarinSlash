@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import main
 import linecache
+from fonctions.gestion_fichier import loadConfig, writeConfig
 
 Var_version = 1.0
 
@@ -17,32 +18,30 @@ class Config(commands.Cog):
     @commands.command(brief="Affiche la version du bot")
     @main.isOwner2()
     async def parametres(self, ctx):
+        
+        nom = self.bot.get_channel(id)
 
-        embed = discord.Embed(title="Config", description="Id : ", color=discord.Color.blue())
+        embed = discord.Embed(title="Config", description=(f'Serveur {ctx.guild.name} ({ctx.guild.id})'), color=discord.Color.blue())
+    
 
-        for i in range(1, nb_params, 2):
-            titre = linecache.getline(params, i)
-            value = linecache.getline(params, i + 1)
+        data = loadConfig(ctx)
+        for titre, value in data.items():
             embed.add_field(name=titre, value=str(value), inline=False)
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora')
         await ctx.send(embed=embed)
 
     @commands.command()
     @main.isOwner2()
-    async def parametres_modif(self, ctx, parametre, id):
+    async def parametres_modif(self, ctx, parametre, id:int):
 
-        nom = self.bot.get_channel(int(id))
+        data = loadConfig(ctx)
+        nom = self.bot.get_channel(id)
+        
+        data['parametre'] = id
 
-        for i in range(0, nb_params, 2):
-            file = open(params, "r")
-            lignes = file.readlines()
-            file.close()
-            if str(parametre + '\n') == str(lignes[i]):
-                lignes[i + 1] = str(id + '\n')
-                file = open(params, "w")
-                file.writelines(lignes)
-        file.close()
-        await ctx.send(f' Le channel {nom} a été assignée pour le paramètre {parametre}')
+        writeConfig(ctx, data)
+        
+        await ctx.send(f' Le channel {nom} a été assignée pour le paramètre {parametre} pour le serveur {ctx.guild.name}')
 
 
 def setup(bot):

@@ -1,5 +1,7 @@
 import discord
 from discord.ext import commands
+import os
+import pickle
 
 import main
 
@@ -17,7 +19,23 @@ class activity(commands.Cog):
             activity=discord.Activity(type=discord.ActivityType.listening, name='My Dress Up Darling'))
 
         for guild in main.bot.guilds:
-            print(f' Channels connectées : {guild.name}')
+            print(f' Channels connectées => Name : {guild.name} | Id : {guild.id}')
+            
+            if not os.path.exists(f'./config/{guild.id}'):
+                os.makedirs(f'./config/{guild.id}')
+                
+                dict_id = {
+                    'id_tom' : 298418038460514314,
+                    'chan_pm' : 534111278923513887,
+                    'chan_tracklol' : 953814193658789918,
+                    'chan_kangourou' : 498598293140537374,
+                    'chan_twitch' : 540501033684828160,
+                    'chan_lol' : 540501033684828160
+                    }
+                with open(f'./config/{guild.id}/config.pkl', 'wb+') as f:
+                    pickle.dump(dict_id, f, protocol=0)
+                       
+            
 
         await main.check_for_unmute.start()
 
