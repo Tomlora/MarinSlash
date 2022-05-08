@@ -155,9 +155,9 @@ sg8
 VIII
 p39
 sg10
-I33
+I39
 sg11
-I25
+I29
 ssVkazsc
 p40
 (dp41

@@ -14,6 +14,9 @@ import pygal
 from discord_slash.utils.manage_components import *
 from discord_slash import cog_ext, SlashContext
 
+# Tenter de faire une analyse gvo : offense vs defense (quel winrate ?)
+# Par exemple, quel winrate pour l'offense Malaka/Sian/Fran vs Seara Orion Perna ?
+
 def opendatasw():
     f = open('./SW/siege.json', encoding="utf8") #on ouvre le fichier
         

@@ -6,7 +6,6 @@ from riotwatcher import LolWatcher
 import pandas as pd
 import main
 import datetime
-import calendar
 import numpy as np
 import warnings
 from discord_slash.utils.manage_components import *
@@ -155,7 +154,6 @@ class LeagueofLegends(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.my_task.start()
-        self.reminder.start()
         self.lolsuivi.start()
         
     def printInfo(self, summonerName, idgames: int, succes):
@@ -872,74 +870,7 @@ class LeagueofLegends(commands.Cog):
         await ctx.send(last_match)
         # await ctx.send(match_detail['info']['gameId'])
 
-        # ------------------------------------------------- Alarm
-
-    roleLEC = "<@&956612773868077106>"
-    roleLFL = "<@&956613314731991100>"
-    roleLCS = "<@&956613191956324384>"
-    messageLFL = "La LFL va commencer sur OTP ! " + roleLFL + "\n https://www.twitch.tv/otplol_"
-    messageEUM = "Les EUM vont commencer sur OTP ! " + roleLFL + "\n https://www.twitch.tv/otplol_"
-    messageLCS = "Les LCS vont commencer sur LCS ! " + roleLCS + "\n https://www.twitch.tv/lcs"
-    messageLEC = "La LEC va commencer sur OTP/LEC ! " + roleLEC + "\n https://www.twitch.tv/lec  \n https://www.twitch.tv/otplol_"
-
-    def findDay(self, date):
-        born = datetime.datetime.strptime(date, '%d %m %Y').weekday()
-        return calendar.day_name[born]
-
-    def alarm(self, h, m, message):
-        currentHour = str(datetime.datetime.now().hour)
-        currentMinute = str(datetime.datetime.now().minute)
-        if currentHour == str(h) and currentMinute == str(m):
-            channel = self.bot.get_channel(main.chan_lol)
-            return channel.send(message)
-        else:
-            return False
-
-    @tasks.loop(minutes=1, count=None)
-    async def reminder(self):
-
-        currentHour = str(datetime.datetime.now().hour)
-        currentMonth = str(datetime.datetime.now().month)
-        currentYear = str(datetime.datetime.now().year)
-        currentDay = str(datetime.datetime.now().day)
-        currentMinute = str(datetime.datetime.now().minute)
-        currentJour = str(self.findDay(str(currentDay + ' ' + currentMonth + " " + currentYear)))
-
-        if self.bot.get_channel(main.chan_lol):
-            if currentJour in ['Tuesday', 'Wednesday', 'Saturday'] and currentHour == str(16):
-                try:
-                    await self.alarm(16, 55, self.messageEUM)
-                except:
-                    return False
-
-
-    @cog_ext.cog_slash(name="alarm_lol",
-                       description="Permet d'être ping pour les alarmes",
-                       options=[create_option(name="competition", description="Quelle alarme ?", option_type=3, required=True, choices=[
-                                    create_choice(name="LEC", value="LEC"),
-                                    create_choice(name='Main Kayn', value='Main Kayn'),
-                                    create_choice(name='LCS', value='LCS'),
-                                    create_choice(name='LFL', value='LFL')])])
-                       
-    async def alarm_lol(self, ctx, competition: str):
-
-        liste = ['LEC', 'Main Kayn', 'LCS', 'LFL']
-        user = ctx.author
-        role = discord.utils.get(ctx.guild.roles, name=competition)
-        if competition in liste:
-            if role in user.roles:
-                await user.remove_roles(role)
-                await ctx.send(f' Le rang {role} a été retiré !')
-            else:
-                await user.add_roles(role)
-                await ctx.send(f'Le rang {role} a été ajouté !')
-        else:
-            await ctx.send(f"Le rôle {competition} n'existe pas ou tu n'as pas les droits nécessaires")
-
-    @alarm_lol.error
-    async def info_error_alarm(self, ctx, error):
-        if isinstance(error, commands.CommandError):
-            await ctx.send(f"La competition n'a pas ete precisée : Tu as le choix entre LEC / LFL / LCS / Main Kayn")
+        
 
 
     @tasks.loop(hours=1, count=None)

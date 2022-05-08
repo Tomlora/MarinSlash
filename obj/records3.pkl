@@ -95,7 +95,7 @@ p25
 I18
 sVlinò
 p26
-I25
+I29
 sVnamiyeon
 p27
 I49
@@ -127,7 +127,7 @@ p32
 I5
 sVlinò
 p33
-I28
+I33
 sVnamiyeon
 p34
 I3
@@ -159,7 +159,7 @@ p39
 F9.089166666666667
 sVlinò
 p40
-F12.3615
+F14.292833333333332
 sVnamiyeon
 p41
 F24.802166666666675
@@ -191,7 +191,7 @@ p46
 I1289
 sVlinò
 p47
-I778
+I932
 sVnamiyeon
 p48
 I3900
@@ -223,7 +223,7 @@ p53
 I526
 sVlinò
 p54
-I270
+I313
 sVnamiyeon
 p55
 I2214
@@ -255,7 +255,7 @@ p60
 I173
 sVlinò
 p61
-I101
+I118
 sVnamiyeon
 p62
 I469
@@ -287,7 +287,7 @@ p67
 I134
 sVlinò
 p68
-I80
+I89
 sVnamiyeon
 p69
 I528
@@ -319,7 +319,7 @@ p74
 I736
 sVlinò
 p75
-I5678
+I6509
 sVnamiyeon
 p76
 I946
@@ -351,7 +351,7 @@ p81
 I55
 sVlinò
 p82
-I157
+I175
 sVnamiyeon
 p83
 I118
@@ -383,7 +383,7 @@ p88
 I124
 sVlinò
 p89
-I141
+I171
 sVnamiyeon
 p90
 I139
@@ -415,7 +415,7 @@ p95
 I221
 sVlinò
 p96
-I170
+I204
 sVnamiyeon
 p97
 I828
