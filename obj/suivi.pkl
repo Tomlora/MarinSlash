@@ -24,7 +24,7 @@ p10
 I129
 sVgames
 p11
-I144
+I147
 ssVylarabka
 p12
 (dp13
@@ -98,9 +98,9 @@ sg8
 VII
 p27
 sg10
-I181
+I185
 sg11
-I113
+I115
 ssVkulbutoké
 p28
 (dp29
@@ -117,9 +117,9 @@ sg8
 VIV
 p31
 sg10
-I6
+I7
 sg11
-I24
+I26
 ssVnukethestars
 p32
 (dp33
@@ -155,9 +155,9 @@ sg8
 VIII
 p39
 sg10
-I39
+I41
 sg11
-I29
+I32
 ssVkazsc
 p40
 (dp41
