@@ -30,10 +30,10 @@ data = pd.read_csv(chemin)
 
 # Utiliser les variables jour pour les alarmes.
 # Utiliser ces variables pour empecher les paris d'une compétition lorsque nous sommes dans un jour de match
-jourLEC = ['Friday', 'Saturday']
-jourLCS = ['Saturday', 'Sunday']
-jourLFL = ['Thursday', 'Wednesday']
-jourMSI = ['Thursday', 'Wednesday']
+jour_de_match = {'LEC': ['Friday', 'Saturday'],
+                 'LCS': ['Saturday', 'Sunday'],
+                 'LFL': ['Tuesday', 'Wednesday'],
+                 'MSI': ['Tuesday', 'Wednesday']}
 
 
 
@@ -93,7 +93,7 @@ class Fantasy(commands.Cog):
 
 
         if self.bot.get_channel(main.chan_lol):
-            if currentJour in jourMSI and currentHour == str(9):
+            if currentJour in jour_de_match['MSI'] and currentHour == str(9):
                 try:
                     await self.alarm(9, 55, self.messageEUM)
                 except:
