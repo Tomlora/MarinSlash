@@ -21,10 +21,10 @@ VI
 p9
 sVAchievements
 p10
-I129
+I131
 sVgames
 p11
-I147
+I150
 ssVylarabka
 p12
 (dp13
@@ -98,9 +98,9 @@ sg8
 VII
 p27
 sg10
-I185
+I190
 sg11
-I115
+I118
 ssVkulbutoké
 p28
 (dp29
