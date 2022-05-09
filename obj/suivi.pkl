@@ -79,9 +79,9 @@ sg8
 VII
 p23
 sg10
-I31
+I34
 sg11
-I29
+I31
 ssVnamiyeon
 p24
 (dp25

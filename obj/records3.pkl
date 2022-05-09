@@ -101,7 +101,7 @@ p27
 I54
 sVdjingo
 p28
-I25
+I27
 ssVSOLOKILLS
 p29
 (dp30
@@ -165,7 +165,7 @@ p41
 F27.35116666666667
 sVdjingo
 p42
-F12.512166666666666
+F13.6565
 ssVWARDS_SCORE
 p43
 (dp44
@@ -197,7 +197,7 @@ p48
 I4339
 sVdjingo
 p49
-I764
+I844
 ssVWARDS_POSEES
 p50
 (dp51
@@ -229,7 +229,7 @@ p55
 I2454
 sVdjingo
 p56
-I329
+I360
 ssVWARDS_DETRUITES
 p57
 (dp58
@@ -261,7 +261,7 @@ p62
 I533
 sVdjingo
 p63
-I71
+I80
 ssVWARDS_PINKS
 p64
 (dp65
@@ -293,7 +293,7 @@ p69
 I587
 sVdjingo
 p70
-I131
+I143
 ssVCS
 p71
 (dp72
@@ -325,7 +325,7 @@ p76
 I1052
 sVdjingo
 p77
-I4545
+I5055
 ssVKILLS
 p78
 (dp79
@@ -357,7 +357,7 @@ p83
 I131
 sVdjingo
 p84
-I160
+I176
 ssVDEATHS
 p85
 (dp86
@@ -389,7 +389,7 @@ p90
 I154
 sVdjingo
 p91
-I120
+I130
 ssVASSISTS
 p92
 (dp93
@@ -421,5 +421,5 @@ p97
 I911
 sVdjingo
 p98
-I191
+I202
 ss.

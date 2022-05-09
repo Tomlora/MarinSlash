@@ -66,7 +66,7 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
             fichier[key]['Champion'] = str(thisChampName)
             fichier[key]['Joueur'] = summonerName
             # Annonce que le record a été battu :
-            embed = embed + "\n ** Record " + str(key).lower() + " battu avec " + str(Score_check)
+            embed = embed + "\n ** :boom: Record " + str(key).lower() + " battu avec " + str(Score_check) + " **"
 
 
     return fichier, embed
@@ -156,7 +156,7 @@ def palier(embed, key:str, stats:str, old_value:str, new_value:str, palier:list)
     if key == stats:
         for value in palier:
             if old_value < value and new_value > value:
-                embed = embed + "\n ** :tada: A dépassé les " + str(value) +  " " + stats.lower() + " avec " + str(new_value)
+                embed = embed + "\n ** :tada: A dépassé les " + str(value) +  " " + stats.lower() + " avec " + str(new_value) + " **"
     return embed 
                 
 
@@ -630,6 +630,8 @@ class LeagueofLegends(commands.Cog):
                 writeData(suivi, 'suivi') #achievements
 
                 writeData(records_cumul, 'records3')  # records3
+                
+        # observations
 
         if thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and thisQ == "RANKED":
             embed.add_field(
