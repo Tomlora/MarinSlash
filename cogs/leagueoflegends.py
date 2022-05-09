@@ -152,7 +152,7 @@ def getId(summonerName):
         return str(data[summonerName])
 
 
-def palier(embed, key:str, stats:str, old_value:str, new_value:str, palier:list):
+def palier(embed, key:str, stats:str, old_value:int, new_value:int, palier:list):
     if key == stats:
         for value in palier:
             if old_value < value and new_value > value:
@@ -591,11 +591,11 @@ class LeagueofLegends(commands.Cog):
 
         for key, value in dict_cumul.items():
             try:
-                old_value = records_cumul[key][summonerName.lower().replace(" ", "")]
+                old_value = int(records_cumul[key][summonerName.lower().replace(" ", "")])
                 records_cumul[key][summonerName.lower().replace(" ", "")] = records_cumul[key][
                                                                                 summonerName.lower().replace(" ",
                                                                                                              "")] + value
-                new_value = records_cumul[key][summonerName.lower().replace(" ", "")]
+                new_value = int(records_cumul[key][summonerName.lower().replace(" ", "")])
                 
                 # les paliers
                 if succes is True and thisQ == "RANKED" and thisTime > 20:

@@ -81,7 +81,7 @@ p23
 sg10
 I34
 sg11
-I31
+I32
 ssVnamiyeon
 p24
 (dp25

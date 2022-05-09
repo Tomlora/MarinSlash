@@ -304,9 +304,10 @@ class Recordslol(commands.Cog):
                                     create_choice(name='vision moyenne', value='VISION moyenne'),
                                     create_choice(name='CS', value='CS'),
                                     create_choice(name='Solokills', value='SOLOKILLS'),
-                                    create_choice(name='games', value='GAMES')])
+                                    create_choice(name='games', value='GAMES')]),
+                                create_option(name="fichier_recap", description="Fichier Excel recapitulatif", option_type=5, required=False)
                                 ])
-    async def pantheon(self, ctx, stat, stat2:str="no", stat3:str="no"):
+    async def pantheon(self, ctx, stat, stat2:str="no", stat3:str="no", fichier_recap:bool=False):
         
         stat = [stat, stat2, stat3]
         channel_answer = ctx.channel
@@ -334,6 +335,8 @@ class Recordslol(commands.Cog):
         
         df['DUREE_MOYENNE'] = round(df['DUREE_MOYENNE'] * 60, 2)
         df['WARDS_MOYENNE'] = round(df['WARDS_MOYENNE'], 2)
+        
+        df.to_excel('./records/pantheon.xlsx', index=False)
 
         def figure_hist(dict, title): # Fonction pour faire l'histogramme en fonction d'un dict
 
@@ -443,6 +446,10 @@ class Recordslol(commands.Cog):
                 await channel_answer.send('Durée des games exprimée en minutes :')
                 await channel_answer.send(file=discord.File('pie.png'))
                 os.remove('pie.png')
+                
+            if fichier_recap is True:
+                url = "./records/pantheon.xlsx"
+                await channel_answer.send(file=discord.File(url))
                 
 
         except asyncio.TimeoutError:
