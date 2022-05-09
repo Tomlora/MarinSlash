@@ -155,6 +155,10 @@ async def records_list(ctx):
 @help.command()
 async def pantheon(ctx):
     em = discord.Embed(title="/pantheon", description="Cumul des statistiques")
+    em.add_field(name="**Syntaxe**", value="`/pantheon <stats1> <stats2 <stats3> <fichier_recap>`")
+    em.add_field(name="**Arguments**", value="`stats : choisir une stat dans la liste\n fichier_recap : génère un fichier excel recapitulatif des stats `", inline=False)
+    em.add_field(name="**Exemples**", value="`/pantheon vision\n/pantheon vision gold solokills True`",
+                 inline=False)
     em.add_field(name="**Syntaxe**", value="`/pantheon`")
 
     await ctx.send(embed=em)
@@ -547,7 +551,7 @@ async def unmute(ctx, member: discord.Member, *, reason="Aucune raison n'a été
 
 from discord.utils import get
 import datetime
-from Data.database_handler import DatabaseHandler
+from obj.Mute.database_handler import DatabaseHandler
 
 database_handler = DatabaseHandler("database.db")
 
