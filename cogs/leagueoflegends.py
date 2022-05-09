@@ -156,6 +156,7 @@ def palier(embed, key:str, stats:str, old_value:int, new_value:int, palier:list)
     if key == stats:
         for value in palier:
             if old_value < value and new_value > value:
+                stats = stats.replace('_', ' ')
                 embed = embed + "\n ** :tada: A dépassé les " + str(value) +  " " + stats.lower() + " avec " + str(new_value) + " **"
     return embed 
                 
@@ -605,6 +606,9 @@ class LeagueofLegends(commands.Cog):
                     exploits = palier(exploits, key, "KILLS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
                     exploits = palier(exploits, key, "DEATHS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
                     exploits = palier(exploits, key, "ASSISTS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
+                    exploits = palier(exploits, key, "CS", old_value, new_value, np.arange(10000, 100000, 10000, int).tolist())
+                    exploits = palier(exploits, key, "QUADRA", old_value, new_value, np.arange(5, 100, 5, int).tolist())
+                    exploits = palier(exploits, key, "PENTA", old_value, new_value, np.arange(5, 100, 5, int).tolist())
                     
                         
                             

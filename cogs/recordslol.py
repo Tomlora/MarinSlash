@@ -336,7 +336,7 @@ class Recordslol(commands.Cog):
         df['DUREE_MOYENNE'] = round(df['DUREE_MOYENNE'] * 60, 2)
         df['WARDS_MOYENNE'] = round(df['WARDS_MOYENNE'], 2)
         
-        df.to_excel('./records/pantheon.xlsx', index=False)
+        df.to_excel('./obj/records/pantheon.xlsx', index=False)
 
         def figure_hist(dict, title): # Fonction pour faire l'histogramme en fonction d'un dict
 
@@ -448,7 +448,7 @@ class Recordslol(commands.Cog):
                 os.remove('pie.png')
                 
             if fichier_recap is True:
-                url = "./records/pantheon.xlsx"
+                url = "./obj/records/pantheon.xlsx"
                 await channel_answer.send(file=discord.File(url))
                 
 
