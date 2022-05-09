@@ -366,6 +366,7 @@ class analyseLoL(commands.Cog):
                 fig.update_xaxes(automargin=True)
                 fig.write_image('plot.png')
                 await channel_answer.send(file=discord.File('plot.png'))
+                await channel_answer.send(f'pour le joueur {summonername}')
                 os.remove('plot.png')
 
         except asyncio.TimeoutError:

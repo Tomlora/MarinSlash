@@ -148,14 +148,20 @@ def getId(summonerName):
         return str(data[summonerName])
 
 
-
+def palier(embed, key:str, stats:str, old_value:str, new_value:str, palier:list):
+    if key == stats:
+        for value in palier:
+            if old_value < value and new_value > value:
+                embed = embed + "\n ** :tada: A dépassé les " + str(value) +  " " + stats.lower() + " avec " + str(new_value)
+    return embed 
+                
 
 class LeagueofLegends(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.my_task.start()
-        self.lolsuivi.start()
-        
+        self.lolsuivi.start()      
+ 
     def printInfo(self, summonerName, idgames: int, succes):
 
         last_match, match_detail_stats, me = match_by_puuid(summonerName, idgames)
@@ -288,8 +294,8 @@ class LeagueofLegends(commands.Cog):
 
         thisDamageListe = dict_data(thisId, match_detail, 'totalDamageDealtToChampions')
 
-        thisTeamDamage = thisDamageListe[0] + thisDamageListe[1] + thisDamageListe[2] + thisDamageListe[3] + \
-                         thisDamageListe[4]
+        # thisTeamDamage = thisDamageListe[0] + thisDamageListe[1] + thisDamageListe[2] + thisDamageListe[3] + \
+        #                  thisDamageListe[4]
 
         # pseudo
 
@@ -351,6 +357,7 @@ class LeagueofLegends(commands.Cog):
         thisDamageTakenRatio = round(
             (match_detail['info']['participants'][thisId]['challenges']['damageTakenOnTeamPercentage']) * 100, 2)
 
+        # on doit identifier les stats soloq (et non flex...)
         try:
             if str(thisStats[0]['queueType']) == "RANKED_SOLO_5x5":
                 i = 0
@@ -460,8 +467,6 @@ class LeagueofLegends(commands.Cog):
                                              thisChampName, summonerName, channel)
                     records2 = records_check(records2, key, 'HEALS_SUR_ALLIES', thisTotalOnTeammates,
                                              thisChampName, summonerName, channel)
-
-                    # await channel.send(f'Le joueur {summonerName} détient désormais le record de {key} avec un score de {float(round((int(thisKills) + int(thisAssists)) / int(thisDeaths), 2))} sur {thisChamp}')
 
                     writeData(records, 'records')
                     writeData(records2, 'records2')
@@ -580,9 +585,23 @@ class LeagueofLegends(commands.Cog):
 
         for key, value in dict_cumul.items():
             try:
+                old_value = records_cumul[key][summonerName.lower().replace(" ", "")]
                 records_cumul[key][summonerName.lower().replace(" ", "")] = records_cumul[key][
                                                                                 summonerName.lower().replace(" ",
                                                                                                              "")] + value
+                new_value = records_cumul[key][summonerName.lower().replace(" ", "")]
+                
+                # les paliers
+                if succes is True and thisQ == "RANKED" and thisTime > 20:
+                    exploits = palier(exploits, key, "WARDS_POSEES", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
+                    exploits = palier(exploits, key, "SOLOKILLS", old_value, new_value, np.arange(100, 1000, 100, int).tolist())
+                    exploits = palier(exploits, key, "NBGAMES", old_value, new_value, np.arange(100, 1000, 100, int).tolist())
+                    exploits = palier(exploits, key, "KILLS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
+                    exploits = palier(exploits, key, "DEATHS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
+                    exploits = palier(exploits, key, "ASSISTS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
+                    
+                        
+                            
             except:
                 records_cumul[key][summonerName.lower().replace(" ", "")] = value
 
@@ -992,13 +1011,7 @@ class LeagueofLegends(commands.Cog):
             await channel.send(embed=embed)
             await channel.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
             
-            
-    @commands.command()
-    @main.isOwner2()
-    async def test_df(self, ctx):
-        records3 = loadData('records3')
-        print(records3)
-            
+                      
     # @commands.command()
     # @main.isOwner2()
     # async def reset_solokills(self, ctx):
