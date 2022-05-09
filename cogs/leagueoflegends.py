@@ -58,14 +58,18 @@ dict_rankid = {"BRONZE IV" : 1,
 
 
 
-def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, channel):
+def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed):
     if str(key_boucle) == str(key):
+        # si le record est battu, on fait les modifs nécessaires:
         if float(fichier[key]['Score']) < Score_check:
             fichier[key]['Score'] = Score_check
             fichier[key]['Champion'] = str(thisChampName)
             fichier[key]['Joueur'] = summonerName
+            # Annonce que le record a été battu :
+            embed = embed + "\n ** Record " + str(key).lower() + " battu avec " + str(Score_check)
 
-    return fichier
+
+    return fichier, embed
 
 def match_by_puuid(summonerName, idgames: int):
     me = lol_watcher.summoner.by_name(my_region, summonerName)
@@ -375,6 +379,8 @@ class LeagueofLegends(commands.Cog):
             print("no ranked stats available for " + str(summonerName))
 
         # name3 = 'suivi'
+        
+        exploits = "Observations :"
 
         if thisQ == "RANKED" and thisTime > 20:
 
@@ -385,88 +391,88 @@ class LeagueofLegends(commands.Cog):
             for key, value in records.items():
                 if int(thisDeaths) >= 1:
 
-                    records = records_check(records, key, 'KDA',
+                    records, exploits = records_check(records, key, 'KDA',
                                             float(thisKDA),
-                                            thisChampName, summonerName, channel)
+                                            thisChampName, summonerName, exploits)
                 else:
-                    records = records_check(records, key, 'KDA',
+                    records, exploits = records_check(records, key, 'KDA',
                                             float(
                                                 round((int(thisKills) + int(thisAssists)) / (int(thisDeaths) + 1), 2)),
-                                            thisChampName, summonerName, channel)
+                                            thisChampName, summonerName, exploits)
 
-                records = records_check(records, key, 'KP', thisKP,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'CS', thisMinion,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'CS/MIN', thisMinionPerMin,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'KILLS', thisKills,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'DEATHS', thisDeaths,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'ASSISTS', thisAssists,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'WARDS_SCORE', thisVision,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'WARDS_POSEES', thisWards,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'WARDS_DETRUITES', thisWardsKilled,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'WARDS_PINKS', thisPink,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'DEGATS_INFLIGES',
+                records, exploits = records_check(records, key, 'KP', thisKP,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'CS', thisMinion,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'CS/MIN', thisMinionPerMin,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'KILLS', thisKills,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'DEATHS', thisDeaths,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'ASSISTS', thisAssists,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'WARDS_SCORE', thisVision,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'WARDS_POSEES', thisWards,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'WARDS_DETRUITES', thisWardsKilled,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'WARDS_PINKS', thisPink,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'DEGATS_INFLIGES',
                                         match_detail['info']['participants'][thisId]['totalDamageDealtToChampions'],
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, '% DMG', thisDamageRatio,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'DOUBLE', thisDouble,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'TRIPLE', thisTriple,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'QUADRA', thisQuadra,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'PENTA', thisPenta,
-                                        thisChampName, summonerName, channel)
-                records = records_check(records, key, 'DUREE_GAME', thisTime,
-                                        thisChampName, summonerName, channel)
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, '% DMG', thisDamageRatio,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'DOUBLE', thisDouble,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'TRIPLE', thisTriple,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'QUADRA', thisQuadra,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'PENTA', thisPenta,
+                                        thisChampName, summonerName, exploits)
+                records, exploits = records_check(records, key, 'DUREE_GAME', thisTime,
+                                        thisChampName, summonerName, exploits)
 
                 records2 = loadData('records2')
 
                 for key, value in records2.items():
-                    if thisChampName != "Zeri":
-                        records2 = records_check(records2, key, 'SPELLS_USED',
+                    if thisChampName != "Zeri": # on supprime Zeri de ce record qui est impossible à égaler avec d'autres champions
+                        records2, exploits = records_check(records2, key, 'SPELLS_USED',
                                                  thisSpellUsed,
-                                                 thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'BUFFS_VOLEES', thisbuffsVolees,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'SPELLS_EVITES', thisSpellsDodged,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'MULTIKILL_1_SPELL', thisMultiKillOneSpell,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'SOLOKILLS', thisSoloKills,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'CS_APRES_10_MIN', thisCSafter10min,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'NB_SERIES_DE_KILLS', thisKillingSprees,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'DOMMAGES_TANK',
+                                                 thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'BUFFS_VOLEES', thisbuffsVolees,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'SPELLS_EVITES', thisSpellsDodged,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'MULTIKILL_1_SPELL', thisMultiKillOneSpell,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'SOLOKILLS', thisSoloKills,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'CS_APRES_10_MIN', thisCSafter10min,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'NB_SERIES_DE_KILLS', thisKillingSprees,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'DOMMAGES_TANK',
                                              int(match_detail['info']['participants'][thisId]['totalDamageTaken']),
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'DOMMAGES_TANK%', thisDamageTakenRatio,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'DOMMAGES_REDUITS', thisDamageSelfMitigated,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'DOMMAGES_TOWER', thisDamageTurrets,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'GOLDS_GAGNES', thisGoldEarned,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'SERIES_DE_KILLS', thisKillsSeries,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'TOTAL_HEALS',
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'DOMMAGES_TANK%', thisDamageTakenRatio,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'DOMMAGES_REDUITS', thisDamageSelfMitigated,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'DOMMAGES_TOWER', thisDamageTurrets,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'GOLDS_GAGNES', thisGoldEarned,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'SERIES_DE_KILLS', thisKillsSeries,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'TOTAL_HEALS',
                                              thisTotalHealed,
-                                             thisChampName, summonerName, channel)
-                    records2 = records_check(records2, key, 'HEALS_SUR_ALLIES', thisTotalOnTeammates,
-                                             thisChampName, summonerName, channel)
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'HEALS_SUR_ALLIES', thisTotalOnTeammates,
+                                             thisChampName, summonerName, exploits)
 
                     writeData(records, 'records')
                     writeData(records2, 'records2')
@@ -517,7 +523,7 @@ class LeagueofLegends(commands.Cog):
 
         # annonce
         points = 0
-        exploits = "Observations :"
+        
 
         settings = loadData("achievements_settings")
         records_cumul = loadData('records3')
@@ -595,7 +601,7 @@ class LeagueofLegends(commands.Cog):
                 if succes is True and thisQ == "RANKED" and thisTime > 20:
                     exploits = palier(exploits, key, "WARDS_POSEES", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
                     exploits = palier(exploits, key, "SOLOKILLS", old_value, new_value, np.arange(100, 1000, 100, int).tolist())
-                    exploits = palier(exploits, key, "NBGAMES", old_value, new_value, np.arange(100, 1000, 100, int).tolist())
+                    exploits = palier(exploits, key, "NBGAMES", old_value, new_value, np.arange(50, 1000, 50, int).tolist())
                     exploits = palier(exploits, key, "KILLS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
                     exploits = palier(exploits, key, "DEATHS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
                     exploits = palier(exploits, key, "ASSISTS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
