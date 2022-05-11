@@ -10,6 +10,10 @@ from discord_slash.utils.manage_components import *
 from discord_slash import cog_ext, SlashContext
 
 import main
+from fonctions.date import findDay
+from datetime import datetime
+
+
 
 chan_general = 768637526176432158
 

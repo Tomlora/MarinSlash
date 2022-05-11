@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands, tasks
 
-import datetime
 import calendar
 import main
 import pandas as pd
@@ -11,6 +10,8 @@ from fonctions.gestion_fichier import loadDataFL, loadDataRate, writeDataFL, wri
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
+
+from fonctions.date import findDay, alarm, jour_de_la_semaine
 
 # Certaines cmd devraient être réservés en message privé (prendre exemple sur match_of_the_week)
 # Comment ajouter LEC/LFL/LCS ?
@@ -34,6 +35,8 @@ jour_de_match = {'LEC': ['Friday', 'Saturday'],
                  'LCS': ['Saturday', 'Sunday'],
                  'LFL': ['Tuesday', 'Wednesday'],
                  'MSI': ['Tuesday', 'Wednesday']}
+
+# différencier les semaines pour les compétitions
 
 
 
@@ -80,36 +83,16 @@ class Fantasy(commands.Cog):
     messageLEC = "La LEC va commencer sur OTP/LEC ! " + roleLEC + "\n https://www.twitch.tv/lec  \n https://www.twitch.tv/otplol_"
     messageMSI = "Le MSI va commencer sur OTP/LEC ! " + roleLEC + " " + roleLCS + "\n https://www.twitch.tv/otplol_"
     
-    
-
-    def findDay(self, date):
-        born = datetime.strptime(date, '%d %m %Y').weekday()
-        return calendar.day_name[born]
-
-    def alarm(self, h, m, message):
-        currentHour = str(datetime.datetime.now().hour)
-        currentMinute = str(datetime.datetime.now().minute)
-        if currentHour == str(h) and currentMinute == str(m):
-            channel = self.bot.get_channel(main.chan_lol)
-            return channel.send(message)
-        else:
-            return False
-
     @tasks.loop(minutes=1, count=None)
     async def reminder(self):
         
         currentHour = str(datetime.now().hour)
-        currentMonth = str(datetime.now().month)
-        currentYear = str(datetime.now().year)
-        currentDay = str(datetime.now().day)
-        currentMinute = str(datetime.now().minute)
-        currentJour = str(self.findDay(str(currentDay + ' ' + currentMonth + " " + currentYear)))
-
+        currentJour = jour_de_la_semaine()
 
         if self.bot.get_channel(main.chan_lol):
             if currentJour in jour_de_match['MSI'] and currentHour == str(9):
                 try:
-                    await self.alarm(9, 55, self.messageEUM)
+                    await alarm(9, 55, self.messageEUM)
                 except:
                     return False
 
