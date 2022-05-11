@@ -11,7 +11,7 @@ from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 
-from fonctions.date import findDay, alarm, jour_de_la_semaine
+from fonctions.date import alarm, jour_de_la_semaine
 
 # Certaines cmd devraient être réservés en message privé (prendre exemple sur match_of_the_week)
 # Comment ajouter LEC/LFL/LCS ?
@@ -85,16 +85,11 @@ class Fantasy(commands.Cog):
     
     @tasks.loop(minutes=1, count=None)
     async def reminder(self):
-        
-        currentHour = str(datetime.now().hour)
-        currentJour = jour_de_la_semaine()
+        channel = self.bot.get_channel(main.chan_lol)
 
-        if self.bot.get_channel(main.chan_lol):
-            if currentJour in jour_de_match['MSI'] and currentHour == str(9):
-                try:
-                    await alarm(9, 55, self.messageEUM)
-                except:
-                    return False
+        if channel: # si le channel est disponible
+            if alarm(9, 55, jour_de_match['MSI']):
+                channel.send(self.messageEUM)
 
 
     @cog_ext.cog_slash(name="alarm_lol",

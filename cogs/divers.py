@@ -10,8 +10,9 @@ from discord_slash.utils.manage_components import *
 from discord_slash import cog_ext, SlashContext
 
 import main
-from fonctions.date import findDay
+from fonctions.date import jour_de_la_semaine
 from datetime import datetime
+
 
 
 
@@ -168,6 +169,15 @@ class Divers(commands.Cog):
     @commands.command()
     async def img(self, ctx, *, img:str):
         await ctx.send(file=discord.File(f'./img/{img}.jpg'))
+        
+    @cog_ext.cog_slash(name="jour")
+    async def jour(self, ctx):
+        await ctx.send(jour_de_la_semaine())
+        
+        
+    
+        
+        
 
 
 def setup(bot):
