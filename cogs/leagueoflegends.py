@@ -1,3 +1,4 @@
+from json import detect_encoding
 from discord.ext import commands, tasks
 
 from matplotlib import pyplot as plt
@@ -62,11 +63,13 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
     if str(key_boucle) == str(key):
         # si le record est battu, on fait les modifs nécessaires:
         if float(fichier[key]['Score']) < Score_check:
+            ancien_score = fichier[key]['Score']
+            detenteur_ancien_score = fichier[key]['Joueur']
             fichier[key]['Score'] = Score_check
             fichier[key]['Champion'] = str(thisChampName)
             fichier[key]['Joueur'] = summonerName
             # Annonce que le record a été battu :
-            embed = embed + "\n ** :boom: Record " + str(key).lower() + " battu avec " + str(Score_check) + " **"
+            embed = embed + "\n ** :boom: Record " + str(key).lower() + " battu avec " + str(Score_check) + " ** (Ancien : " + str(ancien_score) + " par " + str(detenteur_ancien_score) + ")"
 
 
     return fichier, embed

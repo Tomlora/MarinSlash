@@ -74,10 +74,10 @@ p36
 (dp37
 VScore
 p38
-I91
+I94
 sVChampion
 p39
-VJinx
+VXayah
 p40
 sVJoueur
 p41
