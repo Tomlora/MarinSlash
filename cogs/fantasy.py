@@ -457,6 +457,7 @@ class Fantasy(commands.Cog):
                                     create_choice(name='LCS', value='LCS')])])
     @main.isOwner2_slash()
     async def bet(self, ctx, competition='LEC'):
+        erreur = False
         user = str(ctx.author)
         # settings
         semaine = loadDataFL('settings')['semaine']
@@ -476,7 +477,7 @@ class Fantasy(commands.Cog):
         def check(m):
             return m.author == author and m.channel == channel
         
-        
+        await channel.send('La réponse doit être au format `<equipe gagnante> <points mises> `')
         schedule_date = schedule_date[schedule_date['Competition'] == competition]
         op1 = schedule_date['Equipe1'].values
         op2 = schedule_date['Equipe2'].values
@@ -491,10 +492,20 @@ class Fantasy(commands.Cog):
                 msg = await self.bot.wait_for('message', timeout=60, check=check)
                 await channel.send('Score enregistré !'.format(msg))
                 msg = str(msg.content).split()
+                
                 equipe_gagnante = msg[0]
+                if not equipe_gagnante in [equipe1, equipe2]: # si le joueur s'est trompé d'équipe
+                    erreur = True
+                    await channel.send(f'Erreur : Le gagnant est soit {equipe1} ou {equipe2}. Annulation des paris.')
+                    break 
+                
                 points_mises = int(msg[1])
                 data[user]['Points'] = data[user]['Points'] - points_mises
                 points_user = data[user]['Points']
+                if points_user < 0: # Si le joueur n'a plus de points, on ne peut pas continuer.
+                    await ctx.send(f"Erreur, tu n'as pas assez de points. {points_user} \nAnnulation des paris.")
+                    erreur = True
+                    break
                 try:
                     data[user][semaine][competition][match] = [equipe_gagnante, points_mises]           
                 except KeyError: # Si erreur, le joueur n'a jamais misé sur ces matchs.
@@ -502,19 +513,13 @@ class Fantasy(commands.Cog):
                         data[user][semaine][competition] = {match : [equipe_gagnante, points_mises]}
                     except KeyError: # Si erreur, le joueur n'a jamais misé pour cette compétition.
                         data[user][semaine] = {competition : {match : [equipe_gagnante, points_mises]}}
-                        
-                if points_user < 0: # Si le joueur n'a plus de points, on ne peut pas continuer.
-                    await ctx.send(f"Erreur, tu n'as pas assez de points. {points_user} \nAnnulation des paris.")
-                    break
-                    
-                    
-                                        
+                                                            
                 await channel.send(f'Il te reste {points_user} points à miser ')
             except asyncio.TimeoutError:
                 await msg.delete()
                 await ctx.send("Annulé")
         
-        if points_user > 0: # seulement s'il reste des points au joueur.
+        if erreur is False: # seulement s'il reste des points au joueur.
             writeDataFL(data)
             await channel.send(f'Enregistré pour les matchs de la semaine {semaine}')
     
