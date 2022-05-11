@@ -157,7 +157,7 @@ def palier(embed, key:str, stats:str, old_value:int, new_value:int, palier:list)
         for value in palier:
             if old_value < value and new_value > value:
                 stats = stats.replace('_', ' ')
-                embed = embed + "\n ** :tada: A dépassé les " + str(value) +  " " + stats.lower() + " avec " + str(new_value) + " **"
+                embed = embed + "\n ** :tada: Stats cumulées : A dépassé les " + str(value) +  " " + stats.lower() + " avec " + str(new_value) + " " + stats.lower() + "**"
     return embed 
                 
 

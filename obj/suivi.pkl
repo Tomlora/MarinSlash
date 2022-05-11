@@ -24,7 +24,7 @@ p10
 I150
 sVgames
 p11
-I168
+I169
 ssVylarabka
 p12
 (dp13
@@ -79,9 +79,9 @@ sg8
 VII
 p23
 sg10
-I34
+I36
 sg11
-I32
+I34
 ssVnamiyeon
 p24
 (dp25
