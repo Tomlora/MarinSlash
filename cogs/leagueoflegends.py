@@ -206,6 +206,9 @@ class LeagueofLegends(commands.Cog):
         # print(thisId)
         thisQId = match_detail['info']['queueId']
         thisPosition = match_detail['info']['participants'][thisId]['teamPosition']
+        
+        if thisQId == 900: #urf (géré différemment)
+            return {}
         ##
         if (str(thisPosition) == "MIDDLE"):
             thisPosition = "MID"
@@ -292,6 +295,8 @@ class LeagueofLegends(commands.Cog):
             thisQ = "ARAM"
         else:
             thisQ = "OTHER"
+            
+   
 
             # thisQ = 0 (partie entrainement) / thisQ = 2000 (didactiel)
 
@@ -780,6 +785,7 @@ class LeagueofLegends(commands.Cog):
 
         id_data = loadData("id_data")
         suivirank = loadData("suivi")
+        suivirank_24h = loadData('suivi_24h')
 
         id_data_keys = id_data.keys()
 
@@ -814,7 +820,6 @@ class LeagueofLegends(commands.Cog):
                     except:
                         print('Channel impossible')
             except:
-                del suivirank[key]
                 suivirank[key] = {
                     'wins': 0,
                     'losses': 0,
@@ -823,6 +828,16 @@ class LeagueofLegends(commands.Cog):
                     'rank': '0',
                     'Achievements': 0,
                     'games': 0}
+                
+                suivirank_24h[key] = {
+                    'wins': 0,
+                    'losses': 0,
+                    'LP': 0,
+                    'tier': "Non-classe",
+                    'rank': '0',
+                    'Achievements': 0,
+                    'games': 0}
+                writeData(suivirank_24h, "suivi_24h")
 
         writeData(suivirank, "suivi")
 
@@ -835,7 +850,8 @@ class LeagueofLegends(commands.Cog):
 
         embed = self.printInfo(summonerName=summonername, idgames=int(numerogame), succes=succes)
 
-        await ctx.send(embed=embed)
+        if embed != {}:
+            await ctx.send(embed=embed)
                
 
     async def printLive(self, summonerName):
@@ -855,7 +871,7 @@ class LeagueofLegends(commands.Cog):
                 try:
                     await self.printLive(key)
                 except:
-                    print(f"Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs")
+                    print(f"Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
                 data[key] = getId(key)
 
         writeData(data, 'id_data')
@@ -920,6 +936,8 @@ class LeagueofLegends(commands.Cog):
             df = df.transpose().reset_index()
 
             channel = self.bot.get_channel(int(main.chan_lol))
+            
+            df = df[df['tier'] != 'Non-classe']
 
             df['tier_pts'] = 0
             df['tier_pts'] = np.where(df.tier == 'BRONZE', 1, df.tier_pts)
