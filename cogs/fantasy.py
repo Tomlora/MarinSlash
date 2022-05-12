@@ -11,6 +11,7 @@ from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 
+from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 from fonctions.date import alarm, jour_de_la_semaine
 
 # Certaines cmd devraient être réservés en message privé (prendre exemple sur match_of_the_week)
