@@ -1,10 +1,20 @@
 
 import pandas as pd
-import sqlite3
+from sqlalchemy import create_engine, Float
 
-def lire_bdd(nom_table, index=None, url='./obj/BDD/database.db'):
-    df = pd.read_sql(f'SELECT * FROM {nom_table}', con=sqlite3.connect(url), index_col = index)
+engine = create_engine('sqlite:///./obj/BDD/database.db')
+
+
+def lire_bdd(nom_table):
+    
+    df = pd.read_sql(f'SELECT * FROM {nom_table}', con=engine, index_col='index')
+    df = df.transpose()
+    df = df.to_dict()
     return df
 
-def sauvegarde_bdd(df, nom_table, index=None, url='./obj/BDD/database.db'):
-    df.to_sql(nom_table, con=sqlite3.connect(url), if_exists='replace', index_label=index)
+
+def sauvegarde_bdd(df, nom_table):
+    df = pd.DataFrame(df)
+    df = df.transpose()
+    df.to_sql(nom_table, con=engine, if_exists='replace', index=True, method='multi', dtype={'Score' : Float()})
+    
