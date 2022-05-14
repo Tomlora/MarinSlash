@@ -12,6 +12,7 @@ import warnings
 from discord_slash.utils.manage_components import *
 from cogs.achievements_scoringlol import scoring
 from fonctions.gestion_fichier import loadData, writeData
+from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
@@ -209,6 +210,9 @@ class LeagueofLegends(commands.Cog):
         
         if thisQId == 900: #urf (géré différemment)
             return {}
+        
+        if thisQId == 840:
+            return {} # bot game
         ##
         if (str(thisPosition) == "MIDDLE"):
             thisPosition = "MID"
@@ -385,7 +389,7 @@ class LeagueofLegends(commands.Cog):
             thisVictory = str(thisStats[i]['wins'])
             thisLoose = str(thisStats[i]['losses'])
         except IndexError:
-            print("no ranked stats available for " + str(summonerName))
+            rank = "no rank in ranked"
 
         # name3 = 'suivi'
         
@@ -394,6 +398,7 @@ class LeagueofLegends(commands.Cog):
         if thisQ == "RANKED" and thisTime > 20:
 
             records = loadData('records')
+            # records = lire_bdd('records')
 
             suivi = loadData('suivi')
 
@@ -446,6 +451,7 @@ class LeagueofLegends(commands.Cog):
                                         thisChampName, summonerName, exploits)
 
                 records2 = loadData('records2')
+                # records2 = lire_bdd('records2')
 
                 for key, value in records2.items():
                     if thisChampName != "Zeri": # on supprime Zeri de ce record qui est impossible à égaler avec d'autres champions
@@ -485,6 +491,8 @@ class LeagueofLegends(commands.Cog):
 
                     writeData(records, 'records')
                     writeData(records2, 'records2')
+                    # sauvegarde_bdd(records, 'records')
+                    # sauvegarde_bdd(records2, 'records2')
 
         # couleur de l'embed en fonction du pseudo
 
@@ -536,6 +544,7 @@ class LeagueofLegends(commands.Cog):
 
         settings = loadData("achievements_settings")
         records_cumul = loadData('records3')
+        # records_cumul = lire_bdd('records3')
 
         if int(thisPenta) >= settings['Pentakill']:
             exploits = exploits + "\n ** :crown: :five: Ce joueur a pentakill ** " + str(thisPenta) + " fois"
@@ -642,6 +651,7 @@ class LeagueofLegends(commands.Cog):
                 writeData(suivi, 'suivi') #achievements
 
                 writeData(records_cumul, 'records3')  # records3
+                # sauvegarde_bdd(records_cumul, 'records3')
                 
         # observations
 
@@ -695,7 +705,7 @@ class LeagueofLegends(commands.Cog):
         # Stats soloq :
         if thisQ == "RANKED" or thisQ == "FLEX":
             if thisWinrate == ' ':
-                embed.add_field(name="Current rank", value="no ranked data available", inline=False)
+                embed.add_field(name="Current rank", value=rank, inline=False)
             else:
                 embed.add_field(name="Current rank : " + thisTier + " " + thisRank + " - " + thisLP + "LP",
                                 value="Winrate: " + thisWinrateStat + "%" + "\n Victoires : " + thisVictory +
@@ -858,8 +868,9 @@ class LeagueofLegends(commands.Cog):
         channel = self.bot.get_channel(int(main.chan_tracklol))
 
         embed = self.printInfo(summonerName=summonerName, idgames=0, succes=True)
-
-        await channel.send(embed=embed)
+        
+        if embed != {}:
+            await channel.send(embed=embed)
 
 
     async def update(self):
@@ -876,28 +887,30 @@ class LeagueofLegends(commands.Cog):
 
         writeData(data, 'id_data')
 
-    @commands.command(brief="Permet d'être ajouté au suivi")
-    async def loladd(self, ctx, *, summonerName):
+    @cog_ext.cog_slash(name="loladd",description="Ajoute le joueur au suivi",
+                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
+    async def loladd(self, ctx, *, summonername):
         try:
             data = loadData('id_data')
-            data[summonerName.lower().replace(" ", "")] = getId(
-                summonerName)  # ajout du pseudo (clé) et de l'id de la dernière game(getId)
+            data[summonername.lower().replace(" ", "")] = getId(
+                summonername)  # ajout du pseudo (clé) et de l'id de la dernière game(getId)
             writeData(data, 'id_data')
 
-            await ctx.send(summonerName + " was successfully added to live-feed!")
+            await ctx.send(summonername + " was successfully added to live-feed!")
         except:
             await ctx.send("Oops! There is no summoner with that name!")
 
-    @commands.command(brief="Permet de se retirer du suivi")
-    async def lolremove(self, ctx, *, summonerName):
+    @cog_ext.cog_slash(name="lolremove", description="Supprime le joueur du suivi",
+                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
+    async def lolremove(self, ctx, *, summonername):
         data = loadData('id_data')
-        if summonerName.lower().replace(" ", "") in data: del data[summonerName.lower().replace(" ",
+        if summonername.lower().replace(" ", "") in data: del data[summonername.lower().replace(" ",
                                                                                                 "")]  # si le pseudo est présent dans la data, on supprime la data de ce pseudo
         writeData(data, 'id_data')
 
-        await ctx.send(summonerName + " was successfully removed from live-feed!")
+        await ctx.send(summonername + " was successfully removed from live-feed!")
 
-    @commands.command(brief="Affiche la liste des joueurs suivis")
+    @cog_ext.cog_slash(name='lollist', description='Affiche la liste des joueurs suivis')
     async def lollist(self, ctx):
 
         response = ""
@@ -910,8 +923,9 @@ class LeagueofLegends(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command(brief="Réservé au propriétaire du bot")
-    @main.isOwner2()
+    @cog_ext.cog_slash(name="debug_getId",description="Réservé au propriétaire du bot",
+                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
+    @main.isOwner2_slash()
     async def debug_getId(self, ctx, *, summonerName):
         me = lol_watcher.summoner.by_name(my_region, summonerName)
         my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'])
@@ -937,7 +951,7 @@ class LeagueofLegends(commands.Cog):
 
             channel = self.bot.get_channel(int(main.chan_lol))
             
-            df = df[df['tier'] != 'Non-classe']
+            df = df[df['tier'] != 'Non-classe'] # on supprime les non-classés
 
             df['tier_pts'] = 0
             df['tier_pts'] = np.where(df.tier == 'BRONZE', 1, df.tier_pts)
