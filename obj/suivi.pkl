@@ -24,7 +24,7 @@ p10
 I157
 sVgames
 p11
-I176
+I177
 ssVylarabka
 p12
 (dp13
@@ -246,14 +246,14 @@ VSILVER
 p71
 sVrank
 p72
-VIV
+VIII
 p73
 sVAchievements
 p74
-I0
+I1
 sVgames
 p75
-I0
+I3
 ssVlinò
 p76
 (dp77
