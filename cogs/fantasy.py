@@ -15,7 +15,7 @@ from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 from fonctions.date import alarm, jour_de_la_semaine
 
 # Certaines cmd devraient être réservés en message privé (prendre exemple sur match_of_the_week)
-# Comment ajouter LEC/LFL/LCS ?
+
 # https://lol.fandom.com/wiki/Special:RunQuery/MatchCalendarExport?MCE%5B1%5D=LEC%2F2022+Season%2FSpring+Season&_run= s'aider de ça -> transformer en fichier CSV (schedule.csv)
 
 # Paramètres
@@ -26,8 +26,7 @@ semaine = settings_game['semaine']
 
 
 # src : https://oracleselixir.com/tools/downloads
-chemin = "FL/2022_LoL_esports_match_data_from_OraclesElixir_20220414.csv"
-data_oracle = pd.read_csv(chemin)
+
 
 
 # Utiliser les variables jour pour les alarmes.
@@ -38,6 +37,10 @@ jour_de_match = {'LEC': ['Friday', 'Saturday'],
                  'MSI': ['Tuesday', 'Wednesday']}
 
 # différencier les semaines pour les compétitions
+# faire la vérification des résultats
+# passer à la semaine suivante
+# ajouter "semaine" au dataframe (faire plutôt semaine classique avec 2-3 jours de compet : plus simple pour paris)
+# commande pour paramétrer les cotes
 
 
 
@@ -66,6 +69,11 @@ def schedule():
         schedule = schedule[schedule['Mois'] == 2]
         
         return schedule
+    
+def loaddata_oracle():
+    chemin = "FL/2022_LoL_esports_match_data_from_OraclesElixir_20220414.csv"
+    data_oracle = pd.read_csv(chemin)
+    return data_oracle
 
 
 class Fantasy(commands.Cog):
@@ -145,6 +153,7 @@ class Fantasy(commands.Cog):
                                 create_option(name="joueur", description="Nom du joueur ?", option_type=3, required=True)])
     async def competition(self, ctx, competition, split, *, joueur):
         try:
+            data_oracle = loaddata_oracle()
             competition = competition.upper()
 
 
@@ -213,6 +222,8 @@ class Fantasy(commands.Cog):
                        description="Stats d'un joueur pro sur la saison",
                        options=[create_option(name="competition", description= "Quelle compétition ? Si non renseigné : affiche LEC/LCS/LFL", option_type=3, required=False)])
     async def liste_joueurs(self, ctx, competition = None):
+        
+        data_oracle = loaddata_oracle()
 
         if competition is None:
             competition = ['LEC', 'LCS', 'LFL']
@@ -251,6 +262,8 @@ class Fantasy(commands.Cog):
                                 create_option(name="game", description="Quelle game ? La dernière étant 0", option_type=4, required=True),
                                 create_option(name="joueur", description="Nom du joueur ?", option_type=3, required=True)])
     async def competition_game(self, ctx, competition, split, game, joueur):
+        
+        data_oracle = loaddata_oracle()
         competition = competition.upper()
 
         # def check(m):
@@ -337,26 +350,7 @@ class Fantasy(commands.Cog):
 
         except asyncio.TimeoutError:
             await msg.delete()
-            await ctx.send("Annulé")
-
-
-
-
-    @commands.command()
-    @main.isOwner2()
-    async def new_game(self, ctx):
-
-        try:
-            data = loadDataFL()
-            df = pd.DataFrame.from_dict(data, orient="index")
-
-            df = df.transpose()
-
-            print(df)
-
-        except Exception as e:
-            await ctx.send(str(e))
-            
+            await ctx.send("Annulé")          
     
 
     @cog_ext.cog_slash(name="add_fantasy", description="Test")
@@ -426,11 +420,14 @@ class Fantasy(commands.Cog):
         else:
             data[user] = {'Points' : Nb_points}
             writeDataFL(data)
+            # ajouter un rank (fantasy)
+            # role = discord.utils.get(ctx.guild.roles, name=competition)
+            # await user.add_roles(role)
             await ctx.send(f'Le joueur {user} a été ajouté !')
         
         
     @cog_ext.cog_slash(name="bet", description="test",                        
-                       options=[create_option(name="competition", description="Quel compétition", option_type=3, required=True, choices=[
+                       options=[create_option(name="competition", description="Quelle compétition", option_type=3, required=True, choices=[
                                     create_choice(name="LEC", value="LEC"),
                                     create_choice(name='LFL', value='LFL'),
                                     create_choice(name='LCS', value='LCS')])])
@@ -515,7 +512,7 @@ class Fantasy(commands.Cog):
         print(cote)
             
         
-    @cog_ext.cog_slash(name="my_bet", description="test")
+    @cog_ext.cog_slash(name="my_bet", description="Affiche mes paris")
     async def my_bet(self, ctx):
         user = str(ctx.author)
         semaine = loadDataFL('settings')['semaine']
