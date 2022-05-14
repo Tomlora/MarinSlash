@@ -6,6 +6,7 @@ import discord
 from discord.ext import commands, tasks
 from discord_slash import SlashCommand, SlashContext
 
+
 Var_version = 2.0
 
 # Paramètres
@@ -15,6 +16,8 @@ token = os.environ.get('discord_tk')  # https://www.youtube.com/watch?v=IolxqkL7
 discord_token = token
 default_intents = discord.Intents.default()
 default_intents.members = True  # Vous devez activer les intents dans les paramètres du Bot
+
+
 
 params = 'obj/params.txt'
 
@@ -551,7 +554,7 @@ async def unmute(ctx, member: discord.Member, *, reason="Aucune raison n'a été
 
 from discord.utils import get
 import datetime
-from obj.Mute.database_handler import DatabaseHandler
+from obj.BDD.database_handler import DatabaseHandler
 
 database_handler = DatabaseHandler("database.db")
 
