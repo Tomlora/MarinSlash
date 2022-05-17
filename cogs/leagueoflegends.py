@@ -179,6 +179,7 @@ class LeagueofLegends(commands.Cog):
 
         channel = self.bot.get_channel(int(main.chan_tracklol))
 
+
         champ_dict = {}
         for key in current_champ_list['data']:
             row = current_champ_list['data'][key]
@@ -398,7 +399,7 @@ class LeagueofLegends(commands.Cog):
         if thisQ == "RANKED" and thisTime > 20:
 
             records = loadData('records')
-            # records = lire_bdd('records')
+
 
             suivi = loadData('suivi')
 
@@ -451,7 +452,7 @@ class LeagueofLegends(commands.Cog):
                                         thisChampName, summonerName, exploits)
 
                 records2 = loadData('records2')
-                # records2 = lire_bdd('records2')
+
 
                 for key, value in records2.items():
                     if thisChampName != "Zeri": # on supprime Zeri de ce record qui est impossible à égaler avec d'autres champions
@@ -544,7 +545,6 @@ class LeagueofLegends(commands.Cog):
 
         settings = loadData("achievements_settings")
         records_cumul = loadData('records3')
-        # records_cumul = lire_bdd('records3')
 
         if int(thisPenta) >= settings['Pentakill']:
             exploits = exploits + "\n ** :crown: :five: Ce joueur a pentakill ** " + str(thisPenta) + " fois"
@@ -795,7 +795,6 @@ class LeagueofLegends(commands.Cog):
 
         id_data = loadData("id_data")
         suivirank = loadData("suivi")
-        suivirank_24h = loadData('suivi_24h')
 
         id_data_keys = id_data.keys()
 
@@ -839,15 +838,6 @@ class LeagueofLegends(commands.Cog):
                     'Achievements': 0,
                     'games': 0}
                 
-                suivirank_24h[key] = {
-                    'wins': 0,
-                    'losses': 0,
-                    'LP': 0,
-                    'tier': "Non-classe",
-                    'rank': '0',
-                    'Achievements': 0,
-                    'games': 0}
-                writeData(suivirank_24h, "suivi_24h")
 
         writeData(suivirank, "suivi")
 
@@ -944,14 +934,19 @@ class LeagueofLegends(commands.Cog):
 
         if currentHour == str(0):
 
-            suivi2 = loadData('suivi_24h')
+            suivi2 = loadData('suivi')
+            suivi_24h = loadData('suivi_24h')
 
             df = pd.DataFrame.from_dict(suivi2)
             df = df.transpose().reset_index()
+            
+            df_24h = pd.DataFrame.from_dict(suivi_24h)
+            df_24h = df_24h.transpose().reset_index()
 
             channel = self.bot.get_channel(int(main.chan_lol))
             
             df = df[df['tier'] != 'Non-classe'] # on supprime les non-classés
+            df_24h = df_24h[df_24h['tier'] != 'Non-classe'] # on supprime les non-classés
 
             df['tier_pts'] = 0
             df['tier_pts'] = np.where(df.tier == 'BRONZE', 1, df.tier_pts)
@@ -965,10 +960,24 @@ class LeagueofLegends(commands.Cog):
             df['rank_pts'] = np.where(df['rank'] == 'III', 2, df.rank_pts)
             df['rank_pts'] = np.where(df['rank'] == 'II', 3, df.rank_pts)
             df['rank_pts'] = np.where(df['rank'] == 'I', 4, df.rank_pts)
+            
+            df_24h['tier_pts'] = 0
+            df_24h['tier_pts'] = np.where(df_24h.tier == 'BRONZE', 1, df_24h.tier_pts)
+            df_24h['tier_pts'] = np.where(df_24h.tier == 'SILVER', 2, df_24h.tier_pts)
+            df_24h['tier_pts'] = np.where(df_24h.tier == 'GOLD', 3, df_24h.tier_pts)
+            df_24h['tier_pts'] = np.where(df_24h.tier == 'PLATINUM', 4, df_24h.tier_pts)
+            df_24h['tier_pts'] = np.where(df_24h.tier == 'DIAMOND', 5, df_24h.tier_pts)
+
+            df_24h['rank_pts'] = 0
+            df_24h['rank_pts'] = np.where(df_24h['rank'] == 'IV', 1, df_24h.rank_pts)
+            df_24h['rank_pts'] = np.where(df_24h['rank'] == 'III', 2, df_24h.rank_pts)
+            df_24h['rank_pts'] = np.where(df_24h['rank'] == 'II', 3, df_24h.rank_pts)
+            df_24h['rank_pts'] = np.where(df_24h['rank'] == 'I', 4, df_24h.rank_pts)
 
             df.sort_values(by=['tier_pts', 'rank_pts', 'LP'], ascending=[False, False, False], inplace=True)
 
             joueur = df['index'].to_dict()
+            joueur_24h = df_24h['index'].to_dict()
 
             embed = discord.Embed(title="Suivi LOL", description='Periode : 24h', colour=discord.Colour.blurple())
             totalwin = 0
@@ -979,16 +988,18 @@ class LeagueofLegends(commands.Cog):
                 pseudo = lol_watcher.summoner.by_name(my_region, key)
                 stats = lol_watcher.league.by_summoner(my_region, pseudo['id'])
 
-                suivi = loadData('suivi_24h')
+                suivi = loadData('suivi')
+                suivi_24h = loadData('suivi_24h')
 
                 if len(stats) > 0:
                     try:
+                        # suivi est mis à jour par updaterank. On va donc prendre l'autre qui n'est affecté que par lolsuivi
                         wins = int(suivi[key]['wins'])
                         losses = int(suivi[key]['losses'])
                         nbgames = wins + losses
                         LP = int(suivi[key]['LP'])
-                        tier_old = str(suivi[key]['tier'])
-                        rank_old = str(suivi[key]['rank'])
+                        tier_old = str(suivi_24h[key]['tier'])
+                        rank_old = str(suivi_24h[key]['rank'])
                         classement_old = tier_old + " " + rank_old
                     except:
                         wins = 0
@@ -1047,11 +1058,13 @@ class LeagueofLegends(commands.Cog):
                                           + str(suivi[key]['LP']) + "(" + str(difLP) + ")    " + emote, inline=False)
                     embed.set_footer(text=f'Version {main.Var_version} by Tomlora')
 
+                    writeData(suivi, 'suivi')
                     writeData(suivi, 'suivi_24h')
 
                 else:
                     suivi[key]["tier"] = "Non-classé"
 
+                    writeData(suivi, 'suivi')
                     writeData(suivi, 'suivi_24h')
 
             # print(data)
