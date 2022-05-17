@@ -38,6 +38,5 @@ class activity(commands.Cog):
 
         await main.check_for_unmute.start()
 
-
 def setup(bot):
     bot.add_cog(activity(bot))

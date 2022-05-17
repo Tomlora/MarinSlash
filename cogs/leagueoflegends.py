@@ -1,4 +1,4 @@
-from json import detect_encoding
+
 from discord.ext import commands, tasks
 
 from matplotlib import pyplot as plt
@@ -17,7 +17,6 @@ from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
-import time
 
 
 
@@ -152,8 +151,8 @@ def getId(summonerName):
         return str(match_detail['info']['gameId'])
     except:
         print(f'getId Erreur avec {summonerName}')
-        data = loadData('id_data')
-        return str(data[summonerName])
+        data = lire_bdd('tracker', 'dict')
+        return str(data[summonerName]['id'])
 
 
 def palier(embed, key:str, stats:str, old_value:int, new_value:int, palier:list):
@@ -864,48 +863,50 @@ class LeagueofLegends(commands.Cog):
 
 
     async def update(self):
-        data = loadData('id_data')
-        # print('Verification LoL en cours...')
+        data = lire_bdd('tracker', 'dict')
         for key, value in data.items():
-            if str(value) != getId(
+            if str(value['id']) != getId(
                     key):  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
                     await self.printLive(key)
                 except:
                     print(f"Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
-                data[key] = getId(key)
-
-        writeData(data, 'id_data')
+                data[key]['id'] = getId(key)
+        data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
+        sauvegarde_bdd(data, 'tracker')
 
     @cog_ext.cog_slash(name="loladd",description="Ajoute le joueur au suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def loladd(self, ctx, *, summonername):
-        try:
-            data = loadData('id_data')
-            data[summonername.lower().replace(" ", "")] = getId(
-                summonername)  # ajout du pseudo (clé) et de l'id de la dernière game(getId)
-            writeData(data, 'id_data')
+        # try:
+            data = lire_bdd('tracker', 'dict')
+            data[summonername.lower().replace(" ", "")] = {'id' : getId(
+                summonername)}  # ajout du pseudo (clé) et de l'id de la dernière game(getId)
+            data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
+            sauvegarde_bdd(data, 'tracker')
 
             await ctx.send(summonername + " was successfully added to live-feed!")
-        except:
-            await ctx.send("Oops! There is no summoner with that name!")
+        # except:
+            # await ctx.send("Oops! There is no summoner with that name!")
 
     @cog_ext.cog_slash(name="lolremove", description="Supprime le joueur du suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def lolremove(self, ctx, *, summonername):
-        data = loadData('id_data')
+        data = lire_bdd('tracker', 'dict')
         if summonername.lower().replace(" ", "") in data: del data[summonername.lower().replace(" ",
                                                                                                 "")]  # si le pseudo est présent dans la data, on supprime la data de ce pseudo
-        writeData(data, 'id_data')
+        data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
+        sauvegarde_bdd(data, 'tracker')
 
         await ctx.send(summonername + " was successfully removed from live-feed!")
 
     @cog_ext.cog_slash(name='lollist', description='Affiche la liste des joueurs suivis')
     async def lollist(self, ctx):
 
+        data = lire_bdd('tracker', 'dict')
         response = ""
 
-        for key, value in loadData('id_data').items():
+        for key in data.keys():
             response += key.upper() + ", "
 
         response = response[:-2]

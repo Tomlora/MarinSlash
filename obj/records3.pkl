@@ -92,7 +92,7 @@ p24
 I2
 sVnukethestars
 p25
-I21
+I22
 sVlinò
 p26
 I32
@@ -124,7 +124,7 @@ p31
 I1
 sVnukethestars
 p32
-I7
+I9
 sVlinò
 p33
 I35
@@ -156,7 +156,7 @@ p38
 F1.0541666666666667
 sVnukethestars
 p39
-F10.702333333333335
+F11.263166666666669
 sVlinò
 p40
 F15.908833333333334
@@ -188,7 +188,7 @@ p45
 I58
 sVnukethestars
 p46
-I1537
+I1647
 sVlinò
 p47
 I1047
@@ -220,7 +220,7 @@ p52
 I21
 sVnukethestars
 p53
-I625
+I678
 sVlinò
 p54
 I355
@@ -252,7 +252,7 @@ p59
 I5
 sVnukethestars
 p60
-I217
+I239
 sVlinò
 p61
 I132
@@ -284,7 +284,7 @@ p66
 I5
 sVnukethestars
 p67
-I159
+I166
 sVlinò
 p68
 I97
@@ -316,7 +316,7 @@ p73
 I459
 sVnukethestars
 p74
-I848
+I900
 sVlinò
 p75
 I7224
@@ -348,7 +348,7 @@ p80
 I7
 sVnukethestars
 p81
-I65
+I70
 sVlinò
 p82
 I198
@@ -380,7 +380,7 @@ p87
 I5
 sVnukethestars
 p88
-I153
+I163
 sVlinò
 p89
 I198
@@ -412,7 +412,7 @@ p94
 I6
 sVnukethestars
 p95
-I273
+I293
 sVlinò
 p96
 I220
