@@ -76,7 +76,7 @@ class SummonersWars(commands.Cog):
     @main.isOwner2_slash()
     async def sw_atk(self, ctx):
         
-        channel = ctx.channel
+        await ctx.defer(hidden=False)
             
         data = opendatasw()
         data = data['attack_log']['log_list'][0]['battle_log_list']  # data qui nous intéresse
@@ -136,13 +136,13 @@ class SummonersWars(commands.Cog):
         fig = px.bar(df1_resultats, x=df1_resultats.index, y="% réussi", title=" % d'atk réussis", color=df1_resultats.index, text_auto=True)
         
         fig.write_image('bar_chart.png')
-        await channel.send(file=discord.File('bar_chart.png'))
+        await ctx.send(file=discord.File('bar_chart.png'))
         os.remove('bar_chart.png')
         
     @cog_ext.cog_slash(name="sw_def", description="test")
     @main.isOwner2_slash()
     async def sw_def(self, ctx):
-        channel = ctx.channel
+        await ctx.defer(hidden=False)
         data = opendatasw()
         data = data['defense_log']['log_list'][0]['battle_log_list']  # data qui nous intéresse
         df1 = pd.DataFrame(data)  # on transpose en dataframe pour pandas
@@ -194,7 +194,7 @@ class SummonersWars(commands.Cog):
 
         
         fig.write_image('bar_chart.png')
-        await channel.send(file=discord.File('bar_chart.png'))
+        await ctx.send(file=discord.File('bar_chart.png'))
         os.remove('bar_chart.png')
         
     @cog_ext.cog_slash(name="sw_base", description="test")

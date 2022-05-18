@@ -110,8 +110,8 @@ class analyseLoL(commands.Cog):
         
         stat = [stat, stat2]
         
-        channel_answer = ctx.channel
-        await ctx.send("Demande en cours...")
+
+        await ctx.defer(hidden=False)
         global id, team
         warnings.simplefilter(action='ignore', category=FutureWarning)  # supprime les FutureWarnings dû à l'utilisation de pandas (.append/.drop)
         pd.options.mode.chained_assignment = None  # default='warn'
@@ -204,7 +204,7 @@ class analyseLoL(commands.Cog):
                                   font_size=18)
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if 'gold' in stat:
@@ -241,7 +241,7 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(xaxis_title='Temps',
                                   font_size=18)
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if 'gold_team' in stat:
@@ -298,7 +298,7 @@ class analyseLoL(commands.Cog):
                                   showlegend=False)
                 fig.update_traces(textposition="bottom center")
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if 'position' in stat:
@@ -332,7 +332,6 @@ class analyseLoL(commands.Cog):
 
                 df_timeline = df_timeline[df_timeline['joueur'] == summonername]
 
-                await channel_answer.send('Requête confirmée. Calcul en cours....')
 
                 img = io.imread('https://map.riftkit.net/img/rift/normal.jpg')
 
@@ -365,8 +364,7 @@ class analyseLoL(commands.Cog):
                 fig.update_yaxes(automargin=True)
                 fig.update_xaxes(automargin=True)
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
-                await channel_answer.send(f'pour le joueur {summonername}')
+                await ctx.send(content=f'pour le joueur {summonername}', file=discord.File('plot.png'))
                 os.remove('plot.png')
 
         except asyncio.TimeoutError:
@@ -413,8 +411,7 @@ class analyseLoL(commands.Cog):
     @commands.cooldown(1, 30, commands.BucketType.guild)
     async def var(self, ctx:SlashContext, summonername, stat:str, stat2:str='no', stat3:str='no'):
         
-        channel_answer = ctx.channel
-        await ctx.send('Demande en cours...')
+        await ctx.defer(hidden=False)
         stat = [stat, stat2, stat3]
         
 
@@ -489,7 +486,7 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if "gold" in stat:
@@ -521,7 +518,7 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
             
             if "gold_role" in stat:
@@ -561,7 +558,7 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if "vision" in stat:
@@ -589,7 +586,7 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
                 
             if "vision_role" in stat:
@@ -629,7 +626,7 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if "tank" in stat:
@@ -669,7 +666,7 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(barmode='stack')
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if "heal_allies" in stat:
@@ -699,7 +696,7 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if "solokills" in stat:
@@ -729,7 +726,7 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
         except asyncio.TimeoutError:

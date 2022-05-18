@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 from discord_slash import cog_ext, SlashContext
 from riotwatcher import LolWatcher
 from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option
+from discord_slash.utils.manage_commands import create_option, create_choice
 import pandas as pd
 import ast
 import os
@@ -87,20 +87,22 @@ def get_data_joueur(summonername:str):
     data_joueur_challenges = data_joueur_challenges.reindex(columns=['Joueur', 'challengeId', 'name', 'value', 'percentile', 'level', 'level_number','state', 'shortDescription', 'description', 'IRON', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'])
     return data_total_joueur, data_joueur_category, data_joueur_challenges
 
-
+    
 
 
 class Challenges(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.challenges_maj.start()
+        self.defis = lire_bdd('challenges_data').transpose()['name'].unique()
+        
         
     @tasks.loop(hours=1, count=None)
     async def challenges_maj(self):
 
         currentHour = str(datetime.datetime.now().hour)
 
-        if currentHour == str(0):
+        if currentHour == str(23):
             # pas optimal mais nécessaire pour éviter 30.000 requêtes à rito.
             
             channel = self.bot.get_channel(int(main.chan_lol))
@@ -187,6 +189,53 @@ class Challenges(commands.Cog):
         await channel.send(f'Le joueur {summonername} a : \n{msg}') #txt
         await channel.send(file=discord.File('plot.png')) # visuel
         os.remove('plot.png')
+        
+
+        
+    @cog_ext.cog_slash(name="challenges_top",
+                       description="Affiche un classement pour le défi spécifié")
+    async def challenges_top(self, ctx):
+        
+            # 232 défis
+        
+            # catégorie
+            select = create_select(
+                options=[create_select_option(self.defis[i], value=self.defis[i]) for i in range(6, 31)],
+                placeholder = "Choisis le défi")
+                                  
+            channel = ctx.channel
+            
+            
+            
+            fait_choix = await ctx.send('Choisis le défi ', components=[create_actionrow(select)])
+            
+            def check(m):
+                return m.author_id == ctx.author.id and m.origin_message.id == fait_choix.id
+            
+            name = await wait_for_component(self.bot, components=select, check=check)
+            
+            name = name.values[0]
+        
+            
+            bdd_user_challenges = lire_bdd('challenges_data').transpose()
+            # on prend les éléments qui nous intéressent
+            bdd_user_challenges = bdd_user_challenges[['Joueur', 'name', 'value', 'description']]
+            # on trie sur le challenge
+            bdd_user_challenges = bdd_user_challenges[bdd_user_challenges['name'] == name]
+            description = bdd_user_challenges['description'].iloc[0] # on prend le premier pour la description
+            # on fait les rank
+            bdd_user_challenges['rank'] = bdd_user_challenges['value'].rank(method='min', ascending=False)
+            # on les range en fonction du rang
+            bdd_user_challenges = bdd_user_challenges.sort_values(by=['rank'], ascending = True)
+            
+            fig = px.histogram(bdd_user_challenges, x="Joueur", y="value", color="Joueur", title=name)
+            fig.write_image('plot.png')
+            
+            await ctx.send(f'Défis : ** {name} **  \nDescription : {description}')
+            await channel.send(file=discord.File('plot.png'))
+            os.remove('plot.png')
+            
+            
 
     
 

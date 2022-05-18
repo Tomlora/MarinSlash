@@ -128,7 +128,8 @@ class Achievements_scoringlol(commands.Cog):
                            create_choice(name="non", value="non")
                             ])])
     async def achievements(self, ctx, records):
-        channel_answer = ctx.channel
+        
+        await ctx.defer(hidden=False)
 
         # Succes
         suivi = loadData('suivi')
@@ -196,7 +197,7 @@ class Achievements_scoringlol(commands.Cog):
 
 
         if records == "oui":
-            await channel_answer.send('Informations : Les records de la page 3 ne sont pas comptabilisés', file=discord.File('plot.png'))
+            await ctx.send('Informations : Les records de la page 3 ne sont pas comptabilisés', file=discord.File('plot.png'))
             os.remove('plot.png')
 
     @commands.command()

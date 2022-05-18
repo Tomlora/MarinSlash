@@ -310,8 +310,7 @@ class Recordslol(commands.Cog):
     async def pantheon(self, ctx, stat, stat2:str="no", stat3:str="no", fichier_recap:bool=False):
         
         stat = [stat, stat2, stat3]
-        channel_answer = ctx.channel
-        await ctx.send('Demande en cours....')
+        await ctx.defer(hidden=False)
         data = loadData('records3')
 
         df = pd.DataFrame.from_dict(data)
@@ -364,17 +363,17 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, "KDA")
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
                 fig = px.pie(df, values='KDA', names='Joueurs', title='KDA')
                 fig.update_traces(textinfo='value', textfont_size=20)
                 fig.write_image('pie.png')
-                await channel_answer.send(file=discord.File('pie.png'))
+                await ctx.send(file=discord.File('pie.png'))
                 os.remove('pie.png')
 
 
-                await channel_answer.send(
+                await ctx.send(
                     f' __ Total : __ \n Kills : {int(df["KILLS"].sum())} \n Morts : {int(df["DEATHS"].sum())} \n Assists : {int(df["ASSISTS"].sum())}')
 
             if "VISION" in stat:
@@ -383,10 +382,10 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, "VISION")
                 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-                await channel_answer.send(
+                await ctx.send(
                     f' __ Total : __ \n Wards posées : {int(df["WARDS_POSEES"].sum())} \n Wards détruites : {int(df["WARDS_DETRUITES"].sum())} \n Pinks : {int(df["WARDS_PINKS"].sum())}')
 
             if "KDA moyenne" in stat:
@@ -395,7 +394,7 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, "KDA moyenne")
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if "VISION moyenne" in stat:
@@ -404,7 +403,7 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, "VISION moyenne")
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if "CS" in stat:
@@ -413,10 +412,10 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, 'CS')
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
-                await channel_answer.send(
+                await ctx.send(
                     f' __ Total : __ \n CS : {int(df["CS"].sum())}')
                 
             if "SOLOKILLS" in stat:
@@ -426,7 +425,7 @@ class Recordslol(commands.Cog):
                 fig.update_xaxes(categoryorder="total descending")
 
                 fig.write_image('plot.png')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(file=discord.File('plot.png'))
                 os.remove('plot.png')
 
             if "GAMES" in stat:
@@ -436,20 +435,18 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, 'GAMES')
 
                 fig.write_image('plot.png')
-                await channel_answer.send('Durée des games exprimée en heures :')
-                await channel_answer.send(file=discord.File('plot.png'))
+                await ctx.send(content="Durée des games exprimée en heures", file=discord.File('plot.png'))
                 os.remove('plot.png')
                 
                 fig = px.pie(df, values='DUREE_MOYENNE', names='Joueurs', title='DUREE MOYENNE DES GAMES')
                 fig.update_traces(textinfo='value', textfont_size=20)
                 fig.write_image('pie.png')
-                await channel_answer.send('Durée des games exprimée en minutes :')
-                await channel_answer.send(file=discord.File('pie.png'))
+                await ctx.send(content="Durée des games exprimée en minutes", file=discord.File('pie.png'))
                 os.remove('pie.png')
                 
             if fichier_recap is True:
                 url = "./obj/records/pantheon.xlsx"
-                await channel_answer.send(file=discord.File(url))
+                await ctx.send(file=discord.File(url))
                 
 
         except asyncio.TimeoutError:

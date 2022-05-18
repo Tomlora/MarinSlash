@@ -792,7 +792,7 @@ class LeagueofLegends(commands.Cog):
     @commands.command(brief='Réservé au bot')
     async def updaterank(self):
 
-        id_data = loadData("id_data")
+        id_data = lire_bdd('tracker', 'dict')
         suivirank = loadData("suivi")
 
         id_data_keys = id_data.keys()
@@ -938,15 +938,19 @@ class LeagueofLegends(commands.Cog):
             suivi2 = loadData('suivi')
             suivi_24h = loadData('suivi_24h')
 
+
             df = pd.DataFrame.from_dict(suivi2)
             df = df.transpose().reset_index()
             
+
             df_24h = pd.DataFrame.from_dict(suivi_24h)
             df_24h = df_24h.transpose().reset_index()
+
 
             channel = self.bot.get_channel(int(main.chan_lol))
             
             df = df[df['tier'] != 'Non-classe'] # on supprime les non-classés
+
             df_24h = df_24h[df_24h['tier'] != 'Non-classe'] # on supprime les non-classés
 
             df['tier_pts'] = 0

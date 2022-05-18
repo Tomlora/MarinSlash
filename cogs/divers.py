@@ -14,6 +14,7 @@ from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 import main
 from fonctions.date import jour_de_la_semaine
 from datetime import datetime
+import time
 
 
 
@@ -176,34 +177,7 @@ class Divers(commands.Cog):
         
     @cog_ext.cog_slash(name="jour")
     async def jour(self, ctx):
-        await ctx.send(jour_de_la_semaine())
-        
-    @cog_ext.cog_slash(name="testbdd")
-    @main.isOwner2_slash()
-    async def testbdd(self, ctx):
-        records1 = loadData('records')
-        records2 = loadData('records2')
-        records3 = loadData('records3')
-        
-        for key in records3.keys():
-            del records3[key]['Kazsc']
-            del records3[key]['Personne']
-        
-        
-        
-        
-        sauvegarde_bdd(records1, nom_table='records')
-        sauvegarde_bdd(records2, nom_table='records2')
-        sauvegarde_bdd(records3, nom_table='records3')
-        
-        await ctx.send('Fait')
-
-
-            
-        
-        
-    
-        
+        await ctx.send(jour_de_la_semaine())   
         
 
 
