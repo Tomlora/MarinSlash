@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import os
 import pickle
+from fonctions.date import heure_actuelle
 
 import main
 
@@ -13,7 +14,8 @@ class activity(commands.Cog):
         self.on_ready = self.bot.event(self.on_ready)
 
     async def on_ready(self):
-        print(f'Le bot {main.bot.user} est connecté au serveur')
+        currentHour, currentMinute = heure_actuelle()
+        print(f'Le bot {main.bot.user} est connecté au serveur ({currentHour}:{currentMinute})')
         await main.bot.change_presence(
             activity=discord.Activity(type=discord.ActivityType.listening, name='My Dress Up Darling'))
 
