@@ -336,6 +336,14 @@ class Recordslol(commands.Cog):
         df['WARDS_MOYENNE'] = round(df['WARDS_MOYENNE'], 2)
         
         df.to_excel('./obj/records/pantheon.xlsx', index=False)
+        
+        liste_graph = list()
+        liste_delete = list()
+        
+        def graphique(fig, name):
+            fig.write_image(name)
+            liste_delete.append(name)
+            liste_graph.append(discord.File(name))
 
         def figure_hist(dict, title): # Fonction pour faire l'histogramme en fonction d'un dict
 
@@ -362,28 +370,23 @@ class Recordslol(commands.Cog):
 
                 fig = figure_hist(variables, "KDA")
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'KDA1.png')
 
                 fig = px.pie(df, values='KDA', names='Joueurs', title='KDA')
                 fig.update_traces(textinfo='value', textfont_size=20)
-                fig.write_image('pie.png')
-                await ctx.send(file=discord.File('pie.png'))
-                os.remove('pie.png')
+
+                graphique(fig, 'KDA2.png')
 
 
                 await ctx.send(
-                    f' __ Total : __ \n Kills : {int(df["KILLS"].sum())} \n Morts : {int(df["DEATHS"].sum())} \n Assists : {int(df["ASSISTS"].sum())}')
+                    f' __ Total KDA : __ \n Kills : {int(df["KILLS"].sum())} \n Morts : {int(df["DEATHS"].sum())} \n Assists : {int(df["ASSISTS"].sum())}')
 
             if "VISION" in stat:
                 variables = ['WARDS_POSEES', 'WARDS_DETRUITES', 'WARDS_PINKS']
 
                 fig = figure_hist(variables, "VISION")
                 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'vision.png')
 
                 await ctx.send(
                     f' __ Total : __ \n Wards posées : {int(df["WARDS_POSEES"].sum())} \n Wards détruites : {int(df["WARDS_DETRUITES"].sum())} \n Pinks : {int(df["WARDS_PINKS"].sum())}')
@@ -393,27 +396,21 @@ class Recordslol(commands.Cog):
 
                 fig = figure_hist(variables, "KDA moyenne")
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'KDA_moyenne.png')
 
             if "VISION moyenne" in stat:
                 variables = ['WARDS_MOYENNE']
 
                 fig = figure_hist(variables, "VISION moyenne")
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'vision_moyenne.png')
 
             if "CS" in stat:
                 variables = ['CS']
 
                 fig = figure_hist(variables, 'CS')
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'CS.png')
 
                 await ctx.send(
                     f' __ Total : __ \n CS : {int(df["CS"].sum())}')
@@ -424,9 +421,7 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, "Solokills")
                 fig.update_xaxes(categoryorder="total descending")
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'solokills.png')
 
             if "GAMES" in stat:
                 variables = ['NBGAMES', 'DUREE_GAME']
@@ -447,6 +442,11 @@ class Recordslol(commands.Cog):
             if fichier_recap is True:
                 url = "./obj/records/pantheon.xlsx"
                 await ctx.send(file=discord.File(url))
+            
+            await ctx.send(files=liste_graph)
+            
+            for graph in liste_delete:
+                os.remove(graph)
                 
 
         except asyncio.TimeoutError:

@@ -85,6 +85,9 @@ def dict_data(thisId: int, match_detail, info):
 
     return liste
 
+
+
+
 class analyseLoL(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -109,6 +112,13 @@ class analyseLoL(commands.Cog):
     async def analyse(self, ctx:SlashContext, summonername:str, stat:str, stat2:str = "no"):
         
         stat = [stat, stat2]
+        liste_graph = list()
+        liste_delete = list()
+        
+        def graphique(fig, name):
+            fig.write_image(name)
+            liste_delete.append(name)
+            liste_graph.append(discord.File(name))
         
 
         await ctx.defer(hidden=False)
@@ -117,6 +127,9 @@ class analyseLoL(commands.Cog):
         pd.options.mode.chained_assignment = None  # default='warn'
         last_match, match_detail, me = league.match_by_puuid(summonername, 0)
         timeline = lol_watcher.match.timeline_by_match(region, last_match)
+        
+
+            
 
         # timestamp à diviser par 60000
 
@@ -202,10 +215,8 @@ class analyseLoL(commands.Cog):
                 fig.update_yaxes(showticklabels=False)
                 fig.update_layout(xaxis_title='Temps',
                                   font_size=18)
-
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                
+                graphique(fig, 'vision.png')
 
             if 'gold' in stat:
 
@@ -240,9 +251,9 @@ class analyseLoL(commands.Cog):
                               height=1000, width=1800)
                 fig.update_layout(xaxis_title='Temps',
                                   font_size=18)
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                
+                graphique(fig, 'gold.png')
+
 
             if 'gold_team' in stat:
 
@@ -297,9 +308,8 @@ class analyseLoL(commands.Cog):
                                   font_size=18,
                                   showlegend=False)
                 fig.update_traces(textposition="bottom center")
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                
+                graphique(fig, 'gold_team.png')
 
             if 'position' in stat:
 
@@ -363,9 +373,14 @@ class analyseLoL(commands.Cog):
                 fig.update_yaxes(showticklabels=False)
                 fig.update_yaxes(automargin=True)
                 fig.update_xaxes(automargin=True)
-                fig.write_image('plot.png')
-                await ctx.send(content=f'pour le joueur {summonername}', file=discord.File('plot.png'))
-                os.remove('plot.png')
+                
+                graphique(fig, 'position.png')
+                
+            await ctx.send(files=liste_graph)
+            
+            for graph in liste_delete:
+                os.remove(graph)
+
 
         except asyncio.TimeoutError:
             await ctx.send("Annulé")
@@ -413,6 +428,14 @@ class analyseLoL(commands.Cog):
         
         await ctx.defer(hidden=False)
         stat = [stat, stat2, stat3]
+        
+        liste_delete = list()
+        liste_graph = list()
+        
+        def graphique(fig, name):
+            fig.write_image(name)
+            liste_delete.append(name)
+            liste_graph.append(discord.File(name))
         
 
         last_match, match_detail_stats, me = league.match_by_puuid(summonername, 0)
@@ -485,9 +508,7 @@ class analyseLoL(commands.Cog):
                 fig = px.histogram(df, y="pseudo", x="dmg", color="pseudo", title="Total DMG", text_auto=True)
                 fig.update_layout(showlegend=False)
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'dmg.png')
 
             if "gold" in stat:
 
@@ -517,9 +538,7 @@ class analyseLoL(commands.Cog):
                 fig = px.histogram(df, y="pseudo", x="gold", color="pseudo", title="Total Gold", text_auto=True)
                 fig.update_layout(showlegend=False)
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'gold.png')
             
             if "gold_role" in stat:
 
@@ -557,9 +576,7 @@ class analyseLoL(commands.Cog):
                 fig = px.histogram(df_ecart, y=df_ecart.index.values, x="gold", color=df_ecart.index.values, title="Ecart gold par role", text_auto=True)
                 fig.update_layout(showlegend=False)
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'gold_role.png')
 
             if "vision" in stat:
 
@@ -585,9 +602,7 @@ class analyseLoL(commands.Cog):
                 fig = px.histogram(df, y="pseudo", x="vision", color="pseudo", title="Total Vision", text_auto=True)
                 fig.update_layout(showlegend=False)
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'vision.png')
                 
             if "vision_role" in stat:
 
@@ -625,9 +640,7 @@ class analyseLoL(commands.Cog):
                 fig = px.histogram(df_ecart, y=df_ecart.index.values, x="vision", color=df_ecart.index.values, title="Ecart vision par role", text_auto=True)
                 fig.update_layout(showlegend=False)
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'vision_role.png')
 
             if "tank" in stat:
 
@@ -665,9 +678,7 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(title='Dmg encaissés', uniformtext_minsize=8, uniformtext_mode='hide')
                 fig.update_layout(barmode='stack')
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'tank.png')
 
             if "heal_allies" in stat:
 
@@ -695,9 +706,7 @@ class analyseLoL(commands.Cog):
                                    text_auto=True)
                 fig.update_layout(showlegend=False)
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'heal_allies.png')
 
             if "solokills" in stat:
 
@@ -725,9 +734,12 @@ class analyseLoL(commands.Cog):
                                    text_auto=True)
                 fig.update_layout(showlegend=False)
 
-                fig.write_image('plot.png')
-                await ctx.send(file=discord.File('plot.png'))
-                os.remove('plot.png')
+                graphique(fig, 'solokills.png')
+                
+            await ctx.send(files=liste_graph)
+            
+            for graph in liste_delete:
+                os.remove(graph)
 
         except asyncio.TimeoutError:
             await stat.delete()
