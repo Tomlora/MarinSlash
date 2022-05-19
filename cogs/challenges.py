@@ -121,6 +121,34 @@ class Challenges(commands.Cog):
                 except:
                     print(f'{summonername} : Pas de données')
             await channel.send('Les challenges ont été mis à jour.')
+            
+    
+    @cog_ext.cog_slash(name="challenges_help", description="Explication des challenges")
+    async def challenges_help(self, ctx):
+        
+        nombre_de_defis = len(self.defis['name'].unique())
+        
+        
+        em = discord.Embed(title="Challenges", description="Explication des challenges")
+        em.add_field(name="**Conditions**", value="`Avoir joué depuis le patch 12.9  \nDisponible dans tous les modes de jeu`")
+        em.add_field(name="**Mise à jour des challenges**", value=f"`Mis à jour tous les jours avant minuit`", inline=False)
+        em.add_field(name="**Defis disponibles**", value=f"`Il existe {nombre_de_defis} défis disponibles.`", inline=False)
+        
+        await ctx.send(embed=em)
+        
+    @cog_ext.cog_slash(name="challenges_liste", description="Liste des challenges")
+    async def challenges_liste(self, ctx):
+        
+        em = discord.Embed(title="Challenges", description="Explication des challenges")
+              
+        for i in range(0,24):
+            debut = 0 + i*10
+            fin = 10 + i*10
+            em.add_field(name=f"**Challenges part {i}**", value=f"`{self.defis['name'].unique()[debut:fin]}", inline=False)
+            
+
+        await ctx.send(embed=em)
+        
     
     
 
@@ -200,15 +228,16 @@ class Challenges(commands.Cog):
             
             nbpages = nbpages - 1 # les users ne savent pas que ça commence à 0
             
-            debut_range = 6 + (25 * nbpages)
-            fin_de_range = 31 + (25 * nbpages)
+            debut_range = 25 * nbpages
+            fin_de_range = 25 * (nbpages + 1)
             
             if fin_de_range > len(self.defis): # si la range de fin est supérieure au dernier de la liste... alors on prend la fin de la liste
                 fin_de_range = len(self.defis)
         
             # catégorie
             select = create_select(
-                options=[create_select_option(self.defis['name'].unique()[i], value=self.defis['name'].unique()[i], description=self.defis['shortDescription'].unique()[i]) for i in range(debut_range, fin_de_range)],
+                options=[create_select_option(self.defis['name'].unique()[i], value=self.defis['name'].unique()[i],
+                                              description=self.defis[self.defis['name'] == self.defis['name'].unique()[i]]['shortDescription'].to_numpy()[0]) for i in range(debut_range, fin_de_range)],
                 placeholder = "Choisis le défi")
                                   
             channel = ctx.channel
@@ -222,26 +251,27 @@ class Challenges(commands.Cog):
             
             name = await wait_for_component(self.bot, components=select, check=check)
             
-            name = name.values[0]
+            name_answer = name.values[0]
         
             
             bdd_user_challenges = lire_bdd('challenges_data').transpose()
             # on prend les éléments qui nous intéressent
             bdd_user_challenges = bdd_user_challenges[['Joueur', 'name', 'value', 'description']]
             # on trie sur le challenge
-            bdd_user_challenges = bdd_user_challenges[bdd_user_challenges['name'] == name]
+            bdd_user_challenges = bdd_user_challenges[bdd_user_challenges['name'] == name_answer]
             description = bdd_user_challenges['description'].iloc[0] # on prend le premier pour la description
             # on fait les rank
             bdd_user_challenges['rank'] = bdd_user_challenges['value'].rank(method='min', ascending=False)
             # on les range en fonction du rang
             bdd_user_challenges = bdd_user_challenges.sort_values(by=['rank'], ascending = True)
             
-            fig = px.histogram(bdd_user_challenges, x="Joueur", y="value", color="Joueur", title=name)
+            fig = px.histogram(bdd_user_challenges, x="Joueur", y="value", color="Joueur", title=name_answer, text_auto=True)
             fig.write_image('plot.png')
             
-            await ctx.send(f'Défis : ** {name} **  \nDescription : {description}')
+            await name.send(f'Défis : ** {name_answer} **  \nDescription : {description}')
             await channel.send(file=discord.File('plot.png'))
             os.remove('plot.png')
+            
             
             
 
