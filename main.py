@@ -170,7 +170,7 @@ async def challenges_classement(ctx):
     await ctx.send(embed=em)
     
 @help.command()
-async def challenges_classement(ctx):
+async def challenges_liste(ctx):
     em = discord.Embed(title="/challenges_liste", description="Liste des challenges")
     em.add_field(name="**Syntaxe**", value="`/challenges_liste`")
 
