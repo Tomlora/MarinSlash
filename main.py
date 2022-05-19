@@ -105,7 +105,9 @@ async def help(ctx):
                     "`scoring_corr` - Explique comment est calculé le score \n" \
                     "`scoring_score` - % de confiance dans le score affiché"
                     
-    value_challenges = "`challenges_classement` - Classement des points de challenge \n" \
+    value_challenges = "`challenges_help` - Explication des challenges \n" \
+                        "`challenges_liste` - Liste des challenges \n" \
+                      "`challenges_classement` - Classement des points de challenge \n" \
                     "`challenges_profil` - Profil du compte \n" \
                     "`challenges_top` - Affiche un classement pour le défi spécifié \n "
 
@@ -152,11 +154,25 @@ async def achievements_regles(ctx):
     em.add_field(name="**Syntaxe**", value="`/achievements_règles`")
 
     await ctx.send(embed=em)
+    
+@help.command()
+async def challenges_help(ctx):
+    em = discord.Embed(title="/challenges_classement", description="Explication des challenges")
+    em.add_field(name="**Syntaxe**", value="`/challenges_help`")
+
+    await ctx.send(embed=em)
 
 @help.command()
 async def challenges_classement(ctx):
     em = discord.Embed(title="/challenges_classement", description="Classement des points de challenge")
     em.add_field(name="**Syntaxe**", value="`/challenges_classement`")
+
+    await ctx.send(embed=em)
+    
+@help.command()
+async def challenges_classement(ctx):
+    em = discord.Embed(title="/challenges_liste", description="Liste des challenges")
+    em.add_field(name="**Syntaxe**", value="`/challenges_liste`")
 
     await ctx.send(embed=em)
     
