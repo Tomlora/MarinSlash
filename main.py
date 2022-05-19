@@ -7,7 +7,8 @@ from discord.ext import commands, tasks
 from discord_slash import SlashCommand, SlashContext
 
 
-Var_version = 2.0
+
+Var_version = 3.1
 
 # Paramètres
 
@@ -103,6 +104,10 @@ async def help(ctx):
                     "`scoring` - Calcule ton score en fonction des stats associés \n " \
                     "`scoring_corr` - Explique comment est calculé le score \n" \
                     "`scoring_score` - % de confiance dans le score affiché"
+                    
+    value_challenges = "`challenges_classement` - Classement des points de challenge \n" \
+                    "`challenges_profil` - Profil du compte \n" \
+                    "`challenges_top` - Affiche un classement pour le défi spécifié \n "
 
     value_music = "`join` - Le DJ rejoint ton salon vocal \n" \
                   "`leave` - Le DJ quitte le salon vocal \n" \
@@ -121,6 +126,7 @@ async def help(ctx):
     em = discord.Embed(title="Help", description="Use ;help <command> pour le détail")
     em.add_field(name="Achievements & Records", value=value_records, inline=False)
     em.add_field(name="AnalyseLoL", value=value_analyselol, inline=False)
+    em.add_field(name="Challenges", value=value_challenges, inline=False)
     em.add_field(name="Divers", value=value_divers, inline=False)
     em.add_field(name="LoL Pro", value=value_lolpro, inline=False)
     em.add_field(name="Music", value=value_music, inline=False)
@@ -148,6 +154,30 @@ async def achievements_regles(ctx):
     await ctx.send(embed=em)
 
 @help.command()
+async def challenges_classement(ctx):
+    em = discord.Embed(title="/challenges_classement", description="Classement des points de challenge")
+    em.add_field(name="**Syntaxe**", value="`/challenges_classement`")
+
+    await ctx.send(embed=em)
+    
+@help.command()
+async def challenges_top(ctx):
+    em = discord.Embed(title="/challenges_top", description="Affiche un classement pour le défi spécifié")
+    em.add_field(name="**Syntaxe**", value="`/challenges_top`")
+
+    await ctx.send(embed=em)
+    
+@help.command()
+async def challenges_profil(ctx):
+    em = discord.Embed(title="/challenges_profil", description="Profil du compte")
+    em.add_field(name="**Syntaxe**", value="`/challenges_profil <joueur>`")
+    em.add_field(name="**Arguments**", value="`joueur : Pseudo LoL`",inline=False)
+    em.add_field(name="**Exemples**", value="`/challenges_profil Tomlora`",inline=False)
+
+
+    await ctx.send(embed=em)
+
+@help.command()
 async def records_list(ctx):
     em = discord.Embed(title="/records_list", description="Voir les records détenus par les joueurs")
     em.add_field(name="**Syntaxe**", value="`/records_list`")
@@ -162,7 +192,6 @@ async def pantheon(ctx):
     em.add_field(name="**Arguments**", value="`stats : choisir une stat dans la liste\n fichier_recap : génère un fichier excel recapitulatif des stats `", inline=False)
     em.add_field(name="**Exemples**", value="`/pantheon vision\n/pantheon vision gold solokills True`",
                  inline=False)
-    em.add_field(name="**Syntaxe**", value="`/pantheon`")
 
     await ctx.send(embed=em)
 
