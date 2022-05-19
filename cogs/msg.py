@@ -24,7 +24,7 @@ class Msg(commands.Cog):
             await ctx.send(f"L'utilisateur est introuvable")
 
     @commands.command()
-    async def reply_channel(self, nom_chan: str, *, contenu_msg):
+    async def reply_channel(self, ctx, nom_chan: str, *, contenu_msg):
 
         # On vérifie que l'utilisateur a donné un nom, et non l'ID du chan. Sinon on convertit
         if nom_chan.isnumeric():

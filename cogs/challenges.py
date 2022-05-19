@@ -142,7 +142,6 @@ class Challenges(commands.Cog):
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def challenges_profil(self, ctx, summonername):
         
-        channel = ctx.channel
         
         total_user, total_category, total_challenges = get_data_joueur(summonername)
         
@@ -154,7 +153,7 @@ class Challenges(commands.Cog):
             liste_stats = [categorie, level, points, max_points, percentile]
             return liste_stats
         
-        await ctx.send('Requête en cours...')
+        await ctx.defer(hidden=False)
         
         liste_teamwork = stats('TEAMWORK')
         liste_collection = stats('COLLECTION')
@@ -186,8 +185,8 @@ class Challenges(commands.Cog):
             fig.update_layout(grid = {'rows': 3, 'columns': 3, 'pattern': "independent"})
             i = i+1
         fig.write_image('plot.png')
-        await channel.send(f'Le joueur {summonername} a : \n{msg}') #txt
-        await channel.send(file=discord.File('plot.png')) # visuel
+        await ctx.send(f'Le joueur {summonername} a : \n{msg}') #txt
+        await ctx.send(file=discord.File('plot.png')) # visuel
         os.remove('plot.png')
         
 

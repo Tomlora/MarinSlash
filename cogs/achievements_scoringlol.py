@@ -575,7 +575,7 @@ class Achievements_scoringlol(commands.Cog):
         result = scoring(role, pseudo, kills, deaths, assists, kp, wardsplaced, wardskilled, pink, cs, csm)
         await ctx.send(result)
 
-    @cog_ext.cog_slash(name="scoring_score", description="Pourcentage de confiaznce dans le score affiché",
+    @cog_ext.cog_slash(name="scoring_score", description="Pourcentage de confiance dans le score affiché",
                                 options=[create_option(name="role", description= "Role ingame", option_type=3, required=True, choices=[
                                 create_choice(name="top", value="TOP"),
                                 create_choice(name="jgl", value="JUNGLE"),
@@ -586,7 +586,7 @@ class Achievements_scoringlol(commands.Cog):
         # Présente le score
         role = role.upper()
         result = scoring_value(role)
-        result = round(result, 2)
+        result = str(round(result, 2))
         await ctx.send(result)
 
     @cog_ext.cog_slash(name="scoring_corr", description="Explication du calcul du score",

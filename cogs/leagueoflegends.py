@@ -13,10 +13,14 @@ from discord_slash.utils.manage_components import *
 from cogs.achievements_scoringlol import scoring
 from fonctions.gestion_fichier import loadData, writeData
 from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
+from tqdm import tqdm
+
 
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
+
+import time
 
 
 
@@ -630,9 +634,26 @@ class LeagueofLegends(commands.Cog):
                             
             except:
                 records_cumul[key][summonerName.lower().replace(" ", "")] = value
+                
+        # Suivi
+        
+        if suivi[summonerName.lower().replace(" ", "")]['tier'] == thisTier:
+            difLP = int(suivi[summonerName.lower().replace(" ", "")]['LP']) - int(thisLP)
+        else:
+            difLP = 0
+        
+        if difLP > 0:
+            difLP = str('+' + difLP)
+        else:
+            difLP = str(difLP)
+        
+        suivi[summonerName.lower().replace(" ", "")]['wins'] = thisVictory
+        suivi[summonerName.lower().replace(" ", "")]['losses'] = thisLoose
+        suivi[summonerName.lower().replace(" ", "")]['LP'] = thisLP
+        
 
         # Achievements
-        if thisQ == "RANKED" and thisTime > 20:
+        if thisQ == "RANKED" and thisTime > 20 and succes is True:
             try:
                 suivi[summonerName.lower().replace(" ", "")]['Achievements'] = \
                     suivi[summonerName.lower().replace(" ", "")][
@@ -645,11 +666,13 @@ class LeagueofLegends(commands.Cog):
                                                                             'games'] + 1
             except:
                 suivi[summonerName.lower().replace(" ", "")]['games'] = 0
+                
+            writeData(records_cumul, 'records3')  # records3
 
-            if succes is True:
-                writeData(suivi, 'suivi') #achievements
 
-                writeData(records_cumul, 'records3')  # records3
+        writeData(suivi, 'suivi') #achievements + suivi
+
+
                 # sauvegarde_bdd(records_cumul, 'records3')
                 
         # observations
@@ -706,7 +729,7 @@ class LeagueofLegends(commands.Cog):
             if thisWinrate == ' ':
                 embed.add_field(name="Current rank", value=rank, inline=False)
             else:
-                embed.add_field(name="Current rank : " + thisTier + " " + thisRank + " - " + thisLP + "LP",
+                embed.add_field(name="Current rank : " + thisTier + " " + thisRank + " - " + thisLP + "LP" + " (" + difLP + ")",
                                 value="Winrate: " + thisWinrateStat + "%" + "\n Victoires : " + thisVictory +
                                       " | Defaites : " + thisLoose,
                                 inline=False)
@@ -928,18 +951,20 @@ class LeagueofLegends(commands.Cog):
         
 
 
+
     @tasks.loop(hours=1, count=None)
     async def lolsuivi(self):
 
         currentHour = str(datetime.datetime.now().hour)
 
         if currentHour == str(0):
+            
+            # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
-            suivi2 = loadData('suivi')
+            suivi = loadData('suivi')
             suivi_24h = loadData('suivi_24h')
 
-
-            df = pd.DataFrame.from_dict(suivi2)
+            df = pd.DataFrame.from_dict(suivi)
             df = df.transpose().reset_index()
             
 
@@ -950,9 +975,11 @@ class LeagueofLegends(commands.Cog):
             channel = self.bot.get_channel(int(main.chan_lol))
             
             df = df[df['tier'] != 'Non-classe'] # on supprime les non-classés
-
+            
             df_24h = df_24h[df_24h['tier'] != 'Non-classe'] # on supprime les non-classés
+            
 
+            # Pour l'ordre de passage
             df['tier_pts'] = 0
             df['tier_pts'] = np.where(df.tier == 'BRONZE', 1, df.tier_pts)
             df['tier_pts'] = np.where(df.tier == 'SILVER', 2, df.tier_pts)
@@ -966,43 +993,30 @@ class LeagueofLegends(commands.Cog):
             df['rank_pts'] = np.where(df['rank'] == 'II', 3, df.rank_pts)
             df['rank_pts'] = np.where(df['rank'] == 'I', 4, df.rank_pts)
             
-            df_24h['tier_pts'] = 0
-            df_24h['tier_pts'] = np.where(df_24h.tier == 'BRONZE', 1, df_24h.tier_pts)
-            df_24h['tier_pts'] = np.where(df_24h.tier == 'SILVER', 2, df_24h.tier_pts)
-            df_24h['tier_pts'] = np.where(df_24h.tier == 'GOLD', 3, df_24h.tier_pts)
-            df_24h['tier_pts'] = np.where(df_24h.tier == 'PLATINUM', 4, df_24h.tier_pts)
-            df_24h['tier_pts'] = np.where(df_24h.tier == 'DIAMOND', 5, df_24h.tier_pts)
-
-            df_24h['rank_pts'] = 0
-            df_24h['rank_pts'] = np.where(df_24h['rank'] == 'IV', 1, df_24h.rank_pts)
-            df_24h['rank_pts'] = np.where(df_24h['rank'] == 'III', 2, df_24h.rank_pts)
-            df_24h['rank_pts'] = np.where(df_24h['rank'] == 'II', 3, df_24h.rank_pts)
-            df_24h['rank_pts'] = np.where(df_24h['rank'] == 'I', 4, df_24h.rank_pts)
-
             df.sort_values(by=['tier_pts', 'rank_pts', 'LP'], ascending=[False, False, False], inplace=True)
 
             joueur = df['index'].to_dict()
-            joueur_24h = df_24h['index'].to_dict()
+
 
             embed = discord.Embed(title="Suivi LOL", description='Periode : 24h', colour=discord.Colour.blurple())
             totalwin = 0
             totaldef = 0
             totalgames = 0
+            
+            suivi_24h = loadData('suivi_24h')
+            
 
-            for id, key in joueur.items():
-                pseudo = lol_watcher.summoner.by_name(my_region, key)
-                stats = lol_watcher.league.by_summoner(my_region, pseudo['id'])
 
-                suivi = loadData('suivi')
-                suivi_24h = loadData('suivi_24h')
+            for key in joueur.values():
+                
+                if suivi[key]['rank'] != "Non-classé":
 
-                if len(stats) > 0:
                     try:
                         # suivi est mis à jour par updaterank. On va donc prendre l'autre qui n'est affecté que par lolsuivi
-                        wins = int(suivi[key]['wins'])
-                        losses = int(suivi[key]['losses'])
+                        wins = int(suivi_24h[key]['wins'])
+                        losses = int(suivi_24h[key]['losses'])
                         nbgames = wins + losses
-                        LP = int(suivi[key]['LP'])
+                        LP = int(suivi_24h[key]['LP'])
                         tier_old = str(suivi_24h[key]['tier'])
                         rank_old = str(suivi_24h[key]['rank'])
                         classement_old = tier_old + " " + rank_old
@@ -1014,29 +1028,17 @@ class LeagueofLegends(commands.Cog):
 
                     # on veut les stats soloq
 
-                    if str(stats[0]['queueType']) == "RANKED_SOLO_5x5":
-                        i = 0
-                    else:
-                        i = 1
-
-                    tier = str(stats[i]['tier'])
-                    rank = str(stats[i]['rank'])
+                    tier = str(suivi[key]['tier'])
+                    rank = str(suivi[key]['rank'])
                     classement_new = tier + " " + rank
 
-                    suivi[key]['wins'] = int(stats[i]['wins'])
-                    suivi[key]['losses'] = int(stats[i]['losses'])
-                    suivi[key]['LP'] = int(stats[i]['leaguePoints'])
-                    suivi[key]['tier'] = str(stats[i]['tier'])
-                    suivi[key]['rank'] = str(stats[i]['rank'])
-
-                    difwins = suivi[key]['wins'] - wins
-                    diflosses = suivi[key]['losses'] - losses
-                    difLP = suivi[key]['LP'] - LP
+                    difwins = int(suivi[key]['wins']) - wins
+                    diflosses = int(suivi[key]['losses']) - losses
+                    difLP = int(suivi[key]['LP']) - LP
                     totalwin = totalwin + difwins
                     totaldef = totaldef + diflosses
                     totalgames = totalwin + totaldef
                     
-                
                     # evolution
 
                     if dict_rankid[classement_old] > dict_rankid[classement_new]: # 19-18
@@ -1056,26 +1058,24 @@ class LeagueofLegends(commands.Cog):
                             emote = ":arrow_down:"
                         elif difLP == 0:
                             emote = ":arrow_right:"
+                            
 
                     embed.add_field(name=str(key) + " ( " + tier + " " + rank + " )",
                                     value="V : " + str(suivi[key]['wins']) + "(" + str(difwins) + ") | D : "
                                           + str(suivi[key]['losses']) + "(" + str(diflosses) + ") | LP :  "
                                           + str(suivi[key]['LP']) + "(" + str(difLP) + ")    " + emote, inline=False)
-                    embed.set_footer(text=f'Version {main.Var_version} by Tomlora')
-
-                    writeData(suivi, 'suivi')
-                    writeData(suivi, 'suivi_24h')
+                    embed.set_footer(text=f'Version {main.Var_version} by Tomlora')                   
 
                 else:
                     suivi[key]["tier"] = "Non-classé"
 
-                    writeData(suivi, 'suivi')
-                    writeData(suivi, 'suivi_24h')
+                writeData(suivi, 'suivi_24h') # on maj la bdd 24h
 
-            # print(data)
+
             await channel.send(embed=embed)
             await channel.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
-            
+    
+
                       
     # @commands.command()
     # @main.isOwner2()
