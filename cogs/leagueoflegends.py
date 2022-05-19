@@ -401,7 +401,8 @@ class LeagueofLegends(commands.Cog):
 
         if thisQ == "RANKED" and thisTime > 20:
 
-            records = loadData('records')
+            # records = loadData('records')
+            records = lire_bdd('records', 'dict')
 
 
             suivi = loadData('suivi')
@@ -454,7 +455,8 @@ class LeagueofLegends(commands.Cog):
                 records, exploits = records_check(records, key, 'DUREE_GAME', thisTime,
                                         thisChampName, summonerName, exploits)
 
-                records2 = loadData('records2')
+                # records2 = loadData('records2')
+                records2 = lire_bdd('records2', 'dict')
 
 
                 for key, value in records2.items():
