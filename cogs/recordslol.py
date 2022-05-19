@@ -9,6 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 from fonctions.gestion_fichier import loadData, writeData, reset_records_help
+from fonctions.gestion_bdd import lire_bdd
 from discord_slash import cog_ext, SlashContext
 
 from discord_slash.utils.manage_components import *
@@ -84,10 +85,13 @@ class Recordslol(commands.Cog):
     @cog_ext.cog_slash(name="records_list",
                        description="Voir les records détenues par les joueurs")
     async def records_list(self, ctx):
+        
+        await ctx.defer(hidden=False)
 
         current = 0
 
-        fichier = loadData('records')
+        # fichier = loadData('records')
+        fichier = lire_bdd('records', 'dict')
 
         emote = {
             "KDA": ":star:",
@@ -150,7 +154,9 @@ class Recordslol(commands.Cog):
 
         embed1.set_footer(text=f'Version {Var_version} by Tomlora')
 
-        fichier2 = loadData('records2')
+        # fichier2 = loadData('records2')
+        fichier2 = lire_bdd('records2', 'dict')
+        
 
         embed2 = discord.Embed(title="Records (Page 2/3) :bar_chart:", colour=discord.Colour.blurple())
 
@@ -170,7 +176,8 @@ class Recordslol(commands.Cog):
 
         embed3 = discord.Embed(title="Records Cumul & Moyenne (Page 3/3) :bar_chart: ")
 
-        fichier3 = loadData('records3')
+        # fichier3 = loadData('records3')
+        fichier3 = lire_bdd('records3', 'dict')
 
         df = pd.DataFrame.from_dict(fichier3)
         df.fillna(0, inplace=True)
@@ -310,8 +317,8 @@ class Recordslol(commands.Cog):
     async def pantheon(self, ctx, stat, stat2:str="no", stat3:str="no", fichier_recap:bool=False):
         
         stat = [stat, stat2, stat3]
-        await ctx.defer(hidden=False)
-        data = loadData('records3')
+        # data = loadData('records3')
+        data = lire_bdd('records3', 'dict')
 
         df = pd.DataFrame.from_dict(data)
         df.fillna(0, inplace=True)
@@ -336,6 +343,8 @@ class Recordslol(commands.Cog):
         df['WARDS_MOYENNE'] = round(df['WARDS_MOYENNE'], 2)
         
         df.to_excel('./obj/records/pantheon.xlsx', index=False)
+        
+        await ctx.defer(hidden=False)
         
         liste_graph = list()
         liste_delete = list()
@@ -442,8 +451,9 @@ class Recordslol(commands.Cog):
             if fichier_recap is True:
                 url = "./obj/records/pantheon.xlsx"
                 await ctx.send(file=discord.File(url))
-            
-            await ctx.send(files=liste_graph)
+                
+            if len(liste_graph) >= 1: # il faut au moins un graph
+                await ctx.send(files=liste_graph)
             
             for graph in liste_delete:
                 os.remove(graph)

@@ -398,14 +398,32 @@ class LeagueofLegends(commands.Cog):
         # name3 = 'suivi'
         
         exploits = "Observations :"
+        
+        # Suivi
+        
+        suivi = loadData('suivi')
+        
+        if suivi[summonerName.lower().replace(" ", "")]['tier'] == thisTier:
+            difLP = int(thisLP) - int(suivi[summonerName.lower().replace(" ", "")]['LP'])
+        else:
+            difLP = 0
+        
+        if difLP > 0:
+            difLP = '+' + str(difLP)
+        else:
+            difLP = str(difLP)
+            
+        if thisQ == "RANKED": # si pas ranked, inutile car ça bougera pas
+        
+            suivi[summonerName.lower().replace(" ", "")]['wins'] = thisVictory
+            suivi[summonerName.lower().replace(" ", "")]['losses'] = thisLoose
+            suivi[summonerName.lower().replace(" ", "")]['LP'] = thisLP
 
         if thisQ == "RANKED" and thisTime > 20:
 
             # records = loadData('records')
             records = lire_bdd('records', 'dict')
-
-
-            suivi = loadData('suivi')
+            records2 = lire_bdd('records2', 'dict')          
 
             for key, value in records.items():
                 if int(thisDeaths) >= 1:
@@ -456,7 +474,7 @@ class LeagueofLegends(commands.Cog):
                                         thisChampName, summonerName, exploits)
 
                 # records2 = loadData('records2')
-                records2 = lire_bdd('records2', 'dict')
+                
 
 
                 for key, value in records2.items():
@@ -495,10 +513,10 @@ class LeagueofLegends(commands.Cog):
                     records2, exploits = records_check(records2, key, 'HEALS_SUR_ALLIES', thisTotalOnTeammates,
                                              thisChampName, summonerName, exploits)
 
-                    writeData(records, 'records')
-                    writeData(records2, 'records2')
-                    # sauvegarde_bdd(records, 'records')
-                    # sauvegarde_bdd(records2, 'records2')
+                    # writeData(records, 'records')
+                    # writeData(records2, 'records2')
+                    sauvegarde_bdd(records, 'records')
+                    sauvegarde_bdd(records2, 'records2')
 
         # couleur de l'embed en fonction du pseudo
 
@@ -549,7 +567,8 @@ class LeagueofLegends(commands.Cog):
         
 
         settings = loadData("achievements_settings")
-        records_cumul = loadData('records3')
+        # records_cumul = loadData('records3')
+        records_cumul = lire_bdd('records3', 'dict')
 
         if int(thisPenta) >= settings['Pentakill']:
             exploits = exploits + "\n ** :crown: :five: Ce joueur a pentakill ** " + str(thisPenta) + " fois"
@@ -637,21 +656,7 @@ class LeagueofLegends(commands.Cog):
             except:
                 records_cumul[key][summonerName.lower().replace(" ", "")] = value
                 
-        # Suivi
-        
-        if suivi[summonerName.lower().replace(" ", "")]['tier'] == thisTier:
-            difLP = int(suivi[summonerName.lower().replace(" ", "")]['LP']) - int(thisLP)
-        else:
-            difLP = 0
-        
-        if difLP > 0:
-            difLP = str('+' + difLP)
-        else:
-            difLP = str(difLP)
-        
-        suivi[summonerName.lower().replace(" ", "")]['wins'] = thisVictory
-        suivi[summonerName.lower().replace(" ", "")]['losses'] = thisLoose
-        suivi[summonerName.lower().replace(" ", "")]['LP'] = thisLP
+
         
 
         # Achievements
@@ -669,7 +674,8 @@ class LeagueofLegends(commands.Cog):
             except:
                 suivi[summonerName.lower().replace(" ", "")]['games'] = 0
                 
-            writeData(records_cumul, 'records3')  # records3
+            #writeData(records_cumul, 'records3')  # records3
+            sauvegarde_bdd(records_cumul, 'records3')
 
 
         writeData(suivi, 'suivi') #achievements + suivi
@@ -871,6 +877,8 @@ class LeagueofLegends(commands.Cog):
                                 create_option(name="numerogame", description="Numero de la game, de 0 à 10", option_type=4, required=True),
                                 create_option(name="succes", description="Faut-il la compter dans les records/achievements ?", option_type=5, required=True)])
     async def game(self, ctx, summonername:str, numerogame:int, succes: bool):
+        
+        await ctx.defer(hidden=False)
 
         embed = self.printInfo(summonerName=summonername, idgames=int(numerogame), succes=succes)
 

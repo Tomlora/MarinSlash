@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 import os
 import plotly.express as px
 from fonctions.gestion_fichier import loadData, writeData
+from fonctions.gestion_bdd import lire_bdd
 
 from discord_slash import cog_ext, SlashContext
 
@@ -133,9 +134,11 @@ class Achievements_scoringlol(commands.Cog):
 
         # Succes
         suivi = loadData('suivi')
-        records1 = loadData('records')
-        records2 = loadData('records2')
-        records3 = loadData('records3')
+        # records1 = loadData('records')
+        # records2 = loadData('records2')
+        records1 = lire_bdd('records', 'dict')
+        records2 = lire_bdd('records2', 'dict')
+
         settings = loadData('achievements_settings')
 
         df = pd.DataFrame(suivi)
@@ -145,7 +148,7 @@ class Achievements_scoringlol(commands.Cog):
         if records == "oui":
             df2 = pd.DataFrame(records1).transpose()
             df3 = pd.DataFrame(records2).transpose()
-            df4 = pd.DataFrame(records3) # p-e qu'un jour ?
+
 
             plt.figure(figsize=(15, 8))
 
