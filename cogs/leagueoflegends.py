@@ -1003,8 +1003,6 @@ class LeagueofLegends(commands.Cog):
             totaldef = 0
             totalgames = 0
             
-            suivi_24h = loadData('suivi_24h')
-            
 
 
             for key in joueur.values():
@@ -1012,7 +1010,7 @@ class LeagueofLegends(commands.Cog):
                 if suivi[key]['rank'] != "Non-classé":
 
                     try:
-                        # suivi est mis à jour par updaterank. On va donc prendre l'autre qui n'est affecté que par lolsuivi
+                        # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
                         wins = int(suivi_24h[key]['wins'])
                         losses = int(suivi_24h[key]['losses'])
                         nbgames = wins + losses
@@ -1175,21 +1173,18 @@ class LeagueofLegends(commands.Cog):
     @commands.command()
     @main.isOwner2()
     async def spectator(self, ctx, *, summonerName):
-        match = match_spectator(summonerName)
-        print(match['participants'])
-        await ctx.send('Fait !')     
+        try:
+            match = match_spectator(summonerName)
+            print(match['participants'])
+            await ctx.send('Fait !')
+        except:
+            await ctx.send("Tu n'es pas en match.")     
         
     @cog_ext.cog_slash(name="abbedagge", description="Meilleur joueur de LoL")
     async def abbedagge(self, ctx):
         await ctx.send('https://clips.twitch.tv/ShakingCovertAuberginePanicVis-YDRK3JFk7Glm6nbB')
         
-    @commands.command()
-    async def askrank(self, ctx, *, rank:str):
-        idrank = dict_rankid[rank]
-        await ctx.send(idrank)
-        rank_split = rank.split()
-        tier = rank_split[0]
-        await ctx.send(file=discord.File(f'./img/{tier}.png'))
+
 
 
 def setup(bot):

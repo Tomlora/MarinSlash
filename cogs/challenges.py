@@ -94,7 +94,7 @@ class Challenges(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.challenges_maj.start()
-        self.defis = lire_bdd('challenges_data').transpose()['name'].unique()
+        self.defis = lire_bdd('challenges_data').transpose().sort_values(by="name", ascending=True)
         
         
     @tasks.loop(hours=1, count=None)
@@ -192,14 +192,23 @@ class Challenges(commands.Cog):
 
         
     @cog_ext.cog_slash(name="challenges_top",
-                       description="Affiche un classement pour le défi spécifié")
-    async def challenges_top(self, ctx):
+                       description="Affiche un classement pour le défi spécifié",
+                       options=[create_option(name="nbpages", description= "Quel page ? Les challenges sont en ordre alphabétique", option_type=4, required=True)])
+    async def challenges_top(self, ctx, nbpages:int):
         
             # 232 défis
+            
+            nbpages = nbpages - 1 # les users ne savent pas que ça commence à 0
+            
+            debut_range = 6 + (25 * nbpages)
+            fin_de_range = 31 + (25 * nbpages)
+            
+            if fin_de_range > len(self.defis): # si la range de fin est supérieure au dernier de la liste... alors on prend la fin de la liste
+                fin_de_range = len(self.defis)
         
             # catégorie
             select = create_select(
-                options=[create_select_option(self.defis[i], value=self.defis[i]) for i in range(6, 31)],
+                options=[create_select_option(self.defis['name'].unique()[i], value=self.defis['name'].unique()[i], description=self.defis['shortDescription'].unique()[i]) for i in range(debut_range, fin_de_range)],
                 placeholder = "Choisis le défi")
                                   
             channel = ctx.channel
