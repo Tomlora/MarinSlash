@@ -462,7 +462,7 @@ class Fantasy(commands.Cog):
                 equipe1 = op1[i]
                 equipe2 = op2[i]
                 match = str(equipe1) + "/" + str(equipe2)
-                cote = rate[semaine][competition][match]
+                cote = rate[str(semaine)][competition][match]
                 await channel.send(f' Quel victoire pour {match} {cote}')
                 
                 try:
@@ -530,7 +530,7 @@ class Fantasy(commands.Cog):
                 for match, pari in data[user][semaine][competition].items():
                     equipe_gagnante = pari[0]
                     points_mises = pari[1]
-                    embed.add_field(name=match + " " + str(rate[semaine][competition][match]),
+                    embed.add_field(name=match + " " + str(rate[str(semaine)][competition][match]),
                                         value=f"Equipe misée : {equipe_gagnante} | Points misés : {points_mises}", inline=True)
             except KeyError: # cela veut dire que le joueur n'a pas misé pour la compétition
                 pass
@@ -573,8 +573,8 @@ class Fantasy(commands.Cog):
             equipe1 = op1[i]
             equipe2 = op2[i]
             match = str(equipe1) + "/" + str(equipe2)
-            cote_equipe1 = rate[semaine][competition][match][0]
-            cote_equipe2 = rate[semaine][competition][match][1]
+            cote_equipe1 = rate[str(semaine)][competition][match][0]
+            cote_equipe2 = rate[str(semaine)][competition][match][1]
             
 
         
@@ -653,7 +653,7 @@ class Fantasy(commands.Cog):
     async def maj_cote(self, ctx):
         
         
-        cote = loadDataRate()
+        cote = {}
         for i in range(1,19):
             
 
@@ -663,7 +663,6 @@ class Fantasy(commands.Cog):
             schedule_lcs = schedule_date[schedule_date['Competition'] == 'LCS']
             #rajouter critère semaine
             op1_lec = schedule_lec['Equipe1'].values
-            print(op1_lec)
             op2_lec = schedule_lec['Equipe2'].values
             op1_lfl = schedule_lfl['Equipe1'].values
             op2_lfl = schedule_lfl['Equipe2'].values
@@ -689,7 +688,7 @@ class Fantasy(commands.Cog):
 
         writeDataRate(cote)
         
-        print(cote)
+
         
         
         await ctx.send('Fait !')
@@ -708,7 +707,7 @@ class Fantasy(commands.Cog):
         for competition in ['LEC', 'LFL', 'LCS']:
             semaine = settings['semaine'][competition]
  
-            for key, value in data[semaine][competition].items():
+            for key, value in data[str(semaine)][competition].items():
                 response += str(key) + " : " + str(value) + "\n"
         
         embed = discord.Embed(title=f"Côte des matchs du jour  ", description=response, colour=discord.Colour.blurple())
@@ -742,7 +741,7 @@ class Fantasy(commands.Cog):
         data = loadDataRate()
         match = ""
         
-        for key in data[semaine][competition].keys():
+        for key in data[str(semaine)][competition].keys():
             match = match + key + " , "
         
         await ctx.send(str(match))

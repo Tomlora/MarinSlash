@@ -1,4 +1,5 @@
 import pickle
+import json
 
 def loadConfig(ctx):
     try:
@@ -22,6 +23,11 @@ def loadData(name):
         return fichier
     except Exception:
         return {}
+    
+def loadTest(name):
+    with open('obj/' + name + '.pkl', 'rb') as f:
+        fichier = pickle.load(f)
+    return fichier
 
 
 def writeData(data, name):
@@ -65,11 +71,11 @@ def writeDataFL(obj, name="fantasy"):
 def loadDataRate():
     try:
         name = "rate"
-        with open('FL/' + name + '.pkl', 'rb') as f:
-            return pickle.load(f)
+        with open('FL/' + name + '.json', 'r') as f:
+            return json.load(f)
     except Exception:
         return {}
 
 def writeDataRate(obj, name="rate"):
-    with open('FL/' + name + '.pkl', 'wb+') as f:
-        pickle.dump(obj, f, protocol=0)
+    with open('FL/' + name + '.json', 'w') as f:
+        json.dump(obj, f, indent="\t")
