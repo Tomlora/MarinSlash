@@ -59,10 +59,15 @@ def get_data_joueur(summonername:str):
     # on ajoute le joueur
     data_joueur_category.insert(0, "Joueur", summonername)
     data_joueur_challenges.insert(0, "Joueur", summonername)
+
+    if data_joueur_challenges.empty: # si le dataset est vide, on fait rien.
+        return 0, 0, 0
+    
     try: # certains joueurs n'ont pas ces colonnes... impossible de dire pourquoi
-        data_joueur_challenges.drop(['position', 'playersInLevel', 'achievedTime'], axis=1, inplace=True)
+            data_joueur_challenges.drop(['position', 'playersInLevel', 'achievedTime'], axis=1, inplace=True)
     except KeyError:
-        data_joueur_challenges.drop(['achievedTime'], axis=1, inplace=True)
+            data_joueur_challenges.drop(['achievedTime'], axis=1, inplace=True)
+
     data_challenges = get_data_challenges()
     # on fusionne en fonction de l'id :
     data_joueur_challenges = data_joueur_challenges.merge(data_challenges, left_on="challengeId", right_on='id')
@@ -94,7 +99,7 @@ class Challenges(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.challenges_maj.start()
-        self.defis = lire_bdd('challenges_data').transpose().sort_values(by="name", ascending=True)
+        # self.defis = lire_bdd('challenges_data').transpose().sort_values(by="name", ascending=True)
         
         
     @tasks.loop(hours=1, count=None)
@@ -107,18 +112,22 @@ class Challenges(commands.Cog):
             
             channel = self.bot.get_channel(int(main.chan_lol))
             
-            liste_summonername = loadData('id_data')
+            liste_summonername = lire_bdd('tracker', 'dict')
             
+            for table in ['challenges_total', 'challenges_category', 'challenges_data']:
+                supprimer_bdd(table)
            
             for summonername in liste_summonername.keys():
-                try:
-                    total, category, challenges = get_data_joueur(summonername)
-                    sauvegarde_bdd(total, 'challenges_total')
-                    sauvegarde_bdd(category, 'challenges_category')
-                    sauvegarde_bdd(challenges, 'challenges_data')
-                    
+                print(summonername)
+
+                total, category, challenges = get_data_joueur(summonername)
+                if isinstance(challenges, pd.DataFrame): # si ce n'est pas un dataframe, la fonction a renvoyée 0, ce qui signifie : pas de données
+                    sauvegarde_bdd(total, 'challenges_total', 'append')
+                    sauvegarde_bdd(category, 'challenges_category', 'append')
+                    sauvegarde_bdd(challenges, 'challenges_data', 'append')
+                        
                     time.sleep(3)
-                except:
+                else:
                     print(f'{summonername} : Pas de données')
             await channel.send('Les challenges ont été mis à jour.')
             

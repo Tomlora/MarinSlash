@@ -61,7 +61,8 @@ class Divers(commands.Cog):
                 create_select_option("Dawn", value="1", emoji="😂"),
                 create_select_option("Exorblue", value="2", emoji="😏"),
                 create_select_option("Tomlora", value="3", emoji="💛"),
-                create_select_option("Ylarabka", value="4", emoji="🦊")
+                create_select_option("Ylarabka", value="4", emoji="🦊"),
+                create_select_option("Djingo le egay", value="5", emoji="💚")
             ],
             placeholder="Choisis un emoji...",
             min_values=1,
