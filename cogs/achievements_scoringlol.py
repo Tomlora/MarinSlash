@@ -130,7 +130,6 @@ class Achievements_scoringlol(commands.Cog):
                             ])])
     async def achievements(self, ctx, records):
         
-        await ctx.defer(hidden=False)
 
         # Succes
         suivi = loadData('suivi')
@@ -143,6 +142,8 @@ class Achievements_scoringlol(commands.Cog):
 
         df = pd.DataFrame(suivi)
         df = df.transpose().reset_index()
+        
+        await ctx.defer(hidden=False)
 
         # Records
         if records == "oui":

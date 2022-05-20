@@ -193,10 +193,12 @@ class Challenges(commands.Cog):
 
         fig = go.Figure()
         i=0
+        total = 0
         
         # dict de paramètres
         domain = {0:[0,0], 1:[0,2], 2:[1,1], 3:[2,0], 4:[2,2]} #position
         color = ["red", "blue", "yellow", "magenta", "green"] #color
+
         
         for argument in [liste_teamwork, liste_collection, liste_expertise, liste_imagination, liste_veterancy]:
             # dict de parametres
@@ -211,9 +213,12 @@ class Challenges(commands.Cog):
                                        mode = "number+gauge",
                                        domain = {'row':domain[i][0], 'column':domain[i][1]}))
             fig.update_layout(grid = {'rows': 3, 'columns': 3, 'pattern': "independent"})
+            total = total + argument[2]
             i = i+1
+            
+            
         fig.write_image('plot.png')
-        await ctx.send(f'Le joueur {summonername} a : \n{msg}') #txt
+        await ctx.send(f'Le joueur {summonername} a : \n{msg}\n TOTAL  : ** {str(total)} **') #txt
         await ctx.send(file=discord.File('plot.png')) # visuel
         os.remove('plot.png')
         
