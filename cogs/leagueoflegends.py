@@ -262,6 +262,7 @@ class LeagueofLegends(commands.Cog):
         thisWinrate = ' '
         thisRank = ' '
         thisLP = ' '
+        
         if int(thisDeaths) >= 1:
             thisKDA = round((int(thisKills) + int(thisAssists)) / int(thisDeaths), 2)
         else:
@@ -392,6 +393,7 @@ class LeagueofLegends(commands.Cog):
             thisLP = str(thisStats[i]['leaguePoints'])
             thisVictory = str(thisStats[i]['wins'])
             thisLoose = str(thisStats[i]['losses'])
+            thisWinStreak = str(thisStats[i]['hotStreak'])
         except IndexError:
             rank = "no rank in ranked"
 
@@ -629,6 +631,9 @@ class LeagueofLegends(commands.Cog):
             exploits = exploits + "\n ** :crown: :heart: Ce joueur a heal plus de " + str(
                 thisTotalOnTeammatesFormat) + " sur ses alliés **"
             points = points + 1
+            
+        if thisWinStreak == "True":
+            exploits = exploits + "\n ** :fire: Ce joueur est en série de victoire **"
 
         dict_cumul = {"SOLOKILLS": thisSoloKills, "NBGAMES": 1, "DUREE_GAME": thisTime / 60, "KILLS": thisKills,
                       "DEATHS": thisDeaths, "ASSISTS": thisAssists, "WARDS_SCORE": thisVision,
@@ -743,6 +748,16 @@ class LeagueofLegends(commands.Cog):
                                 value="Winrate: " + thisWinrateStat + "%" + "\n Victoires : " + thisVictory +
                                       " | Defaites : " + thisLoose,
                                 inline=False)
+        
+        # Gestion des bo    
+            if int(thisLP) == 100:
+                bo = thisStats[i]['miniSeries']
+                bo_target = bo["target"] + 2
+                bo_wins = str(bo['wins'])
+                bo_losses = str(bo['losses'])
+                bo_progress = str(bo['progress'])
+                embed.add_field(name=f'Bo{str(bo_target)}', value=f'Victoires : {bo_wins} | Defaites : {bo_losses} \nProgress : {bo_progress}', inline=False) 
+                
         embed.add_field(name=f"Team 1 ({thisGold_team1} Golds)",
                         value=str(thisPseudoListe[0]) + " (" + str(thisChampName1) + ") - " + str(
                             thisKillsListe[0]) + "/" + str(
@@ -952,8 +967,8 @@ class LeagueofLegends(commands.Cog):
     @cog_ext.cog_slash(name="debug_getId",description="Réservé au propriétaire du bot",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     @main.isOwner2_slash()
-    async def debug_getId(self, ctx, *, summonerName):
-        me = lol_watcher.summoner.by_name(my_region, summonerName)
+    async def debug_getId(self, ctx, summonername):
+        me = lol_watcher.summoner.by_name(my_region, summonername)
         my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'])
         last_match = my_matches[0]
         match_detail = lol_watcher.match.by_id(region, last_match)

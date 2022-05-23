@@ -497,14 +497,18 @@ class Fantasy(commands.Cog):
         embed = discord.Embed(title=f"Pari du joueur {user} pour la semaine en cours", color=discord.Color.gold())
         
         for competition in ['LEC', 'LFL', 'LCS']:
-            semaine = loadDataFL('settings')['semaine'][competition]
+            semaine_data = loadDataFL('settings')['semaine'][competition]
+            
+            embed.add_field(name="Competition", value=competition, inline=False)
         
             try:
-                for match, pari in data[user][semaine][competition].items():
-                    equipe_gagnante = pari[0]
-                    points_mises = pari[1]
-                    embed.add_field(name=match + " " + str(rate[str(semaine)][competition][match]),
-                                        value=f"Equipe misée : {equipe_gagnante} | Points misés : {points_mises}", inline=True)
+                for semaine in range(semaine_data, semaine_data + 2):
+                    embed.add_field(name="Semaine", value=str(semaine), inline=False)
+                    for match, pari in data[user][semaine][competition].items():
+                        equipe_gagnante = pari[0]
+                        points_mises = pari[1]
+                        embed.add_field(name=match + " " + str(rate[str(semaine)][competition][match]),
+                                            value=f"Equipe misée : {equipe_gagnante} | Points misés : {points_mises}", inline=True)
             except KeyError: # cela veut dire que le joueur n'a pas misé pour la compétition
                 pass
             
@@ -623,7 +627,7 @@ class Fantasy(commands.Cog):
         
     @cog_ext.cog_slash(name="fantasy_maj_cote",description="Permet de mettre à jour l'ensemble des côtes [Réservé aux administrateurs]")
     @main.isOwner2_slash()
-    async def maj_cote(self, ctx):
+    async def fantasy_maj_cote(self, ctx):
         
         
         cote = {}
