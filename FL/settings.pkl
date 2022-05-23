@@ -7,11 +7,11 @@ p2
 (dp3
 VLEC
 p4
-I2
+I1
 sVLCS
 p5
-I2
+I1
 sVLFL
 p6
-I2
+I1
 ss.

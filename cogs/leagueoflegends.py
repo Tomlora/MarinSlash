@@ -402,10 +402,12 @@ class LeagueofLegends(commands.Cog):
         # Suivi
         
         suivi = lire_bdd('suivi', 'dict')
-        
-        if suivi[summonerName.lower().replace(" ", "")]['tier'] == thisTier:
-            difLP = int(thisLP) - int(suivi[summonerName.lower().replace(" ", "")]['LP'])
-        else:
+        try:
+            if suivi[summonerName.lower().replace(" ", "")]['tier'] == thisTier:
+                difLP = int(thisLP) - int(suivi[summonerName.lower().replace(" ", "")]['LP'])
+            else:
+                difLP = 0
+        except:
             difLP = 0
         
         if difLP > 0:
@@ -540,6 +542,8 @@ class LeagueofLegends(commands.Cog):
             color = discord.Colour.from_rgb(42, 188, 248)
         elif (pseudo == 'KAZSC'):
             color = discord.Colour.from_rgb(245, 68, 160)
+        elif (pseudo == 'CHGUIZOU'):
+            color = discord.Colour.from_rgb(127, 0, 255)
         else:
             color = discord.Color.blue()
 
@@ -970,7 +974,7 @@ class LeagueofLegends(commands.Cog):
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
             suivi = lire_bdd('suivi', 'dict')
-            suivi_24h = lire_bdd('suivi', 'dict')
+            suivi_24h = lire_bdd('suivi_24h', 'dict')
 
             df = pd.DataFrame.from_dict(suivi)
             df = df.transpose().reset_index()

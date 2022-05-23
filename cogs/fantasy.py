@@ -4,8 +4,10 @@ from discord.ext import commands, tasks
 import calendar
 import main
 import pandas as pd
+import numpy as np
 import asyncio
 from datetime import datetime
+from fonctions.date import jour_de_la_semaine
 from fonctions.gestion_fichier import loadDataFL, loadDataRate, writeDataFL, writeDataRate
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
@@ -56,16 +58,25 @@ def liste_en_str(liste):
     return str
 
 def schedule():
+        ecart_lec = 1
+        ecart_lfl = 1
+        ecart_lcs = 4
         schedule = "FL/schedule.csv"
         schedule = pd.read_csv(schedule)
+        schedule['Start Date'] = pd.to_datetime(schedule['Start Date'])
+        schedule['Week'] = schedule['Start Date'].dt.isocalendar().week
+        # schedule['Week'] = schedule['Week'] - ecart # première week = 1 pour chaque compétition (créer 3 var : écart_lec, ecart_lcs, ecart_lfl)
+        schedule['Jour'] = schedule['Start Date'].dt.day
+        schedule['Année'] = schedule['Start Date'].dt.year
+        schedule['Mois'] = schedule['Start Date'].dt.month
         subject = schedule['Subject'].str.split(pat=" ", expand=True)
-        date = schedule['Start Date'].str.split(pat="-", expand=True)
         schedule[['Competition', 'Année', 'Split', '-', 'Equipe1', 'vs', 'Equipe2']] = subject
-        schedule[['Année', 'Mois', 'Jour']] = date
-        schedule[['Année', 'Mois', 'Jour']] = schedule[['Année', 'Mois', 'Jour']].astype('int64')
         schedule['match'] = schedule['Equipe1'] + "/" + schedule['Equipe2']
         schedule.drop(['Subject', '-', 'vs', 'Start Date'], axis=1, inplace=True)
-        # schedule = schedule[schedule['Mois'] == 2]
+        
+        schedule['Week'] = np.where(schedule['Competition'] == 'LEC', schedule['Week'] - ecart_lec, schedule['Week'])
+        schedule['Week'] = np.where(schedule['Competition'] == 'LCS', schedule['Week'] - ecart_lcs, schedule['Week'])
+        schedule['Week'] = np.where(schedule['Competition'] == 'LFL', schedule['Week'] - ecart_lfl, schedule['Week'])
         
         return schedule
     
@@ -98,6 +109,17 @@ class Fantasy(commands.Cog):
         if channel: # si le channel est disponible
             if alarm(9, 55, jour_de_match['MSI']):
                 channel.send(self.messageEUM)
+                
+    
+    @cog_ext.cog_slash(name="schedule_xl",
+                       description="Available only for Tomlora")
+    @main.isOwner2_slash()
+    async def schedule_xl(self,ctx):
+        data = schedule()
+        data.to_excel('FL/schedule_modif.xlsx')
+        await ctx.send('Done !')
+                
+    
 
 
     @cog_ext.cog_slash(name="alarm_lol",
@@ -352,68 +374,13 @@ class Fantasy(commands.Cog):
             await ctx.send("Annulé")          
     
 
-    @cog_ext.cog_slash(name="fantasy_add", description="Test")
+    @cog_ext.cog_slash(name="fantasy_add", description="Ajoute son compte Discord au jeu de la Fantasy")
     @main.isOwner2_slash()
     async def fantasy_add(self, ctx):
         user = ""
         user = str(ctx.author)
         data = loadDataFL()
-        # nan => vainqueur parié, 0 => points pariés
-        # data[user] = {'Points' : Nb_points, 
-        #               1:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               2:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               3:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               4:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               5:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               6:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               7:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               8:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               9:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               10:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               11:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               12:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               13:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               14:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               15:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               16:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               17:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}},
-        #               18:{'LEC': {'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LFL':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]},
-        #                  'LCS':{'VIT/MAD' : ['nan', 0], 'SK/RGE' : ['nan', 0], 'G2/XL' : ['nan', 0], 'MSF/AST' : ['nan', 0], 'BDS/FNC' : ['nan', 0]}}}
+
         if user in data.keys():
             await ctx.send('Tu es déjà inscrit !')
         else:
@@ -425,7 +392,7 @@ class Fantasy(commands.Cog):
             await ctx.send(f'Le joueur {user} a été ajouté !')
         
         
-    @cog_ext.cog_slash(name="fantasy_bet", description="test",                        
+    @cog_ext.cog_slash(name="fantasy_bet", description="Permet de miser au jeu de la Fantasy pour la semaine en cours",                        
                        options=[create_option(name="competition", description="Quelle compétition", option_type=3, required=True, choices=[
                                     create_choice(name="LEC", value="LEC"),
                                     create_choice(name='LFL', value='LFL'),
@@ -434,71 +401,77 @@ class Fantasy(commands.Cog):
     async def fantasy_bet(self, ctx, competition='LEC'):
         erreur = False
         user = str(ctx.author)
-        # settings
-        semaine_data = loadDataFL('settings')['semaine'][competition]
         
-        for semaine in range(semaine_data, semaine_data+2):
+        jour = jour_de_la_semaine()
         
-            await ctx.send(f'Pari pour la journée {str(semaine)}')
+        if jour in jour_de_match[competition]:
+            await ctx.send(f"Des matchs se jouent en {competition} aujourd'hui. Les paris sont donc bloqués")
+        else:
+            # settings
+            semaine_data = loadDataFL('settings')['semaine'][competition]
             
-            #data
-            data = loadDataFL()
+            for semaine in range(semaine_data, semaine_data+2):
             
-            # rate
-            rate = loadDataRate()
-            schedule_date = schedule()
-            
-            channel = ctx.channel
-            author = ctx.author
-            
-            def check(m):
-                return m.author == author and m.channel == channel
-            
-            await channel.send('La réponse doit être au format `<equipe gagnante> <points mises> `')
-            schedule_date = schedule_date[schedule_date['Competition'] == competition]
-            op1 = schedule_date['Equipe1'].values
-            op2 = schedule_date['Equipe2'].values
-            for i in range((semaine-1)*5, semaine*5):
-                equipe1 = op1[i]
-                equipe2 = op2[i]
-                match = str(equipe1) + "/" + str(equipe2)
-                cote = rate[str(semaine)][competition][match]
-                await channel.send(f' Quel victoire pour {match} {cote}')
+                await ctx.send(f'Pari pour la journée {str(semaine)}')
                 
-                try:
-                    msg = await self.bot.wait_for('message', timeout=60, check=check)
-                    await channel.send('Score enregistré !'.format(msg))
-                    msg = str(msg.content).split()
+                #data
+                data = loadDataFL()
+                
+                # rate
+                rate = loadDataRate()
+                schedule_date = schedule()
+                
+                channel = ctx.channel
+                author = ctx.author
+                
+                def check(m):
+                    return m.author == author and m.channel == channel
+                
+                await channel.send('La réponse doit être au format `<equipe gagnante> <points mises> `')
+                schedule_date = schedule_date[schedule_date['Competition'] == competition]
+                op1 = schedule_date['Equipe1'].values
+                op2 = schedule_date['Equipe2'].values
+                for i in range((semaine-1)*5, semaine*5):
+                    equipe1 = op1[i]
+                    equipe2 = op2[i]
+                    match = str(equipe1) + "/" + str(equipe2)
+                    cote = rate[str(semaine)][competition][match]
+                    await channel.send(f' Quel victoire pour {match} {cote}')
                     
-                    equipe_gagnante = msg[0]
-                    if not equipe_gagnante in [equipe1, equipe2]: # si le joueur s'est trompé d'équipe
-                        erreur = True
-                        await channel.send(f'Erreur : Le gagnant est soit {equipe1} ou {equipe2}. Annulation des paris.')
-                        break 
-                    
-                    points_mises = int(msg[1])
-                    data[user]['Points'] = data[user]['Points'] - points_mises
-                    points_user = data[user]['Points']
-                    if points_user < 0: # Si le joueur n'a plus de points, on ne peut pas continuer.
-                        await ctx.send(f"Erreur, tu n'as pas assez de points. {points_user} \nAnnulation des paris.")
-                        erreur = True
-                        break
                     try:
-                        data[user][semaine][competition][match] = [equipe_gagnante, points_mises]           
-                    except KeyError: # Si erreur, le joueur n'a jamais misé sur ces matchs.
+                        msg = await self.bot.wait_for('message', timeout=60, check=check)
+                        await channel.send('Score enregistré !'.format(msg))
+                        msg = str(msg.content).split()
+                        
+                        equipe_gagnante = msg[0]
+                        if not equipe_gagnante in [equipe1, equipe2]: # si le joueur s'est trompé d'équipe
+                            erreur = True
+                            await channel.send(f'Erreur : Le gagnant est soit {equipe1} ou {equipe2}. Annulation des paris.')
+                            break 
+                        
+                        points_mises = int(msg[1])
+                        data[user]['Points'] = data[user]['Points'] - points_mises
+                        points_user = data[user]['Points']
+                        if points_user < 0: # Si le joueur n'a plus de points, on ne peut pas continuer.
+                            await ctx.send(f"Erreur, tu n'as pas assez de points. {points_user} \nAnnulation des paris.")
+                            erreur = True
+                            break
                         try:
-                            data[user][semaine][competition] = {match : [equipe_gagnante, points_mises]}
-                        except KeyError: # Si erreur, le joueur n'a jamais misé pour cette compétition.
-                            data[user][semaine] = {competition : {match : [equipe_gagnante, points_mises]}}
-                                                                
-                    await channel.send(f'Il te reste {points_user} points à miser ')
-                except asyncio.TimeoutError:
-                    await msg.delete()
-                    await ctx.send("Annulé")
-            
-            if erreur is False: # seulement s'il reste des points au joueur.
-                writeDataFL(data)
-                await channel.send(f'Enregistré pour les matchs de la journée {semaine}')
+                            data[user][semaine][competition][match] = [equipe_gagnante, points_mises]           
+                        except KeyError: # Si erreur, le joueur n'a jamais misé sur ces matchs.
+                            try:
+                                data[user][semaine][competition] = {match : [equipe_gagnante, points_mises]}
+                            except KeyError: # Si erreur, le joueur n'a jamais misé pour cette compétition.
+                                data[user][semaine] = {competition : {match : [equipe_gagnante, points_mises]}}
+                                                                    
+                        await channel.send(f'Il te reste {points_user} points à miser ')
+                    except asyncio.TimeoutError:
+                        await msg.delete()
+                        await ctx.send("Annulé")
+                
+                if erreur is False: # seulement s'il reste des points au joueur.
+                    writeDataFL(data)
+                    await channel.send(f'Enregistré pour les matchs de la journée {semaine}')
     
     @cog_ext.cog_context_menu(name="FantasyDB")
     async def FantasyDB(self, ctx):
@@ -538,7 +511,7 @@ class Fantasy(commands.Cog):
         await ctx.send(embed=embed)
         
     @cog_ext.cog_slash(name="fantasy_results",
-                       description="Resultat des matchs",
+                       description="Resultat des matchs [Réservé aux administrateurs]",
                        options=[create_option(name="competition", description = "competition", option_type=3, required=True),
                                 create_option(name="match1", description = "match 1", option_type=3, required=True),
                                 create_option(name="match2", description = "competition", option_type=3, required=True),
@@ -622,13 +595,13 @@ class Fantasy(commands.Cog):
                     
         writeDataFL(data)
         #maj de la semaine
-        semaine['semaine'][competition] = semaine['semaine'][competition] + 1
+        semaine['semaine'][competition] = semaine['semaine'][competition] + 2
         writeDataFL(semaine, 'settings')
             
     
         
     
-    @cog_ext.cog_slash(name="fantasy_help",description="Test")
+    @cog_ext.cog_slash(name="fantasy_help",description="Test [Réservé aux administrateurs]")
     @main.isOwner2_slash()
     async def fantasy_help(self, ctx):
         user = str(ctx.author)        
@@ -648,7 +621,7 @@ class Fantasy(commands.Cog):
         writeDataFL(data)
         await ctx.send('Done')
         
-    @cog_ext.cog_slash(name="fantasy_maj_cote",description="Test")
+    @cog_ext.cog_slash(name="fantasy_maj_cote",description="Permet de mettre à jour l'ensemble des côtes [Réservé aux administrateurs]")
     @main.isOwner2_slash()
     async def maj_cote(self, ctx):
         
@@ -694,7 +667,7 @@ class Fantasy(commands.Cog):
         await ctx.send('Fait !')
         
     @cog_ext.cog_slash(name="fantasy_cote",
-                       description="Test",
+                       description="Voir les côtes des matchs de la semaine",
                     )
     @main.isOwner2_slash()
     async def fantasy_cote(self, ctx):
@@ -705,18 +678,22 @@ class Fantasy(commands.Cog):
         response = ""
         
         for competition in ['LEC', 'LFL', 'LCS']:
-            semaine = settings['semaine'][competition]
- 
-            for key, value in data[str(semaine)][competition].items():
-                response += str(key) + " : " + str(value) + "\n"
+            semaine_data = settings['semaine'][competition]
+            
+            response += f'** {competition} : ** \n'
+            
+            for semaine in range(semaine_data, semaine_data+2):
+                response += f'__ Jour {str(semaine)} : __\n'
+                for key, value in data[str(semaine)][competition].items():
+                    response += str(key) + " : " + str(value) + "\n"
         
-        embed = discord.Embed(title=f"Côte des matchs du jour  ", description=response, colour=discord.Colour.blurple())
+        embed = discord.Embed(title=f"Côte des matchs du jour {str(semaine_data)} à {str(semaine_data+1)}  ", description=response, colour=discord.Colour.blurple())
             
         await ctx.send(embed=embed)
             
         
     @cog_ext.cog_slash(name="fantasy_classement",
-                       description="Test")
+                       description="Permet de voir le classement de la Fantasy")
     @main.isOwner2_slash()
     async def fantasy_classement(self, ctx):
         
@@ -731,25 +708,12 @@ class Fantasy(commands.Cog):
 
         await ctx.send(embed=embed)
         
-    @cog_ext.cog_slash(name="fantasy_match_of_the_week", description="Test")
-    # @commands.dm_only()
-    async def fantasy_match_of_the_week(self, ctx):
         
-        competition = 'LEC'
-        semaine = loadDataFL('settings')['semaine'][competition]
-        
-        data = loadDataRate()
-        match = ""
-        
-        for key in data[str(semaine)][competition].keys():
-            match = match + key + " , "
-        
-        await ctx.send(str(match))
-        
-    @fantasy_match_of_the_week.error
-    async def match_of_the_week_error(self, ctx, error):
-        if isinstance(error, commands.PrivateMessageOnly):
-            await ctx.send("Cette commande n'est activée qu'en message privé")
+    # @commands.dm_only() entre le cog et le async
+    # @fantasy_match_of_the_week.error
+    # async def match_of_the_week_error(self, ctx, error):
+    #     if isinstance(error, commands.PrivateMessageOnly):
+    #         await ctx.send("Cette commande n'est activée qu'en message privé")
         
     @cog_ext.cog_slash(name="settings",
                        description="Test")

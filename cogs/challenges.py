@@ -118,7 +118,6 @@ class Challenges(commands.Cog):
                 supprimer_bdd(table)
            
             for summonername in liste_summonername.keys():
-                print(summonername)
 
                 total, category, challenges = get_data_joueur(summonername)
                 if isinstance(challenges, pd.DataFrame): # si ce n'est pas un dataframe, la fonction a renvoyée 0, ce qui signifie : pas de données
@@ -284,6 +283,30 @@ class Challenges(commands.Cog):
             
             await name.send(f'Défis : ** {name_answer} **  \nDescription : {description}')
             await channel.send(file=discord.File('plot.png'))
+            os.remove('plot.png')
+            
+            
+    @cog_ext.cog_slash(name="challenges_top_name",
+                       description="Affiche un classement pour le défi spécifié (nom du defi)",
+                       options=[create_option(name="defi", description= "Quel defi ?", option_type=3, required=True)])
+    async def challenges_top_name(self, ctx, defi:str):
+               
+            
+            bdd_user_challenges = lire_bdd('challenges_data').transpose()
+            # on prend les éléments qui nous intéressent
+            bdd_user_challenges = bdd_user_challenges[['Joueur', 'name', 'value', 'description']]
+            # on trie sur le challenge
+            bdd_user_challenges = bdd_user_challenges[bdd_user_challenges['name'] == defi]
+            description = bdd_user_challenges['description'].iloc[0] # on prend le premier pour la description
+            # on fait les rank
+            bdd_user_challenges['rank'] = bdd_user_challenges['value'].rank(method='min', ascending=False)
+            # on les range en fonction du rang
+            bdd_user_challenges = bdd_user_challenges.sort_values(by=['rank'], ascending = True)
+            
+            fig = px.histogram(bdd_user_challenges, x="Joueur", y="value", color="Joueur", title=defi, text_auto=True)
+            fig.write_image('plot.png')
+            
+            await ctx.send(f'Défis : ** {defi} **  \nDescription : {description}', file=discord.File("plot.png"))
             os.remove('plot.png')
             
             

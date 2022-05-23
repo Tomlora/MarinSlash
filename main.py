@@ -109,6 +109,7 @@ async def help(ctx):
                         "`challenges_liste` - Liste des challenges \n" \
                       "`challenges_classement` - Classement des points de challenge \n" \
                     "`challenges_profil` - Profil du compte \n" \
+                    "`challenges_profil_name` - Affiche un classement pour le défi spécifié (nom du defi) \n" \
                     "`challenges_top` - Affiche un classement pour le défi spécifié \n "
 
     value_music = "`join` - Le DJ rejoint ton salon vocal \n" \
@@ -182,6 +183,13 @@ async def challenges_top(ctx):
     em.add_field(name="**Syntaxe**", value="`/challenges_top`")
 
     await ctx.send(embed=em)
+    
+@help.command()
+async def challenges_top_name(ctx):
+    em = discord.Embed(title="/challenges_top_name", description="Affiche un classement pour le défi spécifié (nom du defi")
+    em.add_field(name="**Syntaxe**", value="`/challenges_top_name <nom du defi>`")
+    em.add_field(name="**Arguments**", value="`nom du defi : Le defi avec la première lettre en majuscule`",inline=False)
+    em.add_field(name="**Exemples**", value="`/challenges_top_name Dysfonctionnement`",inline=False)
     
 @help.command()
 async def challenges_profil(ctx):
