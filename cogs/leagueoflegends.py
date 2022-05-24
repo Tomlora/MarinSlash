@@ -752,11 +752,11 @@ class LeagueofLegends(commands.Cog):
         # Gestion des bo    
             if int(thisLP) == 100:
                 bo = thisStats[i]['miniSeries']
-                bo_target = bo["target"] + 2
+                bo_target = bo["target"]
                 bo_wins = str(bo['wins'])
                 bo_losses = str(bo['losses'])
                 bo_progress = str(bo['progress'])
-                embed.add_field(name=f'Bo{str(bo_target)}', value=f'Victoires : {bo_wins} | Defaites : {bo_losses} \nProgress : {bo_progress}', inline=False) 
+                embed.add_field(name=f'Bo5', value=f'Victoires : {bo_wins} | Defaites : {bo_losses} \nProgress : {bo_progress}', inline=False) 
                 
         embed.add_field(name=f"Team 1 ({thisGold_team1} Golds)",
                         value=str(thisPseudoListe[0]) + " (" + str(thisChampName1) + ") - " + str(
@@ -1067,12 +1067,12 @@ class LeagueofLegends(commands.Cog):
                     # evolution
 
                     if dict_rankid[classement_old] > dict_rankid[classement_new]: # 19-18
-                        difLP = 100 + LP - suivi[key]['LP']
+                        difLP = 100 + LP - int(suivi[key]['LP'])
                         difLP = "Démote / -" + str(difLP)
                         emote = ":arrow_down:"
 
                     elif dict_rankid[classement_old] < dict_rankid[classement_new]:
-                        difLP = 100 - LP + suivi[key]['LP']
+                        difLP = 100 - LP + int(suivi[key]['LP'])
                         difLP = "Promotion / +" + str(difLP)
                         emote = ":arrow_up:"
                         
