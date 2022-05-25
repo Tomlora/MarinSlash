@@ -99,7 +99,7 @@ class Challenges(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.challenges_maj.start()
-        # self.defis = lire_bdd('challenges_data').transpose().sort_values(by="name", ascending=True)
+        self.defis = lire_bdd('challenges_data').transpose().sort_values(by="name", ascending=True)
         
         
     @tasks.loop(hours=1, count=None)

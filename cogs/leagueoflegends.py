@@ -385,6 +385,7 @@ class LeagueofLegends(commands.Cog):
                 i = 0
             else:
                 i = 1
+                
 
             thisWinrate = int(thisStats[i]['wins']) / (int(thisStats[i]['wins']) + int(thisStats[i]['losses']))
             thisWinrateStat = str(int(thisWinrate * 100))
@@ -395,7 +396,14 @@ class LeagueofLegends(commands.Cog):
             thisLoose = str(thisStats[i]['losses'])
             thisWinStreak = str(thisStats[i]['hotStreak'])
         except IndexError:
-            rank = "no rank in ranked"
+            thisWinrate = '0'
+            thisWinrateStat = '0'
+            thisRank = 'En placement'
+            thisTier = " "
+            thisLP = '0'
+            thisVictory = '0'
+            thisLoose = '0'
+            thisWinStreak = '0'
 
         # name3 = 'suivi'
         
@@ -741,8 +749,8 @@ class LeagueofLegends(commands.Cog):
 
         # Stats soloq :
         if thisQ == "RANKED" or thisQ == "FLEX":
-            if thisWinrate == ' ':
-                embed.add_field(name="Current rank", value=rank, inline=False)
+            if thisRank == 'En placement':
+                embed.add_field(name="Current rank", value=thisRank, inline=False)
             else:
                 embed.add_field(name="Current rank : " + thisTier + " " + thisRank + " - " + thisLP + "LP" + " (" + difLP + ")",
                                 value="Winrate: " + thisWinrateStat + "%" + "\n Victoires : " + thisVictory +
