@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 import asyncio
 from datetime import datetime
-from fonctions.date import jour_de_la_semaine
+from fonctions.date import jour_de_la_semaine, heure_actuelle
 from fonctions.gestion_fichier import loadDataFL, loadDataRate, writeDataFL, writeDataRate
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
@@ -78,6 +78,10 @@ def schedule():
         schedule['Week'] = np.where(schedule['Competition'] == 'LCS', schedule['Week'] - ecart_lcs, schedule['Week'])
         schedule['Week'] = np.where(schedule['Competition'] == 'LFL', schedule['Week'] - ecart_lfl, schedule['Week'])
         
+        schedule['Start Time'] = pd.to_datetime(schedule['Start Time'])
+        schedule['Heures'] = schedule['Start Time'].dt.hour
+        schedule['minutes'] = schedule['Start Time'].dt.minute
+        
         return schedule
     
 def loaddata_oracle():
@@ -93,23 +97,33 @@ class Fantasy(commands.Cog):
         
 # ------------------------------------------------- Alarm
 
-    roleLEC = "<@&956612773868077106>"
-    roleLFL = "<@&956613314731991100>"
-    roleLCS = "<@&956613191956324384>"
-    messageLFL = "La LFL va commencer sur OTP ! " + roleLFL + "\n https://www.twitch.tv/otplol_"
-    messageEUM = "Les EUM vont commencer sur OTP ! " + roleLFL + "\n https://www.twitch.tv/otplol_"
-    messageLCS = "Les LCS vont commencer sur LCS ! " + roleLCS + "\n https://www.twitch.tv/lcs"
-    messageLEC = "La LEC va commencer sur OTP/LEC ! " + roleLEC + "\n https://www.twitch.tv/lec  \n https://www.twitch.tv/otplol_"
-    messageMSI = "Le MSI va commencer sur OTP/LEC ! " + roleLEC + " " + roleLCS + "\n https://www.twitch.tv/otplol_"
+
     
     @tasks.loop(minutes=1, count=None)
     async def reminder(self):
         channel = self.bot.get_channel(main.chan_lol)
 
         if channel: # si le channel est disponible
-            if alarm(9, 55, jour_de_match['MSI']):
-                channel.send(self.messageEUM)
-                
+            data_schedule = schedule()
+            jour = datetime.now().day
+            month = datetime.now().month
+            heure_now, minutes_now = heure_actuelle()
+            data_match = data_schedule[(data_schedule['Heures'] == heure_now) & (data_schedule['Jour'] == jour) & (data_schedule['Mois'] == month) & (data_schedule['minutes'] == minutes_now)]
+
+            if not data_match.empty: # si la data n'est pas vide, il y a un match !
+                role = {'LEC' : "<@&956612773868077106>", 'LFL' : "<@&956613314731991100>", "LCS" : "<@&956613191956324384>"}
+    
+                msg = {'LFL' : "La LFL va commencer sur OTP ! \n https://www.twitch.tv/otplol_",
+                    'LCS' : "Les LCS vont commencer sur LCS ! \n https://www.twitch.tv/lcs",
+                    'LEC' : "La LEC va commencer sur OTP/LEC ! \n https://www.twitch.tv/lec  \n https://www.twitch.tv/otplol_"}
+                competition = data_match['Competition'].iloc[0]
+                equipe1 = data_match['Equipe1'].iloc[0]
+                equipe2 = data_match['Equipe2'].iloc[0]
+                heure = data_match['Heures'].iloc[0]
+                minutes = data_match['minutes'].iloc[0]
+                await channel.send(f'Le match {equipe1} / {equipe2} en {competition} est prévue à {heure}:{minutes}. \n {msg[competition]} {role[competition]}')
+            else:
+                pass                        
     
     @cog_ext.cog_slash(name="schedule_xl",
                        description="Available only for Tomlora")

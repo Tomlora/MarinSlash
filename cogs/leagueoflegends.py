@@ -154,7 +154,6 @@ def getId(summonerName):
 
         return str(match_detail['info']['gameId'])
     except:
-        print(f'getId Erreur avec {summonerName}')
         data = lire_bdd('tracker', 'dict')
         return str(data[summonerName]['id'])
 
