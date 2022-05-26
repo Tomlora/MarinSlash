@@ -263,7 +263,7 @@ class LeagueofLegends(commands.Cog):
         thisLP = ' '
         
         if int(thisDeaths) >= 1:
-            thisKDA = round((int(thisKills) + int(thisAssists)) / int(thisDeaths), 2)
+            thisKDA = round(match_detail['info']['participants'][thisId]['challenges']['kda'], 2)
         else:
             thisKDA = 0
 
@@ -284,6 +284,31 @@ class LeagueofLegends(commands.Cog):
         thisTotalHealed = match_detail['info']['participants'][thisId]['totalHeal']
         thisTotalOnTeammates = match_detail['info']['participants'][thisId]['totalHealsOnTeammates']
         thisAcesBefore15min = match_detail['info']['participants'][thisId]['challenges']['acesBefore15Minutes']
+        
+        # A voir...
+        
+        thisCSAdvantageOnLane = match_detail['info']['participants'][thisId]['challenges']['maxCsAdvantageOnLaneOpponent']
+        thisLevelAdvantage = match_detail['info']['participants'][thisId]['challenges']['maxLevelLeadLaneOpponent']
+        thisVisionAdvantage = match_detail['info']['participants'][thisId]['challenges']['visionScoreAdvantageLaneOpponent']
+        AFKTeam = match_detail['info']['participants'][thisId]['challenges']['hadAfkTeammate']
+        ControlWardInRiver = match_detail['info']['participants'][thisId]['challenges']['controlWardTimeCoverageInRiverOrEnemyHalf']
+        thisSkillshot_dodged = match_detail['info']['participants'][thisId]['challenges']['skillshotsDodged']
+        thisSkillshot_hit = match_detail['info']['participants'][thisId]['challenges']['skillshotsHit']
+        
+        
+        try: # si pas d'info, la team n'a pas fait de drake
+            earliestDrake = round(match_detail['info']['participants'][thisId]['challenges']['earliestDragonTakedown'] / 60,2) 
+        except:
+            earliestDrake = 0
+            
+        try:
+            earliestBaron = round(match_detail['info']['participants'][thisId]['challenges']['earliestBaron'] / 60,2)
+        except:
+            earliestBaron = 0
+            
+            
+        
+        
 
 
         thisGold = "{:,}".format(thisGold).replace(',', ' ').replace('.', ',')
