@@ -94,6 +94,10 @@ __Le bot peut répondre à toutes ces questions.__
 - Lister les joueurs pros de chaque équipe
 - Affiche les durées de contrat de chaque joueur
 
+### Alarme
+
+- Le bot peut servir d'alarme pour les joueurs qui souhaitent suivre certaines compétitions. En effet, via un calendrier, le bot peut annoncer lorsqu'une game pro commence.
+
 ### Fantasy
 
 Le bot permet de jouer à un jeu qui se nomme la Fantasy League.
