@@ -133,8 +133,6 @@ class Achievements_scoringlol(commands.Cog):
 
         # Succes
         suivi = lire_bdd('suivi', 'dict')
-        # records1 = loadData('records')
-        # records2 = loadData('records2')
         records1 = lire_bdd('records', 'dict')
         records2 = lire_bdd('records2', 'dict')
 

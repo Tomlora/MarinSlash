@@ -20,61 +20,6 @@ class Recordslol(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         
-        
-
-    
-    @cog_ext.cog_slash(name="records_reset", description="Remet à zéro les records. Reservé au propriétaire du bot.")
-    @isOwner2_slash()
-    async def records_reset(self, ctx, fichier: int):
-        if fichier == 1:
-            reset_records_help('KDA', 1)
-            reset_records_help('KP', 1)
-            reset_records_help('CS', 1)
-            reset_records_help('CS/MIN', 1)
-            reset_records_help('KILLS', 1)
-            reset_records_help('DEATHS', 1)
-            reset_records_help('ASSISTS', 1)
-            reset_records_help('WARDS_SCORE', 1)
-            reset_records_help('WARDS_POSEES', 1)
-            reset_records_help('WARDS_DETRUITES', 1)
-            reset_records_help('WARDS_PINKS', 1)
-            reset_records_help('DEGATS_INFLIGES', 1)
-            reset_records_help('% DMG', 1)
-            reset_records_help('DOUBLE', 1)
-            reset_records_help('TRIPLE', 1)
-            reset_records_help('QUADRA', 1)
-            reset_records_help('PENTA', 1)
-            reset_records_help('DUREE_GAME', 1)
-        elif fichier == 2:
-            reset_records_help('SPELLS_USED', 2)
-            reset_records_help('BUFFS_VOLEES', 2)
-            reset_records_help('SPELLS_EVITES', 2)
-            reset_records_help('MUlTIKILL_1_SPELL', 2)
-            reset_records_help('SOLOKILLS', 2)
-            reset_records_help('CS_APRES_10_MIN', 2)
-            reset_records_help('SERIES_DE_KILLS', 2)
-            reset_records_help('NB_SERIES_DE_KILLS', 2)
-            reset_records_help('DOMMAGES_TANK', 2)
-            reset_records_help('DOMMAGES_TANK%', 2)
-            reset_records_help('DOMMAGES_REDUITS', 2)
-            reset_records_help('DOMMAGES_TOWER', 2)
-            reset_records_help('GOLDS_GAGNES', 2)
-            reset_records_help('TOTAL_HEALS', 2)
-            reset_records_help('HEALS_SUR_ALLIES', 2)
-
-        elif fichier == 3:
-
-            data = {"PENTA": {'Personne': 0, "Kazsc": 0}, "QUADRA": {'Personne': 0, "Kazsc": 0},
-                    "NBGAMES": {'Personne': 0}, 'SOLOKILLS': {'Personne': 0}, 'DUREE_GAME': {'Personne': 0},
-                    'WARDS_SCORE': {'Personne': 0}, 'WARDS_POSEES': {'Personne': 0}, 'WARDS_DETRUITES': {'Personne': 0},
-                    'WARDS_PINKS': {'Personne': 0}, 'CS' : {'Personne' : 0},
-                    "KILLS": {'Personne': 0}, 'DEATHS': {'Personne': 0}, 'ASSISTS': {'Personne': 0}}
-
-            writeData(data, 'records3')            
-
-        await ctx.send(f'Records Page {str(fichier)} réinitialisé !')
-
-
     @cog_ext.cog_slash(name="records_list",
                        description="Voir les records détenues par les joueurs")
     async def records_list(self, ctx):
@@ -107,7 +52,7 @@ class Recordslol(commands.Cog):
             'SPELLS_USED': ":gun:",
             'BUFFS_VOLEES': "<:PandaWow:732316840495415398>",
             'SPELLS_EVITES': ":white_check_mark:",
-            'MUlTIKILL_1_SPELL': ":goal:",
+            'CS_AVANTAGES': ":ghost:",
             'SOLOKILLS': ":karate_uniform:",
             'CS_APRES_10_MIN': ":ghost:",
             'SERIES_DE_KILLS': ":crossed_swords:",
@@ -124,6 +69,10 @@ class Recordslol(commands.Cog):
             "DEATHS_MOYENNE": ":skull:",
             "ASSISTS_MOYENNE": ":crossed_swords:",
             'WARDS_MOYENNE': ":eye:",
+            "EARLY_DRAKE" : ":timer:",
+            "EARLY_BARON" : ":timer:",
+            "SKILLSHOTS_HIT" : ":dart:",
+            "SKILLSHOTS_DODGES" : ":dash:" 
         }
 
         response = ""
@@ -146,7 +95,6 @@ class Recordslol(commands.Cog):
 
         embed1.set_footer(text=f'Version {Var_version} by Tomlora')
 
-        # fichier2 = loadData('records2')
         fichier2 = lire_bdd('records2', 'dict')
         
 
@@ -158,6 +106,8 @@ class Recordslol(commands.Cog):
                 valeur2 = "{:,}".format(value['Score']).replace(',', ' ').replace('.', ',')
             elif key == "DOMMAGES_TANK%":
                 valeur2 = str(value['Score']) + "%"
+            elif key == "EARLY_DRAKE" or key == "EARLY_BARON":
+                valeur2 = str(value['Score']).replace(".", "m")
             else:
                 valeur2 = str(value['Score'])
             embed2.add_field(name=str(emote[key]) + "" + key,

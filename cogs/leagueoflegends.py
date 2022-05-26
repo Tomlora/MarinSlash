@@ -65,15 +65,26 @@ dict_rankid = {"BRONZE IV" : 1,
 
 def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed):
     if str(key_boucle) == str(key):
+        if str(key) in ['EARLY_DRAKE', 'EARLY_BARON']: # ici on veut le plus faible
+            if float(fichier[key]['Score']) > Score_check:
+                ancien_score = fichier[key]['Score']
+                detenteur_ancien_score = fichier[key]['Joueur']
+                fichier[key]['Score'] = Score_check
+                fichier[key]['Champion'] = str(thisChampName)
+                fichier[key]['Joueur'] = summonerName
+                # Annonce que le record a été battu :
+                embed = embed + "\n ** :boom: Record " + str(key).lower() + " battu avec " + str(Score_check) + " ** (Ancien : " + str(ancien_score) + " par " + str(detenteur_ancien_score) + ")"
+
+        else:
         # si le record est battu, on fait les modifs nécessaires:
-        if float(fichier[key]['Score']) < Score_check:
-            ancien_score = fichier[key]['Score']
-            detenteur_ancien_score = fichier[key]['Joueur']
-            fichier[key]['Score'] = Score_check
-            fichier[key]['Champion'] = str(thisChampName)
-            fichier[key]['Joueur'] = summonerName
-            # Annonce que le record a été battu :
-            embed = embed + "\n ** :boom: Record " + str(key).lower() + " battu avec " + str(Score_check) + " ** (Ancien : " + str(ancien_score) + " par " + str(detenteur_ancien_score) + ")"
+            if float(fichier[key]['Score']) < Score_check:
+                ancien_score = fichier[key]['Score']
+                detenteur_ancien_score = fichier[key]['Joueur']
+                fichier[key]['Score'] = Score_check
+                fichier[key]['Champion'] = str(thisChampName)
+                fichier[key]['Joueur'] = summonerName
+                # Annonce que le record a été battu :
+                embed = embed + "\n ** :boom: Record " + str(key).lower() + " battu avec " + str(Score_check) + " ** (Ancien : " + str(ancien_score) + " par " + str(detenteur_ancien_score) + ")"
 
 
     return fichier, embed
@@ -294,6 +305,9 @@ class LeagueofLegends(commands.Cog):
         ControlWardInRiver = match_detail['info']['participants'][thisId]['challenges']['controlWardTimeCoverageInRiverOrEnemyHalf']
         thisSkillshot_dodged = match_detail['info']['participants'][thisId]['challenges']['skillshotsDodged']
         thisSkillshot_hit = match_detail['info']['participants'][thisId]['challenges']['skillshotsHit']
+        
+        print(thisSkillshot_dodged)
+        print(thisSkillshot_hit)
         
         
         try: # si pas d'info, la team n'a pas fait de drake
@@ -522,7 +536,7 @@ class LeagueofLegends(commands.Cog):
                                              thisChampName, summonerName, exploits)
                     records2, exploits = records_check(records2, key, 'SPELLS_EVITES', thisSpellsDodged,
                                              thisChampName, summonerName, exploits)
-                    records2, exploits = records_check(records2, key, 'MULTIKILL_1_SPELL', thisMultiKillOneSpell,
+                    records2, exploits = records_check(records2, key, 'CS_AVANTAGES', thisCSAdvantageOnLane,
                                              thisChampName, summonerName, exploits)
                     records2, exploits = records_check(records2, key, 'SOLOKILLS', thisSoloKills,
                                              thisChampName, summonerName, exploits)
@@ -547,6 +561,14 @@ class LeagueofLegends(commands.Cog):
                                              thisTotalHealed,
                                              thisChampName, summonerName, exploits)
                     records2, exploits = records_check(records2, key, 'HEALS_SUR_ALLIES', thisTotalOnTeammates,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'EARLY_DRAKE', earliestDrake,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'EARLY_BARON', earliestBaron,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'SKILLSHOTS_HIT', thisSkillshot_hit,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'SKILLSHOTS_DODGES', thisSkillshot_dodged,
                                              thisChampName, summonerName, exploits)
 
                     sauvegarde_bdd(records, 'records')
@@ -602,62 +624,62 @@ class LeagueofLegends(commands.Cog):
         points = 0
         
 
-        settings = loadData("achievements_settings")
+        settings = lire_bdd('achievements_settings')
 
         records_cumul = lire_bdd('records3', 'dict')
 
-        if int(thisPenta) >= settings['Pentakill']:
+        if int(thisPenta) >= settings['Pentakill']['Score']:
             exploits = exploits + "\n ** :crown: :five: Ce joueur a pentakill ** " + str(thisPenta) + " fois"
             points = points + (1 * int(thisPenta))
 
-        if int(thisQuadra) >= settings['Quadrakill']:
+        if int(thisQuadra) >= settings['Quadrakill']['Score']:
             exploits = exploits + "\n ** :crown: :four: Ce joueur a quadrakill ** " + str(thisQuadra) + " fois"
             points = points + (1 * int(thisQuadra))
 
-        if float(thisKDA) >= settings['KDA']:
+        if float(thisKDA) >= settings['KDA']['Score']:
             exploits = exploits + "\n ** :crown: :star: Ce joueur a un bon KDA avec un KDA de " + str(
                 thisKDA) + " **"
             points = points + 1
 
-        if str(thisDeaths) == str(settings['Ne_pas_mourir']):
+        if str(thisDeaths) == str(settings['Ne_pas_mourir']['Score']):
             exploits = exploits + "\n ** :crown: :heart: Ce joueur n'est pas mort de la game ** \n ** :crown: :star: Ce joueur a un PERFECT KDA **"
             points = points + 2
 
-        if int(thisKP) >= settings['KP']:
+        if int(thisKP) >= settings['KP']['Score']:
             exploits = exploits + "\n ** :crown: :dagger: Ce joueur a participé à énormément de kills dans son équipe avec " + str(
                 thisKP) + "% **"
             points = points + 1
 
-        if float(thisVisionPerMin) >= settings['Vision/min(support)'] and str(thisPosition) == "SUPPORT":
+        if float(thisVisionPerMin) >= settings['Vision/min(support)']['Score'] and str(thisPosition) == "SUPPORT":
             exploits = exploits + "\n ** :crown: :eye: Ce joueur a un gros score de vision avec " + str(
                 thisVisionPerMin) + " / min **"
             points = points + 1
 
-        if int(thisVisionPerMin) >= settings['Vision/min(autres)'] and str(thisPosition) != "SUPPORT":
+        if int(thisVisionPerMin) >= settings['Vision/min(autres)']['Score'] and str(thisPosition) != "SUPPORT":
             exploits = exploits + "\n ** :crown: :eye: Ce joueur a un gros score de vision avec " + str(
                 thisVisionPerMin) + " / min **"
             points = points + 1
 
-        if int(thisMinionPerMin) >= settings['CS/min']:
+        if int(thisMinionPerMin) >= settings['CS/min']['Score']:
             exploits = exploits + "\n ** :crown: :ghost: Ce joueur a bien farm avec " + str(
                 thisMinionPerMin) + " CS / min **"
             points = points + 1
 
-        if int(thisDamageRatio) >= settings['%_dmg_équipe']:
+        if int(thisDamageRatio) >= settings['%_dmg_équipe']['Score']:
             exploits = exploits + "\n ** :crown: :dart: Ce joueur a infligé beaucoup de dmg avec " + str(
                 thisDamageRatio) + "%  pour son équipe **"
             points = points + 1
 
-        if int(thisDamageTakenRatio) >= settings['%_dmg_tank']:
+        if int(thisDamageTakenRatio) >= settings['%_dmg_tank']['Score']:
             exploits = exploits + "\n ** :crown: :shield: Ce joueur a bien tank pour son équipe avec " + str(
                 thisDamageTakenRatio) + "% **"
             points = points + 1
 
-        if int(thisSoloKills) >= settings['Solokills']:
+        if int(thisSoloKills) >= settings['Solokills']['Score']:
             exploits = exploits + "\n ** :crown: :muscle: Ce joueur a réalisé " + str(thisSoloKills) + " solokills **"
             points = points + 1
 
-        if int(thisTotalOnTeammates) >= settings['Total_Heals_sur_alliés']:
+        if int(thisTotalOnTeammates) >= settings['Total_Heals_sur_alliés']['Score']:
             exploits = exploits + "\n ** :crown: :heart: Ce joueur a heal plus de " + str(
                 thisTotalOnTeammatesFormat) + " sur ses alliés **"
             points = points + 1
