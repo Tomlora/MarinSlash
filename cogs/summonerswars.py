@@ -125,12 +125,10 @@ class SummonersWars(commands.Cog):
         # on veut le % d'attaques réussies :
         df1_resultats['% réussi'] = (df1_resultats['win'] / df1_resultats['nb atks'])*100
 
-        # print(df1_resultats)
 
         bar_chart = pygal.HorizontalBar()
         bar_chart.title = '% attaques réussies'
 
-        # lorsqu'on boucle sur une dataframe, on boucle sur les colonnes... L'index étant une colonne à part, on réinitialise pour pouvoir faire notre graphique :
 
 
         fig = px.bar(df1_resultats, x=df1_resultats.index, y="% réussi", title=" % d'atk réussis", color=df1_resultats.index, text_auto=True)

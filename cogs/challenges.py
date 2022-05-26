@@ -120,6 +120,7 @@ class Challenges(commands.Cog):
             for summonername in liste_summonername.keys():
 
                 total, category, challenges = get_data_joueur(summonername)
+                
                 if isinstance(challenges, pd.DataFrame): # si ce n'est pas un dataframe, la fonction a renvoyée 0, ce qui signifie : pas de données
                     sauvegarde_bdd(total, 'challenges_total', 'append')
                     sauvegarde_bdd(category, 'challenges_category', 'append')

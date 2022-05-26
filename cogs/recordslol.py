@@ -15,14 +15,7 @@ from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice, create_permission
 
-
-
-
-
-        
-
-
-
+     
 class Recordslol(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -90,7 +83,6 @@ class Recordslol(commands.Cog):
 
         current = 0
 
-        # fichier = loadData('records')
         fichier = lire_bdd('records', 'dict')
 
         emote = {
@@ -176,7 +168,6 @@ class Recordslol(commands.Cog):
 
         embed3 = discord.Embed(title="Records Cumul & Moyenne (Page 3/3) :bar_chart: ")
 
-        # fichier3 = loadData('records3')
         fichier3 = lire_bdd('records3', 'dict')
 
         df = pd.DataFrame.from_dict(fichier3)

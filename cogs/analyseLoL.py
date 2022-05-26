@@ -168,9 +168,8 @@ class analyseLoL(commands.Cog):
                 df_ward['killerId'].fillna(0, inplace=True)
                 df_ward = df_ward.astype({"creatorId": 'int32', "killerId": 'int32'})
 
-                # df_ward = df_ward.astype({"killerId": 'int32'})
                 df_ward['joueur'] = df_ward['creatorId']
-                # df_ward.loc[df_ward['joueur'] == 0, 'joueur'] = df_ward['killerId']
+
                 df_ward['joueur'] = np.where(df_ward.joueur == 0, df_ward.killerId, df_ward.joueur)
 
                 df_ward = df_ward.astype({"joueur": 'string'})
@@ -621,7 +620,6 @@ class analyseLoL(commands.Cog):
                     pseudo[9] + "(" + thisChampName10 + ")": thisStats[9],
                 }
 
-                # print(dict_score)
                 df = pd.DataFrame.from_dict(dict_score, orient='index')
                 df = df.reset_index()
                 df = df.rename(columns={"index": "pseudo", 0: 'vision'})
@@ -643,9 +641,6 @@ class analyseLoL(commands.Cog):
                 graphique(fig, 'vision_role.png')
 
             if "tank" in stat:
-
-                # thisStatsTaken = int(match_detail['info']['participants'][thisId]['totalDamageTaken'])
-                # thisStatsSelfMitigated = match_detail['info']['participants'][thisId]['damageSelfMitigated']
 
                 totalDamageTaken = dict_data(thisId, match_detail, 'totalDamageTaken')
                 damageSelfMitigated = dict_data(thisId, match_detail, 'damageSelfMitigated')

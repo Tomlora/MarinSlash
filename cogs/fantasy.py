@@ -34,8 +34,7 @@ Nb_points = settings_game['Nb_points']
 # Utiliser ces variables pour empecher les paris d'une compétition lorsque nous sommes dans un jour de match
 jour_de_match = {'LEC': ['Friday', 'Saturday'],
                  'LCS': ['Saturday', 'Sunday'],
-                 'LFL': ['Tuesday', 'Wednesday'],
-                 'MSI': ['Tuesday', 'Wednesday']}
+                 'LFL': ['Wednesday', 'Thursday']}
 
 # différencier les semaines pour les compétitions
 # faire la vérification des résultats
@@ -418,7 +417,8 @@ class Fantasy(commands.Cog):
         
         jour = jour_de_la_semaine()
         
-        if jour in jour_de_match[competition]:
+        
+        if jour in jour_de_match[competition]: #empeche de parier les jours de matchs
             await ctx.send(f"Des matchs se jouent en {competition} aujourd'hui. Les paris sont donc bloqués")
         else:
             # settings
@@ -536,7 +536,7 @@ class Fantasy(commands.Cog):
                                 create_option(name="match3", description = "competition", option_type=3, required=True),
                                 create_option(name="match4", description = "competition", option_type=3, required=True),
                                 create_option(name="match5", description = "competition", option_type=3, required=True)])
-    @main.isOwner2_slash()
+    @main.isAdmin_slash()
     async def fantasy_results(self, ctx, competition, match1, match2, match3, match4, match5):
         
         data = loadDataFL()
@@ -621,7 +621,7 @@ class Fantasy(commands.Cog):
         sauvegarde_bdd(dict_bdd, 'Fantasy_points', "append")
         #maj de la semaine
         settings = loadDataFL('settings')
-        settings['semaine'][competition] = settings['semaine'][competition] + 2
+        settings['semaine'][competition] = settings['semaine'][competition] + 1
         writeDataFL(settings, 'settings')
             
     

@@ -394,7 +394,7 @@ class LeagueofLegends(commands.Cog):
             thisVictory = str(thisStats[i]['wins'])
             thisLoose = str(thisStats[i]['losses'])
             thisWinStreak = str(thisStats[i]['hotStreak'])
-        except IndexError:
+        except IndexError: # on va avoir une index error si le joueur est en placement, car Riot ne fournit pas dans son api les données de placement
             thisWinrate = '0'
             thisWinrateStat = '0'
             thisRank = 'En placement'
@@ -524,8 +524,6 @@ class LeagueofLegends(commands.Cog):
                     records2, exploits = records_check(records2, key, 'HEALS_SUR_ALLIES', thisTotalOnTeammates,
                                              thisChampName, summonerName, exploits)
 
-                    # writeData(records, 'records')
-                    # writeData(records2, 'records2')
                     sauvegarde_bdd(records, 'records')
                     sauvegarde_bdd(records2, 'records2')
 
@@ -580,7 +578,7 @@ class LeagueofLegends(commands.Cog):
         
 
         settings = loadData("achievements_settings")
-        # records_cumul = loadData('records3')
+
         records_cumul = lire_bdd('records3', 'dict')
 
         if int(thisPenta) >= settings['Pentakill']:
@@ -669,7 +667,7 @@ class LeagueofLegends(commands.Cog):
                     
                         
                             
-            except:
+            except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
                 records_cumul[key][summonerName.lower().replace(" ", "")] = value
                 
 
@@ -690,7 +688,6 @@ class LeagueofLegends(commands.Cog):
             except:
                 suivi[summonerName.lower().replace(" ", "")]['games'] = 0
                 
-            #writeData(records_cumul, 'records3')  # records3
             sauvegarde_bdd(records_cumul, 'records3')
 
 
@@ -759,7 +756,7 @@ class LeagueofLegends(commands.Cog):
         # Gestion des bo    
             if int(thisLP) == 100:
                 bo = thisStats[i]['miniSeries']
-                bo_target = bo["target"]
+                # bo_target = bo["target"]
                 bo_wins = str(bo['wins'])
                 bo_losses = str(bo['losses'])
                 bo_progress = str(bo['progress'])

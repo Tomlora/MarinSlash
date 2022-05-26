@@ -6,7 +6,7 @@ from fonctions.date import heure_actuelle
 
 import main
 
-
+# Activity au lancement du bot
 
 class activity(commands.Cog):
     def __init__(self, bot):
