@@ -136,7 +136,7 @@ class Achievements_scoringlol(commands.Cog):
         records1 = lire_bdd('records', 'dict')
         records2 = lire_bdd('records2', 'dict')
 
-        settings = loadData('achievements_settings')
+        settings = lire_bdd('achievements_settings', 'dict')
 
         df = pd.DataFrame(suivi)
         df = df.transpose().reset_index()
@@ -221,35 +221,20 @@ class Achievements_scoringlol(commands.Cog):
                        description="Conditions pour débloquer des couronnes")
     async def achievements_regles(self, ctx):
 
-        settings = loadData("achievements_settings")
+        settings = lire_bdd('achievements_settings', 'dict')
 
-        partie0 = f":gear: Nombre de games minimum : {settings['Nb_games']} \n"
-        partie1 = f":crown: Pentakill : {settings['Pentakill']} \n :crown: Quadrakill : {settings['Quadrakill']} \n :crown: KDA >= {settings['KDA']} \n :crown: Ne pas mourir \n :crown: KP >= {settings['KP']}% \n"
-        partie2 = f":crown: Vision/min >= {settings['Vision/min(support)']} (support) | {settings['Vision/min(autres)']} (autres) \n :crown: CS/min >= {settings['CS/min']} \n"
-        partie3 = f":crown: % DMG équipe > {settings['%_dmg_équipe']}% \n :crown: % dmg tank >= {settings['%_dmg_tank']}% \n"
-        partie4 = f":crown: Solokills >= {settings['Solokills']} \n :crown: Total Heals sur alliés >= {settings['Total_Heals_sur_alliés']}"
+        partie0 = f":gear: Nombre de games minimum : {settings['Nb_games']['Score']} \n"
+        partie1 = f":crown: Pentakill : {settings['Pentakill']['Score']} \n :crown: Quadrakill : {settings['Quadrakill']['Score']} \n :crown: KDA >= {settings['KDA']['Score']} \n :crown: Ne pas mourir \n :crown: KP >= {settings['KP']['Score']}% \n"
+        partie2 = f":crown: Vision/min >= {settings['Vision/min(support)']['Score']} (support) | {settings['Vision/min(autres)']['Score']} (autres) \n :crown: CS/min >= {settings['CS/min']['Score']} \n"
+        partie3 = f":crown: % DMG équipe > {settings['%_dmg_équipe']['Score']}% \n :crown: % dmg tank >= {settings['%_dmg_tank']['Score']}% \n"
+        partie4 = f":crown: Solokills >= {settings['Solokills']['Score']} \n :crown: Total Heals sur alliés >= {settings['Total_Heals_sur_alliés']['Score']}"
 
         embed = discord.Embed(title="** Règles : **", color=discord.Colour.gold())
         embed.add_field(name="Parametres", value=partie0, inline=False)
         embed.add_field(name="Couronnes disponibles", value=partie1 + partie2 + partie3 + partie4, inline=False)
 
         await ctx.send(embed=embed)
-
-    @commands.command()
-    @isOwner2()
-    async def achievements_maj(self, ctx, param, condition: int = 0):
-
-        data = loadData("achievements_settings")
-
-        if param == "key":
-            await ctx.send(data.keys())
-        else:
-            data[param] = condition
-
-            writeData(data, "achievements_settings")
-
-            await ctx.send(":trophy: Achievements mis à jour !")
-        
+   
 
         
     dict_rankid = {"BRONZE IV" : 1,

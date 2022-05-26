@@ -304,11 +304,7 @@ class LeagueofLegends(commands.Cog):
         AFKTeam = match_detail['info']['participants'][thisId]['challenges']['hadAfkTeammate']
         ControlWardInRiver = match_detail['info']['participants'][thisId]['challenges']['controlWardTimeCoverageInRiverOrEnemyHalf']
         thisSkillshot_dodged = match_detail['info']['participants'][thisId]['challenges']['skillshotsDodged']
-        thisSkillshot_hit = match_detail['info']['participants'][thisId]['challenges']['skillshotsHit']
-        
-        print(thisSkillshot_dodged)
-        print(thisSkillshot_hit)
-        
+        thisSkillshot_hit = match_detail['info']['participants'][thisId]['challenges']['skillshotsHit']       
         
         try: # si pas d'info, la team n'a pas fait de drake
             earliestDrake = round(match_detail['info']['participants'][thisId]['challenges']['earliestDragonTakedown'] / 60,2) 
@@ -319,8 +315,7 @@ class LeagueofLegends(commands.Cog):
             earliestBaron = round(match_detail['info']['participants'][thisId]['challenges']['earliestBaron'] / 60,2)
         except:
             earliestBaron = 0
-            
-            
+                     
         
         
 
@@ -471,7 +466,6 @@ class LeagueofLegends(commands.Cog):
 
         if thisQ == "RANKED" and thisTime > 20:
 
-            # records = loadData('records')
             records = lire_bdd('records', 'dict')
             records2 = lire_bdd('records2', 'dict')          
 
@@ -624,7 +618,7 @@ class LeagueofLegends(commands.Cog):
         points = 0
         
 
-        settings = lire_bdd('achievements_settings')
+        settings = lire_bdd('achievements_settings', 'dict')
 
         records_cumul = lire_bdd('records3', 'dict')
 
