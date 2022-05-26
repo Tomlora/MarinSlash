@@ -8,7 +8,7 @@ Pour diversifier mes compétences, le bot stocke des données dans :
 
 # Fonctionnalités
 
-Les fonctions Discord sont repertoriés dans le dossier cogs.
+Les fonctions Discord sont repertoriées dans le dossier cogs.
 
 
 ## Projet 1 : LeagueofLegends
