@@ -3,7 +3,7 @@ Bot discord affichant des statistiques (API League of Legends, Twitch, Swarfarm)
 
 Pour diversifier mes compétences, le bot stocke des données dans :
 - Des fichiers pickle (paramètres du bot)
-- Un fichier texte (les identifiants de certains channels ou compte discord)
+- Un fichier texte (les identifiants de certains channels ou comptes Discord)
 - Une BDD SQL avec sqlite3 et sqlalchemy (les data league of legends)
 
 # Fonctionnalités
