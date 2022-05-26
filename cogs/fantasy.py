@@ -113,9 +113,9 @@ class Fantasy(commands.Cog):
             if not data_match.empty: # si la data n'est pas vide, il y a un match !
                 role = {'LEC' : "<@&956612773868077106>", 'LFL' : "<@&956613314731991100>", "LCS" : "<@&956613191956324384>"}
     
-                msg = {'LFL' : "La LFL va commencer sur OTP ! \n https://www.twitch.tv/otplol_",
-                    'LCS' : "Les LCS vont commencer sur LCS ! \n https://www.twitch.tv/lcs",
-                    'LEC' : "La LEC va commencer sur OTP/LEC ! \n https://www.twitch.tv/lec  \n https://www.twitch.tv/otplol_"}
+                msg = {'LFL' : "https://www.twitch.tv/otplol_",
+                    'LCS' : "https://www.twitch.tv/lcs",
+                    'LEC' : "https://www.twitch.tv/lec  \n https://www.twitch.tv/otplol_"}
                 competition = data_match['Competition'].iloc[0]
                 equipe1 = data_match['Equipe1'].iloc[0]
                 equipe2 = data_match['Equipe2'].iloc[0]
