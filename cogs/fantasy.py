@@ -544,6 +544,7 @@ class Fantasy(commands.Cog):
         schedule_date = schedule()
         vainqueur = [match1, match2, match3, match4, match5]
         
+        dict_bdd = dict()
         
         
         semaine = loadDataFL('settings')['semaine'][competition]
@@ -601,6 +602,8 @@ class Fantasy(commands.Cog):
                         
                 data[joueur]['Points'] = points
                 
+                dict_bdd[joueur] = {'semaine': int(semaine), 'points' : points}
+                
                 
                 if joueur == list_keys[-1]:    # si on est à la dernière clé
                     await ctx.send(f'{match} :\n{msg}')
@@ -610,11 +613,16 @@ class Fantasy(commands.Cog):
                     dif_points = points - points_avant_match    # diff de points avant/après cette semaine
                     await ctx.send(f'Le différenciel de points pour {joueur} sur cette semaine est de : {str(dif_points)}')
                     
-                    
+        # on sauvegarde le tout
+        
+        # la data du joueur
         writeDataFL(data)
+        # le nombre de points de cette semaine pour le suivi
+        sauvegarde_bdd(dict_bdd, 'Fantasy_points', "append")
         #maj de la semaine
-        semaine['semaine'][competition] = semaine['semaine'][competition] + 2
-        writeDataFL(semaine, 'settings')
+        settings = loadDataFL('settings')
+        settings['semaine'][competition] = settings['semaine'][competition] + 2
+        writeDataFL(settings, 'settings')
             
     
         
