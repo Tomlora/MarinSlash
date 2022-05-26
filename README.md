@@ -1,10 +1,28 @@
 # MarinSlash
-Bot discord affichant des statistiques (API League of Legends, Twitch, Swarfarm)
+__Bot discord affichant des statistiques (API League of Legends, Twitch, Swarfarm)__
+
+# Ressources
 
 Pour diversifier mes compétences, le bot stocke des données dans :
 - Des fichiers pickle (paramètres du bot)
 - Un fichier texte (les identifiants de certains channels ou comptes Discord)
 - Une BDD SQL avec sqlite3 et sqlalchemy (les data league of legends)
+- Json pour les paris, car il y a des dictionnaires imbriquées qui doivent être facilement modifiables
+
+Les visuels sont réalisés avec :
+- Matplotlib
+- Seaborn
+- Plotly express
+- Pygal
+
+Autres librairies utilisées :
+- Pandas
+- Numpy
+- Scikit-learn et skicit-image pour la régression linéaire et l'utilisation de carte League of Legends
+- Discord, Discord.ext, Discord_slash et Asyncio pour le fonctionnement du bot
+- RiotWatcher pour les requêtes à l'API
+- Requests pour l'api de twitch
+- Datetime
 
 # Fonctionnalités
 
@@ -19,8 +37,9 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
 
 ### Rapport de partie / Tracker
 
-- Un joueur peut ajouter/retirer son compte au tracker
+
 - Construis un rapport de chaque partie avec ses stats principales
+- Un joueur peut ajouter/retirer son compte au tracker
 - Affiche les bons points du joueur
 - Affiche une notation / 10 de sa partie. Le joueur peut voir comment le score est calculé en affichant les corrélations entre les variables et le score final.
 - Le score final est prédit sur la base du calcul d'op.gg, à partir d'une régression linéaire
@@ -58,7 +77,7 @@ Ai-je fait beaucoup de dégats sur les ennemis ?
 
 Ai-je amassé beaucoup de gold, me permettant d'être plus forts, par rapport aux autres ?
 
-Où étais-je à 15 minutes de jeu sur la carte ?
+Où étais-je à 15 minutes de jeu sur la carte ? *(Pour cela, skicit-image est nécessaire afin d'avoir une image fiable sur laquelle poser les points de position)*
 
 Comment notre équipe a évolué au cours de la partie ?
 
@@ -93,6 +112,11 @@ Le bot peut être un DJ dans un salon vocal Discord.
 ## Projet 3 : Summoners Wars
 
 En utilisant un fichier json généré par Summoners Wars, le bot peut afficher divers informations sur son compte ou sur les contenus de guilde.
+
+
+## Projet 4 : Twitch
+
+Détermine dans un tracker si une personne a lancé son stream twitch, et sur quel jeu.
 
 
 
