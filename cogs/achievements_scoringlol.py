@@ -227,11 +227,12 @@ class Achievements_scoringlol(commands.Cog):
         partie1 = f":crown: Pentakill : {settings['Pentakill']['Score']} \n :crown: Quadrakill : {settings['Quadrakill']['Score']} \n :crown: KDA >= {settings['KDA']['Score']} \n :crown: Ne pas mourir \n :crown: KP >= {settings['KP']['Score']}% \n"
         partie2 = f":crown: Vision/min >= {settings['Vision/min(support)']['Score']} (support) | {settings['Vision/min(autres)']['Score']} (autres) \n :crown: CS/min >= {settings['CS/min']['Score']} \n"
         partie3 = f":crown: % DMG équipe > {settings['%_dmg_équipe']['Score']}% \n :crown: % dmg tank >= {settings['%_dmg_tank']['Score']}% \n"
-        partie4 = f":crown: Solokills >= {settings['Solokills']['Score']} \n :crown: Total Heals sur alliés >= {settings['Total_Heals_sur_alliés']['Score']}"
+        partie4 = f":crown: Solokills >= {settings['Solokills']['Score']} \n :crown: Total Heals sur alliés >= {settings['Total_Heals_sur_alliés']['Score']} \n"
+        partie5 = f":crown: CS d'avance sur ton adversaire durant la game >= {settings['CSAvantage']['Score']}"
 
         embed = discord.Embed(title="** Règles : **", color=discord.Colour.gold())
         embed.add_field(name="Parametres", value=partie0, inline=False)
-        embed.add_field(name="Couronnes disponibles", value=partie1 + partie2 + partie3 + partie4, inline=False)
+        embed.add_field(name="Couronnes disponibles", value=partie1 + partie2 + partie3 + partie4 + partie5, inline=False)
 
         await ctx.send(embed=embed)
    

@@ -677,6 +677,11 @@ class LeagueofLegends(commands.Cog):
             exploits = exploits + "\n ** :crown: :heart: Ce joueur a heal plus de " + str(
                 thisTotalOnTeammatesFormat) + " sur ses alliés **"
             points = points + 1
+        
+        if int(thisCSAdvantageOnLane) >= settings['CSAvantage']['Score']:
+            exploits = exploits + "\n ** :crown: :ghost: Tu as plus de" + str(
+                thisCSAdvantageOnLane) + " CS d'avance sur ton adversaire durant la game**"
+            points = points + 1
             
         if thisWinStreak == "True":
             exploits = exploits + "\n ** :fire: Ce joueur est en série de victoire **"
