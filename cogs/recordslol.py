@@ -72,7 +72,9 @@ class Recordslol(commands.Cog):
             "EARLY_DRAKE" : ":timer:",
             "EARLY_BARON" : ":timer:",
             "SKILLSHOTS_HIT" : ":dart:",
-            "SKILLSHOTS_DODGES" : ":dash:" 
+            "SKILLSHOTS_DODGES" : ":dash:",
+            "TOWER_PLATES" : ":ticket:",
+            "ECART_LEVEL" : ":wave:" 
         }
 
         response = ""

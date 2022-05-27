@@ -165,7 +165,7 @@ class Achievements_scoringlol(commands.Cog):
             fig.update_layout(showlegend=False)
             fig.write_image('plot.png')
 
-        df = df[df['games'] >= settings['Nb_games']]
+        df = df[df['games'] >= settings['Nb_games']['Score']]
         df['Achievements_par_game'] = df['Achievements'] / df['games']
 
         df.sort_values(by=['Achievements_par_game'], ascending=[False], inplace=True)
@@ -196,26 +196,12 @@ class Achievements_scoringlol(commands.Cog):
                 # writeData(suivi, 'suivi')
                 sauvegarde_bdd(suivi, 'suivi')
             
-        await ctx.send(f"Couronnes (SoloQ only et {settings['Nb_games']} games minimum) :\n" + result)
+        await ctx.send(f"Couronnes (SoloQ only et {settings['Nb_games']['Score']} games minimum) :\n" + result)
 
 
         if records == "oui":
             await ctx.send('Informations : Les records de la page 3 ne sont pas comptabilisés', file=discord.File('plot.png'))
             os.remove('plot.png')
-
-    @commands.command()
-    @isOwner2()
-    async def achievements_reset(self, ctx):
-
-        suivi = lire_bdd('suivi', 'dict')
-
-        for key in suivi:
-            suivi[key]['Achievements'] = 0
-            suivi[key]['games'] = 0
-
-        sauvegarde_bdd(suivi, 'suivi')
-
-        await ctx.send('Achievements remis à zéro.')
 
     @cog_ext.cog_slash(name="achievements_regles",
                        description="Conditions pour débloquer des couronnes")
@@ -228,7 +214,7 @@ class Achievements_scoringlol(commands.Cog):
         partie2 = f":crown: Vision/min >= {settings['Vision/min(support)']['Score']} (support) | {settings['Vision/min(autres)']['Score']} (autres) \n :crown: CS/min >= {settings['CS/min']['Score']} \n"
         partie3 = f":crown: % DMG équipe > {settings['%_dmg_équipe']['Score']}% \n :crown: % dmg tank >= {settings['%_dmg_tank']['Score']}% \n"
         partie4 = f":crown: Solokills >= {settings['Solokills']['Score']} \n :crown: Total Heals sur alliés >= {settings['Total_Heals_sur_alliés']['Score']} \n"
-        partie5 = f":crown: CS d'avance sur ton adversaire durant la game >= {settings['CSAvantage']['Score']}"
+        partie5 = f":crown: CS d'avance sur ton adversaire durant la game >= {settings['CSAvantage']['Score']} \n :crown: Ecart de niveau sur ton adversaire >= {settings['Ecart_Level']['Score']}"
 
         embed = discord.Embed(title="** Règles : **", color=discord.Colour.gold())
         embed.add_field(name="Parametres", value=partie0, inline=False)

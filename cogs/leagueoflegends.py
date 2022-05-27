@@ -234,7 +234,7 @@ class LeagueofLegends(commands.Cog):
             thisPosition = "ADC"
         elif (str(thisPosition) == "UTILITY"):
             thisPosition = "SUPPORT"
-
+            
         thisQ = ' '
         thisChamp = match_detail['info']['participants'][thisId]['championId']
         thisDouble = match_detail['info']['participants'][thisId]['doubleKills']
@@ -300,11 +300,12 @@ class LeagueofLegends(commands.Cog):
         
         thisCSAdvantageOnLane = match_detail['info']['participants'][thisId]['challenges']['maxCsAdvantageOnLaneOpponent']
         thisLevelAdvantage = match_detail['info']['participants'][thisId]['challenges']['maxLevelLeadLaneOpponent']
-        thisVisionAdvantage = match_detail['info']['participants'][thisId]['challenges']['visionScoreAdvantageLaneOpponent']
+        thisVisionAdvantage = round(match_detail['info']['participants'][thisId]['challenges']['visionScoreAdvantageLaneOpponent'],2)
         AFKTeam = match_detail['info']['participants'][thisId]['challenges']['hadAfkTeammate']
-        ControlWardInRiver = match_detail['info']['participants'][thisId]['challenges']['controlWardTimeCoverageInRiverOrEnemyHalf']
+        ControlWardInRiver = round(match_detail['info']['participants'][thisId]['challenges']['controlWardTimeCoverageInRiverOrEnemyHalf'],2)
         thisSkillshot_dodged = match_detail['info']['participants'][thisId]['challenges']['skillshotsDodged']
-        thisSkillshot_hit = match_detail['info']['participants'][thisId]['challenges']['skillshotsHit']       
+        thisSkillshot_hit = match_detail['info']['participants'][thisId]['challenges']['skillshotsHit']
+        thisTurretPlatesTaken =  match_detail['info']['participants'][thisId]['challenges']['turretPlatesTaken']      
         
         try: # si pas d'info, la team n'a pas fait de drake
             earliestDrake = round(match_detail['info']['participants'][thisId]['challenges']['earliestDragonTakedown'] / 60,2) 
@@ -517,7 +518,6 @@ class LeagueofLegends(commands.Cog):
                 records, exploits = records_check(records, key, 'DUREE_GAME', thisTime,
                                         thisChampName, summonerName, exploits)
 
-                # records2 = loadData('records2')
                 
 
 
@@ -564,6 +564,12 @@ class LeagueofLegends(commands.Cog):
                                              thisChampName, summonerName, exploits)
                     records2, exploits = records_check(records2, key, 'SKILLSHOTS_DODGES', thisSkillshot_dodged,
                                              thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'TOWER_PLATES', thisTurretPlatesTaken,
+                                             thisChampName, summonerName, exploits)
+                    records2, exploits = records_check(records2, key, 'ECART_LEVEL', thisLevelAdvantage,
+                                             thisChampName, summonerName, exploits)
+                    
+                    
 
                     sauvegarde_bdd(records, 'records')
                     sauvegarde_bdd(records2, 'records2')
@@ -682,6 +688,14 @@ class LeagueofLegends(commands.Cog):
             exploits = exploits + "\n ** :crown: :ghost: Tu as plus de" + str(
                 thisCSAdvantageOnLane) + " CS d'avance sur ton adversaire durant la game**"
             points = points + 1
+            
+        if int(thisLevelAdvantage) >= settings['Ecart_Level']['Score']:
+            exploits = exploits + "\n ** :crown: :wave: Tu as au moins " + str(
+                thisLevelAdvantage) + " niveaux d'avance sur ton adversaire durant la game**"
+            points = points + 1
+            
+        if AFKTeam >= 1:
+            exploits = exploits + "\n Tu as eu un afk dans ton équipe :("
             
         if thisWinStreak == "True":
             exploits = exploits + "\n ** :fire: Ce joueur est en série de victoire **"
@@ -846,7 +860,7 @@ class LeagueofLegends(commands.Cog):
                             thisDeathsListe[9]) + "/" + str(thisAssistsListe[9]),
                         inline=True)
 
-        embed.set_footer(text=f'Version {main.Var_version} by Tomlora')
+        embed.set_footer(text=f'Version {main.Var_version} by Tomlora - Match {str(last_match)}')
 
 
 
