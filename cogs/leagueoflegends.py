@@ -65,7 +65,7 @@ dict_rankid = {"BRONZE IV" : 1,
 
 def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed):
     if str(key_boucle) == str(key):
-        if str(key) in ['EARLY_DRAKE', 'EARLY_BARON']: # ici on veut le plus faible
+        if str(key) in ['EARLY_DRAKE', 'EARLY_BARON'] and Score_check > 0: # ici on veut le plus faible et pas égale à 0
             if float(fichier[key]['Score']) > Score_check:
                 ancien_score = fichier[key]['Score']
                 detenteur_ancien_score = fichier[key]['Joueur']
@@ -274,7 +274,7 @@ class LeagueofLegends(commands.Cog):
         thisLP = ' '
         
         if int(thisDeaths) >= 1:
-            thisKDA = round(match_detail['info']['participants'][thisId]['challenges']['kda'], 2)
+            thisKDA = float(round(match_detail['info']['participants'][thisId]['challenges']['kda'], 2))
         else:
             thisKDA = 0
 
@@ -300,12 +300,21 @@ class LeagueofLegends(commands.Cog):
         
         thisCSAdvantageOnLane = match_detail['info']['participants'][thisId]['challenges']['maxCsAdvantageOnLaneOpponent']
         thisLevelAdvantage = match_detail['info']['participants'][thisId]['challenges']['maxLevelLeadLaneOpponent']
-        thisVisionAdvantage = round(match_detail['info']['participants'][thisId]['challenges']['visionScoreAdvantageLaneOpponent'],2)
         AFKTeam = match_detail['info']['participants'][thisId]['challenges']['hadAfkTeammate']
-        ControlWardInRiver = round(match_detail['info']['participants'][thisId]['challenges']['controlWardTimeCoverageInRiverOrEnemyHalf'],2)
+        
         thisSkillshot_dodged = match_detail['info']['participants'][thisId]['challenges']['skillshotsDodged']
         thisSkillshot_hit = match_detail['info']['participants'][thisId]['challenges']['skillshotsHit']
-        thisTurretPlatesTaken =  match_detail['info']['participants'][thisId]['challenges']['turretPlatesTaken']      
+        thisTurretPlatesTaken =  match_detail['info']['participants'][thisId]['challenges']['turretPlatesTaken']     
+        
+        try: # si tu n'en poses pas, tu n'as pas la stat
+            ControlWardInRiver = round(match_detail['info']['participants'][thisId]['challenges']['controlWardTimeCoverageInRiverOrEnemyHalf'],2)
+        except:
+            ControlWardInRiver = 0 
+            
+        try:
+            thisVisionAdvantage = round(match_detail['info']['participants'][thisId]['challenges']['visionScoreAdvantageLaneOpponent'],2)*100
+        except:
+            thisVisionAdvantage = 0
         
         try: # si pas d'info, la team n'a pas fait de drake
             earliestDrake = round(match_detail['info']['participants'][thisId]['challenges']['earliestDragonTakedown'] / 60,2) 
@@ -316,10 +325,6 @@ class LeagueofLegends(commands.Cog):
             earliestBaron = round(match_detail['info']['participants'][thisId]['challenges']['earliestBaron'] / 60,2)
         except:
             earliestBaron = 0
-                     
-        
-        
-
 
         thisGold = "{:,}".format(thisGold).replace(',', ' ').replace('.', ',')
         thisDamage = "{:,}".format(thisDamage).replace(',', ' ').replace('.', ',')
@@ -517,7 +522,15 @@ class LeagueofLegends(commands.Cog):
                                         thisChampName, summonerName, exploits)
                 records, exploits = records_check(records, key, 'DUREE_GAME', thisTime,
                                         thisChampName, summonerName, exploits)
-
+                
+                if thisPosition == "SUPPORT":
+                    records, exploits = records_check(records, key, 'AVANTAGE_VISION_SUPPORT', float(thisVisionAdvantage),
+                                        thisChampName, summonerName, exploits)
+                    
+                else:
+                    records, exploits = records_check(records, key, 'AVANTAGE_VISION', float(thisVisionAdvantage),
+                                        thisChampName, summonerName, exploits)
+                    
                 
 
 
@@ -568,6 +581,8 @@ class LeagueofLegends(commands.Cog):
                                              thisChampName, summonerName, exploits)
                     records2, exploits = records_check(records2, key, 'ECART_LEVEL', thisLevelAdvantage,
                                              thisChampName, summonerName, exploits)
+                    
+                    
                     
                     
 
@@ -786,8 +801,8 @@ class LeagueofLegends(commands.Cog):
         # Score de vision
         if thisQ != "ARAM":
             embed.add_field(
-                name="Score de vision : " + str(thisVision) + " (Vision par minute : " + str(thisVisionPerMin) + " )",
-                value="wards posées : " + str(thisWards) + "\n wards détruites : " + str(thisWardsKilled) +
+                name="Score de vision : " + str(thisVision) + " | Avantage : " + str(thisVisionAdvantage) + "%",
+                value="Vision par minute : " + str(thisVisionPerMin) + "\nwards posées : " + str(thisWards) + "\n wards détruites : " + str(thisWardsKilled) +
                       "\n pinks achetées: " + str(thisPink), inline=False)
         # Golds
         embed.add_field(name="Golds gagnés : " + str(thisGold), value="golds par minute: " + str(thisGoldPerMinute),
@@ -960,17 +975,21 @@ class LeagueofLegends(commands.Cog):
     async def game(self, ctx, summonername:str, numerogame:int, succes: bool):
         
         await ctx.defer(hidden=False)
+        
+        summonername = summonername.lower()
 
-        embed = self.printInfo(summonerName=summonername, idgames=int(numerogame), succes=succes)
+        embed = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes)
 
         if embed != {}:
             await ctx.send(embed=embed)
                
 
-    async def printLive(self, summonerName):
+    async def printLive(self, summonername):
         channel = self.bot.get_channel(int(main.chan_tracklol))
+        
+        summonername = summonername.lower()
 
-        embed = self.printInfo(summonerName=summonerName, idgames=0, succes=True)
+        embed = self.printInfo(summonerName=summonername, idgames=0, succes=True)
         
         if embed != {}:
             await channel.send(embed=embed)

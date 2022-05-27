@@ -42,6 +42,8 @@ class Recordslol(commands.Cog):
             'WARDS_POSEES': ":eyes:",
             'WARDS_DETRUITES': ":mag:",
             'WARDS_PINKS': ":red_circle:",
+            "AVANTAGE_VISION" : ":eyes:",
+            "AVANTAGE_VISION_SUPPORT" : ":eyes:",
             'DEGATS_INFLIGES': ":dart:",
             "% DMG": ":magic_wand:",
             'DOUBLE': ":two:",
@@ -87,7 +89,7 @@ class Recordslol(commands.Cog):
                 valeur = "{:,}".format(value['Score']).replace(',', ' ').replace('.', ',')
             elif key == "DUREE_GAME":
                 valeur = str(int(round(value['Score'], 0))).replace(".", "m")
-            elif key == "KP" or key == "% DMG":
+            elif key in ["KP", "% DMG", "AVANTAGE_VISION", "AVANTAGE_VISION_SUPPORT"]:
                 valeur = str(value['Score']) + "%"
             else:
                 valeur = str(value['Score'])
@@ -104,7 +106,7 @@ class Recordslol(commands.Cog):
 
         for key, value in fichier2.items():
             valeur2 = ""
-            if key == "GOLDS_GAGNES" or key == "DOMMAGES_TANK" or key == 'DOMMAGES_REDUITS' or key == "DOMMAGES_TOWER" or key == "TOTAL_HEALS" or key == "HEALS_SUR_ALLIES":
+            if key in ["GOLDS_GAGNES", "DOMMAGES_TANK", 'DOMMAGES_REDUITS', "DOMMAGES_TOWER", "TOTAL_HEALS", "HEALS_SUR_ALLIES"]:
                 valeur2 = "{:,}".format(value['Score']).replace(',', ' ').replace('.', ',')
             elif key == "DOMMAGES_TANK%":
                 valeur2 = str(value['Score']) + "%"
