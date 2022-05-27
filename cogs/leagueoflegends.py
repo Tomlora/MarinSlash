@@ -327,7 +327,7 @@ class LeagueofLegends(commands.Cog):
             ControlWardInRiver = 0 
             
         try:
-            thisVisionAdvantage = round(match_detail['info']['participants'][thisId]['challenges']['visionScoreAdvantageLaneOpponent'],2)*100
+            thisVisionAdvantage = round(match_detail['info']['participants'][thisId]['challenges']['visionScoreAdvantageLaneOpponent']*100 , 2)
         except:
             thisVisionAdvantage = 0
         
@@ -671,7 +671,7 @@ class LeagueofLegends(commands.Cog):
                 thisKDA) + " **"
             points = points + 1
 
-        if str(thisDeaths) == str(settings['Ne_pas_mourir']['Score']):
+        if int(thisDeaths) == int(settings['Ne_pas_mourir']['Score']):
             exploits = exploits + "\n ** :crown: :heart: Ce joueur n'est pas mort de la game ** \n ** :crown: :star: Ce joueur a un PERFECT KDA **"
             points = points + 2
 
@@ -820,9 +820,12 @@ class LeagueofLegends(commands.Cog):
                             inline=False)
 
         # CS
-        embed.add_field(name="CS : " + str(thisMinion), value="minions par minute: " + str(
-            thisMinionPerMin) + "\n Avantage maximal en lane :" + str(thisCSAdvantageOnLane),
-                        inline=False)
+        if thisQ != "ARAM":
+            embed.add_field(name="CS : " + str(thisMinion), value="minions par minute: " + str(
+                thisMinionPerMin) + "\n Avantage maximal en lane :" + str(thisCSAdvantageOnLane),
+                            inline=False)
+        else:
+            embed.add_field(name="CS : " + str(thisMinion), value="minions par minute: " + str(thisMinionPerMin) ,inline=False)
         # Score de vision
         if thisQ != "ARAM":
             embed.add_field(

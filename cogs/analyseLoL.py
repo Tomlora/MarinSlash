@@ -425,8 +425,11 @@ class analyseLoL(commands.Cog):
     @commands.cooldown(1, 30, commands.BucketType.guild)
     async def var(self, ctx:SlashContext, summonername, stat:str, stat2:str='no', stat3:str='no'):
         
-        await ctx.defer(hidden=False)
+        
+        
         stat = [stat, stat2, stat3]
+        
+        await ctx.defer(hidden=False)
         
         liste_delete = list()
         liste_graph = list()
