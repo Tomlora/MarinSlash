@@ -709,6 +709,16 @@ class LeagueofLegends(commands.Cog):
                 thisLevelAdvantage) + " niveaux d'avance sur ton adversaire durant la game**"
             points = points + 1
             
+        if float(thisVisionAdvantage) >= settings['Avantage_vision(support)']['Score'] and str(thisPosition) == "SUPPORT":
+            exploits = exploits + "\n ** :crown: :eye: Ce joueur a un gros avantage de vision sur son adversaire avec " + str(
+                thisVisionAdvantage) + "% **"
+            points = points + 1
+
+        if float(thisVisionAdvantage) >= settings['Avantage_vision(autres)']['Score'] and str(thisPosition) != "SUPPORT":
+            exploits = exploits + "\n ** :crown: :eye: Ce joueur a un gros avantage de vision sur son adversaire avec  " + str(
+                thisVisionAdvantage) + "% **"
+            points = points + 1
+            
         if AFKTeam >= 1:
             exploits = exploits + "\n Tu as eu un afk dans ton équipe :("
             
