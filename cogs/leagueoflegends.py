@@ -298,13 +298,28 @@ class LeagueofLegends(commands.Cog):
         
         # A voir...
         
-        thisCSAdvantageOnLane = match_detail['info']['participants'][thisId]['challenges']['maxCsAdvantageOnLaneOpponent']
-        thisLevelAdvantage = match_detail['info']['participants'][thisId]['challenges']['maxLevelLeadLaneOpponent']
-        AFKTeam = match_detail['info']['participants'][thisId]['challenges']['hadAfkTeammate']
+        try: # pas dispo en aram ?
+            thisCSAdvantageOnLane = match_detail['info']['participants'][thisId]['challenges']['maxCsAdvantageOnLaneOpponent']
+        except:
+            thisCSAdvantageOnLane = 0
+        
+        try:
+            thisLevelAdvantage = match_detail['info']['participants'][thisId]['challenges']['maxLevelLeadLaneOpponent']
+        except:
+            thisLevelAdvantage = 0
+        
+        try:    
+            AFKTeam = match_detail['info']['participants'][thisId]['challenges']['hadAfkTeammate']
+        except:
+            AFKTeam = 0
         
         thisSkillshot_dodged = match_detail['info']['participants'][thisId]['challenges']['skillshotsDodged']
         thisSkillshot_hit = match_detail['info']['participants'][thisId]['challenges']['skillshotsHit']
-        thisTurretPlatesTaken =  match_detail['info']['participants'][thisId]['challenges']['turretPlatesTaken']     
+        
+        try:
+            thisTurretPlatesTaken =  match_detail['info']['participants'][thisId]['challenges']['turretPlatesTaken'] 
+        except:
+            thisTurretPlatesTaken = 0   
         
         try: # si tu n'en poses pas, tu n'as pas la stat
             ControlWardInRiver = round(match_detail['info']['participants'][thisId]['challenges']['controlWardTimeCoverageInRiverOrEnemyHalf'],2)
@@ -806,7 +821,7 @@ class LeagueofLegends(commands.Cog):
 
         # CS
         embed.add_field(name="CS : " + str(thisMinion), value="minions par minute: " + str(
-            thisMinionPerMin),
+            thisMinionPerMin) + "\n Avantage maximal en lane :" + str(thisCSAdvantageOnLane),
                         inline=False)
         # Score de vision
         if thisQ != "ARAM":
@@ -815,7 +830,7 @@ class LeagueofLegends(commands.Cog):
                 value="Vision par minute : " + str(thisVisionPerMin) + "\nwards posées : " + str(thisWards) + "\n wards détruites : " + str(thisWardsKilled) +
                       "\n pinks achetées: " + str(thisPink), inline=False)
         # Golds
-        embed.add_field(name="Golds gagnés : " + str(thisGold), value="golds par minute: " + str(thisGoldPerMinute),
+            embed.add_field(name="Golds gagnés : " + str(thisGold), value="golds par minute: " + str(thisGoldPerMinute),
                         inline=False)
         # Dmg
         embed.add_field(name="Dégats infligés : " + str(thisDamage) + " (" + str(thisDamageRatio) + "%)",
@@ -825,8 +840,11 @@ class LeagueofLegends(commands.Cog):
                             thisPenta) + "\n SoloKills : " + str(thisSoloKills),
                         inline=False)
         embed.add_field(name="Dégats reçus : " + str(thisDamageTaken) + " (" + str(thisDamageTakenRatio) + "%)",
-                        value="Dégats réduits : " + str(
-                            thisDamageSelfMitigatedFormat), inline=False)
+                        value="Dégats réduits : " + str(thisDamageSelfMitigatedFormat), inline=False)
+        
+        if thisQ != "ARAM":
+            embed.add_field(name="Skillshots : ",
+                        value="Hits : " + str(thisSkillshot_hit) + " | Dodges : " + str(thisSkillshot_dodged), inline=False)
 
         # Stats soloq :
         if thisQ == "RANKED" or thisQ == "FLEX":
