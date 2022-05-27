@@ -8,7 +8,7 @@ from discord_slash import SlashCommand, SlashContext
 
 
 
-Var_version = 3.1
+Var_version = 3.5
 
 # Paramètres
 
@@ -34,6 +34,7 @@ global chan_twitch
 global chan_lol
 
 id_tom = int(linecache.getline(params, 2).strip())
+id_dawn = int(111147548760133632)
 chan_pm = int(linecache.getline(params, 4).strip())
 chan_tracklol = int(linecache.getline(params, 6).strip())
 chan_kangourou = int(linecache.getline(params, 8).strip())
@@ -583,6 +584,14 @@ def isOwner2_slash():
         if not ctx.author.id == id_tom:
             await ctx.send("Cette commande est réservée au propriétaire du bot")
         return ctx.author.id == id_tom
+
+    return commands.check(predicate)
+
+def isAdmin_slash():
+    async def predicate(ctx):
+        if not ctx.author.id in [id_tom,id_dawn]:
+            await ctx.send("Cette commande est réservée au propriétaire du bot")
+        return ctx.author.id in [id_tom, id_dawn]
 
     return commands.check(predicate)
 
