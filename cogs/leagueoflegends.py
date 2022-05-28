@@ -299,7 +299,7 @@ class LeagueofLegends(commands.Cog):
         # A voir...
         
         try: # pas dispo en aram ?
-            thisCSAdvantageOnLane = match_detail['info']['participants'][thisId]['challenges']['maxCsAdvantageOnLaneOpponent']
+            thisCSAdvantageOnLane = round(match_detail['info']['participants'][thisId]['challenges']['maxCsAdvantageOnLaneOpponent'],0)
         except:
             thisCSAdvantageOnLane = 0
         
@@ -822,7 +822,7 @@ class LeagueofLegends(commands.Cog):
         # CS
         if thisQ != "ARAM":
             embed.add_field(name="CS : " + str(thisMinion), value="minions par minute: " + str(
-                thisMinionPerMin) + "\n Avantage maximal en lane :" + str(thisCSAdvantageOnLane),
+                thisMinionPerMin) + "\n Avantage maximal CS :" + str(thisCSAdvantageOnLane),
                             inline=False)
         else:
             embed.add_field(name="CS : " + str(thisMinion), value="minions par minute: " + str(thisMinionPerMin) ,inline=False)
