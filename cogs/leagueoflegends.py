@@ -715,7 +715,7 @@ class LeagueofLegends(commands.Cog):
             points = points + 1
         
         if int(thisCSAdvantageOnLane) >= settings['CSAvantage']['Score']:
-            exploits = exploits + "\n ** :crown: :ghost: Tu as plus de" + str(
+            exploits = exploits + "\n ** :crown: :ghost: Tu as plus de " + str(
                 thisCSAdvantageOnLane) + " CS d'avance sur ton adversaire durant la game**"
             points = points + 1
             
@@ -735,10 +735,19 @@ class LeagueofLegends(commands.Cog):
             points = points + 1
             
         if AFKTeam >= 1:
-            exploits = exploits + "\n Tu as eu un afk dans ton équipe :("
+            exploits = exploits + "\n ** Tu as eu un afk dans ton équipe :'( **"
             
         if thisWinStreak == "True":
-            exploits = exploits + "\n ** :fire: Ce joueur est en série de victoire **"
+            if suivi[summonerName.lower().replace(" ", "")]["serie"] == 0: # si égal à 0, le joueur commence une série avec 3 wins
+                suivi[summonerName.lower().replace(" ", "")]["serie"] = 3
+            else: # si pas égal à 0, la série a déjà commencé
+                suivi[summonerName.lower().replace(" ", "")]["serie"] = suivi[summonerName.lower().replace(" ", "")]["serie"] + 1
+            
+            serie_victoire = suivi[summonerName.lower().replace(" ", "")]["serie"]
+                
+            exploits = exploits + "\n ** :fire: Ce joueur est en série de victoire avec " + str(serie_victoire) + " **"           
+        else:
+            suivi[summonerName.lower().replace(" ", "")]["serie"] == 0
 
         dict_cumul = {"SOLOKILLS": thisSoloKills, "NBGAMES": 1, "DUREE_GAME": thisTime / 60, "KILLS": thisKills,
                       "DEATHS": thisDeaths, "ASSISTS": thisAssists, "WARDS_SCORE": thisVision,
@@ -1002,7 +1011,7 @@ class LeagueofLegends(commands.Cog):
                        description="Voir les statistiques d'une games",
                        options=[create_option(name="summonername", description= "Nom du joueur", option_type=3, required=True),
                                 create_option(name="numerogame", description="Numero de la game, de 0 à 10", option_type=4, required=True),
-                                create_option(name="succes", description="Faut-il la compter dans les records/achievements ?", option_type=5, required=True)])
+                                create_option(name="succes", description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non", option_type=5, required=True)])
     async def game(self, ctx, summonername:str, numerogame:int, succes: bool):
         
         await ctx.defer(hidden=False)
@@ -1078,10 +1087,10 @@ class LeagueofLegends(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @cog_ext.cog_slash(name="debug_getId",description="Réservé au propriétaire du bot",
+    @cog_ext.cog_slash(name="get_matchId",description="Réservé au propriétaire du bot",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     @main.isOwner2_slash()
-    async def debug_getId(self, ctx, summonername):
+    async def get_matchId(self, ctx, summonername):
         me = lol_watcher.summoner.by_name(my_region, summonername)
         my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'])
         last_match = my_matches[0]
@@ -1123,6 +1132,7 @@ class LeagueofLegends(commands.Cog):
             # Pour l'ordre de passage
             df['tier_pts'] = 0
             df['tier_pts'] = np.where(df.tier == 'BRONZE', 1, df.tier_pts)
+            df['tier_pts'] = np.where(df.tier == 'BRONZE', 1, df.tier_pts)
             df['tier_pts'] = np.where(df.tier == 'SILVER', 2, df.tier_pts)
             df['tier_pts'] = np.where(df.tier == 'GOLD', 3, df.tier_pts)
             df['tier_pts'] = np.where(df.tier == 'PLATINUM', 4, df.tier_pts)
@@ -1148,7 +1158,7 @@ class LeagueofLegends(commands.Cog):
 
             for key in joueur.values():
                 
-                if suivi[key]['rank'] != "Non-classé":
+                if suivi[key]['rank'] != "Non-classe":
 
                     try:
                         # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
@@ -1206,7 +1216,7 @@ class LeagueofLegends(commands.Cog):
                     embed.set_footer(text=f'Version {main.Var_version} by Tomlora')                   
 
                 else:
-                    suivi[key]["tier"] = "Non-classé"
+                    suivi[key]["tier"] = "Non-classe"
 
                 sauvegarde_bdd(suivi, 'suivi_24h')
 
