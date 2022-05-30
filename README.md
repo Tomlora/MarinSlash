@@ -20,7 +20,7 @@ Autres librairies utilisées :
 - Numpy
 - Scikit-learn et skicit-image pour la régression linéaire et l'utilisation de carte League of Legends
 - Discord, Discord.ext, Discord_slash et Asyncio pour le fonctionnement du bot
-- RiotWatcher pour les requêtes à l'API
+- RiotWatcher pour les requêtes à l'API de Riot Games
 - Requests pour l'api de twitch
 - Datetime
 
