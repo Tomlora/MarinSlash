@@ -190,9 +190,6 @@ class LeagueofLegends(commands.Cog):
 
         current_champ_list = lol_watcher.data_dragon.champions(champions_versions, False, 'fr_FR')
 
-        channel = self.bot.get_channel(int(main.chan_tracklol))
-
-
         champ_dict = {}
         for key in current_champ_list['data']:
             row = current_champ_list['data'][key]
@@ -250,7 +247,7 @@ class LeagueofLegends(commands.Cog):
         thisTimeLiving = round((int(match_detail['info']['participants'][thisId]['longestTimeSpentLiving']) / 60), 2)
         thisWin = ' '
         thisTime = round((int(match_detail['info']['gameDuration']) / 60), 2)
-        thisMultiKill = match_detail['info']['participants'][thisId]['largestMultiKill']
+        # thisMultiKill = match_detail['info']['participants'][thisId]['largestMultiKill']
         thisDamage = match_detail['info']['participants'][thisId]['totalDamageDealtToChampions']
         thisDamageTaken = int(match_detail['info']['participants'][thisId]['totalDamageTaken'])
         thisVision = match_detail['info']['participants'][thisId]['visionScore']
@@ -265,8 +262,8 @@ class LeagueofLegends(commands.Cog):
         thisGoldPerMinute = round((thisGold / thisTime), 2)
         thisDamagePerMinute = round(
             int(match_detail['info']['participants'][thisId]['totalDamageDealtToChampions']) / thisTime, 0)
-        thisDamageTakenPerMinute = round(
-            int(match_detail['info']['participants'][thisId]['totalDamageTaken']) / thisTime, 0)
+        # thisDamageTakenPerMinute = round(
+        #     int(match_detail['info']['participants'][thisId]['totalDamageTaken']) / thisTime, 0)
         thisStats = lol_watcher.league.by_summoner(my_region, me['id'])
         thisWinrateStat = ' '
         thisWinrate = ' '
@@ -283,7 +280,6 @@ class LeagueofLegends(commands.Cog):
         thisSpellUsed = match_detail['info']['participants'][thisId]['challenges']['abilityUses']
         thisbuffsVolees = match_detail['info']['participants'][thisId]['challenges']['buffsStolen']
         thisSpellsDodged = match_detail['info']['participants'][thisId]['challenges']['dodgeSkillShotsSmallWindow']
-        thisMultiKillOneSpell = match_detail['info']['participants'][thisId]['challenges']['multiKillOneSpell']
         thisSoloKills = match_detail['info']['participants'][thisId]['challenges']['soloKills']
         thisJUNGLEafter10min = match_detail['info']['participants'][thisId]['challenges']['jungleCsBefore10Minutes']
         thisCSafter10min = match_detail['info']['participants'][thisId]['challenges']['laneMinionsFirst10Minutes'] + thisJUNGLEafter10min
@@ -294,7 +290,7 @@ class LeagueofLegends(commands.Cog):
         thisKillsSeries = match_detail['info']['participants'][thisId]['largestKillingSpree']
         thisTotalHealed = match_detail['info']['participants'][thisId]['totalHeal']
         thisTotalOnTeammates = match_detail['info']['participants'][thisId]['totalHealsOnTeammates']
-        thisAcesBefore15min = match_detail['info']['participants'][thisId]['challenges']['acesBefore15Minutes']
+        # thisAcesBefore15min = match_detail['info']['participants'][thisId]['challenges']['acesBefore15Minutes']
         
         # A voir...
         
@@ -417,6 +413,7 @@ class LeagueofLegends(commands.Cog):
         thisGold_team1 = thisGoldListe[0] + thisGoldListe[1] + thisGoldListe[2] + thisGoldListe[3] + thisGoldListe[4]
         thisGold_team2 = thisGoldListe[5] + thisGoldListe[6] + thisGoldListe[7] + thisGoldListe[8] + thisGoldListe[9]
         
+        # mise en forme
         thisGold_team1 = "{:,}".format(thisGold_team1).replace(',', ' ').replace('.', ',')
         thisGold_team2 = "{:,}".format(thisGold_team2).replace(',', ' ').replace('.', ',')
         
@@ -734,9 +731,11 @@ class LeagueofLegends(commands.Cog):
                 thisVisionAdvantage) + "% **"
             points = points + 1
             
+        # Présence d'afk    
         if AFKTeam >= 1:
             exploits = exploits + "\n ** Tu as eu un afk dans ton équipe :'( **"
             
+        # Série de victoire    
         if thisWinStreak == "True":
             if suivi[summonerName.lower().replace(" ", "")]["serie"] == 0: # si égal à 0, le joueur commence une série avec 3 wins
                 suivi[summonerName.lower().replace(" ", "")]["serie"] = 3
@@ -745,9 +744,9 @@ class LeagueofLegends(commands.Cog):
             
             serie_victoire = suivi[summonerName.lower().replace(" ", "")]["serie"]
                 
-            exploits = exploits + "\n ** :fire: Ce joueur est en série de victoire avec " + str(serie_victoire) + " **"           
-        else:
-            suivi[summonerName.lower().replace(" ", "")]["serie"] == 0
+            exploits = exploits + "\n ** :fire: Ce joueur est en série de victoire avec " + str(serie_victoire) + " victoires**"           
+        else: # si pas de série
+            suivi[summonerName.lower().replace(" ", "")]["serie"] = 0
 
         dict_cumul = {"SOLOKILLS": thisSoloKills, "NBGAMES": 1, "DUREE_GAME": thisTime / 60, "KILLS": thisKills,
                       "DEATHS": thisDeaths, "ASSISTS": thisAssists, "WARDS_SCORE": thisVision,

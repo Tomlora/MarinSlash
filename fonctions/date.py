@@ -1,6 +1,5 @@
 import calendar
 from datetime import datetime
-import main
 
 def findDay(date):
         born = datetime.strptime(date, '%d %m %Y').weekday()

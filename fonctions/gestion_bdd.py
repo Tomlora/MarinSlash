@@ -40,7 +40,7 @@ def sauvegarde_bdd(df, nom_table, methode_save='replace'):
     if not isinstance(df, pd.DataFrame): # si la variable envoyée n'est pas un dataframe, on l'a met au format dataframe
         df = pd.DataFrame(df)
         df = df.transpose()
-    df.to_sql(nom_table, con=conn, if_exists=methode_save, index=True, method='multi', dtype={'Score' : Float()})
+    df.to_sql(nom_table, con=conn, if_exists=methode_save, index=True, method='multi', dtype={'Score' : Float(), 'serie' : BigInteger()})
     
     
 def supprimer_bdd(nom_table):
