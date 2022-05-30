@@ -58,7 +58,7 @@ def liste_en_str(liste):
 
 def schedule():
         ecart_lec = 1
-        ecart_lfl = 1
+        ecart_lfl = 21
         ecart_lcs = 4
         schedule = "FL/schedule.csv"
         schedule = pd.read_csv(schedule)

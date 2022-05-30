@@ -455,8 +455,6 @@ class LeagueofLegends(commands.Cog):
             thisVictory = '0'
             thisLoose = '0'
             thisWinStreak = '0'
-
-        # name3 = 'suivi'
         
         exploits = "Observations :"
         
@@ -464,7 +462,7 @@ class LeagueofLegends(commands.Cog):
         
         suivi = lire_bdd('suivi', 'dict')
         try:
-            if suivi[summonerName.lower().replace(" ", "")]['tier'] == thisTier:
+            if suivi[summonerName.lower().replace(" ", "")]['tier'] == thisTier and suivi[summonerName.lower().replace(" ", "")]['rank'] == thisRank:
                 difLP = int(thisLP) - int(suivi[summonerName.lower().replace(" ", "")]['LP'])
             else:
                 difLP = 0

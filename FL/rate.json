@@ -23,23 +23,23 @@
 			]
 		},
 		"LFL": {
-			"MSFP/KC": [
+			"BDS.A/LDLC": [
 				1.5,
 				1.5
 			],
-			"GO/GW": [
+			"GO/SLY": [
 				1.5,
 				1.5
 			],
-			"VITB/SLY": [
+			"MSFP/GW": [
 				1.5,
 				1.5
 			],
-			"OPL/BDS.A": [
+			"OPL/KC": [
 				1.5,
 				1.5
 			],
-			"ME/LDLC": [
+			"VITB/ME": [
 				1.5,
 				1.5
 			]
@@ -91,23 +91,23 @@
 			]
 		},
 		"LFL": {
-			"LDLC/GW": [
+			"GO/MSFP": [
 				1.5,
 				1.5
 			],
-			"SLY/BDS.A": [
+			"BDS.A/ME": [
 				1.5,
 				1.5
 			],
-			"ME/KC": [
+			"KC/GW": [
 				1.5,
 				1.5
 			],
-			"VITB/GO": [
+			"VITB/SLY": [
 				1.5,
 				1.5
 			],
-			"MSFP/OPL": [
+			"OPL/LDLC": [
 				1.5,
 				1.5
 			]
@@ -159,23 +159,23 @@
 			]
 		},
 		"LFL": {
-			"GW/SLY": [
+			"OPL/GW": [
 				1.5,
 				1.5
 			],
-			"VITB/OPL": [
+			"ME/LDLC": [
 				1.5,
 				1.5
 			],
-			"MSFP/ME": [
+			"GO/KC": [
 				1.5,
 				1.5
 			],
-			"KC/BDS.A": [
+			"VITB/MSFP": [
 				1.5,
 				1.5
 			],
-			"LDLC/GO": [
+			"BDS.A/SLY": [
 				1.5,
 				1.5
 			]
@@ -227,23 +227,23 @@
 			]
 		},
 		"LFL": {
-			"BDS.A/GW": [
+			"VITB/OPL": [
 				1.5,
 				1.5
 			],
-			"ME/VITB": [
+			"MSFP/ME": [
 				1.5,
 				1.5
 			],
-			"GO/KC": [
+			"SLY/LDLC": [
 				1.5,
 				1.5
 			],
-			"MSFP/LDLC": [
+			"BDS.A/KC": [
 				1.5,
 				1.5
 			],
-			"OPL/SLY": [
+			"GO/GW": [
 				1.5,
 				1.5
 			]
@@ -295,23 +295,23 @@
 			]
 		},
 		"LFL": {
-			"OPL/GO": [
+			"GO/LDLC": [
 				1.5,
 				1.5
 			],
-			"ME/SLY": [
+			"SLY/MSFP": [
 				1.5,
 				1.5
 			],
-			"KC/LDLC": [
+			"VITB/GW": [
 				1.5,
 				1.5
 			],
-			"VITB/BDS.A": [
+			"ME/KC": [
 				1.5,
 				1.5
 			],
-			"GW/MSFP": [
+			"OPL/BDS.A": [
 				1.5,
 				1.5
 			]
@@ -363,15 +363,11 @@
 			]
 		},
 		"LFL": {
-			"OPL/ME": [
+			"MSFP/LDLC": [
 				1.5,
 				1.5
 			],
-			"GO/MSFP": [
-				1.5,
-				1.5
-			],
-			"LDLC/BDS.A": [
+			"VITB/GO": [
 				1.5,
 				1.5
 			],
@@ -379,7 +375,11 @@
 				1.5,
 				1.5
 			],
-			"GW/VITB": [
+			"BDS.A/GW": [
+				1.5,
+				1.5
+			],
+			"OPL/ME": [
 				1.5,
 				1.5
 			]
@@ -431,23 +431,23 @@
 			]
 		},
 		"LFL": {
-			"LDLC/OPL": [
+			"LDLC/GW": [
 				1.5,
 				1.5
 			],
-			"ME/BDS.A": [
+			"SLY/ME": [
 				1.5,
 				1.5
 			],
-			"KC/GW": [
+			"OPL/GO": [
 				1.5,
 				1.5
 			],
-			"VITB/MSFP": [
+			"BDS.A/MSFP": [
 				1.5,
 				1.5
 			],
-			"SLY/GO": [
+			"VITB/KC": [
 				1.5,
 				1.5
 			]
@@ -499,23 +499,23 @@
 			]
 		},
 		"LFL": {
-			"GO/ME": [
+			"VITB/LDLC": [
 				1.5,
 				1.5
 			],
-			"GW/OPL": [
+			"MSFP/KC": [
 				1.5,
 				1.5
 			],
-			"LDLC/SLY": [
+			"GO/BDS.A": [
 				1.5,
 				1.5
 			],
-			"VITB/KC": [
+			"OPL/SLY": [
 				1.5,
 				1.5
 			],
-			"BDS.A/MSFP": [
+			"ME/GW": [
 				1.5,
 				1.5
 			]
@@ -567,23 +567,23 @@
 			]
 		},
 		"LFL": {
-			"GO/BDS.A": [
+			"LDLC/KC": [
 				1.5,
 				1.5
 			],
-			"OPL/KC": [
+			"VITB/BDS.A": [
 				1.5,
 				1.5
 			],
-			"SLY/MSFP": [
+			"OPL/MSFP": [
 				1.5,
 				1.5
 			],
-			"VITB/LDLC": [
+			"GO/ME": [
 				1.5,
 				1.5
 			],
-			"ME/GW": [
+			"SLY/GW": [
 				1.5,
 				1.5
 			]
@@ -635,23 +635,23 @@
 			]
 		},
 		"LFL": {
-			"GW/GO": [
+			"BDS.A/LDLC": [
 				1.5,
 				1.5
 			],
-			"LDLC/ME": [
+			"GO/SLY": [
 				1.5,
 				1.5
 			],
-			"MSFP/KC": [
+			"MSFP/GW": [
 				1.5,
 				1.5
 			],
-			"SLY/VITB": [
+			"OPL/KC": [
 				1.5,
 				1.5
 			],
-			"OPL/BDS.A": [
+			"VITB/ME": [
 				1.5,
 				1.5
 			]
@@ -703,23 +703,23 @@
 			]
 		},
 		"LFL": {
-			"OPL/MSFP": [
+			"GO/MSFP": [
 				1.5,
 				1.5
 			],
-			"GW/LDLC": [
+			"BDS.A/ME": [
 				1.5,
 				1.5
 			],
-			"KC/ME": [
+			"KC/GW": [
 				1.5,
 				1.5
 			],
-			"BDS.A/SLY": [
+			"VITB/SLY": [
 				1.5,
 				1.5
 			],
-			"VITB/GO": [
+			"OPL/LDLC": [
 				1.5,
 				1.5
 			]
@@ -771,23 +771,23 @@
 			]
 		},
 		"LFL": {
-			"OPL/VITB": [
+			"OPL/GW": [
 				1.5,
 				1.5
 			],
-			"GO/LDLC": [
+			"ME/LDLC": [
 				1.5,
 				1.5
 			],
-			"SLY/GW": [
+			"GO/KC": [
 				1.5,
 				1.5
 			],
-			"BDS.A/KC": [
+			"VITB/MSFP": [
 				1.5,
 				1.5
 			],
-			"ME/MSFP": [
+			"BDS.A/SLY": [
 				1.5,
 				1.5
 			]
@@ -839,23 +839,23 @@
 			]
 		},
 		"LFL": {
-			"SLY/OPL": [
+			"VITB/OPL": [
 				1.5,
 				1.5
 			],
-			"KC/GO": [
+			"MSFP/ME": [
 				1.5,
 				1.5
 			],
-			"GW/BDS.A": [
+			"SLY/LDLC": [
 				1.5,
 				1.5
 			],
-			"LDLC/MSFP": [
+			"BDS.A/KC": [
 				1.5,
 				1.5
 			],
-			"VITB/ME": [
+			"GO/GW": [
 				1.5,
 				1.5
 			]
@@ -907,23 +907,23 @@
 			]
 		},
 		"LFL": {
-			"MSFP/GW": [
+			"GO/LDLC": [
 				1.5,
 				1.5
 			],
-			"SLY/ME": [
+			"SLY/MSFP": [
 				1.5,
 				1.5
 			],
-			"BDS.A/VITB": [
+			"VITB/GW": [
 				1.5,
 				1.5
 			],
-			"LDLC/KC": [
+			"ME/KC": [
 				1.5,
 				1.5
 			],
-			"GO/OPL": [
+			"OPL/BDS.A": [
 				1.5,
 				1.5
 			]
@@ -975,23 +975,23 @@
 			]
 		},
 		"LFL": {
-			"OPL/LDLC": [
+			"MSFP/LDLC": [
 				1.5,
 				1.5
 			],
-			"GO/SLY": [
+			"VITB/GO": [
 				1.5,
 				1.5
 			],
-			"GW/KC": [
+			"SLY/KC": [
 				1.5,
 				1.5
 			],
-			"MSFP/VITB": [
+			"BDS.A/GW": [
 				1.5,
 				1.5
 			],
-			"BDS.A/ME": [
+			"OPL/ME": [
 				1.5,
 				1.5
 			]
@@ -1043,23 +1043,23 @@
 			]
 		},
 		"LFL": {
-			"ME/OPL": [
+			"LDLC/GW": [
 				1.5,
 				1.5
 			],
-			"VITB/GW": [
+			"SLY/ME": [
 				1.5,
 				1.5
 			],
-			"BDS.A/LDLC": [
+			"OPL/GO": [
 				1.5,
 				1.5
 			],
-			"KC/SLY": [
+			"BDS.A/MSFP": [
 				1.5,
 				1.5
 			],
-			"MSFP/GO": [
+			"VITB/KC": [
 				1.5,
 				1.5
 			]
@@ -1111,23 +1111,23 @@
 			]
 		},
 		"LFL": {
-			"OPL/GW": [
+			"VITB/LDLC": [
 				1.5,
 				1.5
 			],
-			"MSFP/BDS.A": [
+			"MSFP/KC": [
 				1.5,
 				1.5
 			],
-			"SLY/LDLC": [
+			"GO/BDS.A": [
 				1.5,
 				1.5
 			],
-			"KC/VITB": [
+			"OPL/SLY": [
 				1.5,
 				1.5
 			],
-			"ME/GO": [
+			"ME/GW": [
 				1.5,
 				1.5
 			]
@@ -1179,23 +1179,23 @@
 			]
 		},
 		"LFL": {
-			"MSFP/SLY": [
+			"LDLC/KC": [
 				1.5,
 				1.5
 			],
-			"KC/OPL": [
+			"VITB/BDS.A": [
 				1.5,
 				1.5
 			],
-			"GW/ME": [
+			"OPL/MSFP": [
 				1.5,
 				1.5
 			],
-			"LDLC/VITB": [
+			"GO/ME": [
 				1.5,
 				1.5
 			],
-			"BDS.A/GO": [
+			"SLY/GW": [
 				1.5,
 				1.5
 			]
