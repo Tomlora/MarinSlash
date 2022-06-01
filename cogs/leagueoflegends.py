@@ -2,7 +2,7 @@
 from discord.ext import commands, tasks
 
 from matplotlib import pyplot as plt
-
+import sys
 from riotwatcher import LolWatcher
 import pandas as pd
 import main
@@ -90,10 +90,10 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
     return fichier, embed
 
 def match_by_puuid(summonerName, idgames: int):
-    me = lol_watcher.summoner.by_name(my_region, summonerName)
-    my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=100)
-    last_match = my_matches[idgames]
-    match_detail_stats = lol_watcher.match.by_id(region, last_match)
+    me = lol_watcher.summoner.by_name(my_region, summonerName) # informations sur le joueur
+    my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=100) ## liste des id des matchs du joueur en fonction de son puuid
+    last_match = my_matches[idgames] # match n° idgames
+    match_detail_stats = lol_watcher.match.by_id(region, last_match) # detail du match sélectionné
     return last_match, match_detail_stats, me
 
 
@@ -182,13 +182,13 @@ class LeagueofLegends(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.my_task.start()
-        self.lolsuivi.start()      
+        self.lolsuivi.start()   
  
     def printInfo(self, summonerName, idgames: int, succes):
 
         last_match, match_detail_stats, me = match_by_puuid(summonerName, idgames)
 
-        current_champ_list = lol_watcher.data_dragon.champions(champions_versions, False, 'fr_FR')
+        current_champ_list = lol_watcher.data_dragon.champions(champions_versions, False, 'fr_FR')  
 
         champ_dict = {}
         for key in current_champ_list['data']:
@@ -1007,7 +1007,7 @@ class LeagueofLegends(commands.Cog):
     @cog_ext.cog_slash(name="game",
                        description="Voir les statistiques d'une games",
                        options=[create_option(name="summonername", description= "Nom du joueur", option_type=3, required=True),
-                                create_option(name="numerogame", description="Numero de la game, de 0 à 10", option_type=4, required=True),
+                                create_option(name="numerogame", description="Numero de la game, de 0 à 100", option_type=4, required=True),
                                 create_option(name="succes", description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non", option_type=5, required=True)])
     async def game(self, ctx, summonername:str, numerogame:int, succes: bool):
         
@@ -1019,6 +1019,30 @@ class LeagueofLegends(commands.Cog):
 
         if embed != {}:
             await ctx.send(embed=embed)
+            
+            
+    @cog_ext.cog_slash(name="game_multi",
+                       description="Voir les statistiques d'une games",
+                       options=[create_option(name="summonername", description= "Nom du joueur", option_type=3, required=True),
+                                create_option(name="debut", description="Numero de la game, de 0 à 100", option_type=4, required=True),
+                                create_option(name="fin", description="Numero de la game, de 0 à 100", option_type=4, required=True),
+                                create_option(name="succes", description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non", option_type=5, required=True)])        
+    async def game_multi(self, ctx, summonername:str, debut:int, fin:int, succes: bool):
+        
+        await ctx.defer(hidden=False)
+        
+        for i in range(fin, debut, -1):
+            
+            summonername = summonername.lower()
+
+            embed = self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes)
+
+            if embed != {}:
+                await ctx.send(embed=embed)
+            else:
+                await ctx.send(f"La game {str(i)} n'a pas été comptabilisée")
+                
+            time.sleep(5)
                
 
     async def printLive(self, summonername):
@@ -1035,12 +1059,13 @@ class LeagueofLegends(commands.Cog):
     async def update(self):
         data = lire_bdd('tracker', 'dict')
         for key, value in data.items():
-            if str(value['id']) != getId(
-                    key):  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
+            if str(value['id']) != getId(key):  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
                     await self.printLive(key)
                 except:
                     print(f"Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
+                    print(sys.exc_info())
+                    raise
                 data[key]['id'] = getId(key)
         data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
         sauvegarde_bdd(data, 'tracker')

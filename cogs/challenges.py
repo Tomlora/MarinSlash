@@ -159,10 +159,6 @@ class Challenges(commands.Cog):
         await ctx.send(embed=em)
         
     
-    
-
-                
-    
     @cog_ext.cog_slash(name="challenges_classement", description="Classement des points de challenge")
     async def challenges_classement(self, ctx):
         

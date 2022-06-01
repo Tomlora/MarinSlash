@@ -64,7 +64,6 @@ def schedule():
         schedule = pd.read_csv(schedule)
         schedule['Start Date'] = pd.to_datetime(schedule['Start Date'])
         schedule['Week'] = schedule['Start Date'].dt.isocalendar().week
-        # schedule['Week'] = schedule['Week'] - ecart # première week = 1 pour chaque compétition (créer 3 var : écart_lec, ecart_lcs, ecart_lfl)
         schedule['Jour'] = schedule['Start Date'].dt.day
         schedule['Année'] = schedule['Start Date'].dt.year
         schedule['Mois'] = schedule['Start Date'].dt.month
@@ -120,7 +119,11 @@ class Fantasy(commands.Cog):
                 equipe2 = data_match['Equipe2'].iloc[0]
                 heure = data_match['Heures'].iloc[0]
                 minutes = data_match['minutes'].iloc[0]
-                await channel.send(f'Le match {equipe1} / {equipe2} en {competition} est prévue à {heure}:{minutes}. \n {msg[competition]} {role[competition]}')
+                
+                if minutes == 0:  # pas besoin d'afficher les minutes              
+                    await channel.send(f'Le match {equipe1} / {equipe2} en {competition} est prévue à {heure}H. \n {msg[competition]}')
+                else:
+                    await channel.send(f'Le match {equipe1} / {equipe2} en {competition} est prévue à {heure}H{minutes}. \n {msg[competition]}')
             else:
                 pass                        
     
