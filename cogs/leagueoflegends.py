@@ -1064,8 +1064,8 @@ class LeagueofLegends(commands.Cog):
                     await self.printLive(key)
                 except:
                     print(f"Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
-                    print(sys.exc_info())
-                    raise
+                    # print(sys.exc_info())
+                    # raise
                 data[key]['id'] = getId(key)
         data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
         sauvegarde_bdd(data, 'tracker')
