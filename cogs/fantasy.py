@@ -121,9 +121,11 @@ class Fantasy(commands.Cog):
                 minutes = data_match['minutes'].iloc[0]
                 
                 if minutes == 0:  # pas besoin d'afficher les minutes              
-                    await channel.send(f'Le match {equipe1} / {equipe2} en {competition} est prévue à {heure}H. \n {msg[competition]}')
+                    msg = await channel.send(f'Le match {equipe1} / {equipe2} en {competition} est prévue à {heure}H. \n {msg[competition]}')
+                    await msg.edit(suppress=True) # supprime l'embed généré par l'url
                 else:
-                    await channel.send(f'Le match {equipe1} / {equipe2} en {competition} est prévue à {heure}H{minutes}. \n {msg[competition]}')
+                    msg = await channel.send(f'Le match {equipe1} / {equipe2} en {competition} est prévue à {heure}H{minutes}. \n {msg[competition]}')
+                    await msg.edit(suppress=True) # supprime l'embed généré par l'url
             else:
                 pass                        
     
