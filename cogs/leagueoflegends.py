@@ -247,7 +247,6 @@ class LeagueofLegends(commands.Cog):
         thisTimeLiving = round((int(match_detail['info']['participants'][thisId]['longestTimeSpentLiving']) / 60), 2)
         thisWin = ' '
         thisTime = round((int(match_detail['info']['gameDuration']) / 60), 2)
-        # thisMultiKill = match_detail['info']['participants'][thisId]['largestMultiKill']
         thisDamage = match_detail['info']['participants'][thisId]['totalDamageDealtToChampions']
         thisDamageTaken = int(match_detail['info']['participants'][thisId]['totalDamageTaken'])
         thisVision = match_detail['info']['participants'][thisId]['visionScore']
@@ -592,10 +591,6 @@ class LeagueofLegends(commands.Cog):
                     records2, exploits = records_check(records2, key, 'ECART_LEVEL', thisLevelAdvantage,
                                              thisChampName, summonerName, exploits)
                     
-                    
-                    
-                    
-
                     sauvegarde_bdd(records, 'records')
                     sauvegarde_bdd(records2, 'records2')
 
@@ -734,16 +729,17 @@ class LeagueofLegends(commands.Cog):
             exploits = exploits + "\n ** Tu as eu un afk dans ton équipe :'( **"
             
         # Série de victoire    
-        if thisWinStreak == "True":
+        if thisWinStreak == "True" and thisQ == "RANKED":
             if suivi[summonerName.lower().replace(" ", "")]["serie"] == 0: # si égal à 0, le joueur commence une série avec 3 wins
                 suivi[summonerName.lower().replace(" ", "")]["serie"] = 3
             else: # si pas égal à 0, la série a déjà commencé
                 suivi[summonerName.lower().replace(" ", "")]["serie"] = suivi[summonerName.lower().replace(" ", "")]["serie"] + 1
             
-            serie_victoire = suivi[summonerName.lower().replace(" ", "")]["serie"]
+            serie_victoire = round(suivi[summonerName.lower().replace(" ", "")]["serie"],0)
                 
-            exploits = exploits + "\n ** :fire: Ce joueur est en série de victoire avec " + str(serie_victoire) + " victoires**"           
-        else: # si pas de série
+            exploits = exploits + "\n ** :fire: Ce joueur est en série de victoire avec " + str(serie_victoire) + " victoires**"
+                       
+        elif thisWinStreak == "False" and thisQ == "RANKED": # si pas de série en soloq
             suivi[summonerName.lower().replace(" ", "")]["serie"] = 0
 
         dict_cumul = {"SOLOKILLS": thisSoloKills, "NBGAMES": 1, "DUREE_GAME": thisTime / 60, "KILLS": thisKills,

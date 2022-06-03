@@ -262,7 +262,7 @@ class Recordslol(commands.Cog):
     async def pantheon(self, ctx, stat, stat2:str="no", stat3:str="no", fichier_recap:bool=False):
         
         stat = [stat, stat2, stat3]
-        # data = loadData('records3')
+        
         data = lire_bdd('records3', 'dict')
 
         df = pd.DataFrame.from_dict(data)

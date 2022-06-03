@@ -36,11 +36,7 @@ jour_de_match = {'LEC': ['Friday', 'Saturday'],
                  'LCS': ['Saturday', 'Sunday'],
                  'LFL': ['Wednesday', 'Thursday']}
 
-# différencier les semaines pour les compétitions
-# faire la vérification des résultats
-# passer à la semaine suivante
-# ajouter "semaine" au dataframe (faire plutôt semaine classique avec 2-3 jours de compet : plus simple pour paris)
-# commande pour paramétrer les cotes
+
 
 
 
