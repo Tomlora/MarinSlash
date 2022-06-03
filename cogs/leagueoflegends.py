@@ -176,6 +176,14 @@ def palier(embed, key:str, stats:str, old_value:int, new_value:int, palier:list)
                 stats = stats.replace('_', ' ')
                 embed = embed + "\n ** :tada: Stats cumulées : A dépassé les " + str(value) +  " " + stats.lower() + " avec " + str(new_value) + " " + stats.lower() + "**"
     return embed 
+
+def score_personnel(embed, dict, key:str, summonerName:str, stats:str, old_value:float, new_value:float):
+    if key == stats:
+        if old_value < new_value:
+            dict[key][summonerName.lower().replace(" ", "")] = new_value
+            stats = stats.replace('_', ' ')
+            embed = embed +"\n ** :military_medal: Tu as battu ton record personnel en " + stats.lower() + " avec " + str(new_value) + " " + stats.lower() + "** (Anciennement : " + str(old_value) + ")"
+    return embed, dict
                 
 
 class LeagueofLegends(commands.Cog):
@@ -456,6 +464,9 @@ class LeagueofLegends(commands.Cog):
             thisWinStreak = '0'
         
         exploits = "Observations :"
+        exploits2 = " "
+        exploits3 = " "
+        exploits4 = " "
         
         # Suivi
         
@@ -647,6 +658,7 @@ class LeagueofLegends(commands.Cog):
         settings = lire_bdd('achievements_settings', 'dict')
 
         records_cumul = lire_bdd('records3', 'dict')
+        records_personnel = lire_bdd('records_personnel', 'dict')
 
         if int(thisPenta) >= settings['Pentakill']['Score']:
             exploits = exploits + "\n ** :crown: :five: Ce joueur a pentakill ** " + str(thisPenta) + " fois"
@@ -746,8 +758,17 @@ class LeagueofLegends(commands.Cog):
                       "DEATHS": thisDeaths, "ASSISTS": thisAssists, "WARDS_SCORE": thisVision,
                       "WARDS_POSEES": thisWards, "WARDS_DETRUITES": thisWardsKilled, "WARDS_PINKS": thisPink,
                       "CS" : thisMinion, "QUADRA" : thisQuadra, "PENTA" : thisPenta}
+        
+        personnel_cumul = {"SOLOKILLS": thisSoloKills, "DUREE_GAME": thisTime, "KILLS": thisKills,
+                      "DEATHS": thisDeaths, "ASSISTS": thisAssists, "WARDS_SCORE": thisVision,
+                      "WARDS_POSEES": thisWards, "WARDS_DETRUITES": thisWardsKilled, "WARDS_PINKS": thisPink,
+                      "CS" : thisMinion, "QUADRA" : thisQuadra, "PENTA" : thisPenta, "DAMAGE_RATIO" : thisDamageRatio,
+                      "DAMAGE_RATIO_ENCAISSE" : thisDamageTakenRatio, "CS/MIN": thisMinionPerMin, "AVANTAGE_VISION": thisVisionAdvantage,
+                      "KP" : thisKP, "CS_AVANTAGE": thisCSAdvantageOnLane, "CS_APRES_10_MIN" : thisCSafter10min, "DMG_TOTAL" : match_detail['info']['participants'][thisId]['totalDamageDealtToChampions'],
+                      "ECART_LEVEL" : thisLevelAdvantage, "VISION/MIN" : thisVisionPerMin, "DOUBLE" : thisDouble, "TRIPLE" : thisTriple, "SERIE_VICTOIRE" : serie_victoire, "NB_COURONNE_1_GAME" : points }
 
         for key, value in dict_cumul.items():
+            # records cumul
             try:
                 old_value = int(records_cumul[key][summonerName.lower().replace(" ", "")])
                 records_cumul[key][summonerName.lower().replace(" ", "")] = records_cumul[key][
@@ -766,11 +787,30 @@ class LeagueofLegends(commands.Cog):
                     exploits = palier(exploits, key, "CS", old_value, new_value, np.arange(10000, 100000, 10000, int).tolist())
                     exploits = palier(exploits, key, "QUADRA", old_value, new_value, np.arange(5, 100, 5, int).tolist())
                     exploits = palier(exploits, key, "PENTA", old_value, new_value, np.arange(5, 100, 5, int).tolist())
-                    
-                        
-                            
+                                                
             except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
                 records_cumul[key][summonerName.lower().replace(" ", "")] = value
+                
+            # records personnels
+        for key,value in personnel_cumul.items():
+        
+            try:
+                if succes is True and thisQ == "RANKED" and thisTime > 20:
+                    old_value = float(records_personnel[key][summonerName.lower().replace(" ", "")])
+                    
+                    for stats in personnel_cumul.keys():
+                        if len(exploits2) < 900: # on ne peut pas dépasser 1024 caractères par embed
+                            exploits2, records_personnel = score_personnel(exploits2, records_personnel, key, summonerName, stats, float(old_value), float(value))
+                        elif len(exploits3) < 900:
+                            exploits3, records_personnel = score_personnel(exploits3, records_personnel, key, summonerName, stats, float(old_value), float(value))
+                        elif len(exploits4) < 900:
+                            exploits4, records_personnel = score_personnel(exploits4, records_personnel, key, summonerName, stats, float(old_value), float(value))
+                            
+                        
+
+                    
+            except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
+                records_personnel[key][summonerName.lower().replace(" ", "")] = value                 
                 
 
         
@@ -791,9 +831,11 @@ class LeagueofLegends(commands.Cog):
                 suivi[summonerName.lower().replace(" ", "")]['games'] = 0
                 
             sauvegarde_bdd(records_cumul, 'records3')
+            sauvegarde_bdd(records_personnel, 'records_personnel')
 
 
         sauvegarde_bdd(suivi, 'suivi') #achievements + suivi
+
 
                 
         # observations
@@ -805,6 +847,15 @@ class LeagueofLegends(commands.Cog):
         else:
             embed.add_field(name="Durée de la game : " + str(int(thisTime)) + " minutes",
                             value=exploits)
+            
+        if len(exploits2) > 5: # si plus de 15 lettres, alors il y a un exploit personnel
+            embed.add_field(name="Statistiques personnelles : ", value=exploits2, inline=False)
+        
+        if len(exploits3) > 5: # si plus de 15 lettres, alors il y a un exploit personnel
+            embed.add_field(name="Statistiques personnelles Part2: ", value=exploits3)
+        
+        if len(exploits4) > 5: # si plus de 15 lettres, alors il y a un exploit personnel
+            embed.add_field(name="Statistiques personnelles Part3: ", value=exploits4)
 
         try:
             if int(thisDeaths) >= 1:  # KDA
