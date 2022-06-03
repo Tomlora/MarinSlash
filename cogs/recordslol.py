@@ -15,6 +15,64 @@ from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice, create_permission
 
+
+emote = {
+            "KDA": ":star:",
+            "KP": ":trophy:",
+            "CS": ":ghost:",
+            "CS/MIN": ":ghost:",
+            "KILLS": ":dagger:",
+            "DEATHS": ":skull:",
+            "ASSISTS": ":crossed_swords:",
+            'WARDS_SCORE': ":eye:",
+            'WARDS_POSEES': ":eyes:",
+            'WARDS_DETRUITES': ":mag:",
+            'WARDS_PINKS': ":red_circle:",
+            "AVANTAGE_VISION" : ":eyes:",
+            "AVANTAGE_VISION_SUPPORT" : ":eyes:",
+            "VISION/MIN" : ":eyes:",
+            'DEGATS_INFLIGES': ":dart:",
+            'DAMAGE_RATIO': ":dart:",
+            'DMG_TOTAL': ":dart:",
+            "% DMG": ":magic_wand:",
+            'DOUBLE': ":two:",
+            'TRIPLE': ":three:",
+            'QUADRA': ":four:",
+            'PENTA': ":five:",
+            'DUREE_GAME': ":timer:",
+            'SPELLS_USED': ":gun:",
+            'BUFFS_VOLEES': "<:PandaWow:732316840495415398>",
+            'SPELLS_EVITES': ":white_check_mark:",
+            'CS_AVANTAGE': ":ghost:",
+            'CS_AVANTAGES': ":ghost:",
+            'SOLOKILLS': ":karate_uniform:",
+            'CS_APRES_10_MIN': ":ghost:",
+            'CS/MIN': ":ghost:",
+            'SERIES_DE_KILLS': ":crossed_swords:",
+            'NB_SERIES_DE_KILLS': ":crossed_swords:",
+            'DOMMAGES_TANK': ":shield:",
+            'DOMMAGES_TANK%': ":shield:",
+            'DOMMAGES_REDUITS': ":shield:",
+            'DOMMAGES_TOWER': ":hook:",
+            'DAMAGE_RATIO_ENCAISSE': ":shield:",
+            'GOLDS_GAGNES': ":euro:",
+            'TOTAL_HEALS': ":sparkling_heart:",
+            'HEALS_SUR_ALLIES': ":two_hearts:",
+            'NBGAMES': ":star:",
+            "KILLS_MOYENNE": ":dagger:",
+            "DEATHS_MOYENNE": ":skull:",
+            "ASSISTS_MOYENNE": ":crossed_swords:",
+            'WARDS_MOYENNE': ":eye:",
+            "EARLY_DRAKE" : ":timer:",
+            "EARLY_BARON" : ":timer:",
+            "SKILLSHOTS_HIT" : ":dart:",
+            "SKILLSHOTS_DODGES" : ":dash:",
+            "TOWER_PLATES" : ":ticket:",
+            "ECART_LEVEL" : ":wave:",
+            "NB_COURONNE_1_GAME" : ":crown:",
+            "SERIE_VICTOIRE" : ":fire:", 
+        }
+
      
 class Recordslol(commands.Cog):
     def __init__(self, bot):
@@ -30,54 +88,7 @@ class Recordslol(commands.Cog):
 
         fichier = lire_bdd('records', 'dict')
 
-        emote = {
-            "KDA": ":star:",
-            "KP": ":trophy:",
-            "CS": ":ghost:",
-            "CS/MIN": ":ghost:",
-            "KILLS": ":dagger:",
-            "DEATHS": ":skull:",
-            "ASSISTS": ":crossed_swords:",
-            'WARDS_SCORE': ":eye:",
-            'WARDS_POSEES': ":eyes:",
-            'WARDS_DETRUITES': ":mag:",
-            'WARDS_PINKS': ":red_circle:",
-            "AVANTAGE_VISION" : ":eyes:",
-            "AVANTAGE_VISION_SUPPORT" : ":eyes:",
-            'DEGATS_INFLIGES': ":dart:",
-            "% DMG": ":magic_wand:",
-            'DOUBLE': ":two:",
-            'TRIPLE': ":three:",
-            'QUADRA': ":four:",
-            'PENTA': ":five:",
-            'DUREE_GAME': ":timer:",
-            'SPELLS_USED': ":gun:",
-            'BUFFS_VOLEES': "<:PandaWow:732316840495415398>",
-            'SPELLS_EVITES': ":white_check_mark:",
-            'CS_AVANTAGES': ":ghost:",
-            'SOLOKILLS': ":karate_uniform:",
-            'CS_APRES_10_MIN': ":ghost:",
-            'SERIES_DE_KILLS': ":crossed_swords:",
-            'NB_SERIES_DE_KILLS': ":crossed_swords:",
-            'DOMMAGES_TANK': ":shield:",
-            'DOMMAGES_TANK%': ":shield:",
-            'DOMMAGES_REDUITS': ":shield:",
-            'DOMMAGES_TOWER': ":hook:",
-            'GOLDS_GAGNES': ":euro:",
-            'TOTAL_HEALS': ":sparkling_heart:",
-            'HEALS_SUR_ALLIES': ":two_hearts:",
-            'NBGAMES': ":star:",
-            "KILLS_MOYENNE": ":dagger:",
-            "DEATHS_MOYENNE": ":skull:",
-            "ASSISTS_MOYENNE": ":crossed_swords:",
-            'WARDS_MOYENNE': ":eye:",
-            "EARLY_DRAKE" : ":timer:",
-            "EARLY_BARON" : ":timer:",
-            "SKILLSHOTS_HIT" : ":dart:",
-            "SKILLSHOTS_DODGES" : ":dash:",
-            "TOWER_PLATES" : ":ticket:",
-            "ECART_LEVEL" : ":wave:" 
-        }
+       
 
         response = ""
 
@@ -229,8 +240,32 @@ class Recordslol(commands.Cog):
                 if current != previous_page:
                     await msg.edit(embed=self.bot.pages[current])
                     
+    @cog_ext.cog_slash(name="records_personnel",
+                       description="Record personnel",
+                       options=[create_option(name="joueur", description="Pseudo LoL", option_type=3, required=True)])
+    async def records_personnel(self, ctx, joueur:str):
+        
+        data = lire_bdd('records_personnel', 'dict')
+        
+        await ctx.defer(hidden=False)
+        
+        df = pd.DataFrame(data)
+        df = df.loc[joueur]
+        
+        embed = discord.Embed(title=f"Records personnels {joueur}", colour=discord.Colour.blurple())
+    
+        
+        for key, valeur in df.iteritems():
 
+            embed.add_field(name=str(emote[key]) + "" + key,
+                             value=f"Records : __ {valeur} __ ")
 
+        embed.set_footer(text=f'Version {Var_version} by Tomlora')
+        
+        
+        await ctx.send(embed=embed)
+        
+        
     @cog_ext.cog_slash(name="pantheon",
                        description="Cumul des statistiques",
                        options=[create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=[

@@ -73,7 +73,7 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
                 fichier[key]['Champion'] = str(thisChampName)
                 fichier[key]['Joueur'] = summonerName
                 # Annonce que le record a été battu :
-                embed = embed + "\n ** :boom: Record " + str(key).lower() + " battu avec " + str(Score_check) + " ** (Ancien : " + str(ancien_score) + " par " + str(detenteur_ancien_score) + ")"
+                embed = embed + f"\n ** :boom: Record {str(key).lower()} battu avec {Score_check} ** (Ancien : {ancien_score} par {detenteur_ancien_score})"
 
         else:
         # si le record est battu, on fait les modifs nécessaires:
@@ -84,7 +84,7 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
                 fichier[key]['Champion'] = str(thisChampName)
                 fichier[key]['Joueur'] = summonerName
                 # Annonce que le record a été battu :
-                embed = embed + "\n ** :boom: Record " + str(key).lower() + " battu avec " + str(Score_check) + " ** (Ancien : " + str(ancien_score) + " par " + str(detenteur_ancien_score) + ")"
+                embed = embed + f"\n ** :boom: Record {str(key).lower()} battu avec {Score_check} ** (Ancien : {ancien_score} par {detenteur_ancien_score})"
 
 
     return fichier, embed
@@ -174,7 +174,7 @@ def palier(embed, key:str, stats:str, old_value:int, new_value:int, palier:list)
         for value in palier:
             if old_value < value and new_value > value:
                 stats = stats.replace('_', ' ')
-                embed = embed + "\n ** :tada: Stats cumulées : A dépassé les " + str(value) +  " " + stats.lower() + " avec " + str(new_value) + " " + stats.lower() + "**"
+                embed = embed + f"\n ** :tada: Stats cumulées : A dépassé les {value} {stats.lower()} avec {new_value} {stats.lower()} **"
     return embed 
 
 def score_personnel(embed, dict, key:str, summonerName:str, stats:str, old_value:float, new_value:float):
@@ -182,7 +182,7 @@ def score_personnel(embed, dict, key:str, summonerName:str, stats:str, old_value
         if old_value < new_value:
             dict[key][summonerName.lower().replace(" ", "")] = new_value
             stats = stats.replace('_', ' ')
-            embed = embed +"\n ** :military_medal: Tu as battu ton record personnel en " + stats.lower() + " avec " + str(new_value) + " " + stats.lower() + "** (Anciennement : " + str(old_value) + ")"
+            embed = embed + f"\n ** :military_medal: Tu as battu ton record personnel en {stats.lower()} avec {new_value} {stats.lower()} ** (Anciennement : {old_value})"
     return embed, dict
                 
 
@@ -636,16 +636,13 @@ class LeagueofLegends(commands.Cog):
 
         if thisQ == "OTHER":
             embed = discord.Embed(
-                title="**" + str(summonerName).upper() + "** vient de **" + thisWin + "** une game sur " + str(
-                    thisChampName), color=color)
+                title=f"** {summonerName.upper()} ** vient de ** {thisWin} ** une game sur {thisChampName}", color=color)
         elif thisQ == "ARAM":
             embed = discord.Embed(
-                title="**" + str(summonerName).upper() + "** vient de **" + thisWin + "** une ARAM sur " + str(
-                    thisChampName), color=color)
+                title=f"** {summonerName.upper()} ** vient de ** {thisWin} ** une ARAM sur {thisChampName}", color=color)
         else:
             embed = discord.Embed(
-                title="**" + str(summonerName).upper() + "** vient de **" + thisWin + "** une " + str(
-                    thisQ) + " game sur " + str(thisChampName) + " (" + str(thisPosition) + ")", color=color)
+                title=f"** {summonerName.upper()} ** vient de ** {thisWin} ** une {thisQ} game sur {thisChampName} ({thisPosition})", color=color)
 
             if thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE']:
                 result = scoring(thisPosition, summonerName, thisKills, thisDeaths, thisAssists, (thisKP / 100),
@@ -661,16 +658,15 @@ class LeagueofLegends(commands.Cog):
         records_personnel = lire_bdd('records_personnel', 'dict')
 
         if int(thisPenta) >= settings['Pentakill']['Score']:
-            exploits = exploits + "\n ** :crown: :five: Ce joueur a pentakill ** " + str(thisPenta) + " fois"
+            exploits = exploits + f"\n ** :crown: :five: Ce joueur a pentakill ** {thisPenta} fois"
             points = points + (1 * int(thisPenta))
 
         if int(thisQuadra) >= settings['Quadrakill']['Score']:
-            exploits = exploits + "\n ** :crown: :four: Ce joueur a quadrakill ** " + str(thisQuadra) + " fois"
+            exploits = exploits + f"\n ** :crown: :four: Ce joueur a quadrakill ** {thisQuadra} fois"
             points = points + (1 * int(thisQuadra))
 
         if float(thisKDA) >= settings['KDA']['Score']:
-            exploits = exploits + "\n ** :crown: :star: Ce joueur a un bon KDA avec un KDA de " + str(
-                thisKDA) + " **"
+            exploits = exploits + f"\n ** :crown: :star: Ce joueur a un bon KDA avec un KDA de {thisKDA} **"
             points = points + 1
 
         if int(thisDeaths) == int(settings['Ne_pas_mourir']['Score']):
@@ -678,70 +674,56 @@ class LeagueofLegends(commands.Cog):
             points = points + 2
 
         if int(thisKP) >= settings['KP']['Score']:
-            exploits = exploits + "\n ** :crown: :dagger: Ce joueur a participé à énormément de kills dans son équipe avec " + str(
-                thisKP) + "% **"
+            exploits = exploits + f"\n ** :crown: :dagger: Ce joueur a participé à énormément de kills dans son équipe avec {thisKP} % **"
             points = points + 1
 
         if float(thisVisionPerMin) >= settings['Vision/min(support)']['Score'] and str(thisPosition) == "SUPPORT":
-            exploits = exploits + "\n ** :crown: :eye: Ce joueur a un gros score de vision avec " + str(
-                thisVisionPerMin) + " / min **"
+            exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros score de vision avec {thisVisionPerMin} / min **"
             points = points + 1
 
         if int(thisVisionPerMin) >= settings['Vision/min(autres)']['Score'] and str(thisPosition) != "SUPPORT":
-            exploits = exploits + "\n ** :crown: :eye: Ce joueur a un gros score de vision avec " + str(
-                thisVisionPerMin) + " / min **"
+            exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros score de vision avec {thisVisionPerMin} / min **"
             points = points + 1
 
         if int(thisMinionPerMin) >= settings['CS/min']['Score']:
-            exploits = exploits + "\n ** :crown: :ghost: Ce joueur a bien farm avec " + str(
-                thisMinionPerMin) + " CS / min **"
+            exploits = exploits + f"\n ** :crown: :ghost: Ce joueur a bien farm avec {thisMinionPerMin} CS / min **"
             points = points + 1
 
         if int(thisDamageRatio) >= settings['%_dmg_équipe']['Score']:
-            exploits = exploits + "\n ** :crown: :dart: Ce joueur a infligé beaucoup de dmg avec " + str(
-                thisDamageRatio) + "%  pour son équipe **"
+            exploits = exploits + f"\n ** :crown: :dart: Ce joueur a infligé beaucoup de dmg avec {thisDamageRatio}%  pour son équipe **"
             points = points + 1
 
         if int(thisDamageTakenRatio) >= settings['%_dmg_tank']['Score']:
-            exploits = exploits + "\n ** :crown: :shield: Ce joueur a bien tank pour son équipe avec " + str(
-                thisDamageTakenRatio) + "% **"
+            exploits = exploits + f"\n ** :crown: :shield: Ce joueur a bien tank pour son équipe avec {thisDamageTakenRatio}% **"
             points = points + 1
 
         if int(thisSoloKills) >= settings['Solokills']['Score']:
-            exploits = exploits + "\n ** :crown: :muscle: Ce joueur a réalisé " + str(thisSoloKills) + " solokills **"
+            exploits = exploits + f"\n ** :crown: :muscle: Ce joueur a réalisé {thisSoloKills} solokills **"
             points = points + 1
 
         if int(thisTotalOnTeammates) >= settings['Total_Heals_sur_alliés']['Score']:
-            exploits = exploits + "\n ** :crown: :heart: Ce joueur a heal plus de " + str(
-                thisTotalOnTeammatesFormat) + " sur ses alliés **"
+            exploits = exploits + f"\n ** :crown: :heart: Ce joueur a heal plus de {thisTotalOnTeammatesFormat} sur ses alliés **"
             points = points + 1
         
         if int(thisCSAdvantageOnLane) >= settings['CSAvantage']['Score']:
-            exploits = exploits + "\n ** :crown: :ghost: Tu as plus de " + str(
-                thisCSAdvantageOnLane) + " CS d'avance sur ton adversaire durant la game**"
+            exploits = exploits + f"\n ** :crown: :ghost: Tu as plus de {thisCSAdvantageOnLane} CS d'avance sur ton adversaire durant la game**"
             points = points + 1
             
         if int(thisLevelAdvantage) >= settings['Ecart_Level']['Score']:
-            exploits = exploits + "\n ** :crown: :wave: Tu as au moins " + str(
-                thisLevelAdvantage) + " niveaux d'avance sur ton adversaire durant la game**"
+            exploits = exploits + f"\n ** :crown: :wave: Tu as au moins {thisLevelAdvantage} niveaux d'avance sur ton adversaire durant la game**"
             points = points + 1
             
-        if float(thisVisionAdvantage) >= settings['Avantage_vision(support)']['Score'] and str(thisPosition) == "SUPPORT":
-            exploits = exploits + "\n ** :crown: :eye: Ce joueur a un gros avantage de vision sur son adversaire avec " + str(
-                thisVisionAdvantage) + "% **"
+        if (float(thisVisionAdvantage) >= settings['Avantage_vision(support)']['Score'] and str(thisPosition) == "SUPPORT") or (float(thisVisionAdvantage) >= settings['Avantage_vision(autres)']['Score'] and str(thisPosition) != "SUPPORT"):
+            exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros avantage de vision sur son adversaire avec {thisVisionAdvantage}% **"
             points = points + 1
 
-        if float(thisVisionAdvantage) >= settings['Avantage_vision(autres)']['Score'] and str(thisPosition) != "SUPPORT":
-            exploits = exploits + "\n ** :crown: :eye: Ce joueur a un gros avantage de vision sur son adversaire avec  " + str(
-                thisVisionAdvantage) + "% **"
-            points = points + 1
             
         # Présence d'afk    
         if AFKTeam >= 1:
             exploits = exploits + "\n ** Tu as eu un afk dans ton équipe :'( **"
             
         # Série de victoire    
-        if thisWinStreak == "True" and thisQ == "RANKED":
+        if thisWinStreak == "True" and thisQ == "RANKED" and succes is True:
             if suivi[summonerName.lower().replace(" ", "")]["serie"] == 0: # si égal à 0, le joueur commence une série avec 3 wins
                 suivi[summonerName.lower().replace(" ", "")]["serie"] = 3
             else: # si pas égal à 0, la série a déjà commencé
@@ -749,7 +731,7 @@ class LeagueofLegends(commands.Cog):
             
             serie_victoire = round(suivi[summonerName.lower().replace(" ", "")]["serie"],0)
                 
-            exploits = exploits + "\n ** :fire: Ce joueur est en série de victoire avec " + str(serie_victoire) + " victoires**"
+            exploits = exploits + f"\n ** :fire: Ce joueur est en série de victoire avec {serie_victoire} victoires**"
                        
         elif thisWinStreak == "False" and thisQ == "RANKED": # si pas de série en soloq
             suivi[summonerName.lower().replace(" ", "")]["serie"] = 0
