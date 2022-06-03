@@ -753,19 +753,32 @@ class LeagueofLegends(commands.Cog):
                        
         elif thisWinStreak == "False" and thisQ == "RANKED": # si pas de série en soloq
             suivi[summonerName.lower().replace(" ", "")]["serie"] = 0
-
-        dict_cumul = {"SOLOKILLS": thisSoloKills, "NBGAMES": 1, "DUREE_GAME": thisTime / 60, "KILLS": thisKills,
-                      "DEATHS": thisDeaths, "ASSISTS": thisAssists, "WARDS_SCORE": thisVision,
-                      "WARDS_POSEES": thisWards, "WARDS_DETRUITES": thisWardsKilled, "WARDS_PINKS": thisPink,
-                      "CS" : thisMinion, "QUADRA" : thisQuadra, "PENTA" : thisPenta}
+            
+            
+        # Structure : Stat / Nombre / Palier sous forme de liste numérique
+        dict_cumul = {"SOLOKILLS": [thisSoloKills, np.arange(100, 1000, 100, int).tolist()], 
+                      "NBGAMES": [1, np.arange(50, 1000, 50, int).tolist()], 
+                      "DUREE_GAME": [thisTime / 60, 0],
+                      "KILLS": [thisKills, np.arange(500, 10000, 500, int).tolist()],
+                      "DEATHS": [thisDeaths, np.arange(500, 10000, 500, int).tolist()],
+                      "ASSISTS": [thisAssists, np.arange(500, 10000, 500, int).tolist()],
+                      "WARDS_SCORE": [thisVision, 0],
+                      "WARDS_POSEES": [thisWards, np.arange(500, 10000, 500, int).tolist()],
+                      "WARDS_DETRUITES": [thisWardsKilled, np.arange(500, 10000, 500, int).tolist()],
+                      "WARDS_PINKS": [thisPink, 0],
+                      "CS" : [thisMinion, np.arange(10000, 100000, 10000, int).tolist()],
+                      "QUADRA" : [thisQuadra, np.arange(5, 100, 5, int).tolist()],
+                      "PENTA" : [thisPenta, np.arange(5, 100, 5, int).tolist()]}
         
         personnel_cumul = {"SOLOKILLS": thisSoloKills, "DUREE_GAME": thisTime, "KILLS": thisKills,
                       "DEATHS": thisDeaths, "ASSISTS": thisAssists, "WARDS_SCORE": thisVision,
                       "WARDS_POSEES": thisWards, "WARDS_DETRUITES": thisWardsKilled, "WARDS_PINKS": thisPink,
                       "CS" : thisMinion, "QUADRA" : thisQuadra, "PENTA" : thisPenta, "DAMAGE_RATIO" : thisDamageRatio,
                       "DAMAGE_RATIO_ENCAISSE" : thisDamageTakenRatio, "CS/MIN": thisMinionPerMin, "AVANTAGE_VISION": thisVisionAdvantage,
-                      "KP" : thisKP, "CS_AVANTAGE": thisCSAdvantageOnLane, "CS_APRES_10_MIN" : thisCSafter10min, "DMG_TOTAL" : match_detail['info']['participants'][thisId]['totalDamageDealtToChampions'],
-                      "ECART_LEVEL" : thisLevelAdvantage, "VISION/MIN" : thisVisionPerMin, "DOUBLE" : thisDouble, "TRIPLE" : thisTriple, "SERIE_VICTOIRE" : serie_victoire, "NB_COURONNE_1_GAME" : points }
+                      "KP" : thisKP, "CS_AVANTAGE": thisCSAdvantageOnLane, "CS_APRES_10_MIN" : thisCSafter10min, 
+                      "DMG_TOTAL" : match_detail['info']['participants'][thisId]['totalDamageDealtToChampions'],
+                      "ECART_LEVEL" : thisLevelAdvantage, "VISION/MIN" : thisVisionPerMin, 
+                      "DOUBLE" : thisDouble, "TRIPLE" : thisTriple, "SERIE_VICTOIRE" : serie_victoire, "NB_COURONNE_1_GAME" : points }
 
         for key, value in dict_cumul.items():
             # records cumul
@@ -773,23 +786,17 @@ class LeagueofLegends(commands.Cog):
                 old_value = int(records_cumul[key][summonerName.lower().replace(" ", "")])
                 records_cumul[key][summonerName.lower().replace(" ", "")] = records_cumul[key][
                                                                                 summonerName.lower().replace(" ",
-                                                                                                             "")] + value
+                                                                                                             "")] + value[0]
                 new_value = int(records_cumul[key][summonerName.lower().replace(" ", "")])
                 
                 # les paliers
                 if succes is True and thisQ == "RANKED" and thisTime > 20:
-                    exploits = palier(exploits, key, "WARDS_POSEES", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
-                    exploits = palier(exploits, key, "SOLOKILLS", old_value, new_value, np.arange(100, 1000, 100, int).tolist())
-                    exploits = palier(exploits, key, "NBGAMES", old_value, new_value, np.arange(50, 1000, 50, int).tolist())
-                    exploits = palier(exploits, key, "KILLS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
-                    exploits = palier(exploits, key, "DEATHS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
-                    exploits = palier(exploits, key, "ASSISTS", old_value, new_value, np.arange(500, 10000, 500, int).tolist())
-                    exploits = palier(exploits, key, "CS", old_value, new_value, np.arange(10000, 100000, 10000, int).tolist())
-                    exploits = palier(exploits, key, "QUADRA", old_value, new_value, np.arange(5, 100, 5, int).tolist())
-                    exploits = palier(exploits, key, "PENTA", old_value, new_value, np.arange(5, 100, 5, int).tolist())
+                    for key2 in dict_cumul.keys():
+                        exploits = palier(exploits, key, key2, old_value, new_value, value[1])
+
                                                 
             except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
-                records_cumul[key][summonerName.lower().replace(" ", "")] = value
+                records_cumul[key][summonerName.lower().replace(" ", "")] = value[0]
                 
             # records personnels
         for key,value in personnel_cumul.items():
@@ -852,10 +859,10 @@ class LeagueofLegends(commands.Cog):
             embed.add_field(name="Statistiques personnelles : ", value=exploits2, inline=False)
         
         if len(exploits3) > 5: # si plus de 15 lettres, alors il y a un exploit personnel
-            embed.add_field(name="Statistiques personnelles Part2: ", value=exploits3)
+            embed.add_field(name="Statistiques personnelles Part2: ", value=exploits3, inline=False)
         
         if len(exploits4) > 5: # si plus de 15 lettres, alors il y a un exploit personnel
-            embed.add_field(name="Statistiques personnelles Part3: ", value=exploits4)
+            embed.add_field(name="Statistiques personnelles Part3: ", value=exploits4, inline=False)
 
         try:
             if int(thisDeaths) >= 1:  # KDA
