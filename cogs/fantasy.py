@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands, tasks
 
 import calendar
+
 import main
 import pandas as pd
 import numpy as np
@@ -456,6 +457,9 @@ class Fantasy(commands.Cog):
                         msg = str(msg.content).split()
                         
                         equipe_gagnante = msg[0]
+                        if equipe_gagnante == '0': # veut dire qu'il ne mise pas ce match
+                            equipe_gagnante = equipe1
+                            msg = ['0', '0']
                         if not equipe_gagnante in [equipe1, equipe2]: # si le joueur s'est trompé d'équipe
                             erreur = True
                             await channel.send(f'Erreur : Le gagnant est soit {equipe1} ou {equipe2}. Annulation des paris.')
@@ -745,8 +749,6 @@ class Fantasy(commands.Cog):
                     'semaine': {'LEC' : 1, 'LCS' : 1, 'LFL': 1}}
         writeDataFL(settings, 'settings')
         await ctx.send('Fait !')
-        
-
         
 
             
