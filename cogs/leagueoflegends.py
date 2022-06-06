@@ -735,6 +735,9 @@ class LeagueofLegends(commands.Cog):
                        
         elif thisWinStreak == "False" and thisQ == "RANKED": # si pas de série en soloq
             suivi[summonerName.lower().replace(" ", "")]["serie"] = 0
+            serie_victoire = 0
+        else:
+            serie_victoire = 0
             
             
         # Structure : Stat / Nombre / Palier sous forme de liste numérique

@@ -245,6 +245,8 @@ class Recordslol(commands.Cog):
                        options=[create_option(name="joueur", description="Pseudo LoL", option_type=3, required=True)])
     async def records_personnel(self, ctx, joueur:str):
         
+        joueur = joueur.lower()
+        
         data = lire_bdd('records_personnel', 'dict')
         
         await ctx.defer(hidden=False)
@@ -256,8 +258,13 @@ class Recordslol(commands.Cog):
     
         
         for key, valeur in df.iteritems():
+            # format
+            if key in ['DAMAGE_RATIO', 'DAMAGE_RATIO_ENCAISSE', 'KP', 'AVANTAGE_VISION']:
+                valeur = str(valeur) + "%"
+            if key == "DUREE_GAME":
+                valeur = str(valeur).replace(".", "m")
 
-            embed.add_field(name=str(emote[key]) + "" + key,
+            embed.add_field(name=str(emote[key]) + " " + key,
                              value=f"Records : __ {valeur} __ ")
 
         embed.set_footer(text=f'Version {Var_version} by Tomlora')

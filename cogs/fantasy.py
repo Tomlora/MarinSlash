@@ -301,9 +301,6 @@ class Fantasy(commands.Cog):
         data_oracle = loaddata_oracle()
         competition = competition.upper()
 
-        # def check(m):
-        #     return m.content == "y" and m.channel == channel
-
         def check(m):
             return m.content in ['y', 'n'] and m.channel == channel
 
@@ -389,7 +386,7 @@ class Fantasy(commands.Cog):
     
 
     @cog_ext.cog_slash(name="fantasy_add", description="Ajoute son compte Discord au jeu de la Fantasy")
-    @main.isOwner2_slash()
+
     async def fantasy_add(self, ctx):
         user = ""
         user = str(ctx.author)
@@ -411,7 +408,7 @@ class Fantasy(commands.Cog):
                                     create_choice(name="LEC", value="LEC"),
                                     create_choice(name='LFL', value='LFL'),
                                     create_choice(name='LCS', value='LCS')])])
-    @main.isOwner2_slash()
+
     async def fantasy_bet(self, ctx, competition='LEC'):
         erreur = False
         user = str(ctx.author)
@@ -590,7 +587,6 @@ class Fantasy(commands.Cog):
                 if match_joueur[0] == vainqueur[i]:
                     points_gagnes = points_mises * cote
                     points = points + points_gagnes
-                    # await ctx.send(f'Le joueur {joueur} a bien parié pour le match {match}\n** Points misés ** : {str(points_mises)} pour une côte à {str(cote)}\nTu gagnes donc {str(points_gagnes)} points \n** Total ** :{str(points)}')
                     msg_win = f'Le joueur {joueur} a bien parié pour le match {match}\n** Points misés ** : {str(points_mises)} pour une côte à {str(cote)}\nTu gagnes donc {str(points_gagnes)} points \n** Total ** :{str(points)}\n'
                     if points_mises != 0:
                         msg = msg + msg_win
@@ -629,7 +625,7 @@ class Fantasy(commands.Cog):
         
     
     @cog_ext.cog_slash(name="fantasy_help",description="Test [Réservé aux administrateurs]")
-    @main.isOwner2_slash()
+
     async def fantasy_help(self, ctx):
         user = str(ctx.author)        
         data = loadDataFL()
@@ -696,7 +692,7 @@ class Fantasy(commands.Cog):
     @cog_ext.cog_slash(name="fantasy_cote",
                        description="Voir les côtes des matchs de la semaine",
                     )
-    @main.isOwner2_slash()
+
     async def fantasy_cote(self, ctx):
         data = loadDataRate()
         settings = loadDataFL('settings')
@@ -721,7 +717,6 @@ class Fantasy(commands.Cog):
         
     @cog_ext.cog_slash(name="fantasy_classement",
                        description="Permet de voir le classement de la Fantasy")
-    @main.isOwner2_slash()
     async def fantasy_classement(self, ctx):
         
         data = loadDataFL()
@@ -750,6 +745,8 @@ class Fantasy(commands.Cog):
                     'semaine': {'LEC' : 1, 'LCS' : 1, 'LFL': 1}}
         writeDataFL(settings, 'settings')
         await ctx.send('Fait !')
+        
+
         
 
             
