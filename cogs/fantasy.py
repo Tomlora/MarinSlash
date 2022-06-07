@@ -416,6 +416,8 @@ class Fantasy(commands.Cog):
         
         jour = jour_de_la_semaine()
         
+        await ctx.defer(hidden=False)
+        
         
         if jour in jour_de_match[competition]: #empeche de parier les jours de matchs
             await ctx.send(f"Des matchs se jouent en {competition} aujourd'hui. Les paris sont donc bloqués")
@@ -423,71 +425,100 @@ class Fantasy(commands.Cog):
             # settings
             semaine_data = loadDataFL('settings')['semaine'][competition]
             
-            for semaine in range(semaine_data, semaine_data+2):
+            #data
+            data = loadDataFL()
+                
+            # rate
+            rate = loadDataRate()
+            schedule_date = schedule()
+                
+            channel = ctx.channel
+            author = ctx.author
             
-                await ctx.send(f'Pari pour la journée {str(semaine)}')
-                
-                #data
-                data = loadDataFL()
-                
-                # rate
-                rate = loadDataRate()
-                schedule_date = schedule()
-                
-                channel = ctx.channel
-                author = ctx.author
-                
-                def check(m):
-                    return m.author == author and m.channel == channel
-                
-                await channel.send('La réponse doit être au format `<equipe gagnante> <points mises> `')
+            match_liste = ""
+            match_bet = []
+            liste_equipe1 = []
+            liste_equipe2 = []
+            z = 0
+            
+            for semaine in range(semaine_data, semaine_data+2):
                 schedule_date = schedule_date[schedule_date['Competition'] == competition]
                 op1 = schedule_date['Equipe1'].values
                 op2 = schedule_date['Equipe2'].values
-                for i in range((semaine-1)*5, semaine*5):
-                    equipe1 = op1[i]
-                    equipe2 = op2[i]
-                    match = str(equipe1) + "/" + str(equipe2)
-                    cote = rate[str(semaine)][competition][match]
-                    await channel.send(f' Quel victoire pour {match} {cote}')
+                for j in range((semaine-1)*5,semaine*5):
+                    liste_equipe1.append(op1[j])
+                    liste_equipe2.append(op2[j])
+                equipe1 = [op1[i] for i in range((semaine-1)*5, semaine*5)]
+                equipe2 = [op2[i] for i in range((semaine-1)*5, semaine*5)]
+                
+                for match in range(0, len(equipe1)):
+                    match_liste = match_liste + str(z) + ":" + str(equipe1[match]) + "/" + str(equipe2[match]) + "\n"
+                    match_bet.append(str(equipe1[match]) + "/" + str(equipe2[match]))
+                    z = z + 1
+                    
+                
+            
+            await ctx.send(f'Pari pour la journée {str(semaine_data)} \n' + match_liste)
+            
+                
+            def check(m):
+                return m.author == author and m.channel == channel
+            
+            points = data[user]['Points']
+                
+            await channel.send(f'Tu peux miser au maximum `{points} points`. \n La réponse doit être au format `<numero_match> <equipe gagnante> <points mises> ` \n Tu peux faire plusieurs pronos sous la forme : \n`<numero_match> <equipe gagnante> <points mises> <numero_match> <equipe gagnante> <points mises>...` ')
+
+                    
+            try:
+                msg = await self.bot.wait_for('message', timeout=60, check=check)
+                await channel.send('Validé'.format(msg))
+                msg = str(msg.content).split()
+                
+                # 1 = numero
+                # 2 = vainqueur
+                # 3 = mise
+
+                
+                for i in range(0,len(msg), 3):
+                    numero = int(msg[i])
+                    equipe_gagnante = msg[i+1]
+                    points_mises = int(msg[i+2])
+
+                    
+                    data[user]['Points'] = data[user]['Points'] - points_mises
+                    
+                    if data[user]['Points'] < 0: # Si le joueur n'a plus de points, on ne peut pas continuer.
+                        await ctx.send(f"Erreur, tu n'as pas assez de points. {data[user]['Points']} \nAnnulation des paris.")
+                        erreur = True
+                        break
+                    
+                    # if not equipe_gagnante in liste_equipe1 or not equipe_gagnante in liste_equipe2:
+                    #     erreur = True
+                    #     await channel.send(f'Erreur : Tu as mal écrit une équipe. Annulation des paris.')
+                    #     break 
+                    
+                    # on enregistre le score
+                    semaine_bet = semaine_data
+                    if numero > 4: # à partir du 6ème match, semaine suivante
+                        semaine_bet = semaine_bet + 1
                     
                     try:
-                        msg = await self.bot.wait_for('message', timeout=60, check=check)
-                        await channel.send('Score enregistré !'.format(msg))
-                        msg = str(msg.content).split()
-                        
-                        equipe_gagnante = msg[0]
-                        if equipe_gagnante == '0': # veut dire qu'il ne mise pas ce match
-                            equipe_gagnante = equipe1
-                            msg = ['0', '0']
-                        if not equipe_gagnante in [equipe1, equipe2]: # si le joueur s'est trompé d'équipe
-                            erreur = True
-                            await channel.send(f'Erreur : Le gagnant est soit {equipe1} ou {equipe2}. Annulation des paris.')
-                            break 
-                        
-                        points_mises = int(msg[1])
-                        data[user]['Points'] = data[user]['Points'] - points_mises
-                        points_user = data[user]['Points']
-                        if points_user < 0: # Si le joueur n'a plus de points, on ne peut pas continuer.
-                            await ctx.send(f"Erreur, tu n'as pas assez de points. {points_user} \nAnnulation des paris.")
-                            erreur = True
-                            break
+                        data[user][semaine_bet][competition][match_bet[numero]] = [equipe_gagnante, points_mises]
+                    except KeyError: # Si erreur, il n'a jamais misé sur ces matchs
                         try:
-                            data[user][semaine][competition][match] = [equipe_gagnante, points_mises]           
-                        except KeyError: # Si erreur, le joueur n'a jamais misé sur ces matchs.
-                            try:
-                                data[user][semaine][competition] = {match : [equipe_gagnante, points_mises]}
-                            except KeyError: # Si erreur, le joueur n'a jamais misé pour cette compétition.
-                                data[user][semaine] = {competition : {match : [equipe_gagnante, points_mises]}}
-                                                                    
-                        await channel.send(f'Il te reste {points_user} points à miser ')
-                    except asyncio.TimeoutError:
-                        await msg.delete()
-                        await ctx.send("Annulé")
+                            data[user][semaine_bet][competition] = {match_bet[numero] : [equipe_gagnante, points_mises]}    
+                        except KeyError: # Si erreur, le joueur n'a jamais misé pour cette compétition.
+                            data[user][semaine_bet] = {competition : {match_bet[numero] : [equipe_gagnante, points_mises]}}
+                        
                 
-                if erreur is False: # seulement s'il reste des points au joueur.
-                    writeDataFL(data)
-                    await channel.send(f'Enregistré pour les matchs de la journée {semaine}')
+            except asyncio.TimeoutError:
+                await msg.delete()
+                await ctx.send("Annulé")
+        
+        if erreur is False:
+            writeDataFL(data)
+            await channel.send(f"Il te reste {data[user]['Points']} points")
+
     
     @cog_ext.cog_context_menu(name="FantasyDB")
     async def FantasyDB(self, ctx):
@@ -571,15 +602,19 @@ class Fantasy(commands.Cog):
             cote_equipe2 = rate[str(semaine)][competition][match][1]
             
 
+            
+
         
             for joueur in data.keys():
                 points = data[joueur]['Points']
                 if i == 0:
                     points_avant_match = points
+                    print(data[joueur][semaine][competition])
                 try: # A tester.. Il faut un mécanisme dans le cas où le joueur n'a pas misé sur cette compétition
                     match_joueur = data[joueur][semaine][competition][match]
                     points_mises = data[joueur][semaine][competition][match][1]
                 except:
+                    points_mises = '0'
                     pass
                 
                 if vainqueur[i] == equipe1:
@@ -588,18 +623,19 @@ class Fantasy(commands.Cog):
                     cote = cote_equipe2
                 
                 # on vérifie le résultat
+
                 if match_joueur[0] == vainqueur[i]:
                     points_gagnes = points_mises * cote
                     points = points + points_gagnes
-                    msg_win = f'Le joueur {joueur} a bien parié pour le match {match}\n** Points misés ** : {str(points_mises)} pour une côte à {str(cote)}\nTu gagnes donc {str(points_gagnes)} points \n** Total ** :{str(points)}\n'
+                    msg_win = f'Le joueur {joueur} a bien parié pour le match {match}\n** Points misés ** : {points_mises} pour une côte à {cote}\nTu gagnes donc {points_gagnes} points \n** Total ** :{points}\n'
                     if points_mises != 0:
                         msg = msg + msg_win
-                else:
+                elif match_joueur[0] != vainqueur[i] and points_mises != '0':
                     points = points - points_mises
-                    # await ctx.send(f'Le joueur {joueur} a mal parié pour le match {match}\n Tu perds donc la totalité des points misées : {str(points_mises)}. \n Total:{str(points)} ')
                     msg_lose = f'Le joueur {joueur} a mal parié pour le match {match}\n Tu perds donc la totalité des points misées : {str(points_mises)}. \n Total:{str(points)}\n'
                     if points_mises != 0:
                         msg = msg + msg_lose
+
                         
                 data[joueur]['Points'] = points
                 
