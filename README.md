@@ -54,6 +54,7 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
 ### Records
 
 - Les records des joueurs trackés sont enregistrés. Il peut donc retrouver ses différents records et sur quel champion il l'a obtenu par rapport aux autres joueurs du tracker
+- Il peut également voir ses propres records personnels, sans les comparer aux autres.
 
 ### Achievements
 
