@@ -12,7 +12,7 @@ Pour diversifier mes compétences, le bot stocke des données dans :
 Les visuels sont réalisés avec :
 - Matplotlib
 - Seaborn
-- Plotly express
+- Plotly express / Plotly.graph_objects
 - Pygal
 
 Autres librairies utilisées :
@@ -23,6 +23,8 @@ Autres librairies utilisées :
 - RiotWatcher pour les requêtes à l'API de Riot Games
 - Requests pour l'api de twitch
 - Datetime
+- os
+etc...
 
 # Fonctionnalités
 
