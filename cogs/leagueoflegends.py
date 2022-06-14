@@ -59,7 +59,10 @@ dict_rankid = {"BRONZE IV" : 1,
                "DIAMOND IV" : 17,
                "DIAMOND III" : 18,
                "DIAMOND II" : 19,
-               "DIAMOND I" : 20}
+               "DIAMOND I" : 20,
+               'MASTER I' : 21,
+               'GRANDMASTER I': 22,
+               'CHALLENGER I' : 23}
 
 
 
@@ -190,7 +193,8 @@ class LeagueofLegends(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.my_task.start()
-        self.lolsuivi.start()   
+        self.lolsuivi.start()
+        
  
     def printInfo(self, summonerName, idgames: int, succes):
 
@@ -1026,13 +1030,13 @@ class LeagueofLegends(commands.Cog):
                     suivirank[key]['tier'] = tier
                     suivirank[key]['rank'] = rank
                     try:
-                        channel = self.bot.get_channel(int(main.chan_tracklol))
+                        channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
                         if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
-                            await channel.send(f' Le joueur {key} a démote du rank {rank_old} à {level}')
-                            await channel.send(file=discord.File('./img/notstonks.jpg'))
+                            await channel_tracklol.send(f' Le joueur {key} a démote du rank {rank_old} à {level}')
+                            await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
                         elif dict_rankid[rank_old] < dict_rankid[level]:
-                            await channel.send(f' Le joueur {key} a été promu du rank {rank_old} à {level}')
-                            await channel.send(file=discord.File('./img/stonks.jpg'))
+                            await channel_tracklol.send(f' Le joueur {key} a été promu du rank {rank_old} à {level}')
+                            await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
                         
                         suivirank[key]['tier'] = tier
                         suivirank[key]['rank'] = rank
@@ -1093,14 +1097,16 @@ class LeagueofLegends(commands.Cog):
                
 
     async def printLive(self, summonername):
-        channel = self.bot.get_channel(int(main.chan_tracklol))
-        
+
+        channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
         summonername = summonername.lower()
+        
+
 
         embed = self.printInfo(summonerName=summonername, idgames=0, succes=True)
         
         if embed != {}:
-            await channel.send(embed=embed)
+            await channel_tracklol.send(embed=embed)
 
 
     async def update(self):
@@ -1190,8 +1196,6 @@ class LeagueofLegends(commands.Cog):
             df_24h = pd.DataFrame.from_dict(suivi_24h)
             df_24h = df_24h.transpose().reset_index()
 
-
-            channel = self.bot.get_channel(int(main.chan_lol))
             
             df = df[df['tier'] != 'Non-classe'] # on supprime les non-classés
             
@@ -1289,9 +1293,10 @@ class LeagueofLegends(commands.Cog):
 
                 sauvegarde_bdd(suivi, 'suivi_24h')
 
+            channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
 
-            await channel.send(embed=embed)
-            await channel.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
+            await channel_tracklol.send(embed=embed)
+            await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
       
         
 

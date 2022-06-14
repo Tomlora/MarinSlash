@@ -96,7 +96,10 @@ dict_rankid = {"BRONZE IV" : 1,
                "DIAMOND IV" : 17,
                "DIAMOND III" : 18,
                "DIAMOND II" : 19,
-               "DIAMOND I" : 20}
+               "DIAMOND I" : 20,
+               "MASTER I" : 21,
+               "GRANDMASTER I" : 22,
+               'CHALLENGER I' : 23}
     
     
 
@@ -104,7 +107,6 @@ dict_rankid = {"BRONZE IV" : 1,
 class TFT(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.channel = self.bot.get_channel(int(main.chan_tracklol))
         self.my_taskTFT.start()
 
  
@@ -327,9 +329,11 @@ class TFT(commands.Cog):
         
         
     async def printLiveTFT(self, summonername):
-        channel = self.bot.get_channel(int(main.chan_tracklol))
+
         
         embed = self.stats_TFT(summonername, idgames=0)
+        
+        channel = self.bot.get_channel(int(main.chan_tft))
         
         if embed != {}:
             await channel.send(embed=embed)
