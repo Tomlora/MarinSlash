@@ -24,6 +24,7 @@ Autres librairies utilisées :
 - Requests pour l'api de twitch
 - Datetime
 - os
+
 etc...
 
 # Fonctionnalités
