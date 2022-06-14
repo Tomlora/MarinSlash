@@ -86,6 +86,11 @@ A quel moment ai-je utilisé mon item ?
 __Le bot peut répondre à toutes ces questions.__
 
 
+## Teamfight Tactics
+
+- Ajout progressif des mêmes fonctionnalité sur TFT.
+
+
 ## Competitif pro
 
 ### Statistiques
