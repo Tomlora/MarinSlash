@@ -329,7 +329,7 @@ class TFT(commands.Cog):
     async def printLiveTFT(self, summonername):
         channel = self.bot.get_channel(int(main.chan_tracklol))
         
-        embed, tier, rank, lp = self.stats_TFT(summonername, idgames=0)
+        embed = self.stats_TFT(summonername, idgames=0)
         
         if embed != {}:
             await channel.send(embed=embed)
