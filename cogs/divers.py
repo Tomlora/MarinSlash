@@ -83,8 +83,35 @@ class Divers(commands.Cog):
 
     @cog_ext.cog_slash(name="ping", description="Latence du bot")
     async def _ping(self, ctx : SlashContext):
-        await ctx.channel.send(
+        await ctx.send(
             "pong \n Latence : " + str(round(float(self.bot.latency), 5)) + " ms")
+        
+        # embed1 = discord.Embed(url='https://github.com/Tomlora/MarinSlash/tree/main/img/items')
+        # embed2 = discord.Embed(url='https://github.com/Tomlora/MarinSlash/tree/main/img/items')
+        # embed3 = discord.Embed(url='https://github.com/Tomlora/MarinSlash/tree/main/img/items')  
+        # embed4 = discord.Embed(url='https://github.com/Tomlora/MarinSlash/tree/main/img/items')  
+        # embed5 = discord.Embed(url='https://github.com/Tomlora/MarinSlash/tree/main/img/items')  
+        # embed6 = discord.Embed(url='https://github.com/Tomlora/MarinSlash/tree/main/img/items')  
+        # embed7 = discord.Embed(url='https://github.com/Tomlora/MarinSlash/tree/main/img/items')  
+        # url_item = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/items/1004.png'
+        # url_item2 = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/items/1001.png'
+        # url_item3 = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/items/1006.png'
+        # url_item4 = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/items/1011.png'
+        # url_item5 = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/items/1018.png'
+        # url_item6 = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/items/1026.png'
+        # url_item7 = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/items/1027.png'
+        # embed1.set_image(url=url_item)
+        # embed2.set_image(url=url_item2)
+        # embed3.set_image(url=url_item3)
+        # embed4.set_image(url=url_item4)
+        # embed5.set_image(url=url_item5)
+        # embed6.set_image(url=url_item6)
+        # embed7.set_image(url=url_item7)
+
+        
+        # await ctx.send(embeds=[embed1, embed2])
+
+        
 
     @commands.command(brief="Affiche le chan general")
     async def channel(self, ctx):

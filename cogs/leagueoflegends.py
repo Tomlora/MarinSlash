@@ -264,6 +264,10 @@ class LeagueofLegends(commands.Cog):
         thisWards = match_detail['info']['participants'][thisId]['wardsPlaced']
         thisWardsKilled = match_detail['info']['participants'][thisId]['wardsKilled']
         thisGold = int(match_detail['info']['participants'][thisId]['goldEarned'])
+        
+        item = match_detail['info']['participants'][thisId]
+        thisItems = [item['item0'], item['item1'], item['item2'], item['item3'], item['item4'], item['item5'], item['item6']]
+        
         thisMinionPerMin = round((thisMinion / thisTime), 2)
         thisVisionPerMin = round((thisVision / thisTime), 2)
         thisGoldPerMinute = round((thisGold / thisTime), 2)
@@ -636,13 +640,13 @@ class LeagueofLegends(commands.Cog):
 
         if thisQ == "OTHER":
             embed = discord.Embed(
-                title=f"** {summonerName.upper()} ** vient de ** {thisWin} ** une game sur {thisChampName}", color=color)
+                title=f"** {summonerName.upper()} ** vient de ** {thisWin} ** une game ", color=color)
         elif thisQ == "ARAM":
             embed = discord.Embed(
-                title=f"** {summonerName.upper()} ** vient de ** {thisWin} ** une ARAM sur {thisChampName}", color=color)
+                title=f"** {summonerName.upper()} ** vient de ** {thisWin} ** une ARAM ", color=color)
         else:
             embed = discord.Embed(
-                title=f"** {summonerName.upper()} ** vient de ** {thisWin} ** une {thisQ} game sur {thisChampName} ({thisPosition})", color=color)
+                title=f"** {summonerName.upper()} ** vient de ** {thisWin} ** une {thisQ} game ({thisPosition})", color=color)
 
             if thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE']:
                 result = scoring(thisPosition, summonerName, thisKills, thisDeaths, thisAssists, (thisKP / 100),
@@ -723,7 +727,7 @@ class LeagueofLegends(commands.Cog):
             exploits = exploits + "\n ** Tu as eu un afk dans ton équipe :'( **"
             
         # Série de victoire    
-        if thisWinStreak == "True" and thisQ == "RANKED" and succes is True:
+        if thisWinStreak == "True" and thisQ == "RANKED" and succes is True and thisTime > 20:
             if suivi[summonerName.lower().replace(" ", "")]["serie"] == 0: # si égal à 0, le joueur commence une série avec 3 wins
                 suivi[summonerName.lower().replace(" ", "")]["serie"] = 3
             else: # si pas égal à 0, la série a déjà commencé
@@ -950,6 +954,10 @@ class LeagueofLegends(commands.Cog):
                             thisKillsListe[9]) + "/" + str(
                             thisDeathsListe[9]) + "/" + str(thisAssistsListe[9]),
                         inline=True)
+        
+        
+        url_champion = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/champions/{thisChampName}.png'
+        embed.set_thumbnail(url=url_champion)
 
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora - Match {str(last_match)}')
 
