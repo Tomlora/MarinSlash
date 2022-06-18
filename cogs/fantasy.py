@@ -15,7 +15,8 @@ from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 
 from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
-from fonctions.date import alarm, jour_de_la_semaine
+from fonctions.gestion_base_oracle import loaddata_oracle, rechargement_data_oracle
+from fonctions.date import alarm, jour_de_la_semaine, date_du_jour
 
 # Certaines cmd devraient être réservés en message privé (prendre exemple sur match_of_the_week)
 
@@ -79,10 +80,7 @@ def schedule():
         
         return schedule
     
-def loaddata_oracle():
-    chemin = "FL/2022_LoL_esports_match_data_from_OraclesElixir_20220414.csv"
-    data_oracle = pd.read_csv(chemin)
-    return data_oracle
+
 
 
 class Fantasy(commands.Cog):
@@ -137,33 +135,33 @@ class Fantasy(commands.Cog):
     
 
 
-    @cog_ext.cog_slash(name="alarm_lol",
-                       description="Permet d'être ping pour les alarmes",
-                       options=[create_option(name="competition", description="Quelle alarme ?", option_type=3, required=True, choices=[
-                                    create_choice(name="LEC", value="LEC"),
-                                    create_choice(name='Main Kayn', value='Main Kayn'),
-                                    create_choice(name='LCS', value='LCS'),
-                                    create_choice(name='LFL', value='LFL')])])
+    # @cog_ext.cog_slash(name="alarm_lol",
+    #                    description="Permet d'être ping pour les alarmes",
+    #                    options=[create_option(name="competition", description="Quelle alarme ?", option_type=3, required=True, choices=[
+    #                                 create_choice(name="LEC", value="LEC"),
+    #                                 create_choice(name='Main Kayn', value='Main Kayn'),
+    #                                 create_choice(name='LCS', value='LCS'),
+    #                                 create_choice(name='LFL', value='LFL')])])
                        
-    async def alarm_lol(self, ctx, competition: str):
+    # async def alarm_lol(self, ctx, competition: str):
 
-        liste = ['LEC', 'Main Kayn', 'LCS', 'LFL']
-        user = ctx.author
-        role = discord.utils.get(ctx.guild.roles, name=competition)
-        if competition in liste:
-            if role in user.roles:
-                await user.remove_roles(role)
-                await ctx.send(f' Le rang {role} a été retiré !')
-            else:
-                await user.add_roles(role)
-                await ctx.send(f'Le rang {role} a été ajouté !')
-        else:
-            await ctx.send(f"Le rôle {competition} n'existe pas ou tu n'as pas les droits nécessaires")
+    #     liste = ['LEC', 'Main Kayn', 'LCS', 'LFL']
+    #     user = ctx.author
+    #     role = discord.utils.get(ctx.guild.roles, name=competition)
+    #     if competition in liste:
+    #         if role in user.roles:
+    #             await user.remove_roles(role)
+    #             await ctx.send(f' Le rang {role} a été retiré !')
+    #         else:
+    #             await user.add_roles(role)
+    #             await ctx.send(f'Le rang {role} a été ajouté !')
+    #     else:
+    #         await ctx.send(f"Le rôle {competition} n'existe pas ou tu n'as pas les droits nécessaires")
 
-    @alarm_lol.error
-    async def info_error_alarm(self, ctx, error):
-        if isinstance(error, commands.CommandError):
-            await ctx.send(f"La competition n'a pas ete precisée : Tu as le choix entre LEC / LFL / LCS / Main Kayn")
+    # @alarm_lol.error
+    # async def info_error_alarm(self, ctx, error):
+    #     if isinstance(error, commands.CommandError):
+    #         await ctx.send(f"La competition n'a pas ete precisée : Tu as le choix entre LEC / LFL / LCS / Main Kayn")
         
     @commands.command(brief="DB Rito")
     async def loldb(self, ctx):
@@ -180,15 +178,21 @@ class Fantasy(commands.Cog):
         print(op1[1])
 
         
-    @cog_ext.cog_slash(name="competition",
+    @cog_ext.cog_slash(name="stats_joueur_pro_saison",
                        description="Stats d'un joueur pro sur la saison",
                        options=[create_option(name="competition", description= "Quelle compétition ?", option_type=3, required=True),
                                 create_option(name="split", description="Spring ou summer ?", option_type=3, required=True, choices=[
                                     create_choice(name="spring", value="Spring"),
                                     create_choice(name="summer", value="Summer")]),
                                 create_option(name="joueur", description="Nom du joueur ?", option_type=3, required=True)])
-    async def competition(self, ctx, competition, split, *, joueur):
+    async def stats_joueur_pro_saison(self, ctx, competition, split, *, joueur):
+        
+        
+        
+        await ctx.defer(hidden=False)
+        
         try:
+            rechargement_data_oracle()
             data_oracle = loaddata_oracle()
             competition = competition.upper()
 
@@ -254,53 +258,25 @@ class Fantasy(commands.Cog):
                 "Erreur, le format est soit mauvais, soit non-respect des majuscules. Exemple : \n  > /competition LCS Spring Bwipo")
 
 
-    @cog_ext.cog_slash(name="liste_joueurs",
-                       description="Stats d'un joueur pro sur la saison",
-                       options=[create_option(name="competition", description= "Quelle compétition ? Si non renseigné : affiche LEC/LCS/LFL", option_type=3, required=False)])
-    async def liste_joueurs(self, ctx, competition = None):
-        
-        data_oracle = loaddata_oracle()
 
-        if competition is None:
-            competition = ['LEC', 'LCS', 'LFL']
-        else:
-            competition = [competition]
-
-
-
-        for value in competition:
-
-            embed = discord.Embed(
-                title=str(value), color=discord.Colour.blue())
-
-            data_joueurs = data_oracle[data_oracle['league'] == value]
-
-            liste_equipe = data_joueurs['teamname'].unique()
-
-            for equipe in liste_equipe:
-
-                data_equipe = data_joueurs[data_joueurs['teamname'] == equipe]
-
-                liste_joueur = data_equipe['playername'].dropna().unique()
-
-                liste_joueur = liste_en_str(liste_joueur)
-
-                embed.add_field(name=str(equipe), value=str(liste_joueur) + "\n", inline=False)
-
-            await ctx.send(embed=embed)
-
-    @cog_ext.cog_slash(name="competition_game",
+    @cog_ext.cog_slash(name="stats_joueur_pro_1game",
                        description="Stats d'un joueur pro sur une game",
                        options=[create_option(name="competition", description= "Quelle compétition ?", option_type=3, required=True),
                                 create_option(name="split", description="Spring ou summer ?", option_type=3, required=True, choices=[
                                     create_choice(name="spring", value="Spring"),
                                     create_choice(name="summer", value="Summer")]),
-                                create_option(name="game", description="Quelle game ? La dernière étant 0", option_type=4, required=True),
+                                create_option(name="game", description="Quelle game ? La dernière étant 1", option_type=4, required=True),
                                 create_option(name="joueur", description="Nom du joueur ?", option_type=3, required=True)])
-    async def competition_game(self, ctx, competition, split, game, joueur):
+    async def stats_joueur_pro_1game(self, ctx, competition, split, game, joueur):
+        
+        await ctx.defer(hidden=False)
+        
+        rechargement_data_oracle()
         
         data_oracle = loaddata_oracle()
         competition = competition.upper()
+        
+        game = game - 1 # la game commence à 0
 
         def check(m):
             return m.content in ['y', 'n'] and m.channel == channel
@@ -363,7 +339,7 @@ class Fantasy(commands.Cog):
                 embed.add_field(name="Profil", value="Equipe : " + str(teamname) + " \n Position : " + str(
                     position) + "\n Champion : " + str(champion), inline=False)
                 embed.add_field(
-                    name="Statistiques " + str(split) + " " + str(year) + " Game " + str(game) + " (" + str(date) + ")",
+                    name="Statistiques " + str(split) + " " + str(year) + " Game " + str(game + 1) + " (" + str(date) + ")",
                     value="KDA : " + str(kda) + " \n Kills : " + str(kills) + " \n Deaths : " + str(deaths) + " \n Assists : " + str(
                         assists) + "\n CS : " + str(cs), inline=False)
                 embed.add_field(name="First Blood",
@@ -385,6 +361,47 @@ class Fantasy(commands.Cog):
             await msg.delete()
             await ctx.send("Annulé")          
     
+    @cog_ext.cog_slash(name="liste_joueurs",
+                       description="Liste des joueurs d'une compétition",
+                       options=[create_option(name="competition", description= "Quelle compétition ? Si non renseigné : affiche LEC/LCS/LFL", option_type=3, required=False),
+                                create_option(name="split", description="Spring ou summer ?", option_type=3, required=False, choices=[
+                                    create_choice(name="spring", value="Spring"),
+                                    create_choice(name="summer", value="Summer")])])
+    async def liste_joueurs(self, ctx, competition = None, split="Summer"):
+        
+        await ctx.defer(hidden=False)
+        
+        
+        data_oracle = loaddata_oracle()
+
+        if competition is None:
+            competition = ['LEC', 'LCS', 'LFL']
+        else:
+            competition = [competition]
+
+
+
+        for value in competition:
+
+            embed = discord.Embed(
+                title=str(value), color=discord.Colour.blue())
+
+            data_joueurs = data_oracle[data_oracle['league'] == value]
+            data_joueurs = data_joueurs[data_joueurs['split'] == split]
+
+            liste_equipe = data_joueurs['teamname'].unique()
+
+            for equipe in liste_equipe:
+
+                data_equipe = data_joueurs[data_joueurs['teamname'] == equipe]
+
+                liste_joueur = data_equipe['playername'].dropna().unique()
+
+                liste_joueur = liste_en_str(liste_joueur)
+
+                embed.add_field(name=str(equipe), value=str(liste_joueur) + "\n", inline=False)
+
+            await ctx.send(embed=embed)
 
     @cog_ext.cog_slash(name="fantasy_add", description="Ajoute son compte Discord au jeu de la Fantasy")
 

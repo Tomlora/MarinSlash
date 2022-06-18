@@ -9,7 +9,6 @@ import main
 import datetime
 import numpy as np
 import warnings
-from discord_slash.utils.manage_components import *
 from cogs.achievements_scoringlol import scoring
 from fonctions.gestion_fichier import loadData, writeData
 from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
@@ -232,10 +231,10 @@ class LeagueofLegends(commands.Cog):
         thisPosition = match_detail['info']['participants'][thisId]['teamPosition']
         
         if thisQId == 900: #urf (géré différemment)
-            return {}
+            return {}, 'URF'
         
         if thisQId == 840:
-            return {} # bot game
+            return {}, 'Bot' # bot game
         ##
         if (str(thisPosition) == "MIDDLE"):
             thisPosition = "MID"
@@ -967,7 +966,7 @@ class LeagueofLegends(commands.Cog):
 
 
 
-        return embed
+        return embed, thisQ
 
     @commands.command(brief="Version du jeu")
     async def lolversion(self, ctx):
@@ -1066,7 +1065,7 @@ class LeagueofLegends(commands.Cog):
         
         summonername = summonername.lower()
 
-        embed = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes)
+        embed, mode_de_jeu = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes)
 
         if embed != {}:
             await ctx.send(embed=embed)
@@ -1086,7 +1085,7 @@ class LeagueofLegends(commands.Cog):
             
             summonername = summonername.lower()
 
-            embed = self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes)
+            embed, mode_de_jeu = self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes)
 
             if embed != {}:
                 await ctx.send(embed=embed)
@@ -1097,13 +1096,15 @@ class LeagueofLegends(commands.Cog):
                
 
     async def printLive(self, summonername):
-
-        channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
+        
         summonername = summonername.lower()
         
-
-
-        embed = self.printInfo(summonerName=summonername, idgames=0, succes=True)
+        embed, mode_de_jeu = self.printInfo(summonerName=summonername, idgames=0, succes=True)
+        
+        if mode_de_jeu in ['RANKED', 'FLEX']:
+            channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))
+        else:
+            channel_tracklol = self.bot.get_channel(int(main.chan_lol_others))   
         
         if embed != {}:
             await channel_tracklol.send(embed=embed)
