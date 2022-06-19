@@ -106,7 +106,7 @@ class Leaguepedia(commands.Cog):
         data_mercato['Direction'] = data_mercato['Direction'].map({'Join' : 'Rejoint', 'Leave' : 'Quitte'})
         
         if not league == "": # Si tri sur une league
-            data_mercato = data_mercato[data_mercato['Competition']]
+            data_mercato = data_mercato[data_mercato['Competition'] == league]
         
         embed = discord.Embed(
                 title="Mercato", color=discord.Color.orange())

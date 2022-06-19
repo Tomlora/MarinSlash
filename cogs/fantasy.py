@@ -13,10 +13,14 @@ from fonctions.gestion_fichier import loadDataFL, loadDataRate, writeDataFL, wri
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
+import os
 
 from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 from fonctions.gestion_base_oracle import loaddata_oracle, rechargement_data_oracle
 from fonctions.date import alarm, jour_de_la_semaine, date_du_jour
+
+import dataframe_image as dfi
+
 
 # Certaines cmd devraient être réservés en message privé (prendre exemple sur match_of_the_week)
 
@@ -178,188 +182,6 @@ class Fantasy(commands.Cog):
         print(op1[1])
 
         
-    @cog_ext.cog_slash(name="stats_joueur_pro_saison",
-                       description="Stats d'un joueur pro sur la saison",
-                       options=[create_option(name="competition", description= "Quelle compétition ?", option_type=3, required=True),
-                                create_option(name="split", description="Spring ou summer ?", option_type=3, required=True, choices=[
-                                    create_choice(name="spring", value="Spring"),
-                                    create_choice(name="summer", value="Summer")]),
-                                create_option(name="joueur", description="Nom du joueur ?", option_type=3, required=True)])
-    async def stats_joueur_pro_saison(self, ctx, competition, split, *, joueur):
-        
-        
-        
-        await ctx.defer(hidden=False)
-        
-        try:
-            rechargement_data_oracle()
-            data_oracle = loaddata_oracle()
-            competition = competition.upper()
-
-
-            # On trie par competition
-            data_joueurs = data_oracle[data_oracle['league'] == competition]
-
-            #On trie par split
-            data_joueurs = data_joueurs[data_joueurs['split'] == split]
-
-            #On trie par année
-            data_joueurs = data_joueurs[data_joueurs['year'] == year]
-
-            # if LCS, on retire le Lock-in
-
-            if competition == 'LCS':
-                data_joueurs = data_joueurs[data_joueurs['playoffs'] == 0]
-
-            # On trie sur le joueur qu'on a visé
-            data_joueurs_text = data_joueurs[data_joueurs['playername'] == joueur]
-
-            data_joueurs_cumul = data_joueurs_text.groupby(['playername']).sum()  # on regroupe par joueurs pour avoir ses stats
-
-            position = data_joueurs_text['position'].iloc[0]
-            teamname = data_joueurs_text['teamname'].iloc[0]
-            kills = data_joueurs_cumul['kills'][0]
-            deaths = data_joueurs_cumul['deaths'][0]
-            assists = data_joueurs_cumul['assists'][0]
-            cs = int(data_joueurs_cumul['total cs'][0])
-            double = int(data_joueurs_cumul['doublekills'][0])
-            triple = int(data_joueurs_cumul['triplekills'][0])
-            quadra = int(data_joueurs_cumul['quadrakills'][0])
-            penta = int(data_joueurs_cumul['pentakills'][0])
-            fb = int(data_joueurs_cumul['firstbloodkill'][0])
-            fb_encaisse = int(data_joueurs_cumul['firstbloodvictim'][0])
-
-            if deaths != 0:
-                kda = round((kills + assists)/deaths,2)
-            else:
-                kda = "Perfect KDA"
-
-
-            embed = discord.Embed(
-                title="**" + str(joueur).upper() + "**", color=discord.Colour.blue())
-            embed.add_field(name="Profil", value="Equipe : " + str(teamname) + " \n Position : " + str(position),
-                            inline=False)
-            embed.add_field(name="Statistiques " + str(split) + " " + str(year),
-                            value="KDA : " + str(kda) + " \n Kills : " + str(kills) + " \n Deaths : " + str(deaths) + " \n Assists : " + str(
-                                assists) + "\n CS : " + str(cs), inline=False)
-            embed.add_field(name="First Blood",
-                            value="First blood effectués : " + str(fb) + " \n First blood subis : " + str(fb_encaisse),
-                            inline=False)
-            embed.add_field(name="Details Kills",
-                            value="Double : " + str(double) + " \n Triple : " + str(triple) + " \n Quadra : " + str(
-                                quadra) + "\n Penta : " + str(penta),
-                            inline=False)
-
-            embed.set_footer(text=f'Version {main.Var_version} by Tomlora')
-            # returning the message for discord
-            await ctx.send(embed=embed)
-        except:
-            await ctx.send(
-                "Erreur, le format est soit mauvais, soit non-respect des majuscules. Exemple : \n  > /competition LCS Spring Bwipo")
-
-
-
-    @cog_ext.cog_slash(name="stats_joueur_pro_1game",
-                       description="Stats d'un joueur pro sur une game",
-                       options=[create_option(name="competition", description= "Quelle compétition ?", option_type=3, required=True),
-                                create_option(name="split", description="Spring ou summer ?", option_type=3, required=True, choices=[
-                                    create_choice(name="spring", value="Spring"),
-                                    create_choice(name="summer", value="Summer")]),
-                                create_option(name="game", description="Quelle game ? La dernière étant 1", option_type=4, required=True),
-                                create_option(name="joueur", description="Nom du joueur ?", option_type=3, required=True)])
-    async def stats_joueur_pro_1game(self, ctx, competition, split, game, joueur):
-        
-        await ctx.defer(hidden=False)
-        
-        rechargement_data_oracle()
-        
-        data_oracle = loaddata_oracle()
-        competition = competition.upper()
-        
-        game = game - 1 # la game commence à 0
-
-        def check(m):
-            return m.content in ['y', 'n'] and m.channel == channel
-
-
-        #On trie par competition
-        data_joueurs = data_oracle[data_oracle['league'] == competition]
-
-        #On trie par split
-        data_joueurs = data_joueurs[data_joueurs['split'] == split]
-
-        #On trie par année
-        data_joueurs = data_joueurs[data_joueurs['year'] == year]
-
-        # if LCS, on retire le Lock-in
-
-        if competition == 'LCS':
-            data_joueurs = data_joueurs[data_joueurs['playoffs'] == 0]
-
-        data_joueurs_text = data_joueurs[data_joueurs['playername'] == joueur] #On trie sur le joueur visé
-
-        data_joueurs_text = data_joueurs_text.iloc[int(game)] #On trie sur la game visée
-
-        # data_joueurs_nombre = data_joueurs_text.groupby(['playername']).sum()  # on regroupe par joueurs
-
-        date = data_joueurs_text['date'] #on isole la date
-        date = date[:-9]  # on supprime l'heure
-        date = datetime.strptime(date, "%Y-%m-%d")  # on met au format date
-        date = str(date.strftime('%d-%m-%Y'))  # on change le format de la date
-
-        await ctx.send(f' Souhaites-tu les stats de {joueur} durant sa game du {date} ? (y/n)')
-        channel = ctx.message.channel
-        global msg
-        try:
-            msg = await self.bot.wait_for('message', timeout=10, check=check)
-
-            if msg.content == 'y':
-                position = data_joueurs_text['position']
-                teamname = data_joueurs_text['teamname']
-                champion = data_joueurs_text['champion']
-
-                kills = data_joueurs_text['kills']
-                deaths = data_joueurs_text['deaths']
-                assists = data_joueurs_text['assists']
-                cs = int(data_joueurs_text['total cs'])
-                double = int(data_joueurs_text['doublekills'])
-                triple = int(data_joueurs_text['triplekills'])
-                quadra = int(data_joueurs_text['quadrakills'])
-                penta = int(data_joueurs_text['pentakills'])
-                fb = int(data_joueurs_text['firstbloodkill'])
-                fb_encaisse = int(data_joueurs_text['firstbloodvictim'])
-
-                if deaths !=0:
-                    kda = round((kills + assists)/deaths,2)
-                else:
-                    kda = "Perfect KDA"
-
-                embed = discord.Embed(
-                    title="**" + str(joueur).upper() + "**", color=discord.Colour.blue())
-                embed.add_field(name="Profil", value="Equipe : " + str(teamname) + " \n Position : " + str(
-                    position) + "\n Champion : " + str(champion), inline=False)
-                embed.add_field(
-                    name="Statistiques " + str(split) + " " + str(year) + " Game " + str(game + 1) + " (" + str(date) + ")",
-                    value="KDA : " + str(kda) + " \n Kills : " + str(kills) + " \n Deaths : " + str(deaths) + " \n Assists : " + str(
-                        assists) + "\n CS : " + str(cs), inline=False)
-                embed.add_field(name="First Blood",
-                                value="First blood effectués : " + str(fb) + " \n First blood subis : " + str(
-                                    fb_encaisse), inline=False)
-                embed.add_field(name="Details Kills",
-                                value="Double : " + str(double) + " \n Triple : " + str(triple) + " \n Quadra : " + str(
-                                    quadra) + "\n Penta : " + str(penta),
-                                inline=False)
-
-                embed.set_footer(text=f'Version {main.Var_version} by Tomlora')
-                # returning the message for discord
-                await ctx.send(embed=embed)
-
-            elif msg.content == 'n':
-                await ctx.send('Annulé')
-
-        except asyncio.TimeoutError:
-            await msg.delete()
-            await ctx.send("Annulé")          
     
     @cog_ext.cog_slash(name="liste_joueurs",
                        description="Liste des joueurs d'une compétition",
@@ -803,11 +625,94 @@ class Fantasy(commands.Cog):
         writeDataFL(settings, 'settings')
         await ctx.send('Fait !')
         
-
-            
-
         
+        
+    @cog_ext.cog_slash(name="stats_game_pro", description="Recap d'une game compétitif",
+                        options=[create_option(name="gameid", description = "Exemple :  ESPORTSTMNT01_2690210", option_type=3, required=True)])
+                                # create_option(name="split", description = "Quel split", option_type=3, required=True, choices=[
+                                #     create_choice(name="spring", value="Spring"),
+                                #     create_choice(name="summer", value="Summer")])])
+    async def stats_game_pro(self, ctx, gameid):
+        
+        await ctx.defer(hidden=False)
+        
+        rechargement_data_oracle()
+        
+        data_oracle = loaddata_oracle()
+        
+        data_oracle = data_oracle[data_oracle['split'].isin(['Spring', 'Summer'])]
+        
+        data_oracle['split'] = np.where(data_oracle['patch'] < 12.09, 'Spring', data_oracle['split']) # Correction dû à des games "summer" donné au "spring"
+        
+        data_oracle['gamelength'] = ((data_oracle['gamelength']/60)) % 60 # Durée des games en minutes plutôt qu'en seconde
+        
+        df_joueurs = data_oracle[data_oracle['position'] != 'team'] # on veut les joueurs
+        
+        # df_joueurs = df_joueurs[df_joueurs['split'] == split]
+        
+        def stats_game(df, gameid):
+            df = df[df['gameid'] == gameid][['playername', 'gamelength','champion','kills','deaths','assists', 'doublekills', 'triplekills', 'quadrakills', 'pentakills',
+            'firstblood', 'team kpm', 'damagetochampions', 'dpm', 'damageshare', 'wardsplaced', 'visionscore', 'totalgold', 'total cs', 'cspm',
+            'golddiffat15', 'xpdiffat15', 'csdiffat15', 'csat15']]
+            dfi.export(df, 'image.png', max_cols=-1)
+            
+        stats_game(df_joueurs, gameid)
+        
+        await ctx.send(file=discord.File('image.png'))
+        
+        os.remove('image.png')
+        
+        
+    @cog_ext.cog_slash(name="stats_joueur_pro", description="Recap d'un joueur pro",
+                        options=[create_option(name="joueur", description = "Exemple :  ESPORTSTMNT01_2690210", option_type=3, required=True),
+                                create_option(name="split", description = "Le split", option_type=3, required=True, choices=[
+                                    create_choice(name="spring", value="Spring"),
+                                    create_choice(name="summer", value="Summer")]),
+                                create_option(name="methode", description = "Methode d'affichage", option_type=3, required=True, choices=[
+                                    create_choice(name="par game", value="Par game"),
+                                    create_choice(name="moyenne", value="Moyenne")])])
+    async def stats_joueur_pro(self, ctx, joueur, methode, split):
+        
+        await ctx.defer(hidden=False)
+        
+        rechargement_data_oracle()
+        
+        data_oracle = loaddata_oracle()
+        
+        data_oracle = data_oracle[data_oracle['split'].isin(['Spring', 'Summer'])]
+        
+        data_oracle['split'] = np.where(data_oracle['patch'] < 12.09, 'Spring', data_oracle['split']) # Correction dû à des games "summer" donné au "spring"
+        
+        data_oracle['gamelength'] = ((data_oracle['gamelength']/60)) % 60 # Durée des games en minutes plutôt qu'en seconde
+        
+        df_joueurs = data_oracle[data_oracle['position'] != 'team'] # on veut les joueurs
+        
+        df_joueurs = df_joueurs[df_joueurs['split'] == split]
+        
+        
+        if methode == "Par game":
+            df = df_joueurs[df_joueurs['playername'] == joueur][['playername', 'gamelength','champion','kills','deaths','assists', 'doublekills', 'triplekills', 'quadrakills', 'pentakills',
+                'firstblood', 'team kpm', 'damagetochampions', 'dpm', 'damageshare', 'wardsplaced', 'visionscore', 'totalgold', 'total cs', 'cspm',
+                'golddiffat15', 'xpdiffat15', 'csdiffat15', 'csat15']]
+            
+        elif methode == "Moyenne":
+            df = df_joueurs.groupby(['playername', 'champion']).agg(
+                {'gamelength' : 'mean', 'champion' : 'count', 'kills' : 'sum', 'deaths' : 'sum', 'assists' : 'sum', 'doublekills': 'sum', 'triplekills' : 'sum', 'quadrakills' : 'sum', 'pentakills' : 'sum',
+                'firstblood' : 'sum', 'team kpm' : 'mean', 'damagetochampions' : 'mean', 'dpm' : 'mean', 'damageshare' : 'mean', 'wardsplaced' : 'mean', 'visionscore' : 'mean', 'totalgold' : 'mean', 'total cs' : 'mean', 'cspm' : 'mean',
+                'golddiffat15' : 'mean', 'xpdiffat15' : 'mean', 'csdiffat15' : 'mean', 'csat15' : 'mean'})
 
+            df['kills_avg'] = df['kills']/df['champion']
+            df['deaths_avg'] = df['deaths']/df['champion']
+            df['assists_avg'] = df['assists']/df['champion']
+            df = df.loc[joueur]
+            
+        dfi.export(df, 'image.png', max_cols=-1, max_rows=-1)
+        
+        await ctx.send(file=discord.File('image.png'))
+        
+        os.remove('image.png')
+        
+    
 
 def setup(bot):
     bot.add_cog(Fantasy(bot))
