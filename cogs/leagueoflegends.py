@@ -838,14 +838,18 @@ class LeagueofLegends(commands.Cog):
 
                 
         # observations
+        
+        embed.add_field(name="Game", value=f"[LeagueofGraph](https://www.leagueofgraphs.com/fr/match/euw/{str(last_match)[5:]}#participant{int(thisId)+1})") # ici, ça va de 1 à 10.. contrairement à Rito qui va de 1 à 9
+        embed.add_field(name="OPGG", value=f"[Profil](https://euw.op.gg/summoners/euw/{summonerName})")
+        embed.add_field(name="Stats", value=f"[{thisChampName}](https://lolalytics.com/lol/{thisChampName.lower()}/build/)")
 
         if thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and thisQ == "RANKED":
             embed.add_field(
                 name="Durée de la game : " + str(int(thisTime)) + " minutes | Score (EXPERIMENTAL) : " + str(result),
-                value=exploits)
+                value=exploits, inline=False)
         else:
             embed.add_field(name="Durée de la game : " + str(int(thisTime)) + " minutes",
-                            value=exploits)
+                            value=exploits, inline=False)
             
         if len(exploits2) > 5: # si plus de 15 lettres, alors il y a un exploit personnel
             embed.add_field(name="Statistiques personnelles : ", value=exploits2, inline=False)
