@@ -92,8 +92,15 @@ __Le bot peut répondre à toutes ces questions.__
 
 ## Teamfight Tactics
 
-- Ajout progressif des mêmes fonctionnalité sur TFT.
+- En attente de l'accord de Riot Games pour la pérennité de l'outil..
 
+## Automatisation
+
+### Rapport de partie / Tracker
+
+
+- Construis un rapport de chaque partie avec les stats principales
+- Un joueur peut ajouter/retirer son compte au tracker
 
 ## Competitif pro
 
