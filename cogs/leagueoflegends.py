@@ -13,6 +13,7 @@ from cogs.achievements_scoringlol import scoring
 from fonctions.gestion_fichier import loadData, writeData
 from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 from tqdm import tqdm
+import json
 
 
 from discord_slash import cog_ext, SlashContext
@@ -259,7 +260,15 @@ class LeagueofLegends(commands.Cog):
         thisWin = ' '
         thisTime = round((int(match_detail['info']['gameDuration']) / 60), 2)
         thisDamage = match_detail['info']['participants'][thisId]['totalDamageDealtToChampions']
+        thisDamageAP = match_detail['info']['participants'][thisId]['magicDamageDealtToChampions']
+        thisDamageAD = match_detail['info']['participants'][thisId]['physicalDamageDealtToChampions']
+        thisDamageTrue = match_detail['info']['participants'][thisId]['trueDamageDealtToChampions']
+        
         thisDamageTaken = int(match_detail['info']['participants'][thisId]['totalDamageTaken'])
+        thisDamageTakenAD = int(match_detail['info']['participants'][thisId]['physicalDamageTaken'])
+        thisDamageTakenAP = int(match_detail['info']['participants'][thisId]['magicDamageTaken'])
+        thisDamageTakenTrue = int(match_detail['info']['participants'][thisId]['trueDamageTaken'])
+        
         thisVision = match_detail['info']['participants'][thisId]['visionScore']
         thisJungleMonsterKilled = match_detail['info']['participants'][thisId]['neutralMinionsKilled']
         thisMinion = match_detail['info']['participants'][thisId]['totalMinionsKilled'] + thisJungleMonsterKilled
@@ -267,17 +276,32 @@ class LeagueofLegends(commands.Cog):
         thisWards = match_detail['info']['participants'][thisId]['wardsPlaced']
         thisWardsKilled = match_detail['info']['participants'][thisId]['wardsKilled']
         thisGold = int(match_detail['info']['participants'][thisId]['goldEarned'])
-        
+                
         item = match_detail['info']['participants'][thisId]
-        thisItems = [item['item0'], item['item1'], item['item2'], item['item3'], item['item4'], item['item5'], item['item6']]
+        thisItems = [item['item0'], item['item1'], item['item2'], item['item3'], item['item4'], item['item5']]
+        
+        # item6 = ward. Pas utile 
+        
+        
+        # on transpose les items
+        
+        with open('./obj/item.json', encoding='utf-8') as mon_fichier:
+            data = json.load(mon_fichier)
+        
+        data_item = list()
+        
+        for item in thisItems:
+            if item != 0: # si = 0, il n'y a pas d'items
+                data_item.append(data['data'][str(item)]['name'])
+        
+        
+        data_item = (' | '.join(data_item))
         
         thisMinionPerMin = round((thisMinion / thisTime), 2)
         thisVisionPerMin = round((thisVision / thisTime), 2)
         thisGoldPerMinute = round((thisGold / thisTime), 2)
         thisDamagePerMinute = round(
             int(match_detail['info']['participants'][thisId]['totalDamageDealtToChampions']) / thisTime, 0)
-        # thisDamageTakenPerMinute = round(
-        #     int(match_detail['info']['participants'][thisId]['totalDamageTaken']) / thisTime, 0)
         thisStats = lol_watcher.league.by_summoner(my_region, me['id'])
         thisWinrateStat = ' '
         thisWinrate = ' '
@@ -300,11 +324,24 @@ class LeagueofLegends(commands.Cog):
         thisKillingSprees = match_detail['info']['participants'][thisId]['killingSprees']
         thisDamageSelfMitigated = match_detail['info']['participants'][thisId]['damageSelfMitigated']
         thisDamageTurrets = match_detail['info']['participants'][thisId]['damageDealtToTurrets']
+        thisDamageObjectives = match_detail['info']['participants'][thisId]['damageDealtToObjectives']
         thisGoldEarned = match_detail['info']['participants'][thisId]['goldEarned']
         thisKillsSeries = match_detail['info']['participants'][thisId]['largestKillingSpree']
         thisTotalHealed = match_detail['info']['participants'][thisId]['totalHeal']
         thisTotalOnTeammates = match_detail['info']['participants'][thisId]['totalHealsOnTeammates']
+        thisTurretsKills = match_detail['info']['participants'][thisId]['turretKills']
+        thisTurretsLost = match_detail['info']['participants'][thisId]['turretsLost']
+        
+        
         # thisAcesBefore15min = match_detail['info']['participants'][thisId]['challenges']['acesBefore15Minutes']
+        
+        
+        # Stat de team :
+        
+        thisBaronTeam = match_detail['info']['participants'][thisId]['challenges']['teamBaronKills']
+        thisElderTeam = match_detail['info']['participants'][thisId]['challenges']['teamElderDragonKills']
+        thisHeraldTeam = match_detail['info']['participants'][thisId]['challenges']['teamRiftHeraldKills']
+        
         
         # A voir...
         
@@ -351,12 +388,8 @@ class LeagueofLegends(commands.Cog):
         except:
             earliestBaron = 0
 
-        thisGold = "{:,}".format(thisGold).replace(',', ' ').replace('.', ',')
-        thisDamage = "{:,}".format(thisDamage).replace(',', ' ').replace('.', ',')
-        thisDamageTaken = "{:,}".format(thisDamageTaken).replace(',', ' ').replace('.', ',')
-        thisDamageSelfMitigatedFormat = "{:,}".format(thisDamageSelfMitigated).replace(',', ' ').replace('.', ',')
-        thisTimeLiving = str(thisTimeLiving).replace(".", "m")
-        thisTotalOnTeammatesFormat = "{:,}".format(thisTotalOnTeammates).replace(',', ' ').replace('.', ',')
+
+        
 
         if thisQId == 420:
             thisQ = "RANKED"
@@ -431,6 +464,24 @@ class LeagueofLegends(commands.Cog):
         thisGold_team1 = "{:,}".format(thisGold_team1).replace(',', ' ').replace('.', ',')
         thisGold_team2 = "{:,}".format(thisGold_team2).replace(',', ' ').replace('.', ',')
         
+        thisGold = "{:,}".format(thisGold).replace(',', ' ').replace('.', ',')
+        thisDamage = "{:,}".format(thisDamage).replace(',', ' ').replace('.', ',')
+        thisDamageAD = "{:,}".format(thisDamageAD).replace(',', ' ').replace('.', ',')
+        thisDamageAP = "{:,}".format(thisDamageAP).replace(',', ' ').replace('.', ',')
+        thisDamageTrue = "{:,}".format(thisDamageTrue).replace(',', ' ').replace('.', ',')
+        thisDamageTaken = "{:,}".format(thisDamageTaken).replace(',', ' ').replace('.', ',')
+        thisDamageSelfMitigatedFormat = "{:,}".format(thisDamageSelfMitigated).replace(',', ' ').replace('.', ',')
+        thisTimeLiving = str(thisTimeLiving).replace(".", "m")
+        thisTotalOnTeammatesFormat = "{:,}".format(thisTotalOnTeammates).replace(',', ' ').replace('.', ',')
+        
+        thisDamageTakenAD = "{:,}".format(thisDamageTakenAD).replace(',', ' ').replace('.', ',')
+        thisDamageTakenAP = "{:,}".format(thisDamageTakenAP).replace(',', ' ').replace('.', ',')
+        thisDamageTakenTrue = "{:,}".format(thisDamageTakenTrue).replace(',', ' ').replace('.', ',')
+        
+
+        thisDamageObjectives = "{:,}".format(thisDamageObjectives).replace(',', ' ').replace('.', ',')        
+        
+
         
 
         try:
@@ -611,6 +662,9 @@ class LeagueofLegends(commands.Cog):
                     
                     sauvegarde_bdd(records, 'records')
                     sauvegarde_bdd(records2, 'records2')
+                    
+        # on le fait après sinon ça flingue les records
+        thisDamageTurrets = "{:,}".format(thisDamageTurrets).replace(',', ' ').replace('.', ',')
 
         # couleur de l'embed en fonction du pseudo
 
@@ -859,6 +913,10 @@ class LeagueofLegends(commands.Cog):
         
         if len(exploits4) > 5: # si plus de 15 lettres, alors il y a un exploit personnel
             embed.add_field(name="Statistiques personnelles Part3: ", value=exploits4, inline=False)
+            
+        # Items :
+        
+        embed.add_field(name="Items :", value=data_item, inline=False)
 
         try:
             if int(thisDeaths) >= 1:  # KDA
@@ -892,18 +950,20 @@ class LeagueofLegends(commands.Cog):
             embed.add_field(name="Golds gagnés : " + str(thisGold), value="golds par minute: " + str(thisGoldPerMinute),
                         inline=False)
         # Dmg
-        embed.add_field(name="Dégats infligés : " + str(thisDamage) + " (" + str(thisDamageRatio) + "%)",
+        embed.add_field(name="DMG deal : " + str(thisDamage) + " (" + str(thisDamageRatio) + "%) | AD : " + str(thisDamageAD) + " | AP : " + str(thisDamageAP) + " | True : " + str(thisDamageTrue),
                         value="Dégats par minutes : " + str(
                             round(thisDamagePerMinute, 0)) + "\n Double : " + str(thisDouble) + " | Triple : " + str(
                             thisTriple) + " | Quadra : " + str(thisQuadra) + " | Penta : " + str(
                             thisPenta) + "\n SoloKills : " + str(thisSoloKills),
                         inline=False)
-        embed.add_field(name="Dégats reçus : " + str(thisDamageTaken) + " (" + str(thisDamageTakenRatio) + "%)",
+        embed.add_field(name="DMG reçus : " + str(thisDamageTaken) + " (" + str(thisDamageTakenRatio) + "%) | AD : " + str(thisDamageTakenAD) + " | AP : " + str(thisDamageTakenAP) + " | True : " + str(thisDamageTakenTrue),
                         value="Dégats réduits : " + str(thisDamageSelfMitigatedFormat), inline=False)
         
+
+        # Objectifs
         if thisQ != "ARAM":
-            embed.add_field(name="Skillshots : ",
-                        value="Hits : " + str(thisSkillshot_hit) + " | Dodges : " + str(thisSkillshot_dodged), inline=False)
+            embed.add_field(name="Objectifs :", value=f"Herald : {thisHeraldTeam} | Baron : {thisBaronTeam} | Elder : {thisElderTeam}\n Towers : {thisTurretsKills} détruites | {thisTurretsLost} perdues \nDmg tower : {thisDamageTurrets} | Dmg objectifs : {thisDamageObjectives} ", inline=False  )
+        
 
         # Stats soloq :
         if thisQ == "RANKED" or thisQ == "FLEX":

@@ -168,15 +168,16 @@ class Recordslol(commands.Cog):
             return joueur, value, nbgames
 
         if df['NBGAMES'].max() >= 10:
-            for key in record3:
+            for key in record3: # durée game bug donc on le retire
                 joueur, value, nbgames = findrecord(df, key, False)
 
                 if key == "NBGAMES" or key == "PENTA" or key == "QUADRA" or key == 'SOLOKILLS':
                     value = int(value)
 
                 elif key == 'DUREE_GAME':
-                    value = round(float(value), 2)
-                    value = str(value).replace(".", "h")
+                    # value = round(float(value), 2)
+                    # value = str(value).replace(".", "h")
+                    continue
 
 
                 elif key in ['KILLS', 'DEATHS', 'ASSISTS', 'WARDS_SCORE', 'WARDS_POSEES', 'WARDS_DETRUITES',

@@ -15,7 +15,7 @@ class DatabaseHandler():
         cursor.close()
         self.con.commit()
 
-    def active_tempmute_to_revoke(self, guild_id: int) -> [dict]:
+    def active_tempmute_to_revoke(self, guild_id: int) -> dict:
         cursor = self.con.cursor()
         query = f"SELECT * FROM Tempmute WHERE guild_id = ? AND active = 1 AND expiration_date < ?;"
         cursor.execute(query, (guild_id, datetime.datetime.utcnow()))

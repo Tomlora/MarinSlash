@@ -105,15 +105,18 @@ class analyseLoL(commands.Cog):
                                     create_choice(name="gold", value="gold"),
                                     create_choice(name='gold_team', value='gold_team'),
                                     create_choice(name='vision', value='vision'),
-                                    create_choice(name='position', value='position')])]
-                       )
+                                    create_choice(name='position', value='position')]),
+                                create_option(name="game", description="Game de 0 à 10 (0 étant la dernière)", option_type=4, required=False)])
     @commands.cooldown(1,30, commands.BucketType.guild)
-    # async def analyse(self, ctx: SlashContext, summonerName):
-    async def analyse(self, ctx:SlashContext, summonername:str, stat:str, stat2:str = "no"):
+    async def analyse(self, ctx:SlashContext, summonername:str, stat:str, stat2:str = "no", game:int=0):
+        
+
         
         stat = [stat, stat2]
         liste_graph = list()
         liste_delete = list()
+        
+
         
         def graphique(fig, name):
             fig.write_image(name)
@@ -122,10 +125,13 @@ class analyseLoL(commands.Cog):
         
 
         await ctx.defer(hidden=False)
-        global id, team
+        
+
+        
+        global thisId, team
         warnings.simplefilter(action='ignore', category=FutureWarning)  # supprime les FutureWarnings dû à l'utilisation de pandas (.append/.drop)
         pd.options.mode.chained_assignment = None  # default='warn'
-        last_match, match_detail, me = league.match_by_puuid(summonername, 0)
+        last_match, match_detail, me = league.match_by_puuid(summonername, game)
         timeline = lol_watcher.match.timeline_by_match(region, last_match)
         
 
@@ -136,45 +142,48 @@ class analyseLoL(commands.Cog):
         dict_joueur = [lol_watcher.summoner.by_puuid(my_region, timeline['metadata']['participants'][i])['name'] for i
                        in range(0, 10)]  # liste en compréhension
         
+
         
         if summonername in dict_joueur:
-            id = list(dict_joueur).index(summonername)
+            thisId = list(dict_joueur).index(summonername)
             
 
-        if id <= 4:
+            
+
+        if thisId <= 4:
             team = ['Team alliée', 'Team adverse']
-        elif id >= 5:
+        elif thisId >= 5:
             team = ['Team adverse', 'Team alliée']
-  
+            
 
-        try:
-            if "vision" in stat:
 
-                df_timeline = pd.DataFrame(timeline['info']['frames'][1]['events'])
+        if "vision" in stat:
 
-                minute = len(timeline['info']['frames']) - 1
+            df_timeline = pd.DataFrame(timeline['info']['frames'][1]['events'])
 
-                for i in range(2, minute):
-                    df_timeline2 = pd.DataFrame(timeline['info']['frames'][i]['events'])
-                    df_timeline = df_timeline.append(df_timeline2)
+            minute = len(timeline['info']['frames']) - 1
 
-                df_timeline['timestamp'] = df_timeline['timestamp'] / 60000  # arrondir à l'inférieur ou au supérieur ?
+            for i in range(2, minute):
+                df_timeline2 = pd.DataFrame(timeline['info']['frames'][i]['events'])
+                df_timeline = df_timeline.append(df_timeline2)
 
-                pd.set_option('display.max_columns', None)
+            df_timeline['timestamp'] = df_timeline['timestamp'] / 60000  # arrondir à l'inférieur ou au supérieur ?
 
-                df_ward = df_timeline[(df_timeline['type'] == 'WARD_PLACED') | (df_timeline['type'] == 'WARD_KILL')]
+            pd.set_option('display.max_columns', None)
 
-                df_ward['creatorId'].fillna(0, inplace=True)
-                df_ward['killerId'].fillna(0, inplace=True)
-                df_ward = df_ward.astype({"creatorId": 'int32', "killerId": 'int32'})
+            df_ward = df_timeline[(df_timeline['type'] == 'WARD_PLACED') | (df_timeline['type'] == 'WARD_KILL')]
 
-                df_ward['joueur'] = df_ward['creatorId']
+            df_ward['creatorId'].fillna(0, inplace=True)
+            df_ward['killerId'].fillna(0, inplace=True)
+            df_ward = df_ward.astype({"creatorId": 'int32', "killerId": 'int32'})
 
-                df_ward['joueur'] = np.where(df_ward.joueur == 0, df_ward.killerId, df_ward.joueur)
+            df_ward['joueur'] = df_ward['creatorId']
 
-                df_ward = df_ward.astype({"joueur": 'string'})
+            df_ward['joueur'] = np.where(df_ward.joueur == 0, df_ward.killerId, df_ward.joueur)
 
-                df_ward['joueur'] = df_ward['joueur'].map({'1': dict_joueur[0],
+            df_ward = df_ward.astype({"joueur": 'string'})
+
+            df_ward['joueur'] = df_ward['joueur'].map({'1': dict_joueur[0],
                                                            '2': dict_joueur[1],
                                                            '3': dict_joueur[2],
                                                            '4': dict_joueur[3],
@@ -184,58 +193,58 @@ class analyseLoL(commands.Cog):
                                                            '8': dict_joueur[7],
                                                            '9': dict_joueur[8],
                                                            '10': dict_joueur[9]})
-                df_ward['points'] = 1
-                df_ward['points'] = np.where(df_ward.wardType == 'YELLOW TRINKET', 1, df_ward.points)
-                df_ward['points'] = np.where(df_ward.wardType == 'UNDEFINED', 2, df_ward.points)
-                df_ward['points'] = np.where(df_ward.wardType == 'CONTROL_WARD', 3, df_ward.points)
-                df_ward['points'] = np.where(df_ward.wardType == 'SIGHT_WARD', 4, df_ward.points)
-                df_ward['points'] = np.where(df_ward.wardType == 'BLUE_TRINKET', 5, df_ward.points)
+            df_ward['points'] = 1
+            df_ward['points'] = np.where(df_ward.wardType == 'YELLOW TRINKET', 1, df_ward.points)
+            df_ward['points'] = np.where(df_ward.wardType == 'UNDEFINED', 2, df_ward.points)
+            df_ward['points'] = np.where(df_ward.wardType == 'CONTROL_WARD', 3, df_ward.points)
+            df_ward['points'] = np.where(df_ward.wardType == 'SIGHT_WARD', 4, df_ward.points)
+            df_ward['points'] = np.where(df_ward.wardType == 'BLUE_TRINKET', 5, df_ward.points)
 
-                df_ward['size'] = 4
+            df_ward['size'] = 4
 
-                df_ward['type'] = df_ward['type'].map({'WARD_PLACED': 'POSEES',
+            df_ward['type'] = df_ward['type'].map({'WARD_PLACED': 'POSEES',
                                                        'WARD_KILL': 'DETRUITES'})
 
-                df_ward['wardType'] = df_ward['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
+            df_ward['wardType'] = df_ward['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
                                                                'UNDEFINED': 'Balise Zombie',
                                                                'CONTROL_WARD': 'Pink',
                                                                'SIGHT_WARD': 'Ward support',
                                                                'BLUE_TRINKET': 'Trinket bleu'
                                                                })
 
-                df_ward = df_ward[df_ward['joueur'] == summonername]
+            df_ward = df_ward[df_ward['joueur'] == summonername]
 
-                illustrative_var = np.array(df_ward['wardType'])
-                illustrative_type = np.array(df_ward['type'])
+            illustrative_var = np.array(df_ward['wardType'])
+            illustrative_type = np.array(df_ward['type'])
 
-                fig = px.scatter(x=df_ward['timestamp'], y=df_ward['points'], color=illustrative_var, range_y=[0, 6],
+            fig = px.scatter(x=df_ward['timestamp'], y=df_ward['points'], color=illustrative_var, range_y=[0, 6],
                                  size=df_ward['size'], symbol=illustrative_type, title='Warding', width=1600,
                                  height=800)
-                fig.update_yaxes(showticklabels=False)
-                fig.update_layout(xaxis_title='Temps',
+            fig.update_yaxes(showticklabels=False)
+            fig.update_layout(xaxis_title='Temps',
                                   font_size=18)
                 
-                graphique(fig, 'vision.png')
+            graphique(fig, 'vision.png')
 
-            if 'gold' in stat:
+        if 'gold' in stat:
 
-                df_timeline = pd.DataFrame(timeline['info']['frames'][1]['participantFrames'])
-                df_timeline = df_timeline.transpose()
-                df_timeline['timestamp'] = 0
+            df_timeline = pd.DataFrame(timeline['info']['frames'][1]['participantFrames'])
+            df_timeline = df_timeline.transpose()
+            df_timeline['timestamp'] = 0
 
-                minute = len(timeline['info']['frames']) - 1
+            minute = len(timeline['info']['frames']) - 1
 
-                for i in range(2, minute):
-                    df_timeline2 = pd.DataFrame(timeline['info']['frames'][i]['participantFrames'])
-                    df_timeline2 = df_timeline2.transpose()
-                    df_timeline2['timestamp'] = i
-                    df_timeline = df_timeline.append(df_timeline2)
+            for i in range(2, minute):
+                df_timeline2 = pd.DataFrame(timeline['info']['frames'][i]['participantFrames'])
+                df_timeline2 = df_timeline2.transpose()
+                df_timeline2['timestamp'] = i
+                df_timeline = df_timeline.append(df_timeline2)
 
-                df_timeline['joueur'] = df_timeline['participantId']
+            df_timeline['joueur'] = df_timeline['participantId']
 
-                df_timeline = df_timeline.astype({"joueur": 'string'})
+            df_timeline = df_timeline.astype({"joueur": 'string'})
 
-                df_timeline['joueur'] = df_timeline['joueur'].map({'1': dict_joueur[0],
+            df_timeline['joueur'] = df_timeline['joueur'].map({'1': dict_joueur[0],
                                                                    '2': dict_joueur[1],
                                                                    '3': dict_joueur[2],
                                                                    '4': dict_joueur[3],
@@ -246,89 +255,97 @@ class analyseLoL(commands.Cog):
                                                                    '9': dict_joueur[8],
                                                                    '10': dict_joueur[9]})
 
-                fig = px.line(df_timeline, x='timestamp', y='totalGold', color='joueur', markers=True, title='Gold',
+            fig = px.line(df_timeline, x='timestamp', y='totalGold', color='joueur', markers=True, title='Gold',
                               height=1000, width=1800)
-                fig.update_layout(xaxis_title='Temps',
+            fig.update_layout(xaxis_title='Temps',
                                   font_size=18)
                 
-                graphique(fig, 'gold.png')
+            graphique(fig, 'gold.png')
 
 
-            if 'gold_team' in stat:
+        if 'gold_team' in stat:
+                
 
-                df_timeline = pd.DataFrame(timeline['info']['frames'][1]['participantFrames'])
-                df_timeline = df_timeline.transpose()
-                df_timeline['timestamp'] = 0
 
-                minute = len(timeline['info']['frames']) - 1
+            df_timeline = pd.DataFrame(timeline['info']['frames'][1]['participantFrames'])
+            df_timeline = df_timeline.transpose()
+            df_timeline['timestamp'] = 0
 
-                for i in range(2, minute):
-                    df_timeline2 = pd.DataFrame(timeline['info']['frames'][i]['participantFrames'])
-                    df_timeline2 = df_timeline2.transpose()
-                    df_timeline2['timestamp'] = i
-                    df_timeline = df_timeline.append(df_timeline2)
+            minute = len(timeline['info']['frames']) - 1
 
-                df_timeline['joueur'] = df_timeline['participantId']
+            for i in range(2, minute):
+                df_timeline2 = pd.DataFrame(timeline['info']['frames'][i]['participantFrames'])
+                df_timeline2 = df_timeline2.transpose()
+                df_timeline2['timestamp'] = i
+                df_timeline = df_timeline.append(df_timeline2)
 
-                df_timeline['team'] = "a"
-                df_timeline['team'] = np.where(df_timeline.joueur <= 5, team[0], df_timeline.team)
-                df_timeline['team'] = np.where(df_timeline.joueur >= 6, team[1], df_timeline.team)
+            df_timeline['joueur'] = df_timeline['participantId']
 
-                df_timeline = df_timeline.groupby(['team', 'timestamp'], as_index=False)['totalGold'].sum()
+            df_timeline['team'] = "a"
+            df_timeline['team'] = np.where(df_timeline.joueur <= 5, team[0], df_timeline.team)
+            df_timeline['team'] = np.where(df_timeline.joueur >= 6, team[1], df_timeline.team)
 
-                df_timeline_adverse = df_timeline[df_timeline['team'] == 'Team adverse'].reset_index(drop=True)
-                df_timeline_alliee = df_timeline[df_timeline['team'] == 'Team alliée'].reset_index(drop=True)
+            df_timeline = df_timeline.groupby(['team', 'timestamp'], as_index=False)['totalGold'].sum()
 
-                df_timeline_diff = pd.DataFrame(columns=['timestamp', 'ecart'])
+            df_timeline_adverse = df_timeline[df_timeline['team'] == 'Team adverse'].reset_index(drop=True)
+            df_timeline_alliee = df_timeline[df_timeline['team'] == 'Team alliée'].reset_index(drop=True)
+                
 
-                df_timeline_diff['timestamp'] = df_timeline['timestamp']
 
-                df_timeline_diff['ecart'] = df_timeline_alliee['totalGold'] - (df_timeline_adverse['totalGold'])
+            df_timeline_diff = pd.DataFrame(columns=['timestamp', 'ecart'])
 
-                # Cela applique deux fois le timestamp (un pour les adversaires, un pour les alliés...) On supprime la moitié :
+            df_timeline_diff['timestamp'] = df_timeline['timestamp']
 
-                df_timeline_diff.dropna(axis=0, inplace=True)
+            df_timeline_diff['ecart'] = df_timeline_alliee['totalGold'] - (df_timeline_adverse['totalGold'])
 
-                df_timeline_diff['signe'] = "a"
-                df_timeline_diff['signe'] = np.where(df_timeline_diff.ecart < 0, "negatif", df_timeline_diff.signe)
-                df_timeline_diff['signe'] = np.where(df_timeline_diff.ecart > 0, "positif", df_timeline_diff.signe)
+            # Cela applique deux fois le timestamp (un pour les adversaires, un pour les alliés...) On supprime la moitié :
 
-                df_timeline_diff.iloc[0, 2] = df_timeline_diff.iloc[1, 2]
+            df_timeline_diff.dropna(axis=0, inplace=True)
 
-                if df_timeline_diff.iloc[0, 2] == "negatif":
-                    color_sequence = ['red', 'blue']
-                else:
-                    color_sequence = ['blue', 'red']
+            df_timeline_diff['signe'] = "a"
+            df_timeline_diff['signe'] = np.where(df_timeline_diff.ecart < 0, "negatif", df_timeline_diff.signe)
+            df_timeline_diff['signe'] = np.where(df_timeline_diff.ecart > 0, "positif", df_timeline_diff.signe)
+                
 
-                fig = px.line(df_timeline_diff, x='timestamp', y='ecart', color='signe', markers=True,
+
+            df_timeline_diff.iloc[0, 2] = df_timeline_diff.iloc[1, 2]
+
+            if df_timeline_diff.iloc[0, 2] == "negatif":
+                color_sequence = ['red', 'blue']
+            else:
+                color_sequence = ['blue', 'red']
+
+            fig = px.line(df_timeline_diff, x='timestamp', y='ecart', color='signe', markers=True,
                               title='Ecart gold',
                               height=1000, width=1800, color_discrete_sequence=color_sequence)
-                fig.update_layout(xaxis_title='Temps',
+            fig.update_layout(xaxis_title='Temps',
                                   font_size=18,
                                   showlegend=False)
-                fig.update_traces(textposition="bottom center")
+            fig.update_traces(textposition="bottom center")
                 
-                graphique(fig, 'gold_team.png')
 
-            if 'position' in stat:
+                
+            graphique(fig, 'gold_team.png')
 
-                df_timeline = pd.DataFrame(timeline['info']['frames'][1]['participantFrames'])
-                df_timeline = df_timeline.transpose()
-                df_timeline['timestamp'] = 0
+        if 'position' in stat:
 
-                minute = len(timeline['info']['frames']) - 1
+            df_timeline = pd.DataFrame(timeline['info']['frames'][1]['participantFrames'])
+            df_timeline = df_timeline.transpose()
+            df_timeline['timestamp'] = 0
 
-                for i in range(2, minute):
-                    df_timeline2 = pd.DataFrame(timeline['info']['frames'][i]['participantFrames'])
-                    df_timeline2 = df_timeline2.transpose()
-                    df_timeline2['timestamp'] = i
-                    df_timeline = df_timeline.append(df_timeline2)
+            minute = len(timeline['info']['frames']) - 1
 
-                df_timeline['joueur'] = df_timeline['participantId']
+            for i in range(2, minute):
+                df_timeline2 = pd.DataFrame(timeline['info']['frames'][i]['participantFrames'])
+                df_timeline2 = df_timeline2.transpose()
+                df_timeline2['timestamp'] = i
+                df_timeline = df_timeline.append(df_timeline2)
 
-                df_timeline = df_timeline.astype({"joueur": 'string'})
+            df_timeline['joueur'] = df_timeline['participantId']
 
-                df_timeline['joueur'] = df_timeline['joueur'].map({'1': dict_joueur[0],
+            df_timeline = df_timeline.astype({"joueur": 'string'})
+
+            df_timeline['joueur'] = df_timeline['joueur'].map({'1': dict_joueur[0],
                                                                    '2': dict_joueur[1],
                                                                    '3': dict_joueur[2],
                                                                    '4': dict_joueur[3],
@@ -339,50 +356,51 @@ class analyseLoL(commands.Cog):
                                                                    '9': dict_joueur[8],
                                                                    '10': dict_joueur[9]})
 
-                df_timeline = df_timeline[df_timeline['joueur'] == summonername]
+            df_timeline = df_timeline[df_timeline['joueur'] == summonername]
 
 
-                img = io.imread('https://map.riftkit.net/img/rift/normal.jpg')
+            img = io.imread('https://map.riftkit.net/img/rift/normal.jpg')
 
-                img = resize(img, (3750, 3750), anti_aliasing=False)
+            img = resize(img, (3750, 3750), anti_aliasing=False)
 
-                fig = px.imshow(img)
+            fig = px.imshow(img)
 
-                for i in range(0, minute - 1):
-                    x = [df_timeline['position'][i]['x'] / 4]
-                    y = [3750 - (df_timeline['position'][i]['y'] / 4)]
+            for i in range(0, minute - 1):
+                x = [df_timeline['position'][i]['x'] / 4]
+                y = [3750 - (df_timeline['position'][i]['y'] / 4)]
 
-                    if i < 10:
-                        color = 'red'
-                    elif 10 <= i < 20:
-                        color = 'cyan'
-                    elif 20 <= i < 30:
-                        color = 'lightgreen'
-                    else:
-                        color = 'goldenrod'
+                if i < 10:
+                    color = 'red'
+                elif 10 <= i < 20:
+                    color = 'cyan'
+                elif 20 <= i < 30:
+                    color = 'lightgreen'
+                else:
+                    color = 'goldenrod'
 
-                    fig.add_trace(
+                fig.add_trace(
                         go.Scatter(x=x, y=y, mode="markers+text", text=str(i + 1), marker=dict(color=color, size=20),
                                    textposition='top center', textfont=dict(size=35, color=color)))
 
-                fig.update_layout(width=1200, height=1200)
-                fig.update_layout(coloraxis_showscale=False, showlegend=False)
+            fig.update_layout(width=1200, height=1200)
+            fig.update_layout(coloraxis_showscale=False, showlegend=False)
 
-                fig.update_xaxes(showticklabels=False)
-                fig.update_yaxes(showticklabels=False)
-                fig.update_yaxes(automargin=True)
-                fig.update_xaxes(automargin=True)
+            fig.update_xaxes(showticklabels=False)
+            fig.update_yaxes(showticklabels=False)
+            fig.update_yaxes(automargin=True)
+            fig.update_xaxes(automargin=True)
                 
-                graphique(fig, 'position.png')
+            graphique(fig, 'position.png')
                 
-            await ctx.send(files=liste_graph)
+
+                
+        await ctx.send(files=liste_graph)
             
-            for graph in liste_delete:
-                os.remove(graph)
+        for graph in liste_delete:
+            os.remove(graph)
 
 
-        except asyncio.TimeoutError:
-            await ctx.send("Annulé")
+
             
     @analyse.error
     async def analyse_error(self, ctx, error):
@@ -420,10 +438,10 @@ class analyseLoL(commands.Cog):
                                     create_choice(name="vision role", value="vision_role"),
                                     create_choice(name="tank", value="tank"),
                                     create_choice(name="heal alliés", value="heal_allies"),
-                                    create_choice(name="solokills", value="solokills")
-                                ])])
+                                    create_choice(name="solokills", value="solokills")]),
+                                create_option(name="game", description="Game de 0 à 10 (0 étant la dernière)", option_type=4, required=False)])
     @commands.cooldown(1, 30, commands.BucketType.guild)
-    async def var(self, ctx:SlashContext, summonername, stat:str, stat2:str='no', stat3:str='no'):
+    async def var(self, ctx:SlashContext, summonername, stat:str, stat2:str='no', stat3:str='no', game:int=0):
         
         
         
@@ -440,7 +458,7 @@ class analyseLoL(commands.Cog):
             liste_graph.append(discord.File(name))
         
 
-        last_match, match_detail_stats, me = league.match_by_puuid(summonername, 0)
+        last_match, match_detail_stats, me = league.match_by_puuid(summonername, game)
 
         match_detail = pd.DataFrame(match_detail_stats)
 
@@ -504,8 +522,6 @@ class analyseLoL(commands.Cog):
                 df = df.reset_index()
                 df = df.rename(columns={"index": "pseudo", 0: 'dmg'})
 
-                # print(df)
-                # print(df.values)
 
                 fig = px.histogram(df, y="pseudo", x="dmg", color="pseudo", title="Total DMG", text_auto=True)
                 fig.update_layout(showlegend=False)
@@ -534,8 +550,6 @@ class analyseLoL(commands.Cog):
                 df = df.reset_index()
                 df = df.rename(columns={"index": "pseudo", 0: 'gold'})
 
-                # print(df)
-                # print(df.values)
 
                 fig = px.histogram(df, y="pseudo", x="gold", color="pseudo", title="Total Gold", text_auto=True)
                 fig.update_layout(showlegend=False)
