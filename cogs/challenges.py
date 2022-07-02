@@ -129,7 +129,7 @@ class Challenges(commands.Cog):
                     time.sleep(3)
                 else:
                     print(f'{summonername} : Pas de données')
-            await channel.send('Les challenges ont été mis à jour.')
+            print('Les challenges ont été mis à jour.')
             
     
     @cog_ext.cog_slash(name="challenges_help", description="Explication des challenges")

@@ -229,7 +229,9 @@ class LeagueofLegends(commands.Cog):
             summonerName.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
         # print(thisId)
         thisQId = match_detail['info']['queueId']
-        thisPosition = match_detail['info']['participants'][thisId]['teamPosition']
+        match_detail_participants = match_detail['info']['participants'][thisId]
+        match_detail_challenges = match_detail_participants['challenges']
+        thisPosition = match_detail_participants['teamPosition']
         
         if thisQId == 900: #urf (géré différemment)
             return {}, 'URF'
@@ -244,40 +246,43 @@ class LeagueofLegends(commands.Cog):
         elif (str(thisPosition) == "UTILITY"):
             thisPosition = "SUPPORT"
             
+        
+        
+            
         thisQ = ' '
-        thisChamp = match_detail['info']['participants'][thisId]['championId']
-        thisDouble = match_detail['info']['participants'][thisId]['doubleKills']
-        thisTriple = match_detail['info']['participants'][thisId]['tripleKills']
-        thisQuadra = match_detail['info']['participants'][thisId]['quadraKills']
-        thisPenta = match_detail['info']['participants'][thisId]['pentaKills']
-        thisChamp = match_detail['info']['participants'][thisId]['championId']
+        thisChamp = match_detail_participants['championId']
+        thisDouble = match_detail_participants['doubleKills']
+        thisTriple = match_detail_participants['tripleKills']
+        thisQuadra = match_detail_participants['quadraKills']
+        thisPenta = match_detail_participants['pentaKills']
+        thisChamp = match_detail_participants['championId']
         thisChampName = champ_dict[str(thisChamp)]
-        thisKills = match_detail['info']['participants'][thisId]['kills']
-        thisDeaths = match_detail['info']['participants'][thisId]['deaths']
-        thisAssists = match_detail['info']['participants'][thisId]['assists']
-        thisWinId = match_detail['info']['participants'][thisId]['win']
-        thisTimeLiving = round((int(match_detail['info']['participants'][thisId]['longestTimeSpentLiving']) / 60), 2)
+        thisKills = match_detail_participants['kills']
+        thisDeaths = match_detail_participants['deaths']
+        thisAssists = match_detail_participants['assists']
+        thisWinId = match_detail_participants['win']
+        thisTimeLiving = round((int(match_detail_participants['longestTimeSpentLiving']) / 60), 2)
         thisWin = ' '
         thisTime = round((int(match_detail['info']['gameDuration']) / 60), 2)
-        thisDamage = match_detail['info']['participants'][thisId]['totalDamageDealtToChampions']
-        thisDamageAP = match_detail['info']['participants'][thisId]['magicDamageDealtToChampions']
-        thisDamageAD = match_detail['info']['participants'][thisId]['physicalDamageDealtToChampions']
-        thisDamageTrue = match_detail['info']['participants'][thisId]['trueDamageDealtToChampions']
+        thisDamage = match_detail_participants['totalDamageDealtToChampions']
+        thisDamageAP = match_detail_participants['magicDamageDealtToChampions']
+        thisDamageAD = match_detail_participants['physicalDamageDealtToChampions']
+        thisDamageTrue = match_detail_participants['trueDamageDealtToChampions']
         
-        thisDamageTaken = int(match_detail['info']['participants'][thisId]['totalDamageTaken'])
-        thisDamageTakenAD = int(match_detail['info']['participants'][thisId]['physicalDamageTaken'])
-        thisDamageTakenAP = int(match_detail['info']['participants'][thisId]['magicDamageTaken'])
-        thisDamageTakenTrue = int(match_detail['info']['participants'][thisId]['trueDamageTaken'])
+        thisDamageTaken = int(match_detail_participants['totalDamageTaken'])
+        thisDamageTakenAD = int(match_detail_participants['physicalDamageTaken'])
+        thisDamageTakenAP = int(match_detail_participants['magicDamageTaken'])
+        thisDamageTakenTrue = int(match_detail_participants['trueDamageTaken'])
         
-        thisVision = match_detail['info']['participants'][thisId]['visionScore']
-        thisJungleMonsterKilled = match_detail['info']['participants'][thisId]['neutralMinionsKilled']
-        thisMinion = match_detail['info']['participants'][thisId]['totalMinionsKilled'] + thisJungleMonsterKilled
-        thisPink = match_detail['info']['participants'][thisId]['visionWardsBoughtInGame']
-        thisWards = match_detail['info']['participants'][thisId]['wardsPlaced']
-        thisWardsKilled = match_detail['info']['participants'][thisId]['wardsKilled']
-        thisGold = int(match_detail['info']['participants'][thisId]['goldEarned'])
+        thisVision = match_detail_participants['visionScore']
+        thisJungleMonsterKilled = match_detail_participants['neutralMinionsKilled']
+        thisMinion = match_detail_participants['totalMinionsKilled'] + thisJungleMonsterKilled
+        thisPink = match_detail_participants['visionWardsBoughtInGame']
+        thisWards = match_detail_participants['wardsPlaced']
+        thisWardsKilled = match_detail_participants['wardsKilled']
+        thisGold = int(match_detail_participants['goldEarned'])
                 
-        item = match_detail['info']['participants'][thisId]
+        item = match_detail_participants
         thisItems = [item['item0'], item['item1'], item['item2'], item['item3'], item['item4'], item['item5']]
         
         # item6 = ward. Pas utile 
@@ -301,7 +306,7 @@ class LeagueofLegends(commands.Cog):
         thisVisionPerMin = round((thisVision / thisTime), 2)
         thisGoldPerMinute = round((thisGold / thisTime), 2)
         thisDamagePerMinute = round(
-            int(match_detail['info']['participants'][thisId]['totalDamageDealtToChampions']) / thisTime, 0)
+            int(match_detail_participants['totalDamageDealtToChampions']) / thisTime, 0)
         thisStats = lol_watcher.league.by_summoner(my_region, me['id'])
         thisWinrateStat = ' '
         thisWinrate = ' '
@@ -309,84 +314,102 @@ class LeagueofLegends(commands.Cog):
         thisLP = ' '
         
         if int(thisDeaths) >= 1:
-            thisKDA = float(round(match_detail['info']['participants'][thisId]['challenges']['kda'], 2))
+            thisKDA = float(round(match_detail_challenges['kda'], 2))
         else:
             thisKDA = 0
 
         # Page record 2
 
-        thisSpellUsed = match_detail['info']['participants'][thisId]['challenges']['abilityUses']
-        thisbuffsVolees = match_detail['info']['participants'][thisId]['challenges']['buffsStolen']
-        thisSpellsDodged = match_detail['info']['participants'][thisId]['challenges']['dodgeSkillShotsSmallWindow']
-        thisSoloKills = match_detail['info']['participants'][thisId]['challenges']['soloKills']
-        thisJUNGLEafter10min = match_detail['info']['participants'][thisId]['challenges']['jungleCsBefore10Minutes']
-        thisCSafter10min = match_detail['info']['participants'][thisId]['challenges']['laneMinionsFirst10Minutes'] + thisJUNGLEafter10min
-        thisKillingSprees = match_detail['info']['participants'][thisId]['killingSprees']
-        thisDamageSelfMitigated = match_detail['info']['participants'][thisId]['damageSelfMitigated']
-        thisDamageTurrets = match_detail['info']['participants'][thisId]['damageDealtToTurrets']
-        thisDamageObjectives = match_detail['info']['participants'][thisId]['damageDealtToObjectives']
-        thisGoldEarned = match_detail['info']['participants'][thisId]['goldEarned']
-        thisKillsSeries = match_detail['info']['participants'][thisId]['largestKillingSpree']
-        thisTotalHealed = match_detail['info']['participants'][thisId]['totalHeal']
-        thisTotalOnTeammates = match_detail['info']['participants'][thisId]['totalHealsOnTeammates']
-        thisTurretsKills = match_detail['info']['participants'][thisId]['turretKills']
-        thisTurretsLost = match_detail['info']['participants'][thisId]['turretsLost']
+        thisSpellUsed = match_detail_challenges['abilityUses']
+        thisbuffsVolees = match_detail_challenges['buffsStolen']
+        thisSpellsDodged = match_detail_challenges['dodgeSkillShotsSmallWindow']
+        thisSoloKills = match_detail_challenges['soloKills']
+        thisJUNGLEafter10min = match_detail_challenges['jungleCsBefore10Minutes']
+        thisCSafter10min = match_detail_challenges['laneMinionsFirst10Minutes'] + thisJUNGLEafter10min
+        thisKillingSprees = match_detail_participants['killingSprees']
+        thisDamageSelfMitigated = match_detail_participants['damageSelfMitigated']
+        thisDamageTurrets = match_detail_participants['damageDealtToTurrets']
+        thisDamageObjectives = match_detail_participants['damageDealtToObjectives']
+        thisGoldEarned = match_detail_participants['goldEarned']
+        thisKillsSeries = match_detail_participants['largestKillingSpree']
+        thisTotalHealed = match_detail_participants['totalHeal']
+        thisTotalOnTeammates = match_detail_participants['totalHealsOnTeammates']
+        thisTurretsKillsPerso = match_detail_participants['turretKills']
+        thisTurretsLost = match_detail_participants['turretsLost']
         
         
-        # thisAcesBefore15min = match_detail['info']['participants'][thisId]['challenges']['acesBefore15Minutes']
+        # thisAcesBefore15min = match_detail_challenges['acesBefore15Minutes']
         
         
         # Stat de team :
         
-        thisBaronTeam = match_detail['info']['participants'][thisId]['challenges']['teamBaronKills']
-        thisElderTeam = match_detail['info']['participants'][thisId]['challenges']['teamElderDragonKills']
-        thisHeraldTeam = match_detail['info']['participants'][thisId]['challenges']['teamRiftHeraldKills']
+        thisBaronPerso = match_detail_challenges['teamBaronKills']
+        thisElderPerso = match_detail_challenges['teamElderDragonKills']
+        # thisHeraldPerso = match_detail_challenges['teamRiftHeraldKills']
+        
+        if thisId <= 4:
+            team = 0            
+        else:
+            team = 1
+            
+        team_stats = match_detail['info']['teams'][team]['objectives']
+        
+        thisBaronTeam = team_stats['baron']['kills']
+        thisDragonTeam = team_stats['dragon']['kills']
+        thisHeraldTeam = team_stats['riftHerald']['kills']
+        thisTurretsKillsTeam = team_stats['tower']['kills']
+        
         
         
         # A voir...
         
         try: # pas dispo en aram ?
-            thisCSAdvantageOnLane = round(match_detail['info']['participants'][thisId]['challenges']['maxCsAdvantageOnLaneOpponent'],0)
+            thisCSAdvantageOnLane = round(match_detail_challenges['maxCsAdvantageOnLaneOpponent'],0)
         except:
             thisCSAdvantageOnLane = 0
         
         try:
-            thisLevelAdvantage = match_detail['info']['participants'][thisId]['challenges']['maxLevelLeadLaneOpponent']
+            thisLevelAdvantage = match_detail_challenges['maxLevelLeadLaneOpponent']
         except:
             thisLevelAdvantage = 0
         
         try:    
-            AFKTeam = match_detail['info']['participants'][thisId]['challenges']['hadAfkTeammate']
+            AFKTeam = match_detail_challenges['hadAfkTeammate']
         except:
             AFKTeam = 0
         
-        thisSkillshot_dodged = match_detail['info']['participants'][thisId]['challenges']['skillshotsDodged']
-        thisSkillshot_hit = match_detail['info']['participants'][thisId]['challenges']['skillshotsHit']
+        thisSkillshot_dodged = match_detail_challenges['skillshotsDodged']
+        thisSkillshot_hit = match_detail_challenges['skillshotsHit']
         
         try:
-            thisTurretPlatesTaken =  match_detail['info']['participants'][thisId]['challenges']['turretPlatesTaken'] 
+            thisTurretPlatesTaken =  match_detail_challenges['turretPlatesTaken'] 
         except:
             thisTurretPlatesTaken = 0   
         
         try: # si tu n'en poses pas, tu n'as pas la stat
-            ControlWardInRiver = round(match_detail['info']['participants'][thisId]['challenges']['controlWardTimeCoverageInRiverOrEnemyHalf'],2)
+            ControlWardInRiver = round(match_detail_challenges['controlWardTimeCoverageInRiverOrEnemyHalf'],2)
         except:
             ControlWardInRiver = 0 
             
         try:
-            thisVisionAdvantage = round(match_detail['info']['participants'][thisId]['challenges']['visionScoreAdvantageLaneOpponent']*100 , 2)
+            thisVisionAdvantage = round(match_detail_challenges['visionScoreAdvantageLaneOpponent']*100 , 2)
         except:
             thisVisionAdvantage = 0
         
         try: # si pas d'info, la team n'a pas fait de drake
-            earliestDrake = round(match_detail['info']['participants'][thisId]['challenges']['earliestDragonTakedown'] / 60,2) 
+            earliestDrake = round(match_detail_challenges['earliestDragonTakedown'] / 60,2) 
         except:
             earliestDrake = 0
             
         try:
-            earliestBaron = round(match_detail['info']['participants'][thisId]['challenges']['earliestBaron'] / 60,2)
+            earliestBaron = round(match_detail_challenges['earliestBaron'] / 60,2)
         except:
             earliestBaron = 0
+            
+        try:
+            participation_tower = round((thisTurretsKillsPerso / thisTurretsKillsTeam)*100 , 2)
+        except:
+            participation_tower = 0
 
 
         
@@ -412,9 +435,6 @@ class LeagueofLegends(commands.Cog):
             thisWin = "PERDRE"
 
         thisDamageListe = dict_data(thisId, match_detail, 'totalDamageDealtToChampions')
-
-        # thisTeamDamage = thisDamageListe[0] + thisDamageListe[1] + thisDamageListe[2] + thisDamageListe[3] + \
-        #                  thisDamageListe[4]
 
         # pseudo
 
@@ -491,9 +511,9 @@ class LeagueofLegends(commands.Cog):
 
         # thisDamageRatio = round((float(thisDamage) / float(thisTeamDamage)) * 100, 2)
         thisDamageRatio = round(
-            (match_detail['info']['participants'][thisId]['challenges']['teamDamagePercentage']) * 100, 2)
+            (match_detail_challenges['teamDamagePercentage']) * 100, 2)
         thisDamageTakenRatio = round(
-            (match_detail['info']['participants'][thisId]['challenges']['damageTakenOnTeamPercentage']) * 100, 2)
+            (match_detail_challenges['damageTakenOnTeamPercentage']) * 100, 2)
 
         # on doit identifier les stats soloq (et non flex...)
         try:
@@ -586,7 +606,7 @@ class LeagueofLegends(commands.Cog):
                 records, exploits = records_check(records, key, 'WARDS_PINKS', thisPink,
                                         thisChampName, summonerName, exploits)
                 records, exploits = records_check(records, key, 'DEGATS_INFLIGES',
-                                        match_detail['info']['participants'][thisId]['totalDamageDealtToChampions'],
+                                        match_detail_participants['totalDamageDealtToChampions'],
                                         thisChampName, summonerName, exploits)
                 records, exploits = records_check(records, key, '% DMG', thisDamageRatio,
                                         thisChampName, summonerName, exploits)
@@ -630,7 +650,7 @@ class LeagueofLegends(commands.Cog):
                     records2, exploits = records_check(records2, key, 'NB_SERIES_DE_KILLS', thisKillingSprees,
                                              thisChampName, summonerName, exploits)
                     records2, exploits = records_check(records2, key, 'DOMMAGES_TANK',
-                                             int(match_detail['info']['participants'][thisId]['totalDamageTaken']),
+                                             int(match_detail_participants['totalDamageTaken']),
                                              thisChampName, summonerName, exploits)
                     records2, exploits = records_check(records2, key, 'DOMMAGES_TANK%', thisDamageTakenRatio,
                                              thisChampName, summonerName, exploits)
@@ -717,6 +737,8 @@ class LeagueofLegends(commands.Cog):
 
         records_cumul = lire_bdd('records3', 'dict')
         records_personnel = lire_bdd('records_personnel', 'dict')
+        
+
 
         if int(thisPenta) >= settings['Pentakill']['Score']:
             exploits = exploits + f"\n ** :crown: :five: Ce joueur a pentakill ** {thisPenta} fois"
@@ -777,6 +799,14 @@ class LeagueofLegends(commands.Cog):
         if (float(thisVisionAdvantage) >= settings['Avantage_vision(support)']['Score'] and str(thisPosition) == "SUPPORT") or (float(thisVisionAdvantage) >= settings['Avantage_vision(autres)']['Score'] and str(thisPosition) != "SUPPORT"):
             exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros avantage de vision sur son adversaire avec {thisVisionAdvantage}% **"
             points = points + 1
+            
+        if (float(participation_tower) >= settings['Participation_tower']['Score']):
+            exploits = exploits + f"\n ** :crown: :tokyo_tower: Ce joueur a contribué à la destruction de {participation_tower}% des tours **"
+            points = points + 1
+            
+        if (float(thisDragonTeam) >= settings['Dragon']['Score']):
+            exploits = exploits + f"\n ** :crown: :dragon: Tu as obtenu l'âme du dragon **"
+            points = points + 1
 
             
         # Présence d'afk    
@@ -822,7 +852,7 @@ class LeagueofLegends(commands.Cog):
                       "CS" : thisMinion, "QUADRA" : thisQuadra, "PENTA" : thisPenta, "DAMAGE_RATIO" : thisDamageRatio,
                       "DAMAGE_RATIO_ENCAISSE" : thisDamageTakenRatio, "CS/MIN": thisMinionPerMin, "AVANTAGE_VISION": thisVisionAdvantage,
                       "KP" : thisKP, "CS_AVANTAGE": thisCSAdvantageOnLane, "CS_APRES_10_MIN" : thisCSafter10min, 
-                      "DMG_TOTAL" : match_detail['info']['participants'][thisId]['totalDamageDealtToChampions'],
+                      "DMG_TOTAL" : match_detail_participants['totalDamageDealtToChampions'],
                       "ECART_LEVEL" : thisLevelAdvantage, "VISION/MIN" : thisVisionPerMin, 
                       "DOUBLE" : thisDouble, "TRIPLE" : thisTriple, "SERIE_VICTOIRE" : serie_victoire, "NB_COURONNE_1_GAME" : points }
 
@@ -905,6 +935,7 @@ class LeagueofLegends(commands.Cog):
             embed.add_field(name="Durée de la game : " + str(int(thisTime)) + " minutes",
                             value=exploits, inline=False)
             
+
         if len(exploits2) > 5: # si plus de 15 lettres, alors il y a un exploit personnel
             embed.add_field(name="Statistiques personnelles : ", value=exploits2, inline=False)
         
@@ -962,7 +993,7 @@ class LeagueofLegends(commands.Cog):
 
         # Objectifs
         if thisQ != "ARAM":
-            embed.add_field(name="Objectifs :", value=f"Herald : {thisHeraldTeam} | Baron : {thisBaronTeam} | Elder : {thisElderTeam}\n Towers : {thisTurretsKills} détruites | {thisTurretsLost} perdues \nDmg tower : {thisDamageTurrets} | Dmg objectifs : {thisDamageObjectives} ", inline=False  )
+            embed.add_field(name="Objectifs :", value=f"Herald : {thisHeraldTeam} | Dragon :  {thisDragonTeam}\nBaron : {thisBaronTeam} (Participation : {thisBaronPerso})| Elder : {thisElderPerso}\n Towers : {thisTurretsKillsTeam} détruites (Participation : {thisTurretsKillsPerso}) | {thisTurretsLost} perdues \nDmg tower : {thisDamageTurrets} | Dmg objectifs : {thisDamageObjectives} ", inline=False  )
         
 
         # Stats soloq :
@@ -978,13 +1009,12 @@ class LeagueofLegends(commands.Cog):
         # Gestion des bo    
             if int(thisLP) == 100:
                 bo = thisStats[i]['miniSeries']
-                # bo_target = bo["target"]
                 bo_wins = str(bo['wins'])
                 bo_losses = str(bo['losses'])
                 bo_progress = str(bo['progress'])
                 embed.add_field(name=f'Bo5', value=f'Victoires : {bo_wins} | Defaites : {bo_losses} \nProgress : {bo_progress}', inline=False) 
                 
-        embed.add_field(name=f"Team 1 ({thisGold_team1} Golds)",
+        embed.add_field(name=f"Blue Side ({thisGold_team1} Golds)",
                         value=str(thisPseudoListe[0]) + " (" + str(thisChampName1) + ") - " + str(
                             thisKillsListe[0]) + "/" + str(
                             thisDeathsListe[0]) + "/" + str(thisAssistsListe[0]) + "\n" +
@@ -1000,7 +1030,7 @@ class LeagueofLegends(commands.Cog):
                               str(thisPseudoListe[4]) + " (" + str(thisChampName5) + ") - " + str(
                             thisKillsListe[4]) + "/" + str(
                             thisDeathsListe[4]) + "/" + str(thisAssistsListe[4]), inline=True)
-        embed.add_field(name=f"Team 2 ({thisGold_team2} Golds)",
+        embed.add_field(name=f"Red Side ({thisGold_team2} Golds)",
                         value=str(thisPseudoListe[5]) + " (" + str(thisChampName6) + ") - " + str(
                             thisKillsListe[5]) + "/" + str(
                             thisDeathsListe[5]) + "/" + str(

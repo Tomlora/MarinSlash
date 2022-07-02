@@ -57,7 +57,10 @@ class Twitch(commands.Cog):
         r = requests.post(url=URL, params=body)
 
         # data output
-        keys = r.json()["access_token"]
+        try:
+            keys = r.json()["access_token"]
+        except:
+            print('Twitch : Data non disponible')
 
         headers = {
             'Client-ID': client_id,
