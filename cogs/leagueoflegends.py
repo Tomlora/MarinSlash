@@ -1,8 +1,8 @@
 
 from discord.ext import commands, tasks
 
-from matplotlib import pyplot as plt
-import sys
+
+
 from riotwatcher import LolWatcher
 import pandas as pd
 import main
@@ -10,12 +10,12 @@ import datetime
 import numpy as np
 import warnings
 from cogs.achievements_scoringlol import scoring
-from fonctions.gestion_fichier import loadData, writeData
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
-from tqdm import tqdm
-import json
 
-from fonctions.match import matchlol, match_by_puuid, getId, dict_rankid 
+from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
+
+
+
+from fonctions.match import matchlol, getId, dict_rankid 
 
 
 from discord_slash import cog_ext, SlashContext
@@ -528,7 +528,7 @@ class LeagueofLegends(commands.Cog):
         embed.add_field(name="OPGG", value=f"[Profil](https://euw.op.gg/summoners/euw/{summonerName})")
         embed.add_field(name="Stats", value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)")
 
-        if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and match_info.thisQ == "RANKED":
+        if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and match_info.thisQ in ["RANKED", "FLEX"]:
             embed.add_field(
                 name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes | Score (EXPERIMENTAL) : " + str(result),
                 value=exploits, inline=False)

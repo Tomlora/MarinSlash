@@ -32,31 +32,25 @@ def unifier_joueur(df, colonne):
 
     return df
 
+
+
 def ajouter_game(role, df, pseudo, kills, deaths, assists, kp, wardsplaced, wardskilled, pink, cs, csm, score: 0):
     df = df.append({'Role': role, 'Pseudo': pseudo, 'Kills': kills, 'Deaths': deaths
                        , 'Assists': assists, 'KP': kp, 'WardsPlaced': wardsplaced, 'WardsKilled': wardskilled
                        , 'Pink': pink, 'cs': cs, 'csm': csm, 'Score': score}, ignore_index=True)
     return df
 
+
+def find_modele_ml(role):
+    reg = pickle.load(open(f'./obj/ML/reg_{role}.pkl', 'rb'))
+    return reg
+
 def scoring(role, pseudo, kills, deaths, assists, kp, wardsplaced, wardskilled, pink, cs, csm):
-    dict = loadData('scoring')
 
-    df = pd.DataFrame.from_dict(dict)
-    df = df[df['Role'] == role]
-
-    df[['Kills', 'Deaths', 'Assists', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs']] = df[
-        ['Kills', 'Deaths', 'Assists', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs']].astype(int)
-    df[['KP', 'csm', 'Score']] = df[['KP', 'csm', 'Score']].astype(float)
 
     variables = ['Kills', 'Deaths', 'Assists', 'KP', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs', 'csm']
 
-    x_data = df[variables]
-    y = df['Score']
-
-    x_train, x_test, y_train, y_test = train_test_split(x_data.values, y, test_size=0.33, random_state=42)
-
-    reg = linear_model.LinearRegression()
-    reg.fit(x_train, y_train)
+    reg = find_modele_ml(role)
 
     df_predict = pd.DataFrame(
         columns=['Role', 'Pseudo', 'Kills', 'Deaths', 'Assists', 'KP', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs',
@@ -69,32 +63,6 @@ def scoring(role, pseudo, kills, deaths, assists, kp, wardsplaced, wardskilled, 
     predict = round(reg.predict(df_predict[variables].values)[0], 2)
 
     return predict
-
-
-def scoring_value(role):
-    dict = loadData('scoring')
-
-    df = pd.DataFrame.from_dict(dict)
-    df = df[df['Role'] == role]
-
-    df[['Kills', 'Deaths', 'Assists', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs']] = df[
-        ['Kills', 'Deaths', 'Assists', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs']].astype(int)
-    df[['KP', 'csm', 'Score']] = df[['KP', 'csm', 'Score']].astype(float)
-
-    variables = ['Kills', 'Deaths', 'Assists', 'KP', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs', 'csm']
-
-    x_data = df[variables]
-    y = df['Score']
-
-    x_train, x_test, y_train, y_test = train_test_split(x_data.values, y, test_size=0.33, random_state=42)
-
-    reg = linear_model.LinearRegression()
-    reg.fit(x_train, y_train)
-
-    predict = reg.score(x_test, y_test)
-
-    return predict
-
 
 def scoring_correlation(role):
     dict = loadData('scoring')
@@ -524,8 +492,29 @@ class Achievements_scoringlol(commands.Cog):
         df = ajouter_game('JUNGLE', df, 'wtplo', 14, 6, 14, 0.82, 11, 2, 11, 218, 7.0, 8.7)
         df = ajouter_game('JUNGLE', df, 'wtplo', 10, 8, 3, 0.59, 11, 4, 4, 225, 7.3, 7.1)
         
-
         dict = df.to_dict()
+        
+
+
+        for role in ['ADC', 'MID', 'JUNGLE', 'SUPPORT']:
+            df_role = df[df['Role'] == role]
+
+            df_role[['Kills', 'Deaths', 'Assists', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs']] = df_role[
+                ['Kills', 'Deaths', 'Assists', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs']].astype(int)
+            df_role[['KP', 'csm', 'Score']] = df_role[['KP', 'csm', 'Score']].astype(float)
+
+            variables = ['Kills', 'Deaths', 'Assists', 'KP', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs', 'csm']
+
+            x_data = df_role[variables]
+            y = df_role['Score']
+
+            x_train, x_test, y_train, y_test = train_test_split(x_data.values, y, test_size=0.33, random_state=42)
+
+            reg = linear_model.LinearRegression()
+            reg.fit(x_train, y_train)
+            
+            pickle.dump(reg, open(f'./obj/ML/reg_{role}.pkl', 'wb'))
+        
 
         writeData(dict, 'scoring')
 
@@ -553,19 +542,6 @@ class Achievements_scoringlol(commands.Cog):
         result = scoring(role, pseudo, kills, deaths, assists, kp, wardsplaced, wardskilled, pink, cs, csm)
         await ctx.send(result)
 
-    @cog_ext.cog_slash(name="scoring_score", description="Pourcentage de confiance dans le score affiché",
-                                options=[create_option(name="role", description= "Role ingame", option_type=3, required=True, choices=[
-                                create_choice(name="top", value="TOP"),
-                                create_choice(name="jgl", value="JUNGLE"),
-                                create_choice(name="mid", value="MID"),
-                                create_choice(name="adc", value="ADC"),
-                                create_choice(name="support", value="SUPPORT")])])
-    async def scoring_score(self, ctx, role):
-        # Présente le score
-        role = role.upper()
-        result = scoring_value(role)
-        result = str(round(result, 2))
-        await ctx.send(result)
 
     @cog_ext.cog_slash(name="scoring_corr", description="Explication du calcul du score",
                                 options=[create_option(name="role", description= "Role ingame", option_type=3, required=True, choices=[
