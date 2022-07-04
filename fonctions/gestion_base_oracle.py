@@ -22,7 +22,9 @@ def rechargement_data_oracle():
     if int(jour) < 10:
         jour = '0' + str(jour)
 
+    try:
+        url_telechargement = f'https://oracleselixir-downloadable-match-data.s3-us-west-2.amazonaws.com/{year}_LoL_esports_match_data_from_OraclesElixir_{year}{month}{jour}.csv'
 
-    url_telechargement = f'https://oracleselixir-downloadable-match-data.s3-us-west-2.amazonaws.com/{year}_LoL_esports_match_data_from_OraclesElixir_{year}{month}{jour}.csv'
-
-    urllib.request.urlretrieve(url_telechargement, "FL/data_oracle.csv")
+        urllib.request.urlretrieve(url_telechargement, "FL/data_oracle.csv")
+    except:
+        pass

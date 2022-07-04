@@ -12,6 +12,7 @@ import os
 import plotly.express as px
 from fonctions.gestion_fichier import loadData, writeData
 from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
+import pickle
 
 from discord_slash import cog_ext, SlashContext
 
