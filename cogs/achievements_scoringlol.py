@@ -194,27 +194,7 @@ class Achievements_scoringlol(commands.Cog):
         await ctx.send(embed=embed)
    
 
-        
-    dict_rankid = {"BRONZE IV" : 1,
-               "BRONZE III" : 2,
-               "BRONZE II" : 3,
-               "BRONZE I" : 4,
-               "SILVER IV" : 5,
-               "SILVER III" : 6,
-               "SILVER II": 7,
-               "SILVER I" : 8,
-               "GOLD IV" : 9,
-               "GOLD III" : 10,
-               "GOLD II" : 11,
-               "GOLD I" : 12,
-               "PLATINUM IV" : 13,
-               "PLATINUM III" : 14,
-               "PLATINUM II" : 15,
-               "PLATINUM I" : 16,
-               "DIAMOND IV" : 17,
-               "DIAMOND III" : 18,
-               "DIAMOND II" : 19,
-               "DIAMOND I" : 20}
+ 
 
        
     @commands.command()

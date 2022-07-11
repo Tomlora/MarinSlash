@@ -1,28 +1,11 @@
 import pandas as pd
 
-
-from discord.ext import commands, tasks
-
-from matplotlib import pyplot as plt
-import sys
 from riotwatcher import LolWatcher
 import pandas as pd
-import main
-import datetime
-import numpy as np
 import warnings
-from cogs.achievements_scoringlol import scoring
-from fonctions.gestion_fichier import loadData, writeData
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
-from tqdm import tqdm
+from fonctions.gestion_bdd import lire_bdd
 import json
 
-
-from discord_slash import cog_ext, SlashContext
-from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
-
-import time
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -119,9 +102,12 @@ def dict_data(thisId: int, match_detail, info):
     return liste
 
 
-def match_by_puuid(summonerName, idgames: int):
+def match_by_puuid(summonerName, idgames: int, index=0, queue=0):
     me = lol_watcher.summoner.by_name(my_region, summonerName) # informations sur le joueur
-    my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=100) ## liste des id des matchs du joueur en fonction de son puuid
+    if queue == 0:
+        my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=100, start=index)
+    else:
+        my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=100, start=index, queue=queue) ## liste des id des matchs du joueur en fonction de son puuid
     last_match = my_matches[idgames] # match n° idgames
     match_detail_stats = lol_watcher.match.by_id(region, last_match) # detail du match sélectionné
     return last_match, match_detail_stats, me
@@ -140,10 +126,12 @@ def getId(summonerName):
     
 class matchlol():
 
-    def __init__(self, summonerName, idgames:int):
+    def __init__(self, summonerName, idgames:int, queue:int=0, index:int=0):
         self.summonerName = summonerName
         self.idgames = idgames
-        self.last_match, self.match_detail_stats, self.me = match_by_puuid(self.summonerName, self.idgames)    
+        self.queue = queue
+        self.index = index
+        self.last_match, self.match_detail_stats, self.me = match_by_puuid(self.summonerName, self.idgames, self.index, self.queue)    
         self.current_champ_list = lol_watcher.data_dragon.champions(champions_versions, False, 'fr_FR')
         
         self.champ_dict = {}

@@ -13,8 +13,9 @@ from skimage import io
 from skimage.transform import resize
 import asyncio
 import seaborn as sns
-import cogs.leagueoflegends as league
 from discord_slash import cog_ext, SlashContext
+
+from fonctions.match import match_by_puuid
 
 
 
@@ -131,7 +132,7 @@ class analyseLoL(commands.Cog):
         global thisId, team
         warnings.simplefilter(action='ignore', category=FutureWarning)  # supprime les FutureWarnings dû à l'utilisation de pandas (.append/.drop)
         pd.options.mode.chained_assignment = None  # default='warn'
-        last_match, match_detail, me = league.match_by_puuid(summonername, game)
+        last_match, match_detail, me = match_by_puuid(summonername, game)
         timeline = lol_watcher.match.timeline_by_match(region, last_match)
         
 
@@ -458,7 +459,7 @@ class analyseLoL(commands.Cog):
             liste_graph.append(discord.File(name))
         
 
-        last_match, match_detail_stats, me = league.match_by_puuid(summonername, game)
+        last_match, match_detail_stats, me = match_by_puuid(summonername, game)
 
         match_detail = pd.DataFrame(match_detail_stats)
 
@@ -484,6 +485,7 @@ class analyseLoL(commands.Cog):
 
         thisId = dic[
             summonername.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
+
 
         pseudo = dict_data(thisId, match_detail, 'summonerName')
         thisChamp = dict_data(thisId, match_detail, 'championId')
@@ -517,7 +519,6 @@ class analyseLoL(commands.Cog):
                     pseudo[9] + "(" + thisChampName10 + ")": thisStats[9],
                 }
 
-                # print(dict_score)
                 df = pd.DataFrame.from_dict(dict_score, orient='index')
                 df = df.reset_index()
                 df = df.rename(columns={"index": "pseudo", 0: 'dmg'})

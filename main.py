@@ -8,7 +8,7 @@ from discord_slash import SlashCommand, SlashContext
 
 
 
-Var_version = 3.5
+Var_version = 3.7
 
 # Paramètres
 
@@ -19,12 +19,8 @@ default_intents = discord.Intents.default()
 default_intents.members = True  # Vous devez activer les intents dans les paramètres du Bot
 
 
-
-params = 'obj/params.txt'
-
 id_bot = os.environ.get('bot_marin')
 
-# `(msg)`  assombrit dans les embed
 
 global id_tom
 global chan_pm
@@ -33,13 +29,16 @@ global chan_kangourou
 global chan_twitch
 global chan_lol
 
-id_tom = int(linecache.getline(params, 2).strip())
+id_tom = int(298418038460514314)
 id_dawn = int(111147548760133632)
-chan_pm = int(linecache.getline(params, 4).strip())
-chan_tracklol = int(linecache.getline(params, 6).strip())
-chan_kangourou = int(linecache.getline(params, 8).strip())
-chan_twitch = int(linecache.getline(params, 10).strip())
-chan_lol = int(linecache.getline(params, 12).strip())
+chan_pm = int(534111278923513887)
+chan_tracklol = int(953814193658789918)
+chan_kangourou = int(498598293140537374)
+chan_twitch = int(540501033684828160)
+chan_lol = int(540501033684828160)
+chan_tft = int(986319297116766249)
+chan_lol_others = int(987357398563962890)
+
 
 guildid = 494217748046544906
 role_admin = 630771107053699132
@@ -103,8 +102,7 @@ async def help(ctx):
                     "`lolremove` - Retire son compte du tracker \n " \
                     "`lollist` - Joueurs suivis par le tracker \n" \
                     "`scoring` - Calcule ton score en fonction des stats associés \n " \
-                    "`scoring_corr` - Explique comment est calculé le score \n" \
-                    "`scoring_score` - % de confiance dans le score affiché"
+                    "`scoring_corr` - Explique comment est calculé le score"
                     
     value_challenges = "`challenges_help` - Explication des challenges \n" \
                         "`challenges_liste` - Liste des challenges \n" \
@@ -503,15 +501,7 @@ async def scoring_corr(ctx):
 
     await ctx.send(embed=em)
 
-@help.command()
-async def scoring_score(ctx):
-    em = discord.Embed(title="/scoring_score", description="% de confiance dans le score affiché")
-    em.add_field(name="**Syntaxe**", value="`/scoring_score <role>`")
-    em.add_field(name="**Arguments**", value="`Role : MID/ADC/SUPPORT", inline=False)
-    em.add_field(name="**Exemples**", value="`/scoring_score SUPPORT`",
-                 inline=False)
 
-    await ctx.send(embed=em)
 
 
 
@@ -701,20 +691,20 @@ async def clear(ctx, number_of_messages: int):
 
 # -------------------------------------- Import catégories
 
-@bot.command()
-@isOwner2()
-async def load(ctx, name=None):
-    if name:
-        bot.load_extension(f'cogs.{name}')
-        await ctx.send(f"Extension {name} chargée")
+# @bot.command()
+# @isOwner2()
+# async def load(ctx, name=None):
+#     if name:
+#         bot.load_extension(f'cogs.{name}')
+#         await ctx.send(f"Extension {name} chargée")
 
 
-@bot.command()
-@isOwner2()
-async def unload(ctx, name=None):
-    if name:
-        bot.unload_extension(f'cogs.{name}')
-        await ctx.send(f"Extension {name} déchargée")
+# @bot.command()
+# @isOwner2()
+# async def unload(ctx, name=None):
+#     if name:
+#         bot.unload_extension(f'cogs.{name}')
+#         await ctx.send(f"Extension {name} déchargée")
 
 
 @bot.command()

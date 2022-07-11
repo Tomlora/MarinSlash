@@ -73,7 +73,7 @@ def get_data_joueur(summonername:str):
     data_joueur_challenges = data_joueur_challenges.merge(data_challenges, left_on="challengeId", right_on='id')
     # on a besoin de savoir ce qui est le mieux dans les levels : on va donc créer une variable chiffrée représentatif de chaque niveau :
     
-    dict_rankid = {"NONE" : 0,
+    dict_rankid_challenges = {"NONE" : 0,
                 "IRON" : 1,
                "BRONZE" : 2,
                "SILVER" : 3,
@@ -84,7 +84,7 @@ def get_data_joueur(summonername:str):
                "GRANDMASTER" : 8,
                "CHALLENGER" : 9
     }
-    data_joueur_challenges['level_number'] = data_joueur_challenges['level'].map(dict_rankid)
+    data_joueur_challenges['level_number'] = data_joueur_challenges['level'].map(dict_rankid_challenges)
 
     
     # on retient ce qu'il nous intéresse

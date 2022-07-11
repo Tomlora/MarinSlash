@@ -42,32 +42,6 @@ version = lol_watcher.data_dragon.versions_for_region(my_region)
 champions_versions = version['n']['champion']
 
 
-# dict_rankid = {"BRONZE IV" : 1,
-#                "BRONZE III" : 2,
-#                "BRONZE II" : 3,
-#                "BRONZE I" : 4,
-#                "SILVER IV" : 5,
-#                "SILVER III" : 6,
-#                "SILVER II": 7,
-#                "SILVER I" : 8,
-#                "GOLD IV" : 9,
-#                "GOLD III" : 10,
-#                "GOLD II" : 11,
-#                "GOLD I" : 12,
-#                "PLATINUM IV" : 13,
-#                "PLATINUM III" : 14,
-#                "PLATINUM II" : 15,
-#                "PLATINUM I" : 16,
-#                "DIAMOND IV" : 17,
-#                "DIAMOND III" : 18,
-#                "DIAMOND II" : 19,
-#                "DIAMOND I" : 20,
-#                'MASTER I' : 21,
-#                'GRANDMASTER I': 22,
-#                'CHALLENGER I' : 23}
-
-
-
 def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed):
     if str(key_boucle) == str(key):
         if str(key) in ['EARLY_DRAKE', 'EARLY_BARON'] and Score_check > 0: # ici on veut le plus faible et pas égale à 0
@@ -435,14 +409,14 @@ class LeagueofLegends(commands.Cog):
         # Structure : Stat / Nombre / Palier sous forme de liste numérique
         dict_cumul = {"SOLOKILLS": [match_info.thisSoloKills, np.arange(100, 1000, 100, int).tolist()], 
                       "NBGAMES": [1, np.arange(50, 1000, 50, int).tolist()], 
-                      "DUREE_GAME": [match_info.thisTime / 60, 0],
+                      "DUREE_GAME": [match_info.thisTime / 60, np.arange(500, 10000, 500, int).tolist()],
                       "KILLS": [match_info.thisKills, np.arange(500, 10000, 500, int).tolist()],
                       "DEATHS": [match_info.thisDeaths, np.arange(500, 10000, 500, int).tolist()],
                       "ASSISTS": [match_info.thisAssists, np.arange(500, 10000, 500, int).tolist()],
-                      "WARDS_SCORE": [match_info.thisVision, 0],
+                      "WARDS_SCORE": [match_info.thisVision, np.arange(500,10000,500, int).tolist()],
                       "WARDS_POSEES": [match_info.thisWards, np.arange(500, 10000, 500, int).tolist()],
                       "WARDS_DETRUITES": [match_info.thisWardsKilled, np.arange(500, 10000, 500, int).tolist()],
-                      "WARDS_PINKS": [match_info.thisPink, 0],
+                      "WARDS_PINKS": [match_info.thisPink, np.arange(500,10000, 500, int).tolist()],
                       "CS" : [match_info.thisMinion, np.arange(10000, 100000, 10000, int).tolist()],
                       "QUADRA" : [match_info.thisQuadra, np.arange(5, 100, 5, int).tolist()],
                       "PENTA" : [match_info.thisPenta, np.arange(5, 100, 5, int).tolist()]}
@@ -474,6 +448,7 @@ class LeagueofLegends(commands.Cog):
                                                 
             except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
                 records_cumul[key][summonerName.lower().replace(" ", "")] = value[0]
+
                 
             # records personnels
         for key,value in personnel_cumul.items():
@@ -1009,6 +984,14 @@ class LeagueofLegends(commands.Cog):
     @cog_ext.cog_slash(name="abbedagge", description="Meilleur joueur de LoL")
     async def abbedagge(self, ctx):
         await ctx.send('https://clips.twitch.tv/ShakingCovertAuberginePanicVis-YDRK3JFk7Glm6nbB')
+        
+        
+    # @commands.command()
+    # @main.isOwner2()
+    # async def gamespecial(self, ctx, *, summonerName):
+        
+    #     suivi = lire_bdd('records3', 'dict')
+        
         
 
 
