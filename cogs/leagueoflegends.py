@@ -505,7 +505,7 @@ class LeagueofLegends(commands.Cog):
 
         if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and match_info.thisQ in ["RANKED", "FLEX"]:
             embed.add_field(
-                name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes | Score (EXPERIMENTAL) : " + str(result),
+                name="Durée : " + str(int(match_info.thisTime)) + " minutes | Score " + str(result) + " | Ecart gold (role) : " + str(match_info.ecart_gold),
                 value=exploits, inline=False)
         else:
             embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
@@ -528,13 +528,13 @@ class LeagueofLegends(commands.Cog):
         try:
             if int(match_info.thisDeaths) >= 1:  # KDA
                 embed.add_field(name="KDA : " + str(match_info.thisKDA),
-                                value=str(match_info.thisKills) + " | " + str(match_info.thisDeaths) + " | " + str(
-                                    match_info.thisAssists) + "\n KP : " + str(match_info.thisKP) + "%",
+                                value=f"**{match_info.thisKills}** | **{match_info.thisDeaths}** | **{match_info.thisAssists}**"
+                                + f"\n KP : **{match_info.thisKP}**%",
                                 inline=False)
             else:
                 embed.add_field(name="KDA : Perfect KDA",
-                                value=str(match_info.thisKills) + " | " + str(match_info.thisDeaths) + " | " + str(
-                                    match_info.thisAssists) + "\n KP : " + str(match_info.thisKP) + "%",
+                                value=f"**{match_info.thisKills}** | **{match_info.thisDeaths}** | **{match_info.thisAssists}**"
+                                + f"\n KP : **{match_info.thisKP}**%",
                                 inline=False)
         except Exception:
             embed.add_field(name="KDA : ", value=str(match_info.thisKills) + " | " + str(match_info.thisDeaths) + " | " + str(match_info.thisAssists),
@@ -542,8 +542,9 @@ class LeagueofLegends(commands.Cog):
 
         # CS
         if match_info.thisQ != "ARAM":
-            embed.add_field(name="CS : " + str(match_info.thisMinion), value="minions par minute: " + str(
-                match_info.thisMinionPerMin) + "\n Avantage maximal CS :" + str(match_info.thisCSAdvantageOnLane),
+            embed.add_field(name="CS : " + str(match_info.thisMinion), 
+                            value=f"minions par minute: **{match_info.thisMinionPerMin}**"
+                            + f"\n Avantage maximal CS : **{match_info.thisCSAdvantageOnLane}**",
                             inline=False)
         else:
             embed.add_field(name="CS : " + str(match_info.thisMinion), value="minions par minute: " + str(match_info.thisMinionPerMin) ,inline=False)
@@ -551,25 +552,31 @@ class LeagueofLegends(commands.Cog):
         if match_info.thisQ != "ARAM":
             embed.add_field(
                 name="Score de vision : " + str(match_info.thisVision) + " | Avantage : " + str(match_info.thisVisionAdvantage) + "%",
-                value="Vision par minute : " + str(match_info.thisVisionPerMin) + "\nwards posées : " + str(match_info.thisWards) + "\n wards détruites : " + str(match_info.thisWardsKilled) +
-                      "\n pinks achetées: " + str(match_info.thisPink), inline=False)
+                value=f"Vision par minute : **{match_info.thisVisionPerMin}**"
+                + f"\n wards posées : **{match_info.thisWards}**"
+                + f"\n wards détruites : **{match_info.thisWardsKilled}**"
+                + f"\n pinks achetées : **{match_info.thisPink}**", inline=False)
         # Golds
-            embed.add_field(name="Golds gagnés : " + str(match_info.thisGold), value="golds par minute: " + str(match_info.thisGoldPerMinute),
+            embed.add_field(name="Golds gagnés : " + str(match_info.thisGold), value=f"golds par minute : **{match_info.thisGoldPerMinute}**",
                         inline=False)
         # Dmg
         embed.add_field(name="DMG deal : " + str(match_info.thisDamage) + " (" + str(match_info.thisDamageRatio) + "%) | AD : " + str(match_info.thisDamageAD) + " | AP : " + str(match_info.thisDamageAP) + " | True : " + str(match_info.thisDamageTrue),
-                        value="Dégats par minutes : " + str(
-                            round(match_info.thisDamagePerMinute, 0)) + "\n Double : " + str(match_info.thisDouble) + " | Triple : " + str(
-                            match_info.thisTriple) + " | Quadra : " + str(match_info.thisQuadra) + " | Penta : " + str(
-                            match_info.thisPenta) + "\n SoloKills : " + str(match_info.thisSoloKills),
+                        value=f"Dégats par minutes : **{round(match_info.thisDamagePerMinute, 0)}**" 
+                        + f"\n Double : **{match_info.thisDouble}** | Triple : **{match_info.thisTriple}** | Quadra : **{match_info.thisQuadra}** | Penta : **{match_info.thisPenta}**"
+                        + f"\n SoloKills : **{match_info.thisSoloKills}**",
                         inline=False)
         embed.add_field(name="DMG reçus : " + str(match_info.thisDamageTaken) + " (" + str(match_info.thisDamageTakenRatio) + "%) | AD : " + str(match_info.thisDamageTakenAD) + " | AP : " + str(match_info.thisDamageTakenAP) + " | True : " + str(match_info.thisDamageTakenTrue),
-                        value="Dégats réduits : " + str(match_info.thisDamageSelfMitigatedFormat), inline=False)
+                        value=f"Dégats réduits : **{match_info.thisDamageSelfMitigatedFormat}**", inline=False)
         
 
         # Objectifs
         if match_info.thisQ != "ARAM":
-            embed.add_field(name="Objectifs :", value=f"Herald : {match_info.thisHeraldTeam} | Dragon :  {match_info.thisDragonTeam}\nBaron : {match_info.thisBaronTeam} (Participation : {match_info.thisBaronPerso})| Elder : {match_info.thisElderPerso}\n Towers : {match_info.thisTurretsKillsTeam} détruites (Participation : {match_info.thisTurretsKillsPerso}) | {match_info.thisTurretsLost} perdues \nDmg tower : {match_info.thisDamageTurrets} | Dmg objectifs : {match_info.thisDamageObjectives} ", inline=False  )
+            embed.add_field(name="Team :", value=f"Herald : **{match_info.thisHeraldTeam}** | Dragon :  **{match_info.thisDragonTeam}** | Baron : **{match_info.thisBaronTeam}** | Elder : **{match_info.thisElderPerso}**"
+                            + f"\n\nEcart top - Gold : **{match_info.ecart_top_gold}** | Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
+                            + f"Ecart jgl - Gold : **{match_info.ecart_jgl_gold}** | Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
+                            + f"Ecart mid - Gold : **{match_info.ecart_mid_gold}** | Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
+                            + f"Ecart adc - Gold : **{match_info.ecart_adc_gold}** | Vision : **{match_info.ecart_adc_vision}** | CS : **{match_info.ecart_adc_cs}** \n"
+                            + f"Ecart supp - Gold : **{match_info.ecart_supp_gold}** | Vision : **{match_info.ecart_supp_vision}** | CS : **{match_info.ecart_supp_cs}**", inline=False)
         
 
         # Stats soloq :
@@ -578,8 +585,8 @@ class LeagueofLegends(commands.Cog):
                 embed.add_field(name="Current rank", value=match_info.thisRank, inline=False)
             else:
                 embed.add_field(name="Current rank : " + match_info.thisTier + " " + match_info.thisRank + " - " + match_info.thisLP + "LP" + " (" + difLP + ")",
-                                value="Winrate: " + match_info.thisWinrateStat + "%" + "\n Victoires : " + match_info.thisVictory +
-                                      " | Defaites : " + match_info.thisLoose,
+                                value=f"Winrate: **{match_info.thisWinrateStat}**%"
+                                + f"\n Victoires : **{match_info.thisVictory}** | Defaites : **{match_info.thisLoose}**",
                                 inline=False)
         
         # Gestion des bo    
@@ -588,7 +595,8 @@ class LeagueofLegends(commands.Cog):
                 bo_wins = str(bo['wins'])
                 bo_losses = str(bo['losses'])
                 bo_progress = str(bo['progress'])
-                embed.add_field(name=f'Bo5', value=f'Victoires : {bo_wins} | Defaites : {bo_losses} \nProgress : {bo_progress}', inline=False) 
+                embed.add_field(name=f'Bo5', value=f"Victoires : **{bo_wins}** | Defaites : **{bo_losses}**"
+                                + f"\nProgress : {bo_progress}", inline=False) 
                 
         embed.add_field(name=f"Blue Side ({match_info.thisGold_team1} Golds)",
                         value=str(match_info.thisPseudoListe[0]) + " (" + str(match_info.thisChampName1) + ") - " + str(
@@ -627,6 +635,9 @@ class LeagueofLegends(commands.Cog):
                             match_info.thisKillsListe[9]) + "/" + str(
                             match_info.thisDeathsListe[9]) + "/" + str(match_info.thisAssistsListe[9]),
                         inline=True)
+        
+
+
         
         
         url_champion = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/champions/{match_info.thisChampName}.png'

@@ -325,10 +325,17 @@ class Recordslol(commands.Cog):
         df['DEATHS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['DEATHS'] / df['NBGAMES'], 0)
         df['ASSISTS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['ASSISTS'] / df['NBGAMES'], 0)
         df['WARDS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['WARDS_SCORE'] / df['NBGAMES'], 0)
+                
+        df['WARDS_POSEES_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['WARDS_POSEES'] / df['NBGAMES'], 0)
+        df['WARDS_DETRUITES_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['WARDS_DETRUITES'] / df['NBGAMES'], 0)
+        df['WARDS_PINKS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['WARDS_PINKS'] / df['NBGAMES'], 0)
+        
         df['DUREE_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['DUREE_GAME'] / df['NBGAMES'], 0)
         
         df['DUREE_MOYENNE'] = round(df['DUREE_MOYENNE'] * 60, 2)
-        df['WARDS_MOYENNE'] = round(df['WARDS_MOYENNE'], 2)
+        
+        for ward_col in ['WARDS_MOYENNE', 'WARDS_POSEES_MOYENNE', 'WARDS_DETRUITES_MOYENNE', 'WARDS_PINKS_MOYENNE']:
+            df[ward_col] = round(df[ward_col], 2)
         
         df.to_excel('./obj/records/pantheon.xlsx', index=False)
         
@@ -401,6 +408,12 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, "VISION moyenne")
 
                 graphique(fig, 'vision_moyenne.png')
+                
+                variables_avg = ['WARDS_POSEES_MOYENNE', 'WARDS_DETRUITES_MOYENNE', 'WARDS_PINKS_MOYENNE']
+                
+                fig2 = figure_hist(variables_avg, "VISION moyenne par joueur")
+                
+                graphique(fig2, 'vision_moyenne_par_joueur.png')
 
             if "CS" in stat:
                 variables = ['CS']
