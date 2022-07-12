@@ -271,9 +271,10 @@ class matchlol():
         # thisHeraldPerso = match_detail_challenges['teamRiftHeraldKills']
         
         if self.thisId <= 4:
-            self.team = 0            
+            self.team = 0
         else:
             self.team = 1
+            
             
         self.team_stats = self.match_detail['info']['teams'][self.team]['objectives']
         
@@ -394,15 +395,76 @@ class matchlol():
         self.thisGoldListe = dict_data(self.thisId, self.match_detail, 'goldEarned')
 
 
-        
+        self.thisChampTeam1 = [self.thisChampName1, self.thisChampName2, self.thisChampName3, self.thisChampName4, self.thisChampName5]
+        self.thisChampTeam2 = [self.thisChampName6, self.thisChampName7, self.thisChampName8, self.thisChampName9, self.thisChampName10]
         self.thisGold_team1 = self.thisGoldListe[0] + self.thisGoldListe[1] + self.thisGoldListe[2] + self.thisGoldListe[3] + self.thisGoldListe[4]
         self.thisGold_team2 = self.thisGoldListe[5] + self.thisGoldListe[6] + self.thisGoldListe[7] + self.thisGoldListe[8] + self.thisGoldListe[9]
+        
+        self.thisVisionListe = dict_data(self.thisId, self.match_detail, 'visionScore')
+        
+        self.thisJungleMonsterKilledListe = dict_data(self.thisId, self.match_detail, 'neutralMinionsKilled')
+        self.thisMinionListe = dict_data(self.thisId, self.match_detail, 'totalMinionsKilled')
+        
+        
+        
+        if self.team == 0 :
+            self.ecart_top_gold = self.thisGoldListe[0] - self.thisGoldListe[5]
+            self.ecart_jgl_gold = self.thisGoldListe[1] - self.thisGoldListe[6]
+            self.ecart_mid_gold = self.thisGoldListe[2] - self.thisGoldListe[7]
+            self.ecart_adc_gold = self.thisGoldListe[3] - self.thisGoldListe[8]
+            self.ecart_supp_gold = self.thisGoldListe[4] - self.thisGoldListe[9]
+            
+            self.ecart_top_vision = self.thisVisionListe[0] - self.thisVisionListe[5]
+            self.ecart_jgl_vision = self.thisVisionListe[1] - self.thisVisionListe[6]
+            self.ecart_mid_vision = self.thisVisionListe[2] - self.thisVisionListe[7]
+            self.ecart_adc_vision = self.thisVisionListe[3] - self.thisVisionListe[8]
+            self.ecart_supp_vision = self.thisVisionListe[4] - self.thisVisionListe[9]
+            
+            self.ecart_top_cs = (self.thisMinionListe[0] + self.thisJungleMonsterKilledListe[0]) - (self.thisMinionListe[5] + self.thisJungleMonsterKilledListe[5])
+            self.ecart_jgl_cs = (self.thisMinionListe[1] + self.thisJungleMonsterKilledListe[1]) - (self.thisMinionListe[6] + self.thisJungleMonsterKilledListe[6])
+            self.ecart_mid_cs = (self.thisMinionListe[2] + self.thisJungleMonsterKilledListe[2]) - (self.thisMinionListe[7] + self.thisJungleMonsterKilledListe[7])
+            self.ecart_adc_cs = (self.thisMinionListe[3] + self.thisJungleMonsterKilledListe[3]) - (self.thisMinionListe[8] + self.thisJungleMonsterKilledListe[8])
+            self.ecart_supp_cs = (self.thisMinionListe[4] + self.thisJungleMonsterKilledListe[4]) - (self.thisMinionListe[9] + self.thisJungleMonsterKilledListe[9])
+        elif self.team == 1:
+            
+            self.ecart_top_gold = self.thisGoldListe[0] - self.thisGoldListe[5]
+            self.ecart_jgl_gold = self.thisGoldListe[1] - self.thisGoldListe[6]
+            self.ecart_mid_gold = self.thisGoldListe[2] - self.thisGoldListe[7]
+            self.ecart_adc_gold = self.thisGoldListe[3] - self.thisGoldListe[8]
+            self.ecart_supp_gold = self.thisGoldListe[4] - self.thisGoldListe[9]
+            
+            self.ecart_top_vision = self.thisVisionListe[0] - self.thisVisionListe[5]
+            self.ecart_jgl_vision = self.thisVisionListe[1] - self.thisVisionListe[6]
+            self.ecart_mid_vision = self.thisVisionListe[2] - self.thisVisionListe[7]
+            self.ecart_adc_vision = self.thisVisionListe[3] - self.thisVisionListe[8]
+            self.ecart_supp_vision = self.thisVisionListe[4] - self.thisVisionListe[9]
+            
+            self.ecart_top_cs = (self.thisMinionListe[0] + self.thisJungleMonsterKilledListe[0]) - (self.thisMinionListe[5] + self.thisJungleMonsterKilledListe[5])
+            self.ecart_jgl_cs = (self.thisMinionListe[1] + self.thisJungleMonsterKilledListe[1]) - (self.thisMinionListe[6] + self.thisJungleMonsterKilledListe[6])
+            self.ecart_mid_cs = (self.thisMinionListe[2] + self.thisJungleMonsterKilledListe[2]) - (self.thisMinionListe[7] + self.thisJungleMonsterKilledListe[7])
+            self.ecart_adc_cs = (self.thisMinionListe[3] + self.thisJungleMonsterKilledListe[3]) - (self.thisMinionListe[8] + self.thisJungleMonsterKilledListe[8])
+            self.ecart_supp_cs = (self.thisMinionListe[4] + self.thisJungleMonsterKilledListe[4]) - (self.thisMinionListe[9] + self.thisJungleMonsterKilledListe[9])
+            
+        self.adversaire_direct = {"TOP" : self.ecart_top_gold, "JUNGLE" : self.ecart_jgl_gold, "MID" : self.ecart_mid_gold, "ADC" : self.ecart_adc_gold, "SUPPORT" : self.ecart_supp_gold}
+         
+        try:    
+            self.ecart_gold = self.adversaire_direct[self.thisPosition]
+        except KeyError:
+            self.ecart_gold = "Indisponible"
         
         # mise en forme
         self.thisGold_team1 = "{:,}".format(self.thisGold_team1).replace(',', ' ').replace('.', ',')
         self.thisGold_team2 = "{:,}".format(self.thisGold_team2).replace(',', ' ').replace('.', ',')
         
+        self.ecart_top_gold = "{:,}".format(self.ecart_top_gold).replace(',', ' ').replace('.', ',')
+        self.ecart_jgl_gold = "{:,}".format(self.ecart_jgl_gold).replace(',', ' ').replace('.', ',')
+        self.ecart_mid_gold = "{:,}".format(self.ecart_mid_gold).replace(',', ' ').replace('.', ',')
+        self.ecart_adc_gold = "{:,}".format(self.ecart_adc_gold).replace(',', ' ').replace('.', ',')
+        self.ecart_supp_gold = "{:,}".format(self.ecart_supp_gold).replace(',', ' ').replace('.', ',')
+        
         self.thisGold = "{:,}".format(self.thisGold).replace(',', ' ').replace('.', ',')
+        if self.ecart_gold != "Indisponible" : # si nombre
+            self.ecart_gold = "{:,}".format(self.ecart_gold).replace(',', ' ').replace('.', ',')
         self.thisDamage = "{:,}".format(self.thisDamage).replace(',', ' ').replace('.', ',')
         self.thisDamageAD = "{:,}".format(self.thisDamageAD).replace(',', ' ').replace('.', ',')
         self.thisDamageAP = "{:,}".format(self.thisDamageAP).replace(',', ' ').replace('.', ',')

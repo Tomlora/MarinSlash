@@ -542,20 +542,16 @@ class LeagueofLegends(commands.Cog):
 
         # CS
         if match_info.thisQ != "ARAM":
-            embed.add_field(name="CS : " + str(match_info.thisMinion), 
-                            value=f"minions par minute: **{match_info.thisMinionPerMin}**"
-                            + f"\n Avantage maximal CS : **{match_info.thisCSAdvantageOnLane}**",
+            embed.add_field(name=f"CS : {match_info.thisMinion} ({match_info.thisMinionPerMin}/min)", 
+                            value=f"\n Avantage maximal CS : **{match_info.thisCSAdvantageOnLane}**",
                             inline=False)
         else:
             embed.add_field(name="CS : " + str(match_info.thisMinion), value="minions par minute: " + str(match_info.thisMinionPerMin) ,inline=False)
         # Score de vision
         if match_info.thisQ != "ARAM":
             embed.add_field(
-                name="Score de vision : " + str(match_info.thisVision) + " | Avantage : " + str(match_info.thisVisionAdvantage) + "%",
-                value=f"Vision par minute : **{match_info.thisVisionPerMin}**"
-                + f"\n wards posées : **{match_info.thisWards}**"
-                + f"\n wards détruites : **{match_info.thisWardsKilled}**"
-                + f"\n pinks achetées : **{match_info.thisPink}**", inline=False)
+                name=f"Score de vision : {match_info.thisVision} ({match_info.thisVisionPerMin}/min) | Avantage : {match_info.thisVisionAdvantage}%",
+                value=f"\n Wards posées : **{match_info.thisWards}** | Wards détruites : **{match_info.thisWardsKilled}** | Pinks : **{match_info.thisPink}**", inline=False)
         # Golds
             embed.add_field(name="Golds gagnés : " + str(match_info.thisGold), value=f"golds par minute : **{match_info.thisGoldPerMinute}**",
                         inline=False)
@@ -585,8 +581,7 @@ class LeagueofLegends(commands.Cog):
                 embed.add_field(name="Current rank", value=match_info.thisRank, inline=False)
             else:
                 embed.add_field(name="Current rank : " + match_info.thisTier + " " + match_info.thisRank + " - " + match_info.thisLP + "LP" + " (" + difLP + ")",
-                                value=f"Winrate: **{match_info.thisWinrateStat}**%"
-                                + f"\n Victoires : **{match_info.thisVictory}** | Defaites : **{match_info.thisLoose}**",
+                                value=f"Victoires : **{match_info.thisVictory}** | Defaites : **{match_info.thisLoose}** (**{match_info.thisWinrateStat}%**)",
                                 inline=False)
         
         # Gestion des bo    
