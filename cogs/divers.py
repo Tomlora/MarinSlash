@@ -129,7 +129,11 @@ class Divers(commands.Cog):
         message = f"Le serveur **{serverName}** contient *{numberOfPerson}* personnes ! \nLa description du serveur est {serverDescription}. \nCe serveur possède {numberOfTextChannels} salons écrit et {numberOfVoiceChannels} salon vocaux."
         await ctx.send(message)
         
-
+    @commands.command(brief="Réservé au propriétaire")
+    @main.isOwner2()
+    async def sauvegarde(self, ctx):
+        
+        await ctx.send(file=discord.File('./obj/BDD/database.db'))
 
     @commands.command(brief='Réservé au propriétaire')
     @main.isOwner2()
