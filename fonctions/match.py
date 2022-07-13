@@ -425,6 +425,7 @@ class matchlol():
             self.ecart_mid_cs = (self.thisMinionListe[2] + self.thisJungleMonsterKilledListe[2]) - (self.thisMinionListe[7] + self.thisJungleMonsterKilledListe[7])
             self.ecart_adc_cs = (self.thisMinionListe[3] + self.thisJungleMonsterKilledListe[3]) - (self.thisMinionListe[8] + self.thisJungleMonsterKilledListe[8])
             self.ecart_supp_cs = (self.thisMinionListe[4] + self.thisJungleMonsterKilledListe[4]) - (self.thisMinionListe[9] + self.thisJungleMonsterKilledListe[9])
+            
         elif self.team == 1:
             
             self.ecart_top_gold = self.thisGoldListe[0] - self.thisGoldListe[5]
