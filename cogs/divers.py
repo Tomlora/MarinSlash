@@ -127,7 +127,7 @@ class Divers(commands.Cog):
     async def sauvegarde_data(self, ctx):
         await ctx.send(file=discord.File('./obj/BDD/database.db'))
 
-    @cog_ext.cog_slash(name="ping", description="Latence du bot")
+    @cog_ext.cog_slash(name="graph_test", description="Latence du bot")
     @main.isOwner2_slash()
     async def graph_test(self, ctx, test):
         numero = str(test)
