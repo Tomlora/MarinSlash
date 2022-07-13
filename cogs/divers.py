@@ -111,14 +111,7 @@ class Divers(commands.Cog):
         
         # await ctx.send(embeds=[embed1, embed2])
 
-        
-
-    @commands.command(brief="Affiche le chan general")
-    async def channel(self, ctx):
-        general_channel: discord.TextChannel = self.bot.get_channel(chan_general)
-        await ctx.channel.send(content=f"Le channel général est {general_channel}")
-
-    @commands.command(brief="Infos générales du serveur")
+    @cog_ext.cog_slash(name="serverInfo", description="Infos général du serveur")
     async def serverInfo(self, ctx):
         server = ctx.guild
         numberOfTextChannels = len(server.text_channels)
@@ -129,13 +122,13 @@ class Divers(commands.Cog):
         message = f"Le serveur **{serverName}** contient *{numberOfPerson}* personnes ! \nLa description du serveur est {serverDescription}. \nCe serveur possède {numberOfTextChannels} salons écrit et {numberOfVoiceChannels} salon vocaux."
         await ctx.send(message)
         
-    @commands.command(brief="Réservé au propriétaire")
-    @main.isOwner2()
+    @cog_ext.cog_slash(name="sauvegarde_data", description="Réservé au propriétaire du bot")
+    @main.isOwner2_slash()
     async def sauvegarde_data(self, ctx):
         await ctx.send(file=discord.File('./obj/BDD/database.db'))
 
-    @commands.command(brief='Réservé au propriétaire')
-    @main.isOwner2()
+    @cog_ext.cog_slash(name="ping", description="Latence du bot")
+    @main.isOwner2_slash()
     async def graph_test(self, ctx, test):
         numero = str(test)
 
