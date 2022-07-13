@@ -1,4 +1,3 @@
-from turtle import st
 from discord.ext import commands
 
 from riotwatcher import LolWatcher

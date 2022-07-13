@@ -382,6 +382,8 @@ class LeagueofLegends(commands.Cog):
         if (float(match_info.thisDragonTeam) >= settings['Dragon']['Score']):
             exploits = exploits + f"\n ** :crown: :dragon: Tu as obtenu l'âme du dragon **"
             points = points + 1
+            
+            # Ecart gold ? (Compliqué si swap role)
 
             
         # Présence d'afk    
