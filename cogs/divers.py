@@ -27,7 +27,7 @@ class Divers(commands.Cog):
         self.bot = bot
 
     @cog_ext.cog_slash(name="hello", description="Saluer le bot")
-    async def _hello(self, ctx : SlashContext):
+    async def hello(self, ctx : SlashContext):
         buttons = [
             create_button(
                 style=ButtonStyle.blue,
@@ -55,7 +55,7 @@ class Divers(commands.Cog):
             await button_ctx.edit_origin(content="...")
 
     @cog_ext.cog_slash(name="quiz", description="Reponds au quizz")
-    async def _quiz(self, ctx : SlashContext):
+    async def quiz(self, ctx : SlashContext):
         select = create_select(
             options=[
                 create_select_option("Dawn", value="1", emoji="😂"),
@@ -82,7 +82,7 @@ class Divers(commands.Cog):
             await choice_ctx.send("Mauvaise réponse... 😒")
 
     @cog_ext.cog_slash(name="ping", description="Latence du bot")
-    async def _ping(self, ctx : SlashContext):
+    async def ping(self, ctx : SlashContext):
         await ctx.send(
             "pong \n Latence : " + str(round(float(self.bot.latency), 5)) + " ms")
         
@@ -131,8 +131,7 @@ class Divers(commands.Cog):
         
     @commands.command(brief="Réservé au propriétaire")
     @main.isOwner2()
-    async def sauvegarde(self, ctx):
-        
+    async def sauvegarde_data(self, ctx):
         await ctx.send(file=discord.File('./obj/BDD/database.db'))
 
     @commands.command(brief='Réservé au propriétaire')
@@ -205,11 +204,7 @@ class Divers(commands.Cog):
             
     @commands.command()
     async def img(self, ctx, *, img:str):
-        await ctx.send(file=discord.File(f'./img/{img}.jpg'))
-        
-    @cog_ext.cog_slash(name="jour")
-    async def jour(self, ctx):
-        await ctx.send(jour_de_la_semaine())   
+        await ctx.send(file=discord.File(f'./img/{img}.jpg'))  
         
 
 
