@@ -654,7 +654,7 @@ class Fantasy(commands.Cog):
             df = df[df['gameid'] == gameid][['playername', 'gamelength','champion','kills','deaths','assists', 'doublekills', 'triplekills', 'quadrakills', 'pentakills',
             'firstblood', 'team kpm', 'damagetochampions', 'dpm', 'damageshare', 'wardsplaced', 'visionscore', 'totalgold', 'total cs', 'cspm',
             'golddiffat15', 'xpdiffat15', 'csdiffat15', 'csat15']]
-            dfi.export(df, 'image.png', max_cols=-1)
+            dfi.export(df, 'image.png', max_cols=-1, table_conversion="matplotlib")
             
         stats_game(df_joueurs, gameid)
         
@@ -706,7 +706,7 @@ class Fantasy(commands.Cog):
             df['assists_avg'] = df['assists']/df['champion']
             df = df.loc[joueur]
             
-        dfi.export(df, 'image.png', max_cols=-1, max_rows=-1)
+        dfi.export(df, 'image.png', max_cols=-1, max_rows=-1, table_conversion="matplotlib")
         
         await ctx.send(file=discord.File('image.png'))
         
