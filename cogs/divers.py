@@ -169,7 +169,7 @@ class Divers(commands.Cog):
             ax.plot(x, y)
             arr = np.vstack((x, y))
             plt.plot(arr[0], arr[1])
-            plt.title(f'{ctx.message.author}\'s Graph')
+            plt.title(f'Graph')
             plt.savefig(fname='plot')
             await ctx.send(file=discord.File('plot.png'))
             os.remove('plot.png')
