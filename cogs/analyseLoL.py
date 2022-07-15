@@ -18,6 +18,7 @@ from fonctions.match import match_by_puuid
 
 
 
+
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 
@@ -315,7 +316,7 @@ class analyseLoL(commands.Cog):
             else:
                 color_sequence = ['blue', 'red']
 
-            fig = px.line(df_timeline_diff, x='timestamp', y='ecart', color='signe', markers=True,
+            fig = px.line(df_timeline_diff, x='timestamp', y='ecart', markers=True,
                               title='Ecart gold',
                               height=1000, width=1800, color_discrete_sequence=color_sequence)
             fig.update_layout(xaxis_title='Temps',
@@ -415,27 +416,21 @@ class analyseLoL(commands.Cog):
                                 create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=[
                                     create_choice(name="dmg", value="dmg"),
                                     create_choice(name="gold", value="gold"),
-                                    create_choice(name="gold role", value="gold_role"),
                                     create_choice(name="vision", value="vision"),
-                                    create_choice(name="vision role", value="vision_role"),
                                     create_choice(name="tank", value="tank"),
                                     create_choice(name="heal alliés", value="heal_allies"),
                                     create_choice(name="solokills", value="solokills")]),
                                 create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=[
                                     create_choice(name="dmg", value="dmg"),
                                     create_choice(name="gold", value="gold"),
-                                    create_choice(name="gold role", value="gold_role"),
                                     create_choice(name="vision", value="vision"),
-                                    create_choice(name="vision role", value="vision_role"),
                                     create_choice(name="tank", value="tank"),
                                     create_choice(name="heal alliés", value="heal_allies"),
                                     create_choice(name="solokills", value="solokills")]),
                                 create_option(name="stat3", description="Quel stat ?", option_type=3, required=False, choices=[
                                     create_choice(name="dmg", value="dmg"),
                                     create_choice(name="gold", value="gold"),
-                                    create_choice(name="gold role", value="gold_role"),
                                     create_choice(name="vision", value="vision"),
-                                    create_choice(name="vision role", value="vision_role"),
                                     create_choice(name="tank", value="tank"),
                                     create_choice(name="heal alliés", value="heal_allies"),
                                     create_choice(name="solokills", value="solokills")]),
@@ -556,43 +551,6 @@ class analyseLoL(commands.Cog):
 
                 graphique(fig, 'gold.png')
             
-            if "gold_role" in stat:
-
-                thisStats = dict_data(thisId, match_detail, 'goldEarned')
-
-                dict_score = {
-                    pseudo[0] + "(" + thisChampName1 + ")": thisStats[0],
-                    pseudo[1] + "(" + thisChampName2 + ")": thisStats[1],
-                    pseudo[2] + "(" + thisChampName3 + ")": thisStats[2],
-                    pseudo[3] + "(" + thisChampName4 + ")": thisStats[3],
-                    pseudo[4] + "(" + thisChampName5 + ")": thisStats[4],
-                    pseudo[5] + "(" + thisChampName6 + ")": thisStats[5],
-                    pseudo[6] + "(" + thisChampName7 + ")": thisStats[6],
-                    pseudo[7] + "(" + thisChampName8 + ")": thisStats[7],
-                    pseudo[8] + "(" + thisChampName9 + ")": thisStats[8],
-                    pseudo[9] + "(" + thisChampName10 + ")": thisStats[9],
-                }
-
-                # print(dict_score)
-                df = pd.DataFrame.from_dict(dict_score, orient='index')
-                df = df.reset_index()
-                df = df.rename(columns={"index": "pseudo", 0: 'gold'})
-                
-                role = ['SUPPORT', 'ADC', 'MID', 'JGL', 'TOP']
-
-                if thisId <= 4:
-                    liste_ecart = [df['gold'].loc[i] - df['gold'].loc[i+5] for i in range(4,-1,-1)] # on fait à l'envers car le graphique commence par les valeurs à droite
-                    role[4-thisId] = role[4-thisId] + " (toi)"
-                else:
-                    liste_ecart = [df['gold'].loc[i+5] - df['gold'].loc[i] for i in range(4,-1,-1)]
-                    role[9-thisId] = role[9-thisId] + " (toi)"
-                
-                df_ecart = pd.DataFrame(data=liste_ecart, columns=['gold'], index=role)
-
-                fig = px.histogram(df_ecart, y=df_ecart.index.values, x="gold", color=df_ecart.index.values, title="Ecart gold par role", text_auto=True)
-                fig.update_layout(showlegend=False)
-
-                graphique(fig, 'gold_role.png')
 
             if "vision" in stat:
 
@@ -619,43 +577,6 @@ class analyseLoL(commands.Cog):
                 fig.update_layout(showlegend=False)
 
                 graphique(fig, 'vision.png')
-                
-            if "vision_role" in stat:
-
-                thisStats = dict_data(thisId, match_detail, 'visionScore')
-
-                dict_score = {
-                    pseudo[0] + "(" + thisChampName1 + ")": thisStats[0],
-                    pseudo[1] + "(" + thisChampName2 + ")": thisStats[1],
-                    pseudo[2] + "(" + thisChampName3 + ")": thisStats[2],
-                    pseudo[3] + "(" + thisChampName4 + ")": thisStats[3],
-                    pseudo[4] + "(" + thisChampName5 + ")": thisStats[4],
-                    pseudo[5] + "(" + thisChampName6 + ")": thisStats[5],
-                    pseudo[6] + "(" + thisChampName7 + ")": thisStats[6],
-                    pseudo[7] + "(" + thisChampName8 + ")": thisStats[7],
-                    pseudo[8] + "(" + thisChampName9 + ")": thisStats[8],
-                    pseudo[9] + "(" + thisChampName10 + ")": thisStats[9],
-                }
-
-                df = pd.DataFrame.from_dict(dict_score, orient='index')
-                df = df.reset_index()
-                df = df.rename(columns={"index": "pseudo", 0: 'vision'})
-                
-                role = ['SUPPORT', 'ADC', 'MID', 'JGL', 'TOP']
-
-                if thisId <= 4:
-                    liste_ecart = [df['vision'].loc[i] - df['vision'].loc[i+5] for i in range(4,-1,-1)] # on fait à l'envers car le graphique commence par les valeurs à droite
-                    role[4-thisId] = role[4-thisId] + " (toi)"
-                else:
-                    liste_ecart = [df['vision'].loc[i+5] - df['vision'].loc[i] for i in range(4,-1,-1)]
-                    role[9-thisId] = role[9-thisId] + " (toi)"
-                
-                df_ecart = pd.DataFrame(data=liste_ecart, columns=['vision'], index=role)
-
-                fig = px.histogram(df_ecart, y=df_ecart.index.values, x="vision", color=df_ecart.index.values, title="Ecart vision par role", text_auto=True)
-                fig.update_layout(showlegend=False)
-
-                graphique(fig, 'vision_role.png')
 
             if "tank" in stat:
 

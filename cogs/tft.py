@@ -151,6 +151,7 @@ class TFT(commands.Cog):
         
         suivi_profil = lire_bdd('suiviTFT', 'dict')
         
+        summonername = summonername.lower()
         
         
         try:
