@@ -14,6 +14,9 @@ import asyncio
 import seaborn as sns
 from discord_slash import cog_ext, SlashContext
 
+from matplotlib.collections import LineCollection
+from matplotlib.colors import ListedColormap, BoundaryNorm
+
 from fonctions.match import match_by_puuid
 
 
@@ -290,7 +293,7 @@ class analyseLoL(commands.Cog):
 
             df_timeline_adverse = df_timeline[df_timeline['team'] == 'Team adverse'].reset_index(drop=True)
             df_timeline_alliee = df_timeline[df_timeline['team'] == 'Team alliée'].reset_index(drop=True)
-                
+                        
 
 
             df_timeline_diff = pd.DataFrame(columns=['timestamp', 'ecart'])
@@ -306,27 +309,45 @@ class analyseLoL(commands.Cog):
             df_timeline_diff['signe'] = "a"
             df_timeline_diff['signe'] = np.where(df_timeline_diff.ecart < 0, "negatif", df_timeline_diff.signe)
             df_timeline_diff['signe'] = np.where(df_timeline_diff.ecart > 0, "positif", df_timeline_diff.signe)
-                
-
+            
+            # Graphique
+            # Src : https://matplotlib.org/stable/gallery/lines_bars_and_markers/multicolored_line.html
+            
+            val_min = df_timeline_diff['ecart'].min()
+            val_max = df_timeline_diff['ecart'].max()
+            
+            x = df_timeline_diff['timestamp']
+            y = df_timeline_diff['ecart']
+                        
+            points = np.array([x, y]).T.reshape(-1, 1, 2)
+            
+            segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                        
+            fig, ax = plt.figure(figsize=(25,10)), plt.axes()
 
             df_timeline_diff.iloc[0, 2] = df_timeline_diff.iloc[1, 2]
-
-            if df_timeline_diff.iloc[0, 2] == "negatif":
-                color_sequence = ['red', 'blue']
-            else:
-                color_sequence = ['blue', 'red']
-
-            fig = px.line(df_timeline_diff, x='timestamp', y='ecart', markers=True,
-                              title='Ecart gold',
-                              height=1000, width=1800, color_discrete_sequence=color_sequence)
-            fig.update_layout(xaxis_title='Temps',
-                                  font_size=18,
-                                  showlegend=False)
-            fig.update_traces(textposition="bottom center")
-                
-
-                
-            graphique(fig, 'gold_team.png')
+            
+            
+            plt.title('Ecart gold')
+            
+            cmap = ListedColormap(['r', 'b'])
+            norm = BoundaryNorm([val_min, 0, val_max], cmap.N)
+            lc = LineCollection(segments, cmap=cmap, norm=norm)
+            lc.set_array(y)
+            lc.set_linewidth(2)
+            line = ax.add_collection(lc)
+            
+            def add_value_label(x_list,y_list):
+                for i in range(1, len(x_list)+1):
+                    plt.text(i,y_list[i-1],y_list[i-1])
+    
+            add_value_label(x, y)
+            ax.set_xlim(x.min(), x.max())
+            ax.set_ylim(y.min(), y.max())
+            
+            plt.savefig('gold_team.png')
+            liste_delete.append('gold_team.png')
+            liste_graph.append(discord.File('gold_team.png'))
 
         if 'position' in stat:
 
@@ -409,6 +430,8 @@ class analyseLoL(commands.Cog):
             embed = discord.Embed(title='Cooldown', description=f'Description: \n `{error}`',
                               timestamp=ctx.created_at, color=242424)
             await ctx.send(embed=embed)
+        else:
+            print(error)
 
     @cog_ext.cog_slash(name="var",
                        description="Voir des stats de fin de game",
