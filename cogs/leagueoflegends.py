@@ -383,6 +383,14 @@ class LeagueofLegends(commands.Cog):
             exploits = exploits + f"\n ** :crown: :dragon: Tu as obtenu l'âme du dragon **"
             points = points + 1
             
+        if (int(match_info.thisDanceHerald) >= 1):
+            exploits = exploits + f"\n ** :crown: :dancer: A dansé avec l'Herald "
+            points = points + 1
+            
+        if (int(match_info.thisPerfectGame) >= 1):
+            exploits = exploits + f"\n :crown: :crown: :sunny: Perfect Game"
+            points = points + 2
+            
             # Ecart gold ? (Compliqué si swap role)
 
             
@@ -570,6 +578,7 @@ class LeagueofLegends(commands.Cog):
         # Objectifs
         if match_info.thisQ != "ARAM":
             embed.add_field(name="Team :", value=f"Herald : **{match_info.thisHeraldTeam}** | Dragon :  **{match_info.thisDragonTeam}** | Baron : **{match_info.thisBaronTeam}** | Elder : **{match_info.thisElderPerso}**"
+                            + f"\n Pings : {match_info.thisPing}"
                             + f"\n\nEcart top - Gold : **{match_info.ecart_top_gold}** | Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
                             + f"Ecart jgl - Gold : **{match_info.ecart_jgl_gold}** | Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
                             + f"Ecart mid - Gold : **{match_info.ecart_mid_gold}** | Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
@@ -595,7 +604,7 @@ class LeagueofLegends(commands.Cog):
                 embed.add_field(name=f'Bo5', value=f"Victoires : **{bo_wins}** | Defaites : **{bo_losses}**"
                                 + f"\nProgress : {bo_progress}", inline=False) 
                 
-        embed.add_field(name=f"Blue Side ({match_info.thisGold_team1} Golds)",
+        embed.add_field(name=f"Alliés ({match_info.thisGold_team1} Golds)",
                         value=str(match_info.thisPseudoListe[0]) + " (" + str(match_info.thisChampName1) + ") - " + str(
                             match_info.thisKillsListe[0]) + "/" + str(
                             match_info.thisDeathsListe[0]) + "/" + str(match_info.thisAssistsListe[0]) + "\n" +
@@ -611,7 +620,7 @@ class LeagueofLegends(commands.Cog):
                               str(match_info.thisPseudoListe[4]) + " (" + str(match_info.thisChampName5) + ") - " + str(
                             match_info.thisKillsListe[4]) + "/" + str(
                             match_info.thisDeathsListe[4]) + "/" + str(match_info.thisAssistsListe[4]), inline=True)
-        embed.add_field(name=f"Red Side ({match_info.thisGold_team2} Golds)",
+        embed.add_field(name=f"Adversaires ({match_info.thisGold_team2} Golds)",
                         value=str(match_info.thisPseudoListe[5]) + " (" + str(match_info.thisChampName6) + ") - " + str(
                             match_info.thisKillsListe[5]) + "/" + str(
                             match_info.thisDeathsListe[5]) + "/" + str(
@@ -797,7 +806,7 @@ class LeagueofLegends(commands.Cog):
                 except:
                     print(f"Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
                     # print(sys.exc_info())
-                    # raise
+
                 data[key]['id'] = getId(key)
         data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
         sauvegarde_bdd(data, 'tracker')
