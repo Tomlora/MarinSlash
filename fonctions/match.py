@@ -194,6 +194,8 @@ class matchlol():
         self.thisDamageAD = self.match_detail_participants['physicalDamageDealtToChampions']
         self.thisDamageTrue = self.match_detail_participants['trueDamageDealtToChampions']
         
+        self.thisTimeSpendDead = round(float(self.match_detail_participants['totalTimeSpentDead'])/60,2) 
+        
         self.thisDamageTaken = int(self.match_detail_participants['totalDamageTaken'])
         self.thisDamageTakenAD = int(self.match_detail_participants['physicalDamageTaken'])
         self.thisDamageTakenAP = int(self.match_detail_participants['magicDamageTaken'])
@@ -206,6 +208,8 @@ class matchlol():
         self.thisWards = self.match_detail_participants['wardsPlaced']
         self.thisWardsKilled = self.match_detail_participants['wardsKilled']
         self.thisGold = int(self.match_detail_participants['goldEarned'])
+        
+        self.thisPing = self.match_detail_participants['basicPings']
                 
         self.item = self.match_detail_participants
         self.thisItems = [self.item['item0'], self.item['item1'], self.item['item2'], self.item['item3'], self.item['item4'], self.item['item5']]
@@ -250,6 +254,8 @@ class matchlol():
         self.thisbuffsVolees = self.match_detail_challenges['buffsStolen']
         self.thisSpellsDodged = self.match_detail_challenges['dodgeSkillShotsSmallWindow']
         self.thisSoloKills = self.match_detail_challenges['soloKills']
+        self.thisDanceHerald = self.match_detail_challenges['dancedWithRiftHerald']
+        self.thisPerfectGame = self.match_detail_challenges['perfectGame']
         self.thisJUNGLEafter10min = self.match_detail_challenges['jungleCsBefore10Minutes']
         self.thisCSafter10min = self.match_detail_challenges['laneMinionsFirst10Minutes'] + self.thisJUNGLEafter10min
         self.thisKillingSprees = self.match_detail_participants['killingSprees']
