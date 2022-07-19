@@ -209,7 +209,10 @@ class matchlol():
         self.thisWardsKilled = self.match_detail_participants['wardsKilled']
         self.thisGold = int(self.match_detail_participants['goldEarned'])
         
-        self.thisPing = self.match_detail_participants['basicPings']
+        try:
+            self.thisPing = self.match_detail_participants['basicPings']
+        except:
+            self.thisPing = 0
                 
         self.item = self.match_detail_participants
         self.thisItems = [self.item['item0'], self.item['item1'], self.item['item2'], self.item['item3'], self.item['item4'], self.item['item5']]
