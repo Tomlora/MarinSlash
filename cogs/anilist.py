@@ -191,7 +191,7 @@ class Anilist(commands.Cog):
         
         for key, value in pd_anime.head(nb_anime).iterrows():
             name = value['Nom']
-            date = value['airing']
+            date = value['Date']
             ep = value['Ep']
             embed.add_field(name=f' {name} (Ep {ep})', value=f'Disponible dans <t:{date}:R>')
             
