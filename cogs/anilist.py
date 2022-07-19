@@ -249,9 +249,9 @@ class Anilist(commands.Cog):
         tags {
             name
         }
-        studios {
+        studios (isMain : True) {
             nodes {
-            name
+             name
             }
         }
         startDate {
@@ -326,10 +326,11 @@ class Anilist(commands.Cog):
         season = answer_complete['season']
         year = answer_complete['seasonYear']
         score = answer_complete['averageScore']
+        studios = answer_complete['studios']['nodes'][0]['name']
         
         embed.set_thumbnail(url=cover)
         
-        embed.add_field(name=name, value=description, inline=False)
+        embed.add_field(name=f'{name} (Studio : {studios})', value=description, inline=False)
         embed.add_field(name="Nb episodes", value=nb_ep)
         embed.add_field(name="Saison", value=f'{season} {year}')
         embed.add_field(name="Note", value=f'{score}')
