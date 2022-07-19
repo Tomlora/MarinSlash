@@ -319,7 +319,7 @@ class Anilist(commands.Cog):
         response = requests.post(self.url, json={'query': query, 'variables': variables})
         answer_complete = json.loads(response.text)["data"]["Page"]["media"][0]
         name = answer_complete['title']['romaji']
-        description = answer_complete['description']
+        description = answer_complete['description'].replace("<br>", "")
         nb_ep = answer_complete['episodes']
         genres = ', '.join(answer_complete['genres'])
         cover = answer_complete['coverImage']['medium']

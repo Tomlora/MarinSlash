@@ -8,7 +8,7 @@ from discord_slash import SlashCommand, SlashContext
 
 
 
-Var_version = 4.4
+Var_version = 4.7
 
 # Paramètres
 
