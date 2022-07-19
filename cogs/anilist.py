@@ -249,9 +249,9 @@ class Anilist(commands.Cog):
         tags {
             name
         }
-        studios (isMain : True) {
+        studios (isMain : true) {
             nodes {
-             name
+                name
             }
         }
         startDate {
