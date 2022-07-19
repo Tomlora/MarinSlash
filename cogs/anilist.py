@@ -6,6 +6,7 @@ from discord_slash.utils.manage_commands import create_option, create_choice
 import requests
 import json
 import pandas as pd
+from main import Var_version
 
 
 
@@ -63,7 +64,9 @@ class Anilist(commands.Cog):
           return extracted_data
       
     @cog_ext.cog_slash(name="anime_season", description="Calendrier des sorties")
-    async def anime_season(self, ctx, season="SUMMER", year=2022, nb_anime:int=10):
+    async def anime_season(self, ctx, nb_anime:int=10):
+        season = "SUMMER"
+        year = 2022
         anime_season = """\
         query ($season : MediaSeason, $seasonYear : Int) {
     Page {
@@ -195,6 +198,8 @@ class Anilist(commands.Cog):
             ep = value['Ep']
             embed.add_field(name=f' {name} (Ep {ep})', value=f'Disponible dans <t:{date}:R>')
             
+        embed.set_footer(text=f'Version {Var_version} by Tomlora')
+            
         await ctx.send(embed=embed)
             
     def _get_anime_id(self, sQ):
@@ -208,16 +213,21 @@ class Anilist(commands.Cog):
         try:
             anime_ID = data['data']['Page']['media'][0]['id']
         except IndexError:
-            raise IndexError('Anime Not Found')
+            anime_ID = "Not found"
 
         return anime_ID
         
     # à faire    
-    def get_anime(self, sQ):
-            self.id = sQ
-            self.name = self._get_anime_id(self.id)
+    async def anime(self, ctx, anime):
+        self.id = anime
+        self.name = self._get_anime_id(self.id)
+        
+        if self.name == "Not found":
+            ctx.send(f'{anime} non trouvé')
+        
+        ctx.defer(hidden=False)
             #graphql api query
-            query = '''
+        query = '''
     query ($id: Int, $page: Int, $perPage: Int, $search: String) {
     Page(page: $page, perPage: $perPage) {
         media(id: $id, search: $search, type: ANIME) {
@@ -297,21 +307,36 @@ class Anilist(commands.Cog):
         }
     }
     }
-            '''
+        '''
 
-            variables = {'id': self.name}
+        variables = {'id': self.name}
+        
+        embed = discord.Embed(title='Anime') 
 
-            response = requests.post(self.url, json={'query': query, 'variables': variables})
-            self.answer_complete = json.loads(response.text)
-            self.media = self.answer_complete["data"]["Page"]["media"]
+        response = requests.post(self.url, json={'query': query, 'variables': variables})
+        answer_complete = json.loads(response.text)["data"]["Page"]["media"][0]
+        name = answer_complete['title']['romaji']
+        description = answer_complete['description']
+        nb_ep = answer_complete['episodes']
+        genres = ', '.join(answer_complete['genres'])
+        cover = answer_complete['coverImage']['medium']
+        season = answer_complete['season']
+        year = answer_complete['seasonYear']
+        score = answer_complete['averageScore']
+        
+        embed.set_thumbnail(url=cover)
+        
+        embed.add_field(name=name, value=description, inline=False)
+        embed.add_field(name="Nb episodes", value=nb_ep)
+        embed.add_field(name="Saison", value=f'{season} {year}')
+        embed.add_field(name="Note", value=f'{score}')
+        embed.add_field(name="Genres", value=genres, inline=False)
+            
+        embed.set_footer(text=f'Version {Var_version} by Tomlora')
         
         
+        await ctx.send(embed=embed)
         
-
-
-
-
-
 
 def setup(bot):
     bot.add_cog(Anilist(bot))
