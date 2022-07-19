@@ -217,15 +217,18 @@ class Anilist(commands.Cog):
 
         return anime_ID
         
-    # à faire    
+    @cog_ext.cog_slash(name="anime", description="Cherche un anime")  
     async def anime(self, ctx, anime):
         self.id = anime
+        
+        ctx.defer(hidden=False)
+        
         self.name = self._get_anime_id(self.id)
         
         if self.name == "Not found":
             ctx.send(f'{anime} non trouvé')
         
-        ctx.defer(hidden=False)
+        
             #graphql api query
         query = '''
     query ($id: Int, $page: Int, $perPage: Int, $search: String) {
