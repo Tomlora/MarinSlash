@@ -25,7 +25,11 @@ def lire_bdd(nom_table, format:str="df"):
             Choix entre 'dict' ou 'df'
     """
     conn = engine.connect()
-    df = pd.read_sql(f'SELECT * FROM {nom_table}', con=conn, index_col='index')
+    try:
+        df = pd.read_sql(f'SELECT * FROM {nom_table}', con=conn, index_col='index')
+    except:
+        nom_table = nom_table.lower()
+        df = pd.read_sql(f'SELECT * FROM {nom_table}', con=conn, index_col='index')
     df = df.transpose()
     if format == "dict":
         df = df.to_dict()
