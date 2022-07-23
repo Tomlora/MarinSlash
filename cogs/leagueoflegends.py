@@ -23,7 +23,7 @@ from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 
-import time
+from time import sleep, time
 
 
 
@@ -815,7 +815,7 @@ class LeagueofLegends(commands.Cog):
             else:
                 await ctx.send(f"La game {str(i)} n'a pas été comptabilisée")
                 
-            time.sleep(5)
+            sleep(5)
                
 
     async def printLive(self, summonername):
