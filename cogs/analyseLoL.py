@@ -382,14 +382,19 @@ class analyseLoL(commands.Cog):
 
 
             img = io.imread('https://map.riftkit.net/img/rift/normal.jpg')
+            
+            # 3750 taille optimale et 4 en diviseur
+            x_pos = 468.75
+            y_pos = 468.75
+            diviseur = 32
 
-            img = resize(img, (3750, 3750), anti_aliasing=False)
+            img = resize(img, (x_pos, y_pos), anti_aliasing=False)
 
             fig = px.imshow(img)
 
             for i in range(0, minute - 1):
-                x = [df_timeline['position'][i]['x'] / 4]
-                y = [3750 - (df_timeline['position'][i]['y'] / 4)]
+                x = [df_timeline['position'][i]['x'] / diviseur]
+                y = [y_pos - (df_timeline['position'][i]['y'] / diviseur)]
 
                 if i < 10:
                     color = 'red'

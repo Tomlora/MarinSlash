@@ -36,6 +36,12 @@ dict_rankid = {"BRONZE IV" : 1,
                'GRANDMASTER I': 22,
                'CHALLENGER I' : 23}
 
+def get_key(my_dict, val):
+    for key, value in my_dict.items():
+        if val == value:
+            return key
+        
+    return "No key"
 
 
 
