@@ -25,7 +25,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 import os
 
-api_key_tft = os.environ.get('API_TFT')  # https://www.youtube.com/watch?v=IolxqkL7cD8
+api_key_tft = os.environ.get('API_tft')  # https://www.youtube.com/watch?v=IolxqkL7cD8
 
 my_region = 'euw1'
 region = "europe"
@@ -35,7 +35,7 @@ region = "europe"
 
 headers = {"X-Riot-Token": api_key_tft}
 
-def get_puuidTFT(summonername):
+def get_puuidtft(summonername):
     me = requests.get(f'https://{my_region}.api.riotgames.com/tft/summoner/v1/summoners/by-name/{summonername}', headers=headers).json()
     return me['puuid']
 
@@ -50,7 +50,7 @@ def get_stats_ranked(summonername):
     
 
 def matchtft_by_puuid(summonerName, idgames: int):
-    puuid = get_puuidTFT(summonerName)
+    puuid = get_puuidtft(summonerName)
     liste_matchs = requests.get(f'https://{region}.api.riotgames.com/tft/match/v1/matches/by-puuid/{puuid}/ids?start=0&count=20', headers=headers).json()
     last_match = liste_matchs[idgames]
     match = requests.get(f'https://{region}.api.riotgames.com/tft/match/v1/matches/{last_match}', headers=headers).json()
@@ -62,22 +62,22 @@ def matchtft_by_puuid(summonerName, idgames: int):
      
 
 
-class TFT(commands.Cog):
+class tft(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.my_taskTFT.start()
+        self.my_tasktft.start()
 
  
 
     # ----------------------------- test
 
     @tasks.loop(minutes=1, count=None)
-    async def my_taskTFT(self):
+    async def my_tasktft(self):
         await self.updatetft()
 
         
      
-    def stats_TFT(self, summonername, idgames:int=0):
+    def stats_tft(self, summonername, idgames:int=0):
         match_detail, id_match, puuid = matchtft_by_puuid(summonername, idgames)
         
         # identifier le joueur via son puuid
@@ -118,7 +118,7 @@ class TFT(commands.Cog):
         msg_augment = ''
         
         for augment in augments:
-            augment = augment.replace('TFT6_Augment_', '').replace('TFT7_Augment_', '')
+            augment = augment.replace('tft6_Augment_', '').replace('tft7_Augment_', '')
             msg_augment = f'{msg_augment} | {augment}'
         
         # Classement
@@ -149,7 +149,7 @@ class TFT(commands.Cog):
         
         # Gain/Perte de LP
         
-        suivi_profil = lire_bdd('suiviTFT', 'dict')
+        suivi_profil = lire_bdd('suivitft', 'dict')
         
         summonername = summonername.lower()
         
@@ -184,7 +184,7 @@ class TFT(commands.Cog):
         suivi_profil[summonername]['rank'] = rank
         suivi_profil[summonername]['LP'] = lp
                     
-        sauvegarde_bdd(suivi_profil, 'suiviTFT')
+        sauvegarde_bdd(suivi_profil, 'suivitft')
 
             
         
@@ -219,7 +219,7 @@ class TFT(commands.Cog):
         
         
         embed = discord.Embed(
-                title=f"** {summonername} ** vient de finir ** {classement}ème ** sur TFT", color=color)
+                title=f"** {summonername} ** vient de finir ** {classement}ème ** sur tft", color=color)
         
         embed.add_field(name="Durée de la game :",
                             value=f'{thisTime} minutes')
@@ -263,7 +263,7 @@ class TFT(commands.Cog):
         df_mobs = df_mobs.sort_values(by='tier', ascending=False)
         
         for mob in df_mobs.iterrows():
-            monster_name = mob[1]['character_id'].replace('TFT7_', '')
+            monster_name = mob[1]['character_id'].replace('tft7_', '')
             monster_tier = mob[1]['tier']
             embed.add_field(name=f'{monster_name}', value=f'Tier : {monster_tier}')
         
@@ -275,22 +275,22 @@ class TFT(commands.Cog):
         return embed
     
     
-    @cog_ext.cog_slash(name="gameTFT",description="Recap TFT",
+    @cog_ext.cog_slash(name="gametft",description="Recap tft",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True),
                                 create_option(name="idgames", description="numero de la game", option_type=4, required=False)])
-    async def gameTFT(self, ctx, summonername, idgames:int=0):
+    async def gametft(self, ctx, summonername, idgames:int=0):
         
         await ctx.defer(hidden=False)
     
-        embed = self.stats_TFT(summonername, idgames)
+        embed = self.stats_tft(summonername, idgames)
         
         await ctx.send(embed=embed)
         
         
-    async def printLiveTFT(self, summonername):
+    async def printLivetft(self, summonername):
 
         
-        embed = self.stats_TFT(summonername, idgames=0)
+        embed = self.stats_tft(summonername, idgames=0)
         
         channel = self.bot.get_channel(int(main.chan_tft))
         
@@ -299,24 +299,24 @@ class TFT(commands.Cog):
 
                
     async def updatetft(self):
-        data = lire_bdd('trackerTFT', 'dict')
+        data = lire_bdd('trackertft', 'dict')
         for key, value in data.items():
             match_detail, id_match, puuid = matchtft_by_puuid(key, 0)
             if str(value['id']) != id_match:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = summonername // value = numéro de la game
                 try:
-                    await self.printLiveTFT(key)
+                    await self.printLivetft(key)
                 except:
-                    print(f"TFT : Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
+                    print(f"tft : Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
                 data[key]['id'] = id_match
         data = pd.DataFrame.from_dict(data, orient="index")
-        sauvegarde_bdd(data, 'trackerTFT')
+        sauvegarde_bdd(data, 'trackertft')
 
     @cog_ext.cog_slash(name="tftadd",description="Ajoute le joueur au suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def tftadd(self, ctx, *, summonername):
         # try:
-            data = lire_bdd('trackerTFT', 'dict')
-            suivi_profil = lire_bdd('suiviTFT', 'dict')
+            data = lire_bdd('trackertft', 'dict')
+            suivi_profil = lire_bdd('suivitft', 'dict')
             
             await ctx.defer(hidden=False)
             
@@ -330,8 +330,8 @@ class TFT(commands.Cog):
             suivi_profil[summonername] = {'LP' : lp, 'tier': tier, 'rank': rank}
             data = pd.DataFrame.from_dict(data, orient="index")
             suivi_profil = pd.DataFrame.from_dict(suivi_profil, orient="index")
-            sauvegarde_bdd(data, 'trackerTFT')
-            sauvegarde_bdd(suivi_profil, 'suiviTFT')
+            sauvegarde_bdd(data, 'trackertft')
+            sauvegarde_bdd(suivi_profil, 'suivitft')
 
             await ctx.send(summonername + " was successfully added to live-feed!")
         # except:
@@ -340,17 +340,17 @@ class TFT(commands.Cog):
     @cog_ext.cog_slash(name="tftremove", description="Supprime le joueur du suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def tftremove(self, ctx, *, summonername):
-        data = lire_bdd('trackerTFT', 'dict')
+        data = lire_bdd('trackertft', 'dict')
         if summonername in data: del data[summonername] #                                                                                             "")]  # si le summonername est présent dans la data, on supprime la data de ce summonername
         data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
-        sauvegarde_bdd(data, 'trackerTFT')
+        sauvegarde_bdd(data, 'trackertft')
 
         await ctx.send(summonername + " was successfully removed from live-feed!")
 
     @cog_ext.cog_slash(name='tftlist', description='Affiche la liste des joueurs suivis')
     async def tftlist(self, ctx):
 
-        data = lire_bdd('trackerTFT', 'dict')
+        data = lire_bdd('trackertft', 'dict')
         response = ""
 
         for key in data.keys():
@@ -363,4 +363,4 @@ class TFT(commands.Cog):
      
 
 def setup(bot):
-    bot.add_cog(TFT(bot))
+    bot.add_cog(tft(bot))
