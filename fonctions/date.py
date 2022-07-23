@@ -1,5 +1,6 @@
 import calendar
 from datetime import datetime
+from time import time
 
 def findDay(date):
         born = datetime.strptime(date, '%d %m %Y').weekday()
@@ -32,3 +33,8 @@ def alarm(h, m, liste_jour):
             return False
         
         
+def calcul_time(msg, time_prec):
+    time_next = time()
+    ecart = int((time_next-time_prec)*100)
+    print(f"{msg} : {ecart}")
+    return time_next

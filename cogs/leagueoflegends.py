@@ -16,6 +16,7 @@ from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 
 
 from fonctions.match import matchlol, getId, dict_rankid 
+from fonctions.date import calcul_time
 
 
 from discord_slash import cog_ext, SlashContext
@@ -23,6 +24,7 @@ from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 
 import time
+
 
 
 
@@ -103,8 +105,12 @@ class LeagueofLegends(commands.Cog):
         self.lolsuivi.start()
         
  
-    def printInfo(self, summonerName, idgames: int, succes):
+    def printInfo(self, summonerName, idgames: int, succes, chrono:bool=False):
 
+        if chrono:
+            time_a = time()
+            time_depart = time()
+            print(time)
 
         match_info = matchlol(summonerName, idgames) #class
         
@@ -123,7 +129,14 @@ class LeagueofLegends(commands.Cog):
         
         # Suivi
         
+        if chrono:
+            time_a = calcul_time('Avant BDD', time_a)
+        
         suivi = lire_bdd('suivi', 'dict')
+        
+        if chrono:
+            time_a = calcul_time('Suivi chargé', time_a)
+            
         try:
             if suivi[summonerName.lower().replace(" ", "")]['tier'] == match_info.thisTier and suivi[summonerName.lower().replace(" ", "")]['rank'] == match_info.thisRank:
                 difLP = int(match_info.thisLP) - int(suivi[summonerName.lower().replace(" ", "")]['LP'])
@@ -144,9 +157,15 @@ class LeagueofLegends(commands.Cog):
             suivi[summonerName.lower().replace(" ", "")]['LP'] = match_info.thisLP
 
         if match_info.thisQ == "RANKED" and match_info.thisTime > 20:
+            
+            if chrono:
+                time_a = calcul_time('Avant records', time_a)
 
             records = lire_bdd('records', 'dict')
-            records2 = lire_bdd('records2', 'dict')          
+            records2 = lire_bdd('records2', 'dict')
+            
+            if chrono:
+                time_a = calcul_time('Records1/2 chargé et avant records', time_a)          
 
             for key, value in records.items():
                 if int(match_info.thisDeaths) >= 1:
@@ -204,7 +223,7 @@ class LeagueofLegends(commands.Cog):
                     records, exploits = records_check(records, key, 'AVANTAGE_VISION', float(match_info.thisVisionAdvantage),
                                         match_info.thisChampName, summonerName, exploits)
                     
-                
+
 
 
                 for key, value in records2.items():
@@ -258,6 +277,9 @@ class LeagueofLegends(commands.Cog):
                     sauvegarde_bdd(records, 'records')
                     sauvegarde_bdd(records2, 'records2')
                     
+        if chrono:
+            time_a = calcul_time('Records1/2 faits', time_a)
+                    
         # on le fait après sinon ça flingue les records
         match_info.thisDamageTurrets = "{:,}".format(match_info.thisDamageTurrets).replace(',', ' ').replace('.', ',')
 
@@ -307,7 +329,9 @@ class LeagueofLegends(commands.Cog):
         # annonce
         points = 0
         
-
+        if chrono:
+            time_a = calcul_time('Avant chargement achievements, records3, records_perso', time_a)
+            
         settings = lire_bdd('achievements_settings', 'dict')
 
         records_cumul = lire_bdd('records3', 'dict')
@@ -392,6 +416,9 @@ class LeagueofLegends(commands.Cog):
             points = points + 2
             
             # Ecart gold ? (Compliqué si swap role)
+            
+        if chrono:
+            time_a = calcul_time('Records3 fini', time_a)
 
             
         # Présence d'afk    
@@ -440,6 +467,9 @@ class LeagueofLegends(commands.Cog):
                       "DMG_TOTAL" : match_info.match_detail_participants['totalDamageDealtToChampions'],
                       "ECART_LEVEL" : match_info.thisLevelAdvantage, "VISION/MIN" : match_info.thisVisionPerMin, 
                       "DOUBLE" : match_info.thisDouble, "TRIPLE" : match_info.thisTriple, "SERIE_VICTOIRE" : serie_victoire, "NB_COURONNE_1_GAME" : points }
+        
+        if chrono:
+            time_a = calcul_time('Avant cumul', time_a)
 
         for key, value in dict_cumul.items():
             # records cumul
@@ -479,7 +509,10 @@ class LeagueofLegends(commands.Cog):
 
                     
             except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
-                records_personnel[key][summonerName.lower().replace(" ", "")] = value                 
+                records_personnel[key][summonerName.lower().replace(" ", "")] = value
+                
+        if chrono:
+            time_a = calcul_time('Après cumul', time_a)                 
                 
 
         
@@ -505,7 +538,8 @@ class LeagueofLegends(commands.Cog):
 
         sauvegarde_bdd(suivi, 'suivi') #achievements + suivi
 
-
+        if chrono:
+            time_a = calcul_time('Avant embed', time_a)
                 
         # observations
         
@@ -650,7 +684,9 @@ class LeagueofLegends(commands.Cog):
 
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora - Match {str(match_info.last_match)}')
 
-
+        if chrono:
+            time_a = calcul_time('Embed fini', time_a)
+            time_end = calcul_time('Total', time_depart)
 
         return embed, match_info.thisQ
 
@@ -744,14 +780,15 @@ class LeagueofLegends(commands.Cog):
                        description="Voir les statistiques d'une games",
                        options=[create_option(name="summonername", description= "Nom du joueur", option_type=3, required=True),
                                 create_option(name="numerogame", description="Numero de la game, de 0 à 100", option_type=4, required=True),
-                                create_option(name="succes", description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non", option_type=5, required=True)])
-    async def game(self, ctx, summonername:str, numerogame:int, succes: bool):
+                                create_option(name="succes", description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non", option_type=5, required=True),
+                                create_option(name="chrono", description="Reserve au proprietaire", option_type=5, required=False)])
+    async def game(self, ctx, summonername:str, numerogame:int, succes: bool, chrono: bool=False):
         
         await ctx.defer(hidden=False)
         
         summonername = summonername.lower()
 
-        embed, mode_de_jeu = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes)
+        embed, mode_de_jeu = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, chrono=chrono)
 
         if embed != {}:
             await ctx.send(embed=embed)
