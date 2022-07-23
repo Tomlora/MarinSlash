@@ -110,7 +110,7 @@ class LeagueofLegends(commands.Cog):
         if chrono:
             time_a = time()
             time_depart = time()
-            print(time)
+            print(time_a)
 
         match_info = matchlol(summonerName, idgames) #class
         
@@ -274,11 +274,16 @@ class LeagueofLegends(commands.Cog):
                     records2, exploits = records_check(records2, key, 'ECART_LEVEL', match_info.thisLevelAdvantage,
                                              match_info.thisChampName, summonerName, exploits)
                     
+                    if chrono:
+                        loop = 0
+                        loop = loop + 1
+                    
                     sauvegarde_bdd(records, 'records')
                     sauvegarde_bdd(records2, 'records2')
                     
         if chrono:
             time_a = calcul_time('Records1/2 faits', time_a)
+            print(f'loop : {loop}')
                     
         # on le fait après sinon ça flingue les records
         match_info.thisDamageTurrets = "{:,}".format(match_info.thisDamageTurrets).replace(',', ' ').replace('.', ',')
