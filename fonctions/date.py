@@ -35,6 +35,6 @@ def alarm(h, m, liste_jour):
         
 def calcul_time(msg, time_prec):
     time_next = time()
-    ecart = int((time_next-time_prec)*100)
+    ecart = int(time_next-time_prec)
     print(f"{msg} : {ecart}")
     return time_next
