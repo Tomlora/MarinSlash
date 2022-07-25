@@ -84,7 +84,7 @@ class Divers(commands.Cog):
     @cog_ext.cog_slash(name="ping", description="Latence du bot")
     async def ping(self, ctx : SlashContext):
         await ctx.send(
-            "pong \n Latence : " + str(round(float(self.bot.latency), 5)) + " ms")
+            f"pong \n Latence : `{round(float(self.bot.latency), 3)}` ms")
         
         # embed1 = discord.Embed(url='https://github.com/Tomlora/MarinSlash/tree/main/img/items')
         # embed2 = discord.Embed(url='https://github.com/Tomlora/MarinSlash/tree/main/img/items')

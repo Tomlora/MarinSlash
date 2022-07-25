@@ -8,7 +8,7 @@ from discord_slash import SlashCommand, SlashContext
 
 
 
-Var_version = 4.7
+Var_version = 4.8
 
 # Paramètres
 
@@ -124,10 +124,14 @@ async def help(ctx):
                   "`stop` - Le DJ stop la musique \n " \
                   "`summon` - invoque le DJ dans ton salon \n" \
                   "`volume` - Règle le volume"
+    
+    value_anime = "`anime` - Cherche un anime \n" \
+                  "`anime_schedule` - Calendrier des sorties" 
 
     em = discord.Embed(title="Help", description="Use ;help <command> pour le détail")
     em.add_field(name="Achievements & Records", value=value_records, inline=False)
     em.add_field(name="AnalyseLoL", value=value_analyselol, inline=False)
+    em.add_field(name="Anime", value=value_anime, inline=False)
     em.add_field(name="Challenges", value=value_challenges, inline=False)
     em.add_field(name="Divers", value=value_divers, inline=False)
     em.add_field(name="LoL Pro", value=value_lolpro, inline=False)

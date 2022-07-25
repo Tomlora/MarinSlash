@@ -292,11 +292,11 @@ class LeagueofLegends(commands.Cog):
         global color
 
         if (pseudo == 'NAMIYEON') or (pseudo == 'ZYRADELEVINGNE') or (pseudo == 'CHATOBOGAN'):
-            color = discord.Color.gold()
+            color = discord.Colour.from_rgb(255,236,0)
         elif pseudo == 'DJINGO':
             color = discord.Color.orange()
         elif pseudo == 'TOMLORA':
-            color = discord.Color.dark_green()
+            color = discord.Colour.from_rgb(26,188,156)
         elif pseudo == 'YLARABKA':
             color = discord.Colour.from_rgb(253, 119, 90)
         elif (pseudo == 'LINÒ') or (pseudo == 'LORDOFCOUBI') or (pseudo == 'NUKETHESTARS'):
@@ -410,7 +410,7 @@ class LeagueofLegends(commands.Cog):
             points = points + 1
             
         if (int(match_info.thisDanceHerald) >= 1):
-            exploits = exploits + f"\n ** :crown: :dancer: A dansé avec l'Herald "
+            exploits = exploits + f"\n ** :crown: :dancer: A dansé avec l'Herald **"
             points = points + 1
             
         if (int(match_info.thisPerfectGame) >= 1):
@@ -755,10 +755,10 @@ class LeagueofLegends(commands.Cog):
                     try:
                         channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
                         if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
-                            await channel_tracklol.send(f' Le joueur {key} a démote du rank {rank_old} à {level}')
+                            await channel_tracklol.send(f' Le joueur **{key}** a démote du rank **{rank_old}** à **{level}**')
                             await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
                         elif dict_rankid[rank_old] < dict_rankid[level]:
-                            await channel_tracklol.send(f' Le joueur {key} a été promu du rank {rank_old} à {level}')
+                            await channel_tracklol.send(f' Le joueur **{key}** a été promu du rank **{rank_old}** à **{level}**')
                             await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
                         
                         suivirank[key]['tier'] = tier
