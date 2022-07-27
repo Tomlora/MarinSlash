@@ -45,8 +45,8 @@ class Patchlol(commands.Cog):
         if version_bdd != patch_actuel.version_patch:
             
             # MAJ de la BDD
-            version_bdd['1\n']['version'] = patch_actuel.version_patch
-            sauvegarde_bdd(version_bdd, 'patchnotes')
+            version_bdd = patch_actuel.version_patch
+            
             
             # Embed
             
@@ -55,21 +55,12 @@ class Patchlol(commands.Cog):
             
             embed.add_field(name="Details", value=f"[Lien du patch]({patch_actuel.link}")
             
-            await channel.send(embed=embed)
-            
-    @commands.command()
-    async def test_patch(self, ctx):
-        
-        version_bdd = lire_bdd('patchnotes', 'dict')
-        version_bdd['1\n']['version'] = "12.12"
-        sauvegarde_bdd(version_bdd, 'patchnotes')
-        
-        ctx.send('Fait')
-        
-            
-        
-        
-
+            try:
+                await channel.send(embed=embed)
+                sauvegarde_bdd(version_bdd, 'patchnotes')
+            except:
+                print('Erreur au lancement du bot... Réessai dans 10 minutes')
+                 
 
 def setup(bot):
     bot.add_cog(Patchlol(bot))
