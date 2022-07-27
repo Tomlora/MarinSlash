@@ -93,11 +93,8 @@ class Achievements_scoringlol(commands.Cog):
         
     @cog_ext.cog_slash(name="achievements",
                        description="Voir les couronnes acquis par les joueurs",
-                       options=[create_option(name="records", description= "Afficher le cumul des records ?", option_type=3, required=True, choices=[
-                           create_choice(name="oui", value="oui"),
-                           create_choice(name="non", value="non")
-                            ])])
-    async def achievements(self, ctx, records):
+                       options=[create_option(name="records", description= "Afficher le cumul des records ?", option_type=5, required=False)])
+    async def achievements(self, ctx, records:bool=False):
         
 
         # Succes
@@ -113,7 +110,7 @@ class Achievements_scoringlol(commands.Cog):
         await ctx.defer(hidden=False)
 
         # Records
-        if records == "oui":
+        if records:
             df2 = pd.DataFrame(records1).transpose()
             df3 = pd.DataFrame(records2).transpose()
 
@@ -168,7 +165,7 @@ class Achievements_scoringlol(commands.Cog):
         await ctx.send(f"Couronnes (SoloQ only et {settings['Nb_games']['Score']} games minimum) :\n" + result)
 
 
-        if records == "oui":
+        if records:
             await ctx.send('Informations : Les records de la page 3 ne sont pas comptabilisés', file=discord.File('plot.png'))
             os.remove('plot.png')
 

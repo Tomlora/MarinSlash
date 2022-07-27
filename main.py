@@ -8,7 +8,7 @@ from discord_slash import SlashCommand, SlashContext
 
 
 
-Var_version = 4.8
+Var_version = 5.0
 
 # Paramètres
 
@@ -348,7 +348,7 @@ async def loldb(ctx):
     await ctx.send(embed=em)
 
     # Music
-
+    
 @help.command()
 async def join(ctx):
     em = discord.Embed(title="/join", description="Le DJ rejoint ton salon vocal")

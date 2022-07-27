@@ -53,6 +53,7 @@ class Divers(commands.Cog):
             print(button_ctx.custom_id)
         else:
             await button_ctx.edit_origin(content="...")
+            
 
     @cog_ext.cog_slash(name="quiz", description="Reponds au quizz")
     async def quiz(self, ctx : SlashContext):
@@ -122,11 +123,6 @@ class Divers(commands.Cog):
         message = f"Le serveur **{serverName}** contient *{numberOfPerson}* personnes ! \nLa description du serveur est {serverDescription}. \nCe serveur possède {numberOfTextChannels} salons écrit et {numberOfVoiceChannels} salon vocaux."
         await ctx.send(message)
         
-    @cog_ext.cog_slash(name="sauvegarde_data", description="Réservé au propriétaire du bot")
-    @main.isOwner2_slash()
-    async def sauvegarde_data(self, ctx):
-        await ctx.send(file=discord.File('./obj/BDD/database.db'))
-
     @cog_ext.cog_slash(name="graph_test", description="Latence du bot")
     @main.isOwner2_slash()
     async def graph_test(self, ctx, test):
