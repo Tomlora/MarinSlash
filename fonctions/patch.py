@@ -81,17 +81,17 @@ class PatchNote:
             print(f"Unable to found season_number and patch_number from the patchnote data. Placeholder values used instead.")
             
       
-        soup = BeautifulSoup(self.data['result']['data']['all']['nodes'][0]['patch_notes_body'][0]['patch_notes']['html'], 'html.parser')
+        self.soup = BeautifulSoup(self.data['result']['data']['all']['nodes'][0]['patch_notes_body'][0]['patch_notes']['html'], 'html.parser')
         
 
         try:
-            self.description : str = markdownify(str(soup.blockquote),  heading_style="ATX").replace('>','').strip().replace("\n \n", "\n")
+            self.description : str = markdownify(str(self.soup.blockquote),  heading_style="ATX").replace('>','').strip().replace("\n \n", "\n")
         except Exception:
             self.description : str = "Description of the patch note."
             print(f"Unable to found patch description from patchnote data. Placeholder text used instead.")
         
         try:
-            self.overview_image : str = soup.find(attrs={"class": "skins cboxElement"}).img.get('src')
+            self.overview_image : str = self.soup.find(attrs={"class": "skins cboxElement"}).img.get('src')
         except Exception:
             self.overview_image : str = "https://images.contentstack.io/v3/assets/blt731acb42bb3d1659/blt8536634d0d5ace2a/5e4f14a406f84d0d618d93ea/LOL_PROMOART_12.jpg"
             print(f"Unable to found patch overview image from patchnote data. Placeholder image used instead.")
@@ -99,7 +99,7 @@ class PatchNote:
         self.version_patch = str(f"{self.season_number}.{self.patch_number}")
         
         try:
-            self.test : str = markdownify(str(soup.find('title')),  heading_style="ATX").replace('>','').strip().replace("\n \n", "\n")
+            self.test : str = markdownify(str(self.soup.find('title')),  heading_style="ATX").replace('>','').strip().replace("\n \n", "\n")
         except Exception:
             self.test : str = "Description of the patch note."
             print(f"Unable to found patch description from patchnote data. Placeholder text used instead.")

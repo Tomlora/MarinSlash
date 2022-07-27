@@ -38,14 +38,14 @@ class Patchlol(commands.Cog):
         
         # Version chargée dans la bdd
         version_bdd = lire_bdd('patchnotes', 'dict')
-        version_bdd = version_bdd['1\n']['version']
+        version = version_bdd['1\n']['version']
         
         # Si les versions sont différentes, on update:
         
-        if version_bdd != patch_actuel.version_patch:
+        if version != patch_actuel.version_patch:
             
             # MAJ de la BDD
-            version_bdd = patch_actuel.version_patch
+            version_bdd['1\n']['version'] = patch_actuel.version_patch
             
             
             # Embed
@@ -53,7 +53,7 @@ class Patchlol(commands.Cog):
             embed = discord.Embed(title=f"Le patch {patch_actuel.version_patch} est disponible ! ", color=discord.Color.blue())
             embed.set_image(url=patch_actuel.overview_image)
             
-            embed.add_field(name="Details", value=f"[Lien du patch]({patch_actuel.link}")
+            embed.add_field(name="Details", value=f"[Lien du patch]({patch_actuel.link})")
             
             try:
                 await channel.send(embed=embed)
