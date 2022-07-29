@@ -7,10 +7,10 @@ import os
 
 
 
-engine = create_engine('sqlite:///./obj/BDD/database.db', echo=False)
+# engine = create_engine('sqlite:///./obj/BDD/database.db', echo=False)
 
-# DB = os.environ.get('API_SQL')
-# engine = create_engine(DB, echo=False)
+DB = os.environ.get('API_SQL')
+engine = create_engine(DB, echo=False)
 
 
 
