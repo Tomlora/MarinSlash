@@ -775,7 +775,7 @@ class LeagueofLegends(commands.Cog):
             d.text((x_kills, initial_y), str(match_info.thisKillsListe[i]), font=font, fill=(0, 0, 0))
             d.text((x_deaths, initial_y), str(match_info.thisDeathsListe[i]), font=font, fill=(0, 0, 0))
             d.text((x_assists, initial_y), str(match_info.thisAssistsListe[i]), font=font, fill=(0, 0, 0))
-            d.text((x_cs, initial_y), str(match_info.thisMinionListe[i]), font=font, fill=(0, 0, 0))
+            d.text((x_cs, initial_y), str(match_info.thisMinionListe[i] + match_info.thisJungleMonsterKilledListe[i]), font=font, fill=(0, 0, 0))
             d.text((x_vision, initial_y), str(match_info.thisVisionListe[i]), font=font, fill=(0, 0, 0))
             
             
