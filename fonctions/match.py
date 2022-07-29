@@ -215,6 +215,9 @@ class matchlol():
         self.thisWardsKilled = self.match_detail_participants['wardsKilled']
         self.thisGold = int(self.match_detail_participants['goldEarned'])
         
+        self.spell1 = self.match_detail_participants['summoner1Id']
+        self.spell2 = self.match_detail_participants['summoner2Id']
+        
         try:
             self.thisPing = self.match_detail_participants['basicPings']
         except:
@@ -389,6 +392,8 @@ class matchlol():
         self.thisChampName8 = self.champ_dict[str(self.thisChampListe[7])]
         self.thisChampName9 = self.champ_dict[str(self.thisChampListe[8])]
         self.thisChampName10 = self.champ_dict[str(self.thisChampListe[9])]
+        
+        self.thisChampNameListe = [self.thisChampName1, self.thisChampName2, self.thisChampName3, self.thisChampName4, self.thisChampName5, self.thisChampName6, self.thisChampName7, self.thisChampName8, self.thisChampName9, self.thisChampName10]
         
         
                 # total kills

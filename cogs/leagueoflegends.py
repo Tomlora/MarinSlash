@@ -1,6 +1,9 @@
 
 from discord.ext import commands, tasks
 
+import requests
+from PIL import Image, ImageDraw, ImageFont
+from io import BytesIO
 
 
 from riotwatcher import LolWatcher
@@ -42,6 +45,23 @@ region = "EUROPE"
 # Paramètres LoL
 version = lol_watcher.data_dragon.versions_for_region(my_region)
 champions_versions = version['n']['champion']
+
+def get_image(type, name):
+    if type == "champion":
+        url = (f"https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/champions/{name}.png"
+        )
+        response = requests.get(url)
+        if response.status_code != 200:
+            img = Image.new("RGB", (80, 80))
+        else:
+            img = Image.open(BytesIO(response.content))
+            img = img.resize((80, 80))
+        return img
+
+    elif type == "tier":
+        img = Image.open(f"./img/{name}.png")
+        img = img.resize((80, 80))
+        return img
 
 
 def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed):
@@ -639,50 +659,140 @@ class LeagueofLegends(commands.Cog):
                 embed.add_field(name=f'Bo5', value=f"Victoires : **{bo_wins}** | Defaites : **{bo_losses}**"
                                 + f"\nProgress : {bo_progress}", inline=False) 
                 
-        embed.add_field(name=f"Alliés ({match_info.thisGold_team1} Golds)",
-                        value=str(match_info.thisPseudoListe[0]) + " (" + str(match_info.thisChampName1) + ") - " + str(
-                            match_info.thisKillsListe[0]) + "/" + str(
-                            match_info.thisDeathsListe[0]) + "/" + str(match_info.thisAssistsListe[0]) + "\n" +
-                              str(match_info.thisPseudoListe[1]) + " (" + str(match_info.thisChampName2) + ") - " + str(
-                            match_info.thisKillsListe[1]) + "/" + str(
-                            match_info.thisDeathsListe[1]) + "/" + str(match_info.thisAssistsListe[1]) + "\n" +
-                              str(match_info.thisPseudoListe[2]) + " (" + str(match_info.thisChampName3) + ") - " + str(
-                            match_info.thisKillsListe[2]) + "/" + str(
-                            match_info.thisDeathsListe[2]) + "/" + str(match_info.thisAssistsListe[2]) + "\n" +
-                              str(match_info.thisPseudoListe[3]) + " (" + str(match_info.thisChampName4) + ") - " + str(
-                            match_info.thisKillsListe[3]) + "/" + str(
-                            match_info.thisDeathsListe[3]) + "/" + str(match_info.thisAssistsListe[3]) + "\n" +
-                              str(match_info.thisPseudoListe[4]) + " (" + str(match_info.thisChampName5) + ") - " + str(
-                            match_info.thisKillsListe[4]) + "/" + str(
-                            match_info.thisDeathsListe[4]) + "/" + str(match_info.thisAssistsListe[4]), inline=True)
-        embed.add_field(name=f"Adversaires ({match_info.thisGold_team2} Golds)",
-                        value=str(match_info.thisPseudoListe[5]) + " (" + str(match_info.thisChampName6) + ") - " + str(
-                            match_info.thisKillsListe[5]) + "/" + str(
-                            match_info.thisDeathsListe[5]) + "/" + str(
-                            match_info.thisAssistsListe[5]) + "\n" +
-                              str(match_info.thisPseudoListe[6]) + " (" + str(match_info.thisChampName7) + ") - " + str(
-                            match_info.thisKillsListe[6]) + "/" + str(
-                            match_info.thisDeathsListe[6]) + "/" + str(
-                            match_info.thisAssistsListe[6]) + "\n" +
-                              str(match_info.thisPseudoListe[7]) + " (" + str(match_info.thisChampName8) + ") - " + str(
-                            match_info.thisKillsListe[7]) + "/" + str(
-                            match_info.thisDeathsListe[7]) + "/" + str(
-                            match_info.thisAssistsListe[7]) + "\n" +
-                              str(match_info.thisPseudoListe[8]) + " (" + str(match_info.thisChampName9) + ") - " + str(
-                            match_info.thisKillsListe[8]) + "/" + str(
-                            match_info.thisDeathsListe[8]) + "/" + str(
-                            match_info.thisAssistsListe[8]) + "\n" +
-                              str(match_info.thisPseudoListe[9]) + " (" + str(match_info.thisChampName10) + ") - " + str(
-                            match_info.thisKillsListe[9]) + "/" + str(
-                            match_info.thisDeathsListe[9]) + "/" + str(match_info.thisAssistsListe[9]),
-                        inline=True)
+        # embed.add_field(name=f"Alliés ({match_info.thisGold_team1} Golds)",
+        #                 value=str(match_info.thisPseudoListe[0]) + " (" + str(match_info.thisChampName1) + ") - " + str(
+        #                     match_info.thisKillsListe[0]) + "/" + str(
+        #                     match_info.thisDeathsListe[0]) + "/" + str(match_info.thisAssistsListe[0]) + "\n" +
+        #                       str(match_info.thisPseudoListe[1]) + " (" + str(match_info.thisChampName2) + ") - " + str(
+        #                     match_info.thisKillsListe[1]) + "/" + str(
+        #                     match_info.thisDeathsListe[1]) + "/" + str(match_info.thisAssistsListe[1]) + "\n" +
+        #                       str(match_info.thisPseudoListe[2]) + " (" + str(match_info.thisChampName3) + ") - " + str(
+        #                     match_info.thisKillsListe[2]) + "/" + str(
+        #                     match_info.thisDeathsListe[2]) + "/" + str(match_info.thisAssistsListe[2]) + "\n" +
+        #                       str(match_info.thisPseudoListe[3]) + " (" + str(match_info.thisChampName4) + ") - " + str(
+        #                     match_info.thisKillsListe[3]) + "/" + str(
+        #                     match_info.thisDeathsListe[3]) + "/" + str(match_info.thisAssistsListe[3]) + "\n" +
+        #                       str(match_info.thisPseudoListe[4]) + " (" + str(match_info.thisChampName5) + ") - " + str(
+        #                     match_info.thisKillsListe[4]) + "/" + str(
+        #                     match_info.thisDeathsListe[4]) + "/" + str(match_info.thisAssistsListe[4]), inline=True)
+        # embed.add_field(name=f"Adversaires ({match_info.thisGold_team2} Golds)",
+        #                 value=str(match_info.thisPseudoListe[5]) + " (" + str(match_info.thisChampName6) + ") - " + str(
+        #                     match_info.thisKillsListe[5]) + "/" + str(
+        #                     match_info.thisDeathsListe[5]) + "/" + str(
+        #                     match_info.thisAssistsListe[5]) + "\n" +
+        #                       str(match_info.thisPseudoListe[6]) + " (" + str(match_info.thisChampName7) + ") - " + str(
+        #                     match_info.thisKillsListe[6]) + "/" + str(
+        #                     match_info.thisDeathsListe[6]) + "/" + str(
+        #                     match_info.thisAssistsListe[6]) + "\n" +
+        #                       str(match_info.thisPseudoListe[7]) + " (" + str(match_info.thisChampName8) + ") - " + str(
+        #                     match_info.thisKillsListe[7]) + "/" + str(
+        #                     match_info.thisDeathsListe[7]) + "/" + str(
+        #                     match_info.thisAssistsListe[7]) + "\n" +
+        #                       str(match_info.thisPseudoListe[8]) + " (" + str(match_info.thisChampName9) + ") - " + str(
+        #                     match_info.thisKillsListe[8]) + "/" + str(
+        #                     match_info.thisDeathsListe[8]) + "/" + str(
+        #                     match_info.thisAssistsListe[8]) + "\n" +
+        #                       str(match_info.thisPseudoListe[9]) + " (" + str(match_info.thisChampName10) + ") - " + str(
+        #                     match_info.thisKillsListe[9]) + "/" + str(
+        #                     match_info.thisDeathsListe[9]) + "/" + str(match_info.thisAssistsListe[9]),
+        #                 inline=True)
         
-
-
+        # Gestion de l'image
+        lineX = 1920
+        lineY = 100
         
+        x_name = 500
+
+        x_kills = 1200
+        x_deaths = x_kills + 100
+        x_assists = x_deaths + 100
+        
+        x_cs = x_assists + 200
+        
+        x_vision = x_cs + 150
+        
+        font_name=None
+
+        if font_name is not None:
+            font = ImageFont.truetype(font_name, 50)
+        else:
+            try:
+                font = ImageFont.truetype("DejaVuSans.ttf", 50) # Ubuntu 18.04
+            except OSError:
+                try:
+                    font = ImageFont.truetype("arial.ttf", 50)  # Windows
+                except OSError:
+                    font = ImageFont.truetype(
+                        "AppleSDGothicNeo.ttc", 50
+                    )  # MacOS
+
+        im = Image.new("RGBA", (lineX, lineY * 13), (255, 255, 255))
+        d = ImageDraw.Draw(im)
+        line = Image.new("RGB", (lineX, lineY), (230, 230, 230))
+
+        for i in range(0, 13):
+            if i % 2 == 0:
+                im.paste(line, (0, i * lineY))
+            elif i == 1:
+                im.paste(Image.new("RGB", (lineX, lineY), (85, 85, 255)), (0, i * lineY))
+            elif i == 7:
+                im.paste(Image.new("RGB", (lineX, lineY), (255, 70, 70)), (0, i * lineY))
+
+        # match
+        d.text((10, 10), "Summoner Rift" + " | " + match_info.thisQ, font=font, fill=(0, 0, 0))
+        d.text((10, 110), f'Alliés ({match_info.thisGold_team1} G)', font=font, fill=(0, 0, 0))
+        d.text((10, 710), f'Adv ({match_info.thisGold_team2} G)', font=font, fill=(0, 0, 0))
+
+        for y in range(110, 711, 600):
+            d.text((x_name, y), 'Name', font=font, fill=(0, 0, 0))
+            d.text((x_kills, y), 'K', font=font, fill=(0, 0, 0))
+            d.text((x_deaths, y), 'D', font=font, fill=(0, 0, 0))
+            d.text((x_assists, y), 'A', font=font, fill=(0, 0, 0))
+            d.text((x_cs, y), 'CS', font=font, fill=(0, 0, 0))
+            d.text((x_vision, y), 'Vision', font=font, fill=(0, 0, 0))
+
+        # participants
+        initial_y = 210
+
+        for i in range(0, 10):
+            im.paste(
+                im=get_image("champion", match_info.thisChampNameListe[i]),
+                box=(10, initial_y),
+            )
+
+            d.text((x_name, initial_y), match_info.thisPseudoListe[i], font=font, fill=(0, 0, 0))
+            # if match_info.thisTier != "unranked":
+            #     tier_image = get_image("tier", match_info.thisTier)
+            #     im.paste(tier_image, (x_tier, initial_y), tier_image)
+            # d.text((x_rank, initial_y), match_info.thisTier + " " + match_info.thisRank, font=font, fill=(0, 0, 0))
+            
+            # if type(match_info.thisWinrate) is float:
+            #     d.text((x_kills, initial_y), str(round(match_info.thisWinrate,2)) + "%", font=font, fill=(0, 0, 0))
+            
+            # d.text((x_deaths, initial_y), str(match_info.thisVictory), font=font, fill=(0, 0, 0))
+            # d.text((x_assists, initial_y), str(match_info.thisLoose), font=font, fill=(0, 0, 0))
+            
+            d.text((x_kills, initial_y), str(match_info.thisKillsListe[i]), font=font, fill=(0, 0, 0))
+            d.text((x_deaths, initial_y), str(match_info.thisDeathsListe[i]), font=font, fill=(0, 0, 0))
+            d.text((x_assists, initial_y), str(match_info.thisAssistsListe[i]), font=font, fill=(0, 0, 0))
+            d.text((x_cs, initial_y), str(match_info.thisMinionListe[i]), font=font, fill=(0, 0, 0))
+            d.text((x_vision, initial_y), str(match_info.thisVisionListe[i]), font=font, fill=(0, 0, 0))
+            
+            
+            
+
+            if i == 4:
+                initial_y += 200
+            else:
+                initial_y += 100
+
+        im.save('resume.png')
         
         url_champion = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/champions/{match_info.thisChampName}.png'
         embed.set_thumbnail(url=url_champion)
+        
+        resume = discord.File('resume.png')
+        embed.set_image(url='attachment://resume.png')
 
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora - Match {str(match_info.last_match)}')
 
@@ -690,7 +800,7 @@ class LeagueofLegends(commands.Cog):
             time_a = calcul_time('Embed fini', time_a)
             time_end = calcul_time('Total', time_depart)
 
-        return embed, match_info.thisQ
+        return embed, match_info.thisQ, resume
 
     @commands.command(brief="Version du jeu")
     async def lolversion(self, ctx):
@@ -790,10 +900,11 @@ class LeagueofLegends(commands.Cog):
         
         summonername = summonername.lower()
 
-        embed, mode_de_jeu = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, chrono=chrono)
+        embed, mode_de_jeu, resume = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, chrono=chrono)
 
         if embed != {}:
-            await ctx.send(embed=embed)
+            await ctx.send(embed=embed, file=resume)
+            os.remove('resume.png')
             
             
     @cog_ext.cog_slash(name="game_multi",
@@ -810,10 +921,10 @@ class LeagueofLegends(commands.Cog):
             
             summonername = summonername.lower()
 
-            embed, mode_de_jeu = self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes)
+            embed, mode_de_jeu, resume = self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes)
 
             if embed != {}:
-                await ctx.send(embed=embed)
+                await ctx.send(embed=embed, file=resume)
             else:
                 await ctx.send(f"La game {str(i)} n'a pas été comptabilisée")
                 
@@ -824,7 +935,7 @@ class LeagueofLegends(commands.Cog):
         
         summonername = summonername.lower()
         
-        embed, mode_de_jeu = self.printInfo(summonerName=summonername, idgames=0, succes=True)
+        embed, mode_de_jeu, resume = self.printInfo(summonerName=summonername, idgames=0, succes=True)
         
         if mode_de_jeu in ['RANKED', 'FLEX']:
             channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))
@@ -832,7 +943,8 @@ class LeagueofLegends(commands.Cog):
             channel_tracklol = self.bot.get_channel(int(main.chan_lol_others))   
         
         if embed != {}:
-            await channel_tracklol.send(embed=embed)
+            await channel_tracklol.send(embed=embed, file=resume)
+            os.remove('resume.png')
 
 
     async def update(self):

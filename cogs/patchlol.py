@@ -8,10 +8,13 @@ from discord.ext import commands, tasks
 
 
 from discord_slash.utils.manage_components import *
-# from discord_slash import cog_ext, SlashContext
+from discord_slash import cog_ext, SlashContext
 
 from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 from fonctions.patch import PatchNote
+
+from discord_slash.utils.manage_components import *
+from discord_slash.utils.manage_commands import create_option, create_choice
 
 from main import Var_version, chan_lol
 
@@ -60,7 +63,18 @@ class Patchlol(commands.Cog):
                 sauvegarde_bdd(version_bdd, 'patchnotes')
             except:
                 print('Erreur au lancement du bot... Réessai dans 10 minutes')
+                
+                
+    @cog_ext.cog_slash(name="patch_detail",
+                       description="Detail du dernier patch")
+    async def patch_detail(self, ctx):
+        
+        patch_actuel = PatchNote()
+        
+        embed = discord.Embed(title=f"Detail Patch {patch_actuel.version_patch}")
+        # patch_actuel.detail_patch
                  
+
 
 def setup(bot):
     bot.add_cog(Patchlol(bot))

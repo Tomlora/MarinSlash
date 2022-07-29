@@ -103,6 +103,12 @@ class PatchNote:
         except Exception:
             self.test : str = "Description of the patch note."
             print(f"Unable to found patch description from patchnote data. Placeholder text used instead.")
+            
+            
+    def patch_detail(self):
+        self.detail_patch = self.soup.find_all(class_=["change-title", "summary", "change-detail-title ability-title", "attribute-change"])
+        self.detail_patch = markdownify(str(self.detail_patch),  heading_style="ATX").replace('>','').strip().replace("\n \n", "\n").replace(",", "").replace("####", "").replace("###", "")
+        
 
             
   
