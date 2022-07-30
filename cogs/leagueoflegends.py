@@ -738,7 +738,7 @@ class LeagueofLegends(commands.Cog):
                         "AppleSDGothicNeo.ttc", 50
                     )  # MacOS
 
-        im = Image.new("RGBA", (lineX, lineY * 14), (255, 255, 255)) # Ligne blanche
+        im = Image.new("RGBA", (lineX, lineY * 13), (255, 255, 255)) # Ligne blanche
         d = ImageDraw.Draw(im)
         line = Image.new("RGB", (lineX, lineY), (230, 230, 230)) # Ligne grise
 
