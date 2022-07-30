@@ -544,6 +544,10 @@ class matchlol():
             (self.match_detail_challenges['teamDamagePercentage']) * 100, 2)
         self.thisDamageTakenRatio = round(
             (self.match_detail_challenges['damageTakenOnTeamPercentage']) * 100, 2)
+        
+        
+        self.thisDamageRatioListe = dict_data(self.thisId, self.match_detail, "teamDamagePercentage")
+        self.thisDamageTakenRatioListe = dict_data(self.thisId, self.match_detail, "damageTakenOnTeamPercentage")
 
         # on doit identifier les stats soloq (et non flex...)
         try:

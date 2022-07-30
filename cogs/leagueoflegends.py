@@ -582,7 +582,7 @@ class LeagueofLegends(commands.Cog):
 
         if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and match_info.thisQ in ["RANKED", "FLEX"]:
             embed.add_field(
-                name="Durée : " + str(int(match_info.thisTime)) + " minutes | Score " + str(result) + " | Ecart gold (role) : " + str(match_info.ecart_gold),
+                name="Durée : " + str(int(match_info.thisTime)) + " minutes | Score " + str(result),
                 value=exploits, inline=False)
         else:
             embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
@@ -633,12 +633,12 @@ class LeagueofLegends(commands.Cog):
             embed.add_field(name="Golds gagnés : " + str(match_info.thisGold), value=f"golds par minute : **{match_info.thisGoldPerMinute}**",
                         inline=False)
         # Dmg
-        embed.add_field(name="DMG deal : " + str(match_info.thisDamage) + " (" + str(match_info.thisDamageRatio) + "%) | AD : " + str(match_info.thisDamageAD) + " | AP : " + str(match_info.thisDamageAP) + " | True : " + str(match_info.thisDamageTrue),
+        embed.add_field(name="DMG deal : " + str(match_info.thisDamage),
                         value=f"Dégats par minutes : **{round(match_info.thisDamagePerMinute, 0)}**" 
                         + f"\n Double : **{match_info.thisDouble}** | Triple : **{match_info.thisTriple}** | Quadra : **{match_info.thisQuadra}** | Penta : **{match_info.thisPenta}**"
                         + f"\n SoloKills : **{match_info.thisSoloKills}**",
                         inline=False)
-        embed.add_field(name="DMG reçus : " + str(match_info.thisDamageTaken) + " (" + str(match_info.thisDamageTakenRatio) + "%) | AD : " + str(match_info.thisDamageTakenAD) + " | AP : " + str(match_info.thisDamageTakenAP) + " | True : " + str(match_info.thisDamageTakenTrue),
+        embed.add_field(name="DMG reçus : " + str(match_info.thisDamageTaken),
                         value=f"Dégats réduits : **{match_info.thisDamageSelfMitigatedFormat}**", inline=False)
         
 
@@ -710,7 +710,7 @@ class LeagueofLegends(commands.Cog):
         font_name = None
         
         # Gestion de l'image
-        lineX = 2300
+        lineX = 2600
         lineY = 100
         
         x_name = 500
@@ -721,14 +721,18 @@ class LeagueofLegends(commands.Cog):
         
         x_kda = x_assists + 200
         
-        x_kp = x_kda + 300
+        x_kp = x_kda + 200
         
         x_cs = x_kp + 200 
         
         x_vision = x_cs + 150
         
+        x_dmg_percent = x_vision + 150
         
-        x_objectif = 1400
+        x_dmg_taken = x_dmg_percent + 250
+        
+        
+        x_objectif = 1600
 
         if font_name is not None:
             font = ImageFont.truetype(font_name, 50)
@@ -767,10 +771,10 @@ class LeagueofLegends(commands.Cog):
 
         # match
         d.text((10, 15), match_info.thisQ, font=font, fill=(0, 0, 0))
-        d.text((10, 110), f'Gold : {match_info.thisGold_team1}', font=font, fill=(0, 0, 0))
-        d.text((10, 710), f'Gold : {match_info.thisGold_team2}', font=font, fill=(0, 0, 0))
+        d.text((10, 120), f'Gold : {match_info.thisGold_team1}', font=font, fill=(0, 0, 0))
+        d.text((10, 720), f'Gold : {match_info.thisGold_team2}', font=font, fill=(0, 0, 0))
 
-        for y in range(110, 711, 600):
+        for y in range(120, 721, 600):
             d.text((x_name, y), 'Name', font=font, fill=(0, 0, 0))
             d.text((x_kills, y), 'K', font=font, fill=(0, 0, 0))
             d.text((x_deaths, y), 'D', font=font, fill=(0, 0, 0))
@@ -778,15 +782,19 @@ class LeagueofLegends(commands.Cog):
             d.text((x_kda, y), 'KDA', font=font, fill=(0, 0, 0))
             d.text((x_kp, y), 'KP', font=font, fill=(0, 0, 0))
             d.text((x_cs, y), 'CS', font=font, fill=(0, 0, 0))
-            d.text((x_vision, y), 'Vision', font=font, fill=(0, 0, 0))
+            d.text((x_dmg_percent+10, y), "DMG%", font=font, fill=(0,0,0))
+            d.text((x_dmg_taken+15, y), 'TANK%', font=font, fill=(0,0,0))
+            
+            if match_info.thisQ != "ARAM": 
+                d.text((x_vision, y), 'VS', font=font, fill=(0, 0, 0))
 
         # participants
-        initial_y = 210
+        initial_y = 220
 
         for i in range(0, 10):
             im.paste(
                 im=get_image("champion", match_info.thisChampNameListe[i]),
-                box=(10, initial_y),
+                box=(10, initial_y-10),
             )
             
             d.text((x_level, initial_y), "Niv " + str(match_info.thisLevelListe[i]), font=font, fill=(0,0,0))
@@ -794,18 +802,52 @@ class LeagueofLegends(commands.Cog):
             d.text((x_name, initial_y), match_info.thisPseudoListe[i], font=font, fill=(0, 0, 0))
 
             
-
-            d.text((x_kills, initial_y), str(match_info.thisKillsListe[i]), font=font, fill=(0,0,0))
-
-            d.text((x_deaths, initial_y), str(match_info.thisDeathsListe[i]), font=font, fill=(0,0,0))
+            if len(str(match_info.thisKillsListe[i])) == 1:
+                d.text((x_kills, initial_y), str(match_info.thisKillsListe[i]), font=font, fill=(0,0,0))
+            else:
+                d.text((x_kills - 20, initial_y), str(match_info.thisKillsListe[i]), font=font, fill=(0,0,0))
+                
+                
+            if len(str(match_info.thisDeathsListe[i])) == 1:
+                d.text((x_deaths, initial_y), str(match_info.thisDeathsListe[i]), font=font, fill=(0,0,0))
+            else:
+                d.text((x_deaths - 20, initial_y), str(match_info.thisDeathsListe[i]), font=font, fill=(0,0,0))
             
 
+            if len(str(match_info.thisAssistsListe[i])) == 1:            
+                d.text((x_assists, initial_y), str(match_info.thisAssistsListe[i]), font=font, fill=(0,0,0))
+            else:
+                d.text((x_assists - 20, initial_y), str(match_info.thisAssistsListe[i]), font=font, fill=(0,0,0))
+            
+            
+            if len(str(round(match_info.thisKDAListe[i],2)))==1: # Recentrer le résultat quand chiffre rond
+                d.text((x_kda + 35, initial_y), str(round(match_info.thisKDAListe[i],2)), font=font, fill=(0,0,0))
+            else:
+                d.text((x_kda, initial_y), str(round(match_info.thisKDAListe[i],2)), font=font, fill=(0,0,0))
                 
-            d.text((x_assists, initial_y), str(match_info.thisAssistsListe[i]), font=font, fill=(0,0,0))
-            d.text((x_kda, initial_y), str(round(match_info.thisKDAListe[i],2)), font=font, fill=(0,0,0))
             d.text((x_kp, initial_y), str(match_info.thisKPListe[i]) + "%", font=font, fill=(0, 0, 0))
-            d.text((x_cs, initial_y), str(match_info.thisMinionListe[i] + match_info.thisJungleMonsterKilledListe[i]), font=font, fill=(0, 0, 0))
-            d.text((x_vision, initial_y), str(match_info.thisVisionListe[i]), font=font, fill=(0, 0, 0))
+            
+            if len(str(match_info.thisMinionListe[i] + match_info.thisJungleMonsterKilledListe[i])) != 2:
+                d.text((x_cs, initial_y), str(match_info.thisMinionListe[i] + match_info.thisJungleMonsterKilledListe[i]), font=font, fill=(0, 0, 0))
+            else:
+                d.text((x_cs + 10, initial_y), str(match_info.thisMinionListe[i] + match_info.thisJungleMonsterKilledListe[i]), font=font, fill=(0, 0, 0))
+                
+            if match_info.thisQ != "ARAM": 
+                
+                d.text((x_vision, initial_y), str(match_info.thisVisionListe[i]), font=font, fill=(0, 0, 0))
+                
+                
+            if len(str(round(match_info.thisDamageRatioListe[i]*100,1))) == 3:     
+                d.text((x_dmg_percent + 15, initial_y), str(round(match_info.thisDamageRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
+            else:
+                d.text((x_dmg_percent, initial_y), str(round(match_info.thisDamageRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
+                
+                
+            if len(str(round(match_info.thisDamageTakenRatioListe[i]*100,1))) == 3:
+                d.text((x_dmg_taken, initial_y), str(round(match_info.thisDamageTakenRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
+            else:
+                d.text((x_dmg_taken + 15, initial_y), str(round(match_info.thisDamageTakenRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
+                
             
             
             
@@ -841,9 +883,6 @@ class LeagueofLegends(commands.Cog):
                     
             im.paste(nashor, (x_objectif + 600, 10), nashor.convert('RGBA'))
             d.text((x_objectif + 600 + 100, 20), str(match_info.thisBaronTeam), font=font, fill=(0, 0, 0))
-
-                
-
 
 
         im.save('resume.png')
