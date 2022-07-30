@@ -439,6 +439,12 @@ class matchlol():
             self.ecart_adc_gold = self.thisGoldListe[3] - self.thisGoldListe[8]
             self.ecart_supp_gold = self.thisGoldListe[4] - self.thisGoldListe[9]
             
+            self.ecart_top_gold_affiche = self.thisGoldListe[0] - self.thisGoldListe[5]
+            self.ecart_jgl_gold_affiche = self.thisGoldListe[1] - self.thisGoldListe[6]
+            self.ecart_mid_gold_affiche = self.thisGoldListe[2] - self.thisGoldListe[7]
+            self.ecart_adc_gold_affiche = self.thisGoldListe[3] - self.thisGoldListe[8]
+            self.ecart_supp_gold_affiche = self.thisGoldListe[4] - self.thisGoldListe[9]
+            
             self.ecart_top_vision = self.thisVisionListe[0] - self.thisVisionListe[5]
             self.ecart_jgl_vision = self.thisVisionListe[1] - self.thisVisionListe[6]
             self.ecart_mid_vision = self.thisVisionListe[2] - self.thisVisionListe[7]
@@ -470,6 +476,12 @@ class matchlol():
             self.ecart_mid_gold = self.thisGoldListe[2] - self.thisGoldListe[7]
             self.ecart_adc_gold = self.thisGoldListe[3] - self.thisGoldListe[8]
             self.ecart_supp_gold = self.thisGoldListe[4] - self.thisGoldListe[9]
+            
+            self.ecart_top_gold_affiche = self.thisGoldListe[0] - self.thisGoldListe[5]
+            self.ecart_jgl_gold_affiche = self.thisGoldListe[1] - self.thisGoldListe[6]
+            self.ecart_mid_gold_affiche = self.thisGoldListe[2] - self.thisGoldListe[7]
+            self.ecart_adc_gold_affiche = self.thisGoldListe[3] - self.thisGoldListe[8]
+            self.ecart_supp_gold_affiche = self.thisGoldListe[4] - self.thisGoldListe[9]
             
             self.ecart_top_vision = self.thisVisionListe[0] - self.thisVisionListe[5]
             self.ecart_jgl_vision = self.thisVisionListe[1] - self.thisVisionListe[6]

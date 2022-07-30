@@ -644,11 +644,11 @@ class LeagueofLegends(commands.Cog):
 
         # Objectifs
         if match_info.thisQ != "ARAM":
-            embed.add_field(name="Team :", value=f"\nEcart top - Gold : **{match_info.ecart_top_gold}** | Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
-                            + f"Ecart jgl - Gold : **{match_info.ecart_jgl_gold}** | Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
-                            + f"Ecart mid - Gold : **{match_info.ecart_mid_gold}** | Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
-                            + f"Ecart adc - Gold : **{match_info.ecart_adc_gold}** | Vision : **{match_info.ecart_adc_vision}** | CS : **{match_info.ecart_adc_cs}** \n"
-                            + f"Ecart supp - Gold : **{match_info.ecart_supp_gold}** | Vision : **{match_info.ecart_supp_vision}** | CS : **{match_info.ecart_supp_cs}**", inline=False)
+            embed.add_field(name="Team :", value=f"\nEcart top - Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
+                            + f"Ecart jgl - Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
+                            + f"Ecart mid - Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
+                            + f"Ecart adc - Vision : **{match_info.ecart_adc_vision}** | CS : **{match_info.ecart_adc_cs}** \n"
+                            + f"Ecart supp - Vision : **{match_info.ecart_supp_vision}** | CS : **{match_info.ecart_supp_cs}**", inline=False)
         
 
         # Stats soloq :
@@ -714,7 +714,8 @@ class LeagueofLegends(commands.Cog):
         lineY = 100
         
         x_name = 500
-        x_level = x_name - 300
+        x_level = x_name - 400
+        x_ecart = x_name - 150
         x_kills = 1000
         x_deaths = x_kills + 100
         x_assists = x_deaths + 100
@@ -844,11 +845,10 @@ class LeagueofLegends(commands.Cog):
                 
                 
             if len(str(round(match_info.thisDamageTakenRatioListe[i]*100,1))) == 3:
-                d.text((x_dmg_taken, initial_y), str(round(match_info.thisDamageTakenRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
-            else:
                 d.text((x_dmg_taken + 15, initial_y), str(round(match_info.thisDamageTakenRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
+            else:
+                d.text((x_dmg_taken, initial_y), str(round(match_info.thisDamageTakenRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
                 
-            
             
             
 
@@ -856,6 +856,16 @@ class LeagueofLegends(commands.Cog):
                 initial_y += 200
             else:
                 initial_y += 100
+                
+        if match_info.thisQ != "ARAM":         
+            y_ecart = 220
+            for ecart in [match_info.ecart_top_gold_affiche, match_info.ecart_jgl_gold_affiche, match_info.ecart_mid_gold_affiche, match_info.ecart_adc_gold_affiche, match_info.ecart_supp_gold_affiche]:        
+                if ecart > 0:
+                    d.text((x_ecart, y_ecart), str(round(ecart/1000,1)) + "k", font=font, fill=(0,128,0))
+                else:
+                    d.text((x_ecart-10, y_ecart), str(round(ecart/1000,1)) + "k", font=font, fill=(255,0,0))   
+                
+                y_ecart = y_ecart + 100
                 
             
         n = 0
