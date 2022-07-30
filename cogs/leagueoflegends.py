@@ -795,7 +795,9 @@ class LeagueofLegends(commands.Cog):
             d.text((x_assists, initial_y), str(match_info.thisAssistsListe[i]), font=font, fill=(0,0,0))
             d.text((x_kp, initial_y), str(match_info.thisKPListe[i]) + "%", font=font, fill=(0, 0, 0))
             d.text((x_cs, initial_y), str(match_info.thisMinionListe[i] + match_info.thisJungleMonsterKilledListe[i]), font=font, fill=(0, 0, 0))
-            d.text((x_vision, initial_y), str(match_info.thisVisionListe[i]), font=font, fill=(0, 0, 0))
+            
+            if match_info.thisQ != "ARAM":
+                d.text((x_vision, initial_y), str(match_info.thisVisionListe[i]), font=font, fill=(0, 0, 0))
             
             
             
