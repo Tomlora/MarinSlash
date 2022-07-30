@@ -401,6 +401,7 @@ class matchlol():
         self.thisKillsListe = dict_data(self.thisId, self.match_detail, 'kills')
         
         self.thisTeamKills = self.thisKillsListe[0] + self.thisKillsListe[1] + self.thisKillsListe[2] + self.thisKillsListe[3] + self.thisKillsListe[4]
+        self.thisTeamKillsOp = self.thisKillsListe[5] + self.thisKillsListe[6] + self.thisKillsListe[7] + self.thisKillsListe[8] + self.thisKillsListe[9]
 
         # deaths
 
@@ -446,6 +447,18 @@ class matchlol():
             self.ecart_adc_cs = (self.thisMinionListe[3] + self.thisJungleMonsterKilledListe[3]) - (self.thisMinionListe[8] + self.thisJungleMonsterKilledListe[8])
             self.ecart_supp_cs = (self.thisMinionListe[4] + self.thisJungleMonsterKilledListe[4]) - (self.thisMinionListe[9] + self.thisJungleMonsterKilledListe[9])
             
+            self.thisKPListe = [int(round((self.thisKillsListe[0] + self.thisDeathsListe[0]) / (self.thisTeamKills), 2) * 100),
+                                int(round((self.thisKillsListe[1] + self.thisDeathsListe[1]) / (self.thisTeamKills), 2) * 100),
+                                int(round((self.thisKillsListe[2] + self.thisDeathsListe[2]) / (self.thisTeamKills), 2) * 100),
+                                int(round((self.thisKillsListe[3] + self.thisDeathsListe[3]) / (self.thisTeamKills), 2) * 100),
+                                int(round((self.thisKillsListe[4] + self.thisDeathsListe[4]) / (self.thisTeamKills), 2) * 100),
+                                int(round((self.thisKillsListe[5] + self.thisDeathsListe[5]) / (self.thisTeamKillsOp), 2) * 100),
+                                int(round((self.thisKillsListe[6] + self.thisDeathsListe[6]) / (self.thisTeamKillsOp), 2) * 100),
+                                int(round((self.thisKillsListe[7] + self.thisDeathsListe[7]) / (self.thisTeamKillsOp), 2) * 100),
+                                int(round((self.thisKillsListe[8] + self.thisDeathsListe[8]) / (self.thisTeamKillsOp), 2) * 100),
+                                int(round((self.thisKillsListe[9] + self.thisDeathsListe[9]) / (self.thisTeamKillsOp), 2) * 100),
+            ]
+            
         elif self.team == 1:
             
             self.ecart_top_gold = self.thisGoldListe[0] - self.thisGoldListe[5]
@@ -465,6 +478,18 @@ class matchlol():
             self.ecart_mid_cs = (self.thisMinionListe[2] + self.thisJungleMonsterKilledListe[2]) - (self.thisMinionListe[7] + self.thisJungleMonsterKilledListe[7])
             self.ecart_adc_cs = (self.thisMinionListe[3] + self.thisJungleMonsterKilledListe[3]) - (self.thisMinionListe[8] + self.thisJungleMonsterKilledListe[8])
             self.ecart_supp_cs = (self.thisMinionListe[4] + self.thisJungleMonsterKilledListe[4]) - (self.thisMinionListe[9] + self.thisJungleMonsterKilledListe[9])
+            
+            self.thisKPListe = [int(round((self.thisKillsListe[0] + self.thisDeathsListe[0]) / (self.thisTeamKills), 2) * 100),
+                                int(round((self.thisKillsListe[1] + self.thisDeathsListe[1]) / (self.thisTeamKills), 2) * 100),
+                                int(round((self.thisKillsListe[2] + self.thisDeathsListe[2]) / (self.thisTeamKills), 2) * 100),
+                                int(round((self.thisKillsListe[3] + self.thisDeathsListe[3]) / (self.thisTeamKills), 2) * 100),
+                                int(round((self.thisKillsListe[4] + self.thisDeathsListe[4]) / (self.thisTeamKills), 2) * 100),
+                                int(round((self.thisKillsListe[5] + self.thisDeathsListe[5]) / (self.thisTeamKillsOp), 2) * 100),
+                                int(round((self.thisKillsListe[6] + self.thisDeathsListe[6]) / (self.thisTeamKillsOp), 2) * 100),
+                                int(round((self.thisKillsListe[7] + self.thisDeathsListe[7]) / (self.thisTeamKillsOp), 2) * 100),
+                                int(round((self.thisKillsListe[8] + self.thisDeathsListe[8]) / (self.thisTeamKillsOp), 2) * 100),
+                                int(round((self.thisKillsListe[9] + self.thisDeathsListe[9]) / (self.thisTeamKillsOp), 2) * 100),
+            ]
             
         self.adversaire_direct = {"TOP" : self.ecart_top_gold, "JUNGLE" : self.ecart_jgl_gold, "MID" : self.ecart_mid_gold, "ADC" : self.ecart_adc_gold, "SUPPORT" : self.ecart_supp_gold}
          
