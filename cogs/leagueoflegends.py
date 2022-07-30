@@ -752,9 +752,9 @@ class LeagueofLegends(commands.Cog):
             elif i == 7:
                 im.paste(Image.new("RGB", (lineX, lineY), (255, 70, 70)), (0, i * lineY)) # Ligne rouge
                 
-            
-            if i == dict_position[match_info.thisPosition]:
-                im.paste(Image.new("RGB", (lineX, lineY), (173,216,230)), (0, i*lineY))
+            if match_info.thisQ != "ARAM":
+                if i == dict_position[match_info.thisPosition]:
+                    im.paste(Image.new("RGB", (lineX, lineY), (173,216,230)), (0, i*lineY))
                 
             
 
