@@ -752,7 +752,7 @@ class LeagueofLegends(commands.Cog):
         d = ImageDraw.Draw(im)
         line = Image.new("RGB", (lineX, lineY), (230, 230, 230)) # Ligne grise
 
-        dict_position = {"TOP" : 2, "JGL": 3, "MID" : 4, "ADC" : 5, "SUPPORT" : 6}
+        dict_position = {"TOP" : 2, "JUNGLE": 3, "MID" : 4, "ADC" : 5, "SUPPORT" : 6}
 
         for i in range(0, 13):
             if i % 2 == 0:
