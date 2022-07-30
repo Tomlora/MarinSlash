@@ -644,8 +644,7 @@ class LeagueofLegends(commands.Cog):
 
         # Objectifs
         if match_info.thisQ != "ARAM":
-            embed.add_field(name="Team :", value=f"Ecart :"
-                            + f"\n\nEcart top - Gold : **{match_info.ecart_top_gold}** | Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
+            embed.add_field(name="Team :", value=f"\nEcart top - Gold : **{match_info.ecart_top_gold}** | Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
                             + f"Ecart jgl - Gold : **{match_info.ecart_jgl_gold}** | Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
                             + f"Ecart mid - Gold : **{match_info.ecart_mid_gold}** | Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
                             + f"Ecart adc - Gold : **{match_info.ecart_adc_gold}** | Vision : **{match_info.ecart_adc_vision}** | CS : **{match_info.ecart_adc_cs}** \n"
