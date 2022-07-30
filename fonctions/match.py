@@ -426,6 +426,10 @@ class matchlol():
         self.thisJungleMonsterKilledListe = dict_data(self.thisId, self.match_detail, 'neutralMinionsKilled')
         self.thisMinionListe = dict_data(self.thisId, self.match_detail, 'totalMinionsKilled')
         
+        self.thisKDAListe = dict_data(self.thisId, self.match_detail, "kda")
+        
+        self.thisLevelListe = dict_data(self.thisId, self.match_detail, "champLevel")
+        
         
         
         if self.team == 0 :

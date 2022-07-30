@@ -710,20 +710,25 @@ class LeagueofLegends(commands.Cog):
         font_name = None
         
         # Gestion de l'image
-        lineX = 1920
+        lineX = 2300
         lineY = 100
         
         x_name = 500
-        x_level = x_name + 100
+        x_level = x_name - 300
         x_kills = 1000
         x_deaths = x_kills + 100
         x_assists = x_deaths + 100
         
-        x_kp = x_deaths + 300
+        x_kda = x_assists + 200
         
-        x_cs = x_assists + 200 + 200
+        x_kp = x_kda + 300
+        
+        x_cs = x_kp + 200 
         
         x_vision = x_cs + 150
+        
+        
+        x_objectif = 1400
 
         if font_name is not None:
             font = ImageFont.truetype(font_name, 50)
@@ -752,6 +757,7 @@ class LeagueofLegends(commands.Cog):
             elif i == 7:
                 im.paste(Image.new("RGB", (lineX, lineY), (255, 70, 70)), (0, i * lineY)) # Ligne rouge
                 
+            
             if match_info.thisQ != "ARAM":
                 if i == dict_position[match_info.thisPosition]:
                     im.paste(Image.new("RGB", (lineX, lineY), (173,216,230)), (0, i*lineY))
@@ -761,14 +767,15 @@ class LeagueofLegends(commands.Cog):
 
         # match
         d.text((10, 15), match_info.thisQ, font=font, fill=(0, 0, 0))
-        d.text((10, 110), f'Alliés ({match_info.thisGold_team1})', font=font, fill=(0, 0, 0))
-        d.text((10, 710), f'Adv ({match_info.thisGold_team2})', font=font, fill=(0, 0, 0))
+        d.text((10, 110), f'Gold : {match_info.thisGold_team1}', font=font, fill=(0, 0, 0))
+        d.text((10, 710), f'Gold : {match_info.thisGold_team2}', font=font, fill=(0, 0, 0))
 
         for y in range(110, 711, 600):
             d.text((x_name, y), 'Name', font=font, fill=(0, 0, 0))
             d.text((x_kills, y), 'K', font=font, fill=(0, 0, 0))
             d.text((x_deaths, y), 'D', font=font, fill=(0, 0, 0))
             d.text((x_assists, y), 'A', font=font, fill=(0, 0, 0))
+            d.text((x_kda, y), 'KDA', font=font, fill=(0, 0, 0))
             d.text((x_kp, y), 'KP', font=font, fill=(0, 0, 0))
             d.text((x_cs, y), 'CS', font=font, fill=(0, 0, 0))
             d.text((x_vision, y), 'Vision', font=font, fill=(0, 0, 0))
@@ -781,6 +788,8 @@ class LeagueofLegends(commands.Cog):
                 im=get_image("champion", match_info.thisChampNameListe[i]),
                 box=(10, initial_y),
             )
+            
+            d.text((x_level, initial_y), "Niv " + str(match_info.thisLevelListe[i]), font=font, fill=(0,0,0))
 
             d.text((x_name, initial_y), match_info.thisPseudoListe[i], font=font, fill=(0, 0, 0))
 
@@ -793,11 +802,10 @@ class LeagueofLegends(commands.Cog):
 
                 
             d.text((x_assists, initial_y), str(match_info.thisAssistsListe[i]), font=font, fill=(0,0,0))
+            d.text((x_kda, initial_y), str(round(match_info.thisKDAListe[i],2)), font=font, fill=(0,0,0))
             d.text((x_kp, initial_y), str(match_info.thisKPListe[i]) + "%", font=font, fill=(0, 0, 0))
             d.text((x_cs, initial_y), str(match_info.thisMinionListe[i] + match_info.thisJungleMonsterKilledListe[i]), font=font, fill=(0, 0, 0))
-            
-            if match_info.thisQ != "ARAM":
-                d.text((x_vision, initial_y), str(match_info.thisVisionListe[i]), font=font, fill=(0, 0, 0))
+            d.text((x_vision, initial_y), str(match_info.thisVisionListe[i]), font=font, fill=(0, 0, 0))
             
             
             
@@ -822,17 +830,17 @@ class LeagueofLegends(commands.Cog):
             herald = get_image('monsters', 'herald')
             nashor = get_image('monsters', 'nashor')       
                     
-            im.paste(drk,(1000, 10), drk.convert('RGBA'))
-            d.text((1100, 20), str(match_info.thisDragonTeam), font=font, fill=(0, 0, 0))
+            im.paste(drk,(x_objectif, 10), drk.convert('RGBA'))
+            d.text((x_objectif + 100, 20), str(match_info.thisDragonTeam), font=font, fill=(0, 0, 0))
             
-            im.paste(elder,(1200, 10), elder.convert('RGBA'))
-            d.text((1300, 20), str(match_info.thisElderPerso), font=font, fill=(0, 0, 0))
+            im.paste(elder,(x_objectif + 200, 10), elder.convert('RGBA'))
+            d.text((x_objectif + 200 + 100, 20), str(match_info.thisElderPerso), font=font, fill=(0, 0, 0))
                 
-            im.paste(herald,(1400, 10), herald.convert('RGBA'))
-            d.text((1500, 20), str(match_info.thisHeraldTeam), font=font, fill=(0, 0, 0))
+            im.paste(herald,(x_objectif + 400, 10), herald.convert('RGBA'))
+            d.text((x_objectif + 400 + 100, 20), str(match_info.thisHeraldTeam), font=font, fill=(0, 0, 0))
                     
-            im.paste(nashor, (1600, 10), nashor.convert('RGBA'))
-            d.text((1700, 20), str(match_info.thisBaronTeam), font=font, fill=(0, 0, 0))
+            im.paste(nashor, (x_objectif + 600, 10), nashor.convert('RGBA'))
+            d.text((x_objectif + 600 + 100, 20), str(match_info.thisBaronTeam), font=font, fill=(0, 0, 0))
 
                 
 
