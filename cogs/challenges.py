@@ -339,7 +339,7 @@ class Challenges(commands.Cog):
         
             os.remove('image.png')
         else:
-            ctx.send(f'Pas de ranking pour {summonername} :(')
+            await ctx.send(f"Pas de ranking pour {summonername} :(. Pas d'espace dans le pseudo")
         
         
             
