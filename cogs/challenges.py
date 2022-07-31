@@ -312,7 +312,7 @@ class Challenges(commands.Cog):
             os.remove('plot.png')
             
     @cog_ext.cog_slash(name="challenges_best", description="Meilleur classement pour les defis",
-                       options=[create_option(name="summonername", description="Nom du joueur", option_type=3, required=True)])
+                       options=[create_option(name="summonername", description="Nom du joueur (Pas d'espace dans le pseudo !)", option_type=3, required=True)])
     async def challenges_best(self, ctx, summonername:str):
        
         # tous les summonername sont en minuscule : 
@@ -325,11 +325,12 @@ class Challenges(commands.Cog):
         data['position'] = data['position'].astype('float')
         # on vire les non classements
         data = data[data['position'] != 0]
-        try:
+        
+        if data.shape[0] != 0: # s'il y a des données
             # on trie 
             data.sort_values(['position'], ascending=True, inplace=True)
             # on retient ce qui nous intéresse
-            data = data[['name', 'percentile', 'value', 'level', 'shortDescription', 'position']]
+            data = data[['name', 'value', 'level', 'shortDescription', 'position']]
             # index
             data.set_index('name', inplace=True)
             dfi.export(data, 'image.png', max_cols=-1, max_rows=-1, table_conversion="matplotlib")
@@ -337,7 +338,7 @@ class Challenges(commands.Cog):
             await ctx.send(file=discord.File('image.png'))
         
             os.remove('image.png')
-        except:
+        else:
             ctx.send(f'Pas de ranking pour {summonername} :(')
         
         
