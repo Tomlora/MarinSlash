@@ -772,22 +772,27 @@ class LeagueofLegends(commands.Cog):
 
         # match
         d.text((10, 15), match_info.thisQ, font=font, fill=(0, 0, 0))
-        d.text((10, 120), f'Gold : {match_info.thisGold_team1}', font=font, fill=(0, 0, 0))
+        d.text((10, 120), f'Gold : {match_info.thisGold_team1}', font=font, fill=(255, 255, 255))
         d.text((10, 720), f'Gold : {match_info.thisGold_team2}', font=font, fill=(0, 0, 0))
 
         for y in range(120, 721, 600):
-            d.text((x_name, y), 'Name', font=font, fill=(0, 0, 0))
-            d.text((x_kills, y), 'K', font=font, fill=(0, 0, 0))
-            d.text((x_deaths, y), 'D', font=font, fill=(0, 0, 0))
-            d.text((x_assists, y), 'A', font=font, fill=(0, 0, 0))
-            d.text((x_kda, y), 'KDA', font=font, fill=(0, 0, 0))
-            d.text((x_kp, y), 'KP', font=font, fill=(0, 0, 0))
-            d.text((x_cs, y), 'CS', font=font, fill=(0, 0, 0))
-            d.text((x_dmg_percent+10, y), "DMG%", font=font, fill=(0,0,0))
-            d.text((x_dmg_taken+15, y), 'TANK%', font=font, fill=(0,0,0))
+            if y == 120:
+                fill = (255,255,255) # blanc
+            else:
+                fill = (0,0,0) # noir
+                
+            d.text((x_name, y), 'Name', font=font, fill=fill)
+            d.text((x_kills, y), 'K', font=font, fill=fill)
+            d.text((x_deaths, y), 'D', font=font, fill=fill)
+            d.text((x_assists, y), 'A', font=font, fill=fill)
+            d.text((x_kda, y), 'KDA', font=font, fill=fill)
+            d.text((x_kp, y), 'KP', font=font, fill=fill)
+            d.text((x_cs, y), 'CS', font=font, fill=fill)
+            d.text((x_dmg_percent+10, y), "DMG%", font=font, fill=fill)
+            d.text((x_dmg_taken+15, y), 'TANK%', font=font, fill=fill)
             
             if match_info.thisQ != "ARAM": 
-                d.text((x_vision, y), 'VS', font=font, fill=(0, 0, 0))
+                d.text((x_vision, y), 'VS', font=font, fill=fill)
 
         # participants
         initial_y = 220
