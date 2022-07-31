@@ -64,7 +64,7 @@ def get_data_joueur(summonername:str):
         return 0, 0, 0
     
     try: # certains joueurs n'ont pas ces colonnes... impossible de dire pourquoi
-            data_joueur_challenges.drop(['position', 'playersInLevel', 'achievedTime'], axis=1, inplace=True)
+            data_joueur_challenges.drop(['playersInLevel', 'achievedTime'], axis=1, inplace=True)
     except KeyError:
             data_joueur_challenges.drop(['achievedTime'], axis=1, inplace=True)
 
@@ -85,11 +85,12 @@ def get_data_joueur(summonername:str):
                "CHALLENGER" : 9
     }
     data_joueur_challenges['level_number'] = data_joueur_challenges['level'].map(dict_rankid_challenges)
-
+    
+    data_joueur_challenges['position'].fillna('0', inplace=True)
     
     # on retient ce qu'il nous intéresse
-    data_joueur_challenges[['Joueur','challengeId', 'name', 'value', 'percentile', 'level', 'level_number','state', 'shortDescription', 'description', 'IRON', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER']]
-    data_joueur_challenges = data_joueur_challenges.reindex(columns=['Joueur', 'challengeId', 'name', 'value', 'percentile', 'level', 'level_number','state', 'shortDescription', 'description', 'IRON', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'])
+    data_joueur_challenges[['Joueur','challengeId', 'name', 'value', 'percentile', 'level', 'level_number','state', 'position', 'shortDescription', 'description', 'IRON', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER']]
+    data_joueur_challenges = data_joueur_challenges.reindex(columns=['Joueur', 'challengeId', 'name', 'value', 'percentile', 'level', 'level_number','state',  'position', 'shortDescription', 'description', 'IRON', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'])
     return data_total_joueur, data_joueur_category, data_joueur_challenges
 
     
