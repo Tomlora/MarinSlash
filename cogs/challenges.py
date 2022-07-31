@@ -314,6 +314,9 @@ class Challenges(commands.Cog):
     @cog_ext.cog_slash(name="challenges_best", description="Meilleur classement pour les defis",
                        options=[create_option(name="summonername", description="Nom du joueur", option_type=3, required=True)])
     async def challenges_best(self, ctx, summonername:str):
+       
+        # tous les summonername sont en minuscule : 
+        summonername = summonername.lower()
         # charge la data
         data = lire_bdd('challenges_data').transpose()
         # tri sur le joueur
