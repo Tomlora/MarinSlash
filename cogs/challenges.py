@@ -87,7 +87,10 @@ def get_data_joueur(summonername:str):
     }
     data_joueur_challenges['level_number'] = data_joueur_challenges['level'].map(dict_rankid_challenges)
     
-    data_joueur_challenges['position'].fillna(0, inplace=True)
+    try: # si erreur, le joueur n'a aucun classement
+        data_joueur_challenges['position'].fillna(0, inplace=True)
+    except:
+        data_joueur_challenges['position'] = 0
     
     # on retient ce qu'il nous intéresse
     data_joueur_challenges[['Joueur','challengeId', 'name', 'value', 'percentile', 'level', 'level_number','state', 'position', 'shortDescription', 'description', 'IRON', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER']]
