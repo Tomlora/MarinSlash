@@ -183,7 +183,7 @@ class Achievements_scoringlol(commands.Cog):
         partie5 = f":crown: Solokills >= {settings['Solokills']['Score']} \n :crown: Total Heals sur alliés >= {settings['Total_Heals_sur_alliés']['Score']} \n"
         partie6 = f":crown: CS d'avance sur ton adversaire durant la game >= {settings['CSAvantage']['Score']} \n :crown: Ecart de niveau sur ton adversaire >= {settings['Ecart_Level']['Score']} \n"
         partie7 = f":crown: Contribution à la destruction des tours >= {settings['Participation_tower']['Score']}% \n :crown: Dragon >= {settings['Dragon']['Score']} \n"
-        partie8 = f":crown: Danse avec l'Herald \n :crown: Perfect Game" 
+        partie8 = f":crown: Danse avec l'Herald \n :crown: Perfect Game \n :crown: Shield plus de {settings['Shield']['Score']}" 
 
         embed = discord.Embed(title="** Règles : **", color=discord.Colour.gold())
         embed.add_field(name="Parametres", value=partie0, inline=False)
