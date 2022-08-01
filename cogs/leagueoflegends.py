@@ -72,6 +72,13 @@ def get_image(type, name, resize_x=80, resize_y=80):
         img = Image.open(f'./img/monsters/{name}.png')
                  
         img = img.resize((resize_x,resize_y))
+        
+        return img
+        
+    elif type == "epee":
+        img = Image.open(f'./img/epee/{name}.png')
+        img = img.resize((resize_x, resize_y))
+        
         return img
 
 
@@ -448,6 +455,9 @@ class LeagueofLegends(commands.Cog):
             exploits = exploits + f"\n :crown: :crown: :sunny: Perfect Game"
             points = points + 2
             
+        if (int(match_info.thisTotalShielded) >= settings['Shield']['Score']):
+            exploits = exploits + f"\n :crown: :shield: Tu as shield plus de 8k"
+            
             # Ecart gold ? (Compliqué si swap role)
             
         if chrono:
@@ -732,8 +742,8 @@ class LeagueofLegends(commands.Cog):
         
         x_dmg_taken = x_dmg_percent + 250
         
-        
-        x_objectif = 1600
+        x_kill_total = 1000
+        x_objectif = 1700
 
         if font_name is not None:
             font = ImageFont.truetype(font_name, 50)
@@ -777,10 +787,9 @@ class LeagueofLegends(commands.Cog):
 
         for y in range(120, 721, 600):
             if y == 120:
-                fill = (255,255,255) # blanc
+                fill = (255,255,255)
             else:
-                fill = (0,0,0) # noir
-                
+                fill = (0,0,0)
             d.text((x_name, y), 'Name', font=font, fill=fill)
             d.text((x_kills, y), 'K', font=font, fill=fill)
             d.text((x_deaths, y), 'D', font=font, fill=fill)
@@ -898,6 +907,16 @@ class LeagueofLegends(commands.Cog):
                     
             im.paste(nashor, (x_objectif + 600, 10), nashor.convert('RGBA'))
             d.text((x_objectif + 600 + 100, 20), str(match_info.thisBaronTeam), font=font, fill=(0, 0, 0))
+            
+        
+        img_blue_epee = get_image('epee', 'blue')
+        img_red_epee = get_image('epee', 'red')
+        
+        im.paste(img_blue_epee, (x_kill_total, 10), img_blue_epee.convert('RGBA'))
+        d.text((x_kill_total + 100, 20), str(match_info.thisTeamKills), font=font, fill=(0, 0, 0))
+        
+        im.paste(img_red_epee, (x_kill_total + 300, 10), img_red_epee.convert('RGBA'))
+        d.text((x_kill_total + 300 + 100, 20), str(match_info.thisTeamKillsOp), font=font, fill=(0, 0, 0))
 
 
         im.save('resume.png')
@@ -1114,27 +1133,13 @@ class LeagueofLegends(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @cog_ext.cog_slash(name="get_matchId",description="Réservé au propriétaire du bot",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
-    @main.isOwner2_slash()
-    async def get_matchId(self, ctx, summonername):
-        me = lol_watcher.summoner.by_name(my_region, summonername)
-        my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'])
-        last_match = my_matches[0]
-        match_detail = lol_watcher.match.by_id(region, last_match)
-        await ctx.send(last_match)
-        # await ctx.send(match_detail['info']['gameId'])
-
-        
-
-
-
+    
     @tasks.loop(hours=1, count=None)
     async def lolsuivi(self):
 
         currentHour = str(datetime.datetime.now().hour)
 
-        if currentHour == str(0):
+        if currentHour == str(2):
             
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
@@ -1162,6 +1167,8 @@ class LeagueofLegends(commands.Cog):
             df['tier_pts'] = np.where(df.tier == 'GOLD', 3, df.tier_pts)
             df['tier_pts'] = np.where(df.tier == 'PLATINUM', 4, df.tier_pts)
             df['tier_pts'] = np.where(df.tier == 'DIAMOND', 5, df.tier_pts)
+            df['tier_pts'] = np.where(df.tier == 'MASTER', 6, df.tier_pts)
+
 
             df['rank_pts'] = 0
             df['rank_pts'] = np.where(df['rank'] == 'IV', 1, df.rank_pts)
