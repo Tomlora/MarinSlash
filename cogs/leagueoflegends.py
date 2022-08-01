@@ -80,6 +80,12 @@ def get_image(type, name, resize_x=80, resize_y=80):
         img = img.resize((resize_x, resize_y))
         
         return img
+    
+    elif type == "gold":
+        img = Image.open(f'./img/money.png')
+        img = img.resize((resize_x, resize_y))
+        
+        return img
 
 
 def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed):
@@ -782,9 +788,19 @@ class LeagueofLegends(commands.Cog):
 
         # match
         d.text((10, 15), match_info.thisQ, font=font, fill=(0, 0, 0))
-        d.text((10, 120), f'Gold : {match_info.thisGold_team1}', font=font, fill=(255, 255, 255))
-        d.text((10, 720), f'Gold : {match_info.thisGold_team2}', font=font, fill=(0, 0, 0))
-
+        # d.text((10, 120), f'Gold : {match_info.thisGold_team1}', font=font, fill=(255, 255, 255))
+        # d.text((10, 720), f'Gold : {match_info.thisGold_team2}', font=font, fill=(0, 0, 0))
+        
+        money = get_image('gold', 'dragon', 60, 60)
+        
+        
+        im.paste(money,(10, 120), money.convert('RGBA'))
+        d.text((80, 120), f'{match_info.thisGold_team1}', font=font, fill=(255, 255, 255))
+        im.paste(money,(10, 720), money.convert('RGBA'))
+        d.text((80, 720), f'{match_info.thisGold_team2}', font=font, fill=(0, 0, 0))
+        
+        
+        
         for y in range(120, 721, 600):
             if y == 120:
                 fill = (255,255,255)
@@ -917,7 +933,6 @@ class LeagueofLegends(commands.Cog):
         
         im.paste(img_red_epee, (x_kill_total + 300, 10), img_red_epee.convert('RGBA'))
         d.text((x_kill_total + 300 + 100, 20), str(match_info.thisTeamKillsOp), font=font, fill=(0, 0, 0))
-
 
         im.save('resume.png')
         
