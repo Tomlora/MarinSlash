@@ -462,7 +462,7 @@ class LeagueofLegends(commands.Cog):
             points = points + 2
             
         if (int(match_info.thisTotalShielded) >= settings['Shield']['Score']):
-            exploits = exploits + f"\n :crown: :shield: Tu as shield plus de 8k"
+            exploits = exploits + f"\n ** :crown: :shield: Tu as shield plus de 8k **"
             
             # Ecart gold ? (Compliqué si swap role)
             
