@@ -277,6 +277,7 @@ class matchlol():
         self.thisGoldEarned = self.match_detail_participants['goldEarned']
         self.thisKillsSeries = self.match_detail_participants['largestKillingSpree']
         self.thisTotalHealed = self.match_detail_participants['totalHeal']
+        self.thisTotalShielded = self.match_detail_participants['totalDamageShieldedOnTeammates']
         self.thisTotalOnTeammates = self.match_detail_participants['totalHealsOnTeammates']
         self.thisTurretsKillsPerso = self.match_detail_participants['turretKills']
         self.thisTurretsLost = self.match_detail_participants['turretsLost']
