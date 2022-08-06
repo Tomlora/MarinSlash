@@ -462,7 +462,7 @@ class LeagueofLegends(commands.Cog):
             points = points + 2
             
         if (int(match_info.thisTotalShielded) >= settings['Shield']['Score']):
-            exploits = exploits + f"\n ** :crown: :shield: Tu as shield plus de 8k **"
+            exploits = exploits + f"\n ** :crown: :shield: Tu as shield {match_info.thisTotalShielded} **"
             
             # Ecart gold ? (Compliqué si swap role)
             
@@ -1236,38 +1236,42 @@ class LeagueofLegends(commands.Cog):
                     totalgames = totalwin + totaldef
                     
                     # evolution
+                    
+                    if classement_new != "Non-classe 0":
 
-                    if dict_rankid[classement_old] > dict_rankid[classement_new]: # 19-18
-                        difLP = 100 + LP - int(suivi[key]['LP'])
-                        difLP = "Démote / -" + str(difLP)
-                        emote = ":arrow_down:"
-
-                    elif dict_rankid[classement_old] < dict_rankid[classement_new]:
-                        difLP = 100 - LP + int(suivi[key]['LP'])
-                        difLP = "Promotion / +" + str(difLP)
-                        emote = ":arrow_up:"
-                        
-                    elif dict_rankid[classement_old] == dict_rankid[classement_new]:
-                        if difLP > 0:
-                            emote = ":arrow_up:"
-                        elif difLP < 0:
+                        if dict_rankid[classement_old] > dict_rankid[classement_new]: # 19-18
+                            difLP = 100 + LP - int(suivi[key]['LP'])
+                            difLP = "Démote / -" + str(difLP)
                             emote = ":arrow_down:"
-                        elif difLP == 0:
-                            emote = ":arrow_right:"
-                            
 
-                    embed.add_field(name=str(key) + " ( " + tier + " " + rank + " )",
-                                    value="V : " + str(suivi[key]['wins']) + "(" + str(difwins) + ") | D : "
-                                          + str(suivi[key]['losses']) + "(" + str(diflosses) + ") | LP :  "
-                                          + str(suivi[key]['LP']) + "(" + str(difLP) + ")    " + emote, inline=False)
-                    embed.set_footer(text=f'Version {main.Var_version} by Tomlora')                   
+                        elif dict_rankid[classement_old] < dict_rankid[classement_new]:
+                            difLP = 100 - LP + int(suivi[key]['LP'])
+                            difLP = "Promotion / +" + str(difLP)
+                            emote = ":arrow_up:"
+                            
+                        elif dict_rankid[classement_old] == dict_rankid[classement_new]:
+                            if difLP > 0:
+                                emote = ":arrow_up:"
+                            elif difLP < 0:
+                                emote = ":arrow_down:"
+                            elif difLP == 0:
+                                emote = ":arrow_right:"
+                                
+
+                        embed.add_field(name=str(key) + " ( " + tier + " " + rank + " )",
+                                        value="V : " + str(suivi[key]['wins']) + "(" + str(difwins) + ") | D : "
+                                            + str(suivi[key]['losses']) + "(" + str(diflosses) + ") | LP :  "
+                                            + str(suivi[key]['LP']) + "(" + str(difLP) + ")    " + emote, inline=False)
+                                           
 
                 else:
                     suivi[key]["tier"] = "Non-classe"
 
-                sauvegarde_bdd(suivi, 'suivi_24h')
+            sauvegarde_bdd(suivi, 'suivi_24h')
 
-            channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
+            channel_tracklol = self.bot.get_channel(int(main.chan_tracklol)) 
+            
+            embed.set_footer(text=f'Version {main.Var_version} by Tomlora')  
 
             await channel_tracklol.send(embed=embed)
             await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
