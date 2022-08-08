@@ -25,7 +25,7 @@ from discord_slash.utils.manage_commands import create_option, create_choice
 
         
 def unifier_joueur(df, colonne):
-    df[colonne] = df[colonne].replace('nukethestars', 'state')
+    df[colonne] = df[colonne].replace('stαte', 'state')
     df[colonne] = df[colonne].replace('linò', 'state')
     df[colonne] = df[colonne].replace('namiyeon', 'dawn')
     df[colonne] = df[colonne].replace('chatobogan', 'dawn')

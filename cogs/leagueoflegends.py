@@ -343,7 +343,7 @@ class LeagueofLegends(commands.Cog):
             color = discord.Colour.from_rgb(26,188,156)
         elif pseudo == 'YLARABKA':
             color = discord.Colour.from_rgb(253, 119, 90)
-        elif (pseudo == 'LINÒ') or (pseudo == 'LORDOFCOUBI') or (pseudo == 'NUKETHESTARS'):
+        elif (pseudo == 'LINÒ') or (pseudo == 'LORDOFCOUBI') or (pseudo == 'stαte'):
             color = discord.Colour.from_rgb(187, 112, 255)
         elif (pseudo == 'EXORBLUE'):
             color = discord.Colour.from_rgb(223, 55, 93)
