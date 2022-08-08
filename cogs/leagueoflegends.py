@@ -259,6 +259,8 @@ class LeagueofLegends(commands.Cog):
                                         match_info.thisChampName, summonerName, exploits)
                 records, exploits = records_check(records, key, 'DUREE_GAME', match_info.thisTime,
                                         match_info.thisChampName, summonerName, exploits)
+                records2, exploits = records_check(records, key, 'ALLIE_FEEDER', match_info.thisAllieFeeder,
+                                             match_info.thisChampName, summonerName, exploits)
                 
                 if match_info.thisPosition == "SUPPORT":
                     records, exploits = records_check(records, key, 'AVANTAGE_VISION_SUPPORT', float(match_info.thisVisionAdvantage),
@@ -320,8 +322,7 @@ class LeagueofLegends(commands.Cog):
                                              match_info.thisChampName, summonerName, exploits)
                 records2, exploits = records_check(records2, key, 'SHIELD', match_info.thisTotalShielded,
                                              match_info.thisChampName, summonerName, exploits)
-                records2, exploits = records_check(records2, key, 'ALLIE_FEEDER', match_info.thisAllieFeeder,
-                                             match_info.thisChampName, summonerName, exploits)
+
                     
                 if chrono:
                     loop = loop + 1
