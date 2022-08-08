@@ -411,7 +411,7 @@ class matchlol():
         
         # Alliés feeder
         self.thisAllieFeeder = np.array(self.thisDeathsListe)
-        self.thisAllieFeeder = self.thisAllieFeeder[0:5].max()
+        self.thisAllieFeeder = float(self.thisAllieFeeder[0:5].max())
 
         # assists
 
