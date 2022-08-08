@@ -166,6 +166,9 @@ class LeagueofLegends(commands.Cog):
         
         if match_info.thisQId == 840:
             return {}, 'Bot' # bot game
+        
+        
+        url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(match_info.last_match)[5:]}#participant{int(match_info.thisId)+1}'
 
         
         exploits = "Observations :"
@@ -215,7 +218,6 @@ class LeagueofLegends(commands.Cog):
                 loop = 0     
                 
                 
-            url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(match_info.last_match)[5:]}#participant{int(match_info.thisId)+1}'
 
             for key, value in records.items():
                 if int(match_info.thisDeaths) >= 1:
