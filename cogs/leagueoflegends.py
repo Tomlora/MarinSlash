@@ -308,7 +308,7 @@ class LeagueofLegends(commands.Cog):
                 records2, exploits = records_check(records2, key, 'EARLY_BARON', match_info.earliestBaron,
                                              match_info.thisChampName, summonerName, exploits)
                 
-                if match_info.thisChampNamer != "Zeri":
+                if match_info.thisChampName != "Zeri":
                     records2, exploits = records_check(records2, key, 'SKILLSHOTS_HIT', match_info.thisSkillshot_hit,
                                                 match_info.thisChampName, summonerName, exploits)
                     
