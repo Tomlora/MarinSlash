@@ -394,7 +394,7 @@ class LeagueofLegends(commands.Cog):
         settings = lire_bdd('achievements_settings', 'dict')
 
         records_cumul = lire_bdd('records3', 'dict')
-        records_personnel = lire_bdd('records_personnel_modif', 'dict')
+        records_personnel = lire_bdd('records_personnel', 'dict')
         
 
 
