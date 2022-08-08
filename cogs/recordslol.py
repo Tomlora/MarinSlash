@@ -99,7 +99,7 @@ class Recordslol(commands.Cog):
 
         embed1 = discord.Embed(title="Records (Page 1/3) :bar_chart:", colour=discord.Colour.blurple())
 
-        for key, value in fichier1.iteritems():
+        for key, value in fichier1.iterrows():
             valeur = ""
             if key == "DEGATS_INFLIGES":
                 valeur = "{:,}".format(value['Score']).replace(',', ' ').replace('.', ',')
@@ -126,7 +126,7 @@ class Recordslol(commands.Cog):
 
         embed2 = discord.Embed(title="Records (Page 2/3) :bar_chart:", colour=discord.Colour.blurple())
 
-        for key, value in fichier2.iteritems():
+        for key, value in fichier2.iterrows():
             valeur2 = ""
             if key in ["GOLDS_GAGNES", "DOMMAGES_TANK", 'DOMMAGES_REDUITS', "DOMMAGES_TOWER", "TOTAL_HEALS", "HEALS_SUR_ALLIES"]:
                 valeur2 = "{:,}".format(value['Score']).replace(',', ' ').replace('.', ',')
