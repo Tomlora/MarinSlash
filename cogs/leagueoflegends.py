@@ -259,7 +259,7 @@ class LeagueofLegends(commands.Cog):
                                         match_info.thisChampName, summonerName, exploits)
                 records, exploits = records_check(records, key, 'DUREE_GAME', match_info.thisTime,
                                         match_info.thisChampName, summonerName, exploits)
-                records2, exploits = records_check(records, key, 'ALLIE_FEEDER', match_info.thisAllieFeeder,
+                records, exploits = records_check(records, key, 'ALLIE_FEEDER', match_info.thisAllieFeeder,
                                              match_info.thisChampName, summonerName, exploits)
                 
                 if match_info.thisPosition == "SUPPORT":
