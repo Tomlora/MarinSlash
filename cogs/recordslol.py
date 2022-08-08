@@ -269,6 +269,8 @@ class Recordslol(commands.Cog):
         
         await ctx.defer(hidden=False)
         
+        current = 0
+        
         df = pd.DataFrame(data)
         df = df[joueur]
         
