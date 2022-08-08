@@ -281,9 +281,20 @@ class Recordslol(commands.Cog):
                 valeur = str(valeur) + "%"
             if key == "DUREE_GAME":
                 valeur = str(valeur).replace(".", "m")
+                
+            if not 'url' in key.split('_'): # si url alors c'est un lien, pas un record
+                
+                if df.loc[key + '_url'] == 'na':
 
-            embed.add_field(name=str(emote[key]) + " " + key,
-                             value=f"Records : __ {valeur} __ ")
+                    embed.add_field(name=str(emote[key]) + " " + key,
+                                value=f"Records : __ {valeur} __ ")
+                
+                else:
+                    
+                    
+                    embed.add_field(name=str(emote[key]) + " " + key,
+                                value=f"Records : __ [{valeur}]({df.loc[key + '_url']}) __ ")
+                    
 
         embed.set_footer(text=f'Version {Var_version} by Tomlora')
         

@@ -135,10 +135,11 @@ def palier(embed, key:str, stats:str, old_value:int, new_value:int, palier:list)
                 embed = embed + f"\n ** :tada: Stats cumulées : A dépassé les {value} {stats.lower()} avec {new_value} {stats.lower()} **"
     return embed 
 
-def score_personnel(embed, dict, key:str, summonerName:str, stats:str, old_value:float, new_value:float):
+def score_personnel(embed, dict, key:str, summonerName:str, stats:str, old_value:float, new_value:float, url):
     if key == stats:
         if old_value < new_value:
             dict[summonerName.lower().replace(" ", "")][key] = new_value
+            dict[summonerName.lower().replace(" ", "")][key + "_url"] = url
             stats = stats.replace('_', ' ')
             embed = embed + f"\n ** :military_medal: Tu as battu ton record personnel en {stats.lower()} avec {new_value} {stats.lower()} ** (Anciennement : {old_value})"
     return embed, dict
@@ -564,11 +565,11 @@ class LeagueofLegends(commands.Cog):
                     
                     for stats in metrics_personnel.keys():
                         if len(exploits2) < 900: # on ne peut pas dépasser 1024 caractères par embed
-                            exploits2, records_personnel = score_personnel(exploits2, records_personnel, key, summonerName, stats, float(old_value), float(value))
+                            exploits2, records_personnel = score_personnel(exploits2, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
                         elif len(exploits3) < 900:
-                            exploits3, records_personnel = score_personnel(exploits3, records_personnel, key, summonerName, stats, float(old_value), float(value))
+                            exploits3, records_personnel = score_personnel(exploits3, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
                         elif len(exploits4) < 900:
-                            exploits4, records_personnel = score_personnel(exploits4, records_personnel, key, summonerName, stats, float(old_value), float(value))
+                            exploits4, records_personnel = score_personnel(exploits4, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
                             
                         
 
