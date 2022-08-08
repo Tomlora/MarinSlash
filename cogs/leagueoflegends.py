@@ -136,7 +136,7 @@ def palier(embed, key:str, stats:str, old_value:int, new_value:int, palier:list)
 def score_personnel(embed, dict, key:str, summonerName:str, stats:str, old_value:float, new_value:float):
     if key == stats:
         if old_value < new_value:
-            dict[key][summonerName.lower().replace(" ", "")] = new_value
+            dict[summonerName.lower().replace(" ", "")][key] = new_value
             stats = stats.replace('_', ' ')
             embed = embed + f"\n ** :military_medal: Tu as battu ton record personnel en {stats.lower()} avec {new_value} {stats.lower()} ** (Anciennement : {old_value})"
     return embed, dict
@@ -389,7 +389,7 @@ class LeagueofLegends(commands.Cog):
         settings = lire_bdd('achievements_settings', 'dict')
 
         records_cumul = lire_bdd('records3', 'dict')
-        records_personnel = lire_bdd('records_personnel', 'dict')
+        records_personnel = lire_bdd('records_personnel_modif', 'dict')
         
 
 
@@ -553,7 +553,7 @@ class LeagueofLegends(commands.Cog):
         
             try:
                 if succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20:
-                    old_value = float(records_personnel[key][summonerName.lower().replace(" ", "")])
+                    old_value = float(records_personnel[summonerName.lower().replace(" ", "")][key])
                     
                     for stats in metrics_personnel.keys():
                         if len(exploits2) < 900: # on ne peut pas dépasser 1024 caractères par embed
@@ -567,7 +567,7 @@ class LeagueofLegends(commands.Cog):
 
                     
             except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
-                records_personnel[key][summonerName.lower().replace(" ", "")] = value
+                records_personnel[summonerName.lower().replace(" ", "")][key] = value
                 
         if chrono:
             time_a = calcul_time('Après cumul', time_a)                 
@@ -591,7 +591,7 @@ class LeagueofLegends(commands.Cog):
                 suivi[summonerName.lower().replace(" ", "")]['games'] = 0
                 
             sauvegarde_bdd(records_cumul, 'records3')
-            sauvegarde_bdd(records_personnel, 'records_personnel')
+            sauvegarde_bdd(records_personnel, 'records_personnel_modif')
 
 
         sauvegarde_bdd(suivi, 'suivi') #achievements + suivi
