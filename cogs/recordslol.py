@@ -71,6 +71,8 @@ emote = {
             "ECART_LEVEL" : ":wave:",
             "NB_COURONNE_1_GAME" : ":crown:",
             "SERIE_VICTOIRE" : ":fire:", 
+            "SHIELD" : ":shield:",
+            "ALLIE_FEEDER" : ":monkey_face:"
         }
 
      
@@ -216,6 +218,7 @@ class Recordslol(commands.Cog):
 
         for button in buttons:
             await msg.add_reaction(button)
+            
 
         while True:
             try:

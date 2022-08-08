@@ -307,13 +307,20 @@ class LeagueofLegends(commands.Cog):
                                              match_info.thisChampName, summonerName, exploits)
                 records2, exploits = records_check(records2, key, 'EARLY_BARON', match_info.earliestBaron,
                                              match_info.thisChampName, summonerName, exploits)
-                records2, exploits = records_check(records2, key, 'SKILLSHOTS_HIT', match_info.thisSkillshot_hit,
-                                             match_info.thisChampName, summonerName, exploits)
+                
+                if match_info.thisChampNamer != "Zeri":
+                    records2, exploits = records_check(records2, key, 'SKILLSHOTS_HIT', match_info.thisSkillshot_hit,
+                                                match_info.thisChampName, summonerName, exploits)
+                    
                 records2, exploits = records_check(records2, key, 'SKILLSHOTS_DODGES', match_info.thisSkillshot_dodged,
                                              match_info.thisChampName, summonerName, exploits)
                 records2, exploits = records_check(records2, key, 'TOWER_PLATES', match_info.thisTurretPlatesTaken,
                                              match_info.thisChampName, summonerName, exploits)
                 records2, exploits = records_check(records2, key, 'ECART_LEVEL', match_info.thisLevelAdvantage,
+                                             match_info.thisChampName, summonerName, exploits)
+                records2, exploits = records_check(records2, key, 'SHIELD', match_info.thisTotalShielded,
+                                             match_info.thisChampName, summonerName, exploits)
+                records2, exploits = records_check(records2, key, 'ALLIE_FEEDER', match_info.thisAllieFeeder,
                                              match_info.thisChampName, summonerName, exploits)
                     
                 if chrono:
@@ -343,7 +350,7 @@ class LeagueofLegends(commands.Cog):
             color = discord.Colour.from_rgb(26,188,156)
         elif pseudo == 'YLARABKA':
             color = discord.Colour.from_rgb(253, 119, 90)
-        elif (pseudo == 'LINÒ') or (pseudo == 'LORDOFCOUBI') or (pseudo == 'stαte'):
+        elif (pseudo == 'LINÒ') or (pseudo == 'LORDOFCOUBI') or (pseudo == 'STATE'):
             color = discord.Colour.from_rgb(187, 112, 255)
         elif (pseudo == 'EXORBLUE'):
             color = discord.Colour.from_rgb(223, 55, 93)
@@ -507,7 +514,7 @@ class LeagueofLegends(commands.Cog):
                       "QUADRA" : [match_info.thisQuadra, np.arange(5, 100, 5, int).tolist()],
                       "PENTA" : [match_info.thisPenta, np.arange(5, 100, 5, int).tolist()]}
         
-        personnel_cumul = {"SOLOKILLS": match_info.thisSoloKills, "DUREE_GAME": match_info.thisTime, "KILLS": match_info.thisKills,
+        metrics_personnel = {"SOLOKILLS": match_info.thisSoloKills, "DUREE_GAME": match_info.thisTime, "KILLS": match_info.thisKills,
                       "DEATHS": match_info.thisDeaths, "ASSISTS": match_info.thisAssists, "WARDS_SCORE": match_info.thisVision,
                       "WARDS_POSEES": match_info.thisWards, "WARDS_DETRUITES": match_info.thisWardsKilled, "WARDS_PINKS": match_info.thisPink,
                       "CS" : match_info.thisMinion, "QUADRA" : match_info.thisQuadra, "PENTA" : match_info.thisPenta, "DAMAGE_RATIO" : match_info.thisDamageRatio,
@@ -515,7 +522,8 @@ class LeagueofLegends(commands.Cog):
                       "KP" : match_info.thisKP, "CS_AVANTAGE": match_info.thisCSAdvantageOnLane, "CS_APRES_10_MIN" : match_info.thisCSafter10min, 
                       "DMG_TOTAL" : match_info.match_detail_participants['totalDamageDealtToChampions'],
                       "ECART_LEVEL" : match_info.thisLevelAdvantage, "VISION/MIN" : match_info.thisVisionPerMin, 
-                      "DOUBLE" : match_info.thisDouble, "TRIPLE" : match_info.thisTriple, "SERIE_VICTOIRE" : serie_victoire, "NB_COURONNE_1_GAME" : points }
+                      "DOUBLE" : match_info.thisDouble, "TRIPLE" : match_info.thisTriple, "SERIE_VICTOIRE" : serie_victoire, "NB_COURONNE_1_GAME" : points, "SHIELD" : match_info.thisTotalShielded,
+                      "ALLIE_FEEDER" : match_info.thisAllieFeeder}
         
         if chrono:
             time_a = calcul_time('Avant cumul', time_a)
@@ -540,13 +548,13 @@ class LeagueofLegends(commands.Cog):
 
                 
             # records personnels
-        for key,value in personnel_cumul.items():
+        for key,value in metrics_personnel.items():
         
             try:
                 if succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20:
                     old_value = float(records_personnel[key][summonerName.lower().replace(" ", "")])
                     
-                    for stats in personnel_cumul.keys():
+                    for stats in metrics_personnel.keys():
                         if len(exploits2) < 900: # on ne peut pas dépasser 1024 caractères par embed
                             exploits2, records_personnel = score_personnel(exploits2, records_personnel, key, summonerName, stats, float(old_value), float(value))
                         elif len(exploits3) < 900:

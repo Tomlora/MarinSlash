@@ -5,6 +5,7 @@ import pandas as pd
 import warnings
 from fonctions.gestion_bdd import lire_bdd
 import json
+import numpy as np
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -407,6 +408,10 @@ class matchlol():
         # deaths
 
         self.thisDeathsListe = dict_data(self.thisId, self.match_detail, 'deaths')
+        
+        # Alliés feeder
+        self.thisAllieFeeder = np.array(self.thisDeathsListe)
+        self.thisAllieFeeder = self.thisAllieFeeder[0:5].max()
 
         # assists
 
