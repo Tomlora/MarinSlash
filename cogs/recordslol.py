@@ -88,7 +88,10 @@ class Recordslol(commands.Cog):
 
         current = 0
 
-        fichier = lire_bdd('records', 'dict')
+        fichier = lire_bdd('records').transpose()
+        
+        fichier1 = fichier.iloc[:22]
+        fichier2 = fichier.iloc[22:]
 
        
 
@@ -96,7 +99,7 @@ class Recordslol(commands.Cog):
 
         embed1 = discord.Embed(title="Records (Page 1/3) :bar_chart:", colour=discord.Colour.blurple())
 
-        for key, value in fichier.items():
+        for key, value in fichier1.iteritems():
             valeur = ""
             if key == "DEGATS_INFLIGES":
                 valeur = "{:,}".format(value['Score']).replace(',', ' ').replace('.', ',')
@@ -105,12 +108,11 @@ class Recordslol(commands.Cog):
             elif key in ["KP", "% DMG", "AVANTAGE_VISION", "AVANTAGE_VISION_SUPPORT"]:
                 valeur = str(value['Score']) + "%"
             else:
-                valeur = str(value['Score'])
+                valeur = int(value['Score'])
                 
             if value['url'] == "na":
                 embed1.add_field(name=str(emote[key]) + "" + key,
-                             value="Records : __ " + valeur + " __ \n ** " + str(
-                                 value['Joueur']) + " ** (" + str(value['Champion']) + ")")
+                             value=f"Records : __ {valeur} __ \n ** {value['Joueur']} ** ({value['Champion']})")
             
             else:
                 embed1.add_field(name=str(emote[key]) + "" + key,
@@ -120,12 +122,11 @@ class Recordslol(commands.Cog):
 
         embed1.set_footer(text=f'Version {Var_version} by Tomlora')
 
-        fichier2 = lire_bdd('records2', 'dict')
         
 
         embed2 = discord.Embed(title="Records (Page 2/3) :bar_chart:", colour=discord.Colour.blurple())
 
-        for key, value in fichier2.items():
+        for key, value in fichier2.iteritems():
             valeur2 = ""
             if key in ["GOLDS_GAGNES", "DOMMAGES_TANK", 'DOMMAGES_REDUITS', "DOMMAGES_TOWER", "TOTAL_HEALS", "HEALS_SUR_ALLIES"]:
                 valeur2 = "{:,}".format(value['Score']).replace(',', ' ').replace('.', ',')
@@ -134,16 +135,15 @@ class Recordslol(commands.Cog):
             elif key == "EARLY_DRAKE" or key == "EARLY_BARON":
                 valeur2 = str(value['Score']).replace(".", "m")
             else:
-                valeur2 = str(value['Score'])
+                valeur2 = int(value['Score'])
                 
             if value['url'] == 'na':
                 embed2.add_field(name=str(emote[key]) + "" + key,
-                             value="Records : __ " + valeur2 + " __ \n ** " + str(
-                                 value['Joueur']) + " ** (" + str(value['Champion']) + ")")
+                             value=f"Records : __ {valeur2} __ \n ** {value['Joueur']} ** ({value['Champion']})")
                 
             else:
                 embed2.add_field(name=str(emote[key]) + "" + key,
-                             value=f"Records : __ [{valeur2}]({value['url']}) __ \n ** {value['Joueur']} + ** ({value['Champion']})")
+                             value=f"Records : __ [{valeur2}]({value['url']}) __ \n ** {value['Joueur']} ** ({value['Champion']})")
 
         embed2.set_footer(text=f'Version {Var_version} by Tomlora')
 
@@ -272,10 +272,14 @@ class Recordslol(commands.Cog):
         df = pd.DataFrame(data)
         df = df[joueur]
         
-        embed = discord.Embed(title=f"Records personnels {joueur}", colour=discord.Colour.blurple())
+        df_part1 = df.iloc[:18]
+        df_part2 = df.iloc[18:]
+        
+        embed1 = discord.Embed(title=f"Records personnels {joueur} (1/2)", colour=discord.Colour.blurple())
+        embed2 = discord.Embed(title=f"Records personnels {joueur} (2/2)", colour=discord.Colour.blurple())
     
         
-        for key, valeur in df.iteritems():
+        for key, valeur in df_part1.iteritems():
             # format
             if key in ['DAMAGE_RATIO', 'DAMAGE_RATIO_ENCAISSE', 'KP', 'AVANTAGE_VISION']:
                 valeur = str(valeur) + "%"
@@ -286,20 +290,73 @@ class Recordslol(commands.Cog):
                 
                 if df.loc[key + '_url'] == 'na':
 
-                    embed.add_field(name=str(emote[key]) + " " + key,
+                    embed1.add_field(name=str(emote[key]) + " " + key,
                                 value=f"Records : __ {valeur} __ ")
                 
                 else:
                     
                     
-                    embed.add_field(name=str(emote[key]) + " " + key,
+                    embed1.add_field(name=str(emote[key]) + " " + key,
                                 value=f"Records : __ [{valeur}]({df.loc[key + '_url']}) __ ")
                     
 
-        embed.set_footer(text=f'Version {Var_version} by Tomlora')
+        for key, valeur in df_part2.iteritems():
+            # format
+            if key in ['DAMAGE_RATIO', 'DAMAGE_RATIO_ENCAISSE', 'KP', 'AVANTAGE_VISION']:
+                valeur = str(valeur) + "%"
+            if key == "DUREE_GAME":
+                valeur = str(valeur).replace(".", "m")
+                
+            if not 'url' in key.split('_'): # si url alors c'est un lien, pas un record
+                
+                if df.loc[key + '_url'] == 'na':
+
+                    embed2.add_field(name=str(emote[key]) + " " + key,
+                                value=f"Records : __ {valeur} __ ")
+                
+                else:
+                    
+                    
+                    embed2.add_field(name=str(emote[key]) + " " + key,
+                                value=f"Records : __ [{valeur}]({df.loc[key + '_url']}) __ ")
+                    
+
+        embed1.set_footer(text=f'Version {Var_version} by Tomlora')
+        embed2.set_footer(text=f'Version {Var_version} by Tomlora')
         
         
-        await ctx.send(embed=embed)
+        self.bot.pages = [embed1, embed2]
+        buttons = [u"\u2B05", u"\u27A1"]  # skip to start, left, right, skip to end
+
+        msg = await ctx.send(embed=self.bot.pages[current])
+
+        for button in buttons:
+            await msg.add_reaction(button)
+            
+
+        while True:
+            try:
+                reaction, user = await self.bot.wait_for("reaction_add", check=lambda reaction,
+                                                                                      user: user == ctx.author and reaction.emoji in buttons,
+                                                         timeout=30.0)
+            except asyncio.TimeoutError:
+                return print("Records_list terminés")
+            else:
+                previous_page = current
+
+                if reaction.emoji == u"\u2B05":
+                    if current > 0:
+                        current -= 1
+
+                elif reaction.emoji == u"\u27A1":
+                    if current < len(self.bot.pages) - 1:
+                        current += 1
+
+                for button in buttons:
+                    await msg.remove_reaction(button, ctx.author)
+
+                if current != previous_page:
+                    await msg.edit(embed=self.bot.pages[current])
         
         
     @cog_ext.cog_slash(name="pantheon",
