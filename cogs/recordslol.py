@@ -106,9 +106,17 @@ class Recordslol(commands.Cog):
                 valeur = str(value['Score']) + "%"
             else:
                 valeur = str(value['Score'])
-            embed1.add_field(name=str(emote[key]) + "" + key,
+                
+            if value['url'] == "na":
+                embed1.add_field(name=str(emote[key]) + "" + key,
                              value="Records : __ " + valeur + " __ \n ** " + str(
                                  value['Joueur']) + " ** (" + str(value['Champion']) + ")")
+            
+            else:
+                embed1.add_field(name=str(emote[key]) + "" + key,
+                             value=f"Records : __ [{valeur}]({value['url']}) __ \n ** {value['Joueur']} + ** ({value['Champion']})")
+                
+                
 
         embed1.set_footer(text=f'Version {Var_version} by Tomlora')
 
@@ -127,9 +135,15 @@ class Recordslol(commands.Cog):
                 valeur2 = str(value['Score']).replace(".", "m")
             else:
                 valeur2 = str(value['Score'])
-            embed2.add_field(name=str(emote[key]) + "" + key,
+                
+            if value['url'] == 'na':
+                embed2.add_field(name=str(emote[key]) + "" + key,
                              value="Records : __ " + valeur2 + " __ \n ** " + str(
                                  value['Joueur']) + " ** (" + str(value['Champion']) + ")")
+                
+            else:
+                embed2.add_field(name=str(emote[key]) + "" + key,
+                             value=f"Records : __ [{valeur2}]({value['url']}) __ \n ** {value['Joueur']} + ** ({value['Champion']})")
 
         embed2.set_footer(text=f'Version {Var_version} by Tomlora')
 
@@ -256,7 +270,7 @@ class Recordslol(commands.Cog):
         await ctx.defer(hidden=False)
         
         df = pd.DataFrame(data)
-        df = df.loc[joueur]
+        df = df[joueur]
         
         embed = discord.Embed(title=f"Records personnels {joueur}", colour=discord.Colour.blurple())
     

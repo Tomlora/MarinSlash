@@ -88,7 +88,7 @@ def get_image(type, name, resize_x=80, resize_y=80):
         return img
 
 
-def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed):
+def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed, url):
     if str(key_boucle) == str(key):
         if str(key) in ['EARLY_DRAKE', 'EARLY_BARON'] and Score_check > 0: # ici on veut le plus faible et pas égale à 0
             if float(fichier[key]['Score']) > Score_check:
@@ -97,6 +97,7 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
                 fichier[key]['Score'] = Score_check
                 fichier[key]['Champion'] = str(thisChampName)
                 fichier[key]['Joueur'] = summonerName
+                fichier[key]['url'] = url
                 # Annonce que le record a été battu :
                 embed = embed + f"\n ** :boom: Record {str(key).lower()} battu avec {Score_check} ** (Ancien : {ancien_score} par {detenteur_ancien_score})"
 
@@ -108,6 +109,7 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
                 fichier[key]['Score'] = Score_check
                 fichier[key]['Champion'] = str(thisChampName)
                 fichier[key]['Joueur'] = summonerName
+                fichier[key]['url'] = url
                 # Annonce que le record a été battu :
                 embed = embed + f"\n ** :boom: Record {str(key).lower()} battu avec {Score_check} ** (Ancien : {ancien_score} par {detenteur_ancien_score})"
 
@@ -211,6 +213,9 @@ class LeagueofLegends(commands.Cog):
             if chrono:
                 time_a = calcul_time('Records1/2 chargé et avant records', time_a)     
                 loop = 0     
+                
+                
+            url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(match_info.last_match)[5:]}#participant{int(match_info.thisId)+1}'
 
             for key, value in records.items():
                 if int(match_info.thisDeaths) >= 1:
@@ -225,103 +230,103 @@ class LeagueofLegends(commands.Cog):
                                             match_info.thisChampName, summonerName, exploits)
 
                 records, exploits = records_check(records, key, 'KP', match_info.thisKP,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'CS', match_info.thisMinion,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'CS/MIN', match_info.thisMinionPerMin,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'KILLS', match_info.thisKills,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'DEATHS', match_info.thisDeaths,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'ASSISTS', match_info.thisAssists,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'WARDS_SCORE', match_info.thisVision,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'WARDS_POSEES', match_info.thisWards,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'WARDS_DETRUITES', match_info.thisWardsKilled,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'WARDS_PINKS', match_info.thisPink,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'DEGATS_INFLIGES',
                                         match_info.match_detail_participants['totalDamageDealtToChampions'],
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, '% DMG', match_info.thisDamageRatio,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'DOUBLE', match_info.thisDouble,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'TRIPLE', match_info.thisTriple,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'QUADRA', match_info.thisQuadra,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'PENTA', match_info.thisPenta,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'DUREE_GAME', match_info.thisTime,
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'ALLIE_FEEDER', match_info.thisAllieFeeder,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 
                 if match_info.thisPosition == "SUPPORT":
                     records, exploits = records_check(records, key, 'AVANTAGE_VISION_SUPPORT', float(match_info.thisVisionAdvantage),
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                     
                 else:
                     records, exploits = records_check(records, key, 'AVANTAGE_VISION', float(match_info.thisVisionAdvantage),
-                                        match_info.thisChampName, summonerName, exploits)
+                                        match_info.thisChampName, summonerName, exploits, url_game)
                     
             for key, value in records2.items():
                 if match_info.thisChampName != "Zeri": # on supprime Zeri de ce record qui est impossible à égaler avec d'autres champions
                     records2, exploits = records_check(records2, key, 'SPELLS_USED',
                                                  match_info.thisSpellUsed,
-                                                 match_info.thisChampName, summonerName, exploits)
+                                                 match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'BUFFS_VOLEES', match_info.thisbuffsVolees,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'SPELLS_EVITES', match_info.thisSpellsDodged,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'CS_AVANTAGES', match_info.thisCSAdvantageOnLane,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'SOLOKILLS', match_info.thisSoloKills,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'CS_APRES_10_MIN', match_info.thisCSafter10min,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'NB_SERIES_DE_KILLS', match_info.thisKillingSprees,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'DOMMAGES_TANK',
                                              int(match_info.match_detail_participants['totalDamageTaken']),
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'DOMMAGES_TANK%', match_info.thisDamageTakenRatio,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'DOMMAGES_REDUITS', match_info.thisDamageSelfMitigated,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'DOMMAGES_TOWER', match_info.thisDamageTurrets,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'GOLDS_GAGNES', match_info.thisGoldEarned,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'SERIES_DE_KILLS', match_info.thisKillsSeries,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'TOTAL_HEALS',
                                              match_info.thisTotalHealed,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'HEALS_SUR_ALLIES', match_info.thisTotalOnTeammates,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'EARLY_DRAKE', match_info.earliestDrake,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'EARLY_BARON', match_info.earliestBaron,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 
                 if match_info.thisChampName != "Zeri":
                     records2, exploits = records_check(records2, key, 'SKILLSHOTS_HIT', match_info.thisSkillshot_hit,
-                                                match_info.thisChampName, summonerName, exploits)
+                                                match_info.thisChampName, summonerName, exploits, url_game)
                     
                 records2, exploits = records_check(records2, key, 'SKILLSHOTS_DODGES', match_info.thisSkillshot_dodged,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'TOWER_PLATES', match_info.thisTurretPlatesTaken,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'ECART_LEVEL', match_info.thisLevelAdvantage,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
                 records2, exploits = records_check(records2, key, 'SHIELD', match_info.thisTotalShielded,
-                                             match_info.thisChampName, summonerName, exploits)
+                                             match_info.thisChampName, summonerName, exploits, url_game)
 
                     
                 if chrono:
@@ -591,7 +596,7 @@ class LeagueofLegends(commands.Cog):
                 suivi[summonerName.lower().replace(" ", "")]['games'] = 0
                 
             sauvegarde_bdd(records_cumul, 'records3')
-            sauvegarde_bdd(records_personnel, 'records_personnel_modif')
+            sauvegarde_bdd(records_personnel, 'records_personnel')
 
 
         sauvegarde_bdd(suivi, 'suivi') #achievements + suivi
@@ -601,7 +606,7 @@ class LeagueofLegends(commands.Cog):
                 
         # observations
         
-        embed.add_field(name="Game", value=f"[LeagueofGraph](https://www.leagueofgraphs.com/fr/match/euw/{str(match_info.last_match)[5:]}#participant{int(match_info.thisId)+1})") # ici, ça va de 1 à 10.. contrairement à Rito qui va de 1 à 9
+        embed.add_field(name="Game", value=f"[LeagueofGraph]({url_game})") # ici, ça va de 1 à 10.. contrairement à Rito qui va de 1 à 9
         embed.add_field(name="OPGG", value=f"[Profil](https://euw.op.gg/summoners/euw/{summonerName})")
         embed.add_field(name="Stats", value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)")
 
@@ -694,44 +699,7 @@ class LeagueofLegends(commands.Cog):
                 embed.add_field(name=f'Bo5', value=f"Victoires : **{bo_wins}** | Defaites : **{bo_losses}**"
                                 + f"\nProgress : {bo_progress}", inline=False) 
                 
-        # embed.add_field(name=f"Alliés ({match_info.thisGold_team1} Golds)",
-        #                 value=str(match_info.thisPseudoListe[0]) + " (" + str(match_info.thisChampName1) + ") - " + str(
-        #                     match_info.thisKillsListe[0]) + "/" + str(
-        #                     match_info.thisDeathsListe[0]) + "/" + str(match_info.thisAssistsListe[0]) + "\n" +
-        #                       str(match_info.thisPseudoListe[1]) + " (" + str(match_info.thisChampName2) + ") - " + str(
-        #                     match_info.thisKillsListe[1]) + "/" + str(
-        #                     match_info.thisDeathsListe[1]) + "/" + str(match_info.thisAssistsListe[1]) + "\n" +
-        #                       str(match_info.thisPseudoListe[2]) + " (" + str(match_info.thisChampName3) + ") - " + str(
-        #                     match_info.thisKillsListe[2]) + "/" + str(
-        #                     match_info.thisDeathsListe[2]) + "/" + str(match_info.thisAssistsListe[2]) + "\n" +
-        #                       str(match_info.thisPseudoListe[3]) + " (" + str(match_info.thisChampName4) + ") - " + str(
-        #                     match_info.thisKillsListe[3]) + "/" + str(
-        #                     match_info.thisDeathsListe[3]) + "/" + str(match_info.thisAssistsListe[3]) + "\n" +
-        #                       str(match_info.thisPseudoListe[4]) + " (" + str(match_info.thisChampName5) + ") - " + str(
-        #                     match_info.thisKillsListe[4]) + "/" + str(
-        #                     match_info.thisDeathsListe[4]) + "/" + str(match_info.thisAssistsListe[4]), inline=True)
-        # embed.add_field(name=f"Adversaires ({match_info.thisGold_team2} Golds)",
-        #                 value=str(match_info.thisPseudoListe[5]) + " (" + str(match_info.thisChampName6) + ") - " + str(
-        #                     match_info.thisKillsListe[5]) + "/" + str(
-        #                     match_info.thisDeathsListe[5]) + "/" + str(
-        #                     match_info.thisAssistsListe[5]) + "\n" +
-        #                       str(match_info.thisPseudoListe[6]) + " (" + str(match_info.thisChampName7) + ") - " + str(
-        #                     match_info.thisKillsListe[6]) + "/" + str(
-        #                     match_info.thisDeathsListe[6]) + "/" + str(
-        #                     match_info.thisAssistsListe[6]) + "\n" +
-        #                       str(match_info.thisPseudoListe[7]) + " (" + str(match_info.thisChampName8) + ") - " + str(
-        #                     match_info.thisKillsListe[7]) + "/" + str(
-        #                     match_info.thisDeathsListe[7]) + "/" + str(
-        #                     match_info.thisAssistsListe[7]) + "\n" +
-        #                       str(match_info.thisPseudoListe[8]) + " (" + str(match_info.thisChampName9) + ") - " + str(
-        #                     match_info.thisKillsListe[8]) + "/" + str(
-        #                     match_info.thisDeathsListe[8]) + "/" + str(
-        #                     match_info.thisAssistsListe[8]) + "\n" +
-        #                       str(match_info.thisPseudoListe[9]) + " (" + str(match_info.thisChampName10) + ") - " + str(
-        #                     match_info.thisKillsListe[9]) + "/" + str(
-        #                     match_info.thisDeathsListe[9]) + "/" + str(match_info.thisAssistsListe[9]),
-        #                 inline=True)
-        
+       
         font_name = None
         
         # Gestion de l'image
