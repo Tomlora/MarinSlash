@@ -114,7 +114,7 @@ class Recordslol(commands.Cog):
             
             else:
                 embed1.add_field(name=str(emote[key]) + "" + key,
-                             value=f"Records : __ [{valeur}]({value['url']}) __ \n ** {value['Joueur']} + ** ({value['Champion']})")
+                             value=f"Records : __ [{valeur}]({value['url']}) __ \n ** {value['Joueur']} ** ({value['Champion']})")
                 
                 
 
