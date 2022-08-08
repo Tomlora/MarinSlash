@@ -100,7 +100,6 @@ class Achievements_scoringlol(commands.Cog):
         # Succes
         suivi = lire_bdd('suivi', 'dict')
         records1 = lire_bdd('records', 'dict')
-        records2 = lire_bdd('records2', 'dict')
 
         settings = lire_bdd('achievements_settings', 'dict')
 
@@ -112,12 +111,9 @@ class Achievements_scoringlol(commands.Cog):
         # Records
         if records:
             df2 = pd.DataFrame(records1).transpose()
-            df3 = pd.DataFrame(records2).transpose()
 
 
             plt.figure(figsize=(15, 8))
-
-            df2 = pd.concat([df2, df3])
 
             df2 = unifier_joueur(df2, 'Joueur')
 
