@@ -222,12 +222,12 @@ class LeagueofLegends(commands.Cog):
 
                     records, exploits = records_check(records, key, 'KDA',
                                             float(match_info.thisKDA),
-                                            match_info.thisChampName, summonerName, exploits)
+                                            match_info.thisChampName, summonerName, exploits, url_game)
                 else:
                     records, exploits = records_check(records, key, 'KDA',
                                             float(
                                                 round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1), 2)),
-                                            match_info.thisChampName, summonerName, exploits)
+                                            match_info.thisChampName, summonerName, exploits, url_game)
 
                 records, exploits = records_check(records, key, 'KP', match_info.thisKP,
                                         match_info.thisChampName, summonerName, exploits, url_game)
