@@ -786,7 +786,7 @@ class LeagueofLegends(commands.Cog):
                 )  # MacOS
                     
 
-        im = Image.new("RGBA", (lineX, 200 * 13), (255, 255, 255)) # Ligne blanche
+        im = Image.new("RGBA", (lineX, 1400), (255, 255, 255)) # Ligne blanche
         d = ImageDraw.Draw(im)
         
         im.paste(line, (0, 140))
@@ -1072,12 +1072,12 @@ class LeagueofLegends(commands.Cog):
         url_champion = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/champions/{match_info.thisChampName}.png'
         embed.set_thumbnail(url=url_champion)
         
-        resume = discord.File('resume.png')
-        embed.set_image(url='attachment://resume.png')
+        resume = discord.File('resume_perso.png')
+        embed.set_image(url='attachment://resume_perso.png')
         
         embed2 = discord.Embed()
-        resume2 = discord.File('resume_perso.png')
-        embed2.set_image(url='attachment://resume_perso.png')
+        resume2 = discord.File('resume.png')
+        embed2.set_image(url='attachment://resume.png')
 
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora - Match {str(match_info.last_match)}')
 
