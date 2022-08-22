@@ -90,6 +90,12 @@ def get_image(type, name, resize_x=80, resize_y=80):
         img = img.resize((resize_x, resize_y))
         
         return img
+    
+    elif type == "autre":
+        img = Image.open(f'{name}.png')
+        img = img.resize((resize_x, resize_y))
+        
+        return img
 
 
 def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed, url):
