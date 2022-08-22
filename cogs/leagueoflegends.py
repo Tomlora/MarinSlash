@@ -767,6 +767,17 @@ class LeagueofLegends(commands.Cog):
                 font = ImageFont.truetype(
                         "AppleSDGothicNeo.ttc", 50
                     )  # MacOS
+        
+
+        try:
+            font_little = ImageFont.truetype("DejaVuSans.ttf", 40) # Ubuntu 18.04
+        except OSError:
+            try:
+                font_little = ImageFont.truetype("arial.ttf", 40)  # Windows
+            except OSError:
+                font_little = ImageFont.truetype(
+                    "AppleSDGothicNeo.ttc", 40
+                )  # MacOS
                     
 
         im = Image.new("RGBA", (lineX, 200 * 13), (255, 255, 255)) # Ligne blanche
@@ -1205,7 +1216,7 @@ class LeagueofLegends(commands.Cog):
         
         summonername = summonername.lower()
         
-        embed, mode_de_jeu, resume = self.printInfo(summonerName=summonername, idgames=0, succes=True)
+        embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername, idgames=0, succes=True)
         
         if mode_de_jeu in ['RANKED', 'FLEX']:
             channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))
