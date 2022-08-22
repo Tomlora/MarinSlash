@@ -29,6 +29,7 @@ def unifier_joueur(df, colonne):
     df[colonne] = df[colonne].replace('linò', 'state')
     df[colonne] = df[colonne].replace('namiyeon', 'dawn')
     df[colonne] = df[colonne].replace('chatobogan', 'dawn')
+    df[colonne] = df[colonne].replace('zyradelevingne', 'dawn')
 
     return df
 

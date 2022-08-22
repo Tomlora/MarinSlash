@@ -197,6 +197,7 @@ class matchlol():
         self.thisWin = ' '
         self.thisTime = round((int(self.match_detail['info']['gameDuration']) / 60), 2)
         self.thisDamage = self.match_detail_participants['totalDamageDealtToChampions']
+        self.thisDamageNoFormat = self.match_detail_participants['totalDamageDealtToChampions']
         self.thisDamageAP = self.match_detail_participants['magicDamageDealtToChampions']
         self.thisDamageAD = self.match_detail_participants['physicalDamageDealtToChampions']
         self.thisDamageTrue = self.match_detail_participants['trueDamageDealtToChampions']
@@ -204,6 +205,7 @@ class matchlol():
         self.thisTimeSpendDead = round(float(self.match_detail_participants['totalTimeSpentDead'])/60,2) 
         
         self.thisDamageTaken = int(self.match_detail_participants['totalDamageTaken'])
+        self.thisDamageTakenNoFormat = int(self.match_detail_participants['totalDamageTaken'])
         self.thisDamageTakenAD = int(self.match_detail_participants['physicalDamageTaken'])
         self.thisDamageTakenAP = int(self.match_detail_participants['magicDamageTaken'])
         self.thisDamageTakenTrue = int(self.match_detail_participants['trueDamageTaken'])

@@ -4,6 +4,10 @@ from discord.ext import commands, tasks
 import requests
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
+import plotly.graph_objects as go
+from plotly.graph_objs import Layout
+import plotly.express as px
+
 
 
 from riotwatcher import LolWatcher
@@ -632,77 +636,212 @@ class LeagueofLegends(commands.Cog):
         
         # embed.add_field(name="Items :", value=match_info.data_item, inline=False)
 
-        try:
-            if int(match_info.thisDeaths) >= 1:  # KDA
-                embed.add_field(name="KDA : " + str(match_info.thisKDA),
-                                value=f"**{match_info.thisKills}** | **{match_info.thisDeaths}** | **{match_info.thisAssists}**"
-                                + f"\n KP : **{match_info.thisKP}**%",
-                                inline=False)
-            else:
-                embed.add_field(name="KDA : Perfect KDA",
-                                value=f"**{match_info.thisKills}** | **{match_info.thisDeaths}** | **{match_info.thisAssists}**"
-                                + f"\n KP : **{match_info.thisKP}**%",
-                                inline=False)
-        except Exception:
-            embed.add_field(name="KDA : ", value=str(match_info.thisKills) + " | " + str(match_info.thisDeaths) + " | " + str(match_info.thisAssists),
-                            inline=False)
+        # try:
+        #     if int(match_info.thisDeaths) >= 1:  # KDA
+        #         embed.add_field(name="KDA : " + str(match_info.thisKDA),
+        #                         value=f"**{match_info.thisKills}** | **{match_info.thisDeaths}** | **{match_info.thisAssists}**"
+        #                         + f"\n KP : **{match_info.thisKP}**%",
+        #                         inline=False)
+        #     else:
+        #         embed.add_field(name="KDA : Perfect KDA",
+        #                         value=f"**{match_info.thisKills}** | **{match_info.thisDeaths}** | **{match_info.thisAssists}**"
+        #                         + f"\n KP : **{match_info.thisKP}**%",
+        #                         inline=False)
+        # except Exception:
+        #     embed.add_field(name="KDA : ", value=str(match_info.thisKills) + " | " + str(match_info.thisDeaths) + " | " + str(match_info.thisAssists),
+        #                     inline=False)
 
-        # CS
-        if match_info.thisQ != "ARAM":
-            embed.add_field(name=f"CS : {match_info.thisMinion} ({match_info.thisMinionPerMin}/min)", 
-                            value=f"\n Avantage maximal CS : **{match_info.thisCSAdvantageOnLane}**",
-                            inline=False)
-        else:
-            embed.add_field(name="CS : " + str(match_info.thisMinion), value="minions par minute: " + str(match_info.thisMinionPerMin) ,inline=False)
-        # Score de vision
-        if match_info.thisQ != "ARAM":
-            embed.add_field(
-                name=f"Score de vision : {match_info.thisVision} ({match_info.thisVisionPerMin}/min) | Avantage : {match_info.thisVisionAdvantage}%",
-                value=f"\n Wards posées : **{match_info.thisWards}** | Wards détruites : **{match_info.thisWardsKilled}** | Pinks : **{match_info.thisPink}**", inline=False)
-        # Golds
-            embed.add_field(name="Golds gagnés : " + str(match_info.thisGold), value=f"golds par minute : **{match_info.thisGoldPerMinute}**",
-                        inline=False)
-        # Dmg
-        embed.add_field(name="DMG deal : " + str(match_info.thisDamage),
-                        value=f"Dégats par minutes : **{round(match_info.thisDamagePerMinute, 0)}**" 
-                        + f"\n Double : **{match_info.thisDouble}** | Triple : **{match_info.thisTriple}** | Quadra : **{match_info.thisQuadra}** | Penta : **{match_info.thisPenta}**"
-                        + f"\n SoloKills : **{match_info.thisSoloKills}**",
-                        inline=False)
-        embed.add_field(name="DMG reçus : " + str(match_info.thisDamageTaken),
-                        value=f"Dégats réduits : **{match_info.thisDamageSelfMitigatedFormat}**", inline=False)
+        # # CS
+        # if match_info.thisQ != "ARAM":
+        #     embed.add_field(name=f"CS : {match_info.thisMinion} ({match_info.thisMinionPerMin}/min)", 
+        #                     value=f"\n Avantage maximal CS : **{match_info.thisCSAdvantageOnLane}**",
+        #                     inline=False)
+        # else:
+        #     embed.add_field(name="CS : " + str(match_info.thisMinion), value="minions par minute: " + str(match_info.thisMinionPerMin) ,inline=False)
+        # # Score de vision
+        # if match_info.thisQ != "ARAM":
+        #     embed.add_field(
+        #         name=f"Score de vision : {match_info.thisVision} ({match_info.thisVisionPerMin}/min) | Avantage : {match_info.thisVisionAdvantage}%",
+        #         value=f"\n Wards posées : **{match_info.thisWards}** | Wards détruites : **{match_info.thisWardsKilled}** | Pinks : **{match_info.thisPink}**", inline=False)
+        # # Golds
+        #     embed.add_field(name="Golds gagnés : " + str(match_info.thisGold), value=f"golds par minute : **{match_info.thisGoldPerMinute}**",
+        #                 inline=False)
+        # # Dmg
+        # embed.add_field(name="DMG deal : " + str(match_info.thisDamage),
+        #                 value=f"Dégats par minutes : **{round(match_info.thisDamagePerMinute, 0)}**" 
+        #                 + f"\n Double : **{match_info.thisDouble}** | Triple : **{match_info.thisTriple}** | Quadra : **{match_info.thisQuadra}** | Penta : **{match_info.thisPenta}**"
+        #                 + f"\n SoloKills : **{match_info.thisSoloKills}**",
+        #                 inline=False)
+        # embed.add_field(name="DMG reçus : " + str(match_info.thisDamageTaken),
+        #                 value=f"Dégats réduits : **{match_info.thisDamageSelfMitigatedFormat}**", inline=False)
         
 
-        # Objectifs
-        if match_info.thisQ != "ARAM":
-            embed.add_field(name="Team :", value=f"\nEcart top - Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
-                            + f"Ecart jgl - Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
-                            + f"Ecart mid - Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
-                            + f"Ecart adc - Vision : **{match_info.ecart_adc_vision}** | CS : **{match_info.ecart_adc_cs}** \n"
-                            + f"Ecart supp - Vision : **{match_info.ecart_supp_vision}** | CS : **{match_info.ecart_supp_cs}**", inline=False)
+        # # Objectifs
+        # if match_info.thisQ != "ARAM":
+        #     embed.add_field(name="Team :", value=f"\nEcart top - Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
+        #                     + f"Ecart jgl - Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
+        #                     + f"Ecart mid - Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
+        #                     + f"Ecart adc - Vision : **{match_info.ecart_adc_vision}** | CS : **{match_info.ecart_adc_cs}** \n"
+        #                     + f"Ecart supp - Vision : **{match_info.ecart_supp_vision}** | CS : **{match_info.ecart_supp_cs}**", inline=False)
         
 
-        # Stats soloq :
-        if match_info.thisQ == "RANKED" or match_info.thisQ == "FLEX":
-            if match_info.thisRank == 'En placement':
-                embed.add_field(name="Current rank", value=match_info.thisRank, inline=False)
-            else:
-                embed.add_field(name="Current rank : " + match_info.thisTier + " " + match_info.thisRank + " - " + match_info.thisLP + "LP" + " (" + difLP + ")",
-                                value=f"Victoires : **{match_info.thisVictory}** | Defaites : **{match_info.thisLoose}** (**{match_info.thisWinrateStat}%**)",
-                                inline=False)
+        # # Stats soloq :
+        # if match_info.thisQ == "RANKED" or match_info.thisQ == "FLEX":
+        #     if match_info.thisRank == 'En placement':
+        #         embed.add_field(name="Current rank", value=match_info.thisRank, inline=False)
+        #     else:
+        #         embed.add_field(name="Current rank : " + match_info.thisTier + " " + match_info.thisRank + " - " + match_info.thisLP + "LP" + " (" + difLP + ")",
+        #                         value=f"Victoires : **{match_info.thisVictory}** | Defaites : **{match_info.thisLoose}** (**{match_info.thisWinrateStat}%**)",
+        #                         inline=False)
         
-        # Gestion des bo    
-            if int(match_info.thisLP) == 100:
-                bo = match_info.thisStats[match_info.i]['miniSeries']
-                bo_wins = str(bo['wins'])
-                bo_losses = str(bo['losses'])
-                bo_progress = str(bo['progress'])
-                embed.add_field(name=f'Bo5', value=f"Victoires : **{bo_wins}** | Defaites : **{bo_losses}**"
-                                + f"\nProgress : {bo_progress}", inline=False) 
+        # # Gestion des bo    
+        #     if int(match_info.thisLP) == 100:
+        #         bo = match_info.thisStats[match_info.i]['miniSeries']
+        #         bo_wins = str(bo['wins'])
+        #         bo_losses = str(bo['losses'])
+        #         bo_progress = str(bo['progress'])
+        #         embed.add_field(name=f'Bo5', value=f"Victoires : **{bo_wins}** | Defaites : **{bo_losses}**"
+        #                         + f"\nProgress : {bo_progress}", inline=False) 
                 
+       
+       
+       # Gestion de l'image 1
+       
+       ## Graphique KP
+        values = [match_info.thisKP/100, 1-match_info.thisKP/100]
+
+        layout = Layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
+        )
+
+        fig = go.Figure(data=[go.Pie(labels=['a', 'b'],
+                                    values=values,
+                                    hole=.3,
+                                    marker_colors=['rgb(68,138,236)', 'rgb(243,243,243)'])], layout=layout)
+        fig.update_layout(showlegend=False,
+            # Add annotations in the center of the donut pies.
+            annotations=[dict(text=f'{match_info.thisKP}%',font_size=40, showarrow=False)])
+        fig.update_traces(textinfo='none')
+
+
+
+        fig.write_image('kp.png')
+        
+        ## Graphique stats
+        
+        stats_name = ['DMG', 'TANK', 'TANK_REDUC']
+        stats_value = [match_info.thisDamageNoFormat, match_info.thisDamageTakenNoFormat, match_info.thisDamageSelfMitigated]
+
+        df_stats = pd.DataFrame([stats_name, stats_value]).transpose()
+        df_stats.columns = ['stats', 'value']
+        
+        fig = px.histogram(df_stats, 'stats', 'value', color='stats', text_auto=True)
+        fig.update_traces(textfont_size=20)
+        fig.update_layout(showlegend=False, font=dict(size=20))
+        fig.update_yaxes(visible=False)
+        fig.write_image('stats.png')
+        
+        lineX = 2600
+        lineY = 100
+        
+        x_name = 290
+        y = 120
+        y_name= y + 80
+        x_rank = 1750
+        
+        x_metric = 120
+        y_metric = 400
+        
+        line = Image.new("RGB", (lineX, 190), (230, 230, 230)) # Ligne grise
+
+        
+        
+
+        try:
+            font = ImageFont.truetype("DejaVuSans.ttf", 50) # Ubuntu 18.04
+        except OSError:
+            try:
+                font = ImageFont.truetype("arial.ttf", 50)  # Windows
+            except OSError:
+                font = ImageFont.truetype(
+                        "AppleSDGothicNeo.ttc", 50
+                    )  # MacOS
+                    
+
+        im = Image.new("RGBA", (lineX, 200 * 13), (255, 255, 255)) # Ligne blanche
+        d = ImageDraw.Draw(im)
+        
+        im.paste(line, (0, 140))
+        
+        fill=(0,0,0)
+        d.text((x_name, y_name), match_info.summonerName, font=font, fill=fill)
+        
+        im.paste(im=get_image("champion", match_info.thisChampName, 100, 100),
+                box=(x_name-120, y_name-20))
+        
+
+        img_rank = get_image('tier', match_info.thisTier, 220, 220)
+        
+                    
+        im.paste(img_rank,(x_rank, y+10), img_rank.convert('RGBA'))
+        
+        
+        d.text((x_rank+220, y+20), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
+        d.text((x_rank+220, y+90), f'{match_info.thisLP} LP ({difLP})', font=font_little, fill=fill)
+        d.text((x_rank+220, y+160), f'{match_info.thisVictory}W {match_info.thisLoose}L {match_info.thisWinrateStat}% ', font=font_little, fill=fill)
+        
+
+        
+        kp = get_image('autre', 'kp', 700, 500)
+        
+                    
+        im.paste(kp,(x_metric, y_metric), kp.convert('RGBA'))
+        d.text((x_metric + 320, y_metric), 'KP', font=font, fill=(0, 0, 0))
+        
+        # Gold 
+        im.paste(im=get_image("items", 3400, 100, 100),
+                box=(x_metric + 300, y_metric+600))
+        
+        d.text((x_metric + 420, y_metric+620),f'{round(match_info.thisGoldEarned/1000,1)}k', font=font, fill=(0, 0, 0))
+        
+        # Ward
+        
+        d.text((x_metric + 640, y_metric),f'Vision : {match_info.thisVision} (AV : {match_info.thisVisionAdvantage}%)', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 640, y_metric+90),f'{match_info.thisVisionPerMin}/min', font=font, fill=(0, 0, 0))
+        
+        im.paste(im=get_image("items", 3340, 100, 100),
+                box=(x_metric + 650, y_metric+200))
+        
+        d.text((x_metric + 800, y_metric+220),f'{match_info.thisWards}', font=font, fill=(0, 0, 0))
+        
+        im.paste(im=get_image("items", 3364, 100, 100),
+                box=(x_metric + 650, y_metric+400))
+        
+        d.text((x_metric + 800, y_metric+420),f'{match_info.thisWardsKilled}', font=font, fill=(0, 0, 0))
+        
+        im.paste(im=get_image("items", 2055, 100, 100),
+                box=(x_metric + 650, y_metric+600))
+        
+        d.text((x_metric + 800, y_metric+620),f'{match_info.thisPink}', font=font, fill=(0, 0, 0))
+        
+        im.paste(im=get_image("autre", 'stats', 800, 700),
+                box=(x_metric + 1000, y_metric+100))
+        
+        
+        d.text((x_metric + 1800, y_metric+200),f'Solokills : {match_info.thisSoloKills}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 1800, y_metric+300),f'Double : {match_info.thisDouble}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 1800, y_metric+400),f'Triple : {match_info.thisTriple}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 1800, y_metric+500),f'Quadra : {match_info.thisQuadra}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 1800, y_metric+600),f'Penta : {match_info.thisPenta}', font=font, fill=(0, 0, 0))
+        
+
+    
+        im.save('resume_perso.png')
        
         font_name = None
         
-        # Gestion de l'image
+        # Gestion de l'image 2
         lineX = 2600
         lineY = 100
         
@@ -918,6 +1057,10 @@ class LeagueofLegends(commands.Cog):
         
         resume = discord.File('resume.png')
         embed.set_image(url='attachment://resume.png')
+        
+        embed2 = discord.Embed()
+        resume2 = discord.File('resume_perso.png')
+        embed2.set_image(url='attachment://resume_perso.png')
 
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora - Match {str(match_info.last_match)}')
 
@@ -925,7 +1068,7 @@ class LeagueofLegends(commands.Cog):
             time_a = calcul_time('Embed fini', time_a)
             time_end = calcul_time('Total', time_depart)
 
-        return embed, match_info.thisQ, resume
+        return embed, match_info.thisQ, resume, embed2, resume2
 
     @commands.command(brief="Version du jeu")
     async def lolversion(self, ctx):
@@ -1025,10 +1168,11 @@ class LeagueofLegends(commands.Cog):
         
         summonername = summonername.lower()
 
-        embed, mode_de_jeu, resume = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, chrono=chrono)
+        embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, chrono=chrono)
 
         if embed != {}:
             await ctx.send(embed=embed, file=resume)
+            await ctx.send(embed=embed2, file=resume2)
             os.remove('resume.png')
             
             
@@ -1046,10 +1190,11 @@ class LeagueofLegends(commands.Cog):
             
             summonername = summonername.lower()
 
-            embed, mode_de_jeu, resume = self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes)
+            embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes)
 
             if embed != {}:
                 await ctx.send(embed=embed, file=resume)
+                await ctx.send(embed=embed2, file=resume2)
             else:
                 await ctx.send(f"La game {str(i)} n'a pas été comptabilisée")
                 
@@ -1069,7 +1214,9 @@ class LeagueofLegends(commands.Cog):
         
         if embed != {}:
             await channel_tracklol.send(embed=embed, file=resume)
+            await channel_tracklol.send(embed=embed2, file=resume2)
             os.remove('resume.png')
+            os.remove('resume_perso.png')
 
 
     async def update(self):
