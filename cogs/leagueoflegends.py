@@ -849,11 +849,11 @@ class LeagueofLegends(commands.Cog):
                 box=(x_metric + 1000, y_metric+100))
         
         
-        d.text((x_metric + 2200, y_metric+200),f'Solokills : {match_info.thisSoloKills}', font=font, fill=(0, 0, 0))
-        d.text((x_metric + 2200, y_metric+300),f'Double : {match_info.thisDouble}', font=font, fill=(0, 0, 0))
-        d.text((x_metric + 2200, y_metric+400),f'Triple : {match_info.thisTriple}', font=font, fill=(0, 0, 0))
-        d.text((x_metric + 2200, y_metric+500),f'Quadra : {match_info.thisQuadra}', font=font, fill=(0, 0, 0))
-        d.text((x_metric + 2200, y_metric+600),f'Penta : {match_info.thisPenta}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2100, y_metric+200),f'Solokills : {match_info.thisSoloKills}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2100, y_metric+300),f'Double : {match_info.thisDouble}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2100, y_metric+400),f'Triple : {match_info.thisTriple}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2100, y_metric+500),f'Quadra : {match_info.thisQuadra}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2100, y_metric+600),f'Penta : {match_info.thisPenta}', font=font, fill=(0, 0, 0))
         
 
     
