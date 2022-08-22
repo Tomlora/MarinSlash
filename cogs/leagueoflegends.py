@@ -748,12 +748,14 @@ class LeagueofLegends(commands.Cog):
         fig.update_yaxes(visible=False)
         fig.write_image('stats.png')
         
+        # Image 1
+        
         lineX = 2600
         lineY = 100
         
         x_name = 290
         y = 120
-        y_name= y + 80
+        y_name= y - 60
         x_rank = 1750
         
         x_metric = 120
@@ -789,7 +791,7 @@ class LeagueofLegends(commands.Cog):
         im = Image.new("RGBA", (lineX, 1400), (255, 255, 255)) # Ligne blanche
         d = ImageDraw.Draw(im)
         
-        im.paste(line, (0, 140))
+        im.paste(line, (0, 0))
         
         fill=(0,0,0)
         d.text((x_name, y_name), match_info.summonerName, font=font, fill=fill)
@@ -801,12 +803,12 @@ class LeagueofLegends(commands.Cog):
         img_rank = get_image('tier', match_info.thisTier, 220, 220)
         
                     
-        im.paste(img_rank,(x_rank, y+10), img_rank.convert('RGBA'))
+        im.paste(img_rank,(x_rank, y-140), img_rank.convert('RGBA'))
         
         
-        d.text((x_rank+220, y+20), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
-        d.text((x_rank+220, y+90), f'{match_info.thisLP} LP ({difLP})', font=font_little, fill=fill)
-        d.text((x_rank+220, y+160), f'{match_info.thisVictory}W {match_info.thisLoose}L {match_info.thisWinrateStat}% ', font=font_little, fill=fill)
+        d.text((x_rank+220, y-110), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
+        d.text((x_rank+220, y-50), f'{match_info.thisLP} LP ({difLP})', font=font_little, fill=fill)
+        d.text((x_rank+220, y+10), f'{match_info.thisVictory}W {match_info.thisLoose}L {match_info.thisWinrateStat}% ', font=font_little, fill=fill)
         
 
         
@@ -1191,6 +1193,7 @@ class LeagueofLegends(commands.Cog):
             await ctx.send(embed=embed, file=resume)
             await ctx.send(embed=embed2, file=resume2)
             os.remove('resume.png')
+            os.remove('resume_perso.png')
             
             
     @cog_ext.cog_slash(name="game_multi",
