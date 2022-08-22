@@ -736,9 +736,10 @@ class LeagueofLegends(commands.Cog):
         
         ## Graphique stats
         
-        stats_name = ['DMG', 'TANK', 'TANK_REDUC']
-        stats_value = [match_info.thisDamageNoFormat, match_info.thisDamageTakenNoFormat, match_info.thisDamageSelfMitigated]
-
+        stats_name = ['DMG', 'TANK', 'TANK_REDUC', 'Healing', 'Shield']
+        stats_value = [match_info.thisDamageNoFormat, match_info.thisDamageTakenNoFormat, match_info.thisDamageSelfMitigated,
+                    match_info.thisTotalHealed, match_info.thisTotalShielded]
+        
         df_stats = pd.DataFrame([stats_name, stats_value]).transpose()
         df_stats.columns = ['stats', 'value']
         
@@ -844,15 +845,15 @@ class LeagueofLegends(commands.Cog):
         
         d.text((x_metric + 800, y_metric+620),f'{match_info.thisPink}', font=font, fill=(0, 0, 0))
         
-        im.paste(im=get_image("autre", 'stats', 800, 700),
+        im.paste(im=get_image("autre", 'stats', 900, 800),
                 box=(x_metric + 1000, y_metric+100))
         
         
-        d.text((x_metric + 1800, y_metric+200),f'Solokills : {match_info.thisSoloKills}', font=font, fill=(0, 0, 0))
-        d.text((x_metric + 1800, y_metric+300),f'Double : {match_info.thisDouble}', font=font, fill=(0, 0, 0))
-        d.text((x_metric + 1800, y_metric+400),f'Triple : {match_info.thisTriple}', font=font, fill=(0, 0, 0))
-        d.text((x_metric + 1800, y_metric+500),f'Quadra : {match_info.thisQuadra}', font=font, fill=(0, 0, 0))
-        d.text((x_metric + 1800, y_metric+600),f'Penta : {match_info.thisPenta}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2200, y_metric+200),f'Solokills : {match_info.thisSoloKills}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2200, y_metric+300),f'Double : {match_info.thisDouble}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2200, y_metric+400),f'Triple : {match_info.thisTriple}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2200, y_metric+500),f'Quadra : {match_info.thisQuadra}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2200, y_metric+600),f'Penta : {match_info.thisPenta}', font=font, fill=(0, 0, 0))
         
 
     
@@ -1071,13 +1072,10 @@ class LeagueofLegends(commands.Cog):
 
         im.save('resume.png')
         
-        url_champion = f'https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/champions/{match_info.thisChampName}.png'
-        embed.set_thumbnail(url=url_champion)
-        
         resume = discord.File('resume_perso.png')
         embed.set_image(url='attachment://resume_perso.png')
         
-        embed2 = discord.Embed()
+        embed2 = discord.Embed(color=color)
         resume2 = discord.File('resume.png')
         embed2.set_image(url='attachment://resume.png')
 
