@@ -848,6 +848,11 @@ class LeagueofLegends(commands.Cog):
         d.text((x_metric + 150, y_metric+620),f'Avantage CS : {int(match_info.thisCSAdvantageOnLane)}', font=font, fill=(0, 0, 0))
         d.text((x_metric + 150, y_metric+500),f'CS/min : {int(match_info.thisMinionPerMin)}', font=font, fill=(0, 0, 0))
         
+        # KDA
+    
+        d.text((x_name-50, y_metric-120),f'K : {match_info.thisKills} | D : {match_info.thisDeaths} | A : {match_info.thisAssists} ({match_info.thisKDA})', font=font, fill=(0, 0, 0))
+    
+        
         # Gold 
         x_gold = x_metric + 2000
         im.paste(im=get_image("items", 3400, 100, 100),
