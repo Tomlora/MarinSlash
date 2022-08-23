@@ -823,7 +823,7 @@ class LeagueofLegends(commands.Cog):
         
         
         d.text((x_rank+220, y-110), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
-        d.text((x_rank+220, y-50), f'{match_info.thisLP} LP ({difLP})', font=font_little, fill=fill)
+        d.text((x_rank+220, y-45), f'{match_info.thisLP} LP ({difLP})', font=font_little, fill=fill)
         
         # Gestion des bo    
         if int(match_info.thisLP) == 100:
@@ -877,8 +877,8 @@ class LeagueofLegends(commands.Cog):
             
             d.text((x_metric + 800, y_metric+620),f'{match_info.thisPink}', font=font, fill=(0, 0, 0))
             
-            im.paste(im=get_image("autre", 'stats', 900, 800),
-                    box=(x_metric + 1000, y_metric+100))
+        im.paste(im=get_image("autre", 'stats', 1000, 800),
+                    box=(x_metric + 900, y_metric+100))
         
         
         d.text((x_metric + 2000, y_metric+200),f'Solokills : {match_info.thisSoloKills}', font=font, fill=(0, 0, 0))
