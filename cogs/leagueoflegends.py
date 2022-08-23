@@ -683,12 +683,12 @@ class LeagueofLegends(commands.Cog):
         
 
         # # Objectifs
-        # if match_info.thisQ != "ARAM":
-        #     embed.add_field(name="Team :", value=f"\nEcart top - Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
-        #                     + f"Ecart jgl - Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
-        #                     + f"Ecart mid - Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
-        #                     + f"Ecart adc - Vision : **{match_info.ecart_adc_vision}** | CS : **{match_info.ecart_adc_cs}** \n"
-        #                     + f"Ecart supp - Vision : **{match_info.ecart_supp_vision}** | CS : **{match_info.ecart_supp_cs}**", inline=False)
+        if match_info.thisQ != "ARAM":
+            embed.add_field(name="Team :", value=f"\nEcart top - Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
+                            + f"Ecart jgl - Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
+                            + f"Ecart mid - Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
+                            + f"Ecart adc - Vision : **{match_info.ecart_adc_vision}** | CS : **{match_info.ecart_adc_cs}** \n"
+                            + f"Ecart supp - Vision : **{match_info.ecart_supp_vision}** | CS : **{match_info.ecart_supp_cs}**", inline=False)
         
 
         # # Stats soloq :
@@ -819,34 +819,42 @@ class LeagueofLegends(commands.Cog):
         im.paste(kp,(x_metric, y_metric), kp.convert('RGBA'))
         d.text((x_metric + 320, y_metric), 'KP', font=font, fill=(0, 0, 0))
         
-        # Gold 
-        im.paste(im=get_image("items", 3400, 100, 100),
-                box=(x_metric + 300, y_metric+600))
+        # CS
+    
+        d.text((x_metric + 150, y_metric+620),f'Avantage CS : {int(match_info.thisCSAdvantageOnLane)}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 150, y_metric+500),f'CS/min : {int(match_info.thisMinionPerMin)}', font=font, fill=(0, 0, 0))
         
-        d.text((x_metric + 420, y_metric+620),f'{round(match_info.thisGoldEarned/1000,1)}k', font=font, fill=(0, 0, 0))
+        # Gold 
+        x_gold = x_metric + 2000
+        im.paste(im=get_image("items", 3400, 100, 100),
+                box=(x_gold, y_metric-140))
+        
+        d.text((x_gold + 150, y_metric-120),f'{round(match_info.thisGoldEarned/1000,1)}k', font=font, fill=(0, 0, 0))
         
         # Ward
         
-        d.text((x_metric + 640, y_metric),f'Vision : {match_info.thisVision} (AV : {match_info.thisVisionAdvantage}%)', font=font, fill=(0, 0, 0))
-        d.text((x_metric + 640, y_metric+90),f'{match_info.thisVisionPerMin}/min', font=font, fill=(0, 0, 0))
+        if match_info.thisQ != "ARAM":
         
-        im.paste(im=get_image("items", 3340, 100, 100),
-                box=(x_metric + 650, y_metric+200))
-        
-        d.text((x_metric + 800, y_metric+220),f'{match_info.thisWards}', font=font, fill=(0, 0, 0))
-        
-        im.paste(im=get_image("items", 3364, 100, 100),
-                box=(x_metric + 650, y_metric+400))
-        
-        d.text((x_metric + 800, y_metric+420),f'{match_info.thisWardsKilled}', font=font, fill=(0, 0, 0))
-        
-        im.paste(im=get_image("items", 2055, 100, 100),
-                box=(x_metric + 650, y_metric+600))
-        
-        d.text((x_metric + 800, y_metric+620),f'{match_info.thisPink}', font=font, fill=(0, 0, 0))
-        
-        im.paste(im=get_image("autre", 'stats', 900, 800),
-                box=(x_metric + 1000, y_metric+100))
+            d.text((x_metric + 640, y_metric),f'Vision : {match_info.thisVision} (AV : {match_info.thisVisionAdvantage}%)', font=font, fill=(0, 0, 0))
+            d.text((x_metric + 640, y_metric+90),f'{match_info.thisVisionPerMin}/min', font=font, fill=(0, 0, 0))
+            
+            im.paste(im=get_image("items", 3340, 100, 100),
+                    box=(x_metric + 650, y_metric+200))
+            
+            d.text((x_metric + 800, y_metric+220),f'{match_info.thisWards}', font=font, fill=(0, 0, 0))
+            
+            im.paste(im=get_image("items", 3364, 100, 100),
+                    box=(x_metric + 650, y_metric+400))
+            
+            d.text((x_metric + 800, y_metric+420),f'{match_info.thisWardsKilled}', font=font, fill=(0, 0, 0))
+            
+            im.paste(im=get_image("items", 2055, 100, 100),
+                    box=(x_metric + 650, y_metric+600))
+            
+            d.text((x_metric + 800, y_metric+620),f'{match_info.thisPink}', font=font, fill=(0, 0, 0))
+            
+            im.paste(im=get_image("autre", 'stats', 900, 800),
+                    box=(x_metric + 1000, y_metric+100))
         
         
         d.text((x_metric + 2000, y_metric+200),f'Solokills : {match_info.thisSoloKills}', font=font, fill=(0, 0, 0))
