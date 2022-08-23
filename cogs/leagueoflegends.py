@@ -840,17 +840,17 @@ class LeagueofLegends(commands.Cog):
         kp = get_image('autre', 'kp', 700, 500)
         
                     
-        im.paste(kp,(x_metric, y_metric), kp.convert('RGBA'))
-        d.text((x_metric + 320, y_metric), 'KP', font=font, fill=(0, 0, 0))
+        im.paste(kp,(x_metric-150, y_metric), kp.convert('RGBA'))
+        d.text((x_metric + 170, y_metric), 'KP', font=font, fill=(0, 0, 0))
         
         # CS
     
-        d.text((x_metric + 150, y_metric+620),f'Avantage CS : {int(match_info.thisCSAdvantageOnLane)}', font=font, fill=(0, 0, 0))
-        d.text((x_metric + 150, y_metric+500),f'CS/min : {int(match_info.thisMinionPerMin)}', font=font, fill=(0, 0, 0))
+        d.text((x_metric, y_metric+620),f'Avantage CS : {int(match_info.thisCSAdvantageOnLane)}', font=font, fill=(0, 0, 0))
+        d.text((x_metric, y_metric+500),f'CS/min : {int(match_info.thisMinionPerMin)}', font=font, fill=(0, 0, 0))
         
         # KDA
     
-        d.text((x_name-50, y_metric-120),f'K : {match_info.thisKills} | D : {match_info.thisDeaths} | A : {match_info.thisAssists} ({match_info.thisKDA})', font=font, fill=(0, 0, 0))
+        d.text((x_name-200, y_metric-120),f'K : {match_info.thisKills} | D : {match_info.thisDeaths} | A : {match_info.thisAssists} ({match_info.thisKDA})', font=font, fill=(0, 0, 0))
     
         
         # Gold 
