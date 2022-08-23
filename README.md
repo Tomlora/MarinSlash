@@ -89,6 +89,15 @@ A quel moment ai-je utilisé mon item ?
 
 __Le bot peut répondre à toutes ces questions.__
 
+## Nouveau patch
+
+League of Legends est un jeu qui est mis à jour toutes les deux semaines (Nouveau contenu, équilibrage du contenu existant...)
+Le bot est capable de détecter un nouveau patch, et de partager un résumé en image
+
+ <p align="center">
+  <img width="500" height="400" src="https://github.com/Tomlora/MarinSlash/blob/main/recap.png?raw=true">
+</p>
+
 
 ## Teamfight Tactics
 
