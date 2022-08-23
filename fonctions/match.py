@@ -140,6 +140,8 @@ class matchlol():
         self.index = index
         self.last_match, self.match_detail_stats, self.me = match_by_puuid(self.summonerName, self.idgames, self.index, self.queue)    
         self.current_champ_list = lol_watcher.data_dragon.champions(champions_versions, False, 'fr_FR')
+        self.avatar = self.me['profileIconId']
+        self.level_summoner = self.me['summonerLevel']
         
         self.champ_dict = {}
         for key in self.current_champ_list['data']:
