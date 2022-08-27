@@ -53,7 +53,7 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
 
 -------------
  <p align="center">
-  <img width="700" height="500" src="https://media.discordapp.net/attachments/507539591473922068/1013078052533698671/resume_perso.png?width=1244&height=670">
+  <img width="1000" height="500" src="https://media.discordapp.net/attachments/507539591473922068/1013078052533698671/resume_perso.png?width=1244&height=670">
 </p>
 
 
