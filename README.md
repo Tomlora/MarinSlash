@@ -1,5 +1,7 @@
 # MarinSlash
-__Bot discord affichant des statistiques (API League of Legends, Twitch, Swarfarm)__
+__Bot discord affichant des statistiques (League of Legends, TFT, Twitch, Swarfarm) sous forme visuel__
+
+Le bot collecte, traite et réutilise les données automatiquement. On peut également lui demander certaines actions.
 
 # Ressources
 
