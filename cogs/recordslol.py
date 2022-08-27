@@ -288,7 +288,8 @@ class Recordslol(commands.Cog):
             elif key == "DUREE_GAME":
                 valeur = str(valeur).replace(".", "m")
             else:
-                valeur = int(valeur)
+                if not 'url' in key.split('_'):
+                    valeur = int(valeur)
                 
             if not 'url' in key.split('_'): # si url alors c'est un lien, pas un record
                 
@@ -311,7 +312,8 @@ class Recordslol(commands.Cog):
             elif key == "DUREE_GAME":
                 valeur = str(valeur).replace(".", "m")
             else:
-                valeur = int(valeur)
+                if not 'url' in key.split('_'):
+                    valeur = int(valeur)
                 
             if not 'url' in key.split('_'): # si url alors c'est un lien, pas un record
                 
