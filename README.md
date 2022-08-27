@@ -87,7 +87,11 @@ Ai-je fait beaucoup de dégats sur les ennemis ?
 
 Ai-je amassé beaucoup de gold, me permettant d'être plus forts, par rapport aux autres ?
 
-Où étais-je à 15 minutes de jeu sur la carte ? *(Pour cela, skicit-image est nécessaire afin d'avoir une image fiable sur laquelle poser les points de position)*
+Où étais-je à 15 minutes de jeu sur la carte ? 
+
+ <p align="center">
+  <img width="480" height="390" src="https://cdn.discordapp.com/attachments/534111278923513887/962433559077982278/plot.png">
+</p>
 
 Comment notre équipe a évolué au cours de la partie ?
 
