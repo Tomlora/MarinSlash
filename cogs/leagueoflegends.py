@@ -846,8 +846,8 @@ class LeagueofLegends(commands.Cog):
         kp = get_image('autre', 'kp', 700, 500)
         
                     
-        im.paste(kp,(x_metric-150, y_metric), kp.convert('RGBA'))
-        d.text((x_metric + 170, y_metric), 'KP', font=font, fill=(0, 0, 0))
+        im.paste(kp,(x_metric-150, y_metric+20), kp.convert('RGBA'))
+        d.text((x_metric + 170, y_metric+20), 'KP', font=font, fill=(0, 0, 0))
         
         # CS
     
