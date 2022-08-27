@@ -51,6 +51,12 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
   <img width="500" height="1000" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese.jpg?raw=true">
 </p>
 
+-------------
+ <p align="center">
+  <img width="700" height="500" src="https://media.discordapp.net/attachments/507539591473922068/1012902659277209631/resume_perso.png?width=1679&height=904">
+</p>
+
+
 ### Records
 
 - Les records des joueurs trackés sont enregistrés. Il peut donc retrouver ses différents records et sur quel champion il l'a obtenu par rapport aux autres joueurs du tracker
