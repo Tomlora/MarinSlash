@@ -285,7 +285,7 @@ class Recordslol(commands.Cog):
             # format
             if key in ['DAMAGE_RATIO', 'DAMAGE_RATIO_ENCAISSE', 'KP', 'AVANTAGE_VISION']:
                 valeur = str(valeur) + "%"
-            if key == "DUREE_GAME":
+            elif key == "DUREE_GAME":
                 valeur = str(valeur).replace(".", "m")
             else:
                 valeur = int(valeur)
@@ -308,7 +308,7 @@ class Recordslol(commands.Cog):
             # format
             if key in ['DAMAGE_RATIO', 'DAMAGE_RATIO_ENCAISSE', 'KP', 'AVANTAGE_VISION']:
                 valeur = str(valeur) + "%"
-            if key == "DUREE_GAME":
+            elif key == "DUREE_GAME":
                 valeur = str(valeur).replace(".", "m")
             else:
                 valeur = int(valeur)
