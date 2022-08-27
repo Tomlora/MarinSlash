@@ -53,7 +53,7 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
 
 -------------
  <p align="center">
-  <img width="700" height="500" src="https://media.discordapp.net/attachments/507539591473922068/1012902659277209631/resume_perso.png?width=1679&height=904">
+  <img width="700" height="500" src="https://media.discordapp.net/attachments/507539591473922068/1013078052533698671/resume_perso.png?width=1244&height=670">
 </p>
 
 
@@ -101,7 +101,7 @@ League of Legends est un jeu qui est mis à jour toutes les deux semaines (Nouve
 Le bot est capable de détecter un nouveau patch, et de partager un résumé en image
 
  <p align="center">
-  <img width="500" height="400" src="https://github.com/Tomlora/MarinSlash/blob/main/recap.png?raw=true">
+  <img width="480" height="390" src="https://github.com/Tomlora/MarinSlash/blob/main/recap.png?raw=true">
 </p>
 
 
