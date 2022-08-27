@@ -883,8 +883,13 @@ class LeagueofLegends(commands.Cog):
         kda_assists = 1490
         kda_gold = 2090
         
-        im.paste(im=get_image("kda", 'rectangle bleu blanc', 300, 150),
-                box=(kda_kills, y_metric-190))
+        img_kda = get_image('kda', 'rectangle bleu blanc', 300, 150)
+    
+        im.paste(img_kda,
+            (kda_kills, y_metric-190), img_kda.convert('RGBA'))
+        
+        # im.paste(im=get_image("kda", 'rectangle bleu blanc', 300, 150),
+        #         box=(kda_kills, y_metric-190))
         
         im.paste(im=get_image("kda", 'rectangle rouge blanc', 300, 150),
                 box=(kda_deaths, y_metric-190))
