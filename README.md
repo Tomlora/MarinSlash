@@ -14,6 +14,8 @@ Les visuels sont réalisés avec :
 - Seaborn
 - Plotly express / Plotly.graph_objects
 - Pygal
+- Pillow
+- Images crées par moi-même
 
 Autres librairies utilisées :
 - Pandas
