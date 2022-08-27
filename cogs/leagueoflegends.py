@@ -905,10 +905,20 @@ class LeagueofLegends(commands.Cog):
         d.text((kda_assists+20, y_metric-100),f'Assists', font=font, fill=(255, 255, 255))
         d.text((kda_gold+20, y_metric-100),f'Gold', font=font, fill=(0, 0, 0))
         
+        # si le score est à deux chiffres, il faut décaler dans l'img
+        if int(match_info.thisKills) >= 10:
+            kda_kills = kda_kills - 30
         d.text((kda_kills+240, y_metric-180),f'{match_info.thisKills}', font=font, fill=(0, 0, 0))
+        
+        if int(match_info.thisDeaths) >=10:
+            kda_deaths = kda_deaths - 30
         d.text((kda_deaths+240, y_metric-180),f'{match_info.thisDeaths}', font=font, fill=(0, 0, 0))
+        
+        if int(match_info.thisAssists) >=10:
+            kda_assists = kda_assists - 30
         d.text((kda_assists+240, y_metric-180),f'{match_info.thisAssists}', font=font, fill=(0, 0, 0))
-        d.text((kda_gold+170, y_metric-180),f'{round(match_info.thisGoldEarned/1000,1)}k', font=font, fill=(0, 0, 0))
+        
+        d.text((kda_gold+150, y_metric-180),f'{round(match_info.thisGoldEarned/1000,1)}k', font=font, fill=(0, 0, 0))
             
             # Stat du jour
     
