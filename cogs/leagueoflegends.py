@@ -883,22 +883,22 @@ class LeagueofLegends(commands.Cog):
         kda_assists = 1490
         kda_gold = 2090
         
-        img_kda = get_image('kda', 'rectangle bleu blanc', 300, 150)
-    
-        im.paste(img_kda,
-            (kda_kills, y_metric-190), img_kda.convert('RGBA'))
+        img_kda_kills = get_image('kda', 'rectangle bleu blanc', 300, 150)
+        img_kda_deaths = get_image('kda', 'rectangle rouge blanc', 300, 150)
+        img_kda_assists = get_image('kda', 'rectangle vert', 300, 150)
+        img_kda_gold = get_image('kda', 'rectangle gold', 300, 150)
         
-        # im.paste(im=get_image("kda", 'rectangle bleu blanc', 300, 150),
-        #         box=(kda_kills, y_metric-190))
+        im.paste(img_kda_kills,
+                (kda_kills, y_metric-190), img_kda_kills.convert('RGBA'))
         
-        im.paste(im=get_image("kda", 'rectangle rouge blanc', 300, 150),
-                box=(kda_deaths, y_metric-190))
+        im.paste(img_kda_deaths,
+                (kda_deaths, y_metric-190), img_kda_deaths.convert('RGBA'))
         
-        im.paste(im=get_image("kda", 'rectangle vert', 300, 150),
-                box=(kda_assists, y_metric-190))
+        im.paste(img_kda_assists,
+                (kda_assists, y_metric-190), img_kda_assists.convert('RGBA'))
         
-        im.paste(im=get_image("kda", 'rectangle gold', 300, 150),
-                box=(kda_gold, y_metric-190))
+        im.paste(img_kda_gold,
+                (kda_gold, y_metric-190), img_kda_gold.convert('RGBA'))
         
         d.text((kda_kills+20, y_metric-100),f'Kills', font=font, fill=(255, 255, 255))
         d.text((kda_deaths+20, y_metric-100),f'Morts', font=font, fill=(255, 255, 255))
