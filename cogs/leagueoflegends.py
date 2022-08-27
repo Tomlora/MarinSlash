@@ -1527,7 +1527,7 @@ class LeagueofLegends(commands.Cog):
         await ctx.send('https://clips.twitch.tv/ShakingCovertAuberginePanicVis-YDRK3JFk7Glm6nbB')
         
     @cog_ext.cog_slash(name="closer", description="Meilleur joueur de LoL")
-    async def abbedagge(self, ctx):
+    async def closer(self, ctx):
         await ctx.send('https://clips.twitch.tv/EmpathicClumsyYogurtKippa-lmcFoGXm1U5Jx2bv')
         
        
