@@ -4,9 +4,9 @@ __Bot discord affichant des statistiques (API League of Legends, Twitch, Swarfar
 # Ressources
 
 Pour diversifier mes compétences, le bot stocke des données dans :
-- Des fichiers pickle (paramètres du bot)
+- Des fichiers pickle (paramètres du bot + la régression linéaire)
 - Un fichier texte (les identifiants de certains channels ou comptes Discord)
-- Une BDD SQL avec sqlite3 et sqlalchemy (les data league of legends)
+- Une BDD SQL avec sqlite3, sqlalchemy et posgresql (les data league of legends) 
 - Json
 
 Les visuels sont réalisés avec :
@@ -23,7 +23,7 @@ Autres librairies utilisées :
 - Scikit-learn et skicit-image pour la régression linéaire et l'utilisation de carte League of Legends
 - Discord, Discord.ext, Discord_slash et Asyncio pour le fonctionnement du bot
 - RiotWatcher pour les requêtes à l'API de Riot Games
-- Requests pour l'api de twitch
+- Requests / urllib / mwclient
 - Datetime
 - os
 
