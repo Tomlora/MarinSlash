@@ -133,16 +133,6 @@ Le bot est capable de détecter un nouveau patch, et de partager un résumé en 
 
 - Le bot peut servir d'alarme pour les joueurs qui souhaitent suivre certaines compétitions. En effet, via un calendrier, le bot peut annoncer lorsqu'une game pro commence.
 
-### Fantasy
-
-Le bot permet de jouer à un jeu qui se nomme la Fantasy League.
-- Le concept est que chaque joueur dispose de 50 points, et peut miser ses points sur des matchs de certaines compétitions majeures.
-
-S'il gagne, le joueur remporte la mise en fonction d'une côte calculée par un site de pari sportif.
-
-S'il perd, il perd la totalité de sa mise. 
-
-
 ## Projet 2 : Musique
 
 Le bot peut être un DJ dans un salon vocal Discord.
