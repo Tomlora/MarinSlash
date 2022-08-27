@@ -1526,13 +1526,11 @@ class LeagueofLegends(commands.Cog):
     async def abbedagge(self, ctx):
         await ctx.send('https://clips.twitch.tv/ShakingCovertAuberginePanicVis-YDRK3JFk7Glm6nbB')
         
+    @cog_ext.cog_slash(name="closer", description="Meilleur joueur de LoL")
+    async def abbedagge(self, ctx):
+        await ctx.send('https://clips.twitch.tv/EmpathicClumsyYogurtKippa-lmcFoGXm1U5Jx2bv')
         
-    # @commands.command()
-    # @main.isOwner2()
-    # async def gamespecial(self, ctx, *, summonerName):
-        
-    #     suivi = lire_bdd('records3', 'dict')
-        
+       
         
 
 
