@@ -106,6 +106,12 @@ def get_image(type, name, resize_x=80, resize_y=80):
         img = img.resize((resize_x, resize_y))
         
         return img
+    
+    elif type == "kda":
+        img = Image.open(f'./img/rectangle/{name}.png')
+        img = img.resize((resize_x, resize_y))
+        
+        return img
 
 
 def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed, url):
@@ -847,19 +853,7 @@ class LeagueofLegends(commands.Cog):
     
         d.text((x_metric, y_metric+620),f'Avantage CS : {int(match_info.thisCSAdvantageOnLane)}', font=font, fill=(0, 0, 0))
         d.text((x_metric, y_metric+500),f'CS/min : {int(match_info.thisMinionPerMin)}', font=font, fill=(0, 0, 0))
-        
-        # KDA
-    
-        d.text((x_name-200, y_metric-120),f'K : {match_info.thisKills} | D : {match_info.thisDeaths} | A : {match_info.thisAssists} ({match_info.thisKDA})', font=font, fill=(0, 0, 0))
-    
-        
-        # Gold 
-        x_gold = x_metric + 2000
-        im.paste(im=get_image("items", 3400, 100, 100),
-                box=(x_gold, y_metric-140))
-        
-        d.text((x_gold + 150, y_metric-120),f'{round(match_info.thisGoldEarned/1000,1)}k', font=font, fill=(0, 0, 0))
-        
+               
         # Ward
         
         if match_info.thisQ != "ARAM":
@@ -881,6 +875,35 @@ class LeagueofLegends(commands.Cog):
                     box=(x_metric + 650, y_metric+600))
             
             d.text((x_metric + 800, y_metric+620),f'{match_info.thisPink}', font=font, fill=(0, 0, 0))
+            
+        # KDA
+    
+        kda_kills = 290
+        kda_deaths = 890
+        kda_assists = 1490
+        kda_gold = 2090
+        
+        im.paste(im=get_image("kda", 'rectangle bleu blanc', 300, 150),
+                box=(kda_kills, y_metric-190))
+        
+        im.paste(im=get_image("kda", 'rectangle rouge blanc', 300, 150),
+                box=(kda_deaths, y_metric-190))
+        
+        im.paste(im=get_image("kda", 'rectangle vert', 300, 150),
+                box=(kda_assists, y_metric-190))
+        
+        im.paste(im=get_image("kda", 'rectangle gold', 300, 150),
+                box=(kda_gold, y_metric-190))
+        
+        d.text((kda_kills+20, y_metric-100),f'Kills', font=font, fill=(255, 255, 255))
+        d.text((kda_deaths+20, y_metric-100),f'Morts', font=font, fill=(255, 255, 255))
+        d.text((kda_assists+20, y_metric-100),f'Assists', font=font, fill=(255, 255, 255))
+        d.text((kda_gold+20, y_metric-100),f'Gold', font=font, fill=(0, 0, 0))
+        
+        d.text((kda_kills+240, y_metric-180),f'{match_info.thisKills}', font=font, fill=(0, 0, 0))
+        d.text((kda_deaths+240, y_metric-180),f'{match_info.thisDeaths}', font=font, fill=(0, 0, 0))
+        d.text((kda_assists+240, y_metric-180),f'{match_info.thisAssists}', font=font, fill=(0, 0, 0))
+        d.text((kda_gold+170, y_metric-180),f'{round(match_info.thisGoldEarned/1000,1)}k', font=font, fill=(0, 0, 0))
             
             # Stat du jour
     
