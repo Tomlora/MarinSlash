@@ -790,61 +790,136 @@ class LeagueofLegends(commands.Cog):
                 losses_actual = data_aram[match_info.summonerName]['losses']
                 lp_actual = data_aram[match_info.summonerName]['lp']
                 games_actual = data_aram[match_info.summonerName]['games']
-                serie_actual = data_aram[match_info.summonerName]['serie']
                 k_actual = data_aram[match_info.summonerName]['k']
                 d_actual = data_aram[match_info.summonerName]['d']
                 a_actual = data_aram[match_info.summonerName]['a']
                 activation = data_aram[match_info.summonerName]['activation']
+                rank_actual = data_aram[match_info.summonerName]['rank']
             except KeyError: # première aram
                 wins_actual = 0
                 losses_actual = 0
                 lp_actual = 0
                 games_actual = 0
-                serie_actual = 0
                 k_actual = 0
                 d_actual = 0
                 a_actual = 0
                 activation = True
+                rank = 'Fer'
                 
-            if activation:    
-                    
+                
+            if activation:
+                
+                games = games_actual + 1
+                               
                 if str(match_info.thisWinId) == 'True':
                     wins = wins_actual + 1
                     losses = losses_actual
-                    
-                    if serie_actual > 0:
-                        serie = serie_actual + 1
-                    else:
-                        serie = 1
-
-
-                    lp = lp_actual + 20 + (2 * serie)
-                
-                    
+                        
                 else:
                     wins = wins_actual
                     losses = losses_actual + 1
-                    
-                    if serie_actual < 0:
-                        serie = serie_actual - 1
+                   
+                 
+                   
+                wr = round(wins / games,2)*100
+                
+                dict_points = {41 : [11, -19],
+                               42 : [12, -18],
+                               43 : [13, -17],
+                               44 : [14, -16],
+                               45 : [15, -15],
+                               46 : [16, -15],
+                               47 : [17, -15],
+                               48 : [18, -15],
+                               49 : [19, -15],
+                               50 : [20, -15],
+                               51 : [21, -15],
+                               52 : [22, -15],
+                               53 : [23, -15],
+                               54 : [24, -15],
+                               55 : [25, -15],
+                               56 : [26, -14],
+                               57 : [27, -13],
+                               58 : [28, -12],
+                               59 : [29, -11]} 
+                
+                # calcul des LP 
+                if games <=5:
+                    if str(match_info.thisWinId) == 'True':
+                        points = 50
                     else:
-                        serie = -1
+                        points = 0
+                
+                elif wr > 60:
+                    if str(match_info.thisWinId) == 'True':
+                        points = 30
+                    else:
+                        points = -10
                         
-                    lp = lp_actual - 20 + (2 * (serie))
-                    
-                    
-                difLP = lp - lp_actual    
-                wr = wins / (wins+losses)    
-                games = games_actual + 1
+                elif wr < 40:
+                    if str(match_info.thisWinId) == "True":
+                        points = 10
+                    else:
+                        points = -20
+                else:
+                    if str(match_info.thisWinId) == "True":
+                        points = dict_points[int(wr)][0]
+                    else:
+                        points = dict_points[int(wr)][1]
+                        
+                lp = lp_actual + points
+                        
+                # rank
+                
+                if lp < 100:
+                    rank = 'IRON'
+                elif lp < 200:
+                    rank = 'BRONZE'
+                elif lp < 300:
+                    rank = 'SILVER'
+                elif lp < 500:
+                    rank = 'GOLD'
+                elif lp < 800:
+                    rank = 'PLATINE'
+                elif lp < 1200:
+                    rank = 'DIAMOND'
+                elif lp < 1600:
+                    rank = 'MASTER'
+                elif lp < 2000: 
+                    rank = 'GRANDMASTER'
+                elif lp > 2000:
+                    rank = 'CHALLENGER'
+                
+                # SIMULATION CHANGEMENT ELO    
+                elo_lp = {'IRON' : 1,
+                          'BRONZE' : 2,
+                          'GOLD' : 3,
+                          'PLATINE' : 4,
+                          'DIAMOND' : 5,
+                          'MASTER' : 6,
+                          'GRANDMASTER' : 7,
+                          'CHALLENGER' : 8}
+                
+                if str(match_info.thisWinId) == "True":
+                    lp = lp + elo_lp['RANK']
+                else:
+                    lp = lp - elo_lp['RANK']
+                
+                
                 k = k_actual + match_info.thisKills
+                difLP = lp - lp_actual 
                 deaths = d_actual + match_info.thisDeaths
                 a = a_actual + match_info.thisAssists
                     
                             
-                data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'serie' : serie, 'k' : k, 'd' : deaths, 'a' : a, 'activation' : activation} 
+                data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'k' : k, 'd' : deaths, 'a' : a, 'activation' : activation, 'rank' : rank} 
                 
-                d.text((x_rank+220, y-110), 'RANKED ARAM', font=font, fill=(68,138,236))
-                d.text((x_rank+220, y-45), f'{lp} LP ({difLP})   Serie : {serie}', font=font_little, fill=fill)
+                img_rank = get_image('tier', rank, 220, 220)
+            
+                        
+                im.paste(img_rank,(x_rank, y-140), img_rank.convert('RGBA'))
+                d.text((x_rank+220, y-110), f'{rank} {match_info.thisRank}', font=font, fill=fill)
+                d.text((x_rank+220, y-45), f'{lp} LP ({difLP})', font=font_little, fill=fill)
                 
 
                 d.text((x_rank+220, y+10), f'{wins}W {losses}L     {wr}% ', font=font_little, fill=fill)
