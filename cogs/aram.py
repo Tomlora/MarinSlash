@@ -19,20 +19,19 @@ class Aram(commands.Cog):
     async def ladder_aram(self, ctx):        
 
         suivi_aram = lire_bdd('ranked_aram', 'dict')
+        
+        await ctx.defer(hidden=False)
 
         df = pd.DataFrame.from_dict(suivi_aram)
         df = df.transpose().reset_index()
 
-        joueur = df['index'].to_dict()
-
-
         embed = discord.Embed(title="Suivi LOL", description='ARAM', colour=discord.Colour.blurple())
 
-        for key in joueur.values():
+        for key in df['index']:
             
             embed.add_field(name=str(key),
                             value="V : " + str(suivi_aram[key]['wins']) + " | D : " + str(suivi_aram[key]['losses']) + " | LP :  "
-                                                + str(suivi_aram[key]['LP']), inline=False)
+                                                + str(suivi_aram[key]['lp']), inline=False)
                                                     
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora')  
 
@@ -49,7 +48,7 @@ class Aram(commands.Cog):
         suivi_aram = lire_bdd('ranked_aram', 'dict')
         
         try:
-            suivi_aram[summonername][activation] = activation
+            suivi_aram[summonername]['activation'] = activation
             sauvegarde_bdd(suivi_aram, 'ranked_aram')
             if activation:
                 await ctx.send('Ranked activé !')
