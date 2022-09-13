@@ -794,6 +794,7 @@ class LeagueofLegends(commands.Cog):
                 k_actual = data_aram[match_info.summonerName]['k']
                 d_actual = data_aram[match_info.summonerName]['d']
                 a_actual = data_aram[match_info.summonerName]['a']
+                activation = data_aram[match_info.summonerName]['activation']
             except KeyError: # première aram
                 wins_actual = 0
                 losses_actual = 0
@@ -803,49 +804,52 @@ class LeagueofLegends(commands.Cog):
                 k_actual = 0
                 d_actual = 0
                 a_actual = 0
+                activation = True
+                
+            if activation:    
                     
-            if str(match_info.thisWinId) == 'True':
-                wins = wins_actual + 1
-                losses = losses_actual
-                
-                if serie_actual > 0:
-                    serie = serie_actual + 1
-                else:
-                    serie = 1
-
-
-                lp = lp_actual + 20 + (2 * serie)
-            
-                
-            else:
-                wins = wins_actual
-                losses = losses_actual + 1
-                
-                if serie_actual < 0:
-                    serie = serie_actual - 1
-                else:
-                    serie = -1
+                if str(match_info.thisWinId) == 'True':
+                    wins = wins_actual + 1
+                    losses = losses_actual
                     
-                lp = lp_actual - 20 + (2 * (-serie))
-                
-                
-            difLP = lp - lp_actual    
-            wr = wins / (wins+losses)    
-            games = games_actual + 1
-            k = k_actual + match_info.thisKills
-            deaths = d_actual + match_info.thisDeaths
-            a = a_actual + match_info.thisAssists
-                
-                         
-            data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'serie' : serie, 'k' : k, 'd' : deaths, 'a' : a} 
-            
-            d.text((x_rank+220, y-110), 'RANKED ARAM', font=font, fill=(0, 191, 255))
-            d.text((x_rank+220, y-45), f'{lp} LP ({difLP})       Bonus multiplicateur : {serie}', font=font_little, fill=fill)
-            
+                    if serie_actual > 0:
+                        serie = serie_actual + 1
+                    else:
+                        serie = 1
 
-            d.text((x_rank+220, y+10), f'{wins}W {losses}L     {wr}% ', font=font_little, fill=fill)
-            
-            sauvegarde_bdd(data_aram, 'ranked_aram') 
+
+                    lp = lp_actual + 20 + (2 * serie)
+                
+                    
+                else:
+                    wins = wins_actual
+                    losses = losses_actual + 1
+                    
+                    if serie_actual < 0:
+                        serie = serie_actual - 1
+                    else:
+                        serie = -1
+                        
+                    lp = lp_actual - 20 + (2 * (serie))
+                    
+                    
+                difLP = lp - lp_actual    
+                wr = wins / (wins+losses)    
+                games = games_actual + 1
+                k = k_actual + match_info.thisKills
+                deaths = d_actual + match_info.thisDeaths
+                a = a_actual + match_info.thisAssists
+                    
+                            
+                data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'serie' : serie, 'k' : k, 'd' : deaths, 'a' : a, 'activation' : activation} 
+                
+                d.text((x_rank+220, y-110), 'RANKED ARAM', font=font, fill=(68,138,236))
+                d.text((x_rank+220, y-45), f'{lp} LP ({difLP})   Serie : {serie}', font=font_little, fill=fill)
+                
+
+                d.text((x_rank+220, y+10), f'{wins}W {losses}L     {wr}% ', font=font_little, fill=fill)
+                
+                sauvegarde_bdd(data_aram, 'ranked_aram') 
             
 
         
