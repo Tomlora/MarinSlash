@@ -66,7 +66,7 @@ class Aram(commands.Cog):
             
             wr = round(suivi_aram[key]['wins'] / suivi_aram[key]['games'],2)
             
-            kda = round(suivi_aram[key]['k'] + suivi_aram[key]['a'] / suivi_aram[key]['d'],1)
+            kda = round((suivi_aram[key]['k'] + suivi_aram[key]['a']) / suivi_aram[key]['d'],1)
             
             embed.add_field(name=str(f"{key} ({suivi_aram[key]['lp']} LP) [{suivi_aram[key]['rank']}]"),
                             value="V : " + str(suivi_aram[key]['wins']) + " | D : " + str(suivi_aram[key]['losses']) + " | WR :  "
