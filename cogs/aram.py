@@ -101,8 +101,8 @@ class Aram(commands.Cog):
     @cog_ext.cog_slash(name="help_aram", description='Help ranked aram')
     async def help_aram(self, ctx):
         
-        texte_general = " La ranked aram commence automatiquement après la première game. Pour désactiver, il est possible d'utiliser /ranked_aram. \n" + \
-                        "Le suivi est possible en tapant /classement_aram"
+        texte_general = " La ranked aram commence automatiquement après la première game. Pour désactiver, il est possible d'utiliser **/ranked_aram.** après la première partie \n" + \
+                        "Le suivi est possible en tapant **/classement_aram**"
                         
         await ctx.defer(hidden=False)
         
@@ -125,20 +125,20 @@ class Aram(commands.Cog):
         embed3 = discord.Embed(title='Calcul points', description="MMR", color=discord.Colour.orange())
         
         embed3.add_field(name="5 premières games", value=f"5 premières games \n" + 
-                         "V : 50 points | D : 0 points", inline=False)
+                         "V : **+50**  | D : **0**", inline=False)
         
-        calcul_points = "WR < 40% - V : + 10 | D : - 20 \n"
+        calcul_points = "WR **<40%** - V : **+10** | D : **-20** \n"
        
         for key, value in dict_points.items():
-           calcul_points = calcul_points + f" = WR {key}% - V : + {value[0]} | D : {value[1]} \n"
+           calcul_points = calcul_points + f" WR **{key}%** - V : **+{value[0]}** | D : **{value[1]}** \n"
         
-        calcul_points = calcul_points + "WR > 60% - V : +30 / D : -10"
+        calcul_points = calcul_points + "WR **>60%** - V : **+30** / D : **-10**"
         
         embed3.add_field(name='Calcul des points', value=calcul_points, inline=False)
         
         bonus_elo = ""
         for key, value in elo_lp.items():
-            bonus_elo = bonus_elo + f"{key} : {value} \n"
+            bonus_elo = bonus_elo + f"{key} : **{value}** \n"
         
         embed3.add_field(name="Bonus/Malus elo", value=bonus_elo, inline=False)
         
