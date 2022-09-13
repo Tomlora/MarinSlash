@@ -39,7 +39,7 @@ class Aram(commands.Cog):
         await ctx.send(embed=embed)
         
 
-    @cog_ext.cog_clash(name='ranked_aram', description='Activation/Désactivation',
+    @cog_ext.cog_slash(name='ranked_aram', description='Activation/Désactivation',
                        options=[create_option(name='summonername', option_type=4, required=True),
                                 create_option(name="Activation", description="True : Activé / False : Désactivé", option_type=5, required=True)])
     
