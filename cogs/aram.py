@@ -6,7 +6,39 @@ from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 import main
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_commands import create_option, create_choice
-from cogs.leagueoflegends import dict_points, elo_lp
+
+
+
+dict_points = {41 : [11, -19],
+                               42 : [12, -18],
+                               43 : [13, -17],
+                               44 : [14, -16],
+                               45 : [15, -15],
+                               46 : [16, -15],
+                               47 : [17, -15],
+                               48 : [18, -15],
+                               49 : [19, -15],
+                               50 : [20, -15],
+                               51 : [21, -15],
+                               52 : [22, -15],
+                               53 : [23, -15],
+                               54 : [24, -15],
+                               55 : [25, -15],
+                               56 : [26, -14],
+                               57 : [27, -13],
+                               58 : [28, -12],
+                               59 : [29, -11]} 
+
+elo_lp = {'IRON' : 0,
+        'BRONZE' : 1,
+        'SILVER' : 2,
+        'GOLD' : 3,
+        'PLATINE' : 4,
+        'DIAMOND' : 5,
+        'MASTER' : 6,
+        'GRANDMASTER' : 7,
+        'CHALLENGER' : 8,
+        'FIRST_GAME' : 0}
 
 
 chan_general = 768637526176432158
