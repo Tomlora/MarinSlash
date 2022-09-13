@@ -814,7 +814,7 @@ class LeagueofLegends(commands.Cog):
                     serie = 1
 
 
-                lp = lp_actual + (20 * serie)
+                lp = lp_actual + 20 + (2 * serie)
             
                 
             else:
@@ -826,7 +826,7 @@ class LeagueofLegends(commands.Cog):
                 else:
                     serie = -1
                     
-                lp = lp_actual - 20 * (-serie)
+                lp = lp_actual - 20 + (2 * (-serie))
                 
                 
             difLP = lp - lp_actual    
@@ -839,7 +839,7 @@ class LeagueofLegends(commands.Cog):
                          
             data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'serie' : serie, 'k' : k, 'd' : deaths, 'a' : a} 
             
-            # d.text((x_rank+220, y-110), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
+            d.text((x_rank+220, y-110), 'RANKED ARAM', font=font, fill=(0, 191, 255))
             d.text((x_rank+220, y-45), f'{lp} LP ({difLP})       Bonus multiplicateur : {serie}', font=font_little, fill=fill)
             
 
