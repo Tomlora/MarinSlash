@@ -899,9 +899,12 @@ class LeagueofLegends(commands.Cog):
                           'DIAMOND' : 5,
                           'MASTER' : 6,
                           'GRANDMASTER' : 7,
-                          'CHALLENGER' : 8}
+                          'CHALLENGER' : 8,
+                          'FIRST_GAME' : 0}
                 
-                if str(match_info.thisWinId) == "True":
+                if games <= 5:
+                    lp = lp + 0
+                elif str(match_info.thisWinId) == "True":
                     lp = lp + elo_lp[rank]
                 else:
                     lp = lp - elo_lp[rank]
