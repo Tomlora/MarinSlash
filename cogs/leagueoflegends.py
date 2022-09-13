@@ -654,50 +654,7 @@ class LeagueofLegends(commands.Cog):
         if len(exploits4) > 5: # si plus de 15 lettres, alors il y a un exploit personnel
             embed.add_field(name="Statistiques personnelles Part3: ", value=exploits4, inline=False)
             
-        # Items :
-        
-        # embed.add_field(name="Items :", value=match_info.data_item, inline=False)
-
-        # try:
-        #     if int(match_info.thisDeaths) >= 1:  # KDA
-        #         embed.add_field(name="KDA : " + str(match_info.thisKDA),
-        #                         value=f"**{match_info.thisKills}** | **{match_info.thisDeaths}** | **{match_info.thisAssists}**"
-        #                         + f"\n KP : **{match_info.thisKP}**%",
-        #                         inline=False)
-        #     else:
-        #         embed.add_field(name="KDA : Perfect KDA",
-        #                         value=f"**{match_info.thisKills}** | **{match_info.thisDeaths}** | **{match_info.thisAssists}**"
-        #                         + f"\n KP : **{match_info.thisKP}**%",
-        #                         inline=False)
-        # except Exception:
-        #     embed.add_field(name="KDA : ", value=str(match_info.thisKills) + " | " + str(match_info.thisDeaths) + " | " + str(match_info.thisAssists),
-        #                     inline=False)
-
-        # # CS
-        # if match_info.thisQ != "ARAM":
-        #     embed.add_field(name=f"CS : {match_info.thisMinion} ({match_info.thisMinionPerMin}/min)", 
-        #                     value=f"\n Avantage maximal CS : **{match_info.thisCSAdvantageOnLane}**",
-        #                     inline=False)
-        # else:
-        #     embed.add_field(name="CS : " + str(match_info.thisMinion), value="minions par minute: " + str(match_info.thisMinionPerMin) ,inline=False)
-        # # Score de vision
-        # if match_info.thisQ != "ARAM":
-        #     embed.add_field(
-        #         name=f"Score de vision : {match_info.thisVision} ({match_info.thisVisionPerMin}/min) | Avantage : {match_info.thisVisionAdvantage}%",
-        #         value=f"\n Wards posées : **{match_info.thisWards}** | Wards détruites : **{match_info.thisWardsKilled}** | Pinks : **{match_info.thisPink}**", inline=False)
-        # # Golds
-        #     embed.add_field(name="Golds gagnés : " + str(match_info.thisGold), value=f"golds par minute : **{match_info.thisGoldPerMinute}**",
-        #                 inline=False)
-        # # Dmg
-        # embed.add_field(name="DMG deal : " + str(match_info.thisDamage),
-        #                 value=f"Dégats par minutes : **{round(match_info.thisDamagePerMinute, 0)}**" 
-        #                 + f"\n Double : **{match_info.thisDouble}** | Triple : **{match_info.thisTriple}** | Quadra : **{match_info.thisQuadra}** | Penta : **{match_info.thisPenta}**"
-        #                 + f"\n SoloKills : **{match_info.thisSoloKills}**",
-        #                 inline=False)
-        # embed.add_field(name="DMG reçus : " + str(match_info.thisDamageTaken),
-        #                 value=f"Dégats réduits : **{match_info.thisDamageSelfMitigatedFormat}**", inline=False)
-        
-
+    
         # # Objectifs
         if match_info.thisQ != "ARAM":
             embed.add_field(name="Team :", value=f"\nEcart top - Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
@@ -707,24 +664,7 @@ class LeagueofLegends(commands.Cog):
                             + f"Ecart supp - Vision : **{match_info.ecart_supp_vision}** | CS : **{match_info.ecart_supp_cs}**", inline=False)
         
 
-        # # Stats soloq :
-        # if match_info.thisQ == "RANKED" or match_info.thisQ == "FLEX":
-        #     if match_info.thisRank == 'En placement':
-        #         embed.add_field(name="Current rank", value=match_info.thisRank, inline=False)
-        #     else:
-        #         embed.add_field(name="Current rank : " + match_info.thisTier + " " + match_info.thisRank + " - " + match_info.thisLP + "LP" + " (" + difLP + ")",
-        #                         value=f"Victoires : **{match_info.thisVictory}** | Defaites : **{match_info.thisLoose}** (**{match_info.thisWinrateStat}%**)",
-        #                         inline=False)
-        
-        # # Gestion des bo    
-        #     if int(match_info.thisLP) == 100:
-        #         bo = match_info.thisStats[match_info.i]['miniSeries']
-        #         bo_wins = str(bo['wins'])
-        #         bo_losses = str(bo['losses'])
-        #         bo_progress = str(bo['progress'])
-        #         embed.add_field(name=f'Bo5', value=f"Victoires : **{bo_wins}** | Defaites : **{bo_losses}**"
-        #                         + f"\nProgress : {bo_progress}", inline=False) 
-                
+  
        
        
        # Gestion de l'image 1
@@ -821,25 +761,93 @@ class LeagueofLegends(commands.Cog):
         
         d.text((x_name+700, y_name-20), f"Niveau {match_info.level_summoner}", font=font_little, fill=fill)
         
+        if match_info.thisQ != "ARAM":
 
-        img_rank = get_image('tier', match_info.thisTier, 220, 220)
+            img_rank = get_image('tier', match_info.thisTier, 220, 220)
+            
+                        
+            im.paste(img_rank,(x_rank, y-140), img_rank.convert('RGBA'))
+            
+            
+            d.text((x_rank+220, y-110), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
+            d.text((x_rank+220, y-45), f'{match_info.thisLP} LP ({difLP})', font=font_little, fill=fill)
+            
+            # Gestion des bo    
+            if int(match_info.thisLP) == 100:
+                bo = match_info.thisStats[match_info.i]['miniSeries']
+                bo_wins = str(bo['wins'])
+                bo_losses = str(bo['losses'])
+                bo_progress = str(bo['progress'])
+                d.text((x_rank+220, y+10), f'{match_info.thisVictory}W {match_info.thisLoose}L {match_info.thisWinrateStat}% (BO : {bo_wins} / {bo_losses}) ', font=font_little, fill=fill)
+            else:
+                d.text((x_rank+220, y+10), f'{match_info.thisVictory}W {match_info.thisLoose}L     {match_info.thisWinrateStat}% ', font=font_little, fill=fill)
         
-                    
-        im.paste(img_rank,(x_rank, y-140), img_rank.convert('RGBA'))
-        
-        
-        d.text((x_rank+220, y-110), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
-        d.text((x_rank+220, y-45), f'{match_info.thisLP} LP ({difLP})', font=font_little, fill=fill)
-        
-        # Gestion des bo    
-        if int(match_info.thisLP) == 100:
-            bo = match_info.thisStats[match_info.i]['miniSeries']
-            bo_wins = str(bo['wins'])
-            bo_losses = str(bo['losses'])
-            bo_progress = str(bo['progress'])
-            d.text((x_rank+220, y+10), f'{match_info.thisVictory}W {match_info.thisLoose}L {match_info.thisWinrateStat}% (BO : {bo_wins} / {bo_losses}) ', font=font_little, fill=fill)
         else:
-            d.text((x_rank+220, y+10), f'{match_info.thisVictory}W {match_info.thisLoose}L     {match_info.thisWinrateStat}% ', font=font_little, fill=fill)
+            
+            data_aram = lire_bdd('ranked_aram', 'dict')
+            try:
+                wins_actual = data_aram[match_info.summonerName]['wins']
+                losses_actual = data_aram[match_info.summonerName]['losses']
+                lp_actual = data_aram[match_info.summonerName]['lp']
+                games_actual = data_aram[match_info.summonerName]['games']
+                serie_actual = data_aram[match_info.summonerName]['serie']
+                k_actual = data_aram[match_info.summonerName]['k']
+                d_actual = data_aram[match_info.summonerName]['d']
+                a_actual = data_aram[match_info.summonerName]['a']
+            except KeyError: # première aram
+                wins_actual = 0
+                losses_actual = 0
+                lp_actual = 0
+                games_actual = 0
+                serie_actual = 0
+                k_actual = 0
+                d_actual = 0
+                a_actual = 0
+                    
+            if str(self.thisWinId) == 'True':
+                wins = wins_actual + 1
+                losses = losses_actual
+                
+                if serie_actual > 0:
+                    serie = serie_actual + 1
+                else:
+                    serie = 1
+
+
+                lp = lp_actual + (20 * serie)
+                
+                embed.add_field('Bonus de série en cours', serie)
+                
+            else:
+                wins = wins_actual
+                losses = losses_actual + 1
+                
+                if serie_actual < 0:
+                    serie = serie_actual - 1
+                else:
+                    serie = -1
+                    
+                lp = lp_actual - 20 * (-serie)
+                
+                embed.add_field('Bonus de série en cours', serie)
+                
+            difLP = lp - lp_actual    
+            wr = wins / (wins+losses)    
+            games = games_actual + 1
+            k = k_actual + match_info.thisKills
+            d = d_actual + match_info.thisDeaths
+            a = a_actual + match_info.thisAssists
+                
+                         
+            data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'serie' : serie, 'k' : k, 'd' : d, 'a' : a} 
+            
+            # d.text((x_rank+220, y-110), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
+            d.text((x_rank+220, y-45), f'{lp} LP ({difLP})', font=font_little, fill=fill)
+            
+
+            d.text((x_rank+220, y+10), f'{wins}W {losses}L     {wr}% ', font=font_little, fill=fill)
+            
+            sauvegarde_bdd(data_aram, 'ranked_aram') 
             
 
         
