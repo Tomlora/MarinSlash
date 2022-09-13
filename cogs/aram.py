@@ -103,6 +103,8 @@ class Aram(commands.Cog):
         
         texte_general = " La ranked aram commence automatiquement après la première game. Pour désactiver, il est possible d'utiliser /ranked_aram. \n" + \
                         "Le suivi est possible en tapant /classement_aram"
+                        
+        await ctx.defer(hidden=False)
         
         embed = discord.Embed(title = 'Help Aram', description='Règle', colour = discord.Colour.blurple())
         
@@ -110,15 +112,15 @@ class Aram(commands.Cog):
         
         embed2 = discord.Embed(title='Palier', description="Rang", color=discord.Colour.blue())
         
-        embed2.add_field(name='IRON', values="LP < 100")
-        embed2.add_field(name='BRONZE', values="100 < LP < 200")
-        embed2.add_field(name='SILVER', values="200 < LP < 300")
-        embed2.add_field(name='GOLD', values="300 < LP < 500")
-        embed2.add_field(name='PLATINE', values="500 < LP < 800")
-        embed2.add_field(name='DIAMOND', values="800 < LP < 1200")
-        embed2.add_field(name='MASTER', values="1200 < LP < 1600")
-        embed2.add_field(name='GRANDMASTER', values="1600 < LP < 2000")
-        embed2.add_field(name='CHALLENGER', values="2000 < LP")
+        embed2.add_field(name='IRON', value="LP < 100")
+        embed2.add_field(name='BRONZE', value="100 < LP < 200")
+        embed2.add_field(name='SILVER', value="200 < LP < 300")
+        embed2.add_field(name='GOLD', value="300 < LP < 500")
+        embed2.add_field(name='PLATINE', value="500 < LP < 800")
+        embed2.add_field(name='DIAMOND', value="800 < LP < 1200")
+        embed2.add_field(name='MASTER', value="1200 < LP < 1600")
+        embed2.add_field(name='GRANDMASTER', value="1600 < LP < 2000")
+        embed2.add_field(name='CHALLENGER', value="2000 < LP")
 
         embed3 = discord.Embed(title='Calcul points', description="MMR", color=discord.Colour.orange())
         
