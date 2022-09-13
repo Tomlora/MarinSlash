@@ -804,7 +804,7 @@ class LeagueofLegends(commands.Cog):
                 d_actual = 0
                 a_actual = 0
                     
-            if str(self.thisWinId) == 'True':
+            if str(match_info.thisWinId) == 'True':
                 wins = wins_actual + 1
                 losses = losses_actual
                 
@@ -815,8 +815,7 @@ class LeagueofLegends(commands.Cog):
 
 
                 lp = lp_actual + (20 * serie)
-                
-                embed.add_field('Bonus de série en cours', serie)
+            
                 
             else:
                 wins = wins_actual
@@ -829,7 +828,6 @@ class LeagueofLegends(commands.Cog):
                     
                 lp = lp_actual - 20 * (-serie)
                 
-                embed.add_field('Bonus de série en cours', serie)
                 
             difLP = lp - lp_actual    
             wr = wins / (wins+losses)    
@@ -842,7 +840,7 @@ class LeagueofLegends(commands.Cog):
             data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'serie' : serie, 'k' : k, 'd' : d, 'a' : a} 
             
             # d.text((x_rank+220, y-110), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
-            d.text((x_rank+220, y-45), f'{lp} LP ({difLP})', font=font_little, fill=fill)
+            d.text((x_rank+220, y-45), f'{lp} LP ({difLP})       Bonus multiplicateur : {serie}', font=font_little, fill=fill)
             
 
             d.text((x_rank+220, y+10), f'{wins}W {losses}L     {wr}% ', font=font_little, fill=fill)
