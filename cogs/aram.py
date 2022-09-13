@@ -39,7 +39,7 @@ class Aram(commands.Cog):
         
 
     @cog_ext.cog_slash(name='ranked_aram', description='Activation/Désactivation',
-                       options=[create_option(name='summonername', description="nom ingame", option_type=4, required=True),
+                       options=[create_option(name='summonername', description="nom ingame", option_type=3, required=True),
                                 create_option(name="activation", description="True : Activé / False : Désactivé", option_type=5, required=True)])
     
     async def update_activation(self, ctx, summonername:str, activation:bool):
