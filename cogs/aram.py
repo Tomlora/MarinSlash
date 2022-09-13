@@ -125,7 +125,7 @@ class Aram(commands.Cog):
         embed3 = discord.Embed(title='Calcul points', description="MMR", color=discord.Colour.orange())
         
         embed3.add_field(name="5 premières games", value=f"5 premières games \n" + 
-                         "Victoires : 50 points | Defaites : 0 points")
+                         "V : 50 points | D : 0 points", inline=False)
         
         calcul_points = "WR < 40% - V : + 10 | D : - 20 \n"
        
@@ -134,44 +134,19 @@ class Aram(commands.Cog):
         
         calcul_points = calcul_points + "WR > 60% - V : +30 / D : -10"
         
-        embed3.add_field(name='Calcul des points', value="calcul_points")
+        embed3.add_field(name='Calcul des points', value=calcul_points, inline=False)
         
         bonus_elo = ""
         for key, value in elo_lp.items():
-            bonus_elo = bonus_elo + f" Bonus/Malus {key} : {value} \n"
+            bonus_elo = bonus_elo + f"{key} : {value} \n"
         
-        embed3.add_field(name="Bonus elo", value=bonus_elo)
+        embed3.add_field(name="Bonus/Malus elo", value=bonus_elo, inline=False)
         
         await ctx.send(embed=embed)
         await ctx.send(embed=embed2)
         await ctx.send(embed=embed3)
 
         
-                #         if games <=5:
-                #     if str(match_info.thisWinId) == 'True':
-                #         points = 50
-                #     else:
-                #         points = 0
-                
-                # elif wr > 60:
-                #     if str(match_info.thisWinId) == 'True':
-                #         points = 30
-                #     else:
-                #         points = -10
-                        
-                # elif wr < 40:
-                #     if str(match_info.thisWinId) == "True":
-                #         points = 10
-                #     else:
-                #         points = -20
-                # else:
-                #     if str(match_info.thisWinId) == "True":
-                #         points = dict_points[int(wr)][0]
-                #     else:
-                #         points = dict_points[int(wr)][1]
-                        
-                # lp = lp_actual + points
-                        
 
 
 
