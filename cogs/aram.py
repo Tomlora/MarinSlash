@@ -129,7 +129,7 @@ class Aram(commands.Cog):
         
         calcul_points = "WR < 40% - V : + 10 | D : - 20 \n"
        
-        for key, value in dict_points:
+        for key, value in dict_points.items():
            calcul_points = calcul_points + f" = WR {key}% - V : + {value[0]} | D : {value[1]} \n"
         
         calcul_points = calcul_points + "WR > 60% - V : +30 / D : -10"
@@ -137,7 +137,7 @@ class Aram(commands.Cog):
         embed3.add_field(name='Calcul des points', value="calcul_points")
         
         bonus_elo = ""
-        for key, value in elo_lp:
+        for key, value in elo_lp.items():
             bonus_elo = bonus_elo + f" Bonus/Malus {key} : {value} \n"
         
         embed3.add_field(name="Bonus elo", value=bonus_elo)
