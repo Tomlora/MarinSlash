@@ -124,7 +124,7 @@ class Aram(commands.Cog):
 
         embed3 = discord.Embed(title='Calcul points', description="MMR", color=discord.Colour.orange())
         
-        embed3.add_field(name="5 premières games", description=f"5 premières games \n" + 
+        embed3.add_field(name="5 premières games", value=f"5 premières games \n" + 
                          "Victoires : 50 points | Defaites : 0 points")
         
         calcul_points = "WR < 40% - V : + 10 | D : - 20 \n"
