@@ -19,19 +19,20 @@ class Aram(commands.Cog):
     async def ladder_aram(self, ctx):        
 
         suivi_aram = lire_bdd('ranked_aram', 'dict')
-        
-        await ctx.defer(hidden=False)
 
         df = pd.DataFrame.from_dict(suivi_aram)
         df = df.transpose().reset_index()
 
+        joueur = df['index'].to_dict()
+
+
         embed = discord.Embed(title="Suivi LOL", description='ARAM', colour=discord.Colour.blurple())
 
-        for key in df['index']:
+        for key in joueur.values():
             
             embed.add_field(name=str(key),
                             value="V : " + str(suivi_aram[key]['wins']) + " | D : " + str(suivi_aram[key]['losses']) + " | LP :  "
-                                                + str(suivi_aram[key]['lp']), inline=False)
+                                                + str(suivi_aram[key]['LP']), inline=False)
                                                     
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora')  
 
@@ -39,8 +40,8 @@ class Aram(commands.Cog):
         
 
     @cog_ext.cog_slash(name='ranked_aram', description='Activation/Désactivation',
-                       options=[create_option(name='summonername', description="nom ingame", option_type=3, required=True),
-                                create_option(name="activation", description="True : Activé / False : Désactivé", option_type=5, required=True)])
+                       options=[create_option(name='summonername', description="nom ingame", option_type=4, required=True),
+                                create_option(name="Activation", description="True : Activé / False : Désactivé", option_type=5, required=True)])
     
     async def update_activation(self, ctx, summonername:str, activation:bool):
         
@@ -48,14 +49,14 @@ class Aram(commands.Cog):
         suivi_aram = lire_bdd('ranked_aram', 'dict')
         
         try:
-            suivi_aram[summonername]['activation'] = activation
+            suivi_aram[summonername][activation] = activation
             sauvegarde_bdd(suivi_aram, 'ranked_aram')
             if activation:
-                await ctx.send('Ranked activé !')
+                ctx.send('Ranked activé !')
             else:
-                await ctx.send('Ranked désactivé !')
+                ctx.send('Ranked désactivé !')
         except KeyError:
-            await ctx.send('Joueur introuvable')
+            ctx.send('Joueur introuvable')
 
         
 
