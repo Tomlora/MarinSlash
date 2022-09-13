@@ -804,7 +804,8 @@ class LeagueofLegends(commands.Cog):
                 d_actual = 0
                 a_actual = 0
                 activation = True
-                rank = 'Fer'
+                rank_actual = 'IRON'
+                rank = 'IRON'
                 
                 
             if activation:
