@@ -901,10 +901,12 @@ class LeagueofLegends(commands.Cog):
                           'CHALLENGER' : 8}
                 
                 if str(match_info.thisWinId) == "True":
-                    lp = lp + elo_lp['RANK']
+                    lp = lp + elo_lp[rank]
                 else:
-                    lp = lp - elo_lp['RANK']
-                
+                    lp = lp - elo_lp[rank]
+                    
+                if rank_actual != rank:
+                    embed.add_field(name = "Changement d'elo", value=f" :star: Tu es passé de {rank_actual} à {rank}")
                 
                 k = k_actual + match_info.thisKills
                 difLP = lp - lp_actual 
