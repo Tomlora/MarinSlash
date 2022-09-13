@@ -833,11 +833,11 @@ class LeagueofLegends(commands.Cog):
             wr = wins / (wins+losses)    
             games = games_actual + 1
             k = k_actual + match_info.thisKills
-            d = d_actual + match_info.thisDeaths
+            deaths = d_actual + match_info.thisDeaths
             a = a_actual + match_info.thisAssists
                 
                          
-            data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'serie' : serie, 'k' : k, 'd' : d, 'a' : a} 
+            data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'serie' : serie, 'k' : k, 'd' : deaths, 'a' : a} 
             
             # d.text((x_rank+220, y-110), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
             d.text((x_rank+220, y-45), f'{lp} LP ({difLP})       Bonus multiplicateur : {serie}', font=font_little, fill=fill)
