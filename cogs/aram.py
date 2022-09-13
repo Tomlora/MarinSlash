@@ -52,11 +52,11 @@ class Aram(commands.Cog):
             suivi_aram[summonername][activation] = activation
             sauvegarde_bdd(suivi_aram, 'ranked_aram')
             if activation:
-                ctx.send('Ranked activé !')
+                await ctx.send('Ranked activé !')
             else:
-                ctx.send('Ranked désactivé !')
+                await ctx.send('Ranked désactivé !')
         except KeyError:
-            ctx.send('Joueur introuvable')
+            await ctx.send('Joueur introuvable')
 
         
 
