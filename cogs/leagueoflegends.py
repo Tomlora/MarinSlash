@@ -169,6 +169,37 @@ def score_personnel(embed, dict, key:str, summonerName:str, stats:str, old_value
             stats = stats.replace('_', ' ')
             embed = embed + f"\n ** :military_medal: Tu as battu ton record personnel en {stats.lower()} avec {new_value} {stats.lower()} ** (Anciennement : {old_value})"
     return embed, dict
+
+dict_points = {41 : [11, -19],
+                               42 : [12, -18],
+                               43 : [13, -17],
+                               44 : [14, -16],
+                               45 : [15, -15],
+                               46 : [16, -15],
+                               47 : [17, -15],
+                               48 : [18, -15],
+                               49 : [19, -15],
+                               50 : [20, -15],
+                               51 : [21, -15],
+                               52 : [22, -15],
+                               53 : [23, -15],
+                               54 : [24, -15],
+                               55 : [25, -15],
+                               56 : [26, -14],
+                               57 : [27, -13],
+                               58 : [28, -12],
+                               59 : [29, -11]} 
+
+elo_lp = {'IRON' : 0,
+        'BRONZE' : 1,
+        'SILVER' : 2,
+        'GOLD' : 3,
+        'PLATINE' : 4,
+        'DIAMOND' : 5,
+        'MASTER' : 6,
+        'GRANDMASTER' : 7,
+        'CHALLENGER' : 8,
+        'FIRST_GAME' : 0}
                 
 
 class LeagueofLegends(commands.Cog):
@@ -824,25 +855,7 @@ class LeagueofLegends(commands.Cog):
                    
                 wr = round(wins / games,2)*100
                 
-                dict_points = {41 : [11, -19],
-                               42 : [12, -18],
-                               43 : [13, -17],
-                               44 : [14, -16],
-                               45 : [15, -15],
-                               46 : [16, -15],
-                               47 : [17, -15],
-                               48 : [18, -15],
-                               49 : [19, -15],
-                               50 : [20, -15],
-                               51 : [21, -15],
-                               52 : [22, -15],
-                               53 : [23, -15],
-                               54 : [24, -15],
-                               55 : [25, -15],
-                               56 : [26, -14],
-                               57 : [27, -13],
-                               58 : [28, -12],
-                               59 : [29, -11]} 
+
                 
                 # calcul des LP 
                 if games <=5:
@@ -892,15 +905,7 @@ class LeagueofLegends(commands.Cog):
                     rank = 'CHALLENGER'
                 
                 # SIMULATION CHANGEMENT ELO    
-                elo_lp = {'IRON' : 1,
-                          'BRONZE' : 2,
-                          'GOLD' : 3,
-                          'PLATINE' : 4,
-                          'DIAMOND' : 5,
-                          'MASTER' : 6,
-                          'GRANDMASTER' : 7,
-                          'CHALLENGER' : 8,
-                          'FIRST_GAME' : 0}
+
                 
                 if games <= 5:
                     lp = lp + 0
@@ -924,7 +929,7 @@ class LeagueofLegends(commands.Cog):
             
                         
                 im.paste(img_rank,(x_rank, y-140), img_rank.convert('RGBA'))
-                d.text((x_rank+220, y-110), f'{rank} {match_info.thisRank}', font=font, fill=fill)
+                d.text((x_rank+220, y-110), f'{rank}', font=font, fill=fill)
                 d.text((x_rank+220, y-45), f'{lp} LP ({difLP})', font=font_little, fill=fill)
                 
 
