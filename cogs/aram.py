@@ -58,19 +58,19 @@ class Aram(commands.Cog):
         df = pd.DataFrame.from_dict(suivi_aram)
         df = df.transpose().reset_index()
 
-
+        df.sort_values('lp', ascending=False, inplace=True)
 
         embed = discord.Embed(title="Suivi LOL", description='ARAM', colour=discord.Colour.blurple())
 
         for key in df['index']:
             
-            wr = round(suivi_aram[key]['wins'] / suivi_aram[key]['games'],2)
+            wr = round((suivi_aram[key]['wins'] / suivi_aram[key]['games'])*100,2)
             
-            kda = round((suivi_aram[key]['k'] + suivi_aram[key]['a']) / suivi_aram[key]['d'],1)
+            kda = round((suivi_aram[key]['k'] + suivi_aram[key]['a']) / suivi_aram[key]['d'],2)
             
             embed.add_field(name=str(f"{key} ({suivi_aram[key]['lp']} LP) [{suivi_aram[key]['rank']}]"),
                             value="V : " + str(suivi_aram[key]['wins']) + " | D : " + str(suivi_aram[key]['losses']) + " | WR :  "
-                                                + str(wr) + " | KDA : " + str(kda), inline=False)
+                                                + str(wr) + "% | KDA : " + str(kda), inline=False)
                                                     
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora')  
 
