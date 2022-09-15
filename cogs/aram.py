@@ -138,9 +138,9 @@ class Aram(commands.Cog):
         
         bonus_elo = ""
         for key, value in elo_lp.items():
-            bonus_elo = bonus_elo + f"{key} : **{value}** \n"
+            bonus_elo = bonus_elo + f"{key} : **-{value}** \n"
         
-        embed3.add_field(name="Bonus/Malus elo", value=bonus_elo, inline=False)
+        embed3.add_field(name="Malus elo", value=bonus_elo, inline=False)
         
         await ctx.send(embed=embed)
         await ctx.send(embed=embed2)
