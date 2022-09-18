@@ -68,9 +68,15 @@ class Aram(commands.Cog):
             
             kda = round((suivi_aram[key]['k'] + suivi_aram[key]['a']) / suivi_aram[key]['d'],2)
             
-            embed.add_field(name=str(f"{key} ({suivi_aram[key]['lp']} LP) [{suivi_aram[key]['rank']}]"),
+            
+            if suivi_aram[key]['activation']:
+                embed.add_field(name=str(f"{key} ({suivi_aram[key]['lp']} LP) [{suivi_aram[key]['rank']}]"),
                             value="V : " + str(suivi_aram[key]['wins']) + " | D : " + str(suivi_aram[key]['losses']) + " | WR :  "
                                                 + str(wr) + "% | KDA : " + str(kda), inline=False)
+            else:
+                embed.add_field(name=str(f"{key} ({suivi_aram[key]['lp']} LP) [{suivi_aram[key]['rank']}]"),
+                            value="V : " + str(suivi_aram[key]['wins']) + " | D : " + str(suivi_aram[key]['losses']) + " | WR :  "
+                                                + str(wr) + "% | KDA : " + str(kda) + "[Désactivé]", inline=False)
                                                     
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora')  
 
