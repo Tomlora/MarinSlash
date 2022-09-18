@@ -909,11 +909,13 @@ class LeagueofLegends(commands.Cog):
                 
                 if games <= 5:
                     lp = lp + 0
-                # elif str(match_info.thisWinId) == "True":
-                #     lp = lp - elo_lp[rank]
                 else:
-                    lp = lp - elo_lp[rank]
+                    lp = lp - elo_lp[rank] # malus en fonction du elo
                     
+                # pas de lp negatif
+                if lp < 0:
+                    lp = 0
+                                        
                 if rank_actual != rank:
                     embed.add_field(name = "Changement d'elo", value=f" :star: Tu es passé de {rank_actual} à {rank}")
                 
