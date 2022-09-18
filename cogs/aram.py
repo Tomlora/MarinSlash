@@ -76,7 +76,7 @@ class Aram(commands.Cog):
             else:
                 embed.add_field(name=str(f"{key} ({suivi_aram[key]['lp']} LP) [{suivi_aram[key]['rank']}]"),
                             value="V : " + str(suivi_aram[key]['wins']) + " | D : " + str(suivi_aram[key]['losses']) + " | WR :  "
-                                                + str(wr) + "% | KDA : " + str(kda) + "[Désactivé]", inline=False)
+                                                + str(wr) + "% | KDA : " + str(kda) + " [Désactivé]", inline=False)
                                                     
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora')  
 
