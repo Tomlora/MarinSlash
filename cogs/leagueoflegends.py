@@ -933,7 +933,7 @@ class LeagueofLegends(commands.Cog):
                 d.text((x_rank+220, y-45), f'{lp} LP ({difLP})', font=font_little, fill=fill)
                 
 
-                d.text((x_rank+220, y+10), f'{wins}W {losses}L     {wr}% ', font=font_little, fill=fill)
+                d.text((x_rank+220, y+10), f'{wins}W {losses}L     {round(wr,1)}% ', font=font_little, fill=fill)
                 
                 sauvegarde_bdd(data_aram, 'ranked_aram') 
             
