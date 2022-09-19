@@ -33,7 +33,7 @@ elo_lp = {'IRON' : 0,
         'BRONZE' : 1,
         'SILVER' : 2,
         'GOLD' : 3,
-        'PLATINE' : 4,
+        'PLATINUM' : 4,
         'DIAMOND' : 5,
         'MASTER' : 6,
         'GRANDMASTER' : 7,
@@ -122,7 +122,7 @@ class Aram(commands.Cog):
         embed2.add_field(name='BRONZE', value="100 < LP < 200")
         embed2.add_field(name='SILVER', value="200 < LP < 300")
         embed2.add_field(name='GOLD', value="300 < LP < 500")
-        embed2.add_field(name='PLATINE', value="500 < LP < 800")
+        embed2.add_field(name='PLATINUM', value="500 < LP < 800")
         embed2.add_field(name='DIAMOND', value="800 < LP < 1200")
         embed2.add_field(name='MASTER', value="1200 < LP < 1600")
         embed2.add_field(name='GRANDMASTER', value="1600 < LP < 2000")

@@ -194,7 +194,7 @@ elo_lp = {'IRON' : 0,
         'BRONZE' : 1,
         'SILVER' : 2,
         'GOLD' : 3,
-        'PLATINE' : 4,
+        'PLATINUM' : 4,
         'DIAMOND' : 5,
         'MASTER' : 6,
         'GRANDMASTER' : 7,
@@ -894,7 +894,7 @@ class LeagueofLegends(commands.Cog):
                 elif lp < 500:
                     rank = 'GOLD'
                 elif lp < 800:
-                    rank = 'PLATINE'
+                    rank = 'PLATINUM'
                 elif lp < 1200:
                     rank = 'DIAMOND'
                 elif lp < 1600:
