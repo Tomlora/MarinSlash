@@ -7,6 +7,7 @@ from io import BytesIO
 import plotly.graph_objects as go
 from plotly.graph_objs import Layout
 import plotly.express as px
+import sys
 
 
 
@@ -1435,7 +1436,8 @@ class LeagueofLegends(commands.Cog):
                     await self.printLive(key)
                 except:
                     print(f"Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
-                    # print(sys.exc_info())
+                    print(sys.exc_info()[0])
+
 
                 data[key]['id'] = getId(key)
         data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
