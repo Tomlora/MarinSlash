@@ -864,13 +864,13 @@ class LeagueofLegends(commands.Cog):
                     else:
                         points = 0
                 
-                elif wr > 60:
+                elif wr >= 60:
                     if str(match_info.thisWinId) == 'True':
                         points = 30
                     else:
                         points = -10
                         
-                elif wr < 40:
+                elif wr <= 40:
                     if str(match_info.thisWinId) == "True":
                         points = 10
                     else:
