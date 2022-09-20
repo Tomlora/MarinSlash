@@ -1436,7 +1436,7 @@ class LeagueofLegends(commands.Cog):
                     await self.printLive(key)
                 except:
                     print(f"Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
-                    print(sys.exc_info()[0])
+                    print(sys.exc_info())
 
 
                 data[key]['id'] = getId(key)
