@@ -1106,9 +1106,9 @@ class LeagueofLegends(commands.Cog):
                 im.paste(Image.new("RGB", (lineX, lineY), (255, 70, 70)), (0, i * lineY)) # Ligne rouge
                 
             
-            # if match_info.thisQ != "ARAM":
-            #     if i == dict_position[match_info.thisPosition]:
-            #         im.paste(Image.new("RGB", (lineX, lineY), (173,216,230)), (0, i*lineY))
+            if match_info.thisQ != "ARAM":
+                if i == dict_position[match_info.thisPosition]:
+                    im.paste(Image.new("RGB", (lineX, lineY), (173,216,230)), (0, i*lineY))
                 
             
 
@@ -1158,9 +1158,7 @@ class LeagueofLegends(commands.Cog):
             d.text((x_level, initial_y), "Niv " + str(match_info.thisLevelListe[i]), font=font, fill=(0,0,0))
 
             d.text((x_name, initial_y), match_info.thisPseudoListe[i], font=font, fill=(0, 0, 0))
-            
-            if summonerName.lower() == match_info.thisPseudoListe[i].lower():
-                    im.paste(Image.new("RGB", (x_name, initial_y), (173,216,230)), (0, i*initial_y))
+        
             
             if len(str(match_info.thisKillsListe[i])) == 1:
                 d.text((x_kills, initial_y), str(match_info.thisKillsListe[i]), font=font, fill=(0,0,0))
