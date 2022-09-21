@@ -1161,6 +1161,9 @@ class LeagueofLegends(commands.Cog):
             
             if summonerName.lower() == match_info.thisPseudoListe[i].lower():
                     im.paste(Image.new("RGB", (x_name, initial_y), (173,216,230)), (0, i*initial_y))
+                    
+            print(summonerName.lower())
+            print(match_info.thisPseudoListe[i].lower())
 
             
             if len(str(match_info.thisKillsListe[i])) == 1:
