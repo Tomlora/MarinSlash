@@ -1160,10 +1160,9 @@ class LeagueofLegends(commands.Cog):
             d.text((x_name, initial_y), match_info.thisPseudoListe[i], font=font, fill=(0, 0, 0))
             
             if summonerName.lower() == match_info.thisPseudoListe[i].lower():
-                    im.paste(Image.new("RGB", (x_name, initial_y), (173,216,230)), (0, i*initial_y))
+                    im.paste(Image.new("RGB", (x_name, initial_y), (173,216,230)), (0, i*lineY))
                     
-            print(summonerName.lower())
-            print(match_info.thisPseudoListe[i].lower())
+            print(summonerName.lower() == match_info.thisPseudoListe[i].lower())
 
             
             if len(str(match_info.thisKillsListe[i])) == 1:
