@@ -731,7 +731,7 @@ class LeagueofLegends(commands.Cog):
         df_stats = pd.DataFrame([stats_name, stats_value]).transpose()
         df_stats.columns = ['stats', 'value']
         
-        fig = px.histogram(df_stats, 'stats', 'value', color='stats', text_auto="")
+        fig = px.histogram(df_stats, 'stats', 'value', color='stats', text_auto=".i")
         fig.update_traces(textfont_size=20)
         fig.update_layout(showlegend=False, font=dict(size=20))
         fig.update_yaxes(visible=False)
