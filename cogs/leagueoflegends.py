@@ -731,7 +731,7 @@ class LeagueofLegends(commands.Cog):
         df_stats = pd.DataFrame([stats_name, stats_value]).transpose()
         df_stats.columns = ['stats', 'value']
         
-        fig = px.histogram(df_stats, 'stats', 'value', color='stats', text_auto=True)
+        fig = px.histogram(df_stats, 'stats', 'value', color='stats', text_auto="")
         fig.update_traces(textfont_size=20)
         fig.update_layout(showlegend=False, font=dict(size=20))
         fig.update_yaxes(visible=False)
@@ -918,7 +918,7 @@ class LeagueofLegends(commands.Cog):
                     lp = 0
                                         
                 if rank_actual != rank:
-                    embed.add_field(name = "Changement d'elo", value=f" :star: Tu es passé de {rank_actual} à {rank}")
+                    embed.add_field(name = "Changement d'elo", value=f" :star: Tu es passé de **{rank_actual}** à **{rank}**")
                 
                 k = k_actual + match_info.thisKills
                 difLP = lp - lp_actual 
