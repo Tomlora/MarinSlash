@@ -72,10 +72,13 @@ def supprimer_bdd(nom_table):
 #     conn.execute(sql2, params_sql)
 #     conn.close    
 
-def get_data_bdd(request:text):
+def get_data_bdd(request:text, dict_params = None):
     conn = engine.connect()
     sql = text(request)
-    data = conn.execute(sql)
+    if dict_params == None:
+        data = conn.execute(sql)
+    else:
+        data = conn.execute(sql, dict_params)
     conn.close()
     
     return data
