@@ -768,6 +768,7 @@ class LeagueofLegends(commands.Cog):
         else:
             
             data_aram = get_data_bdd('SELECT * from ranked_aram WHERE index = :index', {'index' : match_info.summonerName})
+            data_aram = data_aram.fetchall()
             try:
                 wins_actual = data_aram[0]['wins']
                 losses_actual = data_aram[0]['losses']
@@ -1265,7 +1266,6 @@ class LeagueofLegends(commands.Cog):
     async def updaterank(self):
 
         id_data = get_data_bdd('SELECT index from tracker')
-        id_data = id_data.fetchall()
         suivirank = lire_bdd('suivi', 'dict')
 
         for key in id_data:
@@ -1283,8 +1283,8 @@ class LeagueofLegends(commands.Cog):
 
                 if str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank']) != level:
                     rank_old = str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank'])
-                    suivirank[key[0]]['tier'] = tier
-                    suivirank[key[0]]['rank'] = rank
+                    suivirank[key]['tier'] = tier
+                    suivirank[key]['rank'] = rank
                     try:
                         channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
                         if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
@@ -1390,11 +1390,8 @@ class LeagueofLegends(commands.Cog):
                     print(f"Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
                     print(sys.exc_info())
 
-
-                # data[key]['id'] = getId(key)
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : getId(key), 'index' : key})
-        # data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
-        # sauvegarde_bdd(data, 'tracker')
+
 
     @cog_ext.cog_slash(name="loladd",description="Ajoute le joueur au suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
@@ -1418,11 +1415,10 @@ class LeagueofLegends(commands.Cog):
     async def lollist(self, ctx):
 
         data = get_data_bdd('SELECT index from tracker')
-        data = data.fetchall()
         response = ""
 
         for key in data:
-            response += key[0].upper() + ", "
+            response += key.upper() + ", "
 
         response = response[:-2]
         embed = discord.Embed(title="Live feed list", description=response, colour=discord.Colour.blurple())
