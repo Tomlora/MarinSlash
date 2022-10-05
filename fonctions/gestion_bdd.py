@@ -63,3 +63,36 @@ def supprimer_bdd(nom_table):
     conn.execute(sql)
     conn.close()
     
+# def supprimer_data(Joueur, date):
+#     conn = engine.connect()
+#     params_sql = {'joueur' : Joueur, 'date' : date}
+#     sql1 = text(f'DELETE FROM sw WHERE "Joueur" = :joueur AND date = :date')  # :var_name
+#     sql2 = text(f'DELETE FROM sw_score WHERE "Joueur" = :joueur AND date = :date')
+#     conn.execute(sql1, params_sql)
+#     conn.execute(sql2, params_sql)
+#     conn.close    
+
+def get_data_bdd(request:text):
+    conn = engine.connect()
+    sql = text(request)
+    data = conn.execute(sql)
+    conn.close()
+    
+    return data
+    
+    
+
+def requete_perso_bdd(request:text, dict_params:dict):
+    """
+    request : requête sql au format text
+    
+    dict_params : dictionnaire {variable : valeur}
+    
+    Rappel
+    -------
+    Dans la requête sql, une variable = :variable """
+    conn = engine.connect()
+    sql = text(request)
+    conn.execute(sql, dict_params)
+    conn.close
+    
