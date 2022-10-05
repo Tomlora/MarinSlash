@@ -83,8 +83,6 @@ def get_data_bdd(request:text, dict_params = None):
     
     return data
     
-    
-
 def requete_perso_bdd(request:text, dict_params:dict):
     """
     request : requête sql au format text
