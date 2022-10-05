@@ -19,7 +19,7 @@ import numpy as np
 import warnings
 from cogs.achievements_scoringlol import scoring
 
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
+from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, get_data_bdd, requete_perso_bdd
 
 
 
@@ -210,12 +210,9 @@ class LeagueofLegends(commands.Cog):
         self.lolsuivi.start()
         
  
-    def printInfo(self, summonerName, idgames: int, succes, chrono:bool=False):
+    def printInfo(self, summonerName, idgames: int, succes):
 
-        if chrono:
-            time_a = time()
-            time_depart = time()
-            print(time_a)
+
 
         match_info = matchlol(summonerName, idgames) #class
         
@@ -237,14 +234,8 @@ class LeagueofLegends(commands.Cog):
         
         # Suivi
         
-        if chrono:
-            time_a = calcul_time('Avant BDD', time_a)
-        
         suivi = lire_bdd('suivi', 'dict')
-        
-        if chrono:
-            time_a = calcul_time('Suivi chargé', time_a)
-            
+                    
         try:
             if suivi[summonerName.lower().replace(" ", "")]['tier'] == match_info.thisTier and suivi[summonerName.lower().replace(" ", "")]['rank'] == match_info.thisRank:
                 difLP = int(match_info.thisLP) - int(suivi[summonerName.lower().replace(" ", "")]['LP'])
@@ -266,17 +257,9 @@ class LeagueofLegends(commands.Cog):
 
         if match_info.thisQ == "RANKED" and match_info.thisTime > 20:
             
-            if chrono:
-                time_a = calcul_time('Avant records', time_a)
 
             records = lire_bdd('records', 'dict')
             
-            if chrono:
-                time_a = calcul_time('Records1/2 chargé et avant records', time_a)     
-                loop = 0     
-                
-                
-
             for key, value in records.items():
                 if int(match_info.thisDeaths) >= 1:
 
@@ -374,7 +357,7 @@ class LeagueofLegends(commands.Cog):
                 records, exploits = records_check(records, key, 'EARLY_BARON', match_info.earliestBaron,
                                              match_info.thisChampName, summonerName, exploits, url_game)
                 
-                if match_info.thisChampName != "Zeri":
+                if match_info.thisChampName != "Zeri": # champion désactivé pour ce record
                     records, exploits = records_check(records, key, 'SKILLSHOTS_HIT', match_info.thisSkillshot_hit,
                                                 match_info.thisChampName, summonerName, exploits, url_game)
                     
@@ -386,17 +369,10 @@ class LeagueofLegends(commands.Cog):
                                              match_info.thisChampName, summonerName, exploits, url_game)
                 records, exploits = records_check(records, key, 'SHIELD', match_info.thisTotalShielded,
                                              match_info.thisChampName, summonerName, exploits, url_game)
-
-                    
-                if chrono:
-                    loop = loop + 1
-                    
+    
             sauvegarde_bdd(records, 'records')
                     
-        if chrono:
-            time_a = calcul_time('Records1/2 faits', time_a)
-            print(f'loop : {loop}')
-                    
+                   
         # on le fait après sinon ça flingue les records
         match_info.thisDamageTurrets = "{:,}".format(match_info.thisDamageTurrets).replace(',', ' ').replace('.', ',')
 
@@ -445,9 +421,7 @@ class LeagueofLegends(commands.Cog):
 
         # annonce
         points = 0
-        
-        if chrono:
-            time_a = calcul_time('Avant chargement achievements, records3, records_perso', time_a)
+
             
         settings = lire_bdd('achievements_settings', 'dict')
 
@@ -537,13 +511,12 @@ class LeagueofLegends(commands.Cog):
             
             # Ecart gold ? (Compliqué si swap role)
             
-        if chrono:
-            time_a = calcul_time('Records3 fini', time_a)
+
 
             
         # Présence d'afk    
         if match_info.AFKTeam >= 1:
-            exploits = exploits + "\n ** Tu as eu un afk dans ton équipe :'( **"
+            exploits = exploits + "\n ** :tired_face: Tu as eu un afk dans ton équipe :'( **"
             
         # Série de victoire    
         if match_info.thisWinStreak == "True" and match_info.thisQ == "RANKED" and succes is True and match_info.thisTime > 20:
@@ -589,8 +562,7 @@ class LeagueofLegends(commands.Cog):
                       "DOUBLE" : match_info.thisDouble, "TRIPLE" : match_info.thisTriple, "SERIE_VICTOIRE" : serie_victoire, "NB_COURONNE_1_GAME" : points, "SHIELD" : match_info.thisTotalShielded,
                       "ALLIE_FEEDER" : match_info.thisAllieFeeder}
         
-        if chrono:
-            time_a = calcul_time('Avant cumul', time_a)
+
 
         for key, value in dict_cumul.items():
             # records cumul
@@ -631,13 +603,7 @@ class LeagueofLegends(commands.Cog):
                     
             except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
                 records_personnel[summonerName.lower().replace(" ", "")][key] = value
-                
-        if chrono:
-            time_a = calcul_time('Après cumul', time_a)                 
-                
-
-        
-
+             
         # Achievements
         if match_info.thisQ == "RANKED" and match_info.thisTime > 20 and succes is True:
             try:
@@ -659,8 +625,7 @@ class LeagueofLegends(commands.Cog):
 
         sauvegarde_bdd(suivi, 'suivi') #achievements + suivi
 
-        if chrono:
-            time_a = calcul_time('Avant embed', time_a)
+
                 
         # observations
         
@@ -809,7 +774,7 @@ class LeagueofLegends(commands.Cog):
                 bo = match_info.thisStats[match_info.i]['miniSeries']
                 bo_wins = str(bo['wins'])
                 bo_losses = str(bo['losses'])
-                bo_progress = str(bo['progress'])
+                # bo_progress = str(bo['progress'])
                 d.text((x_rank+220, y+10), f'{match_info.thisVictory}W {match_info.thisLoose}L {match_info.thisWinrateStat}% (BO : {bo_wins} / {bo_losses}) ', font=font_little, fill=fill)
             else:
                 d.text((x_rank+220, y+10), f'{match_info.thisVictory}W {match_info.thisLoose}L     {match_info.thisWinrateStat}% ', font=font_little, fill=fill)
@@ -1272,10 +1237,6 @@ class LeagueofLegends(commands.Cog):
 
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora - Match {str(match_info.last_match)}')
 
-        if chrono:
-            time_a = calcul_time('Embed fini', time_a)
-            time_end = calcul_time('Total', time_depart)
-
         return embed, match_info.thisQ, resume, embed2, resume2
 
     @commands.command(brief="Version du jeu")
@@ -1370,13 +1331,13 @@ class LeagueofLegends(commands.Cog):
                                 create_option(name="numerogame", description="Numero de la game, de 0 à 100", option_type=4, required=True),
                                 create_option(name="succes", description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non", option_type=5, required=True),
                                 create_option(name="chrono", description="Reserve au proprietaire", option_type=5, required=False)])
-    async def game(self, ctx, summonername:str, numerogame:int, succes: bool, chrono: bool=False):
+    async def game(self, ctx, summonername:str, numerogame:int, succes: bool):
         
         await ctx.defer(hidden=False)
         
         summonername = summonername.lower()
 
-        embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, chrono=chrono)
+        embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes)
 
         if embed != {}:
             await ctx.send(embed=embed, file=resume)
@@ -1429,9 +1390,14 @@ class LeagueofLegends(commands.Cog):
 
 
     async def update(self):
-        data = lire_bdd('tracker', 'dict')
-        for key, value in data.items():
-            if str(value['id']) != getId(key):  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
+        # data = lire_bdd('tracker', 'dict')
+        
+        # for key, value in data.items():
+        
+        data = get_data_bdd(f'SELECT index, id from tracker')
+            
+        for key, value in data: 
+            if str(value) != getId(key):  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
                     await self.printLive(key)
                 except:
@@ -1439,19 +1405,22 @@ class LeagueofLegends(commands.Cog):
                     print(sys.exc_info())
 
 
-                data[key]['id'] = getId(key)
-        data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
-        sauvegarde_bdd(data, 'tracker')
+                # data[key]['id'] = getId(key)
+                requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : getId(key), 'index' : key})
+        # data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
+        # sauvegarde_bdd(data, 'tracker')
 
     @cog_ext.cog_slash(name="loladd",description="Ajoute le joueur au suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def loladd(self, ctx, *, summonername):
         # try:
-            data = lire_bdd('tracker', 'dict')
-            data[summonername.lower().replace(" ", "")] = {'id' : getId(
-                summonername)}  # ajout du pseudo (clé) et de l'id de la dernière game(getId)
-            data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
-            sauvegarde_bdd(data, 'tracker')
+            # data = lire_bdd('tracker', 'dict')
+            # data[summonername.lower().replace(" ", "")] = {'id' : getId(
+            #     summonername)}  # ajout du pseudo (clé) et de l'id de la dernière game(getId)
+            # data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
+            # sauvegarde_bdd(data, 'tracker')
+            
+            requete_perso_bdd(f'INSERT INTO tracker(index, id) VALUES (:summonername, :id)', {'summonername' : summonername, 'id' : getId(summonername)})
 
             await ctx.send(summonername + " was successfully added to live-feed!")
         # except:
@@ -1460,11 +1429,13 @@ class LeagueofLegends(commands.Cog):
     @cog_ext.cog_slash(name="lolremove", description="Supprime le joueur du suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def lolremove(self, ctx, *, summonername):
-        data = lire_bdd('tracker', 'dict')
-        if summonername.lower().replace(" ", "") in data: del data[summonername.lower().replace(" ",
-                                                                                                "")]  # si le pseudo est présent dans la data, on supprime la data de ce pseudo
-        data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
-        sauvegarde_bdd(data, 'tracker')
+        # data = lire_bdd('tracker', 'dict')
+        # if summonername.lower().replace(" ", "") in data: del data[summonername.lower().replace(" ",
+        #                                                                                         "")]  # si le pseudo est présent dans la data, on supprime la data de ce pseudo
+        # data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
+        # sauvegarde_bdd(data, 'tracker')
+        
+        requete_perso_bdd('DELETE FROM tracker WHERE index = :summonername', {'summonername' : summonername})
 
         await ctx.send(summonername + " was successfully removed from live-feed!")
 
