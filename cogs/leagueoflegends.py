@@ -767,17 +767,17 @@ class LeagueofLegends(commands.Cog):
         
         else:
             
-            data_aram = lire_bdd('ranked_aram', 'dict')
+            data_aram = get_data_bdd('SELECT * from ranked_aram WHERE index = :index', {'index' : match_info.summonerName})
             try:
-                wins_actual = data_aram[match_info.summonerName]['wins']
-                losses_actual = data_aram[match_info.summonerName]['losses']
-                lp_actual = data_aram[match_info.summonerName]['lp']
-                games_actual = data_aram[match_info.summonerName]['games']
-                k_actual = data_aram[match_info.summonerName]['k']
-                d_actual = data_aram[match_info.summonerName]['d']
-                a_actual = data_aram[match_info.summonerName]['a']
-                activation = data_aram[match_info.summonerName]['activation']
-                rank_actual = data_aram[match_info.summonerName]['rank']
+                wins_actual = data_aram[0]['wins']
+                losses_actual = data_aram[0]['losses']
+                lp_actual = data_aram[0]['lp']
+                games_actual = data_aram[0]['games']
+                k_actual = data_aram[0]['k']
+                d_actual = data_aram[0]['d']
+                a_actual = data_aram[0]['a']
+                activation = data_aram[0]['activation']
+                rank_actual = data_aram[0]['rank']
             except KeyError: # première aram
                 wins_actual = 0
                 losses_actual = 0
@@ -877,7 +877,7 @@ class LeagueofLegends(commands.Cog):
                 a = a_actual + match_info.thisAssists
                     
                             
-                data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'k' : k, 'd' : deaths, 'a' : a, 'activation' : activation, 'rank' : rank} 
+                # data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'k' : k, 'd' : deaths, 'a' : a, 'activation' : activation, 'rank' : rank} 
                 
                 img_rank = get_image('tier', rank, 220, 220)
             
@@ -889,7 +889,8 @@ class LeagueofLegends(commands.Cog):
 
                 d.text((x_rank+220, y+10), f'{wins}W {losses}L     {round(wr,1)}% ', font=font_little, fill=fill)
                 
-                sauvegarde_bdd(data_aram, 'ranked_aram') 
+                requete_perso_bdd('UPDATE ranked_aram SET wins = :wins, losses = :losses, lp = :lp, games = :games, k = :k, d = :d, a = :a, rank = :rank WHERE index = :index',
+                                  {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'k' : k, 'd' : deaths, 'a' : a, 'rank' : rank, 'index' : match_info.summonerName})
             
 
         
@@ -1263,13 +1264,12 @@ class LeagueofLegends(commands.Cog):
     @commands.command(brief='Réservé au bot')
     async def updaterank(self):
 
-        id_data = lire_bdd('tracker', 'dict')
+        id_data = get_data_bdd('SELECT index from tracker')
+        id_data = id_data.fetchall()
         suivirank = lire_bdd('suivi', 'dict')
 
-        id_data_keys = id_data.keys()
-
-        for key in id_data_keys:
-            me = lol_watcher.summoner.by_name(my_region, key)
+        for key in id_data:
+            me = lol_watcher.summoner.by_name(my_region, key[0])
             stats = lol_watcher.league.by_summoner(my_region, me['id'])
             try:
                 if str(stats[0]['queueType']) == 'RANKED_SOLO_5x5':
@@ -1281,25 +1281,25 @@ class LeagueofLegends(commands.Cog):
                 rank = str(stats[i]['rank'])
                 level = tier + " " + rank
 
-                if str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank']) != level:
-                    rank_old = str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank'])
-                    suivirank[key]['tier'] = tier
-                    suivirank[key]['rank'] = rank
+                if str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank']) != level:
+                    rank_old = str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank'])
+                    suivirank[key[0]]['tier'] = tier
+                    suivirank[key[0]]['rank'] = rank
                     try:
                         channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
                         if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
-                            await channel_tracklol.send(f' Le joueur **{key}** a démote du rank **{rank_old}** à **{level}**')
+                            await channel_tracklol.send(f' Le joueur **{key[0]}** a démote du rank **{rank_old}** à **{level}**')
                             await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
                         elif dict_rankid[rank_old] < dict_rankid[level]:
-                            await channel_tracklol.send(f' Le joueur **{key}** a été promu du rank **{rank_old}** à **{level}**')
+                            await channel_tracklol.send(f' Le joueur **{key[0]}** a été promu du rank **{rank_old}** à **{level}**')
                             await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
                         
-                        suivirank[key]['tier'] = tier
-                        suivirank[key]['rank'] = rank
+                        suivirank[key[0]]['tier'] = tier
+                        suivirank[key[0]]['rank'] = rank
                     except:
                         print('Channel impossible')
             except:
-                suivirank[key] = {
+                suivirank[key[0]] = {
                     'wins': 0,
                     'losses': 0,
                     'LP': 0,
@@ -1400,12 +1400,6 @@ class LeagueofLegends(commands.Cog):
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def loladd(self, ctx, *, summonername):
         # try:
-            # data = lire_bdd('tracker', 'dict')
-            # data[summonername.lower().replace(" ", "")] = {'id' : getId(
-            #     summonername)}  # ajout du pseudo (clé) et de l'id de la dernière game(getId)
-            # data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
-            # sauvegarde_bdd(data, 'tracker')
-            
             requete_perso_bdd(f'INSERT INTO tracker(index, id) VALUES (:summonername, :id)', {'summonername' : summonername, 'id' : getId(summonername)})
 
             await ctx.send(summonername + " was successfully added to live-feed!")
@@ -1415,11 +1409,6 @@ class LeagueofLegends(commands.Cog):
     @cog_ext.cog_slash(name="lolremove", description="Supprime le joueur du suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def lolremove(self, ctx, *, summonername):
-        # data = lire_bdd('tracker', 'dict')
-        # if summonername.lower().replace(" ", "") in data: del data[summonername.lower().replace(" ",
-        #                                                                                         "")]  # si le pseudo est présent dans la data, on supprime la data de ce pseudo
-        # data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
-        # sauvegarde_bdd(data, 'tracker')
         
         requete_perso_bdd('DELETE FROM tracker WHERE index = :summonername', {'summonername' : summonername})
 
@@ -1428,11 +1417,12 @@ class LeagueofLegends(commands.Cog):
     @cog_ext.cog_slash(name='lollist', description='Affiche la liste des joueurs suivis')
     async def lollist(self, ctx):
 
-        data = lire_bdd('tracker', 'dict')
+        data = get_data_bdd('SELECT index from tracker')
+        data = data.fetchall()
         response = ""
 
-        for key in data.keys():
-            response += key.upper() + ", "
+        for key in data:
+            response += key[0].upper() + ", "
 
         response = response[:-2]
         embed = discord.Embed(title="Live feed list", description=response, colour=discord.Colour.blurple())

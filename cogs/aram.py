@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from discord.ext import commands
 from discord_slash.utils.manage_components import *
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
+from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, requete_perso_bdd, get_data_bdd
 import main
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_commands import create_option, create_choice
@@ -90,11 +90,9 @@ class Aram(commands.Cog):
     async def update_activation(self, ctx, summonername:str, activation:bool):
         
         summonername = summonername.lower()
-        suivi_aram = lire_bdd('ranked_aram', 'dict')
         
         try:
-            suivi_aram[summonername]['activation'] = activation
-            sauvegarde_bdd(suivi_aram, 'ranked_aram')
+            requete_perso_bdd('UPDATE ranked_aram SET activation = :activation WHERE index = :index', {'activation' : activation, 'index' : summonername})
             if activation:
                 await ctx.send('Ranked activé !')
             else:
