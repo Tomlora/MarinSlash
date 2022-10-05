@@ -1,4 +1,5 @@
 
+from pkgutil import get_data
 from discord.ext import commands, tasks
 
 import requests
@@ -378,29 +379,14 @@ class LeagueofLegends(commands.Cog):
 
         # couleur de l'embed en fonction du pseudo
 
-        pseudo = str(summonerName).upper()
+        pseudo = str(summonerName).lower()
 
-        global color
-
-        if (pseudo == 'NAMIYEON') or (pseudo == 'ZYRADELEVINGNE') or (pseudo == 'CHATOBOGAN'):
-            color = discord.Colour.from_rgb(255,236,0)
-        elif pseudo == 'DJINGO':
-            color = discord.Color.orange()
-        elif pseudo == 'TOMLORA':
-            color = discord.Colour.from_rgb(26,188,156)
-        elif pseudo == 'YLARABKA':
-            color = discord.Colour.from_rgb(253, 119, 90)
-        elif (pseudo == 'LINÒ') or (pseudo == 'LORDOFCOUBI') or (pseudo == 'STATE'):
-            color = discord.Colour.from_rgb(187, 112, 255)
-        elif (pseudo == 'EXORBLUE'):
-            color = discord.Colour.from_rgb(223, 55, 93)
-        elif (pseudo == 'KULBUTOKÉ'):
-            color = discord.Colour.from_rgb(42, 188, 248)
-        elif (pseudo == 'KAZSC'):
-            color = discord.Colour.from_rgb(245, 68, 160)
-        elif (pseudo == 'CHGUIZOU'):
-            color = discord.Colour.from_rgb(127, 0, 255)
-        else:
+        try:
+            data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {'index' : pseudo} )
+            data = data.fetchall()
+            color = discord.Color.from_rgb(data[0][0], data[0][1], data[0][2])
+            
+        except:
             color = discord.Color.blue()
 
         # constructing the message
@@ -1580,7 +1566,21 @@ class LeagueofLegends(commands.Cog):
 
             await channel_tracklol.send(embed=embed)
             await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
-      
+     
+    @cog_ext.cog_slash(name="color_recap",
+                       description="Couleur du recap",
+                       options=[create_option(name="summonername", description= "Nom du joueur", option_type=3, required=True),
+                                create_option(name="rouge", description="R", option_type=4, required=True),
+                                create_option(name="vert", description="G", option_type=4, required=True),
+                                create_option(name="bleu", description="B", option_type=4, required=True)])        
+    async def color_recap(self, ctx, summonername:str, rouge:int, vert:int, bleu: int):
+        
+        await ctx.defer(hidden=False)
+        
+        params = {'rouge' : rouge, 'vert' : vert, 'bleu' : bleu, 'index' : summonername.lower()}
+        requete_perso_bdd(f'UPDATE tracker SET "R" = :rouge, "G" = :vert, "B" = :bleu WHERE index = :index', params)
+        
+        await ctx.send(f' La couleur du joueur {summonername} a été modifiée.')  
         
 
     @commands.command()
