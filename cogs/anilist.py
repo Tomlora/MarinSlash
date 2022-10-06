@@ -63,10 +63,18 @@ class Anilist(commands.Cog):
       else:
           return extracted_data
       
-    @cog_ext.cog_slash(name="anime_season", description="Calendrier des sorties")
-    async def anime_season(self, ctx, nb_anime:int=10):
-        season = "SUMMER"
-        year = 2022
+      
+    @cog_ext.cog_slash(name="anime_season", description="Calendrier des sorties", options=[
+        create_choice(name='nb_anime', description="Combien d'animés ?", option_type=4, required=False),
+        create_choice(name='year', description='Quelle année ?', option_type=4, required=False),
+        create_choice(name='season', description='Quelle saison ?', option_type=3, required=False, choices=[
+            create_choice(name='hiver', value='WINTER'),
+            create_choice(name='printemps', value='SPRING'),
+            create_choice(name='ete', value='SUMMER'),
+            create_choice(name='automne', value='FALL')
+        ] )
+    ])
+    async def anime_season(self, ctx, nb_anime:int=10, year=2022, season:str='SUMMER'):
         anime_season = """\
         query ($season : MediaSeason, $seasonYear : Int) {
     Page {
