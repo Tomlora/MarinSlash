@@ -65,9 +65,9 @@ class Anilist(commands.Cog):
       
       
     @cog_ext.cog_slash(name="anime_season", description="Calendrier des sorties", options=[
-        create_choice(name='nb_anime', description="Combien d'animés ?", option_type=4, required=False),
-        create_choice(name='year', description='Quelle année ?', option_type=4, required=False),
-        create_choice(name='season', description='Quelle saison ?', option_type=3, required=False, choices=[
+        create_option(name='nb_anime', description="Combien d'animés ?", option_type=4, required=False),
+        create_option(name='year', description='Quelle année ?', option_type=4, required=False),
+        create_option(name='season', description='Quelle saison ?', option_type=3, required=False, choices=[
             create_choice(name='hiver', value='WINTER'),
             create_choice(name='printemps', value='SPRING'),
             create_choice(name='ete', value='SUMMER'),
