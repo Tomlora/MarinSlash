@@ -1283,8 +1283,8 @@ class LeagueofLegends(commands.Cog):
 
                 if str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank']) != level:
                     rank_old = str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank'])
-                    suivirank[key]['tier'] = tier
-                    suivirank[key]['rank'] = rank
+                    suivirank[key[0]]['tier'] = tier
+                    suivirank[key[0]]['rank'] = rank
                     try:
                         channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
                         if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
