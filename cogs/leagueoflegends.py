@@ -1271,42 +1271,34 @@ class LeagueofLegends(commands.Cog):
         for key in id_data:
             me = lol_watcher.summoner.by_name(my_region, key[0])
             stats = lol_watcher.league.by_summoner(my_region, me['id'])
-            try:
-                if str(stats[0]['queueType']) == 'RANKED_SOLO_5x5':
+
+            if str(stats[0]['queueType']) == 'RANKED_SOLO_5x5':
                     i = 0
-                else:
+            else:
                     i = 1
 
-                tier = str(stats[i]['tier'])
-                rank = str(stats[i]['rank'])
-                level = tier + " " + rank
+            tier = str(stats[i]['tier'])
+            rank = str(stats[i]['rank'])
+            level = tier + " " + rank
 
-                if str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank']) != level:
-                    rank_old = str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank'])
+            if str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank']) != level:
+                rank_old = str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank'])
+                suivirank[key[0]]['tier'] = tier
+                suivirank[key[0]]['rank'] = rank
+                try:
+                    channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
+                    if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
+                        await channel_tracklol.send(f' Le joueur **{key[0]}** a démote du rank **{rank_old}** à **{level}**')
+                        await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
+                    elif dict_rankid[rank_old] < dict_rankid[level]:
+                        await channel_tracklol.send(f' Le joueur **{key[0]}** a été promu du rank **{rank_old}** à **{level}**')
+                        await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
+                        
                     suivirank[key[0]]['tier'] = tier
                     suivirank[key[0]]['rank'] = rank
-                    try:
-                        channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
-                        if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
-                            await channel_tracklol.send(f' Le joueur **{key[0]}** a démote du rank **{rank_old}** à **{level}**')
-                            await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
-                        elif dict_rankid[rank_old] < dict_rankid[level]:
-                            await channel_tracklol.send(f' Le joueur **{key[0]}** a été promu du rank **{rank_old}** à **{level}**')
-                            await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
-                        
-                        suivirank[key[0]]['tier'] = tier
-                        suivirank[key[0]]['rank'] = rank
-                    except:
-                        print('Channel impossible')
-            except:
-                suivirank[key[0]] = {
-                    'wins': 0,
-                    'losses': 0,
-                    'LP': 0,
-                    'tier': "Non-classe",
-                    'rank': '0',
-                    'Achievements': 0,
-                    'games': 0}
+                except:
+                    print('Channel impossible')
+
                 
 
         sauvegarde_bdd(suivirank, 'suivi')
@@ -1397,7 +1389,13 @@ class LeagueofLegends(commands.Cog):
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def loladd(self, ctx, *, summonername):
         # try:
-            requete_perso_bdd(f'INSERT INTO tracker(index, id) VALUES (:summonername, :id)', {'summonername' : summonername, 'id' : getId(summonername)})
+            requete_perso_bdd(f'''INSERT INTO tracker(index, id) VALUES (:summonername, :id);
+                            INSERT INTO suivi(
+	                        index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
+	                        VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);''',
+                         {'summonername' : summonername, 'id' : getId(summonername)})
+
+            
 
             await ctx.send(summonername + " was successfully added to live-feed!")
         # except:
@@ -1407,7 +1405,9 @@ class LeagueofLegends(commands.Cog):
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def lolremove(self, ctx, *, summonername):
         
-        requete_perso_bdd('DELETE FROM tracker WHERE index = :summonername', {'summonername' : summonername})
+        requete_perso_bdd('''DELETE FROM tracker WHERE index = :summonername;
+                          DELETE FROM suivi WHERE index =:summonername''',
+                          {'summonername' : summonername})
 
         await ctx.send(summonername + " was successfully removed from live-feed!")
 
