@@ -88,6 +88,20 @@ async def on_member_join(member):
     embed.set_footer(text=f'Version {Var_version} by Tomlora')
      
     await channel.send(embed=embed)
+    
+@bot.event
+async def on_member_remove(member):
+    '''Lorsque un nouveau user quitte le discord'''
+    guild = bot.get_guild(guildid)
+    channel = bot.get_channel(chan_kangourou)
+    
+    embed = discord.Embed(title=f'Départ des {guild.name}',
+                          description=f'Au revoir {member.name}, nous sommes encore {guild.member_count} membres !',
+                          color=discord.Color.blue())
+    embed.set_thumbnail(url=member.avatar_url)
+    embed.set_footer(text=f'Version {Var_version} by Tomlora')
+    
+    await channel.send(embed=embed)
 
 @bot.group(invoke_without_command=True)
 async def help(ctx):
