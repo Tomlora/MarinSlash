@@ -13,7 +13,8 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 import os
 
-dict_rankid = {"BRONZE IV" : 1,
+dict_rankid =  {"Non-classe 0" : 0,
+               "BRONZE IV" : 1,
                "BRONZE III" : 2,
                "BRONZE II" : 3,
                "BRONZE I" : 4,
