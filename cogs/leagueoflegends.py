@@ -1262,33 +1262,34 @@ class LeagueofLegends(commands.Cog):
             me = lol_watcher.summoner.by_name(my_region, key[0])
             stats = lol_watcher.league.by_summoner(my_region, me['id'])
 
-            if str(stats[0]['queueType']) == 'RANKED_SOLO_5x5':
-                    i = 0
-            else:
-                    i = 1
+            if len(stats) > 0:
+                if str(stats[0]['queueType']) == 'RANKED_SOLO_5x5':
+                        i = 0
+                else:
+                        i = 1
 
-            tier = str(stats[i]['tier'])
-            rank = str(stats[i]['rank'])
-            level = tier + " " + rank
+                tier = str(stats[i]['tier'])
+                rank = str(stats[i]['rank'])
+                level = tier + " " + rank
 
-            if str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank']) != level:
-                rank_old = str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank'])
-                suivirank[key[0]]['tier'] = tier
-                suivirank[key[0]]['rank'] = rank
-                try:
-                    channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
-                    if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
-                        await channel_tracklol.send(f' Le joueur **{key[0]}** a démote du rank **{rank_old}** à **{level}**')
-                        await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
-                    elif dict_rankid[rank_old] < dict_rankid[level]:
-                        await channel_tracklol.send(f' Le joueur **{key[0]}** a été promu du rank **{rank_old}** à **{level}**')
-                        await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
-                        
+                if str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank']) != level:
+                    rank_old = str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank'])
                     suivirank[key[0]]['tier'] = tier
                     suivirank[key[0]]['rank'] = rank
-                except:
-                    print('Channel impossible')
-                    print(sys.exc_info())
+                    try:
+                        channel_tracklol = self.bot.get_channel(int(main.chan_tracklol))   
+                        if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
+                            await channel_tracklol.send(f' Le joueur **{key[0]}** a démote du rank **{rank_old}** à **{level}**')
+                            await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
+                        elif dict_rankid[rank_old] < dict_rankid[level]:
+                            await channel_tracklol.send(f' Le joueur **{key[0]}** a été promu du rank **{rank_old}** à **{level}**')
+                            await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
+                            
+                        suivirank[key[0]]['tier'] = tier
+                        suivirank[key[0]]['rank'] = rank
+                    except:
+                        print('Channel impossible')
+                        print(sys.exc_info())
 
                 
 
@@ -1404,7 +1405,7 @@ class LeagueofLegends(commands.Cog):
         requete_perso_bdd('''DELETE FROM tracker WHERE index = :summonername;
                           DELETE FROM suivi WHERE index = :summonername;
                           DELETE FROM ranked_aram WHERE index = :summonername''',
-                          {'summonername' : summonername})
+                          {'summonername' : summonername.lower()})
 
         await ctx.send(summonername + " was successfully removed from live-feed!")
 
