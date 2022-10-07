@@ -769,27 +769,17 @@ class LeagueofLegends(commands.Cog):
             
             data_aram = get_data_bdd('SELECT * from ranked_aram WHERE index = :index', {'index' : match_info.summonerName})
             data_aram = data_aram.fetchall()
-            try:
-                wins_actual = data_aram[0]['wins']
-                losses_actual = data_aram[0]['losses']
-                lp_actual = data_aram[0]['lp']
-                games_actual = data_aram[0]['games']
-                k_actual = data_aram[0]['k']
-                d_actual = data_aram[0]['d']
-                a_actual = data_aram[0]['a']
-                activation = data_aram[0]['activation']
-                rank_actual = data_aram[0]['rank']
-            except KeyError: # première aram
-                wins_actual = 0
-                losses_actual = 0
-                lp_actual = 0
-                games_actual = 0
-                k_actual = 0
-                d_actual = 0
-                a_actual = 0
-                activation = True
-                rank_actual = 'IRON'
-                rank = 'IRON'
+
+            wins_actual = data_aram[0]['wins']
+            losses_actual = data_aram[0]['losses']
+            lp_actual = data_aram[0]['lp']
+            games_actual = data_aram[0]['games']
+            k_actual = data_aram[0]['k']
+            d_actual = data_aram[0]['d']
+            a_actual = data_aram[0]['a']
+            activation = data_aram[0]['activation']
+            rank_actual = data_aram[0]['rank']
+
                 
                 
             if activation:
@@ -1298,6 +1288,7 @@ class LeagueofLegends(commands.Cog):
                     suivirank[key[0]]['rank'] = rank
                 except:
                     print('Channel impossible')
+                    print(sys.exc_info())
 
                 
 
@@ -1390,9 +1381,14 @@ class LeagueofLegends(commands.Cog):
     async def loladd(self, ctx, *, summonername):
         # try:
             requete_perso_bdd(f'''INSERT INTO tracker(index, id) VALUES (:summonername, :id);
+                              
                             INSERT INTO suivi(
 	                        index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
-	                        VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);''',
+	                        VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);
+                         
+                            INSERT INTO ranked_aram(
+	                        index, wins, losses, lp, games, k, d, a, activation, rank)
+	                        VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');''',
                          {'summonername' : summonername, 'id' : getId(summonername)})
 
             
@@ -1406,7 +1402,8 @@ class LeagueofLegends(commands.Cog):
     async def lolremove(self, ctx, *, summonername):
         
         requete_perso_bdd('''DELETE FROM tracker WHERE index = :summonername;
-                          DELETE FROM suivi WHERE index =:summonername''',
+                          DELETE FROM suivi WHERE index = :summonername;
+                          DELETE FROM ranked_aram WHERE index = :summonername''',
                           {'summonername' : summonername})
 
         await ctx.send(summonername + " was successfully removed from live-feed!")
