@@ -1413,10 +1413,11 @@ class LeagueofLegends(commands.Cog):
     async def lollist(self, ctx):
 
         data = get_data_bdd('SELECT index from tracker')
+        data = data.fetchall()
         response = ""
 
         for key in data:
-            response += key.upper() + ", "
+            response += key[0].upper() + ", "
 
         response = response[:-2]
         embed = discord.Embed(title="Live feed list", description=response, colour=discord.Colour.blurple())
