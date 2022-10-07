@@ -78,14 +78,15 @@ async def on_message(message):
 @bot.event
 async def on_member_join(member):
     '''Lorsque un nouveau user rejoint le discord'''
-    guild = bot.get_guild(450771618868887553)
-    channel = bot.get_channel(507539591473922068)
+    guild = bot.get_guild(guildid)
+    channel = bot.get_channel(chan_kangourou)
     
     embed = discord.Embed(title=f'Bienvenue chez les {guild.name}',
-                          description=f'Hello {member.name}, tu es notre {guild.member_count}ème membre',
+                          description=f'Hello {member.name}, tu es notre {guild.member_count}ème membre !',
                           color=discord.Color.blue())
     embed.set_thumbnail(url=member.avatar_url)
-    embed.set_footer(text=f'Version {Var_version} by Tomlora') 
+    embed.set_footer(text=f'Version {Var_version} by Tomlora')
+     
     await channel.send(embed=embed)
 
 @bot.group(invoke_without_command=True)
