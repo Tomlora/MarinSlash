@@ -881,7 +881,7 @@ class LeagueofLegends(commands.Cog):
                 d.text((x_rank+220, y+10), f'{wins}W {losses}L     {round(wr,1)}% ', font=font_little, fill=fill)
                 
                 requete_perso_bdd('UPDATE ranked_aram SET wins = :wins, losses = :losses, lp = :lp, games = :games, k = :k, d = :d, a = :a, rank = :rank WHERE index = :index',
-                                  {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'k' : k, 'd' : deaths, 'a' : a, 'rank' : rank, 'index' : match_info.summonerName})
+                                  {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'k' : k, 'd' : deaths, 'a' : a, 'rank' : rank, 'index' : match_info.summonerName.lower()})
             
 
         
