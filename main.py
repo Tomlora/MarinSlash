@@ -74,6 +74,13 @@ async def on_message(message):
     await bot.process_commands(
         message)  # Overriding the default provided on_message forbids any extra commands from running. To fix this, add a bot.process_commands(message) line at the end of your on_message.
 
+
+@bot.event
+async def on_member_join(member):
+    guild = bot.get_guild(450771618868887553)
+    channel = bot.get_channel(507539591473922068)
+    await channel.send(f'Welcome to {guild.name}, {member.name}')
+
 @bot.group(invoke_without_command=True)
 async def help(ctx):
     value_records = "`achievements` - Voir les couronnes acquis par les joueurs \n " \
