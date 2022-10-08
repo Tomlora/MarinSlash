@@ -1,4 +1,5 @@
 from discord.ext import commands
+from discord_slash import cog_ext, SlashContext
 
 from riotwatcher import LolWatcher
 import pandas as pd
@@ -12,7 +13,7 @@ from skimage import io
 from skimage.transform import resize
 import asyncio
 import seaborn as sns
-from discord_slash import cog_ext, SlashContext
+
 
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
@@ -35,6 +36,20 @@ region = "EUROPE"
 # Paramètres LoL
 version = lol_watcher.data_dragon.versions_for_region(my_region)
 champions_versions = version['n']['champion']
+
+
+choice_var = [create_choice(name="dmg", value="dmg"),
+                create_choice(name="gold", value="gold"),
+                create_choice(name="vision", value="vision"),
+                create_choice(name="tank", value="tank"),
+                create_choice(name="heal alliés", value="heal_allies"),
+                create_choice(name="solokills", value="solokills")]
+
+
+choice_analyse = [create_choice(name="gold", value="gold"),
+                    create_choice(name='gold_team', value='gold_team'),
+                    create_choice(name='vision', value='vision'),
+                    create_choice(name='position', value='position')]
 
 
 def dict_data(thisId: int, match_detail, info):
@@ -96,20 +111,11 @@ class analyseLoL(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # commands.command(brief="Permet d'afficher des statistiques durantla game")
     @cog_ext.cog_slash(name="analyse",
                        description="Permet d'afficher des statistiques durant la game",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True),
-                                create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=[
-                                    create_choice(name="gold", value="gold"),
-                                    create_choice(name='gold_team', value='gold_team'),
-                                    create_choice(name='vision', value='vision'),
-                                    create_choice(name='position', value='position')]),
-                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=[
-                                    create_choice(name="gold", value="gold"),
-                                    create_choice(name='gold_team', value='gold_team'),
-                                    create_choice(name='vision', value='vision'),
-                                    create_choice(name='position', value='position')]),
+                                create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=choice_analyse),
+                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=choice_analyse),
                                 create_option(name="game", description="Game de 0 à 10 (0 étant la dernière)", option_type=4, required=False)])
     @commands.cooldown(1,30, commands.BucketType.guild)
     async def analyse(self, ctx:SlashContext, summonername:str, stat:str, stat2:str = "no", game:int=0):
@@ -441,27 +447,9 @@ class analyseLoL(commands.Cog):
     @cog_ext.cog_slash(name="var",
                        description="Voir des stats de fin de game",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True),
-                                create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=[
-                                    create_choice(name="dmg", value="dmg"),
-                                    create_choice(name="gold", value="gold"),
-                                    create_choice(name="vision", value="vision"),
-                                    create_choice(name="tank", value="tank"),
-                                    create_choice(name="heal alliés", value="heal_allies"),
-                                    create_choice(name="solokills", value="solokills")]),
-                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=[
-                                    create_choice(name="dmg", value="dmg"),
-                                    create_choice(name="gold", value="gold"),
-                                    create_choice(name="vision", value="vision"),
-                                    create_choice(name="tank", value="tank"),
-                                    create_choice(name="heal alliés", value="heal_allies"),
-                                    create_choice(name="solokills", value="solokills")]),
-                                create_option(name="stat3", description="Quel stat ?", option_type=3, required=False, choices=[
-                                    create_choice(name="dmg", value="dmg"),
-                                    create_choice(name="gold", value="gold"),
-                                    create_choice(name="vision", value="vision"),
-                                    create_choice(name="tank", value="tank"),
-                                    create_choice(name="heal alliés", value="heal_allies"),
-                                    create_choice(name="solokills", value="solokills")]),
+                                create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=choice_var),
+                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=choice_var),
+                                create_option(name="stat3", description="Quel stat ?", option_type=3, required=False, choices=choice_var),
                                 create_option(name="game", description="Game de 0 à 10 (0 étant la dernière)", option_type=4, required=False)])
     @commands.cooldown(1, 30, commands.BucketType.guild)
     async def var(self, ctx:SlashContext, summonername, stat:str, stat2:str='no', stat3:str='no', game:int=0):
@@ -686,7 +674,6 @@ class analyseLoL(commands.Cog):
                     pseudo[9] + "(" + thisChampName10 + ")": thisStats[9],
                 }
 
-                # print(dict_score)
                 df = pd.DataFrame.from_dict(dict_score, orient='index')
                 df = df.reset_index()
                 df = df.rename(columns={"index": "pseudo", 0: 'SoloKills'})

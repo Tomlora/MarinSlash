@@ -29,10 +29,6 @@ api_key_tft = os.environ.get('API_tft')  # https://www.youtube.com/watch?v=Iolxq
 
 my_region = 'euw1'
 region = "europe"
-
-
-
-
 headers = {"X-Riot-Token": api_key_tft}
 
 def get_puuidtft(summonername):

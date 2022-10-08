@@ -24,7 +24,6 @@ region = "EUROPE"
 import main
 
 def extraire_variables_imbriquees(df, colonne):
-    # Vocabulaire à connaitre : liste/dictionnaire en compréhension
     df[colonne] = [ast.literal_eval(str(item)) for index, item in df[colonne].iteritems()]
 
     df = pd.concat([df.drop([colonne], axis=1), df[colonne].apply(pd.Series)], axis=1)
@@ -109,13 +108,12 @@ class Challenges(commands.Cog):
         
     @tasks.loop(hours=1, count=None)
     async def challenges_maj(self):
+        '''Chaque jour, à 23h, on actualise les challenges.
+        Cette requête est obligatoirement à faire une fois par jour, sur un créneau creux pour éviter de surcharger les requêtes Riot'''
 
         currentHour = str(datetime.datetime.now().hour)
 
         if currentHour == str(23):
-            # pas optimal mais nécessaire pour éviter 30.000 requêtes à rito.
-            
-            channel = self.bot.get_channel(int(main.chan_lol))
             
             liste_summonername = lire_bdd('tracker', 'dict')
             

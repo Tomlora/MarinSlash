@@ -75,6 +75,14 @@ emote = {
             "ALLIE_FEEDER" : ":monkey_face:"
         }
 
+
+choice_pantheon = [create_choice(name="KDA", value="KDA"),
+                    create_choice(name='KDA moyenne', value='KDA moyenne'),
+                    create_choice(name='vision', value='VISION'),
+                    create_choice(name='vision moyenne', value='VISION moyenne'),
+                    create_choice(name='CS', value='CS'),
+                    create_choice(name='Solokills', value='SOLOKILLS'),
+                    create_choice(name='games', value='GAMES')]
      
 class Recordslol(commands.Cog):
     def __init__(self, bot):
@@ -92,9 +100,7 @@ class Recordslol(commands.Cog):
         
         fichier1 = fichier.iloc[:22]
         fichier2 = fichier.iloc[22:]
-
-       
-
+        
         response = ""
 
         embed1 = discord.Embed(title="Records (Page 1/3) :bar_chart:", colour=discord.Colour.blurple())
@@ -369,30 +375,9 @@ class Recordslol(commands.Cog):
         
     @cog_ext.cog_slash(name="pantheon",
                        description="Cumul des statistiques",
-                       options=[create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=[
-                                    create_choice(name="KDA", value="KDA"),
-                                    create_choice(name='KDA moyenne', value='KDA moyenne'),
-                                    create_choice(name='vision', value='VISION'),
-                                    create_choice(name='vision moyenne', value='VISION moyenne'),
-                                    create_choice(name='CS', value='CS'),
-                                    create_choice(name='Solokills', value='SOLOKILLS'),
-                                    create_choice(name='games', value='GAMES')]),
-                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=[
-                                    create_choice(name="KDA", value="KDA"),
-                                    create_choice(name='KDA moyenne', value='KDA moyenne'),
-                                    create_choice(name='vision', value='VISION'),
-                                    create_choice(name='vision moyenne', value='VISION moyenne'),
-                                    create_choice(name='CS', value='CS'),
-                                    create_choice(name='Solokills', value='SOLOKILLS'),
-                                    create_choice(name='games', value='GAMES')]),
-                                create_option(name="stat3", description="Quel stat ?", option_type=3, required=False, choices=[
-                                    create_choice(name="KDA", value="KDA"),
-                                    create_choice(name='KDA moyenne', value='KDA moyenne'),
-                                    create_choice(name='vision', value='VISION'),
-                                    create_choice(name='vision moyenne', value='VISION moyenne'),
-                                    create_choice(name='CS', value='CS'),
-                                    create_choice(name='Solokills', value='SOLOKILLS'),
-                                    create_choice(name='games', value='GAMES')]),
+                       options=[create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=choice_pantheon),
+                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=choice_pantheon),
+                                create_option(name="stat3", description="Quel stat ?", option_type=3, required=False, choices=choice_pantheon),
                                 create_option(name="fichier_recap", description="Fichier Excel recapitulatif", option_type=5, required=False)
                                 ])
     async def pantheon(self, ctx, stat, stat2:str="no", stat3:str="no", fichier_recap:bool=False):

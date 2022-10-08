@@ -3,6 +3,7 @@
 # import matplotlib.pyplot as plt
 
 # import numpy as np
+from unittest.mock import patch
 import plotly.express as px
 from discord.ext import commands, tasks
 
@@ -15,13 +16,9 @@ from fonctions.patch import PatchNote
 
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
+from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
 
 from main import Var_version, chan_lol
-
-
-
-
-
 
 class Patchlol(commands.Cog):
     def __init__(self, bot):
@@ -40,16 +37,16 @@ class Patchlol(commands.Cog):
         patch_actuel = PatchNote()
         
         # Version chargée dans la bdd
-        version_bdd = lire_bdd('patchnotes', 'dict')
-        version = version_bdd['1\n']['version']
+        version = get_data_bdd("SELECT version from patchnotes").mappings().all()[0]['version']
+
         
         # Si les versions sont différentes, on update:
         
         if version != patch_actuel.version_patch:
             
             # MAJ de la BDD
-            version_bdd['1\n']['version'] = patch_actuel.version_patch
             
+            requete_perso_bdd('UPDATE patchnotes SET version = :version', {'version' : patch_actuel.version_patch})          
             
             # Embed
             
@@ -60,19 +57,18 @@ class Patchlol(commands.Cog):
             
             try:
                 await channel.send(embed=embed)
-                sauvegarde_bdd(version_bdd, 'patchnotes')
             except:
                 print('Erreur au lancement du bot... Réessai dans 10 minutes')
                 
                 
-    @cog_ext.cog_slash(name="patch_detail",
-                       description="Detail du dernier patch")
-    async def patch_detail(self, ctx):
+    # @cog_ext.cog_slash(name="patch_detail",
+    #                    description="Detail du dernier patch")
+    # async def patch_detail(self, ctx):
         
-        patch_actuel = PatchNote()
+    #     patch_actuel = PatchNote()
         
-        embed = discord.Embed(title=f"Detail Patch {patch_actuel.version_patch}")
-        # patch_actuel.detail_patch
+    #     embed = discord.Embed(title=f"Detail Patch {patch_actuel.version_patch}")
+    #     # patch_actuel.detail_patch
                  
 
 
