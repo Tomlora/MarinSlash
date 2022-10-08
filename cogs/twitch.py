@@ -67,21 +67,13 @@ class Twitch(commands.Cog):
             'Authorization': 'Bearer ' + keys
         }
 
-        stream = requests.get(url='https://api.twitch.tv/helix/streams?user_login=' + streamer_name, headers=headers)
+        stream_data = requests.get(url='https://api.twitch.tv/helix/search/channels?query=' + streamer_name, headers=headers).json()
 
-        stream_data = stream.json()
-
-        if len(stream_data['data']) == 1:
+        if stream_data['data'][0]['is_live'] == True:
             jeu = stream_data['data'][0]['game_name']
             if not LoadLoLData(pseudo_twitch=pseudo_twitch):
                 WriteLoLData(pseudo_twitch=pseudo_twitch)
-                if pseudo_twitch == str('liquid_state'):
-                    ylarabka = 177545266516197376
-                    kazsc = 195223919911763972
-                    await channel_lol.send(
-                        f'{pseudo_twitch} est en ligne sur {jeu}! https://www.twitch.tv/{pseudo_twitch} <@{ylarabka}> <@{kazsc}>')
-                else:
-                    await channel_lol.send(
+                await channel_lol.send(
                         f'{pseudo_twitch} est en ligne sur {jeu}! https://www.twitch.tv/{pseudo_twitch}')
         else:
             DelLoLData(pseudo_twitch)
@@ -89,7 +81,6 @@ class Twitch(commands.Cog):
     @tasks.loop(minutes=1, count=None)
     async def Twitch_verif(self):
         if self.bot.get_channel(main.chan_twitch):
-            # print('Verification Twitch..')
 
             await self.TwitchLive(str('liquid_state'))
             await self.TwitchLive(str('Tomlora'))
