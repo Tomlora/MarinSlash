@@ -50,9 +50,9 @@ class Github(commands.Cog):
             
         id_answer = await wait_for_component(self.bot, components=select, check=check)
         
-        id_answer.edit_origin(content='...')
-        
         answer = id_answer.values[0]
+        
+        await id_answer.edit_origin(components=None)
         
         data_user_repos = json.loads(req_repos.text)[int(answer)]
         
