@@ -71,17 +71,21 @@ class Twitch(commands.Cog):
                        options=[create_option(name="pseudo_twitch", description = "Pseudo du compte Twitch", option_type=3, required=True)])
     async def add_twitch(self, ctx, pseudo_twitch:str):
         
+        await ctx.defer(hidden=False)
+        
         requete_perso_bdd('''INSERT INTO twitch(index, is_live)
 	                    VALUES (:index, :is_live);''', {'index' : pseudo_twitch.lower(), 'is_live' : False})
-        ctx.send('Joueur ajouté au tracker Twitch')
+        await ctx.send('Joueur ajouté au tracker Twitch')
         
     @cog_ext.cog_slash(name="deltwitch",
                        description="Supprime un compte du tracker twitch",
                        options=[create_option(name="pseudo_twitch", description = "Pseudo du compte Twitch", option_type=3, required=True)])
     async def del_twitch(self, ctx, pseudo_twitch:str):
         
+        await ctx.defer(hidden=False)
         requete_perso_bdd('''DELETE FROM twitch WHERE index = :index;''', {'index' : pseudo_twitch.lower()})
-        ctx.send('Joueur supprimé du tracker Twitch')
+        
+        await ctx.send('Joueur supprimé du tracker Twitch')
         
     
 
