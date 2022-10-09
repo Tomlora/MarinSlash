@@ -6,6 +6,7 @@ from discord_slash.utils.manage_commands import create_option, create_choice
 from bs4 import BeautifulSoup
 import requests
 import json
+import pandas as pd
 
 
 
@@ -28,7 +29,29 @@ class Github(commands.Cog):
         
         req_repos = requests.get(data_user["repos_url"])
         
-        data_user_repos = json.loads(req_repos.text)[0]
+        data_user_repos = json.loads(req_repos.text)
+        
+        df = pd.DataFrame(data_user_repos)
+        
+        df.sort_values('name', axis=0, inplace=True)
+        
+        # catégorie
+        select = create_select(
+                options=[create_select_option(df['name'], value=df.index,
+                                              description=df['description'])],
+                placeholder = "Choisis le dossier")
+                                  
+  
+        fait_choix = await ctx.send('Choisis le dossier github ', components=[create_actionrow(select)])
+            
+        def check(m):
+            return m.author_id == ctx.author.id and m.origin_message.id == fait_choix.id
+            
+        id_answer = await wait_for_component(self.bot, components=select, check=check)
+            
+        id_answer = id_answer.values[0]
+        
+        data_user_repos = json.loads(req_repos.text)[int(id_answer)]
         
         if req.status_code == 200:
             em = discord.Embed()
