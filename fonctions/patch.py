@@ -64,7 +64,7 @@ class PatchNote:
         try:
             self.data = requests.get(self.patch_request_url, headers=self.headers).json()
         except Exception:
-            print(f"An error occured during the request of the patchnote data at url '{self.patch_request_urlquest_url}'")
+            print(f"An error occured during the request of the patchnote data at url '{self.patch_request_url}'")
             raise
         
         try:
