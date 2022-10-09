@@ -39,8 +39,8 @@ class Github(commands.Cog):
         
         # catégorie
         select = create_select(
-                options=[create_select_option(df['name'].unique()[i], value=i,
-                                              description=df['description'].unique()[i]) for i in range(0,len(data_user_repos))],
+                options=[create_select_option(df['name'][i], value=str(i),
+                                              description=df['description'][i]) for i in range(0,len(data_user_repos))],
                 placeholder = "Choisis le dossier")
 
         fait_choix = await ctx.send('Choisis le dossier github ', components=[create_actionrow(select)])
