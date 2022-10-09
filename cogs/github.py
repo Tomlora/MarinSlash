@@ -25,6 +25,8 @@ class Github(commands.Cog):
         req = requests.get(f'https://api.github.com/users/{pseudo}')
         data_user = json.loads(req.text) # on récupère la data de l'utilisateur
         
+        ctx.defer(hidden=False)
+        
         # on requête la data des repos :  
         
         req_repos = requests.get(data_user["repos_url"])
@@ -37,11 +39,10 @@ class Github(commands.Cog):
         
         # catégorie
         select = create_select(
-                options=[create_select_option(df['name'], value=df.index,
-                                              description=df['description'])],
+                options=[create_select_option(df['name'].unique()[i], value=i,
+                                              description=df['description'].unique()[i]) for i in range(0,len(data_user_repos))],
                 placeholder = "Choisis le dossier")
-                                  
-  
+
         fait_choix = await ctx.send('Choisis le dossier github ', components=[create_actionrow(select)])
             
         def check(m):
