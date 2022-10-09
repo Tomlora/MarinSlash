@@ -35,10 +35,34 @@ def lire_bdd(nom_table, format:str="df"):
         df = df.to_dict()
     conn.close()
     return df
+
+def lire_bdd_perso(requests:str, format:str="df", index_col:str="index"):
+    """Lire la BDD
+
+    Parameters
+    -----------
+    nom_table: :class:`str`
+            Le nom de la table
+    format: :class:`str`
+            Choix entre 'dict' ou 'df'
+    index_col: :class:`str`
+            Colonne de l'index de la table
+    """
+    conn = engine.connect()
+    try:
+        df = pd.read_sql(requests, con=conn, index_col=index_col)
+    except:
+        nom_table = nom_table.lower()
+        df = pd.read_sql(requests, con=conn, index_col=index_col)
+    df = df.transpose()
+    if format == "dict":
+        df = df.to_dict()
+    conn.close()
+    return df
     
 
 
-def sauvegarde_bdd(df, nom_table, methode_save='replace'):
+def sauvegarde_bdd(df, nom_table, methode_save='replace', dtype={'Score' : Float(), 'serie' : BigInteger()}):
     """Sauvegarde la BDD au format dataframe
 
     Parameters
@@ -49,12 +73,17 @@ def sauvegarde_bdd(df, nom_table, methode_save='replace'):
             Nom de la table sql
     method_save: :class:`str`
             Si la table existe déjà, choix entre "append" pour insérer des nouvelles valeurs ou "replace" pour supprimer la table existante et la remplacer
+    dtype : :class:`dict`
+            Specifying the datatype for columns. If a dictionary is used, the
+            keys should be the column names and the values should be the
+            SQLAlchemy types or strings for the sqlite3 legacy mode. If a
+            scalar is provided, it will be applied to all columns.
     """
     conn = engine.connect()
     if not isinstance(df, pd.DataFrame): # si la variable envoyée n'est pas un dataframe, on l'a met au format dataframe
         df = pd.DataFrame(df)
         df = df.transpose()
-    df.to_sql(nom_table, con=conn, if_exists=methode_save, index=True, method='multi', dtype={'Score' : Float(), 'serie' : BigInteger()})
+    df.to_sql(nom_table, con=conn, if_exists=methode_save, index=True, method='multi', dtype=dtype)
     conn.close()
     
 def supprimer_bdd(nom_table):
@@ -63,15 +92,6 @@ def supprimer_bdd(nom_table):
     conn.execute(sql)
     conn.close()
     
-# def supprimer_data(Joueur, date):
-#     conn = engine.connect()
-#     params_sql = {'joueur' : Joueur, 'date' : date}
-#     sql1 = text(f'DELETE FROM sw WHERE "Joueur" = :joueur AND date = :date')  # :var_name
-#     sql2 = text(f'DELETE FROM sw_score WHERE "Joueur" = :joueur AND date = :date')
-#     conn.execute(sql1, params_sql)
-#     conn.execute(sql2, params_sql)
-#     conn.close    
-
 def get_data_bdd(request:text, dict_params = None):
     conn = engine.connect()
     sql = text(request)
