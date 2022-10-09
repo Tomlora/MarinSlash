@@ -28,7 +28,7 @@ class Github(commands.Cog):
         
         req_repos = requests.get(data_user["repos_url"])
         
-        data_user_repos = json.loads(req_repos.text)
+        data_user_repos = json.loads(req_repos.text)[0]
         
         if req.status_code == 200:
             em = discord.Embed()
