@@ -20,31 +20,38 @@ class Github(commands.Cog):
     @cog_ext.cog_slash(name="github",
                        description="GitHub",
                        options=[create_option(name="pseudo", description= "Pseudo Github", option_type=3, required=True)])
-    async def game(self, ctx, pseudo:str):
-        req = requests.get(f'https://api.github.com/repos/{pseudo}')
-        apijson = json.loads(req.text)
+    async def github(self, ctx, pseudo:str):
+        req = requests.get(f'https://api.github.com/users/{pseudo}')
+        data_user = json.loads(req.text) # on récupère la data de l'utilisateur
+        
+        # on requête la data des repos :  
+        
+        req_repos = requests.get(data_user["repos_url"])
+        
+        data_user_repos = json.loads(req_repos.text)
+        
         if req.status_code == 200:
             em = discord.Embed()
-            em.set_author(name=apijson['owner']['login'], icon_url=apijson['owner']['avatar_url'],
-                          url=apijson['owner']['html_url'])
-            em.set_thumbnail(url=apijson['owner']['avatar_url'])
-            em.add_field(name="Repository:", value=f"[{apijson['name']}]({apijson['html_url']})", inline=True)
-            em.add_field(name="Language:", value=apijson['language'], inline=True)
+            em.set_author(name=data_user_repos['owner']['login'], icon_url=data_user_repos['owner']['avatar_url'],
+                          url=data_user_repos['owner']['html_url'])
+            em.set_thumbnail(url=data_user_repos['owner']['avatar_url'])
+            em.add_field(name="Repository:", value=f"[{data_user_repos['name']}]({data_user_repos['html_url']})", inline=True)
+            em.add_field(name="Language:", value=data_user_repos['language'], inline=True)
 
             try:
-                license_url = f"[{apijson['license']['spdx_id']}]({json.loads(requests.get(apijson['license']['url']).text)['html_url']})"
+                license_url = f"[{data_user_repos['license']['spdx_id']}]({json.loads(requests.get(data_user_repos['license']['url']).text)['html_url']})"
             except:
                 license_url = "None"
             em.add_field(name="License:", value=license_url, inline=True)
-            if apijson['stargazers_count'] != 0:
-                em.add_field(name="Star:", value=apijson['stargazers_count'], inline=True)
-            if apijson['forks_count'] != 0:
-                em.add_field(name="Fork:", value=apijson['forks_count'], inline=True)
-            if apijson['open_issues'] != 0:
-                em.add_field(name="Issues:", value=apijson['open_issues'], inline=True)
-            em.add_field(name="Description:", value=apijson['description'], inline=False)
+            if data_user_repos['stargazers_count'] != 0:
+                em.add_field(name="Star:", value=data_user_repos['stargazers_count'], inline=True)
+            if data_user_repos['forks_count'] != 0:
+                em.add_field(name="Fork:", value=data_user_repos['forks_count'], inline=True)
+            if data_user_repos['open_issues'] != 0:
+                em.add_field(name="Issues:", value=data_user_repos['open_issues'], inline=True)
+            em.add_field(name="Description:", value=data_user_repos['description'], inline=False)
 
-            for meta in BeautifulSoup(requests.get(apijson['html_url']).text, features="html.parser").find_all('meta'):
+            for meta in BeautifulSoup(requests.get(data_user_repos['html_url']).text, features="html.parser").find_all('meta'):
                 try:
                     if meta.attrs['property'] == "og:image":
                         em.set_image(url=meta.attrs['content'])
