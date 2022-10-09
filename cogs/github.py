@@ -37,7 +37,7 @@ class Github(commands.Cog):
         
         df.sort_values('name', axis=0, inplace=True)
         
-        # catégorie
+        # catégorie . Le string i est obligatoire pour discord
         select = create_select(
                 options=[create_select_option(df['name'][i], value=str(i),
                                               description=df['description'][i]) for i in range(0,len(data_user_repos))],
@@ -49,10 +49,12 @@ class Github(commands.Cog):
             return m.author_id == ctx.author.id and m.origin_message.id == fait_choix.id
             
         id_answer = await wait_for_component(self.bot, components=select, check=check)
-            
-        id_answer = id_answer.values[0]
         
-        data_user_repos = json.loads(req_repos.text)[int(id_answer)]
+        id_answer.edit_origin(content='...')
+        
+        answer = id_answer.values[0]
+        
+        data_user_repos = json.loads(req_repos.text)[int(answer)]
         
         if req.status_code == 200:
             em = discord.Embed()
