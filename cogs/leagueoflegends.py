@@ -794,30 +794,32 @@ class LeagueofLegends(commands.Cog):
                 wr = round(wins / games,2)*100
                 
 
-                
-                # calcul des LP 
-                if games <=5:
-                    if str(match_info.thisWinId) == 'True':
-                        points = 50
-                    else:
-                        points = 0
-                
-                elif wr >= 60:
-                    if str(match_info.thisWinId) == 'True':
-                        points = 30
-                    else:
-                        points = -10
-                        
-                elif wr <= 40:
-                    if str(match_info.thisWinId) == "True":
-                        points = 10
-                    else:
-                        points = -20
+                if match_info.AFKTeam >= 1: # si afk, pas de gain/perte
+                    points = 0
                 else:
-                    if str(match_info.thisWinId) == "True":
-                        points = dict_points[int(wr)][0]
+                # calcul des LP 
+                    if games <=5:
+                        if str(match_info.thisWinId) == 'True':
+                            points = 50
+                        else:
+                            points = 0
+                    
+                    elif wr >= 60:
+                        if str(match_info.thisWinId) == 'True':
+                            points = 30
+                        else:
+                            points = -10
+                            
+                    elif wr <= 40:
+                        if str(match_info.thisWinId) == "True":
+                            points = 10
+                        else:
+                            points = -20
                     else:
-                        points = dict_points[int(wr)][1]
+                        if str(match_info.thisWinId) == "True":
+                            points = dict_points[int(wr)][0]
+                        else:
+                            points = dict_points[int(wr)][1]
                         
                 lp = lp_actual + points
                         
@@ -845,9 +847,7 @@ class LeagueofLegends(commands.Cog):
                 # SIMULATION CHANGEMENT ELO    
 
                 
-                if games <= 5:
-                    lp = lp + 0
-                else:
+                if games >= 5 and match_info.AFKTeam == 0:
                     lp = lp - elo_lp[rank] # malus en fonction du elo
                     
                 # pas de lp negatif
@@ -1577,6 +1577,10 @@ class LeagueofLegends(commands.Cog):
     @cog_ext.cog_slash(name="closer", description="Meilleur joueur de LoL")
     async def closer(self, ctx):
         await ctx.send('https://clips.twitch.tv/EmpathicClumsyYogurtKippa-lmcFoGXm1U5Jx2bv')
+        
+    @cog_ext.cog_slash(name="upset", description="Meilleur joueur de LoL")
+    async def upset(self, ctx):
+        await ctx.send('https://clips.twitch.tv/CuriousBenevolentMageHotPokket-8M0TX_zTaGW7P2g7')
         
        
         
