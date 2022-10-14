@@ -20,7 +20,7 @@ import numpy as np
 import warnings
 from cogs.achievements_scoringlol import scoring
 
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, get_data_bdd, requete_perso_bdd
+from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, get_data_bdd, requete_perso_bdd, lire_bdd_perso
 
 
 
@@ -847,7 +847,7 @@ class LeagueofLegends(commands.Cog):
                 # SIMULATION CHANGEMENT ELO    
 
                 
-                if games >= 5 and match_info.AFKTeam == 0:
+                if games >= 5 and match_info.AFKTeam == 0: #si plus de 5 games et pas d'afk
                     lp = lp - elo_lp[rank] # malus en fonction du elo
                     
                 # pas de lp negatif
@@ -861,10 +861,7 @@ class LeagueofLegends(commands.Cog):
                 difLP = lp - lp_actual 
                 deaths = d_actual + match_info.thisDeaths
                 a = a_actual + match_info.thisAssists
-                    
-                            
-                # data_aram[match_info.summonerName] = {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'k' : k, 'd' : deaths, 'a' : a, 'activation' : activation, 'rank' : rank} 
-                
+
                 img_rank = get_image('tier', rank, 220, 220)
             
                         
@@ -1394,12 +1391,13 @@ class LeagueofLegends(commands.Cog):
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def lolremove(self, ctx, *, summonername):
         
-        requete_perso_bdd('''DELETE FROM tracker WHERE index = :summonername;
-                          DELETE FROM suivi WHERE index = :summonername;
-                          DELETE FROM ranked_aram WHERE index = :summonername''',
-                          {'summonername' : summonername.lower()})
+        # requete_perso_bdd('''DELETE FROM tracker WHERE index = :summonername;
+        #                   DELETE FROM suivi WHERE index = :summonername;
+        #                   DELETE FROM ranked_aram WHERE index = :summonername''',
+        #                   {'summonername' : summonername.lower()})
 
-        await ctx.send(summonername + " was successfully removed from live-feed!")
+        # await ctx.send(summonername + " was successfully removed from live-feed!")
+        await ctx.send('Commande désactivée pour la fin de saison')
 
     @cog_ext.cog_slash(name='lollist', description='Affiche la liste des joueurs suivis')
     async def lollist(self, ctx):
@@ -1428,11 +1426,13 @@ class LeagueofLegends(commands.Cog):
 
             suivi = lire_bdd('suivi', 'dict')
             suivi_24h = lire_bdd('suivi_24h', 'dict')
-
+            
+            
+            # df = lire_bdd_perso("""SELECT * from suivi WHERE tier != 'Non-classe'""").transpose().reset_index()
             df = pd.DataFrame.from_dict(suivi)
             df = df.transpose().reset_index()
             
-
+            # df_24h = lire_bdd_perso("""SELECT * from suivi_24h WHERE tier != 'Non-classe'""").transpose().reset_index()
             df_24h = pd.DataFrame.from_dict(suivi_24h)
             df_24h = df_24h.transpose().reset_index()
 
