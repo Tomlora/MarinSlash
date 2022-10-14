@@ -175,6 +175,7 @@ class matchlol():
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
         self.match_detail_challenges = self.match_detail_participants['challenges']
         self.thisPosition = self.match_detail_participants['teamPosition']
+        self.season = int(self.match_detail['info']['gameVersion'][0:2])
         
         if (str(self.thisPosition) == "MIDDLE"):
             self.thisPosition = "MID"
