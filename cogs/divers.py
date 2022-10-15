@@ -13,9 +13,8 @@ from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 
 import main
 from fonctions.date import jour_de_la_semaine
-from datetime import datetime
+import datetime
 import time
-
 
 
 
@@ -184,6 +183,7 @@ class Divers(commands.Cog):
         print(member)
         print(member.name)
         
+                
     @cog_ext.cog_slash(name='spank', description='spank un membre')
     async def spank_slash(self, ctx, member: discord.Member, reason="Aucune raison n'a été renseignée"):
         if main.isOwner_slash(ctx):
