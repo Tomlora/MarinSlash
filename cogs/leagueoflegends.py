@@ -635,6 +635,7 @@ class LeagueofLegends(commands.Cog):
             else:
                 embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
                                 value=exploits, inline=False)
+                
         except discord.errors.HTTPException:
             if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and match_info.thisQ in ["RANKED", "FLEX"]:
                 embed.add_field(
@@ -642,13 +643,31 @@ class LeagueofLegends(commands.Cog):
                     value=exploits[:1024], inline=False)
                 embed.add_field(
                     name="Records 2",
-                    value=exploits[1024:], inline=False)
+                    value=exploits[1024:2048], inline=False)
+                if len(exploits) > 2048:
+                    embed.add_field(
+                        name="Records 3",
+                        value=exploits[2048:3072], inline=False)
+                if len(exploits) > 3072:
+                    embed.add_field(
+                        name="Records 4",
+                        value=exploits[3072:4096], inline=False)
+                    
             else:
                 embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
                                 value=exploits[:1024], inline=False)
                 embed.add_field(
                     name="Records 2",
-                    value=exploits[1024:], inline=False)
+                    value=exploits[1024:2048], inline=False)
+                if len(exploits) > 2048:
+                    embed.add_field(
+                        name="Records 3",
+                        value=exploits[2048:3072], inline=False)
+                if len(exploits) > 3072:
+                    embed.add_field(
+                        name="Records 4",
+                        value=exploits[3072:4096], inline=False)
+                    
             
             
 
@@ -1612,13 +1631,12 @@ class LeagueofLegends(commands.Cog):
         await ctx.send('https://clips.twitch.tv/CuriousBenevolentMageHotPokket-8M0TX_zTaGW7P2g7')
         
        
-    @cog_ext.cog_slash(name='link', description='Link discord et lol')
+    @cog_ext.cog_slash(name='lol_discord', description='Link discord et lol')
     async def link(self, ctx, summonername, member:discord.Member):
         
         requete_perso_bdd('UPDATE tracker SET discord = :discord WHERE index = :summonername', {'discord' : member.id, 'summonername' : summonername})
         
-        await ctx.send(f'Le compte LoL {summonername} a été link avec {member.name}')
-
+        await ctx.send(f'Le compte LoL {summonername} a été link avec <@{member.id}>')
 
 
 def setup(bot):
