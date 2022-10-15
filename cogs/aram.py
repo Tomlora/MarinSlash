@@ -149,7 +149,24 @@ class Aram(commands.Cog):
         await ctx.send(embed=embed)
         await ctx.send(embed=embed2)
         await ctx.send(embed=embed3)
-
+           
+    @cog_ext.cog_slash(name='carton', description='Activation/Désactivation',
+                       options=[create_option(name='couleur', description="nom ingame", option_type=3, required=True, choices=[
+                                create_choice(name='vert', value='vert'),
+                                create_choice(name='rouge', value='rouge')]),
+                                create_option(name="summonername", description="True : Activé / False : Désactivé", option_type=3, required=True),
+                                create_option(name='nombre', description='nombre de lp', option_type=4, required=True)])
+    async def carton(self, ctx, couleur:str, summonername:str, nombre:int):
+        if main.isOwner_slash(ctx):
+            if couleur == 'vert':
+                requete_perso_bdd('UPDATE ranked_aram SET lp = lp + :nombre WHERE index = :summonername', {'nombre' : nombre, 'summonername' : summonername.lower()})
+                await ctx.send (f'Les LP pour {summonername} ont été ajoutés.')
+            if couleur == 'rouge':
+                requete_perso_bdd('UPDATE ranked_aram SET lp = lp - :nombre WHERE index = :summonername', {'nombre' : nombre, 'summonername' : summonername.lower()})
+                await ctx.send (f'Les LP pour {summonername} ont été retirés.')
+        else:
+            requete_perso_bdd('UPDATE ranked_aram SET lp = lp - 1 WHERE index = :summonername', {'summonername' : summonername.lower()})
+            await ctx.send('Bien essayé ! Tu perds 1 lp.')
         
 
 
