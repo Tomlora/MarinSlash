@@ -116,15 +116,16 @@ def get_image(type, name, resize_x=80, resize_y=80):
         return img
 
 
-def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed, url):
+def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed, url, saison:int, mode:str):
+    mode = mode.lower()
     if str(key_boucle) == str(key):
         if str(key) in ['EARLY_DRAKE', 'EARLY_BARON'] and Score_check > 0: # ici on veut le plus faible et pas égale à 0
             if float(fichier[key]['Score']) > Score_check:
                 ancien_score = fichier[key]['Score']
                 detenteur_ancien_score = fichier[key]['Joueur']
                 requete_perso_bdd('''UPDATE records
-	            SET "Score"= :score, "Champion"= :champion, "Joueur"= :joueur, url= :url
-	            WHERE index = :record;''', {'record' : key, 'score' : Score_check, 'champion' : thisChampName, 'joueur' : summonerName, 'url' : url })
+	            SET "Score"= :score, "Champion"= :champion, "Joueur"= :joueur, url= :url, saison = :saison, mode = :mode
+	            WHERE index = :record;''', {'record' : key, 'score' : Score_check, 'champion' : thisChampName, 'joueur' : summonerName, 'url' : url, 'saison' : saison, 'mode' : mode })
                 # Annonce que le record a été battu :
                 embed = embed + f"\n ** :boom: Record {str(key).lower()} battu avec {Score_check} ** (Ancien : {ancien_score} par {detenteur_ancien_score})"
 
@@ -134,8 +135,8 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
                 ancien_score = fichier[key]['Score']
                 detenteur_ancien_score = fichier[key]['Joueur']
                 requete_perso_bdd('''UPDATE records
-	            SET "Score"= :score, "Champion"= :champion, "Joueur"= :joueur, url= :url
-	            WHERE index= :record;''', {'record' : key, 'score' : Score_check, 'champion' : thisChampName, 'joueur' : summonerName, 'url' : url })
+	            SET "Score"= :score, "Champion"= :champion, "Joueur"= :joueur, url= :url, saison = :saison, mode = :mode
+	            WHERE index= :record;''', {'record' : key, 'score' : Score_check, 'champion' : thisChampName, 'joueur' : summonerName, 'url' : url, 'saison' : saison, 'mode' : mode })
 
                 embed = embed + f"\n ** :boom: Record {str(key).lower()} battu avec {Score_check} ** (Ancien : {ancien_score} par {detenteur_ancien_score})"
 
@@ -254,120 +255,132 @@ class LeagueofLegends(commands.Cog):
             suivi[summonerName.lower().replace(" ", "")]['losses'] = match_info.thisLoose
             suivi[summonerName.lower().replace(" ", "")]['LP'] = match_info.thisLP
 
-        if match_info.thisQ == "RANKED" and match_info.thisTime > 20:
+        if (match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
             
 
-            records = lire_bdd('records', 'dict')
+            records = lire_bdd_perso('SELECT index, "Score", "Champion", "Joueur", url from records where saison= %(saison)s and mode=%(mode)s', params={'saison' : match_info.season,
+                                                                                                                                             'mode' : match_info.thisQ.lower()})
+            records = records.to_dict()
             
             for key, value in records.items():
                 if int(match_info.thisDeaths) >= 1:
 
                     exploits = records_check(records, key, 'KDA',
                                             float(match_info.thisKDA),
-                                            match_info.thisChampName, summonerName, exploits, url_game)
+                                            match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 else:
                     exploits = records_check(records, key, 'KDA',
                                             float(
                                                 round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1), 2)),
-                                            match_info.thisChampName, summonerName, exploits, url_game)
+                                            match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
 
                 exploits = records_check(records, key, 'KP', match_info.thisKP,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'CS', match_info.thisMinion,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'CS/MIN', match_info.thisMinionPerMin,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'KILLS', match_info.thisKills,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'DEATHS', match_info.thisDeaths,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'ASSISTS', match_info.thisAssists,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
-                exploits = records_check(records, key, 'WARDS_SCORE', match_info.thisVision,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
-                exploits = records_check(records, key, 'WARDS_POSEES', match_info.thisWards,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
-                exploits = records_check(records, key, 'WARDS_DETRUITES', match_info.thisWardsKilled,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
-                exploits = records_check(records, key, 'WARDS_PINKS', match_info.thisPink,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                
+                if match_info.thisQ == "RANKED" :
+                    exploits = records_check(records, key, 'WARDS_SCORE', match_info.thisVision,
+                                            match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    exploits = records_check(records, key, 'WARDS_POSEES', match_info.thisWards,
+                                            match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    exploits = records_check(records, key, 'WARDS_DETRUITES', match_info.thisWardsKilled,
+                                            match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    exploits = records_check(records, key, 'WARDS_PINKS', match_info.thisPink,
+                                            match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    exploits = records_check(records, key, 'BUFFS_VOLEES', match_info.thisbuffsVolees,
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    exploits = records_check(records, key, 'TOWER_PLATES', match_info.thisTurretPlatesTaken,
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    exploits = records_check(records, key, 'ECART_LEVEL', match_info.thisLevelAdvantage,
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    exploits = records_check(records, key, 'EARLY_DRAKE', match_info.earliestDrake,
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    exploits = records_check(records, key, 'EARLY_BARON', match_info.earliestBaron,
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    exploits = records_check(records, key, 'CS_AVANTAGES', match_info.thisCSAdvantageOnLane,
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    exploits = records_check(records, key, 'CS_APRES_10_MIN', match_info.thisCSafter10min,
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    
+                    if match_info.thisPosition == "SUPPORT":
+                        exploits = records_check(records, key, 'AVANTAGE_VISION_SUPPORT', float(match_info.thisVisionAdvantage),
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                    
+                    else:
+                        exploits = records_check(records, key, 'AVANTAGE_VISION', float(match_info.thisVisionAdvantage),
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+                        
                 exploits = records_check(records, key, 'DEGATS_INFLIGES',
                                         match_info.match_detail_participants['totalDamageDealtToChampions'],
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, '% DMG', match_info.thisDamageRatio,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'DOUBLE', match_info.thisDouble,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'TRIPLE', match_info.thisTriple,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'QUADRA', match_info.thisQuadra,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'PENTA', match_info.thisPenta,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'DUREE_GAME', match_info.thisTime,
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+                                        match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'ALLIE_FEEDER', match_info.thisAllieFeeder,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 
-                if match_info.thisPosition == "SUPPORT":
-                    exploits = records_check(records, key, 'AVANTAGE_VISION_SUPPORT', float(match_info.thisVisionAdvantage),
-                                        match_info.thisChampName, summonerName, exploits, url_game)
-                    
-                else:
-                    exploits = records_check(records, key, 'AVANTAGE_VISION', float(match_info.thisVisionAdvantage),
-                                        match_info.thisChampName, summonerName, exploits, url_game)
+
                     
                 if match_info.thisChampName != "Zeri": # on supprime Zeri de ce record qui est impossible à égaler avec d'autres champions
                     exploits = records_check(records, key, 'SPELLS_USED',
                                                  match_info.thisSpellUsed,
-                                                 match_info.thisChampName, summonerName, exploits, url_game)
-                exploits = records_check(records, key, 'BUFFS_VOLEES', match_info.thisbuffsVolees,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                                 match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+
                 exploits = records_check(records, key, 'SPELLS_EVITES', match_info.thisSpellsDodged,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
-                exploits = records_check(records, key, 'CS_AVANTAGES', match_info.thisCSAdvantageOnLane,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+
                 exploits = records_check(records, key, 'SOLOKILLS', match_info.thisSoloKills,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
-                exploits = records_check(records, key, 'CS_APRES_10_MIN', match_info.thisCSafter10min,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+
                 exploits = records_check(records, key, 'NB_SERIES_DE_KILLS', match_info.thisKillingSprees,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'DOMMAGES_TANK',
                                              int(match_info.match_detail_participants['totalDamageTaken']),
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'DOMMAGES_TANK%', match_info.thisDamageTakenRatio,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'DOMMAGES_REDUITS', match_info.thisDamageSelfMitigated,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'DOMMAGES_TOWER', match_info.thisDamageTurrets,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'GOLDS_GAGNES', match_info.thisGoldEarned,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'SERIES_DE_KILLS', match_info.thisKillsSeries,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'TOTAL_HEALS',
                                              match_info.thisTotalHealed,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                 exploits = records_check(records, key, 'HEALS_SUR_ALLIES', match_info.thisTotalOnTeammates,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
-                exploits = records_check(records, key, 'EARLY_DRAKE', match_info.earliestDrake,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
-                exploits = records_check(records, key, 'EARLY_BARON', match_info.earliestBaron,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+
                 
                 if match_info.thisChampName != "Zeri": # champion désactivé pour ce record
                     exploits = records_check(records, key, 'SKILLSHOTS_HIT', match_info.thisSkillshot_hit,
-                                                match_info.thisChampName, summonerName, exploits, url_game)
+                                                match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                     
                 exploits = records_check(records, key, 'SKILLSHOTS_DODGES', match_info.thisSkillshot_dodged,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
-                exploits = records_check(records, key, 'TOWER_PLATES', match_info.thisTurretPlatesTaken,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
-                exploits = records_check(records, key, 'ECART_LEVEL', match_info.thisLevelAdvantage,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
+
                 exploits = records_check(records, key, 'SHIELD', match_info.thisTotalShielded,
-                                             match_info.thisChampName, summonerName, exploits, url_game)
+                                             match_info.thisChampName, summonerName, exploits, url_game, match_info.season, match_info.thisQ)
                        
                    
         # on le fait après sinon ça flingue les records
@@ -1370,7 +1383,7 @@ class LeagueofLegends(commands.Cog):
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def loladd(self, ctx, *, summonername):
         try:
-            requete_perso_bdd(f'''INSERT INTO tracker(index, id) VALUES (:summonername, :id);
+            requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord) VALUES (:summonername, :id, 'na');
                               
                             INSERT INTO suivi(
 	                        index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
@@ -1583,7 +1596,12 @@ class LeagueofLegends(commands.Cog):
         await ctx.send('https://clips.twitch.tv/CuriousBenevolentMageHotPokket-8M0TX_zTaGW7P2g7')
         
        
+    @cog_ext.cog_slash(name='link', description='Link discord et lol')
+    async def link(self, ctx, summonername, discord:discord.Member):
         
+        requete_perso_bdd('UPDATE tracker SET discord = :discord WHERE index = :summonername', {'discord' : discord, 'summonername' : summonername})
+        
+        await ctx.send(f'Le compte LoL {summonername} a été link avec {discord}')
 
 
 

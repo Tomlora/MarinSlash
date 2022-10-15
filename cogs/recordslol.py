@@ -9,7 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 from fonctions.gestion_fichier import loadData, writeData, reset_records_help
-from fonctions.gestion_bdd import lire_bdd
+from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
 from discord_slash import cog_ext, SlashContext
 
 from discord_slash.utils.manage_components import *
@@ -88,15 +88,22 @@ class Recordslol(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         
+        
     @cog_ext.cog_slash(name="records_list",
-                       description="Voir les records détenues par les joueurs")
-    async def records_list(self, ctx):
+                       description="Voir les records détenues par les joueurs",
+                       options=[create_option(name='saison', description='saison league of legends', option_type=4, required=False),
+                                create_option(name="mode", description="Quel stat ?", option_type=3, required=True, choices=[
+                                    create_choice(name='ranked', value='ranked'),
+                                    create_choice(name='aram', value='aram')
+                                ])])
+    async def records_list(self, ctx, saison:int=12, mode:str='ranked'):
         
         await ctx.defer(hidden=False)
 
         current = 0
 
-        fichier = lire_bdd('records').transpose()
+        fichier = lire_bdd_perso('SELECT index, "Score", "Champion", "Joueur", url from records where saison= %(saison)s AND mode=%(mode)s', params={'saison' : saison,
+                                                                                                                                                     'mode' : mode}).transpose()
         
         fichier1 = fichier.iloc[:22]
         fichier2 = fichier.iloc[22:]
@@ -439,8 +446,6 @@ class Recordslol(commands.Cog):
                 fig.update_layout(
                     title_text=title)  # title of plot
             return fig
-        
-        df = df[~df['Joueurs'].isin(['Kazsc', 'Personne'])] # on supprime les deux comptes fantomes
 
 
         try:
