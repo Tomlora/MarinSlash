@@ -335,7 +335,7 @@ class Recordslol(commands.Cog):
         
         embed1 = discord.Embed(title=f"Records personnels {joueur} (1/3)", colour=discord.Colour.blurple())
         embed2 = discord.Embed(title=f"Records personnels {joueur} (2/3)", colour=discord.Colour.blurple())
-        embed3 = discord.Embed(title=f"Records personnels {joueur} (3/3)", colour=discord.Colour.blurple())
+        embed3 = discord.Embed(title=f"Records personnels ARAM {joueur} (3/3)", colour=discord.Colour.blurple())
     
         
         for key, valeur in df_part1.iteritems():
@@ -364,10 +364,10 @@ class Recordslol(commands.Cog):
 
         for key, valeur in df_part2.iteritems():
             
-            if 'aram' in key.split('_'):
+            if 'ARAM' in key.split('_'):
                 embed_selected = embed3 # records perso aram
             else:
-                embed_selected = embed2
+                embed_selected = embed2 # autre
             # format
             if key in ['DAMAGE_RATIO', 'DAMAGE_RATIO_ENCAISSE', 'KP', 'AVANTAGE_VISION']:
                 valeur = str(valeur) + "%"
@@ -379,7 +379,7 @@ class Recordslol(commands.Cog):
                 
             if not 'url' in key.split('_'): # si url alors c'est un lien, pas un record
                 
-                if df.loc[key + '_url'] == 'na':
+                if df.loc[key + '_url'] == 'na':  # on cherche l'url associé
                     
                     embed_selected.add_field(name=str(emote[key]) + " " + key,
                                 value=f"Records : __ {valeur} __ ")
