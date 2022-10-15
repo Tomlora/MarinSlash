@@ -124,8 +124,8 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
                 ancien_score = fichier[key]['Score']
                 detenteur_ancien_score = fichier[key]['Joueur']
                 requete_perso_bdd('''UPDATE records
-	            SET "Score"= :score, "Champion"= :champion, "Joueur"= :joueur, url= :url, saison = :saison, mode = :mode
-	            WHERE index = :record;''', {'record' : key, 'score' : Score_check, 'champion' : thisChampName, 'joueur' : summonerName, 'url' : url, 'saison' : saison, 'mode' : mode })
+	            SET "Score"= :score, "Champion"= :champion, "Joueur"= :joueur, url= :url
+	            WHERE index = :record and saison = :saison and mode = :mode;''', {'record' : key, 'score' : Score_check, 'champion' : thisChampName, 'joueur' : summonerName, 'url' : url, 'saison' : saison, 'mode' : mode })
                 # Annonce que le record a été battu :
                 embed = embed + f"\n ** :boom: Record {str(key).lower()} battu avec {Score_check} ** (Ancien : {ancien_score} par {detenteur_ancien_score})"
 
@@ -136,7 +136,7 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
                 detenteur_ancien_score = fichier[key]['Joueur']
                 requete_perso_bdd('''UPDATE records
 	            SET "Score"= :score, "Champion"= :champion, "Joueur"= :joueur, url= :url, saison = :saison, mode = :mode
-	            WHERE index= :record;''', {'record' : key, 'score' : Score_check, 'champion' : thisChampName, 'joueur' : summonerName, 'url' : url, 'saison' : saison, 'mode' : mode })
+	            WHERE index= :record and saison = :saison and mode =:mode;''', {'record' : key, 'score' : Score_check, 'champion' : thisChampName, 'joueur' : summonerName, 'url' : url, 'saison' : saison, 'mode' : mode })
 
                 embed = embed + f"\n ** :boom: Record {str(key).lower()} battu avec {Score_check} ** (Ancien : {ancien_score} par {detenteur_ancien_score})"
 
