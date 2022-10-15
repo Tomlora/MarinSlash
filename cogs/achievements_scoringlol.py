@@ -174,12 +174,6 @@ class Achievements_scoringlol(commands.Cog):
             await ctx.send('Informations : Les records de la page 3 ne sont pas comptabilisés', file=discord.File('plot.png'))
             os.remove('plot.png')
             
-    @cog_ext.cog_slash(name="achievements",
-                       description="Voir les couronnes acquis par les joueurs",
-                       options=[create_option(name='mode', description='mode de jeu', option_type=3, required=True, choices=[
-                           create_choice(name='ranked', value='ranked'),
-                           create_choice(name='aram', value='aram')]),
-                           create_option(name="records", description= "Afficher le cumul des records ?", option_type=5, required=False)])
 
     @cog_ext.cog_slash(name="achievements_regles",
                        description="Conditions pour débloquer des couronnes",
