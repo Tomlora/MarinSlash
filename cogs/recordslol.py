@@ -278,20 +278,20 @@ class Recordslol(commands.Cog):
         
         joueur = joueur.lower()
         
-        data = lire_bdd('records_personnel', 'dict')
+        df = lire_bdd('records_personnel')[joueur]
         
         await ctx.defer(hidden=False)
         
         current = 0
         
-        df = pd.DataFrame(data)
         df = df[joueur]
         
         df_part1 = df.iloc[:18]
         df_part2 = df.iloc[18:]
         
-        embed1 = discord.Embed(title=f"Records personnels {joueur} (1/2)", colour=discord.Colour.blurple())
-        embed2 = discord.Embed(title=f"Records personnels {joueur} (2/2)", colour=discord.Colour.blurple())
+        embed1 = discord.Embed(title=f"Records personnels {joueur} (1/3)", colour=discord.Colour.blurple())
+        embed2 = discord.Embed(title=f"Records personnels {joueur} (2/3)", colour=discord.Colour.blurple())
+        embed3 = discord.Embed(title=f"Records personnels {joueur} (3/3)", colour=discord.Colour.blurple())
     
         
         for key, valeur in df_part1.iteritems():
@@ -319,6 +319,11 @@ class Recordslol(commands.Cog):
                     
 
         for key, valeur in df_part2.iteritems():
+            
+            if 'aram' in key.split('_'):
+                embed_selected = embed3 # records perso aram
+            else:
+                embed_selected = embed2
             # format
             if key in ['DAMAGE_RATIO', 'DAMAGE_RATIO_ENCAISSE', 'KP', 'AVANTAGE_VISION']:
                 valeur = str(valeur) + "%"
@@ -331,22 +336,22 @@ class Recordslol(commands.Cog):
             if not 'url' in key.split('_'): # si url alors c'est un lien, pas un record
                 
                 if df.loc[key + '_url'] == 'na':
-
-                    embed2.add_field(name=str(emote[key]) + " " + key,
+                    
+                    embed_selected.add_field(name=str(emote[key]) + " " + key,
                                 value=f"Records : __ {valeur} __ ")
                 
                 else:
                     
-                    
-                    embed2.add_field(name=str(emote[key]) + " " + key,
+                    embed_selected.add_field(name=str(emote[key]) + " " + key,
                                 value=f"Records : __ [{valeur}]({df.loc[key + '_url']}) __ ")
                     
 
         embed1.set_footer(text=f'Version {Var_version} by Tomlora')
         embed2.set_footer(text=f'Version {Var_version} by Tomlora')
+        embed3.set_footer(text=f'Version {Var_version} by Tomlora')
         
         
-        self.bot.pages = [embed1, embed2]
+        self.bot.pages = [embed1, embed2, embed3]
         buttons = [u"\u2B05", u"\u27A1"]  # skip to start, left, right, skip to end
 
         msg = await ctx.send(embed=self.bot.pages[current])

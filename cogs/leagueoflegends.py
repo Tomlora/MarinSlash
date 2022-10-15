@@ -504,7 +504,7 @@ class LeagueofLegends(commands.Cog):
             exploits = exploits + f"\n ** :crown: :heart: Ce joueur a heal plus de {match_info.thisTotalOnTeammatesFormat} sur ses alliés **"
             points = points + 1
             
-        if (int(match_info.thisTotalShielded) >= settings['Shield']['Score']):
+        if (int(match_info.thisTotalShielded) >= settings['Shield']['score']):
             exploits = exploits + f"\n ** :crown: :shield: Tu as shield {match_info.thisTotalShielded} **"
             
             
@@ -545,17 +545,26 @@ class LeagueofLegends(commands.Cog):
                       "QUADRA" : [match_info.thisQuadra, np.arange(5, 100, 5, int).tolist()],
                       "PENTA" : [match_info.thisPenta, np.arange(5, 100, 5, int).tolist()]}
         
-        metrics_personnel = {"SOLOKILLS": match_info.thisSoloKills, "DUREE_GAME": match_info.thisTime, "KILLS": match_info.thisKills,
-                      "DEATHS": match_info.thisDeaths, "ASSISTS": match_info.thisAssists, "WARDS_SCORE": match_info.thisVision,
-                      "WARDS_POSEES": match_info.thisWards, "WARDS_DETRUITES": match_info.thisWardsKilled, "WARDS_PINKS": match_info.thisPink,
-                      "CS" : match_info.thisMinion, "QUADRA" : match_info.thisQuadra, "PENTA" : match_info.thisPenta, "DAMAGE_RATIO" : match_info.thisDamageRatio,
-                      "DAMAGE_RATIO_ENCAISSE" : match_info.thisDamageTakenRatio, "CS/MIN": match_info.thisMinionPerMin, "AVANTAGE_VISION": match_info.thisVisionAdvantage,
-                      "KP" : match_info.thisKP, "CS_AVANTAGE": match_info.thisCSAdvantageOnLane, "CS_APRES_10_MIN" : match_info.thisCSafter10min, 
-                      "DMG_TOTAL" : match_info.match_detail_participants['totalDamageDealtToChampions'],
-                      "ECART_LEVEL" : match_info.thisLevelAdvantage, "VISION/MIN" : match_info.thisVisionPerMin, 
-                      "DOUBLE" : match_info.thisDouble, "TRIPLE" : match_info.thisTriple, "SERIE_VICTOIRE" : serie_victoire, "NB_COURONNE_1_GAME" : points, "SHIELD" : match_info.thisTotalShielded,
-                      "ALLIE_FEEDER" : match_info.thisAllieFeeder}
-        
+        if match_info.thisQ == 'ARAM':
+            metrics_personnel = {"SOLOKILLS_ARAM": match_info.thisSoloKills, "DUREE_GAME_ARAM": match_info.thisTime, "KILLS_ARAM": match_info.thisKills,
+                        "DEATHS_ARAM": match_info.thisDeaths, "ASSISTS_ARAM": match_info.thisAssists, 
+                        "CS_ARAM" : match_info.thisMinion, "QUADRA_ARAM" : match_info.thisQuadra, "PENTA_ARAM" : match_info.thisPenta, "DAMAGE_RATIO_ARAM" : match_info.thisDamageRatio,
+                        "DAMAGE_RATIO_ENCAISSE_ARAM" : match_info.thisDamageTakenRatio, "CS/MIN_ARAM": match_info.thisMinionPerMin, 
+                        "KP_ARAM" : match_info.thisKP,  
+                        "DMG_TOTAL_ARAM" : match_info.match_detail_participants['totalDamageDealtToChampions'],
+                        "DOUBLE_ARAM" : match_info.thisDouble, "TRIPLE_ARAM" : match_info.thisTriple, "NB_COURONNE_1_GAME_ARAM" : points, "SHIELD_ARAM" : match_info.thisTotalShielded,
+                        "ALLIE_FEEDER_ARAM" : match_info.thisAllieFeeder}
+        else:
+            metrics_personnel = {"SOLOKILLS": match_info.thisSoloKills, "DUREE_GAME": match_info.thisTime, "KILLS": match_info.thisKills,
+                        "DEATHS": match_info.thisDeaths, "ASSISTS": match_info.thisAssists, "WARDS_SCORE": match_info.thisVision,
+                        "WARDS_POSEES": match_info.thisWards, "WARDS_DETRUITES": match_info.thisWardsKilled, "WARDS_PINKS": match_info.thisPink,
+                        "CS" : match_info.thisMinion, "QUADRA" : match_info.thisQuadra, "PENTA" : match_info.thisPenta, "DAMAGE_RATIO" : match_info.thisDamageRatio,
+                        "DAMAGE_RATIO_ENCAISSE" : match_info.thisDamageTakenRatio, "CS/MIN": match_info.thisMinionPerMin, "AVANTAGE_VISION": match_info.thisVisionAdvantage,
+                        "KP" : match_info.thisKP, "CS_AVANTAGE": match_info.thisCSAdvantageOnLane, "CS_APRES_10_MIN" : match_info.thisCSafter10min, 
+                        "DMG_TOTAL" : match_info.match_detail_participants['totalDamageDealtToChampions'],
+                        "ECART_LEVEL" : match_info.thisLevelAdvantage, "VISION/MIN" : match_info.thisVisionPerMin, 
+                        "DOUBLE" : match_info.thisDouble, "TRIPLE" : match_info.thisTriple, "SERIE_VICTOIRE" : serie_victoire, "NB_COURONNE_1_GAME" : points, "SHIELD" : match_info.thisTotalShielded,
+                        "ALLIE_FEEDER" : match_info.thisAllieFeeder}
 
 
         for key, value in dict_cumul.items():
@@ -581,7 +590,7 @@ class LeagueofLegends(commands.Cog):
         for key,value in metrics_personnel.items():
         
             try:
-                if succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20:
+                if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == 'ARAM' and match_info.thisTime > 10):
                     old_value = float(records_personnel[summonerName.lower().replace(" ", "")][key])
                     
                     for stats in metrics_personnel.keys():
@@ -592,9 +601,6 @@ class LeagueofLegends(commands.Cog):
                         elif len(exploits4) < 900:
                             exploits4 = score_personnel(exploits4, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
                             
-                        
-
-                    
             except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
                 records_personnel[summonerName.lower().replace(" ", "")][key] = value
              
