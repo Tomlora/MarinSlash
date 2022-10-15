@@ -36,24 +36,29 @@ def lire_bdd(nom_table, format:str="df"):
     conn.close()
     return df
 
-def lire_bdd_perso(requests:str, format:str="df", index_col:str="index"):
+def lire_bdd_perso(requests:str, format:str="df", index_col:str="index", params=None):
     """Lire la BDD
 
     Parameters
     -----------
-    nom_table: :class:`str`
-            Le nom de la table
+    requests: :class:`str`
+            Requête SQL avec obligatoirement SELECT (columns) from (table) et éventuellement WHERE
     format: :class:`str`
             Choix entre 'dict' ou 'df'
     index_col: :class:`str`
             Colonne de l'index de la table
+    params : dict avec {'variable' : 'value}
+    
+    
+    Les variables doivent être sous forme %(variable)s
     """
     conn = engine.connect()
-    try:
+
+    if params == None:
         df = pd.read_sql(requests, con=conn, index_col=index_col)
-    except:
-        nom_table = nom_table.lower()
-        df = pd.read_sql(requests, con=conn, index_col=index_col)
+    else:
+        df = pd.read_sql(requests, con=conn, index_col=index_col, params=params)
+
     df = df.transpose()
     if format == "dict":
         df = df.to_dict()
