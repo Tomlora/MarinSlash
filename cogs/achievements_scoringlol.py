@@ -128,7 +128,7 @@ class Achievements_scoringlol(commands.Cog):
 
         # Records
         if records:
-            df2 = pd.DataFrame(records1).transpose()
+            df2 = lire_bdd_perso('SELECT * from records').transpose()
 
             plt.figure(figsize=(15, 8))
 
@@ -136,10 +136,10 @@ class Achievements_scoringlol(commands.Cog):
 
             df2_count = df2.groupby(by=['Joueur']).count().reset_index()
 
-            df2_count = df2_count.sort_values(by='score', ascending=False)
+            df2_count = df2_count.sort_values(by='Score', ascending=False)
 
 
-            fig = px.bar(df2_count, y='score', x='Joueur', title=f"Records {mode}", color='Joueur')
+            fig = px.bar(df2_count, y='Score', x='Joueur', title=f"Records tout mode confondu", color='Joueur')
             fig.update_layout(showlegend=False)
             fig.write_image('plot.png')
 
