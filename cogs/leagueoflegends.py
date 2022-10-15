@@ -165,9 +165,6 @@ def score_personnel(embed, dict, key:str, summonerName:str, stats:str, old_value
             requete_perso_bdd('''UPDATE records_personnel
 	SET :key = :key_value, :key_url = :key_url_value 
 	WHERE index = :joueur''', {'key' : key, 'key_value' : new_value, 'key_url' : key + "_url", 'key_url_value' : url, 'joueur' : summonerName.lower() })
-            # dict[summonerName.lower().replace(" ", "")][key] = new_value
-            # dict[summonerName.lower().replace(" ", "")][key + "_url"] = url
-            # stats = stats.replace('_', ' ')
             embed = embed + f"\n ** :military_medal: Tu as battu ton record personnel en {stats.lower()} avec {new_value} {stats.lower()} ** (Anciennement : {old_value})"
     return embed
 
@@ -640,33 +637,40 @@ class LeagueofLegends(commands.Cog):
             if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and match_info.thisQ in ["RANKED", "FLEX"]:
                 embed.add_field(
                     name="Durée : " + str(int(match_info.thisTime)) + " minutes | Score " + str(result),
-                    value=exploits[:1024], inline=False)
+                    value=exploits[:1023], inline=False)
                 embed.add_field(
                     name="Records 2",
-                    value=exploits[1024:2048], inline=False)
-                if len(exploits) >= 2048:
+                    value=exploits[1023:2047], inline=False)
+                if len(exploits) >= 2047:
                     embed.add_field(
                         name="Records 3",
-                        value=exploits[2048:3072], inline=False)
-                if len(exploits) >= 3072:
+                        value=exploits[2047:3071], inline=False)
+                if len(exploits) >= 3071:
                     embed.add_field(
                         name="Records 4",
-                        value=exploits[3072:4096], inline=False)
-                    
+                        value=exploits[3071:4095], inline=False)
+                if len(exploits) >= 4095:
+                    embed.add_field(
+                        name="Records 5",
+                        value=exploits[4095:])
             else:
                 embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
                                 value=exploits[:1024], inline=False)
                 embed.add_field(
                     name="Records 2",
-                    value=exploits[1024:2048], inline=False)
-                if len(exploits) > 2048:
+                    value=exploits[1023:2047], inline=False)
+                if len(exploits) >= 2047:
                     embed.add_field(
                         name="Records 3",
-                        value=exploits[2048:3072], inline=False)
-                if len(exploits) > 3072:
+                        value=exploits[2047:3071], inline=False)
+                if len(exploits) >= 3071:
                     embed.add_field(
                         name="Records 4",
-                        value=exploits[3072:4096], inline=False)
+                        value=exploits[3071:4095], inline=False)
+                if len(exploits) >= 4095:
+                    embed.add_field(
+                        name="Records 5",
+                        value=exploits[4095:])
                     
             
             
