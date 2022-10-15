@@ -110,7 +110,7 @@ class Recordslol(commands.Cog):
         
         response = ""
 
-        embed1 = discord.Embed(title="Records (Page 1/3) :bar_chart:", colour=discord.Colour.blurple())
+        embed1 = discord.Embed(title=f"Records {mode} (Page 1/3) :bar_chart:", colour=discord.Colour.blurple())
 
         for key, value in fichier1.iterrows():
             valeur = ""
@@ -137,7 +137,7 @@ class Recordslol(commands.Cog):
 
         
 
-        embed2 = discord.Embed(title="Records (Page 2/3) :bar_chart:", colour=discord.Colour.blurple())
+        embed2 = discord.Embed(title=f"Records {mode} (Page 2/3) :bar_chart:", colour=discord.Colour.blurple())
 
         for key, value in fichier2.iterrows():
             valeur2 = ""

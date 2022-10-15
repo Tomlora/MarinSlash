@@ -627,7 +627,7 @@ class LeagueofLegends(commands.Cog):
         embed.add_field(name="OPGG", value=f"[Profil](https://euw.op.gg/summoners/euw/{summonerName})")
         embed.add_field(name="Stats", value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)")
 
-        try:
+        if len(exploits) <= 1024:
             if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and match_info.thisQ in ["RANKED", "FLEX"]:
                 embed.add_field(
                     name="Durée : " + str(int(match_info.thisTime)) + " minutes | Score " + str(result),
@@ -636,7 +636,7 @@ class LeagueofLegends(commands.Cog):
                 embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
                                 value=exploits, inline=False)
                 
-        except discord.errors.HTTPException:
+        else:
             if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and match_info.thisQ in ["RANKED", "FLEX"]:
                 embed.add_field(
                     name="Durée : " + str(int(match_info.thisTime)) + " minutes | Score " + str(result),
@@ -644,11 +644,11 @@ class LeagueofLegends(commands.Cog):
                 embed.add_field(
                     name="Records 2",
                     value=exploits[1024:2048], inline=False)
-                if len(exploits) > 2048:
+                if len(exploits) >= 2048:
                     embed.add_field(
                         name="Records 3",
                         value=exploits[2048:3072], inline=False)
-                if len(exploits) > 3072:
+                if len(exploits) >= 3072:
                     embed.add_field(
                         name="Records 4",
                         value=exploits[3072:4096], inline=False)
@@ -1634,9 +1634,13 @@ class LeagueofLegends(commands.Cog):
     @cog_ext.cog_slash(name='lol_discord', description='Link discord et lol')
     async def link(self, ctx, summonername, member:discord.Member):
         
+        summonername = summonername.lower()
+        
         requete_perso_bdd('UPDATE tracker SET discord = :discord WHERE index = :summonername', {'discord' : member.id, 'summonername' : summonername})
         
         await ctx.send(f'Le compte LoL {summonername} a été link avec <@{member.id}>')
+        
+        # self.bot.fetch_user(id)
 
 
 def setup(bot):
