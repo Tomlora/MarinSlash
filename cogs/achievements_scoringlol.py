@@ -183,7 +183,7 @@ class Achievements_scoringlol(commands.Cog):
 
     @cog_ext.cog_slash(name="achievements_regles",
                        description="Conditions pour débloquer des couronnes",
-                       options=[create_option(name='mode', description='mode de jeu', choices=mode_de_jeu)])
+                       options=[create_option(name='mode', description='mode de jeu', option_type=3, required=True, choices=mode_de_jeu)])
     async def achievements_regles(self, ctx, mode:str):
 
         if mode == 'aram':
