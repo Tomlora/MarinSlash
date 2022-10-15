@@ -162,9 +162,9 @@ def palier(embed, key:str, stats:str, old_value:int, new_value:int, palier:list)
 def score_personnel(embed, dict, key:str, summonerName:str, stats:str, old_value:float, new_value:float, url):
     if key == stats:
         if old_value < new_value:
-            requete_perso_bdd('''UPDATE records_personnel
-	SET :key = :key_value, :key_url = :key_url_value 
-	WHERE index = :joueur''', {'key' : key, 'key_value' : new_value, 'key_url' : key + "_url", 'key_url_value' : url, 'joueur' : summonerName.lower() })
+            requete_perso_bdd(f'''UPDATE records_personnel
+	SET "{key}" = :key_value, "{key + '_url'}" = :key_url_value 
+	WHERE index = :joueur''', {'key_value' : new_value, 'key_url_value' : url, 'joueur' : summonerName.lower() })
             embed = embed + f"\n ** :military_medal: Tu as battu ton record personnel en {stats.lower()} avec {new_value} {stats.lower()} ** (Anciennement : {old_value})"
     return embed
 
