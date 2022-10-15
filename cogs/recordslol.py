@@ -284,8 +284,6 @@ class Recordslol(commands.Cog):
         
         current = 0
         
-        df = df[joueur]
-        
         df_part1 = df.iloc[:18]
         df_part2 = df.iloc[18:]
         

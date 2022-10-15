@@ -589,20 +589,19 @@ class LeagueofLegends(commands.Cog):
             # records personnels
         for key,value in metrics_personnel.items():
         
-            try:
-                if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == 'ARAM' and match_info.thisTime > 10):
-                    old_value = float(records_personnel[summonerName.lower().replace(" ", "")][key])
+
+            if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == 'ARAM' and match_info.thisTime > 10):
+                old_value = float(records_personnel[summonerName.lower().replace(" ", "")][key])
                     
-                    for stats in metrics_personnel.keys():
-                        if len(exploits2) < 900: # on ne peut pas dépasser 1024 caractères par embed
-                            exploits2 = score_personnel(exploits2, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
-                        elif len(exploits3) < 900:
-                            exploits3 = score_personnel(exploits3, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
-                        elif len(exploits4) < 900:
-                            exploits4 = score_personnel(exploits4, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
+                for stats in metrics_personnel.keys():
+                    if len(exploits2) < 900: # on ne peut pas dépasser 1024 caractères par embed
+                                exploits2 = score_personnel(exploits2, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
+                    elif len(exploits3) < 900:
+                                exploits3 = score_personnel(exploits3, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
+                    elif len(exploits4) < 900:
+                                exploits4 = score_personnel(exploits4, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
                             
-            except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
-                records_personnel[summonerName.lower().replace(" ", "")][key] = value
+
              
         # Achievements
         if match_info.thisQ == "RANKED" and match_info.thisTime > 20 and succes is True:
