@@ -171,13 +171,13 @@ class Divers(commands.Cog):
         await ctx.send(file=discord.File(f'./img/{img}.jpg'))  
         
         
-    @cog_ext.cog_slash(name="test", description="Reponds au quizz")
-    async def test(self, ctx):
+    @cog_ext.cog_slash(name="test_identification", description="Reponds au quizz")
+    async def test_identification(self, ctx):
         
         await ctx.send(f'{ctx.author.id}')
         await ctx.send(f'{ctx.author.name}')
         
-    @cog_ext.cog_slash(name="test", description="Reponds au quizz")
+    @cog_ext.cog_slash(name="identification_user", description="Reponds au quizz")
     async def identification_user(self, ctx, id_member:int):
         
         member = await self.bot.fetch_user(id_member)
