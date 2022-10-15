@@ -184,6 +184,36 @@ class Divers(commands.Cog):
         print(member)
         print(member.name)
         
+    @cog_ext.cog_slash(name='spank', description='spank un membre')
+    async def spank_slash(self, ctx, member: discord.Member, reason="Aucune raison n'a été renseignée"):
+        if main.isOwner_slash(ctx):
+            muted_role = await main.get_muted_role(ctx.guild)
+            main.database_handler.add_tempmute(member.id, ctx.guild.id,
+                                        datetime.datetime.utcnow() + datetime.timedelta(seconds=60))
+            await member.add_roles(muted_role)
+            if reason == "Aucune raison n'a été renseignée":
+                description = f"{member.name} a été spank par {ctx.author.name}"
+            else:
+                description = f"{member.name} a été spank par {ctx.author.name} pour {reason}"
+            embed = discord.Embed(description=description,
+                                color=discord.Colour.from_rgb(255, 255, 0))
+            print("Une personne a été spank")
+
+            await ctx.send(embed=embed)
+        else:
+            id = ctx.author.id
+            muted_role = await main.get_muted_role(ctx.guild)
+            main.database_handler.add_tempmute(id, ctx.guild.id,
+                                        datetime.datetime.utcnow() + datetime.timedelta(seconds=60))
+            await ctx.author.add_roles(muted_role)
+            description = f"Bien essayé. {ctx.author.name} s'est prank lui-même"
+
+            embed = discord.Embed(description=description,
+                                color=discord.Colour.from_rgb(255, 255, 0))
+            print("Une personne s'est spank elle-même")
+
+            await ctx.send(embed=embed)
+        
 
 
 def setup(bot):
