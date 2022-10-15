@@ -531,19 +531,34 @@ class LeagueofLegends(commands.Cog):
             
             
         # Structure : Stat / Nombre / Palier sous forme de liste numérique
-        dict_cumul = {"SOLOKILLS": [match_info.thisSoloKills, np.arange(100, 1000, 100, int).tolist()], 
-                      "NBGAMES": [1, np.arange(50, 1000, 50, int).tolist()], 
-                      "DUREE_GAME": [match_info.thisTime / 60, np.arange(500, 10000, 500, int).tolist()],
-                      "KILLS": [match_info.thisKills, np.arange(500, 10000, 500, int).tolist()],
-                      "DEATHS": [match_info.thisDeaths, np.arange(500, 10000, 500, int).tolist()],
-                      "ASSISTS": [match_info.thisAssists, np.arange(500, 10000, 500, int).tolist()],
-                      "WARDS_SCORE": [match_info.thisVision, np.arange(500,10000,500, int).tolist()],
-                      "WARDS_POSEES": [match_info.thisWards, np.arange(500, 10000, 500, int).tolist()],
-                      "WARDS_DETRUITES": [match_info.thisWardsKilled, np.arange(500, 10000, 500, int).tolist()],
-                      "WARDS_PINKS": [match_info.thisPink, np.arange(500,10000, 500, int).tolist()],
-                      "CS" : [match_info.thisMinion, np.arange(10000, 100000, 10000, int).tolist()],
-                      "QUADRA" : [match_info.thisQuadra, np.arange(5, 100, 5, int).tolist()],
-                      "PENTA" : [match_info.thisPenta, np.arange(5, 100, 5, int).tolist()]}
+        
+        if match_info.thisQ == 'ARAM':
+            dict_cumul = {"SOLOKILLS_ARAM": [match_info.thisSoloKills, np.arange(100, 1000, 100, int).tolist()], 
+                        "NBGAMES_ARAM": [1, np.arange(50, 1000, 50, int).tolist()], 
+                        "DUREE_GAME_ARAM": [match_info.thisTime / 60, np.arange(500, 10000, 500, int).tolist()],
+                        "KILLS_ARAM": [match_info.thisKills, np.arange(500, 10000, 500, int).tolist()],
+                        "DEATHS_ARAM": [match_info.thisDeaths, np.arange(500, 10000, 500, int).tolist()],
+                        "ASSISTS_ARAM": [match_info.thisAssists, np.arange(500, 10000, 500, int).tolist()],
+                        "CS_ARAM" : [match_info.thisMinion, np.arange(10000, 100000, 10000, int).tolist()],
+                        "DOUBLE_ARAM" : [match_info.thisDouble, np.arange(5, 100, 5, int).tolist()],
+                        "TRIPLE_ARAM" : [match_info.thisTriple, np.arange(5, 100, 5, int).tolist()],
+                        "QUADRA_ARAM" : [match_info.thisQuadra, np.arange(5, 100, 5, int).tolist()],
+                        "PENTA_ARAM" : [match_info.thisPenta, np.arange(5, 100, 5, int).tolist()]}
+            
+        else:
+            dict_cumul = {"SOLOKILLS": [match_info.thisSoloKills, np.arange(100, 1000, 100, int).tolist()], 
+                        "NBGAMES": [1, np.arange(50, 1000, 50, int).tolist()], 
+                        "DUREE_GAME": [match_info.thisTime / 60, np.arange(500, 10000, 500, int).tolist()],
+                        "KILLS": [match_info.thisKills, np.arange(500, 10000, 500, int).tolist()],
+                        "DEATHS": [match_info.thisDeaths, np.arange(500, 10000, 500, int).tolist()],
+                        "ASSISTS": [match_info.thisAssists, np.arange(500, 10000, 500, int).tolist()],
+                        "WARDS_SCORE": [match_info.thisVision, np.arange(500,10000,500, int).tolist()],
+                        "WARDS_POSEES": [match_info.thisWards, np.arange(500, 10000, 500, int).tolist()],
+                        "WARDS_DETRUITES": [match_info.thisWardsKilled, np.arange(500, 10000, 500, int).tolist()],
+                        "WARDS_PINKS": [match_info.thisPink, np.arange(500,10000, 500, int).tolist()],
+                        "CS" : [match_info.thisMinion, np.arange(10000, 100000, 10000, int).tolist()],
+                        "QUADRA" : [match_info.thisQuadra, np.arange(5, 100, 5, int).tolist()],
+                        "PENTA" : [match_info.thisPenta, np.arange(5, 100, 5, int).tolist()]}
         
         if match_info.thisQ == 'ARAM':
             metrics_personnel = {"SOLOKILLS_ARAM": match_info.thisSoloKills, "DUREE_GAME_ARAM": match_info.thisTime, "KILLS_ARAM": match_info.thisKills,
@@ -577,13 +592,16 @@ class LeagueofLegends(commands.Cog):
                 new_value = int(records_cumul[key][summonerName.lower().replace(" ", "")])
                 
                 # les paliers
-                if succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20:
+                if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
                     for key2 in dict_cumul.keys():
                         exploits = palier(exploits, key, key2, old_value, new_value, value[1])
 
                                                 
             except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
                 records_cumul[key][summonerName.lower().replace(" ", "")] = value[0]
+                
+        if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
+            sauvegarde_bdd(records_cumul, 'records3')
 
                 
             # records personnels
@@ -612,7 +630,7 @@ class LeagueofLegends(commands.Cog):
             suivi[summonerName.lower().replace(" ", "")]['games'] = suivi[summonerName.lower().replace(" ", "")][
                                                                             'games'] + 1
   
-            sauvegarde_bdd(records_cumul, 'records3')
+            
 
         if match_info.thisQ == "ARAM" and match_info.thisTime > 10:
             suivi[summonerName.lower().replace(" ", "")]['Achievements_aram'] = \

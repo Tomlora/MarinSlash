@@ -137,7 +137,7 @@ class Recordslol(commands.Cog):
         
     @cog_ext.cog_slash(name="records_list",
                        description="Voir les records détenues par les joueurs",
-                       options=[create_option(name="mode", description="Quel stat ?", option_type=3, required=True, choices=[
+                       options=[create_option(name="mode", description="Quel mode de jeu ?", option_type=3, required=True, choices=[
                                     create_choice(name='ranked', value='ranked'),
                                     create_choice(name='aram', value='aram')]),
                                 create_option(name='saison', description='saison league of legends', option_type=4, required=False)
@@ -156,7 +156,7 @@ class Recordslol(commands.Cog):
         
         response = ""
 
-        embed1 = discord.Embed(title=f"Records {mode} (Page 1/3) :bar_chart:", colour=discord.Colour.blurple())
+        embed1 = discord.Embed(title=f"Records {mode} S{saison} (Page 1/3) :bar_chart:", colour=discord.Colour.blurple())
 
         for key, value in fichier1.iterrows():
             valeur = ""
@@ -183,7 +183,7 @@ class Recordslol(commands.Cog):
 
         
 
-        embed2 = discord.Embed(title=f"Records {mode} (Page 2/3) :bar_chart:", colour=discord.Colour.blurple())
+        embed2 = discord.Embed(title=f"Records {mode} S{saison} (Page 2/3) :bar_chart:", colour=discord.Colour.blurple())
 
         for key, value in fichier2.iterrows():
             valeur2 = ""
@@ -206,7 +206,7 @@ class Recordslol(commands.Cog):
 
         embed2.set_footer(text=f'Version {Var_version} by Tomlora')
 
-        embed3 = discord.Embed(title="Records Cumul & Moyenne (Page 3/3) :bar_chart: ")
+        embed3 = discord.Embed(title=f"Records Cumul & Moyenne S{saison} (Page 3/3) :bar_chart: ")
 
         fichier3 = lire_bdd('records3', 'dict')
 
@@ -215,22 +215,57 @@ class Recordslol(commands.Cog):
         df.index.name = "Joueurs"
         df.reset_index(inplace=True)
 
-        # Moyenne
-
+        if mode == 'ranked':
+            col_games = 'NBGAMES'
+            col_kills = 'KILLS'
+            col_deaths = 'DEATHS'
+            col_assists = 'ASSISTS'
+            list_avg = ['WARDS_MOYENNE', 'KILLS_MOYENNE', 'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']
+            col_penta = 'PENTA'
+            col_quadra = 'QUADRA'
+            col_solokills = 'SOLOKILLS'
+            col_duree = 'DUREE_GAME'
+            
+        elif mode == 'aram':
+            col_games = 'NBGAMES_ARAM'
+            col_kills = 'KILLS_ARAM'
+            col_deaths = 'DEATHS_ARAM'
+            col_assists = 'ASSISTS_ARAM'
+            list_avg = ['KILLS_MOYENNE', 'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']
+            col_penta = 'PENTA_ARAM'
+            col_quadra = 'QUADRA_ARAM'
+            col_solokills = 'SOLOKILLS_ARAM'
+            col_duree = 'DUREE_GAME_ARAM'            
+        
+        # Moyenne    
         df['KILLS_MOYENNE'] = 0
         df['DEATHS_MOYENNE'] = 0
         df['ASSISTS_MOYENNE'] = 0
         df['WARDS_MOYENNE'] = 0
 
-        df['KILLS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['KILLS'] / df['NBGAMES'], 0)
-        df['DEATHS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['DEATHS'] / df['NBGAMES'], 0)
-        df['ASSISTS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['ASSISTS'] / df['NBGAMES'], 0)
-        df['WARDS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['WARDS_SCORE'] / df['NBGAMES'], 0)
+        df['KILLS_MOYENNE'] = np.where(df[col_games] > 0, df[col_kills] / df[col_games], 0)
+        df['DEATHS_MOYENNE'] = np.where(df[col_games] > 0, df[col_deaths] / df[col_games], 0)
+        df['ASSISTS_MOYENNE'] = np.where(df[col_games] > 0, df[col_assists] / df[col_games], 0)
+        
+        if mode == 'ARAM':
+            df['WARDS_MOYENNE'] = np.where(df[col_games] > 0, df['WARDS_SCORE'] / df[col_games], 0)
 
         record3 = fichier3.keys()
+        
+        list_keys = []
+        
+        if mode == 'ranked':
+            for key in record3.keys():
+                if not "ARAM" in key.split('_'):
+                    list_keys.append(key)
+        elif mode == 'aram':
+            for key in record3.keys():
+                if "ARAM" in key.split('_'):
+                    list_keys.append(key)
+            
 
         def findrecord(df, key, asc):
-            df = df[df['NBGAMES'] >= 10]
+            df = df[df[col_games] >= 10]
             if asc is True:
                 df = df[df[key] > 1]
 
@@ -238,24 +273,25 @@ class Recordslol(commands.Cog):
 
             value = df[key].iloc[0]
             joueur = df['Joueurs'].iloc[0]
-            nbgames = int(df['NBGAMES'].iloc[0])
+            nbgames = int(df[col_games].iloc[0])
 
             return joueur, value, nbgames
 
-        if df['NBGAMES'].max() >= 10:
-            for key in record3: # durée game bug donc on le retire
+        if df[col_games].max() >= 10:
+            for key in list_keys: # durée game bug donc on le retire
+                
                 joueur, value, nbgames = findrecord(df, key, False)
 
-                if key == "NBGAMES" or key == "PENTA" or key == "QUADRA" or key == 'SOLOKILLS':
+                if key == col_games or key == col_penta or key == col_quadra or key == col_solokills:
                     value = int(value)
 
-                elif key == 'DUREE_GAME':
+                elif key == col_duree:
                     # value = round(float(value), 2)
                     # value = str(value).replace(".", "h")
                     continue
 
 
-                elif key in ['KILLS', 'DEATHS', 'ASSISTS', 'WARDS_SCORE', 'WARDS_POSEES', 'WARDS_DETRUITES',
+                elif key in [col_kills, col_deaths, col_assists, 'WARDS_SCORE', 'WARDS_POSEES', 'WARDS_DETRUITES',
                              'WARDS_PINKS', 'CS']:
                     break
 
@@ -263,7 +299,7 @@ class Recordslol(commands.Cog):
                                  value="Records : __ " + str(value) + " __ \n ** " + str(
                                      joueur) + "**")
 
-            for key in ['WARDS_MOYENNE', 'KILLS_MOYENNE', 'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']:
+            for key in list_avg:
                 joueur, value, nbgames = findrecord(df, key, False)
                 value = round(float(value), 2)
 
@@ -432,11 +468,14 @@ class Recordslol(commands.Cog):
     @cog_ext.cog_slash(name="pantheon",
                        description="Cumul des statistiques",
                        options=[create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=choice_pantheon),
+                                create_option(name="mode", description="Quel mode de jeu ?", option_type=3, required=True, choices=[
+                                    create_choice(name='ranked', value='ranked'),
+                                    create_choice(name='aram', value='aram')]),
                                 create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=choice_pantheon),
                                 create_option(name="stat3", description="Quel stat ?", option_type=3, required=False, choices=choice_pantheon),
                                 create_option(name="fichier_recap", description="Fichier Excel recapitulatif", option_type=5, required=False)
                                 ])
-    async def pantheon(self, ctx, stat, stat2:str="no", stat3:str="no", fichier_recap:bool=False):
+    async def pantheon(self, ctx, stat, mode:str, stat2:str="no", stat3:str="no", fichier_recap:bool=False):
         
         stat = [stat, stat2, stat3]
         
@@ -447,6 +486,29 @@ class Recordslol(commands.Cog):
         df.index.name = "Joueurs"
         df.reset_index(inplace=True)
 
+        if mode == 'ranked':
+            col_games = 'NBGAMES'
+            col_kills = 'KILLS'
+            col_deaths = 'DEATHS'
+            col_assists = 'ASSISTS'
+            list_avg = ['WARDS_MOYENNE', 'KILLS_MOYENNE', 'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']
+            col_penta = 'PENTA'
+            col_quadra = 'QUADRA'
+            col_solokills = 'SOLOKILLS'
+            col_duree = 'DUREE_GAME'
+            col_CS = 'CS'
+            
+        elif mode == 'aram':
+            col_games = 'NBGAMES_ARAM'
+            col_kills = 'KILLS_ARAM'
+            col_deaths = 'DEATHS_ARAM'
+            col_assists = 'ASSISTS_ARAM'
+            list_avg = ['KILLS_MOYENNE', 'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']
+            col_penta = 'PENTA_ARAM'
+            col_quadra = 'QUADRA_ARAM'
+            col_solokills = 'SOLOKILLS_ARAM'
+            col_duree = 'DUREE_GAME_ARAM'
+            col_CS = 'CS_ARAM'
         # Moyenne
 
         df['KILLS_MOYENNE'] = 0
@@ -455,21 +517,22 @@ class Recordslol(commands.Cog):
         df['WARDS_MOYENNE'] = 0
         df['DUREE_MOYENNE'] = 0
 
-        df['KILLS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['KILLS'] / df['NBGAMES'], 0)
-        df['DEATHS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['DEATHS'] / df['NBGAMES'], 0)
-        df['ASSISTS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['ASSISTS'] / df['NBGAMES'], 0)
-        df['WARDS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['WARDS_SCORE'] / df['NBGAMES'], 0)
-                
-        df['WARDS_POSEES_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['WARDS_POSEES'] / df['NBGAMES'], 0)
-        df['WARDS_DETRUITES_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['WARDS_DETRUITES'] / df['NBGAMES'], 0)
-        df['WARDS_PINKS_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['WARDS_PINKS'] / df['NBGAMES'], 0)
+        df['KILLS_MOYENNE'] = np.where(df[col_games] > 0, df[col_kills] / df[col_games], 0)
+        df['DEATHS_MOYENNE'] = np.where(df[col_games] > 0, df[col_deaths] / df[col_games], 0)
+        df['ASSISTS_MOYENNE'] = np.where(df[col_games] > 0, df[col_assists] / df[col_games], 0)
+        if mode == 'ranked':
+            df['WARDS_MOYENNE'] = np.where(df[col_games] > 0, df['WARDS_SCORE'] / df[col_games], 0)  
+            df['WARDS_POSEES_MOYENNE'] = np.where(df[col_games] > 0, df['WARDS_POSEES'] / df[col_games], 0)
+            df['WARDS_DETRUITES_MOYENNE'] = np.where(df[col_games] > 0, df['WARDS_DETRUITES'] / df[col_games], 0)
+            df['WARDS_PINKS_MOYENNE'] = np.where(df[col_games] > 0, df['WARDS_PINKS'] / df[col_games], 0)
         
-        df['DUREE_MOYENNE'] = np.where(df['NBGAMES'] > 0, df['DUREE_GAME'] / df['NBGAMES'], 0)
+        df['DUREE_MOYENNE'] = np.where(df[col_games] > 0, df[col_duree] / df[col_games], 0)
         
-        df['DUREE_MOYENNE'] = round(df['DUREE_MOYENNE'] * 60, 2)
+        df['DUREE_MOYENNE'] = round(df[col_duree] * 60, 2)
         
-        for ward_col in ['WARDS_MOYENNE', 'WARDS_POSEES_MOYENNE', 'WARDS_DETRUITES_MOYENNE', 'WARDS_PINKS_MOYENNE']:
-            df[ward_col] = round(df[ward_col], 2)
+        if mode == 'ranked':
+            for ward_col in ['WARDS_MOYENNE', 'WARDS_POSEES_MOYENNE', 'WARDS_DETRUITES_MOYENNE', 'WARDS_PINKS_MOYENNE']:
+                df[ward_col] = round(df[ward_col], 2)
         
         df.to_excel('./obj/records/pantheon.xlsx', index=False)
         
@@ -487,7 +550,7 @@ class Recordslol(commands.Cog):
 
             fig = go.Figure()
             for key in dict:
-                if key == "DUREE_GAME":
+                if key == col_duree:
                     df[key] = round(df[key], 2)
                 fig.add_trace(
                     go.Histogram(histfunc="sum", y=df[key], x=df['Joueurs'], name=str(key), texttemplate="%{y}",
@@ -499,9 +562,9 @@ class Recordslol(commands.Cog):
 
         try:
             if "KDA" in stat:
-                variables = ['KILLS', 'DEATHS', 'ASSISTS']
+                variables = [col_kills, col_deaths, col_assists]
 
-                df['KDA'] = (df['KILLS'] + df['ASSISTS']) / df['DEATHS']
+                df['KDA'] = (df[col_kills] + df[col_assists]) / df[col_deaths]
                 df['KDA'] = round(df['KDA'],2)
 
                 fig = figure_hist(variables, "KDA")
@@ -515,9 +578,9 @@ class Recordslol(commands.Cog):
 
 
                 await ctx.send(
-                    f' __ Total KDA : __ \n Kills : {int(df["KILLS"].sum())} \n Morts : {int(df["DEATHS"].sum())} \n Assists : {int(df["ASSISTS"].sum())}')
+                    f' __ Total KDA : __ \n Kills : {int(df[col_kills].sum())} \n Morts : {int(df[col_deaths].sum())} \n Assists : {int(df[col_assists].sum())}')
 
-            if "VISION" in stat:
+            if "VISION" in stat and mode == 'ranked':
                 variables = ['WARDS_POSEES', 'WARDS_DETRUITES', 'WARDS_PINKS']
 
                 fig = figure_hist(variables, "VISION")
@@ -527,6 +590,9 @@ class Recordslol(commands.Cog):
                 await ctx.send(
                     f' __ Total : __ \n Wards posées : {int(df["WARDS_POSEES"].sum())} \n Wards détruites : {int(df["WARDS_DETRUITES"].sum())} \n Pinks : {int(df["WARDS_PINKS"].sum())}')
 
+            if "VISION" in stat and mode == 'aram':
+                await ctx.send('Pas de vision en aram !')
+                
             if "KDA moyenne" in stat:
                 variables = ['KILLS_MOYENNE', 'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']
 
@@ -534,7 +600,7 @@ class Recordslol(commands.Cog):
 
                 graphique(fig, 'KDA_moyenne.png')
 
-            if "VISION moyenne" in stat:
+            if "VISION moyenne" in stat and mode == 'ranked':
                 variables = ['WARDS_MOYENNE']
 
                 fig = figure_hist(variables, "VISION moyenne")
@@ -546,30 +612,33 @@ class Recordslol(commands.Cog):
                 fig2 = figure_hist(variables_avg, "VISION moyenne par joueur")
                 
                 graphique(fig2, 'vision_moyenne_par_joueur.png')
+                
+            if "VISION moyenne" in stat and mode == 'aram':
+                await ctx.send('Pas de vision en aram !')
 
             if "CS" in stat:
-                variables = ['CS']
+                variables = [col_CS]
 
-                fig = figure_hist(variables, 'CS')
+                fig = figure_hist(variables, col_CS)
 
                 graphique(fig, 'CS.png')
 
                 await ctx.send(
-                    f' __ Total : __ \n CS : {int(df["CS"].sum())}')
+                    f' __ Total : __ \n CS : {int(df[col_CS].sum())}')
                 
             if "SOLOKILLS" in stat:
-                variables = ['SOLOKILLS']
+                variables = [col_solokills]
 
-                fig = figure_hist(variables, "Solokills")
+                fig = figure_hist(variables, col_solokills)
                 fig.update_xaxes(categoryorder="total descending")
 
                 graphique(fig, 'solokills.png')
 
             if "GAMES" in stat:
-                variables = ['NBGAMES', 'DUREE_GAME']
+                variables = [col_games, col_duree]
                               
 
-                fig = figure_hist(variables, 'GAMES')
+                fig = figure_hist(variables, col_games)
 
                 fig.write_image('plot.png')
                 await ctx.send(content="Durée des games exprimée en heures", file=discord.File('plot.png'))
