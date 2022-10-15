@@ -6,6 +6,10 @@ import discord
 from discord.ext import commands, tasks
 from discord_slash import SlashCommand, SlashContext
 
+from discord_slash import cog_ext, SlashContext
+from discord_slash.utils.manage_components import *
+from discord_slash.utils.manage_commands import create_option, create_choice
+
 # Duplicate table
 # https://popsql.com/learn-sql/postgresql/how-to-duplicate-a-table-in-postgresql
 
@@ -590,15 +594,16 @@ async def ban(ctx, user: discord.User, *, reason="Aucune raison n'a été rensei
 
 # Simple.. A utiliser pour des cmd personnalisées
 def isOwner(ctx):
+    """A utiliser pour des if dans des commandes personnalisées"""
     return ctx.message.author.id == id_tom
 
 def isOwner_slash(ctx):
-    # return ctx.author.id == id_tom
-    return ctx.author.id == 0
-
+    """A utiliser pour des if dans des commandes personnalisées"""
+    return ctx.author.id == id_tom
 
 # Plus élaboré (msg général)
 def isOwner2():
+    """A utiliser en tant que décorateur"""
     async def predicate(ctx):
         if not ctx.message.author.id == id_tom:
             await ctx.send("Cette commande est réservée au propriétaire du bot")
@@ -608,6 +613,7 @@ def isOwner2():
 
 # Plus élaboré (msg général)
 def isOwner2_slash():
+    """A utiliser en tant que décorateur"""
     async def predicate(ctx):
         if not ctx.author.id == id_tom:
             await ctx.send("Cette commande est réservée au propriétaire du bot")
@@ -616,6 +622,7 @@ def isOwner2_slash():
     return commands.check(predicate)
 
 def isAdmin_slash():
+    """A utiliser en tant que décorateur"""
     async def predicate(ctx):
         if not ctx.author.id in [id_tom,id_dawn]:
             await ctx.send("Cette commande est réservée au propriétaire du bot")
@@ -688,6 +695,36 @@ async def spank(ctx, member: discord.Member, reason="Aucune raison n'a été ren
         await ctx.send(embed=embed)
     else:
         id = ctx.message.author.id
+        muted_role = await get_muted_role(ctx.guild)
+        database_handler.add_tempmute(id, ctx.guild.id,
+                                      datetime.datetime.utcnow() + datetime.timedelta(seconds=60))
+        await ctx.author.add_roles(muted_role)
+        description = f"Bien essayé. {ctx.author.name} s'est prank lui-même"
+
+        embed = discord.Embed(description=description,
+                              color=discord.Colour.from_rgb(255, 255, 0))
+        print("Une personne s'est spank elle-même")
+
+        await ctx.send(embed=embed)
+        
+@cog_ext.cog_slash(name='spank', description='spank un membre')
+async def spank(ctx, member: discord.Member, reason="Aucune raison n'a été renseignée"):
+    if isOwner_slash(ctx):
+        muted_role = await get_muted_role(ctx.guild)
+        database_handler.add_tempmute(member.id, ctx.guild.id,
+                                      datetime.datetime.utcnow() + datetime.timedelta(seconds=60))
+        await member.add_roles(muted_role)
+        if reason == "Aucune raison n'a été renseignée":
+            description = f"{member.name} a été spank par {ctx.author.name}"
+        else:
+            description = f"{member.name} a été spank par {ctx.author.name} pour {reason}"
+        embed = discord.Embed(description=description,
+                              color=discord.Colour.from_rgb(255, 255, 0))
+        print("Une personne a été spank")
+
+        await ctx.send(embed=embed)
+    else:
+        id = ctx.author.id
         muted_role = await get_muted_role(ctx.guild)
         database_handler.add_tempmute(id, ctx.guild.id,
                                       datetime.datetime.utcnow() + datetime.timedelta(seconds=60))
