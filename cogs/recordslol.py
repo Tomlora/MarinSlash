@@ -91,11 +91,11 @@ class Recordslol(commands.Cog):
         
     @cog_ext.cog_slash(name="records_list",
                        description="Voir les records détenues par les joueurs",
-                       options=[create_option(name='saison', description='saison league of legends', option_type=4, required=False),
-                                create_option(name="mode", description="Quel stat ?", option_type=3, required=True, choices=[
+                       options=[create_option(name="mode", description="Quel stat ?", option_type=3, required=True, choices=[
                                     create_choice(name='ranked', value='ranked'),
-                                    create_choice(name='aram', value='aram')
-                                ])])
+                                    create_choice(name='aram', value='aram')]),
+                                create_option(name='saison', description='saison league of legends', option_type=4, required=False)
+                                ])
     async def records_list(self, ctx, saison:int=12, mode:str='ranked'):
         
         await ctx.defer(hidden=False)
