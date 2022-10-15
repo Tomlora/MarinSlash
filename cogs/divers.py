@@ -170,6 +170,13 @@ class Divers(commands.Cog):
     async def img(self, ctx, *, img:str):
         await ctx.send(file=discord.File(f'./img/{img}.jpg'))  
         
+        
+    @cog_ext.cog_slash(name="test", description="Reponds au quizz")
+    async def test(self, ctx):
+        
+        await ctx.send(f'{ctx.author.id}')
+        await ctx.send(f'{ctx.author.name}')
+        
 
 
 def setup(bot):
