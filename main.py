@@ -6,9 +6,10 @@ import discord
 from discord.ext import commands, tasks
 from discord_slash import SlashCommand, SlashContext
 
+# Duplicate table
+# https://popsql.com/learn-sql/postgresql/how-to-duplicate-a-table-in-postgresql
 
-
-Var_version = 7.0
+Var_version = 8.0
 
 # Paramètres
 
@@ -42,7 +43,6 @@ chan_lol_others = int(987357398563962890)
 
 guildid = 494217748046544906
 role_admin = 630771107053699132
-
 
 bot = commands.Bot(command_prefix=";", intents=default_intents)
 slash = SlashCommand(bot, sync_commands=True)
