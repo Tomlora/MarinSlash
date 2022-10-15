@@ -160,14 +160,18 @@ class Aram(commands.Cog):
         if main.isOwner_slash(ctx):
             if couleur == 'vert':
                 requete_perso_bdd('UPDATE ranked_aram SET lp = lp + :nombre WHERE index = :summonername', {'nombre' : nombre, 'summonername' : summonername.lower()})
-                await ctx.send (f'Les LP pour {summonername} ont été ajoutés.')
+                msg = f'Les LP pour {summonername} ont été ajoutés.'
             if couleur == 'rouge':
                 requete_perso_bdd('UPDATE ranked_aram SET lp = lp - :nombre WHERE index = :summonername', {'nombre' : nombre, 'summonername' : summonername.lower()})
-                await ctx.send (f'Les LP pour {summonername} ont été retirés.')
+                msg = f'Les LP pour {summonername} ont été retirés.'
         else:
             requete_perso_bdd('UPDATE ranked_aram SET lp = lp - 1 WHERE index = :summonername', {'summonername' : summonername.lower()})
-            await ctx.send('Bien essayé ! Tu perds 1 lp.')
+            msg = 'Bien essayé ! Tu perds 1 lp.'
         
+        embed = discord.Embed(description=msg,
+                              color=discord.Colour.from_rgb(255, 255, 0))
+
+        await ctx.send(embed=embed)
 
 
 
