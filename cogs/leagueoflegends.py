@@ -1440,7 +1440,10 @@ class LeagueofLegends(commands.Cog):
                          
                             INSERT INTO ranked_aram(
 	                        index, wins, losses, lp, games, k, d, a, activation, rank)
-	                        VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');''',
+	                        VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');
+                         
+                            INSERT INTO records_personnel(index)
+                            VALUES (:summonername);''',
                          {'summonername' : summonername.lower(), 'id' : getId(summonername)})
 
             
