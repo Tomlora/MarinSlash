@@ -167,7 +167,7 @@ class Achievements_scoringlol(commands.Cog):
                     result = result + "** " + key + " ** : " + str(achievements) + " :crown: en " + str(games) + " games (" + str(achievements_par_game) + " :crown: / games)\n"
                     
 
-        await ctx.send(f"Couronnes ({mode} et {settings['Nb_games']['score']} games minimum) :\n" + result)
+        await ctx.send(f"Couronnes (Mode : {mode} et {int(settings['Nb_games']['score'])} games minimum) :\n" + result)
 
 
         if records:
