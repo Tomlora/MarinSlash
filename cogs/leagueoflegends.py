@@ -414,97 +414,99 @@ class LeagueofLegends(commands.Cog):
         # annonce
         points = 0
 
+        if match_info.thisQ == 'ARAM':
             
-        settings = lire_bdd('achievements_settings', 'dict')
+            settings = lire_bdd_perso(f'SELECT index, score_aram as score from achievements_settings')
+        else:
+            settings = lire_bdd_perso(f'SELECT index, score as score from achievements_settings')   
+             
+    
+        settings = settings.to_dict()
 
         records_cumul = lire_bdd('records3', 'dict')
         records_personnel = lire_bdd('records_personnel', 'dict')
         
+        if match_info.thisQ == 'RANKED':
+            if int(match_info.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
+                exploits = exploits + f"\n ** :crown: :wave: Tu as au moins {match_info.thisLevelAdvantage} niveaux d'avance sur ton adversaire durant la game**"
+                points = points + 1
+            
+            if (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(support)']['score'] and str(match_info.thisPosition) == "SUPPORT") or (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(autres)']['score'] and str(match_info.thisPosition) != "SUPPORT"):
+                exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros avantage de vision sur son adversaire avec {match_info.thisVisionAdvantage}% **"
+                points = points + 1
+                
+            if (float(match_info.participation_tower) >= settings['Participation_tower']['score']):
+                exploits = exploits + f"\n ** :crown: :tokyo_tower: Ce joueur a contribué à la destruction de {match_info.participation_tower}% des tours **"
+                points = points + 1
+                
+            if (float(match_info.thisDragonTeam) >= settings['Dragon']['score']):
+                exploits = exploits + f"\n ** :crown: :dragon: Tu as obtenu l'âme du dragon **"
+                points = points + 1
+                
+            if (int(match_info.thisDanceHerald) >= 1):
+                exploits = exploits + f"\n ** :crown: :dancer: A dansé avec l'Herald **"
+                points = points + 1
+                
+            if (int(match_info.thisPerfectGame) >= 1):
+                exploits = exploits + f"\n :crown: :crown: :sunny: Perfect Game"
+                points = points + 2
 
+            if int(match_info.thisPenta) >= settings['Pentakill']['score']:
+                exploits = exploits + f"\n ** :crown: :five: Ce joueur a pentakill ** {match_info.thisPenta} fois"
+                points = points + (1 * int(match_info.thisPenta))
 
-        if int(match_info.thisPenta) >= settings['Pentakill']['Score']:
-            exploits = exploits + f"\n ** :crown: :five: Ce joueur a pentakill ** {match_info.thisPenta} fois"
-            points = points + (1 * int(match_info.thisPenta))
+            if int(match_info.thisQuadra) >= settings['Quadrakill']['score']:
+                exploits = exploits + f"\n ** :crown: :four: Ce joueur a quadrakill ** {match_info.thisQuadra} fois"
+                points = points + (1 * int(match_info.thisQuadra))
 
-        if int(match_info.thisQuadra) >= settings['Quadrakill']['Score']:
-            exploits = exploits + f"\n ** :crown: :four: Ce joueur a quadrakill ** {match_info.thisQuadra} fois"
-            points = points + (1 * int(match_info.thisQuadra))
+            if float(match_info.thisKDA) >= settings['KDA']['score']:
+                exploits = exploits + f"\n ** :crown: :star: Ce joueur a un bon KDA avec un KDA de {match_info.thisKDA} **"
+                points = points + 1
 
-        if float(match_info.thisKDA) >= settings['KDA']['Score']:
-            exploits = exploits + f"\n ** :crown: :star: Ce joueur a un bon KDA avec un KDA de {match_info.thisKDA} **"
-            points = points + 1
+            if int(match_info.thisDeaths) == int(settings['Ne_pas_mourir']['score']):
+                exploits = exploits + "\n ** :crown: :heart: Ce joueur n'est pas mort de la game ** \n ** :crown: :star: Ce joueur a un PERFECT KDA **"
+                points = points + 2
+                
+            if float(match_info.thisVisionPerMin) >= settings['Vision/min(support)']['score'] and str(match_info.thisPosition) == "SUPPORT":
+                exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros score de vision avec {match_info.thisVisionPerMin} / min **"
+                points = points + 1
 
-        if int(match_info.thisDeaths) == int(settings['Ne_pas_mourir']['Score']):
-            exploits = exploits + "\n ** :crown: :heart: Ce joueur n'est pas mort de la game ** \n ** :crown: :star: Ce joueur a un PERFECT KDA **"
-            points = points + 2
+            if int(match_info.thisVisionPerMin) >= settings['Vision/min(autres)']['score'] and str(match_info.thisPosition) != "SUPPORT":
+                exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros score de vision avec {match_info.thisVisionPerMin} / min **"
+                points = points + 1
+                
+            if int(match_info.thisSoloKills) >= settings['Solokills']['score']:
+                exploits = exploits + f"\n ** :crown: :muscle: Ce joueur a réalisé {match_info.thisSoloKills} solokills **"
+                points = points + 1
+                
+            if int(match_info.thisCSAdvantageOnLane) >= settings['CSAvantage']['score']:
+                exploits = exploits + f"\n ** :crown: :ghost: Tu as plus de {match_info.thisCSAdvantageOnLane} CS d'avance sur ton adversaire durant la game**"
+                points = points + 1
 
-        if int(match_info.thisKP) >= settings['KP']['Score']:
+        if int(match_info.thisKP) >= settings['KP']['score']:
             exploits = exploits + f"\n ** :crown: :dagger: Ce joueur a participé à énormément de kills dans son équipe avec {match_info.thisKP} % **"
             points = points + 1
 
-        if float(match_info.thisVisionPerMin) >= settings['Vision/min(support)']['Score'] and str(match_info.thisPosition) == "SUPPORT":
-            exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros score de vision avec {match_info.thisVisionPerMin} / min **"
-            points = points + 1
 
-        if int(match_info.thisVisionPerMin) >= settings['Vision/min(autres)']['Score'] and str(match_info.thisPosition) != "SUPPORT":
-            exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros score de vision avec {match_info.thisVisionPerMin} / min **"
-            points = points + 1
-
-        if int(match_info.thisMinionPerMin) >= settings['CS/min']['Score']:
+        if int(match_info.thisMinionPerMin) >= settings['CS/min']['score']:
             exploits = exploits + f"\n ** :crown: :ghost: Ce joueur a bien farm avec {match_info.thisMinionPerMin} CS / min **"
             points = points + 1
 
-        if int(match_info.thisDamageRatio) >= settings['%_dmg_équipe']['Score']:
+        if int(match_info.thisDamageRatio) >= settings['%_dmg_équipe']['score']:
             exploits = exploits + f"\n ** :crown: :dart: Ce joueur a infligé beaucoup de dmg avec {match_info.thisDamageRatio}%  pour son équipe **"
             points = points + 1
 
-        if int(match_info.thisDamageTakenRatio) >= settings['%_dmg_tank']['Score']:
+        if int(match_info.thisDamageTakenRatio) >= settings['%_dmg_tank']['score']:
             exploits = exploits + f"\n ** :crown: :shield: Ce joueur a bien tank pour son équipe avec {match_info.thisDamageTakenRatio}% **"
             points = points + 1
 
-        if int(match_info.thisSoloKills) >= settings['Solokills']['Score']:
-            exploits = exploits + f"\n ** :crown: :muscle: Ce joueur a réalisé {match_info.thisSoloKills} solokills **"
-            points = points + 1
-
-        if int(match_info.thisTotalOnTeammates) >= settings['Total_Heals_sur_alliés']['Score']:
+        if int(match_info.thisTotalOnTeammates) >= settings['Total_Heals_sur_alliés']['score']:
             exploits = exploits + f"\n ** :crown: :heart: Ce joueur a heal plus de {match_info.thisTotalOnTeammatesFormat} sur ses alliés **"
             points = points + 1
-        
-        if int(match_info.thisCSAdvantageOnLane) >= settings['CSAvantage']['Score']:
-            exploits = exploits + f"\n ** :crown: :ghost: Tu as plus de {match_info.thisCSAdvantageOnLane} CS d'avance sur ton adversaire durant la game**"
-            points = points + 1
-            
-        if int(match_info.thisLevelAdvantage) >= settings['Ecart_Level']['Score']:
-            exploits = exploits + f"\n ** :crown: :wave: Tu as au moins {match_info.thisLevelAdvantage} niveaux d'avance sur ton adversaire durant la game**"
-            points = points + 1
-            
-        if (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(support)']['Score'] and str(match_info.thisPosition) == "SUPPORT") or (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(autres)']['Score'] and str(match_info.thisPosition) != "SUPPORT"):
-            exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros avantage de vision sur son adversaire avec {match_info.thisVisionAdvantage}% **"
-            points = points + 1
-            
-        if (float(match_info.participation_tower) >= settings['Participation_tower']['Score']):
-            exploits = exploits + f"\n ** :crown: :tokyo_tower: Ce joueur a contribué à la destruction de {match_info.participation_tower}% des tours **"
-            points = points + 1
-            
-        if (float(match_info.thisDragonTeam) >= settings['Dragon']['Score']):
-            exploits = exploits + f"\n ** :crown: :dragon: Tu as obtenu l'âme du dragon **"
-            points = points + 1
-            
-        if (int(match_info.thisDanceHerald) >= 1):
-            exploits = exploits + f"\n ** :crown: :dancer: A dansé avec l'Herald **"
-            points = points + 1
-            
-        if (int(match_info.thisPerfectGame) >= 1):
-            exploits = exploits + f"\n :crown: :crown: :sunny: Perfect Game"
-            points = points + 2
             
         if (int(match_info.thisTotalShielded) >= settings['Shield']['Score']):
             exploits = exploits + f"\n ** :crown: :shield: Tu as shield {match_info.thisTotalShielded} **"
             
-            # Ecart gold ? (Compliqué si swap role)
-            
-
-
             
         # Présence d'afk    
         if match_info.AFKTeam >= 1:
@@ -598,20 +600,22 @@ class LeagueofLegends(commands.Cog):
              
         # Achievements
         if match_info.thisQ == "RANKED" and match_info.thisTime > 20 and succes is True:
-            try:
-                suivi[summonerName.lower().replace(" ", "")]['Achievements'] = \
-                    suivi[summonerName.lower().replace(" ", "")][
+            suivi[summonerName.lower().replace(" ", "")]['Achievements'] = \
+                suivi[summonerName.lower().replace(" ", "")][
                         'Achievements'] + points
-            except:
-                suivi[summonerName.lower().replace(" ", "")]['Achievements'] = points
 
-            try:
-                suivi[summonerName.lower().replace(" ", "")]['games'] = suivi[summonerName.lower().replace(" ", "")][
+            suivi[summonerName.lower().replace(" ", "")]['games'] = suivi[summonerName.lower().replace(" ", "")][
                                                                             'games'] + 1
-            except:
-                suivi[summonerName.lower().replace(" ", "")]['games'] = 0
-                
+  
             sauvegarde_bdd(records_cumul, 'records3')
+
+        if match_info.thisQ == "ARAM" and match_info.thisTime > 10:
+            suivi[summonerName.lower().replace(" ", "")]['Achievements_aram'] = \
+                suivi[summonerName.lower().replace(" ", "")][
+                        'Achievements_aram'] + points
+
+            suivi[summonerName.lower().replace(" ", "")]['games_aram'] = suivi[summonerName.lower().replace(" ", "")][
+                                                                            'games_aram'] + 1
 
 
         sauvegarde_bdd(suivi, 'suivi') #achievements + suivi
