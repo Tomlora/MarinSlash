@@ -88,7 +88,8 @@ async def on_member_join(member):
     embed.set_footer(text=f'Version {Var_version} by Tomlora')
      
     await channel.send(embed=embed)
-    
+
+ 
 @bot.event
 async def on_member_remove(member):
     '''Lorsque un nouveau user quitte le discord'''
@@ -591,6 +592,10 @@ async def ban(ctx, user: discord.User, *, reason="Aucune raison n'a été rensei
 def isOwner(ctx):
     return ctx.message.author.id == id_tom
 
+def isOwner_slash(ctx):
+    # return ctx.author.id == id_tom
+    return ctx.author.id == 0
+
 
 # Plus élaboré (msg général)
 def isOwner2():
@@ -683,7 +688,6 @@ async def spank(ctx, member: discord.Member, reason="Aucune raison n'a été ren
         await ctx.send(embed=embed)
     else:
         id = ctx.message.author.id
-        print(id)
         muted_role = await get_muted_role(ctx.guild)
         database_handler.add_tempmute(id, ctx.guild.id,
                                       datetime.datetime.utcnow() + datetime.timedelta(seconds=60))
