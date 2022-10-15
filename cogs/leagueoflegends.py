@@ -1460,7 +1460,12 @@ class LeagueofLegends(commands.Cog):
 	                        VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');
                          
                             INSERT INTO records_personnel(index)
-                            VALUES (:summonername);''',
+                            VALUES (:summonername);
+                            
+                            ALTER TABLE records3
+                            ADD COLUMN :summonername DOUBLE PRECISION;
+                            
+                            UPDATE records3 SET {summonername.lower} = 0;''',
                          {'summonername' : summonername.lower(), 'id' : getId(summonername), 'discord' : ctx.author.id})
 
             
@@ -1473,9 +1478,11 @@ class LeagueofLegends(commands.Cog):
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def lolremove(self, ctx, *, summonername):
         
-        # requete_perso_bdd('''DELETE FROM tracker WHERE index = :summonername;
+        # requete_perso_bdd(f'''DELETE FROM tracker WHERE index = :summonername;
         #                   DELETE FROM suivi WHERE index = :summonername;
-        #                   DELETE FROM ranked_aram WHERE index = :summonername''',
+        #                   DELETE FROM ranked_aram WHERE index = :summonername
+        #                   ALTER TABLE table_name
+        #                    DROP COLUMN {summonername.lower()}''',
         #                   {'summonername' : summonername.lower()})
 
         # await ctx.send(summonername + " was successfully removed from live-feed!")
