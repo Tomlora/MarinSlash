@@ -627,13 +627,29 @@ class LeagueofLegends(commands.Cog):
         embed.add_field(name="OPGG", value=f"[Profil](https://euw.op.gg/summoners/euw/{summonerName})")
         embed.add_field(name="Stats", value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)")
 
-        if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and match_info.thisQ in ["RANKED", "FLEX"]:
-            embed.add_field(
-                name="Durée : " + str(int(match_info.thisTime)) + " minutes | Score " + str(result),
-                value=exploits, inline=False)
-        else:
-            embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
-                            value=exploits, inline=False)
+        try:
+            if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and match_info.thisQ in ["RANKED", "FLEX"]:
+                embed.add_field(
+                    name="Durée : " + str(int(match_info.thisTime)) + " minutes | Score " + str(result),
+                    value=exploits, inline=False)
+            else:
+                embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
+                                value=exploits, inline=False)
+        except discord.errors.HTTPException:
+            if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE'] and match_info.thisQ in ["RANKED", "FLEX"]:
+                embed.add_field(
+                    name="Durée : " + str(int(match_info.thisTime)) + " minutes | Score " + str(result),
+                    value=exploits[:1024], inline=False)
+                embed.add_field(
+                    name="Records 2",
+                    value=exploits[1024:], inline=False)
+            else:
+                embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
+                                value=exploits[:1024], inline=False)
+                embed.add_field(
+                    name="Records 2",
+                    value=exploits[1024:], inline=False)
+            
             
 
         if len(exploits2) > 5: # si plus de 15 lettres, alors il y a un exploit personnel
@@ -1597,11 +1613,11 @@ class LeagueofLegends(commands.Cog):
         
        
     @cog_ext.cog_slash(name='link', description='Link discord et lol')
-    async def link(self, ctx, summonername, discord:discord.Member):
+    async def link(self, ctx, summonername, member:discord.Member):
         
-        requete_perso_bdd('UPDATE tracker SET discord = :discord WHERE index = :summonername', {'discord' : discord, 'summonername' : summonername})
+        requete_perso_bdd('UPDATE tracker SET discord = :discord WHERE index = :summonername', {'discord' : member.id, 'summonername' : summonername})
         
-        await ctx.send(f'Le compte LoL {summonername} a été link avec {discord}')
+        await ctx.send(f'Le compte LoL {summonername} a été link avec {member.name}')
 
 
 
