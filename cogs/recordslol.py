@@ -250,16 +250,15 @@ class Recordslol(commands.Cog):
         if mode == 'ARAM':
             df['WARDS_MOYENNE'] = np.where(df[col_games] > 0, df['WARDS_SCORE'] / df[col_games], 0)
 
-        record3 = fichier3.keys()
-        
+       
         list_keys = []
         
         if mode == 'ranked':
-            for key in record3.keys():
+            for key in fichier3.keys():
                 if not "ARAM" in key.split('_'):
                     list_keys.append(key)
         elif mode == 'aram':
-            for key in record3.keys():
+            for key in fichier3.keys():
                 if "ARAM" in key.split('_'):
                     list_keys.append(key)
             
