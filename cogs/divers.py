@@ -178,9 +178,9 @@ class Divers(commands.Cog):
         await ctx.send(f'{ctx.author.name}')
         
     @cog_ext.cog_slash(name="identification_user", description="Reponds au quizz")
-    async def identification_user(self, ctx, id_member:int):
+    async def identification_user(self, ctx, id_member:str):
         
-        member = await self.bot.fetch_user(id_member)
+        member = await self.bot.fetch_user(int(id_member))
         print(member)
         print(member.name)
         

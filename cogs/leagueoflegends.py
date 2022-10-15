@@ -1431,7 +1431,7 @@ class LeagueofLegends(commands.Cog):
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def loladd(self, ctx, *, summonername):
         try:
-            requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord) VALUES (:summonername, :id, 'na');
+            requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord) VALUES (:summonername, :id, :discord);
                               
                             INSERT INTO suivi(
 	                        index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
@@ -1443,7 +1443,7 @@ class LeagueofLegends(commands.Cog):
                          
                             INSERT INTO records_personnel(index)
                             VALUES (:summonername);''',
-                         {'summonername' : summonername.lower(), 'id' : getId(summonername)})
+                         {'summonername' : summonername.lower(), 'id' : getId(summonername), 'discord' : ctx.author.id})
 
             
 
