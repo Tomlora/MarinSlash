@@ -818,27 +818,28 @@ class LeagueofLegends(commands.Cog):
         
         d.text((x_name+700, y_name-20), f"Niveau {match_info.level_summoner}", font=font_little, fill=fill)
         
-        if match_info.thisQ != "ARAM":
-
-            img_rank = get_image('tier', match_info.thisTier, 220, 220)
-            
-                        
-            im.paste(img_rank,(x_rank, y-140), img_rank.convert('RGBA'))
-            
-            
-            d.text((x_rank+220, y-110), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
-            d.text((x_rank+220, y-45), f'{match_info.thisLP} LP ({difLP})', font=font_little, fill=fill)
-            
-            # Gestion des bo    
-            if int(match_info.thisLP) == 100:
-                bo = match_info.thisStats[match_info.i]['miniSeries']
-                bo_wins = str(bo['wins'])
-                bo_losses = str(bo['losses'])
-                # bo_progress = str(bo['progress'])
-                d.text((x_rank+220, y+10), f'{match_info.thisVictory}W {match_info.thisLoose}L {match_info.thisWinrateStat}% (BO : {bo_wins} / {bo_losses}) ', font=font_little, fill=fill)
-            else:
-                d.text((x_rank+220, y+10), f'{match_info.thisVictory}W {match_info.thisLoose}L     {match_info.thisWinrateStat}% ', font=font_little, fill=fill)
-        
+        if match_info.thisQ != "ARAM": # si ce n'est pas le mode aram, on prend la soloq normal
+            if match_info.thisTier != ' ': # on vérifie que le joueur a des stats en soloq, sinon il n'y a rien à afficher
+                img_rank = get_image('tier', match_info.thisTier, 220, 220)
+                
+                            
+                im.paste(img_rank,(x_rank, y-140), img_rank.convert('RGBA'))
+                
+                
+                d.text((x_rank+220, y-110), f'{match_info.thisTier} {match_info.thisRank}', font=font, fill=fill)
+                d.text((x_rank+220, y-45), f'{match_info.thisLP} LP ({difLP})', font=font_little, fill=fill)
+                
+                # Gestion des bo    
+                if int(match_info.thisLP) == 100:
+                    bo = match_info.thisStats[match_info.i]['miniSeries']
+                    bo_wins = str(bo['wins'])
+                    bo_losses = str(bo['losses'])
+                    # bo_progress = str(bo['progress'])
+                    d.text((x_rank+220, y+10), f'{match_info.thisVictory}W {match_info.thisLoose}L {match_info.thisWinrateStat}% (BO : {bo_wins} / {bo_losses}) ', font=font_little, fill=fill)
+                else:
+                    d.text((x_rank+220, y+10), f'{match_info.thisVictory}W {match_info.thisLoose}L     {match_info.thisWinrateStat}% ', font=font_little, fill=fill)
+            else: # si pas de stats en soloq
+                d.text((x_rank+220, y-45), 'En placement', font=font, fill=fill)
         else:
             
             data_aram = get_data_bdd('SELECT * from ranked_aram WHERE index = :index', {'index' : match_info.summonerName})
