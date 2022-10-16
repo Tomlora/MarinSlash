@@ -651,9 +651,9 @@ async def unmute(ctx, member: discord.Member, *, reason="Aucune raison n'a été
 
 from discord.utils import get
 import datetime
-from obj.BDD.database_handler import DatabaseHandler
+from fonctions.mute import DatabaseHandler
 
-database_handler = DatabaseHandler("database.db")
+database_handler = DatabaseHandler()
 
 
 @bot.event
