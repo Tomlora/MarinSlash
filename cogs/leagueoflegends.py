@@ -1035,8 +1035,10 @@ class LeagueofLegends(commands.Cog):
         d.text((kda_gold+150, y_metric-180),f'{round(match_info.thisGoldEarned/1000,1)}k', font=font, fill=(0, 0, 0))
             
             # Stat du jour
-    
-        suivi_24h = lire_bdd('suivi_24h', 'dict')
+        if match_info.thisQ == 'ARAM':
+            suivi_24h = lire_bdd('ranked_aram_24h', 'dict')
+        else:
+            suivi_24h = lire_bdd('suivi_24h', 'dict')
         
         
         try:
@@ -1045,8 +1047,8 @@ class LeagueofLegends(commands.Cog):
             
             
             if (difwin + diflos) > 0: # si pas de ranked aujourd'hui, inutile
-                d.text((x_metric + 650, y_name+50),f'Victoires : {difwin}', font=font_little, fill=(0, 0, 0))
-                d.text((x_metric + 1120, y_name+50),f'Defaites : {diflos}', font=font_little, fill=(0, 0, 0))
+                d.text((x_metric + 650, y_name+50),f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
+                d.text((x_metric + 1120, y_name+50),f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
         
         except KeyError:
             pass
@@ -1456,7 +1458,15 @@ class LeagueofLegends(commands.Cog):
 	                        index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
 	                        VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);
                          
+                            INSERT INTO suivi_24h(
+	                        index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
+	                        VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);
+                         
                             INSERT INTO ranked_aram(
+	                        index, wins, losses, lp, games, k, d, a, activation, rank)
+	                        VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');
+                         
+                            INSERT INTO ranked_aram_24h(
 	                        index, wins, losses, lp, games, k, d, a, activation, rank)
 	                        VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');
                          
