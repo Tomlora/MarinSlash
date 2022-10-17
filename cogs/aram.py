@@ -1,11 +1,12 @@
 import pandas as pd
 import numpy as np
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord_slash.utils.manage_components import *
 from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, requete_perso_bdd, get_data_bdd
 import main
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_commands import create_option, create_choice
+import datetime
 
 
 
@@ -47,6 +48,8 @@ chan_general = 768637526176432158
 class Aram(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.lolsuivi_aram.start()
+
 
     @cog_ext.cog_slash(name="classement_aram",description="classement en aram")
     async def ladder_aram(self, ctx):        
@@ -172,6 +175,114 @@ class Aram(commands.Cog):
                               color=discord.Colour.from_rgb(255, 255, 0))
 
         await ctx.send(embed=embed)
+        
+    @tasks.loop(hours=1, count=None)
+    async def lolsuivi_aram(self):
+
+        currentHour = str(datetime.datetime.now().hour)
+
+        if currentHour == str(3):
+            
+            # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
+
+            suivi = lire_bdd('ranked_aram', 'dict')
+            suivi_24h = lire_bdd('ranked_aram_24h', 'dict')
+            
+            
+            # df = lire_bdd_perso("""SELECT * from suivi WHERE tier != 'Non-classe'""").transpose().reset_index()
+            df = pd.DataFrame.from_dict(suivi)
+            df = df.transpose().reset_index()
+            
+            # df_24h = lire_bdd_perso("""SELECT * from suivi_24h WHERE tier != 'Non-classe'""").transpose().reset_index()
+            df_24h = pd.DataFrame.from_dict(suivi_24h)
+            df_24h = df_24h.transpose().reset_index()
+
+            
+
+            # Pour l'ordre de passage
+            df['tier_pts'] = 0
+            df['tier_pts'] = np.where(df.rank == 'IRON', 0, df.tier_pts)
+            df['tier_pts'] = np.where(df.rank == 'BRONZE', 1, df.tier_pts)
+            df['tier_pts'] = np.where(df.rank == 'SILVER', 2, df.tier_pts)
+            df['tier_pts'] = np.where(df.rank == 'GOLD', 3, df.tier_pts)
+            df['tier_pts'] = np.where(df.rank == 'PLATINUM', 4, df.tier_pts)
+            df['tier_pts'] = np.where(df.rank == 'DIAMOND', 5, df.tier_pts)
+            df['tier_pts'] = np.where(df.rank == 'MASTER', 6, df.tier_pts)
+
+            
+            df.sort_values(by=['tier_pts', 'lp'], ascending=[False, False, False], inplace=True)
+
+            joueur = df['index'].to_dict()
+
+
+            embed = discord.Embed(title="Suivi ARAM LOL", description='Periode : 24h', colour=discord.Colour.blurple())
+            totalwin = 0
+            totaldef = 0
+            totalgames = 0
+            
+
+
+            for key in joueur.values():
+
+                try:
+                        # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
+                    wins = int(suivi_24h[key]['wins'])
+                    losses = int(suivi_24h[key]['losses'])
+                    nbgames = wins + losses
+                    LP = int(suivi_24h[key]['lp'])
+                    tier_old = str(suivi_24h[key]['rank'])
+                except:
+                    wins = 0
+                    losses = 0
+                    nbgames = 0
+                    LP = 0
+                    tier_old = 'IRON'
+
+                    # on veut les stats soloq
+
+                tier = str(suivi[key]['rank'])
+
+                difwins = int(suivi[key]['wins']) - wins
+                diflosses = int(suivi[key]['losses']) - losses
+                difLP = int(suivi[key]['lp']) - LP
+                totalwin = totalwin + difwins
+                totaldef = totaldef + diflosses
+                totalgames = totalwin + totaldef
+                    
+                    # evolution
+
+                if elo_lp[tier_old] > elo_lp[tier]: # 19-18
+                    difLP = 100 + LP - int(suivi[key]['lp'])
+                    difLP = "Démote / -" + str(difLP)
+                    emote = ":arrow_down:"
+
+                elif elo_lp[tier_old] < elo_lp[tier]:
+                    difLP = 100 - LP + int(suivi[key]['lp'])
+                    difLP = "Promotion / +" + str(difLP)
+                    emote = ":arrow_up:"
+                            
+                elif elo_lp[tier_old] == elo_lp[tier]:
+                    if difLP > 0:
+                        emote = ":arrow_up:"
+                    elif difLP < 0:
+                        emote = ":arrow_down:"
+                    elif difLP == 0:
+                        emote = ":arrow_right:"
+                                
+
+                embed.add_field(name=str(key) + " ( " + tier + " )",
+                                        value="V : " + str(suivi[key]['wins']) + "(" + str(difwins) + ") | D : "
+                                            + str(suivi[key]['losses']) + "(" + str(diflosses) + ") | LP :  "
+                                            + str(suivi[key]['lp']) + "(" + str(difLP) + ")    " + emote, inline=False)
+                                           
+
+            sauvegarde_bdd(suivi, 'ranked_aram_24h')
+            channel_tracklol = self.bot.get_channel(int(main.chan_lol_others)) 
+            
+            embed.set_footer(text=f'Version {main.Var_version} by Tomlora')  
+
+            await channel_tracklol.send(embed=embed)
+            await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
 
 
 
