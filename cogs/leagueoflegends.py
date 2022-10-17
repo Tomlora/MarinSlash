@@ -1041,17 +1041,32 @@ class LeagueofLegends(commands.Cog):
             suivi_24h = lire_bdd('suivi_24h', 'dict')
         
         
-        try:
-            difwin = int(match_info.thisVictory) - int(suivi_24h[match_info.summonerName.lower()]["wins"])
-            diflos = int(match_info.thisLoose) - int(suivi_24h[match_info.summonerName.lower()]["losses"])
+        if match_info.thisQ != 'ARAM':
+            try:
+                difwin = int(match_info.thisVictory) - int(suivi_24h[match_info.summonerName.lower()]["wins"])
+                diflos = int(match_info.thisLoose) - int(suivi_24h[match_info.summonerName.lower()]["losses"])
+                
+                
+                if (difwin + diflos) > 0: # si pas de ranked aujourd'hui, inutile
+                    d.text((x_metric + 650, y_name+50),f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
+                    d.text((x_metric + 1120, y_name+50),f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
             
-            
-            if (difwin + diflos) > 0: # si pas de ranked aujourd'hui, inutile
-                d.text((x_metric + 650, y_name+50),f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
-                d.text((x_metric + 1120, y_name+50),f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
+            except KeyError:
+                pass
         
-        except KeyError:
-            pass
+        elif match_info.thisQ == 'ARAM':
+            try:
+                difwin = wins - int(suivi_24h[match_info.summonerName.lower()]["wins"])
+                diflos = losses - int(suivi_24h[match_info.summonerName.lower()]["losses"])
+                
+                
+                if (difwin + diflos) > 0: # si pas de ranked aujourd'hui, inutile
+                    d.text((x_metric + 650, y_name+50),f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
+                    d.text((x_metric + 1120, y_name+50),f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
+            
+            except KeyError:
+                pass
+            
             
         im.paste(im=get_image("autre", 'stats', 1000, 800),
                     box=(x_metric + 900, y_metric+100))
