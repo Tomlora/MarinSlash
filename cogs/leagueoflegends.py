@@ -1054,7 +1054,7 @@ class LeagueofLegends(commands.Cog):
             except KeyError:
                 pass
         
-        elif match_info.thisQ == 'ARAM':
+        elif match_info.thisQ == 'ARAM' and activation:
             try:
                 difwin = wins - int(suivi_24h[match_info.summonerName.lower()]["wins"])
                 diflos = losses - int(suivi_24h[match_info.summonerName.lower()]["losses"])
