@@ -210,7 +210,7 @@ class Aram(commands.Cog):
             df['tier_pts'] = np.where(df.rank == 'MASTER', 6, df.tier_pts)
 
             
-            df.sort_values(by=['tier_pts', 'lp'], ascending=[False, False, False], inplace=True)
+            df.sort_values(by=['tier_pts', 'lp'], ascending=[False, False], inplace=True)
 
             joueur = df['index'].to_dict()
 
