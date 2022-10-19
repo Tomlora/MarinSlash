@@ -252,12 +252,10 @@ class Aram(commands.Cog):
                     # evolution
 
                 if elo_lp[tier_old] > elo_lp[tier]: # 19-18
-                    difLP = 100 + LP - int(suivi[key]['lp'])
                     difLP = "Démote / -" + str(difLP)
                     emote = ":arrow_down:"
 
                 elif elo_lp[tier_old] < elo_lp[tier]:
-                    difLP = 100 - LP + int(suivi[key]['lp'])
                     difLP = "Promotion / +" + str(difLP)
                     emote = ":arrow_up:"
                             
