@@ -1675,9 +1675,10 @@ class LeagueofLegends(commands.Cog):
         await ctx.send(f' La couleur du joueur {summonername} a été modifiée.')  
         
 
-    @commands.command()
-    @main.isOwner2()
-    async def spectator(self, ctx, *, summonerName):
+    @cog_ext.cog_slash(name="spectator", description="Spectator",
+                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
+    @main.isOwner2_slash()
+    async def spectator(self, ctx, summonerName):
         try:
             match = match_spectator(summonerName)
             print(match['participants'])
