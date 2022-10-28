@@ -295,11 +295,11 @@ class Music(commands.Cog):
         """Joins a voice channel."""
 
         destination = ctx.author.voice.channel
-        if ctx.voice_client.voice:
-            await ctx.voice_client.voice.move_to(destination)
+        if ctx.voice_client:
+            await ctx.voice_client.move_to(destination)
             return
 
-        ctx.voice_client.voice = await destination.connect()
+        ctx.voice_client = await destination.connect()
 
     @cog_ext.cog_slash(name="summon", description="invoque le DJ dans ton salon")
     async def _summon(self, ctx: commands.Context, *, channel: discord.VoiceChannel = None):
@@ -312,17 +312,17 @@ class Music(commands.Cog):
             raise VoiceError('You are neither connected to a voice channel nor specified a channel to join.')
 
         destination = channel or ctx.author.voice.channel
-        if ctx.voice_client.voice:
-            await ctx.voice_client.voice.move_to(destination)
+        if ctx.voice_client:
+            await ctx.voice_client.move_to(destination)
             return
 
-        ctx.voice_client.voice = await destination.connect()
+        ctx.voice_client = await destination.connect()
 
     @cog_ext.cog_slash(name="leave", description="invoque le DJ dans ton salon")
     async def _leave(self, ctx: commands.Context):
         """Clears the queue and leaves the voice channel."""
 
-        if not ctx.voice_client.voice:
+        if not ctx.voice_client:
             return await ctx.send('Not connected to any voice channel.')
 
         await ctx.voice_client.stop()
@@ -352,16 +352,16 @@ class Music(commands.Cog):
     async def _pause(self, ctx: commands.Context):
         """Pauses the currently playing song."""
 
-        if ctx.voice_client.is_playing and ctx.voice_client.voice.is_playing():
-            ctx.voice_client.voice.pause()
+        if ctx.voice_client.is_playing and ctx.voice_client.is_playing():
+            ctx.voice_client.pause()
             await ctx.message.add_reaction('⏯')
 
     @cog_ext.cog_slash(name="resume", description="reprend la musique")
     async def _resume(self, ctx: commands.Context):
         """Resumes a currently paused song."""
 
-        if ctx.voice_client.is_playing and ctx.voice_client.voice.is_paused():
-            ctx.voice_client.voice.resume()
+        if ctx.voice_client.is_playing and ctx.voice_client.is_paused():
+            ctx.voice_client.resume()
             await ctx.message.add_reaction('⏯')
 
     @cog_ext.cog_slash(name="stop", description="Le DJ stop la musique")
@@ -371,7 +371,7 @@ class Music(commands.Cog):
         ctx.voice_client.songs.clear()
 
         if ctx.voice_client.is_playing:
-            ctx.voice_client.voice.stop()
+            ctx.voice_client.stop()
             await ctx.message.add_reaction('⏹')
 
     @cog_ext.cog_slash(name="skip", description="Skip une musique (vote pour les utilisateurs)")
@@ -408,7 +408,7 @@ class Music(commands.Cog):
         You can optionally specify the page to show. Each page contains 10 elements.
         """
 
-        if len(ctx.voice_client.songs) == 0:
+        if ctx.voice_client.is_empty:
             return await ctx.send('Empty queue.')
 
         items_per_page = 10
@@ -429,8 +429,12 @@ class Music(commands.Cog):
     async def _shuffle(self, ctx: commands.Context):
         """Shuffles the queue."""
 
-        if len(ctx.voice_client.songs) == 0:
-            return await ctx.send('Empty queue.')
+        try:
+            if len(ctx.voice_client.songs) == 0:
+                return await ctx.send('Empty queue.')
+        except:
+            if ctx.voice_client.queue.is_empty:
+                return await ctx.send('Empty queue.')
 
         ctx.voice_client.songs.shuffle()
         await ctx.message.add_reaction('✅')
@@ -470,7 +474,7 @@ class Music(commands.Cog):
         A list of these sites can be found here: https://rg3.github.io/youtube-dl/supportedsites.html
         """
 
-        if not ctx.voice_client.voice:
+        if not ctx.voice_client:
             await ctx.invoke(self._join)
 
         async with ctx.typing():
@@ -481,7 +485,10 @@ class Music(commands.Cog):
             else:
                 song = Song(source)
 
-                await ctx.voice_client.songs.put(song)
+                try:
+                    await ctx.voice_client.songs.put(song)
+                except:
+                    await ctx.voice_client.queue.put(song)
                 await ctx.send('Enqueued {}'.format(str(source)))
                 
 
