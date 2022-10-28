@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
@@ -15,6 +15,7 @@ import pandas as pd
 import ast
 import os
 import warnings
+import datetime
 
 # à faire : https://lol.fandom.com/wiki/Special:CargoTables/RosterRumors
 
@@ -33,6 +34,16 @@ class Leaguepedia(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.site = mwclient.Site('lol.fandom.com', path='/')
+        self.recharge_oracle.start()
+        
+    
+    @tasks.loop(hours=1, count=None)
+    async def recharge_oracle(self):
+        '''Rechargement base oracle elixir'''
+        currentHour = str(datetime.datetime.now().hour)
+        
+        if currentHour == str(13):   
+            rechargement_data_oracle()
 
     @cog_ext.cog_slash(name="league_avatar", description="Photo d'un joueur")
     async def leagueavatar(self, ctx, player):
@@ -95,7 +106,6 @@ class Leaguepedia(commands.Cog):
         
         # On ouvre la data oracle qui permet d'identifier les équipes et leurs régions
 
-        rechargement_data_oracle()
         data_oracle = loaddata_oracle()
 
         data_equipe = data_oracle[['teamname', 'league']].drop_duplicates().set_index('teamname')
