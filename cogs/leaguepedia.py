@@ -4,7 +4,7 @@ from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 
-from fonctions.gestion_base_oracle import loaddata_oracle
+from fonctions.gestion_base_oracle import loaddata_oracle, rechargement_data_oracle
 
 import main
 import mwclient
@@ -95,6 +95,7 @@ class Leaguepedia(commands.Cog):
         
         # On ouvre la data oracle qui permet d'identifier les équipes et leurs régions
 
+        rechargement_data_oracle()
         data_oracle = loaddata_oracle()
 
         data_equipe = data_oracle[['teamname', 'league']].drop_duplicates().set_index('teamname')
