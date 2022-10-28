@@ -417,6 +417,7 @@ class Music(commands.Cog):
         start = (page - 1) * items_per_page
         end = start + items_per_page
 
+        
         queue = ''
         for i, song in enumerate(ctx.voice_client.songs[start:end], start=start):
             queue += '`{0}.` [**{1.source.title}**]({1.source.url})\n'.format(i + 1, song)
@@ -476,20 +477,21 @@ class Music(commands.Cog):
 
         if not ctx.voice_client:
             await ctx.invoke(self._join)
+        
+        ctx.defer(hidden=False)
 
-        async with ctx.typing():
+        try:
+            source = await YTDLSource.create_source(ctx, search, loop=self.bot.loop)
+        except YTDLError as e:
+            await ctx.send('An error occurred while processing this request: {}'.format(str(e)))
+        else:
+            song = Song(source)
+
             try:
-                source = await YTDLSource.create_source(ctx, search, loop=self.bot.loop)
-            except YTDLError as e:
-                await ctx.send('An error occurred while processing this request: {}'.format(str(e)))
-            else:
-                song = Song(source)
-
-                try:
-                    await ctx.voice_client.songs.put(song)
-                except:
-                    await ctx.voice_client.queue.put(song)
-                await ctx.send('Enqueued {}'.format(str(source)))
+                await ctx.voice_client.songs.put(song)
+            except:
+                await ctx.voice_client.queue.put(song)
+            await ctx.send('Enqueued {}'.format(str(source)))
                 
 
 def setup(bot):
