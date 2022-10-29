@@ -90,6 +90,7 @@ class Leaguepedia(commands.Cog):
         order_by = "RC.Date_Sort DESC"
     )
 
+        ctx.defer(hidden=False)
         parsed = json.dumps(response)
         decoded = json.loads(parsed)
 
