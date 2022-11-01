@@ -42,7 +42,7 @@ class Twitter(commands.Cog):
                        description="Dernier tweet",
                        options=[create_option(name="pseudo", description= "pseudo twitter", option_type=3, required=True),
                                 create_option(name="numt_weet", description="numero tweet, de 0 à 5", option_type=4, required=False)])
-    async def last_tweet(self, ctx, pseudo:str, num_tweet:int):
+    async def last_tweet(self, ctx, pseudo:str, num_tweet:int=0):
         
 
         user_id = get_user_id(pseudo)
@@ -55,6 +55,23 @@ class Twitter(commands.Cog):
         url_tweet = f'https://twitter.com/{pseudo}/status/{id_tweet}'
         
         await ctx.send(f'Tweet {pseudo} : ' + url_tweet)
+        
+    @cog_ext.cog_slash(name="add_tweet",
+                       description="Ajoute un twitter au tracking",
+                       options=[create_option(name="pseudo", description= "pseudo twitter", option_type=3, required=True)])
+    @main.isOwner2_slash()
+    async def add_tweet(self, ctx, pseudo:str):
+        user_id = get_user_id(pseudo)
+        
+        requete_perso_bdd('''INSERT INTO public.twitter(
+	                    twitter, id_twitter, id_last_msg_twitter)
+	                    VALUES (:twitter, :id_twitter, 0);''', 
+                     {'twitter' : pseudo, 'id_twitter' : user_id})
+        ctx.defer(hidden=False)
+        
+        
+        ctx.send(f'{pseudo} ajouté !')
+        
         
     @tasks.loop(minutes=1, count=None )
     async def twitter_suivi(self):
