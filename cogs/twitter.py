@@ -71,7 +71,7 @@ class Twitter(commands.Cog):
         ctx.defer(hidden=False)
         
         
-        ctx.send(f'{pseudo} ajouté !')
+        await ctx.send(f'{pseudo} ajouté !')
         
         
     @tasks.loop(minutes=1, count=None )
