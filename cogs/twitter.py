@@ -54,7 +54,7 @@ class Twitter(commands.Cog):
  
         url_tweet = f'https://twitter.com/{pseudo}/status/{id_tweet}'
         
-        await ctx.send(f'Tweet {pseudo}: ' + url_tweet)
+        await ctx.send(f'Tweet {pseudo} : ' + url_tweet)
         
     @tasks.loop(minutes=1, count=None )
     async def twitter_suivi(self):
@@ -77,7 +77,7 @@ class Twitter(commands.Cog):
                 
                 if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower()) and (str(id_tweet) != str(id_last_msg)): # info officiel
                     url_tweet = f'https://twitter.com/{user}/status/{id_tweet}'
-                    await channel_tracklol.send(f'MERCATO {user}: ' + url_tweet)
+                    await channel_tracklol.send(f'MERCATO {user} : ' + url_tweet)
                     requete_perso_bdd('UPDATE twitter SET id_last_msg_twitter = :id_last_msg WHERE id_twitter = :id_twitter', {'id_last_msg' : id_tweet,
                                                                                                                             'id_twitter' : user_id} )
 
