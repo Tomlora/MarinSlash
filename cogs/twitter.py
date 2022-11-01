@@ -32,24 +32,17 @@ def get_tweet(user_id:str, num_tweet:int=0):
 class Twitter(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        
-        self.api = TwitterAPI('QNblcJiSrs3Xdf5E4x2UdTBhE',
-                 'KQeVlJbUzmHdHLqJ7qOfchyGqMa9WHRGYrZKIzR6xwTTXKmTn0',
-                 '950090760703172610-UueSgYuOsKV7QMZWIDjUmj4Lha01B0z',
-                 'ADoc3BtR4uhfZuH507k20GJyWp7qXNsYaBqey2bMzu0JH',
-                 api_version='2')
-        
-
-        
-        
+              
     @cog_ext.cog_slash(name="last_tweet",
                        description="last_tweet",
                        options=[create_option(name="pseudo", description= "pseudo twitter", option_type=3, required=True)])
     async def last_tweet(self, ctx, pseudo:str):
         
-        ctx.defer(hidden=False)
         user_id = get_user_id(pseudo)
+        ctx.defer(hidden=False)
+        
         id_tweet, msg_tweet = get_tweet(user_id)
+        
         url_tweet = f'https://twitter.com/{pseudo}/status/{id_tweet}'
         
         ctx.send(url_tweet)
