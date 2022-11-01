@@ -40,20 +40,21 @@ class Twitter(commands.Cog):
               
     @cog_ext.cog_slash(name="last_tweet",
                        description="Dernier tweet",
-                       options=[create_option(name="pseudo", description= "pseudo twitter", option_type=3, required=True)])
-    async def last_tweet(self, ctx, pseudo:str):
+                       options=[create_option(name="pseudo", description= "pseudo twitter", option_type=3, required=True),
+                                create_option(name="numt_weet", description="numero tweet, de 0 à 5", option_type=4, required=False)])
+    async def last_tweet(self, ctx, pseudo:str, num_tweet:int):
         
 
         user_id = get_user_id(pseudo)
         ctx.defer(hidden=False)
         
 
-        id_tweet, msg_tweet = get_tweet(user_id)
+        id_tweet, msg_tweet = get_tweet(user_id, num_tweet=num_tweet)
         
  
         url_tweet = f'https://twitter.com/{pseudo}/status/{id_tweet}'
         
-        await ctx.send('Tweet : ' + url_tweet)
+        await ctx.send(f'Tweet {pseudo}: ' + url_tweet)
         
     @tasks.loop(minutes=1, count=None )
     async def twitter_suivi(self):
@@ -68,22 +69,15 @@ class Twitter(commands.Cog):
                 user = twitter['twitter'] # user
                 id_last_msg = twitter['id_last_msg_twitter'] # id dernier msg
                 
-                user_r = api.request(f'users/by/username/:{user}') # récupère l'id twitter avec l'user
-                user_r = user_r.json() # format json
-                user_id = user_r['data']['id'] # on récupère l'id
+                # on récupère l'id twitter
+                user_id = get_user_id(user)
                 
                 # now on cherche les tweets
-                tweets = api.request(f'users/:{user_id}/tweets', {'max_results' : 5})
-                
-                # id du dernier tweet
-                id_tweet = tweets.json()['data'][0]['id']
-                
-                # contenu du dernier tweet
-                contenu_tweet = tweets.json()['data'][0]['text']
+                id_tweet, contenu_tweet = get_tweet(user_id)
                 
                 if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower()) and (str(id_tweet) != str(id_last_msg)): # info officiel
-                    url_tweet = f'twitter.com/{user}/status/{id_tweet}'
-                    await channel_tracklol.send('MERCATO : ' + url_tweet)
+                    url_tweet = f'https://twitter.com/{user}/status/{id_tweet}'
+                    await channel_tracklol.send(f'MERCATO {user}: ' + url_tweet)
                     requete_perso_bdd('UPDATE twitter SET id_last_msg_twitter = :id_last_msg WHERE id_twitter = :id_twitter', {'id_last_msg' : id_tweet,
                                                                                                                             'id_twitter' : user_id} )
 
