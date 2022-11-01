@@ -36,6 +36,7 @@ def get_tweet(user_id:str, num_tweet:int=0):
 class Twitter(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.twitter_suivi.start()
               
     @cog_ext.cog_slash(name="last_tweet",
                        description="Dernier tweet",
@@ -52,8 +53,7 @@ class Twitter(commands.Cog):
  
         url_tweet = f'https://twitter.com/{pseudo}/status/{id_tweet}'
         
-        print(url_tweet)
-        ctx.send(url_tweet)
+        await ctx.send('Tweet : ' + url_tweet)
         
     @tasks.loop(minutes=1, count=None )
     async def twitter_suivi(self):
@@ -80,11 +80,10 @@ class Twitter(commands.Cog):
                 
                 # contenu du dernier tweet
                 contenu_tweet = tweets.json()['data'][0]['text']
-                print(contenu_tweet)
                 
                 if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower()) and (str(id_tweet) != str(id_last_msg)): # info officiel
                     url_tweet = f'twitter.com/{user}/status/{id_tweet}'
-                    channel_tracklol.send(url_tweet)
+                    await channel_tracklol.send('MERCATO : ' + url_tweet)
                     requete_perso_bdd('UPDATE twitter SET id_last_msg_twitter = :id_last_msg WHERE id_twitter = :id_twitter', {'id_last_msg' : id_tweet,
                                                                                                                             'id_twitter' : user_id} )
 
