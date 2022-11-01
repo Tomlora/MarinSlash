@@ -5,6 +5,7 @@ from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 import os
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
+import sys
 
 from TwitterAPI import TwitterAPI
 import main
@@ -100,6 +101,7 @@ class Twitter(commands.Cog):
 
         except:
             print('Erreur de détection du channel')
+            print(sys.exc_info())
 
 
 
