@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
@@ -34,7 +34,7 @@ class Twitter(commands.Cog):
         self.bot = bot
               
     @cog_ext.cog_slash(name="last_tweet",
-                       description="last_tweet",
+                       description="Dernier tweet",
                        options=[create_option(name="pseudo", description= "pseudo twitter", option_type=3, required=True)])
     async def last_tweet(self, ctx, pseudo:str):
         
