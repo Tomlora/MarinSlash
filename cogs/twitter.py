@@ -41,7 +41,7 @@ class Twitter(commands.Cog):
     @cog_ext.cog_slash(name="last_tweet",
                        description="Dernier tweet",
                        options=[create_option(name="pseudo", description= "pseudo twitter", option_type=3, required=True),
-                                create_option(name="numt_weet", description="numero tweet, de 0 à 5", option_type=4, required=False)])
+                                create_option(name="num_tweet", description="numero tweet, de 0 à 5", option_type=4, required=False)])
     async def last_tweet(self, ctx, pseudo:str, num_tweet:int=0):
         
 
