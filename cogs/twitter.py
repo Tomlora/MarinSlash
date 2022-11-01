@@ -74,7 +74,7 @@ class Twitter(commands.Cog):
         ctx.send(f'{pseudo} ajouté !')
         
         
-    @tasks.loop(seconds=30, count=None )
+    @tasks.loop(minutes=1, count=None )
     async def twitter_suivi(self):
         try:
             channel_tracklol = self.bot.get_channel(int(main.chan_tracklol)) 
@@ -91,7 +91,7 @@ class Twitter(commands.Cog):
                 user_id = get_user_id(user)
                 
                 # now on cherche les tweets
-                id_tweet, contenu_tweet = get_tweet(user_id, max_results=2)
+                id_tweet, contenu_tweet = get_tweet(user_id, max_results=5)
                 
                 if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower()) and (str(id_tweet) != str(id_last_msg)): # info officiel
                     url_tweet = f'https://twitter.com/{user}/status/{id_tweet}'
