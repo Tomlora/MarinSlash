@@ -23,9 +23,9 @@ def get_user_id(user:str):
     user_id = user_r['data']['id']
     return user_id
 
-def get_tweet(user_id:str, num_tweet:int=0):
+def get_tweet(user_id:str, num_tweet:int=0, max_results:int=10):
 
-    tweets = api.request(f'users/:{user_id}/tweets', {'max_results' : 5})
+    tweets = api.request(f'users/:{user_id}/tweets', {'max_results' : max_results})
     id_tweet = tweets.json()['data'][num_tweet]['id']
     contenu_tweet = tweets.json()['data'][num_tweet]['text']
     
@@ -73,7 +73,7 @@ class Twitter(commands.Cog):
         ctx.send(f'{pseudo} ajouté !')
         
         
-    @tasks.loop(minutes=1, count=None )
+    @tasks.loop(seconds=30, count=None )
     async def twitter_suivi(self):
         try:
             channel_tracklol = self.bot.get_channel(int(main.chan_tracklol)) 
@@ -90,7 +90,7 @@ class Twitter(commands.Cog):
                 user_id = get_user_id(user)
                 
                 # now on cherche les tweets
-                id_tweet, contenu_tweet = get_tweet(user_id)
+                id_tweet, contenu_tweet = get_tweet(user_id, max_results=2)
                 
                 if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower()) and (str(id_tweet) != str(id_last_msg)): # info officiel
                     url_tweet = f'https://twitter.com/{user}/status/{id_tweet}'
