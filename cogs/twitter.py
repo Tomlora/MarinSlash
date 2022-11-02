@@ -74,7 +74,7 @@ class Twitter(commands.Cog):
         await ctx.send(f'{pseudo} ajouté !')
         
         
-    @tasks.loop(minutes=1, count=None )
+    @tasks.loop(minutes=2, count=None )
     async def twitter_suivi(self):
         try:
             channel_tracklol = self.bot.get_channel(int(main.chan_lol)) 
