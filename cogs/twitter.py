@@ -77,7 +77,7 @@ class Twitter(commands.Cog):
     @tasks.loop(minutes=1, count=None )
     async def twitter_suivi(self):
         try:
-            channel_tracklol = self.bot.get_channel(int(main.chan_tracklol)) 
+            channel_tracklol = self.bot.get_channel(int(main.chan_lol)) 
                 
             df_twitter =  get_data_bdd('Select * from twitter')
             df_twitter = df_twitter.mappings().all()
