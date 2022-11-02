@@ -1489,9 +1489,9 @@ class LeagueofLegends(commands.Cog):
                             VALUES (:summonername);
                             
                             ALTER TABLE records3
-                            ADD COLUMN :summonername DOUBLE PRECISION;
+                            ADD COLUMN {summonername.lower} DOUBLE PRECISION;
                             
-                            UPDATE records3 SET {summonername.lower} = 0;''',
+                            UPDATE records3 SET "{summonername.lower}" = 0;''',
                          {'summonername' : summonername.lower(), 'id' : getId(summonername), 'discord' : ctx.author.id})
 
             
