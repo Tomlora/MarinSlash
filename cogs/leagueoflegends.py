@@ -434,10 +434,11 @@ class LeagueofLegends(commands.Cog):
             if (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(support)']['score'] and str(match_info.thisPosition) == "SUPPORT") or (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(autres)']['score'] and str(match_info.thisPosition) != "SUPPORT"):
                 exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros avantage de vision sur son adversaire avec {match_info.thisVisionAdvantage}% **"
                 points = points + 1
-                
-            if (float(match_info.participation_tower) >= settings['Participation_tower']['score']):
-                exploits = exploits + f"\n ** :crown: :tokyo_tower: Ce joueur a contribué à la destruction de {match_info.participation_tower}% des tours **"
-                points = points + 1
+            
+            # Broken    
+            # if (float(match_info.participation_tower) >= settings['Participation_tower']['score']):
+            #     exploits = exploits + f"\n ** :crown: :tokyo_tower: Ce joueur a contribué à la destruction de {match_info.participation_tower}% des tours **"
+            #     points = points + 1
                 
             if (float(match_info.thisDragonTeam) >= settings['Dragon']['score']):
                 exploits = exploits + f"\n ** :crown: :dragon: Tu as obtenu l'âme du dragon **"
@@ -450,18 +451,6 @@ class LeagueofLegends(commands.Cog):
             if (int(match_info.thisPerfectGame) >= 1):
                 exploits = exploits + f"\n :crown: :crown: :sunny: Perfect Game"
                 points = points + 2
-
-            if int(match_info.thisPenta) >= settings['Pentakill']['score']:
-                exploits = exploits + f"\n ** :crown: :five: Ce joueur a pentakill ** {match_info.thisPenta} fois"
-                points = points + (1 * int(match_info.thisPenta))
-
-            if int(match_info.thisQuadra) >= settings['Quadrakill']['score']:
-                exploits = exploits + f"\n ** :crown: :four: Ce joueur a quadrakill ** {match_info.thisQuadra} fois"
-                points = points + (1 * int(match_info.thisQuadra))
-
-            if float(match_info.thisKDA) >= settings['KDA']['score']:
-                exploits = exploits + f"\n ** :crown: :star: Ce joueur a un bon KDA avec un KDA de {match_info.thisKDA} **"
-                points = points + 1
 
             if int(match_info.thisDeaths) == int(settings['Ne_pas_mourir']['score']):
                 exploits = exploits + "\n ** :crown: :heart: Ce joueur n'est pas mort de la game ** \n ** :crown: :star: Ce joueur a un PERFECT KDA **"
@@ -482,11 +471,23 @@ class LeagueofLegends(commands.Cog):
             if int(match_info.thisCSAdvantageOnLane) >= settings['CSAvantage']['score']:
                 exploits = exploits + f"\n ** :crown: :ghost: Tu as plus de {match_info.thisCSAdvantageOnLane} CS d'avance sur ton adversaire durant la game**"
                 points = points + 1
-
+                
+                
+        if float(match_info.thisKDA) >= settings['KDA']['score']:
+                exploits = exploits + f"\n ** :crown: :star: Ce joueur a un bon KDA avec un KDA de {match_info.thisKDA} **"
+                points = points + 1
+                
         if int(match_info.thisKP) >= settings['KP']['score']:
             exploits = exploits + f"\n ** :crown: :dagger: Ce joueur a participé à énormément de kills dans son équipe avec {match_info.thisKP} % **"
             points = points + 1
 
+        if int(match_info.thisPenta) >= settings['Pentakill']['score']:
+                exploits = exploits + f"\n ** :crown: :five: Ce joueur a pentakill ** {match_info.thisPenta} fois"
+                points = points + (1 * int(match_info.thisPenta))
+
+        if int(match_info.thisQuadra) >= settings['Quadrakill']['score']:
+                exploits = exploits + f"\n ** :crown: :four: Ce joueur a quadrakill ** {match_info.thisQuadra} fois"
+                points = points + (1 * int(match_info.thisQuadra))
 
         if int(match_info.thisMinionPerMin) >= settings['CS/min']['score']:
             exploits = exploits + f"\n ** :crown: :ghost: Ce joueur a bien farm avec {match_info.thisMinionPerMin} CS / min **"
