@@ -875,7 +875,7 @@ class LeagueofLegends(commands.Cog):
                 wr = round(wins / games,2)*100
                 
 
-                if match_info.AFKTeam >= 1: # si afk, pas de gain/perte
+                if match_info.AFKTeam >= 1 and str(match_info.thisWinId) != "True": # si afk et lose, pas de perte
                     points = 0
                 else:
                 # calcul des LP 
