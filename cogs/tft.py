@@ -136,7 +136,7 @@ class tft(commands.Cog):
         
         try:
             profil = get_stats_ranked(summonername)[0]
-            
+            ranked = True
             wins = profil['wins']
             losses = profil['losses']
             wr = round((wins/(int(wins)+int(losses)))*100,0)
@@ -160,6 +160,7 @@ class tft(commands.Cog):
             wins = 0
             losses = 0
             wr = 0
+            ranked = False
             
             tier = 'Non-classe'
             rank = '0'
@@ -170,31 +171,31 @@ class tft(commands.Cog):
         
         
 
-            
-        if difLP > 0:
-            difLP = "+" + str(difLP)
-        elif difLP < 0:
-            difLP = str(difLP)
-            
-        classement_old = suivi_profil[summonername]['tier'] + " " + suivi_profil[summonername]['rank']
-        classement_new = tier + " " + rank
-        
+        if ranked:    
+            if difLP > 0:
+                difLP = "+" + str(difLP)
+            elif difLP < 0:
+                difLP = str(difLP)
                 
-        if dict_rankid[classement_old] > dict_rankid[classement_new]: # 19-18
-            difLP = 100 + lp - int(suivi_profil[summonername]['LP'])
-            difLP = "Démote / -" + str(difLP)
-
-
-        elif dict_rankid[classement_old] < dict_rankid[classement_new]:
-            difLP = 100 - lp + int(suivi_profil[summonername]['LP'])
-            difLP = "Promotion / +" + str(difLP)
-
-
-        suivi_profil[summonername]['tier'] = tier
-        suivi_profil[summonername]['rank'] = rank
-        suivi_profil[summonername]['LP'] = lp
+            classement_old = suivi_profil[summonername]['tier'] + " " + suivi_profil[summonername]['rank']
+            classement_new = tier + " " + rank
+            
                     
-        sauvegarde_bdd(suivi_profil, 'suivitft')
+            if dict_rankid[classement_old] > dict_rankid[classement_new]: # 19-18
+                difLP = 100 + lp - int(suivi_profil[summonername]['LP'])
+                difLP = "Démote / -" + str(difLP)
+
+
+            elif dict_rankid[classement_old] < dict_rankid[classement_new]:
+                difLP = 100 - lp + int(suivi_profil[summonername]['LP'])
+                difLP = "Promotion / +" + str(difLP)
+
+
+            suivi_profil[summonername]['tier'] = tier
+            suivi_profil[summonername]['rank'] = rank
+            suivi_profil[summonername]['LP'] = lp
+                        
+            sauvegarde_bdd(suivi_profil, 'suivitft')
 
             
         
@@ -238,8 +239,10 @@ class tft(commands.Cog):
                             value=msg_augment, inline=False)
         
         # Stats
-        embed.add_field(name=f'Current rank : {tier} {rank} | {lp}LP ({difLP})', value=f'winrate : {wr}% \nVictoires : {wins} | Defaites : {losses} ', inline=False)
-        
+        if ranked:
+            embed.add_field(name=f'Current rank : {tier} {rank} | {lp}LP ({difLP})', value=f'winrate : {wr}% \nVictoires : {wins} | Defaites : {losses} ', inline=False)
+        else:
+            embed.add_field(name=f'Current rank : Non-classe', value=f'En placement', inline=False)
         
         # on va créer un dataframe pour les sort plus facilement
         
