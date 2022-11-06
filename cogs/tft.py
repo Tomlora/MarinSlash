@@ -134,18 +134,29 @@ class tft(commands.Cog):
             
         # Stats
         
-        profil = get_stats_ranked(summonername)[0]
+        try:
+            profil = get_stats_ranked(summonername)[0]
+            
+            wins = profil['wins']
+            losses = profil['losses']
+            wr = round((wins/(int(wins)+int(losses)))*100,0)
+            tier = profil['tier']
+            rank = profil['rank']
+            lp = profil['leaguePoints']
+            
+            # Gain/Perte de LP
+            
+            suivi_profil = lire_bdd('suivitft', 'dict')
         
-        wins = profil['wins']
-        losses = profil['losses']
-        wr = round((wins/(int(wins)+int(losses)))*100,0)
-        tier = profil['tier']
-        rank = profil['rank']
-        lp = profil['leaguePoints']
-        
-        # Gain/Perte de LP
-        
-        suivi_profil = lire_bdd('suivitft', 'dict')
+        except:
+            
+            wins = 0
+            losses = 0
+            wr = 0
+            
+            tier = 'Non-classe'
+            rank = '0'
+            lp = 'En placement'
         
         summonername = summonername.lower()
         
