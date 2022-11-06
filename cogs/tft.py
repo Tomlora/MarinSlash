@@ -146,6 +146,13 @@ class tft(commands.Cog):
             
             # Gain/Perte de LP
             
+            try:
+                lp_before_this_game = int(suivi_profil[summonername]['LP'])
+                difLP = lp - lp_before_this_game
+            except:
+                lp_before_this_game = 0
+                difLP = lp - lp_before_this_game
+            
             suivi_profil = lire_bdd('suivitft', 'dict')
         
         except:
@@ -156,17 +163,13 @@ class tft(commands.Cog):
             
             tier = 'Non-classe'
             rank = '0'
-            lp = 'En placement'
+            lp = 0
+            difLP = 0
         
         summonername = summonername.lower()
         
         
-        try:
-            lp_before_this_game = int(suivi_profil[summonername]['LP'])
-            difLP = lp - lp_before_this_game
-        except:
-            lp_before_this_game = 0
-            difLP = lp - lp_before_this_game
+
             
         if difLP > 0:
             difLP = "+" + str(difLP)
