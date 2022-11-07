@@ -146,6 +146,8 @@ class tft(commands.Cog):
             
             # Gain/Perte de LP
             
+            suivi_profil = lire_bdd('suivitft', 'dict')
+                                    
             try:
                 lp_before_this_game = int(suivi_profil[summonername]['LP'])
                 difLP = lp - lp_before_this_game
@@ -153,7 +155,7 @@ class tft(commands.Cog):
                 lp_before_this_game = 0
                 difLP = lp - lp_before_this_game
             
-            suivi_profil = lire_bdd('suivitft', 'dict')
+            
         
         except:
             
