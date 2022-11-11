@@ -152,6 +152,11 @@ En utilisant un fichier json généré par Summoners Wars, le bot peut afficher 
 Détermine dans un tracker si une personne a lancé son stream twitch, et sur quel jeu.
 
 
+## Projet 5 : Twitter
+
+Suit les tweets de certains journalistes pour avoir l'information rapidement.
+
+
 
 
 
