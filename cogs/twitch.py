@@ -53,7 +53,7 @@ class Twitch(commands.Cog):
         elif stream_data['data'][0]['is_live'] == False and statut_twitch == True : # si le joueur a fini son stream
             requete_perso_bdd('''UPDATE twitch SET is_live = False WHERE index = :joueur ''', {'joueur' : pseudo_twitch.lower()})
 
-    @tasks.loop(minutes=1, count=None)
+    @tasks.loop(minutes=4, count=None)
     async def Twitch_verif(self):
         if self.bot.get_channel(main.chan_twitch):
             
