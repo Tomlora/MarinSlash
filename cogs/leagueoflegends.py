@@ -1288,10 +1288,6 @@ class LeagueofLegends(commands.Cog):
 
         return embed, match_info.thisQ, resume, embed2, resume2
 
-    @commands.command(brief="Version du jeu")
-    async def lolversion(self, ctx):
-        await ctx.send(version)
-
     @commands.command()
     async def datadragon(self, ctx, type, key):
         if type == "champion":
@@ -1432,10 +1428,10 @@ class LeagueofLegends(commands.Cog):
 
     async def update(self):
         
-        data = get_data_bdd(f'SELECT index, id from tracker')
+        data = get_data_bdd(f'SELECT index, id, activation from tracker')
             
-        for key, value in data: 
-            if str(value) != getId(key):  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
+        for key, value, activation in data: 
+            if str(value) != getId(key) and activation == True:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
                     await self.printLive(key)
                 except:
