@@ -6,11 +6,13 @@ class chan_discord():
         self.server_id = server_id
         self.bot_discord = bot
         
-        # si le serveur n'est pas dans la liste :
+        # si le serveur n'est pas dans la liste, on l'ajoute :
         self.data = lire_bdd_perso(f'SELECT server_id from channels_discord', index_col='server_id').transpose() 
         
         if not int(self.server_id) in self.data.index:
             self.verif_server() 
+            
+        # on récupère les identifiants    
                 
         self.dict_channel = lire_bdd_perso('Select * from channels_discord where server_id = %(server_id)s', index_col='server_id', format='dict', params={'server_id' : self.server_id} )
         
@@ -35,8 +37,6 @@ class chan_discord():
         self.guild = self.bot_discord.get_guild(self.server_id)
         for channel in self.guild.text_channels:
             self.text_channel_list.append(channel.id)
-            
-            # on vérifie que le serveur est enregistré
         
         requete_perso_bdd(f'''INSERT INTO public.channels_discord(
                     server_id, id_owner, id_owner2, chan_pm, chan_tracklol, chan_accueil, chan_twitch, chan_lol, chan_tft, chan_lol_others, role_admin)
