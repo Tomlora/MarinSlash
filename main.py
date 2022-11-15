@@ -23,7 +23,15 @@ default_intents.members = True  # Vous devez activer les intents dans les param�
 
 id_bot = os.environ.get('bot_marin')
 
-chan_discord_id = chan_discord(494217748046544906)
+
+
+bot = commands.Bot(command_prefix=";", intents=default_intents)
+slash = SlashCommand(bot, sync_commands=True)
+
+
+bot.remove_command('help')
+
+chan_discord_id = chan_discord(494217748046544906, bot)
 
 # à faire passer en bdd
 id_tom = chan_discord_id.id_owner
@@ -39,12 +47,6 @@ chan_lol_others = chan_discord_id.lol_others
 # même chose
 guildid = chan_discord_id.server_id
 role_admin = chan_discord_id.role_admin
-
-bot = commands.Bot(command_prefix=";", intents=default_intents)
-slash = SlashCommand(bot, sync_commands=True)
-
-bot.remove_command('help')
-
 
 @bot.event
 async def on_message(message):
