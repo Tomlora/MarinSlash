@@ -1365,7 +1365,7 @@ class LeagueofLegends(commands.Cog):
 
                 
 
-        sauvegarde_bdd(suivirank, 'suivi')
+            sauvegarde_bdd(suivirank, 'suivi')
 
     @cog_ext.cog_slash(name="game",
                        description="Voir les statistiques d'une games",
