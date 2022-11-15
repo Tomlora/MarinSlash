@@ -1419,7 +1419,7 @@ class LeagueofLegends(commands.Cog):
         
         embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername, idgames=0, succes=True)
         
-        data = lire_bdd_perso(f"SELECT server_id, index from tracker where index=:joueur", {'joueur' : summonername})
+        data = lire_bdd_perso(f'SELECT server_id, index from tracker where index= %(joueur)s', params={'joueur' : summonername})
         server_id_joueur = data[summonername][0]
         
         discord_server_id = chan_discord(server_id_joueur)
