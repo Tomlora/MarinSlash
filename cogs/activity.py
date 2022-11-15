@@ -17,8 +17,17 @@ class activity(commands.Cog):
         await self.bot.change_presence(
             activity=discord.Activity(type=discord.ActivityType.listening, name='My Dress Up Darling'))
 
+        
         for guild in self.bot.guilds:
-            print(f' Channels connectées => Name : {guild.name} | Id : {guild.id}')
+            text_channel_list = []
+            for channel in guild.text_channels:
+                text_channel_list.append(channel.id)
+            
+            print(text_channel_list)
+            print(text_channel_list[0])
+            
+            print(f' Channels connectées => Name : {guild.name} | Id : {guild.id} |')
+            
                
         if not main.check_for_unmute.is_running():    
             await main.check_for_unmute.start()
