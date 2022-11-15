@@ -31,7 +31,7 @@ slash = SlashCommand(bot, sync_commands=True)
 
 bot.remove_command('help')
 
-chan_discord_id = chan_discord(494217748046544906, bot)
+chan_discord_id = chan_discord(494217748046544906)
 
 # à faire passer en bdd
 id_tom = chan_discord_id.id_owner
