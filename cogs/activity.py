@@ -13,13 +13,13 @@ class activity(commands.Cog):
 
     async def on_ready(self):
         currentHour, currentMinute = heure_actuelle()
-        print(f'Le bot {main.bot.user} est connecté au serveur ({currentHour}:{currentMinute})')
-        await main.bot.change_presence(
+        print(f'Le bot {self.bot.user} est connecté au serveur ({currentHour}:{currentMinute})')
+        await self.bot.change_presence(
             activity=discord.Activity(type=discord.ActivityType.listening, name='My Dress Up Darling'))
 
-        for guild in main.bot.guilds:
+        for guild in self.bot.guilds:
             print(f' Channels connectées => Name : {guild.name} | Id : {guild.id}')
-              
+               
         if not main.check_for_unmute.is_running():    
             await main.check_for_unmute.start()
 
