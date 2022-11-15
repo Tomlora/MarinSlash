@@ -62,6 +62,8 @@ class Msg(commands.Cog):
         embed.set_author(name=author, icon_url=avatar)
         embed.set_footer(text=f'Version {main.Var_version} by Tomlora')
         await ctx.send(embed=embed)
+        
+        
 
 
 def setup(bot):

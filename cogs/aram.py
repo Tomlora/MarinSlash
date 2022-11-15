@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 from discord.ext import commands, tasks
 from discord_slash.utils.manage_components import *
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, requete_perso_bdd, get_data_bdd
+from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, requete_perso_bdd
 import main
-from discord_slash import cog_ext, SlashContext
+from discord_slash import cog_ext
 from discord_slash.utils.manage_commands import create_option, create_choice
 import datetime
 

@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from main import isOwner2, isOwner2_slash, Var_version
+from main import Var_version
 import numpy as np
 import pandas as pd
 import asyncio
@@ -8,12 +8,11 @@ from discord_slash.utils.manage_components import *
 import plotly.express as px
 import plotly.graph_objects as go
 import os
-from fonctions.gestion_fichier import loadData, writeData, reset_records_help
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
-from discord_slash import cog_ext, SlashContext
+from discord_slash import cog_ext
 
 from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice, create_permission
+from discord_slash.utils.manage_commands import create_option, create_choice
 
 
 emote = {

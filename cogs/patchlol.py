@@ -1,24 +1,9 @@
-# import os
-
-# import matplotlib.pyplot as plt
-
-# import numpy as np
-from unittest.mock import patch
-import plotly.express as px
 from discord.ext import commands, tasks
-
-
 from discord_slash.utils.manage_components import *
-from discord_slash import cog_ext, SlashContext
-
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 from fonctions.patch import PatchNote
-
 from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
-
-from main import Var_version, chan_lol
+from main import chan_lol
 
 class Patchlol(commands.Cog):
     def __init__(self, bot):

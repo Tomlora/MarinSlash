@@ -1,7 +1,5 @@
 import discord
 from discord.ext import commands
-import os
-import pickle
 from fonctions.date import heure_actuelle
 
 import main
@@ -21,7 +19,7 @@ class activity(commands.Cog):
 
         for guild in main.bot.guilds:
             print(f' Channels connectées => Name : {guild.name} | Id : {guild.id}')
-            
+              
         if not main.check_for_unmute.is_running():    
             await main.check_for_unmute.start()
 

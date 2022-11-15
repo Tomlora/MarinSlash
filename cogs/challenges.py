@@ -1,27 +1,21 @@
 import discord
 from discord.ext import commands, tasks
-from discord_slash import cog_ext, SlashContext
-from riotwatcher import LolWatcher
 from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
+from discord_slash import cog_ext, SlashContext
+from discord_slash.utils.manage_commands import create_option
 import pandas as pd
 import ast
 import os
 import requests # Riotwatcher n'a pas les challenges donc on va faire une requests.get
 from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, supprimer_bdd
-from fonctions.gestion_fichier import loadData
+from fonctions.match import lol_watcher, my_region, api_key_lol
 import time
 import plotly.express as px
 import plotly.graph_objects as go
 import datetime
 import dataframe_image as dfi
 
-api_key_lol = os.environ.get('API_LOL')  # https://www.youtube.com/watch?v=IolxqkL7cD8
 
-lol_watcher = LolWatcher(api_key_lol)
-my_region = 'euw1'
-region = "EUROPE"
-import main
 
 def extraire_variables_imbriquees(df, colonne):
     df[colonne] = [ast.literal_eval(str(item)) for index, item in df[colonne].iteritems()]
@@ -339,14 +333,6 @@ class Challenges(commands.Cog):
         else:
             await ctx.send(f"Pas de ranking pour {summonername} :(. Pas d'espace dans le pseudo")
         
-        
-            
-            
-            
-
-    
-
-
 
 def setup(bot):
     bot.add_cog(Challenges(bot))

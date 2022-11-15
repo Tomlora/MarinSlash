@@ -8,13 +8,11 @@ from discord.ext import commands
 
 from discord_slash.utils.manage_components import *
 from discord_slash import cog_ext, SlashContext
-from fonctions.gestion_fichier import loadData
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
 
 import main
-from fonctions.date import jour_de_la_semaine
+
 import datetime
-import time
+
 
 
 

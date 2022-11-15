@@ -1,28 +1,23 @@
 import discord
-from main import isOwner2
 from discord.ext import commands
 import pandas as pd
 import pickle
-from sklearn import linear_model
-from sklearn.model_selection import train_test_split
+
 import seaborn as sns
 import numpy as np
 from matplotlib import pyplot as plt
 import os
 import plotly.express as px
-from fonctions.gestion_fichier import loadData, writeData
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, lire_bdd_perso
+from fonctions.gestion_fichier import loadData
+from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
 import pickle
 
-from discord_slash import cog_ext, SlashContext
+from discord_slash import cog_ext
 
 
 
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
-
-
-
         
 def unifier_joueur(df, colonne):
     df[colonne] = df[colonne].replace('stαte', 'state')

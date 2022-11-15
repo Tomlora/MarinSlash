@@ -1,5 +1,3 @@
-
-from pkgutil import get_data
 from discord.ext import commands, tasks
 
 import requests
@@ -10,9 +8,6 @@ from plotly.graph_objs import Layout
 import plotly.express as px
 import sys
 
-
-
-from riotwatcher import LolWatcher
 import pandas as pd
 import main
 import datetime
@@ -21,32 +16,18 @@ import warnings
 from cogs.achievements_scoringlol import scoring
 
 from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, get_data_bdd, requete_perso_bdd, lire_bdd_perso
-
-
-
-from fonctions.match import matchlol, getId, dict_rankid 
-from fonctions.date import calcul_time
-
-
-from discord_slash import cog_ext, SlashContext
+from fonctions.match import matchlol, getId, dict_rankid, lol_watcher, my_region
+from discord_slash import cog_ext
 from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
+from discord_slash.utils.manage_commands import create_option
 
-from time import sleep, time
-
-
+from time import sleep
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
 import os
-
-api_key_lol = os.environ.get('API_LOL')  # https://www.youtube.com/watch?v=IolxqkL7cD8
-
-lol_watcher = LolWatcher(api_key_lol)
-my_region = 'euw1'
-region = "EUROPE"
 
 # Paramètres LoL
 version = lol_watcher.data_dragon.versions_for_region(my_region)
@@ -1468,7 +1449,7 @@ class LeagueofLegends(commands.Cog):
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
     async def loladd(self, ctx, *, summonername):
         try:
-            requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord) VALUES (:summonername, :id, :discord);
+            requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
                               
                             INSERT INTO suivi(
 	                        index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
@@ -1493,7 +1474,7 @@ class LeagueofLegends(commands.Cog):
                             ADD COLUMN {summonername.lower} DOUBLE PRECISION;
                             
                             UPDATE records3 SET "{summonername.lower}" = 0;''',
-                         {'summonername' : summonername.lower(), 'id' : getId(summonername), 'discord' : ctx.author.id})
+                         {'summonername' : summonername.lower(), 'id' : getId(summonername), 'discord' : ctx.author.id, 'guilde' : ctx.guild.id})
 
             
 
@@ -1501,19 +1482,23 @@ class LeagueofLegends(commands.Cog):
         except:
             await ctx.send("Oops! There is no summoner with that name!")
 
-    @cog_ext.cog_slash(name="lolremove", description="Supprime le joueur du suivi",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
-    async def lolremove(self, ctx, *, summonername):
+    @cog_ext.cog_slash(name='lolremove', description='Activation/Désactivation du tracker',
+                       options=[create_option(name='summonername', description="nom ingame", option_type=3, required=True),
+                                create_option(name="activation", description="True : Activé / False : Désactivé", option_type=5, required=True)])
+    
+    async def lolremove(self, ctx, summonername:str, activation:bool):
         
-        # requete_perso_bdd(f'''DELETE FROM tracker WHERE index = :summonername;
-        #                   DELETE FROM suivi WHERE index = :summonername;
-        #                   DELETE FROM ranked_aram WHERE index = :summonername
-        #                   ALTER TABLE table_name
-        #                    DROP COLUMN {summonername.lower()}''',
-        #                   {'summonername' : summonername.lower()})
+        summonername = summonername.lower()
+        
+        try:
+            requete_perso_bdd('UPDATE tracker SET activation = :activation WHERE index = :index', {'activation' : activation, 'index' : summonername})
+            if activation:
+                await ctx.send('Tracker activé !')
+            else:
+                await ctx.send('Tracker désactivé !')
+        except KeyError:
+            await ctx.send('Joueur introuvable')
 
-        # await ctx.send(summonername + " was successfully removed from live-feed!")
-        await ctx.send('Commande désactivée pour la fin de saison')
 
     @cog_ext.cog_slash(name='lollist', description='Affiche la liste des joueurs suivis')
     async def lollist(self, ctx):
@@ -1705,11 +1690,9 @@ class LeagueofLegends(commands.Cog):
         
         summonername = summonername.lower()
         
-        requete_perso_bdd('UPDATE tracker SET discord = :discord WHERE index = :summonername', {'discord' : member.id, 'summonername' : summonername})
+        requete_perso_bdd('UPDATE tracker SET discord = :discord, server_id = :guild WHERE index = :summonername', {'discord' : member.id, 'server_id' : ctx.guild.id, 'summonername' : summonername})
         
         await ctx.send(f'Le compte LoL {summonername} a été link avec <@{member.id}>')
-        
-        # self.bot.fetch_user(id)
 
 
 def setup(bot):

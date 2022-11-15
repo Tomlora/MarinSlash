@@ -6,15 +6,14 @@ import main
 import warnings
 from discord_slash.utils.manage_components import *
 
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd
+from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, get_data_bdd
 from fonctions.match import dict_rankid
-from tqdm import tqdm
 import requests
-import json
 
-from discord_slash import cog_ext, SlashContext
+
+from discord_slash import cog_ext
 from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
+from discord_slash.utils.manage_commands import create_option
 
 
 
@@ -207,25 +206,13 @@ class tft(commands.Cog):
         
         summonername = summonername.upper()
         
-        if (summonername == 'NAMIYEON') or (summonername == 'ZYRADELEVINGNE') or (summonername == 'CHATOBOGAN'):
-            color = discord.Color.gold()
-        elif summonername == 'DJINGO':
-            color = discord.Color.orange()
-        elif summonername == 'TOMLORA':
-            color = discord.Color.dark_green()
-        elif summonername == 'YLARABKA':
-            color = discord.Colour.from_rgb(253, 119, 90)
-        elif (summonername == 'LINÒ') or (summonername == 'LORDOFCOUBI') or (summonername == 'NUKETHESTARS'):
-            color = discord.Colour.from_rgb(187, 112, 255)
-        elif (summonername == 'EXORBLUE'):
-            color = discord.Colour.from_rgb(223, 55, 93)
-        elif (summonername == 'KULBUTOKÉ'):
-            color = discord.Colour.from_rgb(42, 188, 248)
-        elif (summonername == 'KAZSC'):
-            color = discord.Colour.from_rgb(245, 68, 160)
-        elif (summonername == 'CHGUIZOU'):
-            color = discord.Colour.from_rgb(127, 0, 255)
-        else:
+
+        try:
+            data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {'index' : summonername} )
+            data = data.fetchall()
+            color = discord.Color.from_rgb(data[0][0], data[0][1], data[0][2])
+            
+        except:
             color = discord.Color.blue()
         
         
@@ -277,7 +264,7 @@ class tft(commands.Cog):
         df_mobs = df_mobs.sort_values(by='tier', ascending=False)
         
         for mob in df_mobs.iterrows():
-            monster_name = mob[1]['character_id'].replace('tft7_', '')
+            monster_name = mob[1]['character_id'].replace('tft7_', '').replace('TFT7_', '')
             monster_tier = mob[1]['tier']
             embed.add_field(name=f'{monster_name}', value=f'Tier : {monster_tier}')
         

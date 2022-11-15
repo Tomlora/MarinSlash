@@ -4,10 +4,9 @@ import requests
 import os
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
 from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
-from discord_slash import cog_ext, SlashContext
+from discord_slash.utils.manage_commands import create_option
+from discord_slash import cog_ext
 
-identifiant = False
 
 # https://dev.twitch.tv/docs/api/reference#get-users
 
@@ -63,7 +62,7 @@ class Twitch(commands.Cog):
             for joueur in data_joueur:
                 await self.TwitchLive(joueur['index'], joueur['is_live'])
         else:
-            print('Verification Twitch impossible, channel non disponible')
+            pass
 
 
     @cog_ext.cog_slash(name="addtwitch",

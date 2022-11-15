@@ -1,8 +1,4 @@
 import os
-
-import matplotlib.pyplot as plt
-
-import numpy as np
 import plotly.express as px
 from discord.ext import commands
 import urllib
@@ -12,7 +8,7 @@ import pandas as pd
 import pygal
 
 from discord_slash.utils.manage_components import *
-from discord_slash import cog_ext, SlashContext
+from discord_slash import cog_ext
 
 # Tenter de faire une analyse gvo : offense vs defense (quel winrate ?)
 # Par exemple, quel winrate pour l'offense Malaka/Sian/Fran vs Seara Orion Perna ?

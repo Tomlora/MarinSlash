@@ -10,9 +10,8 @@ import youtube_dl
 from async_timeout import timeout
 from discord.ext import commands
 
-from discord_slash import cog_ext, SlashContext
+from discord_slash import cog_ext
 from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
 
 # Silence useless bug reports messages
 youtube_dl.utils.bug_reports_message = lambda: ''

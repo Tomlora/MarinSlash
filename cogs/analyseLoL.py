@@ -18,7 +18,7 @@ import seaborn as sns
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
-from fonctions.match import match_by_puuid
+from fonctions.match import match_by_puuid, lol_watcher, my_region, region
 
 
 
@@ -26,12 +26,6 @@ from fonctions.match import match_by_puuid
 from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option, create_choice
 
-
-api_key_lol = os.environ.get('API_LOL')  # https://www.youtube.com/watch?v=IolxqkL7cD8
-
-lol_watcher = LolWatcher(api_key_lol)
-my_region = 'euw1'
-region = "EUROPE"
 
 # Paramètres LoL
 version = lol_watcher.data_dragon.versions_for_region(my_region)
