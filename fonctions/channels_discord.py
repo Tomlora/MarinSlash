@@ -1,9 +1,32 @@
-from fonctions.gestion_bdd import lire_bdd_perso
+from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 
 class chan_discord():
 
-    def __init__(self, server_id:int):
+    def __init__(self, server_id:int, bot=None):
+        self.bot_discord = bot
         self.server_id = server_id
+        # si le serveur n'est pas dans la liste :  
+        
+        if self.bot_discord != None:
+        # on vérifie que le serveur est enregistré
+            data = lire_bdd_perso(f'SELECT server_id from channels_discord', index_col='server_id').transpose()
+            
+            self.text_channel_list = []
+            self.guild = self.bot_discord.get_guild(self.server_id)
+            for channel in self.guild.text_channels:
+                self.text_channel_list.append(channel.id)
+            
+            # on vérifie que le serveur est enregistré
+            data = lire_bdd_perso(f'SELECT server_id from channels_discord', index_col='server_id').transpose()
+            
+            if not int(server_id) in data.index:
+                    requete_perso_bdd(f'''INSERT INTO public.channels_discord(
+                    server_id, id_owner, id_owner2, chan_pm, chan_tracklol, chan_accueil, chan_twitch, chan_lol, chan_tft, chan_lol_others, role_admin)
+                    VALUES (:server_id, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan);''',
+                {'server_id' : server_id.id, 'chan' : self.text_channel_list[0]})
+             
+            
+        
         
         self.dict_channel = lire_bdd_perso('Select * from channels_discord where server_id = %(server_id)s', index_col='server_id', format='dict', params={'server_id' : self.server_id} )
         
