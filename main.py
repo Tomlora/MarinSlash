@@ -1,14 +1,11 @@
-import asyncio
-import linecache
 import os
 
 import discord
 from discord.ext import commands, tasks
-from discord_slash import SlashCommand, SlashContext
+from discord_slash import SlashCommand
+from fonctions.channels_discord import chan_discord
 
-from discord_slash import cog_ext, SlashContext
 from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
 
 # Duplicate table
 # https://popsql.com/learn-sql/postgresql/how-to-duplicate-a-table-in-postgresql
@@ -26,36 +23,29 @@ default_intents.members = True  # Vous devez activer les intents dans les param�
 
 id_bot = os.environ.get('bot_marin')
 
-
-global id_tom
-global chan_pm
-global chan_tracklol
-global chan_kangourou
-global chan_twitch
-global chan_lol
+chan_discord_id = chan_discord(494217748046544906)
 
 # à faire passer en bdd
-id_tom = int(298418038460514314)
-id_dawn = int(111147548760133632)
-chan_pm = int(534111278923513887)
-chan_tracklol = int(953814193658789918)
-chan_kangourou = int(498598293140537374)
-chan_twitch = int(540501033684828160)
-chan_lol = int(540501033684828160)
-chan_tft = int(986319297116766249)
-chan_lol_others = int(987357398563962890)
+id_tom = chan_discord_id.id_owner
+id_dawn = chan_discord_id.id_owner2
+chan_pm = chan_discord_id.chan_pm
+chan_tracklol = chan_discord_id.tracklol
+chan_kangourou = chan_discord_id.chan_accueil
+chan_twitch = chan_discord_id.twitch
+chan_lol = chan_discord_id.lol
+chan_tft = chan_discord_id.tft
+chan_lol_others = chan_discord_id.lol_others
 
 # même chose
-guildid = 494217748046544906
-role_admin = 630771107053699132
+guildid = chan_discord_id.server_id
+role_admin = chan_discord_id.role_admin
 
 bot = commands.Bot(command_prefix=";", intents=default_intents)
 slash = SlashCommand(bot, sync_commands=True)
 
-
 bot.remove_command('help')
 
-discord.Member.get
+
 @bot.event
 async def on_message(message):
     if not isinstance(message.channel, discord.abc.PrivateChannel):
