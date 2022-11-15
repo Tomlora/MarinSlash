@@ -22,7 +22,8 @@ class activity(commands.Cog):
         for guild in main.bot.guilds:
             print(f' Channels connectées => Name : {guild.name} | Id : {guild.id}')
             
-        await main.check_for_unmute.start()
+        if not main.check_for_unmute.is_running():    
+            await main.check_for_unmute.start()
 
 def setup(bot):
     bot.add_cog(activity(bot))
