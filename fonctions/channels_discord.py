@@ -2,8 +2,9 @@ from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 
 class chan_discord():
 
-    def __init__(self, server_id:int):
+    def __init__(self, server_id:int, bot=None):
         self.server_id = server_id
+        self.bot_discord = bot
         
         # si le serveur n'est pas dans la liste :
         self.data = lire_bdd_perso(f'SELECT server_id from channels_discord', index_col='server_id').transpose() 
