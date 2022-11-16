@@ -1308,52 +1308,47 @@ class LeagueofLegends(commands.Cog):
     @tasks.loop(minutes=1, count=None)
     async def my_task(self):
         await self.update()
-        await self.updaterank()
+        # await self.updaterank()
 
-    @commands.command(brief='Réservé au bot')
-    async def updaterank(self):
+
+    async def updaterank(self, key, discord_server_id):
         
-        for guild in self.bot.guilds:
-            
-            chan_discord_id = chan_discord(guild.id)
+        suivirank = lire_bdd('suivi', 'dict')
 
-            id_data = get_data_bdd('SELECT index from tracker where server_id = :guild_id and activation = true', {'guild_id' : guild.id}).fetchall()
-            suivirank = lire_bdd('suivi', 'dict')
 
-            for key in id_data:
-                me = lol_watcher.summoner.by_name(my_region, key[0])
-                stats = lol_watcher.league.by_summoner(my_region, me['id'])
+        me = lol_watcher.summoner.by_name(my_region, key)
+        stats = lol_watcher.league.by_summoner(my_region, me['id'])
 
-                if len(stats) > 0:
-                    if str(stats[0]['queueType']) == 'RANKED_SOLO_5x5':
-                            i = 0
-                    else:
-                            i = 1
+        if len(stats) > 0:
+            if str(stats[0]['queueType']) == 'RANKED_SOLO_5x5':
+                i = 0
+            else:
+                i = 1
 
-                    tier = str(stats[i]['tier'])
-                    rank = str(stats[i]['rank'])
-                    level = tier + " " + rank
+        tier = str(stats[i]['tier'])
+        rank = str(stats[i]['rank'])
+        level = tier + " " + rank
 
-                    if str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank']) != level:
-                        rank_old = str(suivirank[key[0]]['tier']) + " " + str(suivirank[key[0]]['rank'])
-                        suivirank[key[0]]['tier'] = tier
-                        suivirank[key[0]]['rank'] = rank
-                        try:
-                            channel_tracklol = self.bot.get_channel(chan_discord_id.tracklol)   
-                            if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
-                                await channel_tracklol.send(f' Le joueur **{key[0]}** a démote du rank **{rank_old}** à **{level}**')
-                                await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
-                            elif dict_rankid[rank_old] < dict_rankid[level]:
-                                await channel_tracklol.send(f' Le joueur **{key[0]}** a été promu du rank **{rank_old}** à **{level}**')
-                                await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
+        if str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank']) != level:
+            rank_old = str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank'])
+            suivirank[key]['tier'] = tier
+            suivirank[key]['rank'] = rank
+            try:
+                channel_tracklol = self.bot.get_channel(discord_server_id.tracklol)   
+                if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
+                    await channel_tracklol.send(f' Le joueur **{key}** a démote du rank **{rank_old}** à **{level}**')
+                    await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
+                elif dict_rankid[rank_old] < dict_rankid[level]:
+                    await channel_tracklol.send(f' Le joueur **{key}** a été promu du rank **{rank_old}** à **{level}**')
+                    await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
                                 
-                            suivirank[key[0]]['tier'] = tier
-                            suivirank[key[0]]['rank'] = rank
-                        except:
-                            print('Channel impossible')
-                            print(sys.exc_info())     
+                suivirank[key]['tier'] = tier
+                suivirank[key]['rank'] = rank
+            except:
+                print('Channel impossible')
+                print(sys.exc_info())     
 
-            sauvegarde_bdd(suivirank, 'suivi')
+        sauvegarde_bdd(suivirank, 'suivi')
 
 
     @cog_ext.cog_slash(name="game",
@@ -1402,17 +1397,13 @@ class LeagueofLegends(commands.Cog):
             sleep(5)
                
 
-    async def printLive(self, summonername):
+    async def printLive(self, summonername, discord_server_id):
         
         summonername = summonername.lower()
         
         embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername, idgames=0, succes=True)
         
-        data = lire_bdd_perso(f'SELECT server_id, index from tracker where index= %(joueur)s', params={'joueur' : summonername})
-        server_id_joueur = int(data[summonername][0])
-        
-        discord_server_id = chan_discord(server_id_joueur)
-        
+       
         if mode_de_jeu in ['RANKED', 'FLEX']:
             channel_tracklol = self.bot.get_channel(discord_server_id.tracklol)
         else:
@@ -1433,7 +1424,14 @@ class LeagueofLegends(commands.Cog):
         for key, value in data: 
             if str(value) != getId(key):  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
-                    await self.printLive(key)
+                    # identification du channel
+                    data = lire_bdd_perso(f'SELECT server_id, index from tracker where index= %(joueur)s', params={'joueur' : key})
+                    server_id_joueur = int(data[key][0])
+                    discord_server_id = chan_discord(server_id_joueur)
+                    # résumé de game
+                    await self.printLive(key, discord_server_id)
+                    # update rank
+                    await self.updaterank(key, discord_server_id)
                 except:
                     print(f"Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
                     print(sys.exc_info())
