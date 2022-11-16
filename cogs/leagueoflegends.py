@@ -1352,6 +1352,7 @@ class LeagueofLegends(commands.Cog):
                         except:
                             print('Channel impossible')
                             print(sys.exc_info())
+                sleep(2)            
 
             sauvegarde_bdd(suivirank, 'suivi')
 
@@ -1439,6 +1440,7 @@ class LeagueofLegends(commands.Cog):
                     print(sys.exc_info())
 
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : getId(key), 'index' : key})
+                sleep(2)
 
 
     @cog_ext.cog_slash(name="loladd",description="Ajoute le joueur au suivi",
