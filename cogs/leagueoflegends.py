@@ -22,7 +22,7 @@ from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option
 from fonctions.channels_discord import chan_discord
 
-from time import sleep
+from time import sleep, time
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -370,8 +370,7 @@ class LeagueofLegends(commands.Cog):
         pseudo = str(summonerName).lower()
 
         try:
-            data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {'index' : pseudo} )
-            data = data.fetchall()
+            data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {'index' : pseudo} ).fetchall()
             color = discord.Color.from_rgb(data[0][0], data[0][1], data[0][2])
             
         except:
@@ -416,11 +415,6 @@ class LeagueofLegends(commands.Cog):
             if (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(support)']['score'] and str(match_info.thisPosition) == "SUPPORT") or (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(autres)']['score'] and str(match_info.thisPosition) != "SUPPORT"):
                 exploits = exploits + f"\n ** :crown: :eye: Ce joueur a un gros avantage de vision sur son adversaire avec {match_info.thisVisionAdvantage}% **"
                 points = points + 1
-            
-            # Broken    
-            # if (float(match_info.participation_tower) >= settings['Participation_tower']['score']):
-            #     exploits = exploits + f"\n ** :crown: :tokyo_tower: Ce joueur a contribué à la destruction de {match_info.participation_tower}% des tours **"
-            #     points = points + 1
                 
             if (float(match_info.thisDragonTeam) >= settings['Dragon']['score']):
                 exploits = exploits + f"\n ** :crown: :dragon: Tu as obtenu l'âme du dragon **"
@@ -825,8 +819,7 @@ class LeagueofLegends(commands.Cog):
                 d.text((x_rank+220, y-45), 'En placement', font=font, fill=fill)
         else:
             
-            data_aram = get_data_bdd('SELECT * from ranked_aram WHERE index = :index', {'index' : match_info.summonerName})
-            data_aram = data_aram.fetchall()
+            data_aram = get_data_bdd('SELECT * from ranked_aram WHERE index = :index', {'index' : match_info.summonerName}).fetchall()
 
             wins_actual = data_aram[0]['wins']
             losses_actual = data_aram[0]['losses']
@@ -1305,9 +1298,6 @@ class LeagueofLegends(commands.Cog):
             current_items_list = lol_watcher.data_dragon.items(champions_versions, 'fr_FR')['data']
             df = pd.DataFrame(current_items_list).transpose()
             print(df)
-        # current_runes_list = lol_watcher.data_dragon.runes(champions_versions, 'fr_FR')['data']
-        # print(current_items_list)
-        # print(current_runes_list)
 
         await ctx.send("Fait !")
 
@@ -1315,7 +1305,7 @@ class LeagueofLegends(commands.Cog):
 
     # ----------------------------- test
 
-    @tasks.loop(minutes=1, count=None)
+    @tasks.loop(minutes=2, count=None)
     async def my_task(self):
         await self.update()
         await self.updaterank()
@@ -1327,7 +1317,7 @@ class LeagueofLegends(commands.Cog):
             
             chan_discord_id = chan_discord(guild.id)
 
-            id_data = get_data_bdd('SELECT index from tracker')
+            id_data = get_data_bdd('SELECT index from tracker where server_id = :guild_id and activation = true', {'guild_id' : guild.id}).fetchall()
             suivirank = lire_bdd('suivi', 'dict')
 
             for key in id_data:
@@ -1363,9 +1353,8 @@ class LeagueofLegends(commands.Cog):
                             print('Channel impossible')
                             print(sys.exc_info())
 
-                
-
             sauvegarde_bdd(suivirank, 'suivi')
+
 
     @cog_ext.cog_slash(name="game",
                        description="Voir les statistiques d'une games",
@@ -1438,10 +1427,12 @@ class LeagueofLegends(commands.Cog):
 
     async def update(self):
         
-        data = get_data_bdd(f'SELECT index, id, activation from tracker')
+        a = time()
+
+        data = get_data_bdd(f'SELECT index, id from tracker where activation = true').fetchall()
             
-        for key, value, activation in data: 
-            if str(value) != getId(key) and activation == True:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
+        for key, value in data: 
+            if str(value) != getId(key):  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
                     await self.printLive(key)
                 except:
@@ -1450,6 +1441,7 @@ class LeagueofLegends(commands.Cog):
 
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : getId(key), 'index' : key})
 
+        print(f'update {time()-a}')
 
     @cog_ext.cog_slash(name="loladd",description="Ajoute le joueur au suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
@@ -1509,7 +1501,7 @@ class LeagueofLegends(commands.Cog):
     @cog_ext.cog_slash(name='lollist', description='Affiche la liste des joueurs suivis')
     async def lollist(self, ctx):
 
-        data = get_data_bdd('SELECT index from tracker')
+        data = get_data_bdd('SELECT index from tracker').fetchall()
         data = data.fetchall()
         response = ""
 
@@ -1524,6 +1516,7 @@ class LeagueofLegends(commands.Cog):
     
     @tasks.loop(hours=1, count=None)
     async def lolsuivi(self):
+
 
         currentHour = str(datetime.datetime.now().hour)
 
@@ -1654,6 +1647,8 @@ class LeagueofLegends(commands.Cog):
 
                 await channel_tracklol.send(embed=embed)
                 await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
+                
+
      
     @cog_ext.cog_slash(name="color_recap",
                        description="Couleur du recap",
