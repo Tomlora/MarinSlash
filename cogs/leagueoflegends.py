@@ -8,6 +8,7 @@ from plotly.graph_objs import Layout
 import plotly.express as px
 import sys
 
+
 import pandas as pd
 import main
 import datetime
@@ -22,7 +23,7 @@ from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option
 from fonctions.channels_discord import chan_discord
 
-from time import sleep
+from time import sleep, time
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -1308,14 +1309,11 @@ class LeagueofLegends(commands.Cog):
     @tasks.loop(minutes=1, count=None)
     async def my_task(self):
         await self.update()
-        # await self.updaterank()
 
 
     async def updaterank(self, key, discord_server_id):
         
         suivirank = lire_bdd('suivi', 'dict')
-
-
         me = lol_watcher.summoner.by_name(my_region, key)
         stats = lol_watcher.league.by_summoner(my_region, me['id'])
 
@@ -1420,25 +1418,31 @@ class LeagueofLegends(commands.Cog):
         
 
         data = get_data_bdd(f'SELECT index, id from tracker where activation = true').fetchall()
-            
+        
+        a = time()    
         for key, value in data: 
+            print(key)
             if str(value) != getId(key):  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
                     # identification du channel
                     data = lire_bdd_perso(f'SELECT server_id, index from tracker where index= %(joueur)s', params={'joueur' : key})
                     server_id_joueur = int(data[key][0])
                     discord_server_id = chan_discord(server_id_joueur)
+                    
                     # résumé de game
+                    
                     await self.printLive(key, discord_server_id)
+                    
                     # update rank
                     await self.updaterank(key, discord_server_id)
                 except:
-                    print(f"Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
+                    print(f"Erreur {key}")
                     print(sys.exc_info())
 
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : getId(key), 'index' : key})
-
-
+        
+        print(f'update {time()-a}')
+        print('----')
 
     @cog_ext.cog_slash(name="loladd",description="Ajoute le joueur au suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
