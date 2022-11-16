@@ -6,7 +6,7 @@ import warnings
 from fonctions.gestion_bdd import lire_bdd
 import json
 import numpy as np
-
+import sys
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -128,7 +128,9 @@ def getId(summonerName):
         return str(match_detail['info']['gameId'])
     except:
         data = lire_bdd('tracker', 'dict')
+        print(sys.exc_info())
         return str(data[summonerName]['id'])
+
     
     
     
@@ -170,7 +172,7 @@ class matchlol():
         # stats
         self.thisId = self.dic[
             self.summonerName.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
-        # print(thisId)
+
         self.thisQId = self.match_detail['info']['queueId']
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
         self.match_detail_challenges = self.match_detail_participants['challenges']
