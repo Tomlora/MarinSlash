@@ -1305,7 +1305,7 @@ class LeagueofLegends(commands.Cog):
 
     # ----------------------------- test
 
-    @tasks.loop(minutes=2, count=None)
+    @tasks.loop(minutes=1, count=None)
     async def my_task(self):
         await self.update()
         await self.updaterank()
