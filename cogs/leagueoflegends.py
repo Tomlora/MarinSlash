@@ -1419,9 +1419,9 @@ class LeagueofLegends(commands.Cog):
 
         data = get_data_bdd(f'SELECT index, id from tracker where activation = true').fetchall()
         
-        a = time()    
+ 
         for key, value in data: 
-            print(key)
+
             if str(value) != getId(key):  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
                     # identification du channel
@@ -1441,8 +1441,7 @@ class LeagueofLegends(commands.Cog):
 
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : getId(key), 'index' : key})
         
-        print(f'update {time()-a}')
-        print('----')
+
 
     @cog_ext.cog_slash(name="loladd",description="Ajoute le joueur au suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
