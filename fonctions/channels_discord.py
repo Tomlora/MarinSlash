@@ -1,8 +1,10 @@
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
-
+from time import time
 class chan_discord():
 
     def __init__(self, server_id:int, bot=None):
+        
+
         self.server_id = server_id
         self.bot_discord = bot
         
@@ -29,6 +31,8 @@ class chan_discord():
         self.tft = self.dict_channel['chan_tft']
         self.lol_others = self.dict_channel['chan_lol_others']
         self.role_admin = self.dict_channel['role_admin']
+        
+
         
     def verif_server(self):
 
