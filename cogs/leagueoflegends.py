@@ -1421,8 +1421,10 @@ class LeagueofLegends(commands.Cog):
         
  
         for key, value in data: 
+            
+            id_last_game = getId(key)
 
-            if str(value) != getId(key):  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
+            if str(value) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
                     # identification du channel
                     data = lire_bdd_perso(f'SELECT server_id, index from tracker where index= %(joueur)s', params={'joueur' : key})
@@ -1435,11 +1437,14 @@ class LeagueofLegends(commands.Cog):
                     
                     # update rank
                     await self.updaterank(key, discord_server_id)
+                    
+                    # update la bdd
+                    requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
                 except:
-                    print(f"Erreur {key}")
-                    print(sys.exc_info())
+                    print(f"Erreur {key}") # joueur qui a posé pb
+                    print(sys.exc_info()) # erreur
 
-                requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : getId(key), 'index' : key})
+                
         
 
 
