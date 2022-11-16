@@ -7,6 +7,7 @@ from fonctions.gestion_bdd import lire_bdd
 import json
 import numpy as np
 import sys
+import requests
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -49,9 +50,10 @@ def get_key(my_dict, val):
 
 api_key_lol = os.environ.get('API_LOL')  # https://www.youtube.com/watch?v=IolxqkL7cD8
 
-lol_watcher = LolWatcher(api_key_lol)
+lol_watcher = LolWatcher(api_key_lol, timeout=10)
 my_region = 'euw1'
 region = "EUROPE"
+
 
 # Paramètres LoL
 version = lol_watcher.data_dragon.versions_for_region(my_region)
@@ -111,6 +113,7 @@ def dict_data(thisId: int, match_detail, info):
 
 
 def match_by_puuid(summonerName, idgames: int, index=0, queue=0):
+
     me = lol_watcher.summoner.by_name(my_region, summonerName) # informations sur le joueur
     if queue == 0:
         my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=100, start=index)
@@ -118,14 +121,18 @@ def match_by_puuid(summonerName, idgames: int, index=0, queue=0):
         my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=100, start=index, queue=queue) ## liste des id des matchs du joueur en fonction de son puuid
     last_match = my_matches[idgames] # match n° idgames
     match_detail_stats = lol_watcher.match.by_id(region, last_match) # detail du match sélectionné
+
     return last_match, match_detail_stats, me
+
 
 
 def getId(summonerName):
     try:
         last_match, match_detail, me = match_by_puuid(summonerName, 0)
-
         return str(match_detail['info']['gameId'])
+    except requests.exceptions.ReadTimeout: # timeout de 10 secondes
+        data = lire_bdd('tracker', 'dict')
+        return str(data[summonerName]['id'])
     except:
         data = lire_bdd('tracker', 'dict')
         print(sys.exc_info())
