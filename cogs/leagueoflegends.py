@@ -1438,11 +1438,13 @@ class LeagueofLegends(commands.Cog):
                     # update rank
                     await self.updaterank(key, discord_server_id)
                     
-                    # update la bdd
-                    requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
+
                 except:
                     print(f"Erreur {key}") # joueur qui a posé pb
                     print(sys.exc_info()) # erreur
+                    
+                # update la bdd
+                requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
 
                 
         
