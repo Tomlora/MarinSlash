@@ -22,7 +22,7 @@ from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option
 from fonctions.channels_discord import chan_discord
 
-from time import sleep, time
+from time import sleep
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -1427,7 +1427,6 @@ class LeagueofLegends(commands.Cog):
 
     async def update(self):
         
-        a = time()
 
         data = get_data_bdd(f'SELECT index, id from tracker where activation = true').fetchall()
             
@@ -1441,7 +1440,6 @@ class LeagueofLegends(commands.Cog):
 
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : getId(key), 'index' : key})
 
-        print(f'update {time()-a}')
 
     @cog_ext.cog_slash(name="loladd",description="Ajoute le joueur au suivi",
                        options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
