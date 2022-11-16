@@ -1323,30 +1323,30 @@ class LeagueofLegends(commands.Cog):
             else:
                 i = 1
 
-        tier = str(stats[i]['tier'])
-        rank = str(stats[i]['rank'])
-        level = tier + " " + rank
+            tier = str(stats[i]['tier'])
+            rank = str(stats[i]['rank'])
+            level = tier + " " + rank
 
-        if str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank']) != level:
-            rank_old = str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank'])
-            suivirank[key]['tier'] = tier
-            suivirank[key]['rank'] = rank
-            try:
-                channel_tracklol = self.bot.get_channel(discord_server_id.tracklol)   
-                if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
-                    await channel_tracklol.send(f' Le joueur **{key}** a démote du rank **{rank_old}** à **{level}**')
-                    await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
-                elif dict_rankid[rank_old] < dict_rankid[level]:
-                    await channel_tracklol.send(f' Le joueur **{key}** a été promu du rank **{rank_old}** à **{level}**')
-                    await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
-                                
+            if str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank']) != level:
+                rank_old = str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank'])
                 suivirank[key]['tier'] = tier
                 suivirank[key]['rank'] = rank
-            except:
-                print('Channel impossible')
-                print(sys.exc_info())     
+                try:
+                    channel_tracklol = self.bot.get_channel(discord_server_id.tracklol)   
+                    if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
+                        await channel_tracklol.send(f' Le joueur **{key}** a démote du rank **{rank_old}** à **{level}**')
+                        await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
+                    elif dict_rankid[rank_old] < dict_rankid[level]:
+                        await channel_tracklol.send(f' Le joueur **{key}** a été promu du rank **{rank_old}** à **{level}**')
+                        await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
+                                    
+                    suivirank[key]['tier'] = tier
+                    suivirank[key]['rank'] = rank
+                except:
+                    print('Channel impossible')
+                    print(sys.exc_info())     
 
-        sauvegarde_bdd(suivirank, 'suivi')
+            sauvegarde_bdd(suivirank, 'suivi')
 
 
     @cog_ext.cog_slash(name="game",
