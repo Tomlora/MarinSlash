@@ -23,7 +23,7 @@ from discord_slash.utils.manage_components import *
 from discord_slash.utils.manage_commands import create_option
 from fonctions.channels_discord import chan_discord
 
-from time import sleep, time
+from time import sleep
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -62,24 +62,11 @@ def get_image(type, name, resize_x=80, resize_y=80):
             img = img.resize((resize_x, resize_y))
         return img
     
-    elif type == "items":
-        img = Image.open(f'./img/items/{name}.png')
+    elif type in ["items", "monsters", "epee"]:
+        img = Image.open(f'./img/{type}/{name}.png')
         img = img.resize((resize_x,resize_y))
         return img
-    
-    elif type == "monsters":
-        img = Image.open(f'./img/monsters/{name}.png')
-                 
-        img = img.resize((resize_x,resize_y))
         
-        return img
-        
-    elif type == "epee":
-        img = Image.open(f'./img/epee/{name}.png')
-        img = img.resize((resize_x, resize_y))
-        
-        return img
-    
     elif type == "gold":
         img = Image.open(f'./img/money.png')
         img = img.resize((resize_x, resize_y))
@@ -142,7 +129,7 @@ def palier(embed, key:str, stats:str, old_value:int, new_value:int, palier:list)
                 embed = embed + f"\n ** :tada: Stats cumulées : A dépassé les {value} {stats.lower()} avec {new_value} {stats.lower()} **"
     return embed 
 
-def score_personnel(embed, dict, key:str, summonerName:str, stats:str, old_value:float, new_value:float, url):
+def score_personnel(embed, key:str, summonerName:str, stats:str, old_value:float, new_value:float, url):
     if key == stats:
         if old_value < new_value:
             requete_perso_bdd(f'''UPDATE records_personnel
@@ -197,7 +184,7 @@ class LeagueofLegends(commands.Cog):
         match_info = matchlol(summonerName, idgames) #class
         
         
-        if match_info.thisQId == 900: #urf (géré différemment)
+        if match_info.thisQId == 900: #urf 
             return {}, 'URF'
         
         if match_info.thisQId == 840:
@@ -561,22 +548,19 @@ class LeagueofLegends(commands.Cog):
 
 
         for key, value in dict_cumul.items():
-            # records cumul
-            try:
-                old_value = int(records_cumul[key][summonerName.lower().replace(" ", "")])
-                records_cumul[key][summonerName.lower().replace(" ", "")] = records_cumul[key][
+
+            old_value = int(records_cumul[key][summonerName.lower().replace(" ", "")])
+            records_cumul[key][summonerName.lower().replace(" ", "")] = records_cumul[key][
                                                                                 summonerName.lower().replace(" ",
                                                                                                              "")] + value[0]
-                new_value = int(records_cumul[key][summonerName.lower().replace(" ", "")])
+            new_value = int(records_cumul[key][summonerName.lower().replace(" ", "")])
                 
-                # les paliers
-                if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
-                    for key2 in dict_cumul.keys():
-                        exploits = palier(exploits, key, key2, old_value, new_value, value[1])
+            # les paliers
+            if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
+                for key2 in dict_cumul.keys():
+                    exploits = palier(exploits, key, key2, old_value, new_value, value[1])
 
-                                                
-            except: # cela va retourner une erreur si c'est un nouveau joueur dans la bdd.
-                records_cumul[key][summonerName.lower().replace(" ", "")] = value[0]
+
                 
         if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
             sauvegarde_bdd(records_cumul, 'records3')
@@ -591,11 +575,11 @@ class LeagueofLegends(commands.Cog):
                     
                 for stats in metrics_personnel.keys():
                     if len(exploits2) < 900: # on ne peut pas dépasser 1024 caractères par embed
-                                exploits2 = score_personnel(exploits2, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
+                                exploits2 = score_personnel(exploits2, key, summonerName, stats, float(old_value), float(value), url_game)
                     elif len(exploits3) < 900:
-                                exploits3 = score_personnel(exploits3, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
+                                exploits3 = score_personnel(exploits3, key, summonerName, stats, float(old_value), float(value), url_game)
                     elif len(exploits4) < 900:
-                                exploits4 = score_personnel(exploits4, records_personnel, key, summonerName, stats, float(old_value), float(value), url_game)
+                                exploits4 = score_personnel(exploits4, key, summonerName, stats, float(old_value), float(value), url_game)
                             
 
              
@@ -1059,8 +1043,7 @@ class LeagueofLegends(commands.Cog):
     
         im.save('resume_perso.png')
        
-        font_name = None
-        
+       
         # Gestion de l'image 2
         lineX = 2600
         lineY = 100
@@ -1087,18 +1070,7 @@ class LeagueofLegends(commands.Cog):
         x_kill_total = 1000
         x_objectif = 1700
 
-        if font_name is not None:
-            font = ImageFont.truetype(font_name, 50)
-        else:
-            try:
-                font = ImageFont.truetype("DejaVuSans.ttf", 50) # Ubuntu 18.04
-            except OSError:
-                try:
-                    font = ImageFont.truetype("arial.ttf", 50)  # Windows
-                except OSError:
-                    font = ImageFont.truetype(
-                        "AppleSDGothicNeo.ttc", 50
-                    )  # MacOS
+
 
         im = Image.new("RGBA", (lineX, lineY * 13), (255, 255, 255)) # Ligne blanche
         d = ImageDraw.Draw(im)
@@ -1283,29 +1255,6 @@ class LeagueofLegends(commands.Cog):
 
         return embed, match_info.thisQ, resume, embed2, resume2
 
-    @commands.command()
-    async def datadragon(self, ctx, type, key):
-        if type == "champion":
-            current_champ_list = lol_watcher.data_dragon.champions(champions_versions, True, 'fr_FR')['data'][key]
-            del current_champ_list['lore']
-            del current_champ_list['blurb']
-
-            df = pd.DataFrame(current_champ_list).transpose()
-
-            print(df)
-
-        elif type == "item":
-
-            current_items_list = lol_watcher.data_dragon.items(champions_versions, 'fr_FR')['data']
-            df = pd.DataFrame(current_items_list).transpose()
-            print(df)
-
-        await ctx.send("Fait !")
-
-        # await ctx.send(current_champ_list)
-
-    # ----------------------------- test
-
     @tasks.loop(minutes=1, count=None)
     async def my_task(self):
         await self.update()
@@ -1438,19 +1387,13 @@ class LeagueofLegends(commands.Cog):
                     # update rank
                     await self.updaterank(key, discord_server_id)
                     
-                    # update la bdd
-                    requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
-
-                except requests.exceptions.ReadTimeout:
-                    print(f"Timeout {key}") # joueur qui a posé pb
-
                     
                 except: 
                     print(f"erreur {key}") # joueur qui a posé pb
                     print(sys.exc_info()) # erreur
                        
                 # update la bdd
-                    requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
+                requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
 
 
 
@@ -1558,7 +1501,7 @@ class LeagueofLegends(commands.Cog):
 
                 # Pour l'ordre de passage
                 df['tier_pts'] = 0
-                df['tier_pts'] = np.where(df.tier == 'BRONZE', 1, df.tier_pts)
+                df['tier_pts'] = np.where(df.tier == 'IRON', 1, df.tier_pts)
                 df['tier_pts'] = np.where(df.tier == 'BRONZE', 1, df.tier_pts)
                 df['tier_pts'] = np.where(df.tier == 'SILVER', 2, df.tier_pts)
                 df['tier_pts'] = np.where(df.tier == 'GOLD', 3, df.tier_pts)
@@ -1676,16 +1619,16 @@ class LeagueofLegends(commands.Cog):
         await ctx.send(f' La couleur du joueur {summonername} a été modifiée.')  
         
 
-    @cog_ext.cog_slash(name="spectator", description="Spectator",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
-    @main.isOwner2_slash()
-    async def spectator(self, ctx, summonerName):
-        try:
-            match = match_spectator(summonerName)
-            print(match['participants'])
-            await ctx.send('Fait !')
-        except:
-            await ctx.send("Tu n'es pas en match.")     
+    # @cog_ext.cog_slash(name="spectator", description="Spectator",
+    #                    options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
+    # @main.isOwner2_slash()
+    # async def spectator(self, ctx, summonerName):
+    #     try:
+    #         match = match_spectator(summonerName)
+    #         print(match['participants'])
+    #         await ctx.send('Fait !')
+    #     except:
+    #         await ctx.send("Tu n'es pas en match.")     
         
     @cog_ext.cog_slash(name="abbedagge", description="Meilleur joueur de LoL")
     async def abbedagge(self, ctx):
