@@ -1438,16 +1438,20 @@ class LeagueofLegends(commands.Cog):
                     # update rank
                     await self.updaterank(key, discord_server_id)
                     
+                    # update la bdd
+                    requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
 
-                except:
-                    print(f"Erreur {key}") # joueur qui a posé pb
-                    print(sys.exc_info()) # erreur
+                except requests.exceptions.ReadTimeout:
+                    print(f"Timeout {key}") # joueur qui a posé pb
+
                     
+                except: 
+                    print(f"erreur {key}") # joueur qui a posé pb
+                    print(sys.exc_info()) # erreur
+                       
                 # update la bdd
-                requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
+                    requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
 
-                
-        
 
 
     @cog_ext.cog_slash(name="loladd",description="Ajoute le joueur au suivi",
@@ -1509,7 +1513,6 @@ class LeagueofLegends(commands.Cog):
     async def lollist(self, ctx):
 
         data = get_data_bdd('SELECT index from tracker').fetchall()
-        data = data.fetchall()
         response = ""
 
         for key in data:
