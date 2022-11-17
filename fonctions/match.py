@@ -50,7 +50,7 @@ def get_key(my_dict, val):
 
 api_key_lol = os.environ.get('API_LOL')  # https://www.youtube.com/watch?v=IolxqkL7cD8
 
-lol_watcher = LolWatcher(api_key_lol, timeout=10)
+lol_watcher = LolWatcher(api_key_lol, timeout=7)
 my_region = 'euw1'
 region = "EUROPE"
 
@@ -112,13 +112,13 @@ def dict_data(thisId: int, match_detail, info):
     return liste
 
 
-def match_by_puuid(summonerName, idgames: int, index=0, queue=0):
+def match_by_puuid(summonerName, idgames: int, index=0, queue=0, count=20):
 
     me = lol_watcher.summoner.by_name(my_region, summonerName) # informations sur le joueur
     if queue == 0:
-        my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=100, start=index)
+        my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=count, start=index)
     else:
-        my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=100, start=index, queue=queue) ## liste des id des matchs du joueur en fonction de son puuid
+        my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=count, start=index, queue=queue) ## liste des id des matchs du joueur en fonction de son puuid
     last_match = my_matches[idgames] # match n° idgames
     match_detail_stats = lol_watcher.match.by_id(region, last_match) # detail du match sélectionné
 
