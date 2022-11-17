@@ -1,11 +1,6 @@
 from discord.ext import commands, tasks
 
-import requests
-from PIL import Image, ImageDraw, ImageFont
-from io import BytesIO
-import plotly.graph_objects as go
-from plotly.graph_objs import Layout
-import plotly.express as px
+
 import sys
 
 
@@ -35,55 +30,6 @@ import os
 version = lol_watcher.data_dragon.versions_for_region(my_region)
 champions_versions = version['n']['champion']
 
-def get_image(type, name, resize_x=80, resize_y=80):
-    if type == "champion":
-        url = (f"https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/champions/{name}.png"
-        )
-        response = requests.get(url)
-        if response.status_code != 200:
-            img = Image.new("RGB", (resize_x, resize_y))
-        else:
-            img = Image.open(BytesIO(response.content))
-            img = img.resize((resize_x, resize_y))
-        return img
-
-    elif type == "tier":
-        img = Image.open(f"./img/{name}.png")
-        img = img.resize((resize_x, resize_y))
-        return img
-    
-    elif type == "avatar":
-        url = (f"https://ddragon.leagueoflegends.com/cdn/12.6.1/img/profileicon/{name}.png")
-        response = requests.get(url)
-        if response.status_code != 200:
-            img = Image.new("RGB", (resize_x, resize_y))
-        else:
-            img = Image.open(BytesIO(response.content))
-            img = img.resize((resize_x, resize_y))
-        return img
-    
-    elif type in ["items", "monsters", "epee"]:
-        img = Image.open(f'./img/{type}/{name}.png')
-        img = img.resize((resize_x,resize_y))
-        return img
-        
-    elif type == "gold":
-        img = Image.open(f'./img/money.png')
-        img = img.resize((resize_x, resize_y))
-        
-        return img
-    
-    elif type == "autre":
-        img = Image.open(f'{name}.png')
-        img = img.resize((resize_x, resize_y))
-        
-        return img
-    
-    elif type == "kda":
-        img = Image.open(f'./img/rectangle/{name}.png')
-        img = img.resize((resize_x, resize_y))
-        
-        return img
 
 
 def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed, url, saison:int, mode:str):
@@ -137,37 +83,6 @@ def score_personnel(embed, key:str, summonerName:str, stats:str, old_value:float
 	WHERE index = :joueur''', {'key_value' : new_value, 'key_url_value' : url, 'joueur' : summonerName.lower() })
             embed = embed + f"\n ** :military_medal: Tu as battu ton record personnel en {stats.lower()} avec {new_value} {stats.lower()} ** (Anciennement : {old_value})"
     return embed
-
-dict_points = {41 : [11, -19],
-                               42 : [12, -18],
-                               43 : [13, -17],
-                               44 : [14, -16],
-                               45 : [15, -15],
-                               46 : [16, -15],
-                               47 : [17, -15],
-                               48 : [18, -15],
-                               49 : [19, -15],
-                               50 : [20, -15],
-                               51 : [21, -15],
-                               52 : [22, -15],
-                               53 : [23, -15],
-                               54 : [24, -15],
-                               55 : [25, -15],
-                               56 : [26, -14],
-                               57 : [27, -13],
-                               58 : [28, -12],
-                               59 : [29, -11]} 
-
-elo_lp = {'IRON' : 0,
-        'BRONZE' : 1,
-        'SILVER' : 2,
-        'GOLD' : 3,
-        'PLATINUM' : 4,
-        'DIAMOND' : 5,
-        'MASTER' : 6,
-        'GRANDMASTER' : 7,
-        'CHALLENGER' : 8,
-        'FIRST_GAME' : 0}
                 
 
 class LeagueofLegends(commands.Cog):
