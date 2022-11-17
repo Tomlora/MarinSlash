@@ -3,11 +3,16 @@ import pandas as pd
 from riotwatcher import LolWatcher
 import pandas as pd
 import warnings
-from fonctions.gestion_bdd import lire_bdd
+from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd
 import json
 import numpy as np
 import sys
 import requests
+from PIL import Image, ImageDraw, ImageFont
+import plotly.graph_objects as go
+from plotly.graph_objs import Layout
+import plotly.express as px
+from io import BytesIO
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -39,6 +44,37 @@ dict_rankid =  {"Non-classe 0" : 0,
                'GRANDMASTER I': 22,
                'CHALLENGER I' : 23}
 
+elo_lp = {'IRON' : 0,
+        'BRONZE' : 1,
+        'SILVER' : 2,
+        'GOLD' : 3,
+        'PLATINUM' : 4,
+        'DIAMOND' : 5,
+        'MASTER' : 6,
+        'GRANDMASTER' : 7,
+        'CHALLENGER' : 8,
+        'FIRST_GAME' : 0}
+
+dict_points = {41 : [11, -19],
+                               42 : [12, -18],
+                               43 : [13, -17],
+                               44 : [14, -16],
+                               45 : [15, -15],
+                               46 : [16, -15],
+                               47 : [17, -15],
+                               48 : [18, -15],
+                               49 : [19, -15],
+                               50 : [20, -15],
+                               51 : [21, -15],
+                               52 : [22, -15],
+                               53 : [23, -15],
+                               54 : [24, -15],
+                               55 : [25, -15],
+                               56 : [26, -14],
+                               57 : [27, -13],
+                               58 : [28, -12],
+                               59 : [29, -11]} 
+
 def get_key(my_dict, val):
     for key, value in my_dict.items():
         if val == value:
@@ -46,6 +82,55 @@ def get_key(my_dict, val):
         
     return "No key"
 
+def get_image(type, name, resize_x=80, resize_y=80):
+    if type == "champion":
+        url = (f"https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/champions/{name}.png"
+        )
+        response = requests.get(url)
+        if response.status_code != 200:
+            img = Image.new("RGB", (resize_x, resize_y))
+        else:
+            img = Image.open(BytesIO(response.content))
+            img = img.resize((resize_x, resize_y))
+        return img
+
+    elif type == "tier":
+        img = Image.open(f"./img/{name}.png")
+        img = img.resize((resize_x, resize_y))
+        return img
+    
+    elif type == "avatar":
+        url = (f"https://ddragon.leagueoflegends.com/cdn/12.6.1/img/profileicon/{name}.png")
+        response = requests.get(url)
+        if response.status_code != 200:
+            img = Image.new("RGB", (resize_x, resize_y))
+        else:
+            img = Image.open(BytesIO(response.content))
+            img = img.resize((resize_x, resize_y))
+        return img
+    
+    elif type in ["items", "monsters", "epee"]:
+        img = Image.open(f'./img/{type}/{name}.png')
+        img = img.resize((resize_x,resize_y))
+        return img
+        
+    elif type == "gold":
+        img = Image.open(f'./img/money.png')
+        img = img.resize((resize_x, resize_y))
+        
+        return img
+    
+    elif type == "autre":
+        img = Image.open(f'{name}.png')
+        img = img.resize((resize_x, resize_y))
+        
+        return img
+    
+    elif type == "kda":
+        img = Image.open(f'./img/rectangle/{name}.png')
+        img = img.resize((resize_x, resize_y))
+        
+        return img
 
 
 api_key_lol = os.environ.get('API_LOL')  # https://www.youtube.com/watch?v=IolxqkL7cD8
@@ -608,6 +693,604 @@ class matchlol():
             self.thisVictory = '0'
             self.thisLoose = '0'
             self.thisWinStreak = '0'    
+            
+            
+    def resume_personnel(self, name_img, embed, difLP):
+        """Resume personnel de sa game
+        Parameters
+        -----------
+        name_img : nom de l'image enregistré
+        embed : embed discord
+        diflp : calcul
+        
+        return
+        -----------
+        embed discord"""
+        # Gestion de l'image 1
+       
+       ## Graphique KP
+        values = [self.thisKP/100, 1-self.thisKP/100]
+
+        layout = Layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
+        )
+
+        fig = go.Figure(data=[go.Pie(labels=['a', 'b'],
+                                    values=values,
+                                    hole=.3,
+                                    marker_colors=['rgb(68,138,236)', 'rgb(243,243,243)'])], layout=layout)
+        fig.update_layout(showlegend=False,
+            # Add annotations in the center of the donut pies.
+            annotations=[dict(text=f'{self.thisKP}%',font_size=40, showarrow=False)])
+        fig.update_traces(textinfo='none')
+
+
+
+        fig.write_image('kp.png')
+        
+        ## Graphique stats
+        
+        stats_name = ['DMG', 'TANK', 'TANK_REDUC', 'Healing', 'Shield']
+        stats_value = [self.thisDamageNoFormat, self.thisDamageTakenNoFormat, self.thisDamageSelfMitigated,
+                    self.thisTotalHealed, self.thisTotalShielded]
+        
+        df_stats = pd.DataFrame([stats_name, stats_value]).transpose()
+        df_stats.columns = ['stats', 'value']
+        
+        fig = px.histogram(df_stats, 'stats', 'value', color='stats', text_auto=".i")
+        fig.update_traces(textfont_size=20)
+        fig.update_layout(showlegend=False, font=dict(size=20))
+        fig.update_yaxes(visible=False)
+        fig.write_image('stats.png')
+        
+        # Image 1
+        
+        lineX = 2600
+        lineY = 100
+        
+        x_name = 290
+        y = 120
+        y_name= y - 60
+        x_rank = 1750
+        
+        x_metric = 120
+        y_metric = 400
+        
+        line = Image.new("RGB", (lineX, 190), (230, 230, 230)) # Ligne grise
+
+        
+        
+
+        try:
+            font = ImageFont.truetype("DejaVuSans.ttf", 50) # Ubuntu 18.04
+        except OSError:
+            try:
+                font = ImageFont.truetype("arial.ttf", 50)  # Windows
+            except OSError:
+                font = ImageFont.truetype(
+                        "AppleSDGothicNeo.ttc", 50
+                    )  # MacOS
+        
+
+        try:
+            font_little = ImageFont.truetype("DejaVuSans.ttf", 40) # Ubuntu 18.04
+        except OSError:
+            try:
+                font_little = ImageFont.truetype("arial.ttf", 40)  # Windows
+            except OSError:
+                font_little = ImageFont.truetype(
+                    "AppleSDGothicNeo.ttc", 40
+                )  # MacOS
+                    
+
+        im = Image.new("RGBA", (lineX, 1400), (255, 255, 255)) # Ligne blanche
+        d = ImageDraw.Draw(im)
+        
+        im.paste(line, (0, 0))
+        
+        fill=(0,0,0)
+        d.text((x_name, y_name), self.summonerName, font=font, fill=fill)
+        
+        im.paste(im=get_image("avatar", self.avatar, 100, 100),
+            box=(x_name-240, y_name-20))
+        
+        im.paste(im=get_image("champion", self.thisChampName, 100, 100),
+                box=(x_name-120, y_name-20))
+        
+        d.text((x_name+700, y_name-20), f"Niveau {self.level_summoner}", font=font_little, fill=fill)
+        
+        if self.thisQ != "ARAM": # si ce n'est pas le mode aram, on prend la soloq normal
+            if self.thisTier != ' ': # on vérifie que le joueur a des stats en soloq, sinon il n'y a rien à afficher
+                img_rank = get_image('tier', self.thisTier, 220, 220)
+                
+                            
+                im.paste(img_rank,(x_rank, y-140), img_rank.convert('RGBA'))
+                
+                
+                d.text((x_rank+220, y-110), f'{self.thisTier} {self.thisRank}', font=font, fill=fill)
+                d.text((x_rank+220, y-45), f'{self.thisLP} LP ({difLP})', font=font_little, fill=fill)
+                
+                # Gestion des bo    
+                if int(self.thisLP) == 100:
+                    bo = self.thisStats[self.i]['miniSeries']
+                    bo_wins = str(bo['wins'])
+                    bo_losses = str(bo['losses'])
+                    # bo_progress = str(bo['progress'])
+                    d.text((x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L {self.thisWinrateStat}% (BO : {bo_wins} / {bo_losses}) ', font=font_little, fill=fill)
+                else:
+                    d.text((x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L     {self.thisWinrateStat}% ', font=font_little, fill=fill)
+            else: # si pas de stats en soloq
+                d.text((x_rank+220, y-45), 'En placement', font=font, fill=fill)
+        else:
+            
+            data_aram = get_data_bdd('SELECT * from ranked_aram WHERE index = :index', {'index' : self.summonerName}).fetchall()
+
+            wins_actual = data_aram[0]['wins']
+            losses_actual = data_aram[0]['losses']
+            lp_actual = data_aram[0]['lp']
+            games_actual = data_aram[0]['games']
+            k_actual = data_aram[0]['k']
+            d_actual = data_aram[0]['d']
+            a_actual = data_aram[0]['a']
+            activation = data_aram[0]['activation']
+            rank_actual = data_aram[0]['rank']
+
+                
+                
+            if activation:
+                
+                games = games_actual + 1
+                               
+                if str(self.thisWinId) == 'True':
+                    wins = wins_actual + 1
+                    losses = losses_actual
+                        
+                else:
+                    wins = wins_actual
+                    losses = losses_actual + 1
+                   
+                 
+                   
+                wr = round(wins / games,2)*100
+                
+
+                if self.AFKTeam >= 1 and str(self.thisWinId) != "True": # si afk et lose, pas de perte
+                    points = 0
+                else:
+                # calcul des LP 
+                    if games <=5:
+                        if str(self.thisWinId) == 'True':
+                            points = 50
+                        else:
+                            points = 0
+                    
+                    elif wr >= 60:
+                        if str(self.thisWinId) == 'True':
+                            points = 30
+                        else:
+                            points = -10
+                            
+                    elif wr <= 40:
+                        if str(self.thisWinId) == "True":
+                            points = 10
+                        else:
+                            points = -20
+                    else:
+                        if str(self.thisWinId) == "True":
+                            points = dict_points[int(wr)][0]
+                        else:
+                            points = dict_points[int(wr)][1]
+                        
+                lp = lp_actual + points
+                        
+                # rank
+                
+                if lp < 100:
+                    rank = 'IRON'
+                elif lp < 200:
+                    rank = 'BRONZE'
+                elif lp < 300:
+                    rank = 'SILVER'
+                elif lp < 500:
+                    rank = 'GOLD'
+                elif lp < 800:
+                    rank = 'PLATINUM'
+                elif lp < 1200:
+                    rank = 'DIAMOND'
+                elif lp < 1600:
+                    rank = 'MASTER'
+                elif lp < 2000: 
+                    rank = 'GRANDMASTER'
+                elif lp > 2000:
+                    rank = 'CHALLENGER'
+                
+                # SIMULATION CHANGEMENT ELO    
+
+                
+                if games >= 5 and self.AFKTeam == 0: #si plus de 5 games et pas d'afk
+                    lp = lp - elo_lp[rank] # malus en fonction du elo
+                    
+                # pas de lp negatif
+                if lp < 0:
+                    lp = 0
+                                        
+                if rank_actual != rank:
+                    embed.add_field(name = "Changement d'elo", value=f" :star: Tu es passé de **{rank_actual}** à **{rank}**")
+                
+                k = k_actual + self.thisKills
+                difLP = lp - lp_actual 
+                deaths = d_actual + self.thisDeaths
+                a = a_actual + self.thisAssists
+
+                img_rank = get_image('tier', rank, 220, 220)
+            
+                        
+                im.paste(img_rank,(x_rank, y-140), img_rank.convert('RGBA'))
+                d.text((x_rank+220, y-110), f'{rank}', font=font, fill=fill)
+                d.text((x_rank+220, y-45), f'{lp} LP ({difLP})', font=font_little, fill=fill)
+                
+
+                d.text((x_rank+220, y+10), f'{wins}W {losses}L     {round(wr,1)}% ', font=font_little, fill=fill)
+                
+                requete_perso_bdd('UPDATE ranked_aram SET wins = :wins, losses = :losses, lp = :lp, games = :games, k = :k, d = :d, a = :a, rank = :rank WHERE index = :index',
+                                  {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'k' : k, 'd' : deaths, 'a' : a, 'rank' : rank, 'index' : self.summonerName.lower()})
+            
+
+        
+        kp = get_image('autre', 'kp', 700, 500)
+        
+                    
+        im.paste(kp,(x_metric-150, y_metric+20), kp.convert('RGBA'))
+        d.text((x_metric + 170, y_metric+20), 'KP', font=font, fill=(0, 0, 0))
+        
+        # CS
+    
+        d.text((x_metric, y_metric+620),f'Avantage CS : {int(self.thisCSAdvantageOnLane)}', font=font, fill=(0, 0, 0))
+        d.text((x_metric, y_metric+500),f'CS/min : {int(self.thisMinionPerMin)}', font=font, fill=(0, 0, 0))
+               
+        # Ward
+        
+        if self.thisQ != "ARAM":
+        
+            d.text((x_metric + 640, y_metric),f'Vision : {self.thisVision} (AV : {self.thisVisionAdvantage}%)', font=font, fill=(0, 0, 0))
+            d.text((x_metric + 640, y_metric+90),f'{self.thisVisionPerMin}/min', font=font, fill=(0, 0, 0))
+            
+            im.paste(im=get_image("items", 3340, 100, 100),
+                    box=(x_metric + 650, y_metric+200))
+            
+            d.text((x_metric + 800, y_metric+220),f'{self.thisWards}', font=font, fill=(0, 0, 0))
+            
+            im.paste(im=get_image("items", 3364, 100, 100),
+                    box=(x_metric + 650, y_metric+400))
+            
+            d.text((x_metric + 800, y_metric+420),f'{self.thisWardsKilled}', font=font, fill=(0, 0, 0))
+            
+            im.paste(im=get_image("items", 2055, 100, 100),
+                    box=(x_metric + 650, y_metric+600))
+            
+            d.text((x_metric + 800, y_metric+620),f'{self.thisPink}', font=font, fill=(0, 0, 0))
+            
+        # KDA
+    
+        kda_kills = 290
+        kda_deaths = 890
+        kda_assists = 1490
+        kda_gold = 2090
+        
+        img_kda_kills = get_image('kda', 'rectangle bleu blanc', 300, 150)
+        img_kda_deaths = get_image('kda', 'rectangle rouge blanc', 300, 150)
+        img_kda_assists = get_image('kda', 'rectangle vert', 300, 150)
+        img_kda_gold = get_image('kda', 'rectangle gold', 300, 150)
+        
+        im.paste(img_kda_kills,
+                (kda_kills, y_metric-190), img_kda_kills.convert('RGBA'))
+        
+        im.paste(img_kda_deaths,
+                (kda_deaths, y_metric-190), img_kda_deaths.convert('RGBA'))
+        
+        im.paste(img_kda_assists,
+                (kda_assists, y_metric-190), img_kda_assists.convert('RGBA'))
+        
+        im.paste(img_kda_gold,
+                (kda_gold, y_metric-190), img_kda_gold.convert('RGBA'))
+        
+        d.text((kda_kills+20, y_metric-100),f'Kills', font=font, fill=(255, 255, 255))
+        d.text((kda_deaths+20, y_metric-100),f'Morts', font=font, fill=(255, 255, 255))
+        d.text((kda_assists+20, y_metric-100),f'Assists', font=font, fill=(255, 255, 255))
+        d.text((kda_gold+20, y_metric-100),f'Gold', font=font, fill=(0, 0, 0))
+        
+        # si le score est à deux chiffres, il faut décaler dans l'img
+        if int(self.thisKills) >= 10:
+            kda_kills = kda_kills - 30
+        d.text((kda_kills+240, y_metric-180),f'{self.thisKills}', font=font, fill=(0, 0, 0))
+        
+        if int(self.thisDeaths) >=10:
+            kda_deaths = kda_deaths - 30
+        d.text((kda_deaths+240, y_metric-180),f'{self.thisDeaths}', font=font, fill=(0, 0, 0))
+        
+        if int(self.thisAssists) >=10:
+            kda_assists = kda_assists - 30
+        d.text((kda_assists+240, y_metric-180),f'{self.thisAssists}', font=font, fill=(0, 0, 0))
+        
+        d.text((kda_gold+150, y_metric-180),f'{round(self.thisGoldEarned/1000,1)}k', font=font, fill=(0, 0, 0))
+            
+            # Stat du jour
+        if self.thisQ == 'ARAM':
+            suivi_24h = lire_bdd('ranked_aram_24h', 'dict')
+        else:
+            suivi_24h = lire_bdd('suivi_24h', 'dict')
+        
+        
+        if self.thisQ != 'ARAM':
+            try:
+                difwin = int(self.thisVictory) - int(suivi_24h[self.summonerName.lower()]["wins"])
+                diflos = int(self.thisLoose) - int(suivi_24h[self.summonerName.lower()]["losses"])
+                
+                
+                if (difwin + diflos) > 0: # si pas de ranked aujourd'hui, inutile
+                    d.text((x_metric + 650, y_name+50),f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
+                    d.text((x_metric + 1120, y_name+50),f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
+            
+            except KeyError:
+                pass
+        
+        elif self.thisQ == 'ARAM' and activation:
+            try:
+                difwin = wins - int(suivi_24h[self.summonerName.lower()]["wins"])
+                diflos = losses - int(suivi_24h[self.summonerName.lower()]["losses"])
+                
+                
+                if (difwin + diflos) > 0: # si pas de ranked aujourd'hui, inutile
+                    d.text((x_metric + 650, y_name+50),f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
+                    d.text((x_metric + 1120, y_name+50),f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
+            
+            except KeyError:
+                pass
+            
+            
+        im.paste(im=get_image("autre", 'stats', 1000, 800),
+                    box=(x_metric + 900, y_metric+100))
+        
+        
+        d.text((x_metric + 2000, y_metric+200),f'Solokills : {self.thisSoloKills}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2000, y_metric+300),f'Double : {self.thisDouble}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2000, y_metric+400),f'Triple : {self.thisTriple}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2000, y_metric+500),f'Quadra : {self.thisQuadra}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2000, y_metric+600),f'Penta : {self.thisPenta}', font=font, fill=(0, 0, 0))
+        
+
+    
+        im.save(f'{name_img}.png')
+        
+        return embed
+        
+        
+    def resume_general(self, name_img):
+        '''Resume global de la game
+        
+        Parameters
+        -----------
+        name_img : nom de l'image enregistré'''
+        # Gestion de l'image 2
+        lineX = 2600
+        lineY = 100
+        
+        x_name = 500
+        x_level = x_name - 400
+        x_ecart = x_name - 150
+        x_kills = 1000
+        x_deaths = x_kills + 100
+        x_assists = x_deaths + 100
+        
+        x_kda = x_assists + 200
+        
+        x_kp = x_kda + 200
+        
+        x_cs = x_kp + 200 
+        
+        x_vision = x_cs + 150
+        
+        x_dmg_percent = x_vision + 150
+        
+        x_dmg_taken = x_dmg_percent + 250
+        
+        x_kill_total = 1000
+        x_objectif = 1700
+
+        try:
+            font = ImageFont.truetype("DejaVuSans.ttf", 50) # Ubuntu 18.04
+        except OSError:
+            try:
+                font = ImageFont.truetype("arial.ttf", 50)  # Windows
+            except OSError:
+                font = ImageFont.truetype(
+                        "AppleSDGothicNeo.ttc", 50
+                    )  # MacOS
+        
+
+        try:
+            font_little = ImageFont.truetype("DejaVuSans.ttf", 40) # Ubuntu 18.04
+        except OSError:
+            try:
+                font_little = ImageFont.truetype("arial.ttf", 40)  # Windows
+            except OSError:
+                font_little = ImageFont.truetype(
+                    "AppleSDGothicNeo.ttc", 40
+                )  # MacOS
+
+
+        im = Image.new("RGBA", (lineX, lineY * 13), (255, 255, 255)) # Ligne blanche
+        d = ImageDraw.Draw(im)
+        line = Image.new("RGB", (lineX, lineY), (230, 230, 230)) # Ligne grise
+
+        dict_position = {"TOP" : 2, "JUNGLE": 3, "MID" : 4, "ADC" : 5, "SUPPORT" : 6}
+
+        for i in range(0, 13):
+            if i % 2 == 0:
+                im.paste(line, (0, i * lineY))
+            elif i == 1:
+                im.paste(Image.new("RGB", (lineX, lineY), (85, 85, 255)), (0, i * lineY)) # Ligne bleu
+            elif i == 7:
+                im.paste(Image.new("RGB", (lineX, lineY), (255, 70, 70)), (0, i * lineY)) # Ligne rouge
+                
+            
+            if self.thisQ != "ARAM":
+                if i == dict_position[self.thisPosition]:
+                    im.paste(Image.new("RGB", (lineX, lineY), (173,216,230)), (0, i*lineY))
+                
+            
+
+
+        # match
+        d.text((10, 15), self.thisQ, font=font, fill=(0, 0, 0))
+        # d.text((10, 120), f'Gold : {self.thisGold_team1}', font=font, fill=(255, 255, 255))
+        # d.text((10, 720), f'Gold : {self.thisGold_team2}', font=font, fill=(0, 0, 0))
+        
+        money = get_image('gold', 'dragon', 60, 60)
+        
+        
+        im.paste(money,(10, 120), money.convert('RGBA'))
+        d.text((80, 120), f'{self.thisGold_team1}', font=font, fill=(255, 255, 255))
+        im.paste(money,(10, 720), money.convert('RGBA'))
+        d.text((80, 720), f'{self.thisGold_team2}', font=font, fill=(0, 0, 0))
+        
+        
+        
+        for y in range(120, 721, 600):
+            if y == 120:
+                fill = (255,255,255)
+            else:
+                fill = (0,0,0)
+            d.text((x_name, y), 'Name', font=font, fill=fill)
+            d.text((x_kills, y), 'K', font=font, fill=fill)
+            d.text((x_deaths, y), 'D', font=font, fill=fill)
+            d.text((x_assists, y), 'A', font=font, fill=fill)
+            d.text((x_kda, y), 'KDA', font=font, fill=fill)
+            d.text((x_kp, y), 'KP', font=font, fill=fill)
+            d.text((x_cs, y), 'CS', font=font, fill=fill)
+            d.text((x_dmg_percent+10, y), "DMG%", font=font, fill=fill)
+            d.text((x_dmg_taken+15, y), 'TANK%', font=font, fill=fill)
+            
+            if self.thisQ != "ARAM": 
+                d.text((x_vision, y), 'VS', font=font, fill=fill)
+
+        # participants
+        initial_y = 220
+
+        for i in range(0, 10):
+            im.paste(
+                im=get_image("champion", self.thisChampNameListe[i]),
+                box=(10, initial_y-10),
+            )
+            
+            d.text((x_level, initial_y), "Niv " + str(self.thisLevelListe[i]), font=font, fill=(0,0,0))
+
+            d.text((x_name, initial_y), self.thisPseudoListe[i], font=font, fill=(0, 0, 0))
+        
+            
+            if len(str(self.thisKillsListe[i])) == 1:
+                d.text((x_kills, initial_y), str(self.thisKillsListe[i]), font=font, fill=(0,0,0))
+            else:
+                d.text((x_kills - 20, initial_y), str(self.thisKillsListe[i]), font=font, fill=(0,0,0))
+                
+                
+            if len(str(self.thisDeathsListe[i])) == 1:
+                d.text((x_deaths, initial_y), str(self.thisDeathsListe[i]), font=font, fill=(0,0,0))
+            else:
+                d.text((x_deaths - 20, initial_y), str(self.thisDeathsListe[i]), font=font, fill=(0,0,0))
+            
+
+            if len(str(self.thisAssistsListe[i])) == 1:            
+                d.text((x_assists, initial_y), str(self.thisAssistsListe[i]), font=font, fill=(0,0,0))
+            else:
+                d.text((x_assists - 20, initial_y), str(self.thisAssistsListe[i]), font=font, fill=(0,0,0))
+            
+            
+            if len(str(round(self.thisKDAListe[i],2)))==1: # Recentrer le résultat quand chiffre rond
+                d.text((x_kda + 35, initial_y), str(round(self.thisKDAListe[i],2)), font=font, fill=(0,0,0))
+            else:
+                d.text((x_kda, initial_y), str(round(self.thisKDAListe[i],2)), font=font, fill=(0,0,0))
+                
+            d.text((x_kp, initial_y), str(self.thisKPListe[i]) + "%", font=font, fill=(0, 0, 0))
+            
+            if len(str(self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i])) != 2:
+                d.text((x_cs, initial_y), str(self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=(0, 0, 0))
+            else:
+                d.text((x_cs + 10, initial_y), str(self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=(0, 0, 0))
+                
+            if self.thisQ != "ARAM": 
+                
+                d.text((x_vision, initial_y), str(self.thisVisionListe[i]), font=font, fill=(0, 0, 0))
+                
+                
+            if len(str(round(self.thisDamageRatioListe[i]*100,1))) == 3:     
+                d.text((x_dmg_percent + 15, initial_y), str(round(self.thisDamageRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
+            else:
+                d.text((x_dmg_percent, initial_y), str(round(self.thisDamageRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
+                
+                
+            if len(str(round(self.thisDamageTakenRatioListe[i]*100,1))) == 3:
+                d.text((x_dmg_taken + 15, initial_y), str(round(self.thisDamageTakenRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
+            else:
+                d.text((x_dmg_taken, initial_y), str(round(self.thisDamageTakenRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
+                
+            
+            
+
+            if i == 4:
+                initial_y += 200
+            else:
+                initial_y += 100
+                
+        if self.thisQ != "ARAM":         
+            y_ecart = 220
+            for ecart in [self.ecart_top_gold_affiche, self.ecart_jgl_gold_affiche, self.ecart_mid_gold_affiche, self.ecart_adc_gold_affiche, self.ecart_supp_gold_affiche]:        
+                if ecart > 0:
+                    d.text((x_ecart, y_ecart), str(round(ecart/1000,1)) + "k", font=font, fill=(0,128,0))
+                else:
+                    d.text((x_ecart-10, y_ecart), str(round(ecart/1000,1)) + "k", font=font, fill=(255,0,0))   
+                
+                y_ecart = y_ecart + 100
+                
+            
+        n = 0
+        for image in self.thisItems:
+            if image != 0:
+                im.paste(get_image("items", image),
+                box=(350 + n, 10))
+                n += 100
+                
+        if self.thisQ != "ARAM":        
+                
+            drk = get_image('monsters', 'dragon')
+            elder = get_image('monsters', 'elder')
+            herald = get_image('monsters', 'herald')
+            nashor = get_image('monsters', 'nashor')       
+                    
+            im.paste(drk,(x_objectif, 10), drk.convert('RGBA'))
+            d.text((x_objectif + 100, 20), str(self.thisDragonTeam), font=font, fill=(0, 0, 0))
+            
+            im.paste(elder,(x_objectif + 200, 10), elder.convert('RGBA'))
+            d.text((x_objectif + 200 + 100, 20), str(self.thisElderPerso), font=font, fill=(0, 0, 0))
+                
+            im.paste(herald,(x_objectif + 400, 10), herald.convert('RGBA'))
+            d.text((x_objectif + 400 + 100, 20), str(self.thisHeraldTeam), font=font, fill=(0, 0, 0))
+                    
+            im.paste(nashor, (x_objectif + 600, 10), nashor.convert('RGBA'))
+            d.text((x_objectif + 600 + 100, 20), str(self.thisBaronTeam), font=font, fill=(0, 0, 0))
+            
+        
+        img_blue_epee = get_image('epee', 'blue')
+        img_red_epee = get_image('epee', 'red')
+        
+        im.paste(img_blue_epee, (x_kill_total, 10), img_blue_epee.convert('RGBA'))
+        d.text((x_kill_total + 100, 20), str(self.thisTeamKills), font=font, fill=(0, 0, 0))
+        
+        im.paste(img_red_epee, (x_kill_total + 300, 10), img_red_epee.convert('RGBA'))
+        d.text((x_kill_total + 300 + 100, 20), str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
+
+        im.save(f'{name_img}.png')
 
         
     
