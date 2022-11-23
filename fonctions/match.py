@@ -823,7 +823,7 @@ class matchlol():
                 d.text((x_rank+220, y-45), 'En placement', font=font, fill=fill)
         else:
             
-            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank, from ranked_aram WHERE index = :index', {'index' : self.summonerName}).fetchall()
+            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank from ranked_aram WHERE index = :index', {'index' : self.summonerName}).fetchall()
 
             wins_actual = data_aram[0]['wins']
             losses_actual = data_aram[0]['losses']
@@ -942,7 +942,15 @@ class matchlol():
                                   rank = :rank,
                                   {self.thisChampName.lower()} = {self.thisChampName.lower()} + 1
                                   WHERE index = :index''',
-                                  {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'k' : k, 'd' : deaths, 'a' : a, 'rank' : rank, 'index' : self.summonerName.lower()})
+                                  {'wins' : wins,
+                                   'losses' : losses,
+                                   'lp' : lp,
+                                   'games' : games,
+                                   'k' : k,
+                                   'd' : deaths,
+                                   'a' : a,
+                                   'rank' : rank,
+                                   'index' : self.summonerName.lower()})
             
 
         
