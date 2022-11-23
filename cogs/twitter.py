@@ -95,7 +95,13 @@ class Twitter(commands.Cog):
             except KeyError: # si un tweet est supprimé, il n'y a plus de data, mais il y a toujours une trace. On passe au tweet suivant
                 continue
                 
-            if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower()) and (str(id_tweet) != str(id_last_msg)): # info officiel
+            if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower())\
+            and (str(id_tweet) != str(id_last_msg))\
+            and ('lec' in contenu_tweet.lower()
+                 or 'lcs' in contenu_tweet.lower()
+                 or 'lfl' in contenu_tweet.lower()
+                 or 'lck' in contenu_tweet.lower()): 
+                
                 url_tweet = f'https://twitter.com/{user}/status/{id_tweet}'
                 try:
                     await channel_tracklol.send(f'**MERCATO** {user} : ' + url_tweet)
