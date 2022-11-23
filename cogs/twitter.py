@@ -98,6 +98,7 @@ class Twitter(commands.Cog):
                 try:
                     id_tweet, contenu_tweet = get_tweet(user_id, max_results=5)
                 except KeyError: # si un tweet est supprimé, il n'y a plus de data, mais il y a toujours une trace. On passe au tweet suivant
+                    print(sys.exc_info())
                     continue
                 
                 if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower()) and (str(id_tweet) != str(id_last_msg)): # info officiel
@@ -106,7 +107,8 @@ class Twitter(commands.Cog):
                         await channel_tracklol.send(f'**MERCATO** {user} : ' + url_tweet)
                         requete_perso_bdd('UPDATE twitter SET id_last_msg_twitter = :id_last_msg WHERE id_twitter = :id_twitter', {'id_last_msg' : id_tweet,
                                                                                                                             'id_twitter' : user_id} )
-                    except AttributeError: # pas de détection du channel
+                    except: # pas de détection du channel
+                        print(sys.exc_info())
                         pass
 
 
