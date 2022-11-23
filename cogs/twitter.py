@@ -76,13 +76,8 @@ class Twitter(commands.Cog):
         
     @tasks.loop(minutes=2, count=None )
     async def twitter_suivi(self):
-        try:
-            channel_tracklol = self.bot.get_channel(int(main.chan_lol))
-        except: # pas de détection du channel
-            print('Erreur de détection du channel')
-            print(sys.exc_info())
- 
-                
+
+        channel_tracklol = self.bot.get_channel(int(main.chan_lol))       
         df_twitter =  get_data_bdd('Select * from twitter')
         df_twitter = df_twitter.mappings().all()
             
@@ -98,7 +93,6 @@ class Twitter(commands.Cog):
             try:
                 id_tweet, contenu_tweet = get_tweet(user_id, max_results=5)
             except KeyError: # si un tweet est supprimé, il n'y a plus de data, mais il y a toujours une trace. On passe au tweet suivant
-                print(sys.exc_info())
                 continue
                 
             if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower()) and (str(id_tweet) != str(id_last_msg)): # info officiel
