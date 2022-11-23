@@ -286,7 +286,6 @@ class matchlol():
         self.thisTriple = self.match_detail_participants['tripleKills']
         self.thisQuadra = self.match_detail_participants['quadraKills']
         self.thisPenta = self.match_detail_participants['pentaKills']
-        self.thisChamp = self.match_detail_participants['championId']
         self.thisChampName = self.champ_dict[str(self.thisChamp)]
         self.thisKills = self.match_detail_participants['kills']
         self.thisDeaths = self.match_detail_participants['deaths']
@@ -824,7 +823,7 @@ class matchlol():
                 d.text((x_rank+220, y-45), 'En placement', font=font, fill=fill)
         else:
             
-            data_aram = get_data_bdd('SELECT * from ranked_aram WHERE index = :index', {'index' : self.summonerName}).fetchall()
+            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank, from ranked_aram WHERE index = :index', {'index' : self.summonerName}).fetchall()
 
             wins_actual = data_aram[0]['wins']
             losses_actual = data_aram[0]['losses']
@@ -933,7 +932,16 @@ class matchlol():
 
                 d.text((x_rank+220, y+10), f'{wins}W {losses}L     {round(wr,1)}% ', font=font_little, fill=fill)
                 
-                requete_perso_bdd('UPDATE ranked_aram SET wins = :wins, losses = :losses, lp = :lp, games = :games, k = :k, d = :d, a = :a, rank = :rank WHERE index = :index',
+                requete_perso_bdd(f'''UPDATE ranked_aram SET wins = :wins,
+                                  losses = :losses,
+                                  lp = :lp,
+                                  games = :games,
+                                  k = :k,
+                                  d = :d,
+                                  a = :a,
+                                  rank = :rank,
+                                  {self.thisChampName.lower()} = {self.thisChampName.lower()} + 1
+                                  WHERE index = :index''',
                                   {'wins' : wins, 'losses' : losses, 'lp' : lp, 'games' : games, 'k' : k, 'd' : deaths, 'a' : a, 'rank' : rank, 'index' : self.summonerName.lower()})
             
 
@@ -1108,17 +1116,6 @@ class matchlol():
                         "AppleSDGothicNeo.ttc", 50
                     )  # MacOS
         
-
-        try:
-            font_little = ImageFont.truetype("DejaVuSans.ttf", 40) # Ubuntu 18.04
-        except OSError:
-            try:
-                font_little = ImageFont.truetype("arial.ttf", 40)  # Windows
-            except OSError:
-                font_little = ImageFont.truetype(
-                    "AppleSDGothicNeo.ttc", 40
-                )  # MacOS
-
 
         im = Image.new("RGBA", (lineX, lineY * 13), (255, 255, 255)) # Ligne blanche
         d = ImageDraw.Draw(im)
