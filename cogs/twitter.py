@@ -83,33 +83,33 @@ class Twitter(commands.Cog):
             print(sys.exc_info())
  
                 
-            df_twitter =  get_data_bdd('Select * from twitter')
-            df_twitter = df_twitter.mappings().all()
+        df_twitter =  get_data_bdd('Select * from twitter')
+        df_twitter = df_twitter.mappings().all()
             
-            for twitter in df_twitter:
-                # info de la BDD
-                user = twitter['twitter'] # user
-                id_last_msg = twitter['id_last_msg_twitter'] # id dernier msg
+        for twitter in df_twitter:
+            # info de la BDD
+            user = twitter['twitter'] # user
+            id_last_msg = twitter['id_last_msg_twitter'] # id dernier msg
                 
-                # on récupère l'id twitter
-                user_id = get_user_id(user)
+            # on récupère l'id twitter
+            user_id = get_user_id(user)
                 
-                # now on cherche les tweets
+            # now on cherche les tweets
+            try:
+                id_tweet, contenu_tweet = get_tweet(user_id, max_results=5)
+            except KeyError: # si un tweet est supprimé, il n'y a plus de data, mais il y a toujours une trace. On passe au tweet suivant
+                print(sys.exc_info())
+                continue
+                
+            if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower()) and (str(id_tweet) != str(id_last_msg)): # info officiel
+                url_tweet = f'https://twitter.com/{user}/status/{id_tweet}'
                 try:
-                    id_tweet, contenu_tweet = get_tweet(user_id, max_results=5)
-                except KeyError: # si un tweet est supprimé, il n'y a plus de data, mais il y a toujours une trace. On passe au tweet suivant
-                    print(sys.exc_info())
-                    continue
-                
-                if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower()) and (str(id_tweet) != str(id_last_msg)): # info officiel
-                    url_tweet = f'https://twitter.com/{user}/status/{id_tweet}'
-                    try:
-                        await channel_tracklol.send(f'**MERCATO** {user} : ' + url_tweet)
-                        requete_perso_bdd('UPDATE twitter SET id_last_msg_twitter = :id_last_msg WHERE id_twitter = :id_twitter', {'id_last_msg' : id_tweet,
+                    await channel_tracklol.send(f'**MERCATO** {user} : ' + url_tweet)
+                    requete_perso_bdd('UPDATE twitter SET id_last_msg_twitter = :id_last_msg WHERE id_twitter = :id_twitter', {'id_last_msg' : id_tweet,
                                                                                                                             'id_twitter' : user_id} )
-                    except: # pas de détection du channel
-                        print(sys.exc_info())
-                        pass
+                except: # pas de détection du channel
+                    print(sys.exc_info())
+                    pass
 
 
 
