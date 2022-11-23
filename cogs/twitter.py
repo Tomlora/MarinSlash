@@ -77,7 +77,11 @@ class Twitter(commands.Cog):
     @tasks.loop(minutes=2, count=None )
     async def twitter_suivi(self):
         try:
-            channel_tracklol = self.bot.get_channel(int(main.chan_lol)) 
+            channel_tracklol = self.bot.get_channel(int(main.chan_lol))
+        except: # pas de détection du channel
+            print('Erreur de détection du channel')
+            print(sys.exc_info())
+ 
                 
             df_twitter =  get_data_bdd('Select * from twitter')
             df_twitter = df_twitter.mappings().all()
@@ -91,17 +95,19 @@ class Twitter(commands.Cog):
                 user_id = get_user_id(user)
                 
                 # now on cherche les tweets
-                id_tweet, contenu_tweet = get_tweet(user_id, max_results=5)
+                try:
+                    id_tweet, contenu_tweet = get_tweet(user_id, max_results=5)
+                except KeyError: # si un tweet est supprimé, il n'y a plus de data, mais il y a toujours une trace. On passe au tweet suivant
+                    continue
                 
                 if ('sources' in contenu_tweet.lower() or 'source' in contenu_tweet.lower()) and (str(id_tweet) != str(id_last_msg)): # info officiel
                     url_tweet = f'https://twitter.com/{user}/status/{id_tweet}'
-                    await channel_tracklol.send(f'**MERCATO** {user} : ' + url_tweet)
-                    requete_perso_bdd('UPDATE twitter SET id_last_msg_twitter = :id_last_msg WHERE id_twitter = :id_twitter', {'id_last_msg' : id_tweet,
+                    try:
+                        await channel_tracklol.send(f'**MERCATO** {user} : ' + url_tweet)
+                        requete_perso_bdd('UPDATE twitter SET id_last_msg_twitter = :id_last_msg WHERE id_twitter = :id_twitter', {'id_last_msg' : id_tweet,
                                                                                                                             'id_twitter' : user_id} )
-
-        except:
-            print('Erreur de détection du channel')
-            print(sys.exc_info())
+                    except AttributeError: # pas de détection du channel
+                        pass
 
 
 
