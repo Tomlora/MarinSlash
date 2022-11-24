@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands, tasks
 from discord_slash import SlashCommand
 from fonctions.channels_discord import chan_discord
+from fonctions.gestion_bdd import requete_perso_bdd
 
 from discord_slash.utils.manage_components import *
 
@@ -73,12 +74,24 @@ async def on_message(message):
     await bot.process_commands(
         message)  # Overriding the default provided on_message forbids any extra commands from running. To fix this, add a bot.process_commands(message) line at the end of your on_message.
 
+@bot.event
+async def on_guild_join(guild : discord.Guild):
+
+        text_channel_list = []
+        for channel in guild.text_channels:
+            text_channel_list.append(channel.id)
+        
+        requete_perso_bdd(f'''INSERT INTO public.channels_discord(
+                    server_id, id_owner, id_owner2, chan_pm, chan_tracklol, chan_accueil, chan_twitch, chan_lol, chan_tft, chan_lol_others, role_admin)
+                    VALUES (:server_id, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan);''',
+                {'server_id' : guild.id, 'chan' : text_channel_list[0]})
 
 @bot.event
-async def on_member_join(member):
+async def on_member_join(member : discord.Member):
     '''Lorsque un nouveau user rejoint le discord'''
-    guild = bot.get_guild(guildid)
-    channel = bot.get_channel(chan_kangourou)
+    guild = member.guild.id
+    chan_discord_pm = chan_discord(guild)
+    channel = bot.get_channel(chan_discord_pm.chan_accueil)
     
     embed = discord.Embed(title=f'Bienvenue chez les {guild.name}',
                           description=f'Hello {member.name}, tu es notre {guild.member_count}ème membre !',
@@ -90,10 +103,11 @@ async def on_member_join(member):
 
  
 @bot.event
-async def on_member_remove(member):
+async def on_member_remove(member : discord.Member):
     '''Lorsque un nouveau user quitte le discord'''
-    guild = bot.get_guild(guildid)
-    channel = bot.get_channel(chan_kangourou)
+    guild = member.guild.id
+    chan_discord_pm = chan_discord(guild)
+    channel = bot.get_channel(chan_discord_pm.chan_accueil)
     
     embed = discord.Embed(title=f'Départ des {guild.name}',
                           description=f'Au revoir {member.name}, nous sommes encore {guild.member_count} membres !',
