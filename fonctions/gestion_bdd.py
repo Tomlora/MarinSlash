@@ -47,7 +47,7 @@ def lire_bdd_perso(requests:str, format:str="df", index_col:str="index", params=
             Choix entre 'dict' ou 'df'
     index_col: :class:`str`
             Colonne de l'index de la table
-    params : dict avec {'variable' : 'value}
+    params : dict avec {'variable' : 'value'}
     
     
     Les variables doivent être sous forme %(variable)s
@@ -108,7 +108,7 @@ def get_data_bdd(request:text, dict_params = None):
     
     return data
     
-def requete_perso_bdd(request:text, dict_params:dict):
+def requete_perso_bdd(request:text, dict_params:dict=None):
     """
     request : requête sql au format text
     
@@ -119,6 +119,9 @@ def requete_perso_bdd(request:text, dict_params:dict):
     Dans la requête sql, une variable = :variable """
     conn = engine.connect()
     sql = text(request)
-    conn.execute(sql, dict_params)
+    if dict_params == None:
+        conn.execute(sql)
+    else:
+        conn.execute(sql, dict_params)
     conn.close
     

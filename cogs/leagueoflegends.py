@@ -1,8 +1,5 @@
 from discord.ext import commands, tasks
-
-
 import sys
-
 
 import pandas as pd
 import main
@@ -19,7 +16,6 @@ from discord_slash.utils.manage_commands import create_option
 from fonctions.channels_discord import chan_discord
 
 from time import sleep
-
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -58,14 +54,6 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
 
 
     return embed
-
-def match_spectator(summonerName):
-    me = lol_watcher.summoner.by_name(my_region, summonerName)
-    try:
-        my_match = lol_watcher.spectator.by_summoner(my_region, me['id'])
-    except:
-        my_match = False
-    return my_match
 
 def palier(embed, key:str, stats:str, old_value:int, new_value:int, palier:list):
     if key == stats:
@@ -641,8 +629,7 @@ class LeagueofLegends(commands.Cog):
 
             if str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank']) != level:
                 rank_old = str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank'])
-                suivirank[key]['tier'] = tier
-                suivirank[key]['rank'] = rank
+
                 try:
                     channel_tracklol = self.bot.get_channel(discord_server_id.tracklol)   
                     if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
@@ -652,13 +639,14 @@ class LeagueofLegends(commands.Cog):
                         await channel_tracklol.send(f' Le joueur **{key}** a été promu du rank **{rank_old}** à **{level}**')
                         await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
                                     
-                    suivirank[key]['tier'] = tier
-                    suivirank[key]['rank'] = rank
+
                 except:
                     print('Channel impossible')
                     print(sys.exc_info())     
 
-            sauvegarde_bdd(suivirank, 'suivi')
+                requete_perso_bdd('UPDATE suivi SET tier = :tier, rank = :rank where index =: joueur', {'tier' : tier,
+                                                                                                        'rank' : rank,
+                                                                                                        'joueur' : key})
 
 
     @cog_ext.cog_slash(name="game",
@@ -836,6 +824,7 @@ class LeagueofLegends(commands.Cog):
 
         currentHour = str(datetime.datetime.now().hour)
 
+
         if currentHour == str(2):
             
             for guild in self.bot.guilds:
@@ -844,71 +833,69 @@ class LeagueofLegends(commands.Cog):
             
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
-                suivi = lire_bdd('suivi', 'dict')
-                suivi_24h = lire_bdd('suivi_24h', 'dict')
+  
+                df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi 
+                                    INNER join tracker ON tracker.index = suivi.index 
+                                    where suivi.tier != 'Non-classe' and tracker.server_id = {guild.id} ''')
+                df_24h = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_24h as suivi
+                                    INNER join tracker ON tracker.index = suivi.index 
+                                    where suivi.tier != 'Non-classe' and tracker.server_id = {guild.id} ''')
                 
-                
-                # df = lire_bdd_perso("""SELECT * from suivi WHERE tier != 'Non-classe'""").transpose().reset_index()
-                df = pd.DataFrame.from_dict(suivi)
-                df = df.transpose().reset_index()
-                
-                # df_24h = lire_bdd_perso("""SELECT * from suivi_24h WHERE tier != 'Non-classe'""").transpose().reset_index()
-                df_24h = pd.DataFrame.from_dict(suivi_24h)
-                df_24h = df_24h.transpose().reset_index()
+                if df.shape[1] > 0: # si pas de data, inutile de continuer
+                                             
+                    df = df.transpose().reset_index()
+                    df_24h = df_24h.transpose().reset_index()
+                                    
+                    def changement_tier(x):
+                        dict_chg_tier = {'IRON' : 1,
+                        'BRONZE' : 1,
+                        'SILVER' : 2,
+                        'GOLD' : 3,
+                        'PLATINUM' : 4,
+                        'DIAMOND' : 5,
+                        'MASTER' : 6}
+                        return dict_chg_tier[x]
 
-                
-                df = df[df['tier'] != 'Non-classe'] # on supprime les non-classés
-                
-                df_24h = df_24h[df_24h['tier'] != 'Non-classe'] # on supprime les non-classés
-                
+                    def changement_rank(x):
+                        dict_chg_rank = {'IV' : 1,
+                                        'III' : 2,
+                                        'II' : 3,
+                                        'I' : 4}
+                        return dict_chg_rank[x]
+                        
+                                    
 
-                # Pour l'ordre de passage
-                df['tier_pts'] = 0
-                df['tier_pts'] = np.where(df.tier == 'IRON', 1, df.tier_pts)
-                df['tier_pts'] = np.where(df.tier == 'BRONZE', 1, df.tier_pts)
-                df['tier_pts'] = np.where(df.tier == 'SILVER', 2, df.tier_pts)
-                df['tier_pts'] = np.where(df.tier == 'GOLD', 3, df.tier_pts)
-                df['tier_pts'] = np.where(df.tier == 'PLATINUM', 4, df.tier_pts)
-                df['tier_pts'] = np.where(df.tier == 'DIAMOND', 5, df.tier_pts)
-                df['tier_pts'] = np.where(df.tier == 'MASTER', 6, df.tier_pts)
+                    # Pour l'ordre de passage
+                    df['tier_pts'] = df['tier'].apply(changement_tier)
+                    df['rank_pts'] = df['rank'].apply(changement_rank)
 
+                                    
+                    df.sort_values(by=['tier_pts', 'rank_pts', 'LP'], ascending=[False, False, False], inplace=True)
 
-                df['rank_pts'] = 0
-                df['rank_pts'] = np.where(df['rank'] == 'IV', 1, df.rank_pts)
-                df['rank_pts'] = np.where(df['rank'] == 'III', 2, df.rank_pts)
-                df['rank_pts'] = np.where(df['rank'] == 'II', 3, df.rank_pts)
-                df['rank_pts'] = np.where(df['rank'] == 'I', 4, df.rank_pts)
-                
-                df.sort_values(by=['tier_pts', 'rank_pts', 'LP'], ascending=[False, False, False], inplace=True)
+                    sql = ''
 
-                joueur = df['index'].to_dict()
+                    suivi = df.set_index('index').transpose().to_dict()
+                    suivi_24h = df_24h.set_index('index').transpose().to_dict()
 
-
-                embed = discord.Embed(title="Suivi LOL", description='Periode : 24h', colour=discord.Colour.blurple())
-                totalwin = 0
-                totaldef = 0
-                totalgames = 0
-                
+                    joueur = suivi.keys()
 
 
-                for key in joueur.values():
+                    embed = discord.Embed(title="Suivi LOL", description='Periode : 24h', colour=discord.Colour.blurple())
+                    totalwin = 0
+                    totaldef = 0
+                    totalgames = 0
                     
-                    if suivi[key]['rank'] != "Non-classe":
+                    for key in joueur:
+                        
+                        # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
+                        wins = int(suivi_24h[key]['wins'])
+                        losses = int(suivi_24h[key]['losses'])
+                        nbgames = wins + losses
+                        LP = int(suivi_24h[key]['LP'])
+                        tier_old = str(suivi_24h[key]['tier'])
+                        rank_old = str(suivi_24h[key]['rank'])
+                        classement_old = tier_old + " " + rank_old
 
-                        try:
-                            # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
-                            wins = int(suivi_24h[key]['wins'])
-                            losses = int(suivi_24h[key]['losses'])
-                            nbgames = wins + losses
-                            LP = int(suivi_24h[key]['LP'])
-                            tier_old = str(suivi_24h[key]['tier'])
-                            rank_old = str(suivi_24h[key]['rank'])
-                            classement_old = tier_old + " " + rank_old
-                        except:
-                            wins = 0
-                            losses = 0
-                            nbgames = 0
-                            LP = 0
 
                         # on veut les stats soloq
 
@@ -922,50 +909,50 @@ class LeagueofLegends(commands.Cog):
                         totalwin = totalwin + difwins
                         totaldef = totaldef + diflosses
                         totalgames = totalwin + totaldef
-                        
+                            
                         # evolution
-                        
-                        if classement_new != "Non-classe 0":
+                            
 
-                            if dict_rankid[classement_old] > dict_rankid[classement_new]: # 19-18
-                                difLP = 100 + LP - int(suivi[key]['LP'])
-                                difLP = "Démote / -" + str(difLP)
-                                emote = ":arrow_down:"
 
-                            elif dict_rankid[classement_old] < dict_rankid[classement_new]:
-                                difLP = 100 - LP + int(suivi[key]['LP'])
-                                difLP = "Promotion / +" + str(difLP)
-                                emote = ":arrow_up:"
-                                
-                            elif dict_rankid[classement_old] == dict_rankid[classement_new]:
-                                if difLP > 0:
-                                    emote = ":arrow_up:"
-                                elif difLP < 0:
-                                    emote = ":arrow_down:"
-                                elif difLP == 0:
-                                    emote = ":arrow_right:"
+                        if dict_rankid[classement_old] > dict_rankid[classement_new]: # 19-18
+                            difLP = 100 + LP - int(suivi[key]['LP'])
+                            difLP = "Démote / -" + str(difLP)
+                            emote = ":arrow_down:"
+
+                        elif dict_rankid[classement_old] < dict_rankid[classement_new]:
+                            difLP = 100 - LP + int(suivi[key]['LP'])
+                            difLP = "Promotion / +" + str(difLP)
+                            emote = ":arrow_up:"
                                     
+                        elif dict_rankid[classement_old] == dict_rankid[classement_new]:
+                            if difLP > 0:
+                                emote = ":arrow_up:"
+                            elif difLP < 0:
+                                emote = ":arrow_down:"
+                            elif difLP == 0:
+                                emote = ":arrow_right:"
+                                        
 
-                            embed.add_field(name=str(key) + " ( " + tier + " " + rank + " )",
-                                            value="V : " + str(suivi[key]['wins']) + "(" + str(difwins) + ") | D : "
-                                                + str(suivi[key]['losses']) + "(" + str(diflosses) + ") | LP :  "
-                                                + str(suivi[key]['LP']) + "(" + str(difLP) + ")    " + emote, inline=False)
-                                            
+                        embed.add_field(name=str(key) + " ( " + tier + " " + rank + " )",
+                                                value="V : " + str(suivi[key]['wins']) + "(" + str(difwins) + ") | D : "
+                                                    + str(suivi[key]['losses']) + "(" + str(diflosses) + ") | LP :  "
+                                                    + str(suivi[key]['LP']) + "(" + str(difLP) + ")    " + emote, inline=False)
+                        
+                        if difwins + diflosses > 0: # si supérieur à 0, le joueur a joué
+                            sql += f'''UPDATE suivi_24h SET wins = {suivi[key]['wins']}, losses = {suivi[key]['losses']}, "LP" = {suivi[key]['LP']}, tier = '{suivi[key]['tier']}', rank = '{suivi[key]['rank']}' where index = '{key}';'''
+                                                            
 
-                    else:
-                        suivi[key]["tier"] = "Non-classe"
+                    channel_tracklol = self.bot.get_channel(chan_discord_id.tracklol) 
+                    
+                    embed.set_footer(text=f'Version {main.Var_version} by Tomlora')
+                    
+                    if sql != '': # si vide, pas de requête
+                        requete_perso_bdd(sql)  
 
-                sauvegarde_bdd(suivi, 'suivi_24h')
-
-                channel_tracklol = self.bot.get_channel(chan_discord_id.tracklol) 
+                    await channel_tracklol.send(embed=embed)
+                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
                 
-                embed.set_footer(text=f'Version {main.Var_version} by Tomlora')  
 
-                await channel_tracklol.send(embed=embed)
-                await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
-                
-
-     
     @cog_ext.cog_slash(name="color_recap",
                        description="Couleur du recap",
                        options=[create_option(name="summonername", description= "Nom du joueur", option_type=3, required=True),
@@ -979,19 +966,7 @@ class LeagueofLegends(commands.Cog):
         params = {'rouge' : rouge, 'vert' : vert, 'bleu' : bleu, 'index' : summonername.lower()}
         requete_perso_bdd(f'UPDATE tracker SET "R" = :rouge, "G" = :vert, "B" = :bleu WHERE index = :index', params)
         
-        await ctx.send(f' La couleur du joueur {summonername} a été modifiée.')  
-        
-
-    # @cog_ext.cog_slash(name="spectator", description="Spectator",
-    #                    options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
-    # @main.isOwner2_slash()
-    # async def spectator(self, ctx, summonerName):
-    #     try:
-    #         match = match_spectator(summonerName)
-    #         print(match['participants'])
-    #         await ctx.send('Fait !')
-    #     except:
-    #         await ctx.send("Tu n'es pas en match.")     
+        await ctx.send(f' La couleur du joueur {summonername} a été modifiée.')   
         
     @cog_ext.cog_slash(name="abbedagge", description="Meilleur joueur de LoL")
     async def abbedagge(self, ctx):

@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from fonctions.date import heure_actuelle
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
-
+from time import time
 import main
 
 # Activity au lancement du bot
@@ -18,6 +18,7 @@ class activity(commands.Cog):
         await self.bot.change_presence(
             activity=discord.Activity(type=discord.ActivityType.listening, name='My Dress Up Darling'))
 
+        a = time()
         
         for guild in self.bot.guilds:
             text_channel_list = []
@@ -36,10 +37,11 @@ class activity(commands.Cog):
                 
             
             print(f' Channels connectées => Name : {guild.name} | Id : {guild.id} | Chan1 : {text_channel_list[0]}')
-            
+        
                
         if not main.check_for_unmute.is_running():    
             await main.check_for_unmute.start()
+
 
 def setup(bot):
     bot.add_cog(activity(bot))

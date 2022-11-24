@@ -932,25 +932,26 @@ class matchlol():
 
                 d.text((x_rank+220, y+10), f'{wins}W {losses}L     {round(wr,1)}% ', font=font_little, fill=fill)
                 
-                requete_perso_bdd(f'''UPDATE ranked_aram SET wins = :wins,
-                                  losses = :losses,
-                                  lp = :lp,
-                                  games = :games,
-                                  k = :k,
-                                  d = :d,
-                                  a = :a,
-                                  rank = :rank,
-                                  {self.thisChampName.lower()} = {self.thisChampName.lower()} + 1
+                requete_perso_bdd(f'''UPDATE ranked_aram
+                                    SET wins = :wins,
+                                    losses = :losses,
+                                    lp = :lp,
+                                    games = :games,
+                                    k = :k,
+                                    d = :d,
+                                    a = :a,
+                                    rank = :rank,
+                                    {self.thisChampName.lower()} = {self.thisChampName.lower()} + 1
                                   WHERE index = :index''',
-                                  {'wins' : wins,
-                                   'losses' : losses,
-                                   'lp' : lp,
-                                   'games' : games,
-                                   'k' : k,
-                                   'd' : deaths,
-                                   'a' : a,
-                                   'rank' : rank,
-                                   'index' : self.summonerName.lower()})
+                                    {'wins' : wins,
+                                    'losses' : losses,
+                                    'lp' : lp,
+                                    'games' : games,
+                                    'k' : k,
+                                    'd' : deaths,
+                                    'a' : a,
+                                    'rank' : rank,
+                                    'index' : self.summonerName.lower()})
             
 
         
