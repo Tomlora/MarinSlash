@@ -360,7 +360,6 @@ class Recordslol(interactions.Extension):
         embed2 = interactions.Embed(title=f"Records personnels {joueur} (2/3)", color=interactions.Color.blurple())
         embed3 = interactions.Embed(title=f"Records personnels ARAM {joueur} (3/3)", color=interactions.Color.blurple())
         
-        embed1.add_field()
     
         
         for key, valeur in df_part1.iteritems():
