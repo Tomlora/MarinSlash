@@ -1,7 +1,5 @@
-from discord.ext import commands
-from discord_slash import cog_ext, SlashContext
-
-from riotwatcher import LolWatcher
+import interactions
+from interactions import Choice, Option
 import pandas as pd
 import os
 import numpy as np
@@ -18,32 +16,28 @@ import seaborn as sns
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
-from fonctions.match import match_by_puuid, lol_watcher, my_region, region
-
-
-
-
-from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
-
+from fonctions.match import (match_by_puuid,
+                             lol_watcher,
+                             my_region,
+                             region)
 
 # Paramètres LoL
 version = lol_watcher.data_dragon.versions_for_region(my_region)
 champions_versions = version['n']['champion']
 
 
-choice_var = [create_choice(name="dmg", value="dmg"),
-                create_choice(name="gold", value="gold"),
-                create_choice(name="vision", value="vision"),
-                create_choice(name="tank", value="tank"),
-                create_choice(name="heal alliés", value="heal_allies"),
-                create_choice(name="solokills", value="solokills")]
+choice_var = [Choice(name="dmg", value="dmg"),
+                Choice(name="gold", value="gold"),
+                Choice(name="vision", value="vision"),
+                Choice(name="tank", value="tank"),
+                Choice(name="heal alliés", value="heal_allies"),
+                Choice(name="solokills", value="solokills")]
 
 
-choice_analyse = [create_choice(name="gold", value="gold"),
-                    create_choice(name='gold_team', value='gold_team'),
-                    create_choice(name='vision', value='vision'),
-                    create_choice(name='position', value='position')]
+choice_analyse = [Choice(name="gold", value="gold"),
+                    Choice(name='gold_team', value='gold_team'),
+                    Choice(name='vision', value='vision'),
+                    Choice(name='position', value='position')]
 
 
 def dict_data(thisId: int, match_detail, info):
@@ -101,20 +95,37 @@ def dict_data(thisId: int, match_detail, info):
 
 
 
-class analyseLoL(commands.Cog):
+class analyseLoL(interactions.Extension):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot : interactions.Client = bot
 
-    @cog_ext.cog_slash(name="analyse",
+    @interactions.extension_command(name="analyse",
                        description="Permet d'afficher des statistiques durant la game",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True),
-                                create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=choice_analyse),
-                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=choice_analyse),
-                                create_option(name="game", description="Game de 0 à 10 (0 étant la dernière)", option_type=4, required=False)])
-    @commands.cooldown(1,30, commands.BucketType.guild)
-    async def analyse(self, ctx:SlashContext, summonername:str, stat:str, stat2:str = "no", game:int=0):
-        
-
+                       options=[Option(
+                                    name="summonername",
+                                    description = "Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=True),
+                                Option(
+                                    name="stat",
+                                    description="Quel stat ?",
+                                    type=interactions.OptionType.STRING,
+                                    required=True,
+                                    choices=choice_analyse),
+                                Option(name="stat2",
+                                    description="Quel stat ?",
+                                    type=interactions.OptionType.STRING,
+                                    required=False,
+                                    choices=choice_analyse),
+                                Option(
+                                    name="game",
+                                    description="Numero Game",
+                                    type=interactions.OptionType.INTEGER,
+                                    required=False,
+                                    min_value=0,
+                                    max_value=10)])
+    async def analyse(self, ctx:interactions.CommandContext, summonername:str, stat:str, stat2:str = "no", game:int=0):
+    
         
         stat = [stat, stat2]
         liste_graph = list()
@@ -125,10 +136,10 @@ class analyseLoL(commands.Cog):
         def graphique(fig, name):
             fig.write_image(name)
             liste_delete.append(name)
-            liste_graph.append(discord.File(name))
+            liste_graph.append(interactions.File(name))
         
 
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
         
 
         
@@ -347,7 +358,7 @@ class analyseLoL(commands.Cog):
             
             plt.savefig('gold_team.png')
             liste_delete.append('gold_team.png')
-            liste_graph.append(discord.File('gold_team.png'))
+            liste_graph.append(interactions.File('gold_team.png'))
 
         if 'position' in stat:
 
@@ -418,41 +429,54 @@ class analyseLoL(commands.Cog):
             fig.update_xaxes(automargin=True)
                 
             graphique(fig, 'position.png')
-                
 
-                
+
         await ctx.send(files=liste_graph)
-            
+
+
         for graph in liste_delete:
             os.remove(graph)
 
-
-
-            
-    @analyse.error
-    async def analyse_error(self, ctx, error):
-        if isinstance(error, commands.CommandOnCooldown):
-            embed = discord.Embed(title='Cooldown', description=f'Description: \n `{error}`',
-                              timestamp=ctx.created_at, color=242424)
-            await ctx.send(embed=embed)
-        else:
-            print(error)
-
-    @cog_ext.cog_slash(name="var",
+    interactions.CommandContext.send
+    @interactions.extension_command(name="var",
                        description="Voir des stats de fin de game",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True),
-                                create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=choice_var),
-                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=choice_var),
-                                create_option(name="stat3", description="Quel stat ?", option_type=3, required=False, choices=choice_var),
-                                create_option(name="game", description="Game de 0 à 10 (0 étant la dernière)", option_type=4, required=False)])
-    @commands.cooldown(1, 30, commands.BucketType.guild)
-    async def var(self, ctx:SlashContext, summonername, stat:str, stat2:str='no', stat3:str='no', game:int=0):
+                       options=[Option(
+                                    name="summonername",
+                                    description = "Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=True),
+                                Option(
+                                    name="stat",
+                                    description="Quel stat ?",
+                                    type=interactions.OptionType.STRING,
+                                    required=True,
+                                    choices=choice_var),
+                                Option(
+                                    name="stat2",
+                                    description="Quel stat ?",
+                                    type=interactions.OptionType.STRING,
+                                    required=False,
+                                    choices=choice_var),
+                                Option(
+                                    name="stat3",
+                                    description="Quel stat ?",
+                                    type=interactions.OptionType.STRING,
+                                    required=False,
+                                    choices=choice_var),
+                                Option(
+                                    name="game",
+                                    description="Game de 0 à 10 (0 étant la dernière)",
+                                    type=interactions.OptionType.INTEGER,
+                                    required=False,
+                                    min_value=0,
+                                    max_value=10)])
+    async def var(self, ctx:interactions.CommandContext, summonername, stat:str, stat2:str='no', stat3:str='no', game:int=0):
         
         
         
         stat = [stat, stat2, stat3]
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
         
         liste_delete = list()
         liste_graph = list()
@@ -460,7 +484,7 @@ class analyseLoL(commands.Cog):
         def graphique(fig, name):
             fig.write_image(name)
             liste_delete.append(name)
-            liste_graph.append(discord.File(name))
+            liste_graph.append(interactions.File(name))
         
 
         last_match, match_detail_stats, me = match_by_puuid(summonername, game)
@@ -687,20 +711,22 @@ class analyseLoL(commands.Cog):
             await stat.delete()
             await ctx.send("Annulé")
     
-    @var.error
-    async def var_error(self, ctx, error):
-        if isinstance(error, commands.CommandOnCooldown):
-            embed = discord.Embed(title='Cooldown', description=f'Description: \n `{error}`',
-                              timestamp=ctx.created_at, color=242424)
-            await ctx.send(embed=embed)
-
-    @cog_ext.cog_slash(name="var_10games",
+    @interactions.extension_command(name="var_10games",
                        description="Voir des stats de fin de game sur 10 games",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True),
-                                create_option(name="stat", description = "Quel stat ?", option_type=3, required=True, choices=[
-                                    create_choice(name="vision", value="vision")
+                       options=[Option(
+                                    name="summonername",
+                                    description = "Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=True),
+                                Option(
+                                    name="stat",
+                                    description = "Quel stat ?",
+                                    type=interactions.OptionType.STRING,
+                                    required=True,
+                                    choices=[
+                                    Choice(name="vision", value="vision")
                                 ])])
-    async def var_10games(self, ctx, summonername, stat):
+    async def var_10games(self, ctx:interactions.CommandContext, summonername, stat):
 
         me = lol_watcher.summoner.by_name(my_region, summonername)
         my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'])
@@ -745,7 +771,7 @@ class analyseLoL(commands.Cog):
                 plt.legend(title='Joueur', labels=[summonername])
                 plt.savefig(fname='plot')
                 plt.clf()
-                await ctx.send(file=discord.File('plot.png'))
+                await ctx.send(file=interactions.File('plot.png'))
                 os.remove('plot.png')
 
 
@@ -755,4 +781,4 @@ class analyseLoL(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(analyseLoL(bot))
+    analyseLoL(bot)

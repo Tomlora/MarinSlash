@@ -1,19 +1,19 @@
-
-from discord.ext import commands, tasks
-
 import pandas as pd
-import main
 import warnings
-from discord_slash.utils.manage_components import *
-
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, get_data_bdd
+import interactions 
+from interactions import Option
+from interactions.ext.tasks import create_task, IntervalTrigger
+from fonctions.channels_discord import chan_discord
+import sys
+from fonctions.params import Version
+from fonctions.gestion_bdd import (lire_bdd,
+                                   sauvegarde_bdd,
+                                   get_data_bdd,
+                                   requete_perso_bdd)
 from fonctions.match import dict_rankid
 import requests
 
 
-from discord_slash import cog_ext
-from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option
 
 
 
@@ -52,23 +52,25 @@ def matchtft_by_puuid(summonerName, idgames: int):
     match = pd.DataFrame(match)
     return match, last_match, puuid
 
-
+def rgb_to_discord(r: int, g: int, b: int):
+        """Transpose les couleurs rgb en couleur personnalisée discord."""
+        return ((r << 16) + (g << 8) + b)
 
      
 
 
-class tft(commands.Cog):
+class tft(interactions.Extension):
     def __init__(self, bot):
-        self.bot = bot
-        self.my_tasktft.start()
+        self.bot : interactions.Client = bot
 
  
 
     # ----------------------------- test
 
-    @tasks.loop(minutes=1, count=None)
-    async def my_tasktft(self):
-        await self.updatetft()
+    @interactions.extension_listener
+    async def on_start(self):
+        self.task1 = create_task(IntervalTrigger(60))(self.updatetft)
+        self.task1.start()
 
         
      
@@ -207,17 +209,15 @@ class tft(commands.Cog):
         summonername = summonername.upper()
         
 
-        try:
-            data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {'index' : summonername} )
-            data = data.fetchall()
-            color = discord.Color.from_rgb(data[0][0], data[0][1], data[0][2])
+
+        data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {'index' : summonername} )
+        data = data.fetchall()
+        color = rgb_to_discord(data[0][0], data[0][1], data[0][2])
             
-        except:
-            color = discord.Color.blue()
         
         
         
-        embed = discord.Embed(
+        embed = interactions.Embed(
                 title=f"** {summonername} ** vient de finir ** {classement}ème ** sur tft", color=color)
         
         embed.add_field(name="Durée de la game :",
@@ -269,57 +269,80 @@ class tft(commands.Cog):
             embed.add_field(name=f'{monster_name}', value=f'Tier : {monster_tier}')
         
         
-        embed.set_footer(text=f'Version {main.Var_version} by Tomlora - Match {id_match}')
+        embed.set_footer(text=f'Version {Version} by Tomlora - Match {id_match}')
         
        
 
         return embed
     
     
-    @cog_ext.cog_slash(name="gametft",description="Recap tft",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True),
-                                create_option(name="idgames", description="numero de la game", option_type=4, required=False)])
-    async def gametft(self, ctx, summonername, idgames:int=0):
+    @interactions.extension_command(name="gametft",
+                                    description="Recap tft",
+                       options=[Option(name="summonername",
+                                       description = "Nom du joueur",
+                                       type=interactions.OptionType.STRING,
+                                       required=True),
+                                Option(name="idgames",
+                                       description="numero de la game",
+                                       type=interactions.OptionType.INTEGER,
+                                       required=False,
+                                       min_value=0,
+                                       max_value=10)])
+    async def gametft(self, ctx:interactions.CommandContext, summonername, idgames:int=0):
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
     
         embed = self.stats_tft(summonername, idgames)
         
-        await ctx.send(embed=embed)
+        await ctx.send(embeds=embed)
         
         
-    async def printLivetft(self, summonername):
+    async def printLivetft(self, summonername:str, discord_server_id:chan_discord):
 
         
         embed = self.stats_tft(summonername, idgames=0)
         
-        channel = self.bot.get_channel(int(main.chan_tft))
+        channel = await interactions.get(client=self.bot,
+                                        obj=interactions.Channel,
+                                        object_id=discord_server_id.tft)
         
         if embed != {}:
-            await channel.send(embed=embed)
+            await channel.send(embeds=embed)
 
                
     async def updatetft(self):
-        data = lire_bdd('trackertft', 'dict')
-        for key, value in data.items():
-            match_detail, id_match, puuid = matchtft_by_puuid(key, 0)
-            if str(value['id']) != id_match:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = summonername // value = numéro de la game
+        data = get_data_bdd('''SELECT trackertft.index, trackertft.id, tracker.server_id from trackertft
+                    INNER JOIN tracker on trackertft.index = tracker.index''')
+        for joueur, id_game, server_id in data:
+            
+            match_detail, id_match, puuid = matchtft_by_puuid(joueur, 0)
+            
+            if str(id_game) != id_match:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = summonername // value = numéro de la game
                 try:
-                    await self.printLivetft(key)
+                    
+                    discord_server_id = chan_discord(server_id)
+                    await self.printLivetft(joueur, discord_server_id)
                 except:
-                    print(f"tft : Message non envoyé car le joueur {key} a fait une partie avec moins de 10 joueurs ou un mode désactivé")
-                data[key]['id'] = id_match
-        data = pd.DataFrame.from_dict(data, orient="index")
-        sauvegarde_bdd(data, 'trackertft')
+                    print(f"erreur {joueur}") # joueur qui a posé pb
+                    print(sys.exc_info()) # erreur                    
 
-    @cog_ext.cog_slash(name="tftadd",description="Ajoute le joueur au suivi",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
-    async def tftadd(self, ctx, *, summonername):
-        # try:
+                requete_perso_bdd(f'UPDATE trackertft SET id = :id WHERE index = :index', {'id' : id_game, 'index' : joueur})
+
+    @interactions.extension_command(name="tftadd",
+                                    description="Ajoute le joueur au suivi",
+                       options=[Option(
+                           name="summonername",
+                           description = "Nom du joueur",
+                           type=interactions.OptionType.STRING,
+                           required=True)])
+    
+    async def tftadd(self, ctx:interactions.CommandContext, *, summonername):
+        # TODO : à simplifier
+        # TODO : refaire tftremove
             data = lire_bdd('trackertft', 'dict')
             suivi_profil = lire_bdd('suivitft', 'dict')
             
-            await ctx.defer(hidden=False)
+            await ctx.defer(ephemeral=False)
             
             profil = get_stats_ranked(summonername)[0]
         
@@ -338,17 +361,10 @@ class tft(commands.Cog):
         # except:
             # await ctx.send("Oops! There is no summoner with that name!")
 
-    @cog_ext.cog_slash(name="tftremove", description="Supprime le joueur du suivi",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
-    async def tftremove(self, ctx, *, summonername):
-        data = lire_bdd('trackertft', 'dict')
-        if summonername in data: del data[summonername] #                                                                                             "")]  # si le summonername est présent dans la data, on supprime la data de ce summonername
-        data = pd.DataFrame.from_dict(data, orient="index", columns=['id'])
-        sauvegarde_bdd(data, 'trackertft')
 
-        await ctx.send(summonername + " was successfully removed from live-feed!")
 
-    @cog_ext.cog_slash(name='tftlist', description='Affiche la liste des joueurs suivis')
+    @interactions.extension_command(name='tftlist',
+                                    description='Affiche la liste des joueurs suivis')
     async def tftlist(self, ctx):
 
         data = lire_bdd('trackertft', 'dict')
@@ -358,10 +374,10 @@ class tft(commands.Cog):
             response += key.upper() + ", "
 
         response = response[:-2]
-        embed = discord.Embed(title="Live feed list", description=response, colour=discord.Colour.blurple())
+        embed = interactions.Embed(title="Live feed list", description=response, colour=interactions.Color.blurple())
 
-        await ctx.send(embed=embed)
+        await ctx.send(embeds=embed)
      
 
 def setup(bot):
-    bot.add_cog(tft(bot))
+    tft(bot)

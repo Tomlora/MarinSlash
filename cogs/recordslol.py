@@ -1,18 +1,18 @@
-import discord
-from discord.ext import commands
-from main import Var_version
 import numpy as np
 import pandas as pd
 import asyncio
-from discord_slash.utils.manage_components import *
+
 import plotly.express as px
 import plotly.graph_objects as go
 import os
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
-from discord_slash import cog_ext
 
-from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
+import interactions
+from interactions import Choice, Option
+from interactions.ext.paginator import Page, Paginator
+from fonctions.params import Version
+
+
 
 
 emote = {
@@ -121,29 +121,37 @@ emote = {
         }
 
 
-choice_pantheon = [create_choice(name="KDA", value="KDA"),
-                    create_choice(name='KDA moyenne', value='KDA moyenne'),
-                    create_choice(name='vision', value='VISION'),
-                    create_choice(name='vision moyenne', value='VISION moyenne'),
-                    create_choice(name='CS', value='CS'),
-                    create_choice(name='Solokills', value='SOLOKILLS'),
-                    create_choice(name='games', value='GAMES')]
+choice_pantheon = [Choice(name="KDA", value="KDA"),
+                    Choice(name='KDA moyenne', value='KDA moyenne'),
+                    Choice(name='vision', value='VISION'),
+                    Choice(name='vision moyenne', value='VISION moyenne'),
+                    Choice(name='CS', value='CS'),
+                    Choice(name='Solokills', value='SOLOKILLS'),
+                    Choice(name='games', value='GAMES')]
      
-class Recordslol(commands.Cog):
+class Recordslol(interactions.Extension):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot : interactions.Client = bot
         
         
-    @cog_ext.cog_slash(name="records_list",
+    @interactions.extension_command(name="records_list",
                        description="Voir les records détenues par les joueurs",
-                       options=[create_option(name="mode", description="Quel mode de jeu ?", option_type=3, required=True, choices=[
-                                    create_choice(name='ranked', value='ranked'),
-                                    create_choice(name='aram', value='aram')]),
-                                create_option(name='saison', description='saison league of legends', option_type=4, required=False)
+                       options=[Option(
+                                    name="mode",
+                                    description="Quel mode de jeu ?",
+                                    type=interactions.OptionType.STRING,
+                                    required=True, choices=[
+                                        Choice(name='ranked', value='ranked'),
+                                        Choice(name='aram', value='aram')]),
+                                Option(
+                                    name='saison',
+                                    description='saison league of legends',
+                                    type=interactions.OptionType.INTEGER,
+                                    required=False)
                                 ])
-    async def records_list(self, ctx, saison:int=12, mode:str='ranked'):
+    async def records_list(self, ctx:interactions.CommandContext, saison:int=12, mode:str='ranked'):
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
 
         current = 0
 
@@ -155,7 +163,7 @@ class Recordslol(commands.Cog):
         
         response = ""
 
-        embed1 = discord.Embed(title=f"Records {mode} S{saison} (Page 1/3) :bar_chart:", colour=discord.Colour.blurple())
+        embed1 = interactions.Embed(title=f"Records {mode} S{saison} (Page 1/3) :bar_chart:", color=interactions.Color.blurple())
 
         for key, value in fichier1.iterrows():
             valeur = ""
@@ -170,19 +178,19 @@ class Recordslol(commands.Cog):
                 
             if value['url'] == "na":
                 embed1.add_field(name=str(emote[key]) + "" + key,
-                             value=f"Records : __ {valeur} __ \n ** {value['Joueur']} ** ({value['Champion']})")
+                             value=f"Records : __ {valeur} __ \n ** {value['Joueur']} ** ({value['Champion']})", inline=True)
             
             else:
                 embed1.add_field(name=str(emote[key]) + "" + key,
-                             value=f"Records : __ [{valeur}]({value['url']}) __ \n ** {value['Joueur']} ** ({value['Champion']})")
+                             value=f"Records : __ [{valeur}]({value['url']}) __ \n ** {value['Joueur']} ** ({value['Champion']})", inline=True)
                 
                 
 
-        embed1.set_footer(text=f'Version {Var_version} by Tomlora')
+        embed1.set_footer(text=f'Version {Version} by Tomlora')
 
         
 
-        embed2 = discord.Embed(title=f"Records {mode} S{saison} (Page 2/3) :bar_chart:", colour=discord.Colour.blurple())
+        embed2 = interactions.Embed(title=f"Records {mode} S{saison} (Page 2/3) :bar_chart:", color=interactions.Color.blurple())
 
         for key, value in fichier2.iterrows():
             valeur2 = ""
@@ -197,15 +205,15 @@ class Recordslol(commands.Cog):
                 
             if value['url'] == 'na':
                 embed2.add_field(name=str(emote[key]) + "" + key,
-                             value=f"Records : __ {valeur2} __ \n ** {value['Joueur']} ** ({value['Champion']})")
+                             value=f"Records : __ {valeur2} __ \n ** {value['Joueur']} ** ({value['Champion']})", inline=True)
                 
             else:
                 embed2.add_field(name=str(emote[key]) + "" + key,
-                             value=f"Records : __ [{valeur2}]({value['url']}) __ \n ** {value['Joueur']} ** ({value['Champion']})")
+                             value=f"Records : __ [{valeur2}]({value['url']}) __ \n ** {value['Joueur']} ** ({value['Champion']})", inline=True)
 
-        embed2.set_footer(text=f'Version {Var_version} by Tomlora')
+        embed2.set_footer(text=f'Version {Version} by Tomlora')
 
-        embed3 = discord.Embed(title=f"Records Cumul & Moyenne S{saison} (Page 3/3) :bar_chart: ")
+        embed3 = interactions.Embed(title=f"Records Cumul & Moyenne S{saison} (Page 3/3) :bar_chart: ")
 
         fichier3 = lire_bdd('records3', 'dict')
 
@@ -295,7 +303,7 @@ class Recordslol(commands.Cog):
 
                 embed3.add_field(name=str(emote[key]) + "" + str(key),
                                  value="Records : __ " + str(value) + " __ \n ** " + str(
-                                     joueur) + "**")
+                                     joueur) + "**", inline=True)
 
             for key in list_avg:
                 joueur, value, nbgames = findrecord(df, key, False)
@@ -303,7 +311,7 @@ class Recordslol(commands.Cog):
 
                 embed3.add_field(name=str(emote[key]) + "" + str(key) + " (ELEVEE)",
                                  value="Records : __ " + str(value) + " __ en " + str(nbgames) + " games \n ** " + str(
-                                     joueur) + "**")
+                                     joueur) + "**", inline=True)
 
             for key in ['KILLS_MOYENNE', 'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']:
                 joueur, value, nbgames = findrecord(df, key, True)
@@ -311,65 +319,48 @@ class Recordslol(commands.Cog):
 
                 embed3.add_field(name=str(emote[key]) + "" + str(key) + " (BASSE)",
                                  value="Records : __ " + str(value) + " __ en " + str(nbgames) + " games \n ** " + str(
-                                     joueur) + "**")
+                                     joueur) + "**", inline=True)
 
         else:
             embed3.add_field(name="Indisponible", value="Aucun joueur n'a atteint le minimum requis : 10 games")
 
-        embed3.set_footer(text=f'Version {Var_version} by Tomlora')
+        embed3.set_footer(text=f'Version {Version} by Tomlora')
 
-        self.bot.pages = [embed1, embed2, embed3]
-        buttons = [u"\u2B05", u"\u27A1"]  # skip to start, left, right, skip to end
-
-        msg = await ctx.send(embed=self.bot.pages[current])
-
-        for button in buttons:
-            await msg.add_reaction(button)
-            
-
-        while True:
-            try:
-                reaction, user = await self.bot.wait_for("reaction_add", check=lambda reaction,
-                                                                                      user: user == ctx.author and reaction.emoji in buttons,
-                                                         timeout=30.0)
-            except asyncio.TimeoutError:
-                return print("Records_list terminés")
-            else:
-                previous_page = current
-
-                if reaction.emoji == u"\u2B05":
-                    if current > 0:
-                        current -= 1
-
-                elif reaction.emoji == u"\u27A1":
-                    if current < len(self.bot.pages) - 1:
-                        current += 1
-
-                for button in buttons:
-                    await msg.remove_reaction(button, ctx.author)
-
-                if current != previous_page:
-                    await msg.edit(embed=self.bot.pages[current])
+        await Paginator(
+            client=self.bot,
+            ctx=ctx,
+            pages=[
+                Page(embed1.title, embed1),
+                Page(embed2.title, embed2),
+                Page(embed3.title, embed3)
+            ]
+        ).run()
                     
-    @cog_ext.cog_slash(name="records_personnel",
+    @interactions.extension_command(name="records_personnel",
                        description="Record personnel",
-                       options=[create_option(name="joueur", description="Pseudo LoL", option_type=3, required=True)])
-    async def records_personnel(self, ctx, joueur:str):
+                       options=[Option(
+                                    name="joueur",
+                                    description="Pseudo LoL",
+                                    type=interactions.OptionType.STRING,
+                                    required=True)])
+    async def records_personnel(self, ctx:interactions.CommandContext, joueur:str):
         
         joueur = joueur.lower()
         
         df = lire_bdd('records_personnel')[joueur]
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
         
         current = 0
         
         df_part1 = df.iloc[:18]
         df_part2 = df.iloc[18:]
         
-        embed1 = discord.Embed(title=f"Records personnels {joueur} (1/3)", colour=discord.Colour.blurple())
-        embed2 = discord.Embed(title=f"Records personnels {joueur} (2/3)", colour=discord.Colour.blurple())
-        embed3 = discord.Embed(title=f"Records personnels ARAM {joueur} (3/3)", colour=discord.Colour.blurple())
+        embed1 = interactions.Embed(title=f"Records personnels {joueur} (1/3)", color=interactions.Color.blurple())
+        embed2 = interactions.Embed(title=f"Records personnels {joueur} (2/3)", color=interactions.Color.blurple())
+        embed3 = interactions.Embed(title=f"Records personnels ARAM {joueur} (3/3)", color=interactions.Color.blurple())
+        
+        embed1.add_field()
     
         
         for key, valeur in df_part1.iteritems():
@@ -387,13 +378,13 @@ class Recordslol(commands.Cog):
                 if df.loc[key + '_url'] == 'na':
 
                     embed1.add_field(name=str(emote[key]) + " " + key,
-                                value=f"Records : __ {valeur} __ ")
+                                value=f"Records : __ {valeur} __ ", inline=True)
                 
                 else:
                     
                     
                     embed1.add_field(name=str(emote[key]) + " " + key,
-                                value=f"Records : __ [{valeur}]({df.loc[key + '_url']}) __ ")
+                                value=f"Records : __ [{valeur}]({df.loc[key + '_url']}) __ ", inline=True)
                     
 
         for key, valeur in df_part2.iteritems():
@@ -416,64 +407,57 @@ class Recordslol(commands.Cog):
                 if df.loc[key + '_url'] == 'na':  # on cherche l'url associé
                     
                     embed_selected.add_field(name=str(emote[key]) + " " + key,
-                                value=f"Records : __ {valeur} __ ")
+                                value=f"Records : __ {valeur} __ ", inline=True)
                 
                 else:
                     
                     embed_selected.add_field(name=str(emote[key]) + " " + key,
-                                value=f"Records : __ [{valeur}]({df.loc[key + '_url']}) __ ")
+                                value=f"Records : __ [{valeur}]({df.loc[key + '_url']}) __ ", inline=True)
                     
 
-        embed1.set_footer(text=f'Version {Var_version} by Tomlora')
-        embed2.set_footer(text=f'Version {Var_version} by Tomlora')
-        embed3.set_footer(text=f'Version {Var_version} by Tomlora')
+        embed1.set_footer(text=f'Version {Version} by Tomlora')
+        embed2.set_footer(text=f'Version {Version} by Tomlora')
+        embed3.set_footer(text=f'Version {Version} by Tomlora')
+        
+        await Paginator(
+            client=self.bot,
+            ctx=ctx,
+            pages=[
+                Page(embed1.title, embed1),
+                Page(embed2.title, embed2),
+                Page(embed3.title, embed3)
+            ]
+        ).run()
         
         
-        self.bot.pages = [embed1, embed2, embed3]
-        buttons = [u"\u2B05", u"\u27A1"]  # skip to start, left, right, skip to end
-
-        msg = await ctx.send(embed=self.bot.pages[current])
-
-        for button in buttons:
-            await msg.add_reaction(button)
-            
-
-        while True:
-            try:
-                reaction, user = await self.bot.wait_for("reaction_add", check=lambda reaction,
-                                                                                      user: user == ctx.author and reaction.emoji in buttons,
-                                                         timeout=30.0)
-            except asyncio.TimeoutError:
-                return print("Records_list terminés")
-            else:
-                previous_page = current
-
-                if reaction.emoji == u"\u2B05":
-                    if current > 0:
-                        current -= 1
-
-                elif reaction.emoji == u"\u27A1":
-                    if current < len(self.bot.pages) - 1:
-                        current += 1
-
-                for button in buttons:
-                    await msg.remove_reaction(button, ctx.author)
-
-                if current != previous_page:
-                    await msg.edit(embed=self.bot.pages[current])
-        
-        
-    @cog_ext.cog_slash(name="pantheon",
+    @interactions.extension_command(name="pantheon",
                        description="Cumul des statistiques",
-                       options=[create_option(name="stat", description="Quel stat ?", option_type=3, required=True, choices=choice_pantheon),
-                                create_option(name="mode", description="Quel mode de jeu ?", option_type=3, required=True, choices=[
-                                    create_choice(name='ranked', value='ranked'),
-                                    create_choice(name='aram', value='aram')]),
-                                create_option(name="stat2", description="Quel stat ?", option_type=3, required=False, choices=choice_pantheon),
-                                create_option(name="stat3", description="Quel stat ?", option_type=3, required=False, choices=choice_pantheon),
-                                create_option(name="fichier_recap", description="Fichier Excel recapitulatif", option_type=5, required=False)
+                       options=[Option(name="stat",
+                                       description="Quel stat ?",
+                                       type=interactions.OptionType.STRING,
+                                       required=True,
+                                       choices=choice_pantheon),
+                                Option(name="mode",
+                                       description="Quel mode de jeu ?",
+                                       type=interactions.OptionType.STRING,
+                                       required=True, choices=[
+                                    Choice(name='ranked', value='ranked'),
+                                    Choice(name='aram', value='aram')]),
+                                Option(name="stat2",
+                                       description="Quel stat ?",
+                                       type=interactions.OptionType.STRING,
+                                       required=False,
+                                       choices=choice_pantheon),
+                                Option(name="stat3",
+                                       description="Quel stat ?",
+                                       type=interactions.OptionType.STRING,
+                                       required=False, choices=choice_pantheon),
+                                Option(name="fichier_recap",
+                                       description="Fichier Excel recapitulatif",
+                                       type=interactions.OptionType.BOOLEAN,
+                                       required=False)
                                 ])
-    async def pantheon(self, ctx, stat, mode:str, stat2:str="no", stat3:str="no", fichier_recap:bool=False):
+    async def pantheon(self, ctx:interactions.CommandContext, stat, mode:str, stat2:str="no", stat3:str="no", fichier_recap:bool=False):
         
         stat = [stat, stat2, stat3]
         
@@ -534,7 +518,7 @@ class Recordslol(commands.Cog):
         
         df.to_excel('./obj/records/pantheon.xlsx', index=False)
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
         
         liste_graph = list()
         liste_delete = list()
@@ -542,7 +526,7 @@ class Recordslol(commands.Cog):
         def graphique(fig, name):
             fig.write_image(name)
             liste_delete.append(name)
-            liste_graph.append(discord.File(name))
+            liste_graph.append(interactions.File(name))
 
         def figure_hist(dict, title): # Fonction pour faire l'histogramme en fonction d'un dict
 
@@ -639,18 +623,18 @@ class Recordslol(commands.Cog):
                 fig = figure_hist(variables, col_games)
 
                 fig.write_image('plot.png')
-                await ctx.send(content="Durée des games exprimée en heures", file=discord.File('plot.png'))
+                await ctx.send(content="Durée des games exprimée en heures", file=interactions.File('plot.png'))
                 os.remove('plot.png')
                 
                 fig = px.pie(df, values='DUREE_MOYENNE', names='Joueurs', title='DUREE MOYENNE DES GAMES')
                 fig.update_traces(textinfo='value', textfont_size=20)
                 fig.write_image('pie.png')
-                await ctx.send(content="Durée des games exprimée en minutes", file=discord.File('pie.png'))
+                await ctx.send(content="Durée des games exprimée en minutes", file=interactions.File('pie.png'))
                 os.remove('pie.png')
                 
             if fichier_recap is True:
                 url = "./obj/records/pantheon.xlsx"
-                await ctx.send(file=discord.File(url))
+                await ctx.send(files=interactions.File(url))
                 
             if len(liste_graph) >= 1: # il faut au moins un graph
                 await ctx.send(files=liste_graph)
@@ -665,4 +649,4 @@ class Recordslol(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(Recordslol(bot))
+    Recordslol(bot)

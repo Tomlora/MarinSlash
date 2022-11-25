@@ -1,20 +1,17 @@
-import discord
-from discord.ext import commands
-from discord_slash import cog_ext
-from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option, create_choice
+import interactions
+from interactions import Choice, Option
 import requests
 import json
 import pandas as pd
-from main import Var_version
+from fonctions.params import Version
 
 
 
 
 
-class Anilist(commands.Cog):
+class Anilist(interactions.Extension):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot : interactions.Client = bot
         self.url = 'https://graphql.anilist.co'
         
         
@@ -64,17 +61,33 @@ class Anilist(commands.Cog):
           return extracted_data
       
       
-    @cog_ext.cog_slash(name="anime_season", description="Calendrier des sorties", options=[
-        create_option(name='nb_anime', description="Combien d'animés ?", option_type=4, required=False),
-        create_option(name='year', description='Quelle année ?', option_type=4, required=False),
-        create_option(name='season', description='Quelle saison ?', option_type=3, required=False, choices=[
-            create_choice(name='hiver', value='WINTER'),
-            create_choice(name='printemps', value='SPRING'),
-            create_choice(name='ete', value='SUMMER'),
-            create_choice(name='automne', value='FALL')
-        ] )
+    @interactions.extension_command(
+        name="anime_season",
+        description="Calendrier des sorties",
+        options=[
+            Option(
+                    name='nb_anime',
+                    description="Combien d'animés ?",
+                    type=interactions.OptionType.INTEGER,
+                    required=False),
+            Option(name='year',
+                   description='Quelle année ?',
+                   type=interactions.OptionType.INTEGER,
+                   required=False,
+                   min_value=1998,
+                   max_value=2030),
+            Option(name='season',
+                   description='Quelle saison ?',
+                   type=interactions.OptionType.STRING,
+                   required=False,
+                   choices=[
+                Choice(name='hiver', value='WINTER'),
+                Choice(name='printemps', value='SPRING'),
+                Choice(name='ete', value='SUMMER'),
+                Choice(name='automne', value='FALL')
+            ] )
     ])
-    async def anime_season(self, ctx, nb_anime:int=10, year=2022, season:str='SUMMER'):
+    async def anime_season(self, ctx:interactions.CommandContext, nb_anime:int=10, year=2022, season:str='SUMMER'):
         anime_season = """\
         query ($season : MediaSeason, $seasonYear : Int) {
     Page {
@@ -162,7 +175,7 @@ class Anilist(commands.Cog):
     }
             """
             
-        ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
          
         preset = {"season": season, "seasonYear": year}
         req = requests.post(self.url,
@@ -197,18 +210,18 @@ class Anilist(commands.Cog):
         pd_anime = pd.DataFrame({'Nom' : name_anime, 'Date' : airing, 'Restant' : airing_restant, 'Ep' : nb_ep, 'Cover' : cover_img})
         pd_anime.sort_values(by=['Date'], ascending=True, inplace=True)
         
-        embed = discord.Embed(
+        embed = interactions.Embed(
                 title=f"** Schedule Anime **") 
-        
+    
         for key, value in pd_anime.head(nb_anime).iterrows():
             name = value['Nom']
             date = value['Date']
             ep = value['Ep']
             embed.add_field(name=f' {name} (Ep {ep})', value=f'Disponible dans <t:{date}:R>')
             
-        embed.set_footer(text=f'Version {Var_version} by Tomlora')
+        embed.set_footer(text=f'Version {Version} by Tomlora')
             
-        await ctx.send(embed=embed)
+        await ctx.send(embeds=embed)
             
     def _get_anime_id(self, sQ):
         anime_list = []
@@ -225,11 +238,11 @@ class Anilist(commands.Cog):
 
         return anime_ID
         
-    @cog_ext.cog_slash(name="anime", description="Cherche un anime")  
-    async def anime(self, ctx, anime):
+    @interactions.extension_command(name="anime", description="Cherche un anime")  
+    async def anime(self, ctx:interactions.CommandContext, anime):
         self.id = anime
         
-        ctx.defer(hidden=False)
+        ctx.defer(ephemeral=False)
         
         self.name = self._get_anime_id(self.id)
         
@@ -322,7 +335,7 @@ class Anilist(commands.Cog):
 
         variables = {'id': self.name}
         
-        embed = discord.Embed(title='Anime') 
+        embed = interactions.Embed(title='Anime') 
 
         response = requests.post(self.url, json={'query': query, 'variables': variables})
         answer_complete = json.loads(response.text)["data"]["Page"]["media"][0]
@@ -344,11 +357,11 @@ class Anilist(commands.Cog):
         embed.add_field(name="Note", value=f'{score}')
         embed.add_field(name="Genres", value=genres, inline=False)
             
-        embed.set_footer(text=f'Version {Var_version} by Tomlora')
+        embed.set_footer(text=f'Version {Version} by Tomlora')
         
         
-        await ctx.send(embed=embed)
+        await ctx.send(embeds=embed)
         
 
 def setup(bot):
-    bot.add_cog(Anilist(bot))
+    Anilist(bot)

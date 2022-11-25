@@ -1,20 +1,22 @@
-import discord
-from discord.ext import commands, tasks
-from discord_slash.utils.manage_components import *
-from discord_slash import cog_ext, SlashContext
-from discord_slash.utils.manage_commands import create_option
 import pandas as pd
 import ast
 import os
 import requests # Riotwatcher n'a pas les challenges donc on va faire une requests.get
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, supprimer_bdd
-from fonctions.match import lol_watcher, my_region, api_key_lol
+from fonctions.gestion_bdd import (lire_bdd,
+                                   sauvegarde_bdd,
+                                   supprimer_bdd)
+from fonctions.match import (lol_watcher,
+                             my_region,
+                             api_key_lol)
 import time
 import plotly.express as px
 import plotly.graph_objects as go
 import datetime
 import dataframe_image as dfi
-
+import interactions
+from interactions import Choice, Option
+from interactions.ext.tasks import create_task, IntervalTrigger
+from interactions.ext.wait_for import wait_for_component, setup as stp
 
 
 def extraire_variables_imbriquees(df, colonne):
@@ -93,14 +95,20 @@ def get_data_joueur(summonername:str):
     
 
 
-class Challenges(commands.Cog):
+class Challenges(interactions.Extension):
     def __init__(self, bot):
-        self.bot = bot
-        self.challenges_maj.start()
+        self.bot : interactions.Client = bot
         self.defis = lire_bdd('challenges_data').transpose().sort_values(by="name", ascending=True)
+    
+        stp(self.bot)
         
+    @interactions.extension_listener
+    async def on_start(self):
+
+        self.task1 = create_task(IntervalTrigger(60*60))(self.challenges_maj)
+        self.task1.start()
         
-    @tasks.loop(hours=1, count=None)
+
     async def challenges_maj(self):
         '''Chaque jour, à 23h, on actualise les challenges.
         Cette requête est obligatoirement à faire une fois par jour, sur un créneau creux pour éviter de surcharger les requêtes Riot'''
@@ -129,23 +137,25 @@ class Challenges(commands.Cog):
             print('Les challenges ont été mis à jour.')
             
     
-    @cog_ext.cog_slash(name="challenges_help", description="Explication des challenges")
-    async def challenges_help(self, ctx):
+    @interactions.extension_command(name="challenges_help",
+                                    description="Explication des challenges")
+    async def challenges_help(self, ctx:interactions.CommandContext):
         
         nombre_de_defis = len(self.defis['name'].unique())
         
         
-        em = discord.Embed(title="Challenges", description="Explication des challenges")
-        em.add_field(name="**Conditions**", value="`Avoir joué depuis le patch 12.9  \nDisponible dans tous les modes de jeu`")
+        em = interactions.Embed(title="Challenges", description="Explication des challenges", inline=False)
+        em.add_field(name="**Conditions**", value="`Avoir joué depuis le patch 12.9  \nDisponible dans tous les modes de jeu`", inline=False)
         em.add_field(name="**Mise à jour des challenges**", value=f"`Mis à jour tous les jours avant minuit`", inline=False)
         em.add_field(name="**Defis disponibles**", value=f"`Il existe {nombre_de_defis} défis disponibles.`", inline=False)
         
-        await ctx.send(embed=em)
+        await ctx.send(embeds=em)
         
-    @cog_ext.cog_slash(name="challenges_liste", description="Liste des challenges")
-    async def challenges_liste(self, ctx):
+    @interactions.extension_command(name="challenges_liste",
+                                    description="Liste des challenges")
+    async def challenges_liste(self, ctx:interactions.CommandContext):
         
-        em = discord.Embed(title="Challenges", description="Explication des challenges")
+        em = interactions.Embed(title="Challenges", description="Explication des challenges")
               
         for i in range(0,24):
             debut = 0 + i*10
@@ -153,11 +163,12 @@ class Challenges(commands.Cog):
             em.add_field(name=f"**Challenges part {i}**", value=f"`{self.defis['name'].unique()[debut:fin]}", inline=False)
             
 
-        await ctx.send(embed=em)
+        await ctx.send(embeds=em)
         
     
-    @cog_ext.cog_slash(name="challenges_classement", description="Classement des points de challenge")
-    async def challenges_classement(self, ctx):
+    @interactions.extension_command(name="challenges_classement",
+                                    description="Classement des points de challenge")
+    async def challenges_classement(self, ctx:interactions.CommandContext):
         
         bdd_user_total = lire_bdd('challenges_total').transpose()
 
@@ -165,12 +176,15 @@ class Challenges(commands.Cog):
         fig.update_traces(textinfo='label+value')
         fig.update_layout(showlegend=False)
         fig.write_image('plot.png')
-        await ctx.send(file=discord.File('plot.png'))
+        await ctx.send(files=interactions.File('plot.png'))
         os.remove('plot.png')
         
-    @cog_ext.cog_slash(name="challenges_profil", description="Profil du compte",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
-    async def challenges_profil(self, ctx, summonername):
+    @interactions.extension_command(name="challenges_profil", description="Profil du compte",
+                       options=[Option(name="summonername",
+                                       description = "Nom du joueur",
+                                       type=interactions.OptionType.STRING,
+                                       required=True)])
+    async def challenges_profil(self, ctx:interactions.CommandContext, summonername:str):
         
         
         total_user, total_category, total_challenges = get_data_joueur(summonername)
@@ -183,7 +197,7 @@ class Challenges(commands.Cog):
             liste_stats = [categorie, level, points, max_points, percentile]
             return liste_stats
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
         
         liste_teamwork = stats('TEAMWORK')
         liste_collection = stats('COLLECTION')
@@ -221,15 +235,18 @@ class Challenges(commands.Cog):
             
         fig.write_image('plot.png')
         await ctx.send(f'Le joueur {summonername} a : \n{msg}\n TOTAL  : ** {str(total)} **') #txt
-        await ctx.send(file=discord.File('plot.png')) # visuel
+        await ctx.send(files=interactions.File('plot.png')) # visuel
         os.remove('plot.png')
         
 
         
-    @cog_ext.cog_slash(name="challenges_top",
+    @interactions.extension_command(name="challenges_top",
                        description="Affiche un classement pour le défi spécifié",
-                       options=[create_option(name="nbpages", description= "Quel page ? Les challenges sont en ordre alphabétique", option_type=4, required=True)])
-    async def challenges_top(self, ctx, nbpages:int):
+                       options=[Option(name="nbpages",
+                                       description= "Quel page ? Les challenges sont en ordre alphabétique",
+                                       type=interactions.OptionType.INTEGER,
+                                       required=True)])
+    async def challenges_top(self, ctx:interactions.CommandContext, nbpages:int):
         
             # 232 défis
             
@@ -242,8 +259,8 @@ class Challenges(commands.Cog):
                 fin_de_range = len(self.defis)
         
             # catégorie
-            select = create_select(
-                options=[create_select_option(self.defis['name'].unique()[i], value=self.defis['name'].unique()[i],
+            select = interactions.SelectMenu(
+                options=[interactions.SelectOption(label=self.defis['name'].unique()[i], value=self.defis['name'].unique()[i],
                                               description=self.defis[self.defis['name'] == self.defis['name'].unique()[i]]['shortDescription'].to_numpy()[0]) for i in range(debut_range, fin_de_range)],
                 placeholder = "Choisis le défi")
                                   
@@ -251,12 +268,12 @@ class Challenges(commands.Cog):
             
             
             
-            fait_choix = await ctx.send('Choisis le défi ', components=[create_actionrow(select)])
+            fait_choix = await ctx.send('Choisis le défi ', components=[interactions.ActionRow(select)])
             
             def check(m):
                 return m.author_id == ctx.author.id and m.origin_message.id == fait_choix.id
             
-            name = await wait_for_component(self.bot, components=select, check=check)
+            name : interactions.Message = await wait_for_component(self.bot, "on_message_create", components=fait_choix, check=check, timeout=15)
             
             name_answer = name.values[0]
         
@@ -276,14 +293,17 @@ class Challenges(commands.Cog):
             fig.write_image('plot.png')
             
             await name.send(f'Défis : ** {name_answer} **  \nDescription : {description}')
-            await channel.send(file=discord.File('plot.png'))
+            await channel.send(files=interactions.File('plot.png'))
             os.remove('plot.png')
             
             
-    @cog_ext.cog_slash(name="challenges_top_name",
+    @interactions.extension_command(name="challenges_top_name",
                        description="Affiche un classement pour le défi spécifié (nom du defi)",
-                       options=[create_option(name="defi", description= "Quel defi ?", option_type=3, required=True)])
-    async def challenges_top_name(self, ctx, defi:str):
+                       options=[Option(name="defi",
+                                       description= "Quel defi ?",
+                                       type=interactions.OptionType.STRING,
+                                       required=True)])
+    async def challenges_top_name(self, ctx:interactions.CommandContext, defi:str):
                
             
             bdd_user_challenges = lire_bdd('challenges_data').transpose()
@@ -300,11 +320,14 @@ class Challenges(commands.Cog):
             fig = px.histogram(bdd_user_challenges, x="Joueur", y="value", color="Joueur", title=defi, text_auto=True)
             fig.write_image('plot.png')
             
-            await ctx.send(f'Défis : ** {defi} **  \nDescription : {description}', file=discord.File("plot.png"))
+            await ctx.send(f'Défis : ** {defi} **  \nDescription : {description}', files=interactions.File("plot.png"))
             os.remove('plot.png')
             
-    @cog_ext.cog_slash(name="challenges_best", description="Meilleur classement pour les defis",
-                       options=[create_option(name="summonername", description="Nom du joueur (Pas d'espace dans le pseudo !)", option_type=3, required=True)])
+    @interactions.extension_command(name="challenges_best", description="Meilleur classement pour les defis",
+                       options=[Option(name="summonername",
+                                       description="Nom du joueur (Pas d'espace dans le pseudo !)",
+                                       type=interactions.OptionType.STRING,
+                                       required=True)])
     async def challenges_best(self, ctx, summonername:str):
        
         # tous les summonername sont en minuscule : 
@@ -327,7 +350,7 @@ class Challenges(commands.Cog):
             data.set_index('name', inplace=True)
             dfi.export(data, 'image.png', max_cols=-1, max_rows=-1, table_conversion="matplotlib")
             
-            await ctx.send(file=discord.File('image.png'))
+            await ctx.send(files=interactions.File('image.png'))
         
             os.remove('image.png')
         else:
@@ -335,4 +358,4 @@ class Challenges(commands.Cog):
         
 
 def setup(bot):
-    bot.add_cog(Challenges(bot))
+    Challenges(bot)
