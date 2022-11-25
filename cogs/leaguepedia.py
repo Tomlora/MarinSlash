@@ -1,11 +1,8 @@
-import discord
-from discord.ext import commands, tasks
-from discord_slash import cog_ext
-from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option
-
+import interactions
+from interactions import Option
+from interactions.ext.tasks import IntervalTrigger, create_task
 from fonctions.gestion_base_oracle import loaddata_oracle, rechargement_data_oracle
-
+import datetime
 import mwclient
 import urllib.request
 import json
@@ -14,10 +11,8 @@ import pandas as pd
 import ast
 import os
 import warnings
-import datetime
 
 # à faire : https://lol.fandom.com/wiki/Special:CargoTables/RosterRumors
-
 
 warnings.simplefilter('ignore')
 
@@ -29,14 +24,17 @@ def extraire_variables_imbriquees(df, colonne):
     return df
 
 
-class Leaguepedia(commands.Cog):
+class Leaguepedia(interactions.Extension):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot : interactions.Client = bot
         self.site = mwclient.Site('lol.fandom.com', path='/')
-        self.recharge_oracle.start()
-        
     
-    @tasks.loop(hours=1, count=None)
+    @interactions.extension_listener
+    async def on_start(self):
+        
+        self.task1 = create_task(IntervalTrigger(60*60))(self.recharge_oracle)
+        self.task1.start()    
+    
     async def recharge_oracle(self):
         '''Rechargement base oracle elixir'''
         currentHour = str(datetime.datetime.now().hour)
@@ -44,8 +42,17 @@ class Leaguepedia(commands.Cog):
         if currentHour == str(13):   
             rechargement_data_oracle()
 
-    @cog_ext.cog_slash(name="league_avatar", description="Photo d'un joueur")
-    async def leagueavatar(self, ctx, player):
+    @interactions.extension_command(name="league_avatar",
+                                    description="Photo d'un joueur",
+                                    options=[
+                                        Option(
+                                            name='player',
+                                            description='nom du joueur',
+                                            type=interactions.OptionType.STRING,
+                                            required=True
+                                        )
+                                    ])
+    async def leagueavatar(self, ctx:interactions.CommandContext, player):
         
         def get_filename_url_to_open(site, filename, player, size=None):
             pattern = r'.*src\=\"(.+?)\".*'
@@ -72,14 +79,19 @@ class Leaguepedia(commands.Cog):
         url = str(decoded['cargoquery'][0]['title']['FileName'])
         get_filename_url_to_open(self.site, url, player)
         
-        await ctx.send(file=discord.File(player + '.png'))
+        await ctx.send(files=interactions.File(player + '.png'))
         
         os.remove(player + '.png')
         
         
-    @cog_ext.cog_slash(name="lol_mercato", description="Les derniers mouvements",
-                        options=[create_option(name="league", description= "Trié sur une league ?", option_type=3, required=False)])
-    async def lol_mercato(self, ctx, league:str=""):
+    @interactions.extension_command(name="lol_mercato",
+                                    description="Les derniers mouvements",
+                        options=[Option(
+                            name="league",
+                            description= "Trié sur une league ?",
+                            type=interactions.OptionType.STRING,
+                            required=False)])
+    async def lol_mercato(self, ctx:interactions.CommandContext, league:str=""):
         
         # On récupère les dernières infos mercato sur Leaguepedia
         response = self.site.api('cargoquery',
@@ -89,7 +101,7 @@ class Leaguepedia(commands.Cog):
         order_by = "RC.Date_Sort DESC"
     )
 
-        ctx.defer(hidden=False)
+        ctx.defer(ephemeral=False)
         parsed = json.dumps(response)
         decoded = json.loads(parsed)
 
@@ -119,8 +131,8 @@ class Leaguepedia(commands.Cog):
         if not league == "": # Si tri sur une league
             data_mercato = data_mercato[data_mercato['Competition'] == league]
         
-        embed = discord.Embed(
-                title="Mercato", color=discord.Color.orange())
+        embed = interactions.Embed(
+                title="Mercato", color=interactions.Color.orange())
 
         for key, value in data_mercato.head(10).iterrows():
             player = value['Player']
@@ -133,10 +145,10 @@ class Leaguepedia(commands.Cog):
             
             embed.add_field(name=player, value=f'{action} {equipe} ({competition}) en tant que {role} le {jour}-{mois}', inline=False)
             
-        await ctx.send(embed=embed)
+        await ctx.send(embeds=embed)
         
         
         
 
 def setup(bot):
-    bot.add_cog(Leaguepedia(bot))
+    Leaguepedia(bot)

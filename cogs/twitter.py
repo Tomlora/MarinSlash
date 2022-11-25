@@ -1,14 +1,13 @@
 
-from discord.ext import commands, tasks
-from discord_slash import cog_ext
-from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option
+import interactions
+from interactions import Option
+from interactions.ext.tasks import create_task, IntervalTrigger
 import os
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
 import sys
-
 from TwitterAPI import TwitterAPI
-import main
+from fonctions.permissions import isOwner2_slash
+from fonctions.channels_discord import chan_discord
 
 
 api = TwitterAPI(os.environ.get('API_TWITTER'),
@@ -34,20 +33,35 @@ def get_tweet(user_id:str, num_tweet:int=0, max_results:int=10):
 
 
 
-class Twitter(commands.Cog):
+class Twitter(interactions.Extension):
     def __init__(self, bot):
-        self.bot = bot
-        self.twitter_suivi.start()
+        self.bot : interactions.Client = bot
               
-    @cog_ext.cog_slash(name="last_tweet",
+    @interactions.extension_listener
+    async def on_start(self):
+        
+        self.task1 = create_task(IntervalTrigger(60*2))(self.twitter_suivi)
+        self.task1.start()
+    
+    
+    
+    @interactions.extension_command(name="last_tweet",
                        description="Dernier tweet",
-                       options=[create_option(name="pseudo", description= "pseudo twitter", option_type=3, required=True),
-                                create_option(name="num_tweet", description="numero tweet, de 0 à 5", option_type=4, required=False)])
-    async def last_tweet(self, ctx, pseudo:str, num_tweet:int=0):
+                       options=[Option(name="pseudo",
+                                       description= "pseudo twitter",
+                                       type=interactions.OptionType.STRING,
+                                       required=True),
+                                Option(name="num_tweet",
+                                       description="numero tweet, de 0 à 5",
+                                       type=interactions.OptionType.INTEGER,
+                                       required=False,
+                                       min_value=0,
+                                       max_value=5)])
+    async def last_tweet(self, ctx:interactions.CommandContext, pseudo:str, num_tweet:int=0):
         
 
         user_id = get_user_id(pseudo)
-        ctx.defer(hidden=False)
+        ctx.defer(ephemeral=False)
         
 
         id_tweet, msg_tweet = get_tweet(user_id, num_tweet=num_tweet)
@@ -57,27 +71,35 @@ class Twitter(commands.Cog):
         
         await ctx.send(f'Tweet {pseudo} : ' + url_tweet)
         
-    @cog_ext.cog_slash(name="add_tweet",
+    @interactions.extension_command(name="add_tweet",
                        description="Ajoute un twitter au tracking",
-                       options=[create_option(name="pseudo", description= "pseudo twitter", option_type=3, required=True)])
-    @main.isOwner2_slash()
-    async def add_tweet(self, ctx, pseudo:str):
+                       options=[Option(name="pseudo",
+                                       description= "pseudo twitter",
+                                       type=interactions.OptionType.STRING,
+                                       required=True)])
+    @isOwner2_slash()
+    async def add_tweet(self, ctx:interactions.CommandContext, pseudo:str):
         user_id = get_user_id(pseudo)
         
         requete_perso_bdd('''INSERT INTO public.twitter(
 	                    twitter, id_twitter, id_last_msg_twitter)
 	                    VALUES (:twitter, :id_twitter, 0);''', 
                      {'twitter' : pseudo, 'id_twitter' : user_id})
-        ctx.defer(hidden=False)
+        ctx.defer(ephemeral=False)
         
         
         await ctx.send(f'{pseudo} ajouté !')
         
         
-    @tasks.loop(minutes=2, count=None )
-    async def twitter_suivi(self):
 
-        channel_tracklol = self.bot.get_channel(int(main.chan_lol))       
+    async def twitter_suivi(self):
+        # TODO : faire par serveur
+        discord_server_id = chan_discord(494217748046544906)
+
+        channel_tracklol = await interactions.get(client=self.bot,
+                                                      obj=interactions.Channel,
+                                                      object_id=discord_server_id.lol)
+    
         df_twitter =  get_data_bdd('Select * from twitter')
         df_twitter = df_twitter.mappings().all()
             
@@ -114,4 +136,4 @@ class Twitter(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(Twitter(bot))
+    Twitter(bot)

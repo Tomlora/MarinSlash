@@ -1,33 +1,35 @@
-import discord
-from discord.ext import commands
-from discord_slash import cog_ext
-from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option
+import interactions
+from interactions import Option
 from bs4 import BeautifulSoup
 import requests
 import json
 import pandas as pd
+from interactions.ext.wait_for import wait_for_component, setup as stp
+import asyncio
 
 
 
 
-
-class Github(commands.Cog):
+class Github(interactions.Extension):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot : interactions.CommandContext = bot
+        stp(self.bot)
         
         
         
-    @cog_ext.cog_slash(name="github",
+    @interactions.extension_command(name="github",
                        description="GitHub",
-                       options=[create_option(name="pseudo", description= "Pseudo Github", option_type=3, required=True)])
-    async def github(self, ctx, pseudo:str):
+                       options=[Option(name="pseudo",
+                                       description= "Pseudo Github",
+                                       type=interactions.OptionType.STRING,
+                                       required=True)])
+    async def github(self, ctx:interactions.CommandContext, pseudo:str):
         req = requests.get(f'https://api.github.com/users/{pseudo}')
         
         if req.status_code == 200:
             data_user = json.loads(req.text) # on récupère la data de l'utilisateur
             
-            ctx.defer(hidden=False)
+            await ctx.defer(ephemeral=False)
             
             # on requête la data des repos :  
             
@@ -42,26 +44,36 @@ class Github(commands.Cog):
                 df.sort_values('name', axis=0, inplace=True)
                 
                 # catégorie . Le string i est obligatoire pour discord
-                select = create_select(
-                        options=[create_select_option(df['name'][i], value=str(i),
-                                                    description=df['description'][i]) for i in range(0,len(data_user_repos))],
+                select = interactions.SelectMenu(
+                        options=[interactions.SelectOption(label=df['name'][i], value=str(i),
+                                                    description=str(df['description'][i])[:100]) for i in range(0,len(data_user_repos))],
+                        custom_id="github_selection",
                         placeholder = "Choisis le dossier")
+                
+                await ctx.send("Choisis le dossier github",
+                                            components=select)
 
-                fait_choix = await ctx.send('Choisis le dossier github ', components=[create_actionrow(select)])
+                async def check(button_ctx):
+                        if int(button_ctx.author.user.id) == int(ctx.author.user.id):
+                            return True
+                        await ctx.send("I wasn't asking you!", ephemeral=True)
+                        return False
                     
-                def check(m):
-                    return m.author_id == ctx.author.id and m.origin_message.id == fait_choix.id
-                    
-                id_answer = await wait_for_component(self.bot, components=select, check=check)
-                
-                answer = id_answer.values[0]
-                
-                await id_answer.edit_origin(components=None)
-                
-                data_user_repos = json.loads(req_repos.text)[int(answer)]
+                try:
+                    button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+                        components=select, check=check, timeout=15
+                    )
+                    print(button_ctx.data.values[0])
+                    print(button_ctx.data.values)
+                    data_user_repos = json.loads(req_repos.text)[int(button_ctx.data.values[0])]
+
+                    # With this new Context, you're able to send a new response.
+                except asyncio.TimeoutError:
+                    # When it times out, edit the original message and remove the button(s)
+                    return await ctx.edit(components=[])
             
             
-                em = discord.Embed()
+                em = interactions.Embed()
                 em.set_author(name=data_user_repos['owner']['login'], icon_url=data_user_repos['owner']['avatar_url'],
                             url=data_user_repos['owner']['html_url'])
                 em.set_thumbnail(url=data_user_repos['owner']['avatar_url'])
@@ -89,7 +101,7 @@ class Github(commands.Cog):
                     except:
                         pass
 
-                await ctx.send(embed=em)
+                await ctx.send(embeds=em)
             
             else:
                 await ctx.send('Repertoire introuvable')
@@ -107,4 +119,4 @@ class Github(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(Github(bot))
+    Github(bot)

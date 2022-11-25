@@ -1,6 +1,7 @@
 import calendar
-from datetime import datetime
+from datetime import datetime, time
 from time import time
+from dateutil import tz
 
 def findDay(date):
         born = datetime.strptime(date, '%d %m %Y').weekday()
@@ -38,3 +39,9 @@ def calcul_time(msg, time_prec):
     ecart = int(time_next-time_prec)
     print(f"{msg} : {ecart}")
     return time_next
+
+
+def heure_condition(hour:int, minutes:int=0, secondes:int=0):
+    fuseau = tz.gettz('Europe/Paris')
+    time = time(hour,minutes,secondes,tzinfo=fuseau)
+    return time

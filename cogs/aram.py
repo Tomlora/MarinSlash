@@ -1,14 +1,14 @@
 import pandas as pd
-import numpy as np
-from discord.ext import commands, tasks
-from discord_slash.utils.manage_components import *
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, requete_perso_bdd, lire_bdd_perso
-import main
-from discord_slash import cog_ext
-from discord_slash.utils.manage_commands import create_option, create_choice
+from fonctions.gestion_bdd import (lire_bdd,
+                                   requete_perso_bdd,
+                                   lire_bdd_perso)
 import datetime
 from fonctions.channels_discord import chan_discord
-
+import interactions
+from interactions import Choice, Option
+from fonctions.permissions import isOwner_slash
+from interactions.ext.tasks import IntervalTrigger, create_task
+from fonctions.params import Version
 
 
 dict_points = {41 : [11, -19],
@@ -46,25 +46,29 @@ elo_lp = {'IRON' : 0,
 chan_general = 768637526176432158
 
 
-class Aram(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-        self.lolsuivi_aram.start()
+class Aram(interactions.Extension):
+    def __init__(self, bot ):
+        self.bot: interactions.Client = bot
 
-
-    @cog_ext.cog_slash(name="classement_aram",description="classement en aram")
-    async def ladder_aram(self, ctx):        
+    @interactions.extension_listener
+    async def on_start(self):
+        self.task1 = create_task(IntervalTrigger(60*60))(self.lolsuivi_aram)
+        self.task1.start()
+        
+        
+    @interactions.extension_command(name="classement_aram",description="classement en aram")
+    async def ladder_aram(self, ctx:interactions.CommandContext):        
 
         suivi_aram = lire_bdd('ranked_aram', 'dict')
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
 
         df = pd.DataFrame.from_dict(suivi_aram)
         df = df.transpose().reset_index()
 
         df.sort_values('lp', ascending=False, inplace=True)
 
-        embed = discord.Embed(title="Suivi LOL", description='ARAM', colour=discord.Colour.blurple())
+        embed = interactions.Embed(title="Suivi LOL", description='ARAM', color=interactions.Color.blurple())
 
         for key in df['index']:
             
@@ -82,16 +86,27 @@ class Aram(commands.Cog):
                             value="V : " + str(suivi_aram[key]['wins']) + " | D : " + str(suivi_aram[key]['losses']) + " | WR :  "
                                                 + str(wr) + "% | KDA : " + str(kda), inline=False)
                                                     
-        embed.set_footer(text=f'Version {main.Var_version} by Tomlora')  
+        embed.set_footer(text=f'Version {Version} by Tomlora')  
 
-        await ctx.send(embed=embed)
+        await ctx.send(embeds=embed)
         
 
-    @cog_ext.cog_slash(name='ranked_aram', description='Activation/Désactivation',
-                       options=[create_option(name='summonername', description="nom ingame", option_type=3, required=True),
-                                create_option(name="activation", description="True : Activé / False : Désactivé", option_type=5, required=True)])
+    @interactions.extension_command(name='ranked_aram',
+                                    description='Activation/Désactivation',
+                       options=[Option(
+                                    name='summonername',
+                                    description="nom ingame",
+                                    type=interactions.OptionType.STRING,
+                                    required=True),
+                                Option(
+                                    name="activation",
+                                    description="True : Activé / False : Désactivé",
+                                    type=interactions.OptionType.BOOLEAN,
+                                    required=True)])
     
-    async def update_activation(self, ctx, summonername:str, activation:bool):
+    async def update_activation(self,
+                                ctx:interactions.CommandContext,
+                                summonername:str, activation:bool):
         
         summonername = summonername.lower()
         
@@ -106,19 +121,20 @@ class Aram(commands.Cog):
             
 
             
-    @cog_ext.cog_slash(name="help_aram", description='Help ranked aram')
-    async def help_aram(self, ctx):
+    @interactions.extension_command(name="help_aram",
+                                    description='Help ranked aram')
+    async def help_aram(self, ctx:interactions.CommandContext):
         
         texte_general = " La ranked aram commence automatiquement après la première game. Pour désactiver, il est possible d'utiliser **/ranked_aram.** après la première partie \n" + \
                         "Le suivi est possible en tapant **/classement_aram**"
                         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
         
-        embed = discord.Embed(title = 'Help Aram', description='Règle', colour = discord.Colour.blurple())
+        embed = interactions.Embed(title = 'Help Aram', description='Règle', color = interactions.Color.blurple())
         
         embed.add_field(name='Déroulement général', value=texte_general)
         
-        embed2 = discord.Embed(title='Palier', description="Rang", color=discord.Colour.blue())
+        embed2 = interactions.Embed(title='Palier', description="Rang", color=interactions.Color.blue())
         
         embed2.add_field(name='IRON', value="LP < 100")
         embed2.add_field(name='BRONZE', value="100 < LP < 200")
@@ -130,7 +146,7 @@ class Aram(commands.Cog):
         embed2.add_field(name='GRANDMASTER', value="1600 < LP < 2000")
         embed2.add_field(name='CHALLENGER', value="2000 < LP")
 
-        embed3 = discord.Embed(title='Calcul points', description="MMR", color=discord.Colour.orange())
+        embed3 = interactions.Embed(title='Calcul points', description="MMR", color=interactions.Color.orange())
         
         embed3.add_field(name="5 premières games", value=f"5 premières games \n" + 
                          "V : **+50**  | D : **0**", inline=False)
@@ -150,18 +166,32 @@ class Aram(commands.Cog):
         
         embed3.add_field(name="Malus elo", value=bonus_elo, inline=False)
         
-        await ctx.send(embed=embed)
-        await ctx.send(embed=embed2)
-        await ctx.send(embed=embed3)
+        await ctx.send(embeds=embed)
+        await ctx.send(embeds=embed2)
+        await ctx.send(embeds=embed3)
            
-    @cog_ext.cog_slash(name='carton', description='Activation/Désactivation',
-                       options=[create_option(name='couleur', description="nom ingame", option_type=3, required=True, choices=[
-                                create_choice(name='vert', value='vert'),
-                                create_choice(name='rouge', value='rouge')]),
-                                create_option(name="summonername", description="True : Activé / False : Désactivé", option_type=3, required=True),
-                                create_option(name='nombre', description='nombre de lp', option_type=4, required=True)])
-    async def carton(self, ctx, couleur:str, summonername:str, nombre:int):
-        if main.isOwner_slash(ctx):
+    @interactions.extension_command(name='carton',
+                       description='Activation/Désactivation',
+                       options=[
+                           Option(
+                           name='couleur',
+                            description="vert = + / rouge = -",
+                            type=interactions.OptionType.STRING,
+                            required=True, choices=[
+                                Choice(name='vert', value='vert'),
+                                Choice(name='rouge', value='rouge')]),
+                            Option(
+                                name="summonername",
+                                description="nom ingame",
+                                type=interactions.OptionType.STRING,
+                                required=True),
+                            Option(
+                                name='nombre',
+                                description='nombre de lp',
+                                type=interactions.OptionType.INTEGER,
+                                required=True)])
+    async def carton(self, ctx:interactions.CommandContext, couleur:str, summonername:str, nombre:int):
+        if isOwner_slash(ctx):
             if couleur == 'vert':
                 requete_perso_bdd('UPDATE ranked_aram SET lp = lp + :nombre WHERE index = :summonername', {'nombre' : nombre, 'summonername' : summonername.lower()})
                 msg = f'Les LP pour {summonername} ont été ajoutés.'
@@ -171,19 +201,18 @@ class Aram(commands.Cog):
         else:
             requete_perso_bdd('UPDATE ranked_aram SET lp = lp - 1 WHERE index = :summonername', {'summonername' : summonername.lower()})
             msg = 'Bien essayé ! Tu perds 1 lp.'
-        
-        embed = discord.Embed(description=msg,
-                              color=discord.Colour.from_rgb(255, 255, 0))
+ 
+        embed = interactions.Embed(description=msg,
+                              color=interactions.Color.blurple())
 
-        await ctx.send(embed=embed)
+        await ctx.send(embeds=embed)
         
-    @tasks.loop(hours=1, count=None)
     async def lolsuivi_aram(self):
 
         currentHour = str(datetime.datetime.now().hour)
 
         if currentHour == str(3):
-            
+  
             for guild in self.bot.guilds:
                 
                 chan_discord_id = chan_discord(guild.id)
@@ -223,7 +252,7 @@ class Aram(commands.Cog):
                     suivi_24h = df_24h.set_index('index').transpose().to_dict()
                     joueur = suivi.keys()
 
-                    embed = discord.Embed(title="Suivi ARAM LOL", description='Periode : 24h', colour=discord.Colour.blurple())
+                    embed = interactions.Embed(title="Suivi ARAM LOL", description='Periode : 24h', color=interactions.Color.blurple())
                     totalwin = 0
                     totaldef = 0
                     totalgames = 0
@@ -279,15 +308,17 @@ class Aram(commands.Cog):
                         if difwins + diflosses > 0: # si supérieur à 0, le joueur a joué
                             sql += f'''UPDATE ranked_aram_24h SET wins = {suivi[key]['wins']}, losses = {suivi[key]['losses']}, lp = {suivi[key]['LP']}, rank = '{tier}' where index = '{key}';'''
                                                             
-
-                    channel_tracklol = self.bot.get_channel(chan_discord_id.lol_others) 
+                    
+                    channel_tracklol = await interactions.get(client=self.bot,
+                                                      obj=interactions.Channel,
+                                                      object_id=chan_discord_id.lol_others) 
                         
-                    embed.set_footer(text=f'Version {main.Var_version} by Tomlora')  
+                    embed.set_footer(text=f'Version {Version} by Tomlora')  
 
-                    await channel_tracklol.send(embed=embed)
+                    await channel_tracklol.send(embeds=embed)
                     await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
 
 
 
 def setup(bot):
-    bot.add_cog(Aram(bot))
+    Aram(bot)

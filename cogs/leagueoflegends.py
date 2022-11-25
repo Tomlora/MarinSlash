@@ -1,18 +1,25 @@
-from discord.ext import commands, tasks
 import sys
-
 import pandas as pd
-import main
 import datetime
 import numpy as np
 import warnings
 from cogs.achievements_scoringlol import scoring
+import interactions
+from interactions import Option
+from interactions.ext.tasks import IntervalTrigger, create_task
+from fonctions.params import Version
 
-from fonctions.gestion_bdd import lire_bdd, sauvegarde_bdd, get_data_bdd, requete_perso_bdd, lire_bdd_perso
-from fonctions.match import matchlol, getId, dict_rankid, lol_watcher, my_region
-from discord_slash import cog_ext
-from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option
+from fonctions.gestion_bdd import (lire_bdd,
+                                   sauvegarde_bdd,
+                                   get_data_bdd,
+                                   requete_perso_bdd,
+                                   lire_bdd_perso)
+
+from fonctions.match import (matchlol,
+                             getId,
+                             dict_rankid,
+                             lol_watcher,
+                             my_region)
 from fonctions.channels_discord import chan_discord
 
 from time import sleep
@@ -25,6 +32,10 @@ import os
 # Paramètres LoL
 version = lol_watcher.data_dragon.versions_for_region(my_region)
 champions_versions = version['n']['champion']
+
+def rgb_to_discord(r: int, g: int, b: int):
+        """Transpose les couleurs rgb en couleur personnalisée discord."""
+        return ((r << 16) + (g << 8) + b)
 
 
 
@@ -73,13 +84,22 @@ def score_personnel(embed, key:str, summonerName:str, stats:str, old_value:float
     return embed
                 
 
-class LeagueofLegends(commands.Cog):
+class LeagueofLegends(interactions.Extension):
     def __init__(self, bot):
-        self.bot = bot
-        self.my_task.start()
-        self.lolsuivi.start()
+        self.bot : interactions.Client = bot
         
- 
+        
+    @interactions.extension_listener
+    async def on_start(self):
+
+        self.task1 = create_task(IntervalTrigger(60))(self.update)
+        self.task1.start()
+        
+        self.task2 = create_task(IntervalTrigger(60*60))(self.lolsuivi)
+        self.task2.start()
+        
+        
+
     def printInfo(self, summonerName, idgames: int, succes):
 
 
@@ -257,26 +277,22 @@ class LeagueofLegends(commands.Cog):
         match_info.thisDamageTurrets = "{:,}".format(match_info.thisDamageTurrets).replace(',', ' ').replace('.', ',')
 
         # couleur de l'embed en fonction du pseudo
-
+        
         pseudo = str(summonerName).lower()
 
-        try:
-            data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {'index' : pseudo} ).fetchall()
-            color = discord.Color.from_rgb(data[0][0], data[0][1], data[0][2])
-            
-        except:
-            color = discord.Color.blue()
+        data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {'index' : pseudo} ).fetchall()
+        color = rgb_to_discord(data[0][0], data[0][1], data[0][2])
 
         # constructing the message
 
         if match_info.thisQ == "OTHER":
-            embed = discord.Embed(
+            embed = interactions.Embed(
                 title=f"** {summonerName.upper()} ** vient de ** {match_info.thisWin} ** une game ", color=color)
         elif match_info.thisQ == "ARAM":
-            embed = discord.Embed(
+            embed = interactions.Embed(
                 title=f"** {summonerName.upper()} ** vient de ** {match_info.thisWin} ** une ARAM ", color=color)
         else:
-            embed = discord.Embed(
+            embed = interactions.Embed(
                 title=f"** {summonerName.upper()} ** vient de ** {match_info.thisWin} ** une {match_info.thisQ} game ({match_info.thisPosition})", color=color)
 
             if match_info.thisPosition in ['SUPPORT', 'ADC', 'MID', 'JUNGLE']:
@@ -564,7 +580,7 @@ class LeagueofLegends(commands.Cog):
                         name="Records 5",
                         value=exploits[4095:])
                     
-            
+
             
 
         if len(exploits2) > 5: # si plus de 15 lettres, alors il y a un exploit personnel
@@ -595,22 +611,19 @@ class LeagueofLegends(commands.Cog):
         
         # on charge les img
         
-        resume = discord.File('resume_perso.png')
+        resume = interactions.File('resume_perso.png')
         embed.set_image(url='attachment://resume_perso.png')
         
-        embed2 = discord.Embed(color=color)
-        resume2 = discord.File('resume.png')
+        embed2 = interactions.Embed(color=color)
+        resume2 = interactions.File('resume.png')
         embed2.set_image(url='attachment://resume.png')
+    
 
-        embed.set_footer(text=f'Version {main.Var_version} by Tomlora - Match {str(match_info.last_match)}')
+        embed.set_footer(text=f'Version {Version} by Tomlora - Match {str(match_info.last_match)}')
 
         return embed, match_info.thisQ, resume, embed2, resume2
 
-    @tasks.loop(minutes=1, count=None)
-    async def my_task(self):
-        await self.update()
-
-
+        
     async def updaterank(self, key, discord_server_id):
         
         suivirank = lire_bdd('suivi', 'dict')
@@ -631,13 +644,15 @@ class LeagueofLegends(commands.Cog):
                 rank_old = str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank'])
 
                 try:
-                    channel_tracklol = self.bot.get_channel(discord_server_id.tracklol)   
+                    channel_tracklol = await interactions.get(client=self.bot,
+                                                      obj=interactions.Channel,
+                                                      object_id=discord_server_id.tracklol)  
                     if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
                         await channel_tracklol.send(f' Le joueur **{key}** a démote du rank **{rank_old}** à **{level}**')
-                        await channel_tracklol.send(file=discord.File('./img/notstonks.jpg'))
+                        await channel_tracklol.send(files=interactions.File('./img/notstonks.jpg'))
                     elif dict_rankid[rank_old] < dict_rankid[level]:
                         await channel_tracklol.send(f' Le joueur **{key}** a été promu du rank **{rank_old}** à **{level}**')
-                        await channel_tracklol.send(file=discord.File('./img/stonks.jpg'))
+                        await channel_tracklol.send(files=interactions.File('./img/stonks.jpg'))
                                     
 
                 except:
@@ -649,36 +664,57 @@ class LeagueofLegends(commands.Cog):
                                                                                                         'joueur' : key})
 
 
-    @cog_ext.cog_slash(name="game",
+    @interactions.extension_command(name="game",
                        description="Voir les statistiques d'une games",
-                       options=[create_option(name="summonername", description= "Nom du joueur", option_type=3, required=True),
-                                create_option(name="numerogame", description="Numero de la game, de 0 à 100", option_type=4, required=True),
-                                create_option(name="succes", description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non", option_type=5, required=True),
-                                create_option(name="chrono", description="Reserve au proprietaire", option_type=5, required=False)])
-    async def game(self, ctx, summonername:str, numerogame:int, succes: bool):
+                       options=[Option(name="summonername",
+                                       description= "Nom du joueur",
+                                       type=interactions.OptionType.STRING, required=True),
+                                Option(name="numerogame",
+                                       description="Numero de la game, de 0 à 100",
+                                       type=interactions.OptionType.INTEGER,
+                                       required=True,
+                                       min_value=0,
+                                       max_value=100),
+                                Option(name="succes",
+                                       description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non",
+                                       type=interactions.OptionType.BOOLEAN,
+                                       required=True)])
+    async def game(self, ctx:interactions.CommandContext, summonername:str, numerogame:int, succes: bool):
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
         
         summonername = summonername.lower()
 
         embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes)
 
         if embed != {}:
-            await ctx.send(embed=embed, file=resume)
-            await ctx.send(embed=embed2, file=resume2)
+            await ctx.send(embeds=embed, files=resume)
+            await ctx.send(embeds=embed2, files=resume2)
             os.remove('resume.png')
             os.remove('resume_perso.png')
             
             
-    @cog_ext.cog_slash(name="game_multi",
+    @interactions.extension_command(name="game_multi",
                        description="Voir les statistiques d'une games",
-                       options=[create_option(name="summonername", description= "Nom du joueur", option_type=3, required=True),
-                                create_option(name="debut", description="Numero de la game, de 0 à 100", option_type=4, required=True),
-                                create_option(name="fin", description="Numero de la game, de 0 à 100", option_type=4, required=True),
-                                create_option(name="succes", description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non", option_type=5, required=True)])        
-    async def game_multi(self, ctx, summonername:str, debut:int, fin:int, succes: bool):
+                       options=[Option(name="summonername",
+                                       description= "Nom du joueur",
+                                       type=interactions.OptionType.STRING,
+                                       required=True),
+                                Option(name="debut",
+                                       description="Numero de la game, de 0 à 100",
+                                       type=interactions.OptionType.INTEGER,
+                                       required=True),
+                                Option(name="fin",
+                                       description="Numero de la game, de 0 à 100",
+                                       type=interactions.OptionType.INTEGER,
+                                       required=True),
+                                Option(name="succes",
+                                       description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non",
+                                       type=interactions.OptionType.BOOLEAN,
+                                       required=True)])        
+    async def game_multi(self, ctx:interactions.CommandContext, summonername:str, debut:int, fin:int, succes: bool):
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
         
         for i in range(fin, debut, -1):
             
@@ -687,36 +723,52 @@ class LeagueofLegends(commands.Cog):
             embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes)
 
             if embed != {}:
-                await ctx.send(embed=embed, file=resume)
-                await ctx.send(embed=embed2, file=resume2)
+                await ctx.send(embeds=embed, files=resume)
+                await ctx.send(embeds=embed2, files=resume2)
             else:
                 await ctx.send(f"La game {str(i)} n'a pas été comptabilisée")
                 
             sleep(5)
                
 
-    async def printLive(self, summonername, discord_server_id):
+    async def printLive(self, summonername, discord_server_id:chan_discord):
         
         summonername = summonername.lower()
         
         embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername, idgames=0, succes=True)
-        
        
         if mode_de_jeu in ['RANKED', 'FLEX']:
-            channel_tracklol = self.bot.get_channel(discord_server_id.tracklol)
+            
+            channel_tracklol = await interactions.get(client=self.bot,
+                                                      obj=interactions.Channel,
+                                                      object_id=discord_server_id.tracklol)
         else:
-            channel_tracklol = self.bot.get_channel(discord_server_id.lol_others)   
+            channel_tracklol = await interactions.get(client=self.bot,
+                                                      obj=interactions.Channel,
+                                                      object_id=discord_server_id.lol_others)   
         
         if embed != {}:
-            await channel_tracklol.send(embed=embed, file=resume)
-            await channel_tracklol.send(embed=embed2, file=resume2)
+            await channel_tracklol.send(embeds=embed, files=resume)
+            await channel_tracklol.send(embeds=embed2, files=resume2)
+            
+            # # correction pour Paginator
+            # channel_tracklol.channel_id = channel_tracklol.id
+            
+            # await Paginator(
+            #     client=self.bot,
+            #     ctx=channel_tracklol,
+            #     pages=[
+            #         Page(embed.title, embed),
+            #         Page(embed2.title, embed2),
+                
+            #     ],
+            #         ).run()
             os.remove('resume.png')
             os.remove('resume_perso.png')
 
-
     async def update(self):
         
-
+ 
         data = get_data_bdd(f'SELECT index, id from tracker where activation = true').fetchall()
         
  
@@ -748,9 +800,13 @@ class LeagueofLegends(commands.Cog):
 
 
 
-    @cog_ext.cog_slash(name="loladd",description="Ajoute le joueur au suivi",
-                       options=[create_option(name="summonername", description = "Nom du joueur", option_type=3, required=True)])
-    async def loladd(self, ctx, *, summonername):
+    @interactions.extension_command(name="loladd",
+                                    description="Ajoute le joueur au suivi",
+                       options=[Option(name="summonername",
+                                       description = "Nom du joueur",
+                                       type=interactions.OptionType.STRING,
+                                       required=True)])
+    async def loladd(self, ctx:interactions.CommandContext, *, summonername):
         try:
             requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
                               
@@ -785,11 +841,17 @@ class LeagueofLegends(commands.Cog):
         except:
             await ctx.send("Oops! There is no summoner with that name!")
 
-    @cog_ext.cog_slash(name='lolremove', description='Activation/Désactivation du tracker',
-                       options=[create_option(name='summonername', description="nom ingame", option_type=3, required=True),
-                                create_option(name="activation", description="True : Activé / False : Désactivé", option_type=5, required=True)])
+    @interactions.extension_command(name='lolremove', description='Activation/Désactivation du tracker',
+                       options=[Option(name='summonername',
+                                       description="nom ingame",
+                                       type=interactions.OptionType.STRING,
+                                       required=True),
+                                Option(name="activation",
+                                       description="True : Activé / False : Désactivé",
+                                       type=interactions.OptionType.BOOLEAN,
+                                       required=True)])
     
-    async def lolremove(self, ctx, summonername:str, activation:bool):
+    async def lolremove(self, ctx:interactions.CommandContext, summonername:str, activation:bool):
         
         summonername = summonername.lower()
         
@@ -803,8 +865,8 @@ class LeagueofLegends(commands.Cog):
             await ctx.send('Joueur introuvable')
 
 
-    @cog_ext.cog_slash(name='lollist', description='Affiche la liste des joueurs suivis')
-    async def lollist(self, ctx):
+    @interactions.extension_command(name='lollist', description='Affiche la liste des joueurs suivis')
+    async def lollist(self, ctx:interactions.CommandContext):
 
         data = get_data_bdd('SELECT index from tracker').fetchall()
         response = ""
@@ -813,12 +875,11 @@ class LeagueofLegends(commands.Cog):
             response += key[0].upper() + ", "
 
         response = response[:-2]
-        embed = discord.Embed(title="Live feed list", description=response, colour=discord.Colour.blurple())
+        embed = interactions.Embed(title="Live feed list", description=response, color=interactions.Color.blurple())
 
-        await ctx.send(embed=embed)
+        await ctx.send(embeds=embed)
 
-    
-    @tasks.loop(hours=1, count=None)
+
     async def lolsuivi(self):
 
 
@@ -880,7 +941,7 @@ class LeagueofLegends(commands.Cog):
                     joueur = suivi.keys()
 
 
-                    embed = discord.Embed(title="Suivi LOL", description='Periode : 24h', colour=discord.Colour.blurple())
+                    embed = interactions.Embed(title="Suivi LOL", description='Periode : 24h', color=interactions.Color.blurple())
                     totalwin = 0
                     totaldef = 0
                     totalgames = 0
@@ -942,47 +1003,61 @@ class LeagueofLegends(commands.Cog):
                             sql += f'''UPDATE suivi_24h SET wins = {suivi[key]['wins']}, losses = {suivi[key]['losses']}, "LP" = {suivi[key]['LP']}, tier = '{suivi[key]['tier']}', rank = '{suivi[key]['rank']}' where index = '{key}';'''
                                                             
 
-                    channel_tracklol = self.bot.get_channel(chan_discord_id.tracklol) 
+                    channel_tracklol = await interactions.get(client=self.bot,
+                                                      obj=interactions.Channel,
+                                                      object_id=chan_discord_id.tracklol)
                     
-                    embed.set_footer(text=f'Version {main.Var_version} by Tomlora')
+                    embed.set_footer(text=f'Version {Version} by Tomlora')
                     
                     if sql != '': # si vide, pas de requête
                         requete_perso_bdd(sql)  
 
-                    await channel_tracklol.send(embed=embed)
+                    await channel_tracklol.send(embeds=embed)
                     await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
                 
 
-    @cog_ext.cog_slash(name="color_recap",
-                       description="Couleur du recap",
-                       options=[create_option(name="summonername", description= "Nom du joueur", option_type=3, required=True),
-                                create_option(name="rouge", description="R", option_type=4, required=True),
-                                create_option(name="vert", description="G", option_type=4, required=True),
-                                create_option(name="bleu", description="B", option_type=4, required=True)])        
-    async def color_recap(self, ctx, summonername:str, rouge:int, vert:int, bleu: int):
+    @interactions.extension_command(name="color_recap",
+                       description="Modifier la couleur du recap",
+                       options=[Option(name="summonername",
+                                       description= "Nom du joueur",
+                                       type=interactions.OptionType.STRING,
+                                       required=True),
+                                Option(name="rouge",
+                                       description="R",
+                                       type=interactions.OptionType.INTEGER,
+                                       required=True),
+                                Option(name="vert",
+                                       description="G",
+                                       type=interactions.OptionType.INTEGER,
+                                       required=True),
+                                Option(name="bleu",
+                                        description="B",
+                                        type=interactions.OptionType.INTEGER,
+                                        required=True)])        
+    async def color_recap(self, ctx:interactions.CommandContext, summonername:str, rouge:int, vert:int, bleu: int):
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
         
         params = {'rouge' : rouge, 'vert' : vert, 'bleu' : bleu, 'index' : summonername.lower()}
         requete_perso_bdd(f'UPDATE tracker SET "R" = :rouge, "G" = :vert, "B" = :bleu WHERE index = :index', params)
         
         await ctx.send(f' La couleur du joueur {summonername} a été modifiée.')   
         
-    @cog_ext.cog_slash(name="abbedagge", description="Meilleur joueur de LoL")
+    @interactions.extension_command(name="abbedagge", description="Meilleur joueur de LoL")
     async def abbedagge(self, ctx):
         await ctx.send('https://clips.twitch.tv/ShakingCovertAuberginePanicVis-YDRK3JFk7Glm6nbB')
         
-    @cog_ext.cog_slash(name="closer", description="Meilleur joueur de LoL")
+    @interactions.extension_command(name="closer", description="Meilleur joueur de LoL")
     async def closer(self, ctx):
         await ctx.send('https://clips.twitch.tv/EmpathicClumsyYogurtKippa-lmcFoGXm1U5Jx2bv')
         
-    @cog_ext.cog_slash(name="upset", description="Meilleur joueur de LoL")
+    @interactions.extension_command(name="upset", description="Meilleur joueur de LoL")
     async def upset(self, ctx):
         await ctx.send('https://clips.twitch.tv/CuriousBenevolentMageHotPokket-8M0TX_zTaGW7P2g7')
         
-       
-    @cog_ext.cog_slash(name='lol_discord', description='Link discord et lol')
-    async def link(self, ctx, summonername, member:discord.Member):
+
+    @interactions.extension_command(name='lol_discord', description='Link discord et lol')
+    async def link(self, ctx, summonername, member:interactions.Member):
         
         summonername = summonername.lower()
         
@@ -992,4 +1067,4 @@ class LeagueofLegends(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(LeagueofLegends(bot))
+    LeagueofLegends(bot)

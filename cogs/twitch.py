@@ -1,20 +1,20 @@
-from discord.ext import commands, tasks
-import main
 import requests
 import os
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
-from discord_slash.utils.manage_components import *
-from discord_slash.utils.manage_commands import create_option
-from discord_slash import cog_ext
+import interactions 
+from interactions import Option
+from interactions.ext.tasks import create_task, IntervalTrigger
+
+from fonctions.channels_discord import chan_discord
+
 
 
 # https://dev.twitch.tv/docs/api/reference#get-users
 
 
-class Twitch(commands.Cog):
+class Twitch(interactions.Extension):
     def __init__(self, bot):
-        self.bot = bot
-        self.Twitch_verif.start()
+        self.bot : interactions.Client = bot
         self.URL = 'https://id.twitch.tv/oauth2/token'
         self.client_id = os.environ.get('client_id_twitch')
         self.client_secret = os.environ.get('client_secret_twitch')
@@ -24,10 +24,20 @@ class Twitch(commands.Cog):
             "grant_type": 'client_credentials'
         }
 
-    @commands.command(brief="Vérifie si un utilisateur Twitch est connecté")
-    async def TwitchLive(self, pseudo_twitch: str, statut_twitch:bool):  # return the stream Id is streaming else returns -1
+    @interactions.extension_listener
+    async def on_start(self):
+        self.task1 = create_task(IntervalTrigger(60*4))(self.Twitch_verif)
+        self.task1.start()
+    
 
-        channel_lol = self.bot.get_channel(main.chan_twitch)
+    async def TwitchLive(self, pseudo_twitch: str, statut_twitch:bool):  # return the stream Id is streaming else returns -1
+        # TODO : Faire par serveur discord
+        
+        discord_server_id = chan_discord(494217748046544906)
+
+        channel_lol = await interactions.get(client=self.bot,
+                                                      obj=interactions.Channel,
+                                                      object_id=discord_server_id.twitch)
 
         r = requests.post(url=self.URL, params=self.body)
 
@@ -53,35 +63,39 @@ class Twitch(commands.Cog):
         elif stream_data['data'][0]['is_live'] == False and statut_twitch == True : # si le joueur a fini son stream
             requete_perso_bdd('''UPDATE twitch SET is_live = False WHERE index = :joueur ''', {'joueur' : pseudo_twitch.lower()})
 
-    @tasks.loop(minutes=4, count=None)
+
     async def Twitch_verif(self):
-        if self.bot.get_channel(main.chan_twitch):
+
+        data_joueur = get_data_bdd("SELECT index, is_live from twitch").mappings().all()
             
-            data_joueur = get_data_bdd("SELECT index, is_live from twitch").mappings().all()
-            
-            for joueur in data_joueur:
-                await self.TwitchLive(joueur['index'], joueur['is_live'])
-        else:
-            pass
+        for joueur in data_joueur:
+            await self.TwitchLive(joueur['index'], joueur['is_live'])
 
 
-    @cog_ext.cog_slash(name="addtwitch",
+
+    @interactions.extension_command(name="addtwitch",
                        description="Ajoute un compte au tracker twitch",
-                       options=[create_option(name="pseudo_twitch", description = "Pseudo du compte Twitch", option_type=3, required=True)])
-    async def add_twitch(self, ctx, pseudo_twitch:str):
+                       options=[Option(name="pseudo_twitch",
+                                       description = "Pseudo du compte Twitch",
+                                       type=interactions.OptionType.STRING,
+                                       required=True)])
+    async def add_twitch(self, ctx:interactions.CommandContext, pseudo_twitch:str):
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
         
         requete_perso_bdd('''INSERT INTO twitch(index, is_live)
 	                    VALUES (:index, :is_live);''', {'index' : pseudo_twitch.lower(), 'is_live' : False})
         await ctx.send('Joueur ajouté au tracker Twitch')
         
-    @cog_ext.cog_slash(name="deltwitch",
+    @interactions.extension_command(name="deltwitch",
                        description="Supprime un compte du tracker twitch",
-                       options=[create_option(name="pseudo_twitch", description = "Pseudo du compte Twitch", option_type=3, required=True)])
-    async def del_twitch(self, ctx, pseudo_twitch:str):
+                       options=[Option(name="pseudo_twitch",
+                                       description = "Pseudo du compte Twitch",
+                                       type=interactions.OptionType.STRING,
+                                       required=True)])
+    async def del_twitch(self, ctx:interactions.CommandContext, pseudo_twitch:str):
         
-        await ctx.defer(hidden=False)
+        await ctx.defer(ephemeral=False)
         requete_perso_bdd('''DELETE FROM twitch WHERE index = :index;''', {'index' : pseudo_twitch.lower()})
         
         await ctx.send('Joueur supprimé du tracker Twitch')
@@ -89,4 +103,4 @@ class Twitch(commands.Cog):
     
 
 def setup(bot):
-    bot.add_cog(Twitch(bot))
+    Twitch(bot)
