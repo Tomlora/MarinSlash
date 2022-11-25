@@ -13,12 +13,6 @@ from fonctions.gestion_bdd import (lire_bdd,
 from fonctions.match import dict_rankid
 import requests
 
-
-
-
-
-
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 

@@ -351,8 +351,6 @@ class Recordslol(interactions.Extension):
         
         await ctx.defer(ephemeral=False)
         
-        current = 0
-        
         df_part1 = df.iloc[:18]
         df_part2 = df.iloc[18:]
         

@@ -7,6 +7,7 @@ from cogs.achievements_scoringlol import scoring
 import interactions
 from interactions import Option
 from interactions.ext.tasks import IntervalTrigger, create_task
+from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version
 
 from fonctions.gestion_bdd import (lire_bdd,
@@ -87,6 +88,7 @@ def score_personnel(embed, key:str, summonerName:str, stats:str, old_value:float
 class LeagueofLegends(interactions.Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
+        stp(self.bot)
         
         
     @interactions.extension_listener
@@ -525,7 +527,6 @@ class LeagueofLegends(interactions.Extension):
         sauvegarde_bdd(suivi, 'suivi') #achievements + suivi
 
 
-                
         # observations
         
         embed.add_field(name="Game", value=f"[LeagueofGraph]({url_game})") # ici, ça va de 1 à 10.. contrairement à Rito qui va de 1 à 9
@@ -684,8 +685,10 @@ class LeagueofLegends(interactions.Extension):
         await ctx.defer(ephemeral=False)
         
         summonername = summonername.lower()
+        
 
         embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes)
+
 
         if embed != {}:
             await ctx.send(embeds=embed, files=resume)
@@ -750,19 +753,7 @@ class LeagueofLegends(interactions.Extension):
         if embed != {}:
             await channel_tracklol.send(embeds=embed, files=resume)
             await channel_tracklol.send(embeds=embed2, files=resume2)
-            
-            # # correction pour Paginator
-            # channel_tracklol.channel_id = channel_tracklol.id
-            
-            # await Paginator(
-            #     client=self.bot,
-            #     ctx=channel_tracklol,
-            #     pages=[
-            #         Page(embed.title, embed),
-            #         Page(embed2.title, embed2),
-                
-            #     ],
-            #         ).run()
+
             os.remove('resume.png')
             os.remove('resume_perso.png')
 

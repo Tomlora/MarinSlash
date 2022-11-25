@@ -22,6 +22,8 @@ class Divers(interactions.Extension):
         self.task1 = create_task(IntervalTrigger(60))(self.check_for_unmute)
         self.task1.start()
         
+        
+        
     @interactions.extension_listener
     async def createMutedRole(self, ctx:interactions.CommandContext):
         mutedRole = await ctx.guild.create_role(name="Muted",
@@ -53,7 +55,6 @@ class Divers(interactions.Extension):
                     member = await guild.get_member(row["user_id"])
                     self.database_handler.revoke_tempmute(row["id"])
                     await member.remove_role(role=muted_role, guild_id=guild.id)
-                    print('Une personne a été démuté')
 
     @interactions.extension_command(name="hello", description="Saluer le bot")
     async def hello(self, ctx : interactions.CommandContext):
@@ -159,7 +160,7 @@ class Divers(interactions.Extension):
     
     async def spank_slash(self, ctx:interactions.CommandContext, member: interactions.Member, reason="Aucune raison n'a été renseignée"):
         if isOwner_slash(ctx):
- 
+
             muted_role = await self.get_muted_role(ctx.guild)
             self.database_handler.add_tempmute(int(member.id), int(ctx.guild_id),
                                         datetime.datetime.utcnow() + datetime.timedelta(seconds=60))
@@ -187,6 +188,15 @@ class Divers(interactions.Extension):
 
             await ctx.send(embeds=embed)
             
+    @interactions.extension_command(name="test_channel", description="test_channel")
+    async def test_channel(self, ctx : interactions.CommandContext):
+        if isOwner_slash(ctx):
+            new_chan = await ctx.guild.create_channel(name="chan de test",
+                                     type=interactions.ChannelType.GUILD_TEXT,
+                                     parent_id=450771619648897034)
+            await new_chan.send('nouveau channel')
+        else:
+            await ctx.send("Tu n'as pas les droits")
 
     # @bot.command(name='mute', description='mute someone')
     # @commands.has_permissions(ban_members=True)

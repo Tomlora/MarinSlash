@@ -1,18 +1,19 @@
 import os
 import interactions
-import asyncio
-import discord
 from discord.ext import commands
-
+from discord.utils import get
+from requests.exceptions import HTTPError
+from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso
 from fonctions.channels_discord import chan_discord
-from fonctions.gestion_bdd import requete_perso_bdd
+from fonctions.params import Version
+
 
 
 
 # Duplicate table
 # https://popsql.com/learn-sql/postgresql/how-to-duplicate-a-table-in-postgresql
 
-Var_version = 8.0
+
 
 # Paramètres
 
@@ -43,79 +44,83 @@ chan_lol_others = chan_discord_id.lol_others
 guildid = chan_discord_id.server_id
 role_admin = chan_discord_id.role_admin
 
+
 @bot.event
-async def on_message(message):
-    if not isinstance(message.channel, discord.abc.PrivateChannel):
-        role = discord.utils.get(message.guild.roles, name="Muted")
+async def on_message_create(message : interactions.Message):
+    channel = message.channel_id
+    channel = await interactions.get(client=bot,
+                                                      obj=interactions.Channel,
+                                                      object_id=channel)
+    
 
-    if (isinstance(message.channel, discord.abc.PrivateChannel)) and (int(message.author.id) != int(id_bot)):
-        channel_pm = bot.get_channel(chan_pm)
-        date = str(message.created_at)
-        date_short = date[:-7]
-        embed = discord.Embed(title=f"Message privé reçu de la part de {message.author}",
-                              description=f"{message.content}",
-                              color=discord.Color.blue())
-        embed.set_thumbnail(url=message.author.avatar_url)
-        embed.set_footer(text=f'< userid : {message.author.id} >  < date : {date_short} >')
-        await channel_pm.send(embed=embed)
+    if (channel.type != interactions.ChannelType.DM) and (int(message.author.id) != int(id_bot)):
+        # Muted
+        guild = await message.get_guild()
+        
+        role = get(guild.roles, name="Muted")
 
-    if not isinstance(message.channel, discord.abc.PrivateChannel):
-
-        if role in message.author.roles:
+        if role in message.member.roles:
             await message.delete()
             
         
-    await bot.process_commands(
-        message)  # Overriding the default provided on_message forbids any extra commands from running. To fix this, add a bot.process_commands(message) line at the end of your on_message.
+    # await bot.process_commands(
+    #     message)  # Overriding the default provided on_message forbids any extra commands from running. To fix this, add a bot.process_commands(message) line at the end of your on_message.
 
 @bot.event
-async def on_guild_join(guild : discord.Guild):
+async def on_guild_create(guild : interactions.Guild):
 
-        text_channel_list = []
-        for channel in guild.text_channels:
-            text_channel_list.append(channel.id)
+        # on_guild_create peut marcher si le serveur n'est pas disponible, on va donc check si on l'a dans la bdd ou pas.
+        if lire_bdd_perso(f'''SELECT server_id from channels_discord where server_id = {int(guild.id)}''', index_col='server_id').shape[1] != 1:
+        # si on l'a pas, on l'ajoute
+            text_channel_list = []
+            for channel in await guild.get_all_channels():
+                text_channel_list.append(channel.id)
+            
+            
+            requete_perso_bdd(f'''INSERT INTO public.channels_discord(
+                        server_id, id_owner, id_owner2, chan_pm, chan_tracklol, chan_accueil, chan_twitch, chan_lol, chan_tft, chan_lol_others, role_admin)
+                        VALUES (:server_id, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan);''',
+                    {'server_id' : int(guild.id), 'chan' : int(text_channel_list[0])})
         
-        requete_perso_bdd(f'''INSERT INTO public.channels_discord(
-                    server_id, id_owner, id_owner2, chan_pm, chan_tracklol, chan_accueil, chan_twitch, chan_lol, chan_tft, chan_lol_others, role_admin)
-                    VALUES (:server_id, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan);''',
-                {'server_id' : guild.id, 'chan' : text_channel_list[0]})
-        
-@bot.event
-async def on_guild_remove(guild : discord.Guild):
+# @bot.event
+# async def on_guild_delete(guild : interactions.Guild):
        
-        requete_perso_bdd(f'''DELETE FROM channels_discord where server_id = :server_id''', {'server_id' : guild.id})
+#         requete_perso_bdd(f'''DELETE FROM channels_discord where server_id = :server_id''', {'server_id' : int(guild.id)})
 
 @bot.event
-async def on_member_join(member : discord.Member):
+async def on_guild_member_add(member : interactions.Member):
     '''Lorsque un nouveau user rejoint le discord'''
+
     guild = member.guild
-    chan_discord_pm = chan_discord(guild.id)
-    channel = bot.get_channel(chan_discord_pm.chan_accueil)
+    chan_discord_pm = chan_discord(int(guild.id))
+    channel = await interactions.get(client=bot,
+                                    obj=interactions.Channel,
+                                    object_id=chan_discord_pm.chan_accueil)
     
-    embed = discord.Embed(title=f'Bienvenue chez les {guild.name}',
+    embed = interactions.Embed(title=f'Bienvenue chez les {guild.name}',
                           description=f'Hello {member.name}, tu es notre {guild.member_count}ème membre !',
-                          color=discord.Color.blue())
+                          color=interactions.Color.blurple())
     embed.set_thumbnail(url=member.avatar_url)
-    embed.set_footer(text=f'Version {Var_version} by Tomlora')
-     
-    await channel.send(embed=embed)
+    embed.set_footer(text=f'Version {Version} by Tomlora')
+
+    await channel.send(embeds=embed)
 
  
 @bot.event
-async def on_member_remove(member : discord.Member):
+async def on_guild_member_remove(member : interactions.Member):
     '''Lorsque un nouveau user quitte le discord'''
     guild = member.guild
-    chan_discord_pm = chan_discord(guild.id)
-    channel = bot.get_channel(chan_discord_pm.chan_accueil)
-    
-    embed = discord.Embed(title=f'Départ des {guild.name}',
+    chan_discord_pm = chan_discord(int(guild.id))
+    channel = await interactions.get(client=bot,
+                                    obj=interactions.Channel,
+                                    object_id=chan_discord_pm.chan_accueil)
+    embed = interactions.Embed(title=f'Départ des {guild.name}',
                           description=f'Au revoir {member.name}, nous sommes encore {guild.member_count} membres !',
-                          color=discord.Color.blue())
+                          color=interactions.Color.blurple())
     embed.set_thumbnail(url=member.avatar_url)
-    embed.set_footer(text=f'Version {Var_version} by Tomlora')
-    
-    await channel.send(embed=embed)
-
+    embed.set_footer(text=f'Version {Version} by Tomlora')
+    print(embed.title)
+    await channel.send(embeds=embed)
 
 
 
@@ -129,6 +134,8 @@ async def on_command_error(ctx: interactions.CommandContext, error):
         await ctx.send("Cette commande n'est activée qu'en message privé")
     elif isinstance(error, commands.CommandOnCooldown):
         await ctx.send(f' {error}')
+    elif isinstance(error, HTTPError):
+        await ctx.send('Trop de requêtes')
     else:
         embed = interactions.Embed(title='Erreur', description=f'Description: \n `{error}`',
                               color=242424)
@@ -137,12 +144,12 @@ async def on_command_error(ctx: interactions.CommandContext, error):
 
 # -------------------------------- Modération
 
-# Bannissement
-@bot.command(name='ban', description='bannir')
-@commands.has_permissions(ban_members=True)
-async def ban(ctx, user: discord.User, *, reason="Aucune raison n'a été renseignee"):
-    await ctx.guild.ban(user, reason=reason)
-    await ctx.send(f"{user} à été ban pour la raison suivante : {reason}.")
+# # Bannissement
+# @bot.command(name='ban', description='bannir')
+# @commands.has_permissions(ban_members=True)
+# async def ban(ctx, user: interactions.User, *, reason="Aucune raison n'a été renseignee"):
+#     await ctx.guild.ban(user, reason=reason)
+#     await ctx.send(f"{user.username} à été ban pour la raison suivante : {reason}.")
 
 
 

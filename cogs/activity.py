@@ -19,7 +19,8 @@ class activity(interactions.Extension):
                                                                                                              type=interactions.PresenceActivityType.WATCHING)]))
        
     @interactions.extension_listener
-    async def on_ready(self):    
+    async def on_ready(self):   
+        # TODO : faire via BDD 
         for guild in self.bot.guilds:
             text_channel_list = []
             for channel in await guild.get_all_channels():
