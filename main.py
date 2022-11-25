@@ -51,16 +51,15 @@ async def on_message_create(message : interactions.Message):
     channel = await interactions.get(client=bot,
                                                       obj=interactions.Channel,
                                                       object_id=channel)
-    
 
     if (channel.type != interactions.ChannelType.DM) and (int(message.author.id) != int(id_bot)):
-        # Muted
-        guild = await message.get_guild()
         
+        guild = await message.get_guild()
         role = get(guild.roles, name="Muted")
-
-        if role in message.member.roles:
+        
+        if role.id in message.member.roles:
             await message.delete()
+            
             
         
     # await bot.process_commands(
