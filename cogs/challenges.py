@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 import datetime
 import dataframe_image as dfi
 import interactions
-from interactions import Choice, Option
+from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import create_task, IntervalTrigger
 from interactions.ext.wait_for import wait_for_component, setup as stp
 
@@ -95,7 +95,7 @@ def get_data_joueur(summonername:str):
     
 
 
-class Challenges(interactions.Extension):
+class Challenges(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
         self.defis = lire_bdd('challenges_data').transpose().sort_values(by="name", ascending=True)
@@ -139,7 +139,7 @@ class Challenges(interactions.Extension):
     
     @interactions.extension_command(name="challenges_help",
                                     description="Explication des challenges")
-    async def challenges_help(self, ctx:interactions.CommandContext):
+    async def challenges_help(self, ctx:CommandContext):
         
         nombre_de_defis = len(self.defis['name'].unique())
         
@@ -153,7 +153,7 @@ class Challenges(interactions.Extension):
         
     @interactions.extension_command(name="challenges_liste",
                                     description="Liste des challenges")
-    async def challenges_liste(self, ctx:interactions.CommandContext):
+    async def challenges_liste(self, ctx:CommandContext):
         
         em = interactions.Embed(title="Challenges", description="Explication des challenges")
               
@@ -168,7 +168,7 @@ class Challenges(interactions.Extension):
     
     @interactions.extension_command(name="challenges_classement",
                                     description="Classement des points de challenge")
-    async def challenges_classement(self, ctx:interactions.CommandContext):
+    async def challenges_classement(self, ctx:CommandContext):
         
         bdd_user_total = lire_bdd('challenges_total').transpose()
 
@@ -184,7 +184,7 @@ class Challenges(interactions.Extension):
                                        description = "Nom du joueur",
                                        type=interactions.OptionType.STRING,
                                        required=True)])
-    async def challenges_profil(self, ctx:interactions.CommandContext, summonername:str):
+    async def challenges_profil(self, ctx:CommandContext, summonername:str):
         
         
         total_user, total_category, total_challenges = get_data_joueur(summonername)
@@ -246,7 +246,7 @@ class Challenges(interactions.Extension):
                                        description= "Quel page ? Les challenges sont en ordre alphabétique",
                                        type=interactions.OptionType.INTEGER,
                                        required=True)])
-    async def challenges_top(self, ctx:interactions.CommandContext, nbpages:int):
+    async def challenges_top(self, ctx:CommandContext, nbpages:int):
         
             # 232 défis
             
@@ -303,7 +303,7 @@ class Challenges(interactions.Extension):
                                        description= "Quel defi ?",
                                        type=interactions.OptionType.STRING,
                                        required=True)])
-    async def challenges_top_name(self, ctx:interactions.CommandContext, defi:str):
+    async def challenges_top_name(self, ctx:CommandContext, defi:str):
                
             
             bdd_user_challenges = lire_bdd('challenges_data').transpose()

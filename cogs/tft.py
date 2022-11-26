@@ -1,9 +1,9 @@
 import pandas as pd
 import warnings
 import interactions 
-from interactions import Option
+from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import create_task, IntervalTrigger
-from fonctions.channels_discord import chan_discord
+from fonctions.channels_discord import chan_discord, rgb_to_discord
 import sys
 from fonctions.params import Version
 from fonctions.gestion_bdd import (lire_bdd,
@@ -46,14 +46,12 @@ def matchtft_by_puuid(summonerName, idgames: int):
     match = pd.DataFrame(match)
     return match, last_match, puuid
 
-def rgb_to_discord(r: int, g: int, b: int):
-        """Transpose les couleurs rgb en couleur personnalisée discord."""
-        return ((r << 16) + (g << 8) + b)
+
 
      
 
 
-class tft(interactions.Extension):
+class tft(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
 
@@ -63,7 +61,7 @@ class tft(interactions.Extension):
 
     @interactions.extension_listener
     async def on_start(self):
-        self.task1 = create_task(IntervalTrigger(60))(self.updatetft)
+        self.task1 = create_task(IntervalTrigger(60*5))(self.updatetft)
         self.task1.start()
 
         
@@ -282,7 +280,7 @@ class tft(interactions.Extension):
                                        required=False,
                                        min_value=0,
                                        max_value=10)])
-    async def gametft(self, ctx:interactions.CommandContext, summonername, idgames:int=0):
+    async def gametft(self, ctx:CommandContext, summonername, idgames:int=0):
         
         await ctx.defer(ephemeral=False)
     
@@ -330,7 +328,7 @@ class tft(interactions.Extension):
                            type=interactions.OptionType.STRING,
                            required=True)])
     
-    async def tftadd(self, ctx:interactions.CommandContext, *, summonername):
+    async def tftadd(self, ctx:CommandContext, *, summonername):
         # TODO : à simplifier
         # TODO : refaire tftremove
             data = lire_bdd('trackertft', 'dict')

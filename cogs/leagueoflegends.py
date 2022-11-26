@@ -5,7 +5,7 @@ import numpy as np
 import warnings
 from cogs.achievements_scoringlol import scoring
 import interactions
-from interactions import Option
+from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import IntervalTrigger, create_task
 from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version
@@ -14,14 +14,15 @@ from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
                                    get_data_bdd,
                                    requete_perso_bdd,
-                                   lire_bdd_perso)
+                                   lire_bdd_perso,
+                                   get_guild_data)
 
 from fonctions.match import (matchlol,
                              getId,
                              dict_rankid,
                              lol_watcher,
                              my_region)
-from fonctions.channels_discord import chan_discord
+from fonctions.channels_discord import chan_discord, rgb_to_discord
 
 from time import sleep
 
@@ -34,9 +35,7 @@ import os
 version = lol_watcher.data_dragon.versions_for_region(my_region)
 champions_versions = version['n']['champion']
 
-def rgb_to_discord(r: int, g: int, b: int):
-        """Transpose les couleurs rgb en couleur personnalisée discord."""
-        return ((r << 16) + (g << 8) + b)
+
 
 
 
@@ -85,7 +84,7 @@ def score_personnel(embed, key:str, summonerName:str, stats:str, old_value:float
     return embed
                 
 
-class LeagueofLegends(interactions.Extension):
+class LeagueofLegends(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
         stp(self.bot)
@@ -686,7 +685,7 @@ class LeagueofLegends(interactions.Extension):
                                        description="sauvegarder la game",
                                        type=interactions.OptionType.BOOLEAN,
                                        required=False)])
-    async def game(self, ctx:interactions.CommandContext, summonername:str, numerogame:int, succes: bool, sauvegarder:bool=True):
+    async def game(self, ctx:CommandContext, summonername:str, numerogame:int, succes: bool, sauvegarder:bool=True):
         
         await ctx.defer(ephemeral=False)
         
@@ -725,7 +724,7 @@ class LeagueofLegends(interactions.Extension):
                                        description='Sauvegarder les games',
                                        type=interactions.OptionType.BOOLEAN,
                                        required=False)])        
-    async def game_multi(self, ctx:interactions.CommandContext, summonername:str, debut:int, fin:int, succes: bool, sauvegarder:bool=True):
+    async def game_multi(self, ctx:CommandContext, summonername:str, debut:int, fin:int, succes: bool, sauvegarder:bool=True):
         
         await ctx.defer(ephemeral=False)
         
@@ -775,14 +774,18 @@ class LeagueofLegends(interactions.Extension):
  
         for key, value in data: 
             
-            id_last_game = getId(key)
+            try:
+                id_last_game = getId(key)
+            except:
+                print(f"erreur {key}") # joueur qui a posé pb
+                print(sys.exc_info()) # erreur
+                continue
 
             if str(value) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
                     # identification du channel
                     data = lire_bdd_perso(f'SELECT server_id, index from tracker where index= %(joueur)s', params={'joueur' : key})
-                    server_id_joueur = int(data[key][0])
-                    discord_server_id = chan_discord(server_id_joueur)
+                    discord_server_id = chan_discord(int(data[key][0]))
                     
                     # résumé de game
                     
@@ -795,7 +798,8 @@ class LeagueofLegends(interactions.Extension):
                 except: 
                     print(f"erreur {key}") # joueur qui a posé pb
                     print(sys.exc_info()) # erreur
-                       
+                    continue
+                    
                 # update la bdd
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
 
@@ -807,7 +811,7 @@ class LeagueofLegends(interactions.Extension):
                                        description = "Nom du joueur",
                                        type=interactions.OptionType.STRING,
                                        required=True)])
-    async def loladd(self, ctx:interactions.CommandContext, *, summonername):
+    async def loladd(self, ctx:CommandContext, *, summonername):
         try:
             requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
                               
@@ -834,7 +838,7 @@ class LeagueofLegends(interactions.Extension):
                             ADD COLUMN {summonername.lower} DOUBLE PRECISION;
                             
                             UPDATE records3 SET "{summonername.lower}" = 0;''',
-                         {'summonername' : summonername.lower(), 'id' : getId(summonername), 'discord' : ctx.author.id, 'guilde' : ctx.guild.id})
+                         {'summonername' : summonername.lower(), 'id' : getId(summonername), 'discord' : int(ctx.author.id), 'guilde' : int(ctx.guild.id)})
 
             
 
@@ -852,7 +856,7 @@ class LeagueofLegends(interactions.Extension):
                                        type=interactions.OptionType.BOOLEAN,
                                        required=True)])
     
-    async def lolremove(self, ctx:interactions.CommandContext, summonername:str, activation:bool):
+    async def lolremove(self, ctx:CommandContext, summonername:str, activation:bool):
         
         summonername = summonername.lower()
         
@@ -867,7 +871,7 @@ class LeagueofLegends(interactions.Extension):
 
 
     @interactions.extension_command(name='lollist', description='Affiche la liste des joueurs suivis')
-    async def lollist(self, ctx:interactions.CommandContext):
+    async def lollist(self, ctx:CommandContext):
 
         data = get_data_bdd('SELECT index from tracker').fetchall()
         response = ""
@@ -889,7 +893,14 @@ class LeagueofLegends(interactions.Extension):
 
         if currentHour == str(2):
             
-            for guild in self.bot.guilds:
+            data = get_guild_data()
+            
+            for server_id in data.fetchall():
+                
+                guild = await interactions.get(client=self.bot,
+                                                        obj=interactions.Guild,
+                                                        object_id=server_id[0])            
+            
                 
                 chan_discord_id = chan_discord(guild.id)
             
@@ -898,10 +909,10 @@ class LeagueofLegends(interactions.Extension):
   
                 df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi 
                                     INNER join tracker ON tracker.index = suivi.index 
-                                    where suivi.tier != 'Non-classe' and tracker.server_id = {guild.id} ''')
+                                    where suivi.tier != 'Non-classe' and tracker.server_id = {int(guild.id)} ''')
                 df_24h = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_24h as suivi
                                     INNER join tracker ON tracker.index = suivi.index 
-                                    where suivi.tier != 'Non-classe' and tracker.server_id = {guild.id} ''')
+                                    where suivi.tier != 'Non-classe' and tracker.server_id = {int(guild.id)} ''')
                 
                 if df.shape[1] > 0: # si pas de data, inutile de continuer
                                              
@@ -1035,7 +1046,7 @@ class LeagueofLegends(interactions.Extension):
                                         description="B",
                                         type=interactions.OptionType.INTEGER,
                                         required=True)])        
-    async def color_recap(self, ctx:interactions.CommandContext, summonername:str, rouge:int, vert:int, bleu: int):
+    async def color_recap(self, ctx:CommandContext, summonername:str, rouge:int, vert:int, bleu: int):
         
         await ctx.defer(ephemeral=False)
         
@@ -1062,9 +1073,9 @@ class LeagueofLegends(interactions.Extension):
         
         summonername = summonername.lower()
         
-        requete_perso_bdd('UPDATE tracker SET discord = :discord, server_id = :guild WHERE index = :summonername', {'discord' : member.id, 'server_id' : ctx.guild.id, 'summonername' : summonername})
+        requete_perso_bdd('UPDATE tracker SET discord = :discord, server_id = :guild WHERE index = :summonername', {'discord' : int(member.id), 'server_id' : int(ctx.guild.id), 'summonername' : summonername})
         
-        await ctx.send(f'Le compte LoL {summonername} a été link avec <@{member.id}>')
+        await ctx.send(f'Le compte LoL {summonername} a été link avec <@{int(member.id)}>')
 
 
 def setup(bot):

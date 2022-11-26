@@ -1,15 +1,12 @@
 import pandas as pd
 import pickle
-import seaborn as sns
-import numpy as np
 from matplotlib import pyplot as plt
 import os
 import plotly.express as px
-from fonctions.gestion_fichier import loadData
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
 import pickle
 import interactions
-from interactions import Choice, Option
+from interactions import Choice, Option, Extension, CommandContext
         
 def unifier_joueur(df, colonne):
     df[colonne] = df[colonne].replace('stαte', 'state')
@@ -51,35 +48,10 @@ def scoring(role, pseudo, kills, deaths, assists, kp, wardsplaced, wardskilled, 
 
     return predict
 
-def scoring_correlation(role):
-    dict = loadData('scoring')
-
-    df = pd.DataFrame.from_dict(dict)
-    df = df[df['Role'] == role]
-
-    df[['Kills', 'Deaths', 'Assists', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs']] = df[
-        ['Kills', 'Deaths', 'Assists', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs']].astype(int)
-    df[['KP', 'csm', 'score']] = df[['KP', 'csm', 'score']].astype(float)
-
-    plt.figure(figsize=(15, 10))
-
-    df_corr = df.corr()
-
-    mask = np.zeros_like(df_corr, dtype=bool)
-    mask[np.triu_indices_from(mask)] = True
-
-    heatmap = sns.heatmap(df_corr, mask=mask, square=True, cmap='coolwarm', annot=True, fmt=".2f",
-                          annot_kws={'size': 8})
-    heatmap.set(title='Analyse OP.GG ' + str(role))
-
-    return heatmap
 
 
 
-
-
-
-class Achievements_scoringlol(interactions.Extension):
+class Achievements_scoringlol(Extension):
     def __init__(self, bot) -> None:
         self.bot: interactions.Client = bot
             
@@ -103,7 +75,7 @@ class Achievements_scoringlol(interactions.Extension):
             required=False),
                 ],
         )
-    async def achievements(self, ctx:interactions.CommandContext, mode:str, records:bool=False):
+    async def achievements(self, ctx:CommandContext, mode:str, records:bool=False):
         
 
         # Succes
@@ -186,7 +158,7 @@ class Achievements_scoringlol(interactions.Extension):
                            type=interactions.OptionType.STRING,
                            required=True,
                            choices=mode_de_jeu)])
-    async def achievements_regles(self, ctx:interactions.CommandContext, mode:str):
+    async def achievements_regles(self, ctx:CommandContext, mode:str):
 
         if mode == 'aram':
             

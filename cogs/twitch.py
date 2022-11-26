@@ -2,7 +2,7 @@ import requests
 import os
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
 import interactions 
-from interactions import Option
+from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import create_task, IntervalTrigger
 
 from fonctions.channels_discord import chan_discord
@@ -12,7 +12,7 @@ from fonctions.channels_discord import chan_discord
 # https://dev.twitch.tv/docs/api/reference#get-users
 
 
-class Twitch(interactions.Extension):
+class Twitch(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
         self.URL = 'https://id.twitch.tv/oauth2/token'
@@ -79,7 +79,7 @@ class Twitch(interactions.Extension):
                                        description = "Pseudo du compte Twitch",
                                        type=interactions.OptionType.STRING,
                                        required=True)])
-    async def add_twitch(self, ctx:interactions.CommandContext, pseudo_twitch:str):
+    async def add_twitch(self, ctx:CommandContext, pseudo_twitch:str):
         
         await ctx.defer(ephemeral=False)
         
@@ -93,7 +93,7 @@ class Twitch(interactions.Extension):
                                        description = "Pseudo du compte Twitch",
                                        type=interactions.OptionType.STRING,
                                        required=True)])
-    async def del_twitch(self, ctx:interactions.CommandContext, pseudo_twitch:str):
+    async def del_twitch(self, ctx:CommandContext, pseudo_twitch:str):
         
         await ctx.defer(ephemeral=False)
         requete_perso_bdd('''DELETE FROM twitch WHERE index = :index;''', {'index' : pseudo_twitch.lower()})

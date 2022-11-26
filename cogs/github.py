@@ -1,5 +1,5 @@
 import interactions
-from interactions import Option
+from interactions import Option, Extension, CommandContext
 from bs4 import BeautifulSoup
 import requests
 import json
@@ -10,9 +10,9 @@ import asyncio
 
 
 
-class Github(interactions.Extension):
+class Github(Extension):
     def __init__(self, bot):
-        self.bot : interactions.CommandContext = bot
+        self.bot : interactions.Client = bot
         stp(self.bot)
         
         
@@ -23,7 +23,7 @@ class Github(interactions.Extension):
                                        description= "Pseudo Github",
                                        type=interactions.OptionType.STRING,
                                        required=True)])
-    async def github(self, ctx:interactions.CommandContext, pseudo:str):
+    async def github(self, ctx:CommandContext, pseudo:str):
         req = requests.get(f'https://api.github.com/users/{pseudo}')
         
         if req.status_code == 200:

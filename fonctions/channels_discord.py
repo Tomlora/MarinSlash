@@ -49,3 +49,6 @@ class chan_discord():
              
 
         
+def rgb_to_discord(r: int, g: int, b: int):
+        """Transpose les couleurs rgb en couleur personnalisée discord."""
+        return ((r << 16) + (g << 8) + b)

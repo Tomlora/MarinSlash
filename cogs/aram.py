@@ -1,11 +1,12 @@
 import pandas as pd
 from fonctions.gestion_bdd import (lire_bdd,
                                    requete_perso_bdd,
-                                   lire_bdd_perso)
+                                   lire_bdd_perso,
+                                   get_guild_data)
 import datetime
 from fonctions.channels_discord import chan_discord
 import interactions
-from interactions import Choice, Option
+from interactions import Choice, Option, Extension, CommandContext
 from fonctions.permissions import isOwner_slash
 from interactions.ext.tasks import IntervalTrigger, create_task
 from fonctions.params import Version
@@ -46,7 +47,7 @@ elo_lp = {'IRON' : 0,
 chan_general = 768637526176432158
 
 
-class Aram(interactions.Extension):
+class Aram(Extension):
     def __init__(self, bot ):
         self.bot: interactions.Client = bot
 
@@ -57,7 +58,7 @@ class Aram(interactions.Extension):
         
         
     @interactions.extension_command(name="classement_aram",description="classement en aram")
-    async def ladder_aram(self, ctx:interactions.CommandContext):        
+    async def ladder_aram(self, ctx:CommandContext):        
 
         suivi_aram = lire_bdd('ranked_aram', 'dict')
         
@@ -105,7 +106,7 @@ class Aram(interactions.Extension):
                                     required=True)])
     
     async def update_activation(self,
-                                ctx:interactions.CommandContext,
+                                ctx:CommandContext,
                                 summonername:str, activation:bool):
         
         summonername = summonername.lower()
@@ -123,7 +124,7 @@ class Aram(interactions.Extension):
             
     @interactions.extension_command(name="help_aram",
                                     description='Help ranked aram')
-    async def help_aram(self, ctx:interactions.CommandContext):
+    async def help_aram(self, ctx:CommandContext):
         
         texte_general = " La ranked aram commence automatiquement après la première game. Pour désactiver, il est possible d'utiliser **/ranked_aram.** après la première partie \n" + \
                         "Le suivi est possible en tapant **/classement_aram**"
@@ -190,7 +191,7 @@ class Aram(interactions.Extension):
                                 description='nombre de lp',
                                 type=interactions.OptionType.INTEGER,
                                 required=True)])
-    async def carton(self, ctx:interactions.CommandContext, couleur:str, summonername:str, nombre:int):
+    async def carton(self, ctx:CommandContext, couleur:str, summonername:str, nombre:int):
         if isOwner_slash(ctx):
             if couleur == 'vert':
                 requete_perso_bdd('UPDATE ranked_aram SET lp = lp + :nombre WHERE index = :summonername', {'nombre' : nombre, 'summonername' : summonername.lower()})
@@ -212,8 +213,15 @@ class Aram(interactions.Extension):
         currentHour = str(datetime.datetime.now().hour)
 
         if currentHour == str(3):
-  
-            for guild in self.bot.guilds:
+            
+            data = get_guild_data()
+            
+            for server_id in data.fetchall():
+                
+                guild = await interactions.get(client=self.bot,
+                                                        obj=interactions.Guild,
+                                                        object_id=server_id[0])  
+
                 
                 chan_discord_id = chan_discord(guild.id)
             
@@ -221,10 +229,10 @@ class Aram(interactions.Extension):
 
                 df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, tracker.server_id from ranked_aram as suivi 
                                         INNER join tracker ON tracker.index = suivi.index 
-                                        where tracker.server_id = {guild.id} ''')
+                                        where tracker.server_id = {int(guild.id)} ''')
                 df_24h = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, tracker.server_id from ranked_aram_24h as suivi
                                         INNER join tracker ON tracker.index = suivi.index 
-                                        where tracker.server_id = {guild.id} ''')
+                                        where tracker.server_id = {int(guild.id)} ''')
                     
                 if df.shape[1] > 0: # s'il y a des données
 

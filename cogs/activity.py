@@ -1,10 +1,11 @@
 from fonctions.date import heure_actuelle
-
+from fonctions.gestion_bdd import get_guild_data
 import interactions
+from interactions import Extension
 
 # Activity au lancement du bot
 
-class activity(interactions.Extension):
+class activity(Extension):
     def __init__(self, bot : interactions.Client):
         self.bot = bot
         # self.on_ready = self.bot.event(self.on_ready)
@@ -21,7 +22,15 @@ class activity(interactions.Extension):
     @interactions.extension_listener
     async def on_ready(self):   
         # TODO : faire via BDD 
-        for guild in self.bot.guilds:
+        
+        data = get_guild_data()
+        
+        for server_id in data.fetchall():
+            
+            guild = await interactions.get(client=self.bot,
+                                                      obj=interactions.Guild,
+                                                      object_id=server_id[0])
+        # for guild in self.bot.guilds:
             text_channel_list = []
             for channel in await guild.get_all_channels():
                 text_channel_list.append(channel.id)

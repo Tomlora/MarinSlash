@@ -25,26 +25,6 @@ id_bot = os.environ.get('bot_marin')
 
 bot = interactions.Client(token=token, intents=interactions.Intents.ALL)
 
-# bot.remove_command('help')
-
-chan_discord_id = chan_discord(494217748046544906)
-
-# à faire passer en bdd
-id_tom = chan_discord_id.id_owner
-id_dawn = chan_discord_id.id_owner2
-chan_pm = chan_discord_id.chan_pm
-chan_tracklol = chan_discord_id.tracklol
-chan_kangourou = chan_discord_id.chan_accueil
-chan_twitch = chan_discord_id.twitch
-chan_lol = chan_discord_id.lol
-chan_tft = chan_discord_id.tft
-chan_lol_others = chan_discord_id.lol_others
-
-# même chose
-guildid = chan_discord_id.server_id
-role_admin = chan_discord_id.role_admin
-
-
 @bot.event
 async def on_message_create(message : interactions.Message):
     channel = message.channel_id
@@ -138,61 +118,12 @@ async def on_command_error(ctx: interactions.CommandContext, error):
         await ctx.send('Trop de requêtes')
     else:
         embed = interactions.Embed(title='Erreur', description=f'Description: \n `{error}`',
-                              color=242424)
+                              color=interactions.Color.red())
         await ctx.send(embeds=embed)
 
 
 # -------------------------------- Modération
-
-# # Bannissement
-# @bot.command(name='ban', description='bannir')
-# @commands.has_permissions(ban_members=True)
-# async def ban(ctx, user: interactions.User, *, reason="Aucune raison n'a été renseignee"):
-#     await ctx.guild.ban(user, reason=reason)
-#     await ctx.send(f"{user.username} à été ban pour la raison suivante : {reason}.")
-
-
-
-
-
-# Mute
-
-
-
-
-# @bot.command(name='spank')
-# async def spank(ctx, member: discord.Member, reason="Aucune raison n'a été renseignée"):
-#     if isOwner(ctx):
-#         muted_role = await get_muted_role(ctx.guild)
-#         database_handler.add_tempmute(member.id, ctx.guild.id,
-#                                       datetime.datetime.utcnow() + datetime.timedelta(seconds=60))
-#         await member.add_roles(muted_role)
-#         if reason == "Aucune raison n'a été renseignée":
-#             description = f"{member} a été spank par {ctx.author.name}"
-#         else:
-#             description = f"{member} a été spank par {ctx.author.name} pour {reason}"
-#         embed = discord.Embed(description=description,
-#                               color=discord.Colour.from_rgb(255, 255, 0))
-#         print("Une personne a été spank")
-
-#         await ctx.send(embed=embed)
-#     else:
-#         id = ctx.message.author.id
-#         muted_role = await get_muted_role(ctx.guild)
-#         database_handler.add_tempmute(id, ctx.guild.id,
-#                                       datetime.datetime.utcnow() + datetime.timedelta(seconds=60))
-#         await ctx.author.add_roles(muted_role)
-#         description = f"Bien essayé. {ctx.author.name} s'est prank lui-même"
-
-#         embed = discord.Embed(description=description,
-#                               color=discord.Colour.from_rgb(255, 255, 0))
-#         print("Une personne s'est spank elle-même")
-
-#         await ctx.send(embed=embed)
-
-
-        
-
+       
 # # delete msg
 # @bot.command(name='clear', description='clear msg')
 # @isOwner2()
@@ -204,6 +135,7 @@ async def on_command_error(ctx: interactions.CommandContext, error):
 #         await each_message.delete()
 
 
+# Fix pour intégrer des img locales dans les embed
 bot.load('interactions.ext.files')
 
 for filename in os.listdir('./cogs'):

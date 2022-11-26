@@ -1,5 +1,5 @@
 import interactions
-from interactions import Option
+from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import IntervalTrigger, create_task
 from fonctions.gestion_base_oracle import loaddata_oracle, rechargement_data_oracle
 import datetime
@@ -24,7 +24,7 @@ def extraire_variables_imbriquees(df, colonne):
     return df
 
 
-class Leaguepedia(interactions.Extension):
+class Leaguepedia(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
         self.site = mwclient.Site('lol.fandom.com', path='/')
@@ -52,7 +52,7 @@ class Leaguepedia(interactions.Extension):
                                             required=True
                                         )
                                     ])
-    async def leagueavatar(self, ctx:interactions.CommandContext, player):
+    async def leagueavatar(self, ctx:CommandContext, player):
         
         def get_filename_url_to_open(site, filename, player, size=None):
             pattern = r'.*src\=\"(.+?)\".*'
@@ -91,7 +91,7 @@ class Leaguepedia(interactions.Extension):
                             description= "Trié sur une league ?",
                             type=interactions.OptionType.STRING,
                             required=False)])
-    async def lol_mercato(self, ctx:interactions.CommandContext, league:str=""):
+    async def lol_mercato(self, ctx:CommandContext, league:str=""):
         
         # On récupère les dernières infos mercato sur Leaguepedia
         response = self.site.api('cargoquery',

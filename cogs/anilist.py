@@ -1,15 +1,12 @@
 import interactions
-from interactions import Choice, Option
+from interactions import Choice, Option, Extension, CommandContext
 import requests
 import json
 import pandas as pd
 from fonctions.params import Version
 
 
-
-
-
-class Anilist(interactions.Extension):
+class Anilist(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
         self.url = 'https://graphql.anilist.co'
@@ -87,7 +84,7 @@ class Anilist(interactions.Extension):
                 Choice(name='automne', value='FALL')
             ] )
     ])
-    async def anime_season(self, ctx:interactions.CommandContext, nb_anime:int=10, year=2022, season:str='SUMMER'):
+    async def anime_season(self, ctx:CommandContext, nb_anime:int=10, year=2022, season:str='SUMMER'):
         anime_season = """\
         query ($season : MediaSeason, $seasonYear : Int) {
     Page {
@@ -239,7 +236,7 @@ class Anilist(interactions.Extension):
         return anime_ID
         
     @interactions.extension_command(name="anime", description="Cherche un anime")  
-    async def anime(self, ctx:interactions.CommandContext, anime):
+    async def anime(self, ctx:CommandContext, anime):
         self.id = anime
         
         ctx.defer(ephemeral=False)

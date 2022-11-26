@@ -3,14 +3,15 @@ from fonctions.permissions import *
 from discord.utils import get
 import datetime
 from fonctions.mute import DatabaseHandler
-from interactions import Option
+from interactions import Option, Extension, CommandContext
 import interactions
 from interactions.ext.wait_for import wait_for, wait_for_component, setup as stp
 from interactions.ext.tasks import IntervalTrigger, create_task
 import datetime
+from fonctions.gestion_bdd import get_guild_data
 
 
-class Divers(interactions.Extension):
+class Divers(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
         stp(self.bot)
@@ -25,7 +26,7 @@ class Divers(interactions.Extension):
         
         
     @interactions.extension_listener
-    async def createMutedRole(self, ctx:interactions.CommandContext):
+    async def createMutedRole(self, ctx:CommandContext):
         mutedRole = await ctx.guild.create_role(name="Muted",
                                                 permissions=interactions.Permissions(
                                                     send_messages=False,
@@ -47,7 +48,14 @@ class Divers(interactions.Extension):
 
     async def check_for_unmute(self):
         # print("Checking en cours...")
-        for guild in self.bot.guilds:
+        data = get_guild_data()
+        
+        for server_id in data.fetchall():
+            
+            guild = await interactions.get(client=self.bot,
+                                                      obj=interactions.Guild,
+                                                      object_id=server_id[0])        
+
             active_tempmute = self.database_handler.active_tempmute_to_revoke(int(guild.id))
             if len(active_tempmute) > 0:
                 muted_role = await self.get_muted_role(guild)
@@ -57,7 +65,7 @@ class Divers(interactions.Extension):
                     await member.remove_role(role=muted_role, guild_id=guild.id)
 
     @interactions.extension_command(name="hello", description="Saluer le bot")
-    async def hello(self, ctx : interactions.CommandContext):
+    async def hello(self, ctx : CommandContext):
         buttons = [
             interactions.Button(
                 style=interactions.ButtonStyle.PRIMARY,
@@ -101,7 +109,7 @@ class Divers(interactions.Extension):
             
 
     @interactions.extension_command(name="quiz", description="Reponds au quizz")
-    async def quiz(self, ctx : interactions.CommandContext):
+    async def quiz(self, ctx : CommandContext):
         select = interactions.SelectMenu(
             options=[
                 interactions.SelectOption(label="Dawn", value="1", emoji=interactions.Emoji(name='😂')),
@@ -139,7 +147,7 @@ class Divers(interactions.Extension):
 
 
     @interactions.extension_command(name="ping", description="Latence du bot")
-    async def ping(self, ctx : interactions.CommandContext):
+    async def ping(self, ctx : CommandContext):
         await ctx.send(
             f"pong \n Latence : `{round(float(self.bot.latency), 3)}` ms")
       
@@ -158,7 +166,7 @@ class Divers(interactions.Extension):
                                         required=False
                                     )])
     
-    async def spank_slash(self, ctx:interactions.CommandContext, member: interactions.Member, reason="Aucune raison n'a été renseignée"):
+    async def spank_slash(self, ctx:CommandContext, member: interactions.Member, reason="Aucune raison n'a été renseignée"):
         if isOwner_slash(ctx):
 
             muted_role = await self.get_muted_role(ctx.guild)
@@ -189,7 +197,7 @@ class Divers(interactions.Extension):
             await ctx.send(embeds=embed)
             
     @interactions.extension_command(name="test_channel", description="test_channel")
-    async def test_channel(self, ctx : interactions.CommandContext):
+    async def test_channel(self, ctx : CommandContext):
         if isOwner_slash(ctx):
             new_chan = await ctx.guild.create_channel(name="chan de test",
                                      type=interactions.ChannelType.GUILD_TEXT,
@@ -243,7 +251,7 @@ class Divers(interactions.Extension):
                                         required=False
                                              )
                                     ])
-    async def mute_time(self, ctx : interactions.CommandContext, member: interactions.Member, seconds: int, reason :str = "Aucune raison n'a été renseignée"):
+    async def mute_time(self, ctx : CommandContext, member: interactions.Member, seconds: int, reason :str = "Aucune raison n'a été renseignée"):
         if await ctx.has_permissions(interactions.Permissions.BAN_MEMBERS):
             muted_role = await self.get_muted_role(ctx.guild)
             self.database_handler.add_tempmute(int(member.id), int(ctx.guild_id),

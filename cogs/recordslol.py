@@ -8,11 +8,9 @@ import os
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
 
 import interactions
-from interactions import Choice, Option
+from interactions import Choice, Option, Extension, CommandContext
 from interactions.ext.paginator import Page, Paginator
 from fonctions.params import Version
-
-
 
 
 emote = {
@@ -129,7 +127,7 @@ choice_pantheon = [Choice(name="KDA", value="KDA"),
                     Choice(name='Solokills', value='SOLOKILLS'),
                     Choice(name='games', value='GAMES')]
      
-class Recordslol(interactions.Extension):
+class Recordslol(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
         
@@ -149,7 +147,7 @@ class Recordslol(interactions.Extension):
                                     type=interactions.OptionType.INTEGER,
                                     required=False)
                                 ])
-    async def records_list(self, ctx:interactions.CommandContext, saison:int=12, mode:str='ranked'):
+    async def records_list(self, ctx:CommandContext, saison:int=12, mode:str='ranked'):
         
         await ctx.defer(ephemeral=False)
 
@@ -343,7 +341,7 @@ class Recordslol(interactions.Extension):
                                     description="Pseudo LoL",
                                     type=interactions.OptionType.STRING,
                                     required=True)])
-    async def records_personnel(self, ctx:interactions.CommandContext, joueur:str):
+    async def records_personnel(self, ctx:CommandContext, joueur:str):
         
         joueur = joueur.lower()
         
@@ -454,7 +452,7 @@ class Recordslol(interactions.Extension):
                                        type=interactions.OptionType.BOOLEAN,
                                        required=False)
                                 ])
-    async def pantheon(self, ctx:interactions.CommandContext, stat, mode:str, stat2:str="no", stat3:str="no", fichier_recap:bool=False):
+    async def pantheon(self, ctx:CommandContext, stat, mode:str, stat2:str="no", stat3:str="no", fichier_recap:bool=False):
         
         stat = [stat, stat2, stat3]
         

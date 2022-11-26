@@ -1,5 +1,5 @@
 import interactions
-from interactions import Choice, Option
+from interactions import Choice, Option, Extension, CommandContext
 import pandas as pd
 import os
 import numpy as np
@@ -11,8 +11,6 @@ from skimage import io
 from skimage.transform import resize
 import asyncio
 import seaborn as sns
-
-
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
@@ -95,7 +93,7 @@ def dict_data(thisId: int, match_detail, info):
 
 
 
-class analyseLoL(interactions.Extension):
+class analyseLoL(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
 
@@ -124,7 +122,7 @@ class analyseLoL(interactions.Extension):
                                     required=False,
                                     min_value=0,
                                     max_value=10)])
-    async def analyse(self, ctx:interactions.CommandContext, summonername:str, stat:str, stat2:str = "no", game:int=0):
+    async def analyse(self, ctx:CommandContext, summonername:str, stat:str, stat2:str = "no", game:int=0):
     
         
         stat = [stat, stat2]
@@ -437,7 +435,7 @@ class analyseLoL(interactions.Extension):
         for graph in liste_delete:
             os.remove(graph)
 
-    interactions.CommandContext.send
+    CommandContext.send
     @interactions.extension_command(name="var",
                        description="Voir des stats de fin de game",
                        options=[Option(
@@ -470,7 +468,7 @@ class analyseLoL(interactions.Extension):
                                     required=False,
                                     min_value=0,
                                     max_value=10)])
-    async def var(self, ctx:interactions.CommandContext, summonername, stat:str, stat2:str='no', stat3:str='no', game:int=0):
+    async def var(self, ctx:CommandContext, summonername, stat:str, stat2:str='no', stat3:str='no', game:int=0):
         
         
         
@@ -726,7 +724,7 @@ class analyseLoL(interactions.Extension):
                                     choices=[
                                     Choice(name="vision", value="vision")
                                 ])])
-    async def var_10games(self, ctx:interactions.CommandContext, summonername, stat):
+    async def var_10games(self, ctx:CommandContext, summonername, stat):
 
         me = lol_watcher.summoner.by_name(my_region, summonername)
         my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'])

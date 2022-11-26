@@ -125,3 +125,5 @@ def requete_perso_bdd(request:text, dict_params:dict=None):
         conn.execute(sql, dict_params)
     conn.close
     
+def get_guild_data():
+    return get_data_bdd(f'''SELECT server_id from channels_discord''')

@@ -1,6 +1,6 @@
 
 import interactions
-from interactions import Option
+from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import create_task, IntervalTrigger
 import os
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
@@ -33,7 +33,7 @@ def get_tweet(user_id:str, num_tweet:int=0, max_results:int=10):
 
 
 
-class Twitter(interactions.Extension):
+class Twitter(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
               
@@ -57,7 +57,7 @@ class Twitter(interactions.Extension):
                                        required=False,
                                        min_value=0,
                                        max_value=5)])
-    async def last_tweet(self, ctx:interactions.CommandContext, pseudo:str, num_tweet:int=0):
+    async def last_tweet(self, ctx:CommandContext, pseudo:str, num_tweet:int=0):
         
 
         user_id = get_user_id(pseudo)
@@ -78,7 +78,7 @@ class Twitter(interactions.Extension):
                                        type=interactions.OptionType.STRING,
                                        required=True)])
     @isOwner2_slash()
-    async def add_tweet(self, ctx:interactions.CommandContext, pseudo:str):
+    async def add_tweet(self, ctx:CommandContext, pseudo:str):
         user_id = get_user_id(pseudo)
         
         requete_perso_bdd('''INSERT INTO public.twitter(
@@ -122,7 +122,8 @@ class Twitter(interactions.Extension):
             and ('lec' in contenu_tweet.lower()
                  or 'lcs' in contenu_tweet.lower()
                  or 'lfl' in contenu_tweet.lower()
-                 or 'lck' in contenu_tweet.lower()): 
+                 or 'lck' in contenu_tweet.lower()
+                 or 'lpl' in contenu_tweet.lower()): 
                 
                 url_tweet = f'https://twitter.com/{user}/status/{id_tweet}'
                 try:

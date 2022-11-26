@@ -1,12 +1,15 @@
 
 from fonctions.patch import PatchNote
 import interactions
+from interactions import Extension
 from interactions.ext.tasks import IntervalTrigger, create_task
-from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
+from fonctions.gestion_bdd import (get_data_bdd,
+                                   requete_perso_bdd,
+                                   get_guild_data)
 from fonctions.channels_discord import chan_discord
 
 
-class Patchlol(interactions.Extension):
+class Patchlol(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
     
@@ -39,8 +42,14 @@ class Patchlol(interactions.Extension):
             embed.set_image(url=patch_actuel.overview_image)
             
             embed.add_field(name="Details", value=f"[Lien du patch]({patch_actuel.link})")
+
+            data = get_guild_data()
             
-            for guild in self.bot.guilds:
+            for server_id in data.fetchall():
+                
+                guild = await interactions.get(client=self.bot,
+                                                        obj=interactions.Guild,
+                                                        object_id=server_id[0])            
                 discord_server_id = chan_discord(guild.id)
                 channel = await interactions.get(client=self.bot,
                                                         obj=interactions.Channel,
