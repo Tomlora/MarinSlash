@@ -23,7 +23,7 @@ id_bot = os.environ.get('bot_marin')
 
 
 
-bot = interactions.Client(token=token, intents=interactions.Intents.ALL)
+bot = interactions.Client(token=token, intents=interactions.Intents.ALL, logging=True)
 
 @bot.event
 async def on_message_create(message : interactions.Message):
