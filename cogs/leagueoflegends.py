@@ -775,7 +775,8 @@ class LeagueofLegends(Extension):
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                     where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
         
- 
+        await self.bot._websocket._manage_heartbeat() # si riot bug, on dépasse le cooldown.
+        
         for key, value, server_id in data: 
 
     
@@ -1070,6 +1071,8 @@ class LeagueofLegends(Extension):
     @interactions.extension_command(name="upset", description="Meilleur joueur de LoL")
     async def upset(self, ctx):
         await ctx.send('https://clips.twitch.tv/CuriousBenevolentMageHotPokket-8M0TX_zTaGW7P2g7')
+        
+        
         
 
     @interactions.extension_command(name='lol_discord', description='Link discord et lol')
