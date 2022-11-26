@@ -146,7 +146,7 @@ class Achievements_scoringlol(Extension):
 
 
         if records:
-            await ctx.send('Informations : Les records de la page 3 ne sont pas comptabilisés', file=interactions.File('plot.png'))
+            await ctx.send('Informations : Les records de la page 3 ne sont pas comptabilisés', files=interactions.File('plot.png'))
             os.remove('plot.png')
             
 

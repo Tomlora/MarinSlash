@@ -805,8 +805,8 @@ class LeagueofLegends(Extension):
                 # update la bdd
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
                 
-            if (time()-cd) >= 5:
-                await self.bot._websocket._manage_heartbeat() # si riot bug, on dépasse le cooldown.
+            # if (time()-cd) >= 5:
+            #     await self.bot._websocket._manage_heartbeat() # si riot bug, on dépasse le cooldown.
 
 
     @interactions.extension_command(name="loladd",
