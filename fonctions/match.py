@@ -228,7 +228,7 @@ def getId(summonerName):
     
 class matchlol():
 
-    def __init__(self, summonerName, idgames:int, queue:int=0, index:int=0):
+    def __init__(self, summonerName, idgames:int, queue:int=0, index:int=0, sauvegarder:bool=False):
         self.summonerName = summonerName
         self.idgames = idgames
         self.queue = queue
@@ -237,6 +237,7 @@ class matchlol():
         self.current_champ_list = lol_watcher.data_dragon.champions(champions_versions, False, 'fr_FR')
         self.avatar = self.me['profileIconId']
         self.level_summoner = self.me['summonerLevel']
+        self.sauvegarder = sauvegarder
         
         self.champ_dict = {}
         for key in self.current_champ_list['data']:
@@ -279,7 +280,7 @@ class matchlol():
         elif (str(self.thisPosition) == "UTILITY"):
             self.thisPosition = "SUPPORT"
         
-        
+        self.timestamp = str(self.match_detail['info']['gameCreation'])[:-3]
         self.thisQ = ' '
         self.thisChamp = self.match_detail_participants['championId']
         self.thisDouble = self.match_detail_participants['doubleKills']
@@ -297,16 +298,22 @@ class matchlol():
         self.thisDamage = self.match_detail_participants['totalDamageDealtToChampions']
         self.thisDamageNoFormat = self.match_detail_participants['totalDamageDealtToChampions']
         self.thisDamageAP = self.match_detail_participants['magicDamageDealtToChampions']
+        self.thisDamageAPNoFormat = self.match_detail_participants['magicDamageDealtToChampions']
         self.thisDamageAD = self.match_detail_participants['physicalDamageDealtToChampions']
+        self.thisDamageADNoFormat = self.match_detail_participants['physicalDamageDealtToChampions']
         self.thisDamageTrue = self.match_detail_participants['trueDamageDealtToChampions']
+        self.thisDamageTrueNoFormat = self.match_detail_participants['trueDamageDealtToChampions']
         
         self.thisTimeSpendDead = round(float(self.match_detail_participants['totalTimeSpentDead'])/60,2) 
         
         self.thisDamageTaken = int(self.match_detail_participants['totalDamageTaken'])
         self.thisDamageTakenNoFormat = int(self.match_detail_participants['totalDamageTaken'])
         self.thisDamageTakenAD = int(self.match_detail_participants['physicalDamageTaken'])
+        self.thisDamageTakenADNoFormat = int(self.match_detail_participants['physicalDamageTaken'])
         self.thisDamageTakenAP = int(self.match_detail_participants['magicDamageTaken'])
+        self.thisDamageTakenAPNoFormat = int(self.match_detail_participants['magicDamageTaken'])
         self.thisDamageTakenTrue = int(self.match_detail_participants['trueDamageTaken'])
+        self.thisDamageTakenTrueNoFormat = int(self.match_detail_participants['trueDamageTaken'])
         
         self.thisVision = self.match_detail_participants['visionScore']
         self.thisJungleMonsterKilled = self.match_detail_participants['neutralMinionsKilled']
@@ -315,6 +322,7 @@ class matchlol():
         self.thisWards = self.match_detail_participants['wardsPlaced']
         self.thisWardsKilled = self.match_detail_participants['wardsKilled']
         self.thisGold = int(self.match_detail_participants['goldEarned'])
+        self.thisGoldNoFormat = int(self.match_detail_participants['goldEarned'])
         
         self.spell1 = self.match_detail_participants['summoner1Id']
         self.spell2 = self.match_detail_participants['summoner2Id']
@@ -416,10 +424,13 @@ class matchlol():
         except:
             self.thisLevelAdvantage = 0
         
-        try:    
+        try: # si pas d'afk, la variable n'est pas présente
             self.AFKTeam = self.match_detail_challenges['hadAfkTeammate']
+            self.AFKTeamBool = True
         except:
             self.AFKTeam = 0
+            self.AFKTeamBool = False
+            
         
         self.thisSkillshot_dodged = self.match_detail_challenges['skillshotsDodged']
         self.thisSkillshot_hit = self.match_detail_challenges['skillshotsHit']
@@ -469,9 +480,12 @@ class matchlol():
             
         if str(self.thisWinId) == 'True':
             self.thisWin = "GAGNER"
+            self.thisWinBool = True
         else:
             self.thisWin = "PERDRE"
+            self.thisWinBool = False
 
+         
         self.thisDamageListe = dict_data(self.thisId, self.match_detail, 'totalDamageDealtToChampions')
 
         # pseudo
@@ -691,7 +705,83 @@ class matchlol():
             self.thisLP = '0'
             self.thisVictory = '0'
             self.thisLoose = '0'
-            self.thisWinStreak = '0'    
+            self.thisWinStreak = '0'  
+            
+        # TODO save la game 
+        if self.sauvegarder:
+            requete_perso_bdd(f'''INSERT INTO public.matchs(
+        match_id, joueur, role, champion, kills, assists, deaths, double, triple, quadra, penta,
+        victoire, team_kills, team_deaths, "time", dmg, dmg_ad, dmg_ap, dmg_true, vision_score, cs, cs_jungle, vision_pink, vision_wards, vision_wards_killed,
+        gold, spell1, spell2, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
+        baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
+        item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date)
+        VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
+        :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
+        :gold, :spell1, :spell2, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
+        :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
+        :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date);''',
+        {'match_id' : self.last_match,
+        'joueur' : self.summonerName.lower(),
+        'role' : self.thisPosition,
+        'champion' : self.thisChampName,
+        'kills' : self.thisKills,
+        'assists' : self.thisAssists,
+        'deaths' : self.thisDeaths,
+        'double' : self.thisDouble,
+        'triple' : self.thisTriple,
+        'quadra' : self.thisQuadra,
+        'penta' : self.thisPenta,
+        'result' : self.thisWinBool,
+        'team_kills' : self.thisTeamKills,
+        'team_deaths' : self.thisTeamKillsOp,
+        'time' : self.thisTime,
+        'dmg' : self.thisDamageNoFormat,
+        'dmg_ad' : self.thisDamageADNoFormat,
+        'dmg_ap' : self.thisDamageAPNoFormat,
+        'dmg_true' : self.thisDamageTrueNoFormat,
+        'vision_score' : self.thisVision,
+        'cs' : self.thisMinion,
+        'cs_jungle' : self.thisJungleMonsterKilled,
+        'vision_pink' : self.thisPink,
+        'vision_wards' : self.thisWards,
+        'vision_wards_killed' : self.thisWardsKilled,
+        'gold' : self.thisGoldNoFormat,
+        'spell1' : self.spell1,
+        'spell2' : self.spell2,
+        'cs_min' : self.thisMinionPerMin,
+        'vision_min' : self.thisVisionPerMin,
+        'gold_min' : self.thisGoldPerMinute,
+        'dmg_min' : self.thisDamagePerMinute,
+        'solokills' : self.thisSoloKills,
+        'dmg_reduit' : self.thisDamageSelfMitigated,
+        'heal_total' : self.thisTotalHealed,
+        'heal_allies' : self.thisTotalOnTeammates,
+        'serie_kills' : self.thisKillingSprees,
+        'cs_dix_min' : self.thisCSafter10min,
+        'jgl_dix_min' : self.thisJUNGLEafter10min,
+        'baron' : self.thisBaronTeam,
+        'drake' : self.thisDragonTeam,
+        'team' : self.team,
+        'herald' : self.thisHeraldTeam,
+        'cs_max_avantage' : self.thisCSAdvantageOnLane,
+        'level_max_avantage' : self.thisLevelAdvantage,
+        'afk' : self.AFKTeamBool,
+        'vision_avantage' : self.thisVisionAdvantage,
+        'early_drake' : self.earliestDrake,
+        'temps_dead' : self.thisTimeSpendDead,
+        'item1' : self.thisItems[0],
+        'item2' : self.thisItems[1],
+        'item3' : self.thisItems[2],
+        'item4' : self.thisItems[3],
+        'item5' : self.thisItems[4],
+        'item6' : self.thisItems[5],
+        'kp' : self.thisKP,
+        'kda' : self.thisKDA,
+        'mode' : self.thisQ,
+        'season' : self.season,
+        'date' : int(self.timestamp)
+        })
+
             
             
     def resume_personnel(self, name_img, embed, difLP):
@@ -941,7 +1031,6 @@ class matchlol():
                                     d = :d,
                                     a = :a,
                                     rank = :rank,
-                                    {self.thisChampName.lower()} = {self.thisChampName.lower()} + 1
                                   WHERE index = :index''',
                                     {'wins' : wins,
                                     'losses' : losses,
@@ -952,7 +1041,7 @@ class matchlol():
                                     'a' : a,
                                     'rank' : rank,
                                     'index' : self.summonerName.lower()})
-            
+           
 
         
         kp = get_image('autre', 'kp', 700, 500)
@@ -1298,7 +1387,4 @@ class matchlol():
 
         im.save(f'{name_img}.png')
 
-        
-    
-        
 
