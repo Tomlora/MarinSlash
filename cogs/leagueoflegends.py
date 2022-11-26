@@ -784,6 +784,8 @@ class LeagueofLegends(Extension):
 
 
             if str(value) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
+                # update la bdd
+                requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
                 try:
                     # identification du channel
                     discord_server_id = chan_discord(int(server_id))
@@ -795,15 +797,14 @@ class LeagueofLegends(Extension):
                     # update rank
                     await self.updaterank(key, discord_server_id)
                     
-
-                    
                 except: 
                     print(f"erreur {key}") # joueur qui a posé pb
                     print(sys.exc_info()) # erreur
+                    requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : 0, 'index' : key}) # on refait
                     continue
                     
                 # update la bdd
-                requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
+                
                 
             # if (time()-cd) >= 5:
             #     await self.bot._websocket._manage_heartbeat() # si riot bug, on dépasse le cooldown.
