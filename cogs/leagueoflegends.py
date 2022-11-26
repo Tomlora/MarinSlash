@@ -89,12 +89,13 @@ class LeagueofLegends(interactions.Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
         stp(self.bot)
+
         
         
     @interactions.extension_listener
     async def on_start(self):
 
-        self.task1 = create_task(IntervalTrigger(60))(self.update)
+        self.task1 = create_task(IntervalTrigger(90))(self.update)
         self.task1.start()
         
         self.task2 = create_task(IntervalTrigger(60*60))(self.lolsuivi)
@@ -102,11 +103,11 @@ class LeagueofLegends(interactions.Extension):
         
         
 
-    def printInfo(self, summonerName, idgames: int, succes):
+    def printInfo(self, summonerName, idgames: int, succes, sauvegarder:bool):
 
 
 
-        match_info = matchlol(summonerName, idgames) #class
+        match_info = matchlol(summonerName, idgames, sauvegarder=sauvegarder) #class
         
         
         if match_info.thisQId == 900: #urf 
@@ -679,15 +680,19 @@ class LeagueofLegends(interactions.Extension):
                                 Option(name="succes",
                                        description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non",
                                        type=interactions.OptionType.BOOLEAN,
-                                       required=True)])
-    async def game(self, ctx:interactions.CommandContext, summonername:str, numerogame:int, succes: bool):
+                                       required=True),
+                                Option(name="sauvegarder",
+                                       description="sauvegarder la game",
+                                       type=interactions.OptionType.BOOLEAN,
+                                       required=False)])
+    async def game(self, ctx:interactions.CommandContext, summonername:str, numerogame:int, succes: bool, sauvegarder:bool=True):
         
         await ctx.defer(ephemeral=False)
         
         summonername = summonername.lower()
         
 
-        embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes)
+        embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, sauvegarder=sauvegarder)
 
 
         if embed != {}:
@@ -714,8 +719,12 @@ class LeagueofLegends(interactions.Extension):
                                 Option(name="succes",
                                        description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non",
                                        type=interactions.OptionType.BOOLEAN,
-                                       required=True)])        
-    async def game_multi(self, ctx:interactions.CommandContext, summonername:str, debut:int, fin:int, succes: bool):
+                                       required=True),
+                                Option(name='sauvegarder',
+                                       description='Sauvegarder les games',
+                                       type=interactions.OptionType.BOOLEAN,
+                                       required=False)])        
+    async def game_multi(self, ctx:interactions.CommandContext, summonername:str, debut:int, fin:int, succes: bool, sauvegarder:bool=True):
         
         await ctx.defer(ephemeral=False)
         
@@ -723,7 +732,7 @@ class LeagueofLegends(interactions.Extension):
             
             summonername = summonername.lower()
 
-            embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes)
+            embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes, sauvegarder=sauvegarder)
 
             if embed != {}:
                 await ctx.send(embeds=embed, files=resume)
@@ -738,7 +747,7 @@ class LeagueofLegends(interactions.Extension):
         
         summonername = summonername.lower()
         
-        embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername, idgames=0, succes=True)
+        embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername, idgames=0, succes=True, sauvegarder=True)
        
         if mode_de_jeu in ['RANKED', 'FLEX']:
             
