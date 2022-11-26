@@ -620,9 +620,10 @@ class LeagueofLegends(interactions.Extension):
         resume2 = interactions.File('resume.png')
         embed2.set_image(url='attachment://resume.png')
     
-
-        embed.set_footer(text=f'Version {Version} by Tomlora - Match {str(match_info.last_match)}')
-
+        if match_info.sauvegarder:
+            embed.set_footer(text=f'Version {Version} by Tomlora - Match {str(match_info.last_match)} - Sauvegardé')
+        else:
+            embed.set_footer(text=f'Version {Version} by Tomlora - Match {str(match_info.last_match)}')
         return embed, match_info.thisQ, resume, embed2, resume2
 
         
