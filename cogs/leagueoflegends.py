@@ -94,7 +94,7 @@ class LeagueofLegends(Extension):
     @interactions.extension_listener
     async def on_start(self):
 
-        self.task1 = create_task(IntervalTrigger(90))(self.update)
+        self.task1 = create_task(IntervalTrigger(60))(self.update)
         self.task1.start()
         
         self.task2 = create_task(IntervalTrigger(60*60))(self.lolsuivi)
