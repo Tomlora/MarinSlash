@@ -193,7 +193,7 @@ class Achievements_scoringlol(Extension):
         embed.add_field(name="Parametres", value=partie0, inline=False)
         embed.add_field(name="Couronnes disponibles", value=texte_achievements, inline=False)
 
-        await ctx.send(embed=embed)
+        await ctx.send(embeds=embed)
    
 
 def setup(bot):
