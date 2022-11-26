@@ -56,9 +56,11 @@ async def on_guild_create(guild : interactions.Guild):
                 text_channel_list.append(channel.id)
             
             
-            requete_perso_bdd(f'''INSERT INTO public.channels_discord(
+            requete_perso_bdd(f'''INSERT INTO channels_discord(
                         server_id, id_owner, id_owner2, chan_pm, chan_tracklol, chan_accueil, chan_twitch, chan_lol, chan_tft, chan_lol_others, role_admin)
-                        VALUES (:server_id, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan);''',
+                        VALUES (:server_id, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan);
+                        INSERT INTO channels_module(server_id)
+                        VALUES (:server_id);''',
                     {'server_id' : int(guild.id), 'chan' : int(text_channel_list[0])})
         
 # @bot.event
@@ -105,6 +107,7 @@ async def on_guild_member_remove(member : interactions.Member):
 
 @bot.event
 async def on_command_error(ctx: interactions.CommandContext, error):
+    
     if isinstance(error, commands.CommandNotFound):
         await ctx.send("Cette commande n'existe pas")
     elif isinstance(error, commands.MissingPermissions):

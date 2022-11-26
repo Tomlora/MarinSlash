@@ -126,13 +126,25 @@ class Twitter(Extension):
                  or 'lpl' in contenu_tweet.lower()): 
                 
                 url_tweet = f'https://twitter.com/{user}/status/{id_tweet}'
-                try:
-                    await channel_tracklol.send(f'**MERCATO** {user} : ' + url_tweet)
-                    requete_perso_bdd('UPDATE twitter SET id_last_msg_twitter = :id_last_msg WHERE id_twitter = :id_twitter', {'id_last_msg' : id_tweet,
-                                                                                                                            'id_twitter' : user_id} )
-                except: # pas de détection du channel
-                    print(sys.exc_info())
-                    pass
+                
+                data = get_data_bdd(f'''SELECT DISTINCT channels_module.server_id from channels_module 
+                                    INNER JOIN tracker on tracker.server_id = channels_module.server_id
+                                    where channels_module.twitter = true''').fetchall()
+
+
+                for server_id in data:
+                    discord_server_id = chan_discord(int(server_id[0]))
+
+                    channel_tracklol = await interactions.get(client=self.bot,
+                                                                    obj=interactions.Channel,
+                                                                    object_id=discord_server_id.tracklol) 
+                    try:
+                        await channel_tracklol.send(f'**MERCATO** {user} : ' + url_tweet)
+                        requete_perso_bdd('UPDATE twitter SET id_last_msg_twitter = :id_last_msg WHERE id_twitter = :id_twitter', {'id_last_msg' : id_tweet,
+                                                                                                                                'id_twitter' : user_id} )
+                    except: # pas de détection du channel
+                        print(sys.exc_info())
+                        pass
 
 
 

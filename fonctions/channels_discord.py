@@ -1,4 +1,4 @@
-from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
+from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd, get_data_bdd
 from time import time
 class chan_discord():
 
@@ -52,3 +52,9 @@ class chan_discord():
 def rgb_to_discord(r: int, g: int, b: int):
         """Transpose les couleurs rgb en couleur personnalisée discord."""
         return ((r << 16) + (g << 8) + b)
+    
+    
+def verif_module(variable:str, guild_id:int):
+    '''Verifie si le module est activé pour le guild associé'''
+    result = get_data_bdd(f'SELECT {variable} FROM channels_module where server_id = :server_id', {'server_id' : guild_id}).fetchall()[0][0]
+    return result == True

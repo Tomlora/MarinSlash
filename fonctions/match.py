@@ -213,9 +213,9 @@ def match_by_puuid(summonerName, idgames: int, index=0, queue=0, count=20):
 
 def getId(summonerName):
     try:
-        last_match, match_detail, me = match_by_puuid(summonerName, 0)
-        return str(match_detail['info']['gameId'])
-    except requests.exceptions.ReadTimeout: # timeout de 10 secondes
+        last_match, match_detail_stats, me = match_by_puuid(summonerName, 0)
+        return str(match_detail_stats['info']['gameId'])
+    except requests.exceptions.ReadTimeout: # timeout 
         data = lire_bdd('tracker', 'dict')
         return str(data[summonerName]['id'])
     except:
@@ -271,7 +271,7 @@ class matchlol():
         self.match_detail_challenges = self.match_detail_participants['challenges']
         self.thisPosition = self.match_detail_participants['teamPosition']
         # self.season = int(self.match_detail['info']['gameVersion'][0:2])
-        self.season = 12 # a modifier quand s13
+        self.season = 12 # TODO a modifier quand s13
         
         if (str(self.thisPosition) == "MIDDLE"):
             self.thisPosition = "MID"
@@ -280,7 +280,7 @@ class matchlol():
         elif (str(self.thisPosition) == "UTILITY"):
             self.thisPosition = "SUPPORT"
         
-        self.timestamp = str(self.match_detail['info']['gameCreation'])[:-3]
+        self.timestamp = str(self.match_detail['info']['gameCreation'])[:-3] # traduire avec datetime.date.fromtimestamp()
         self.thisQ = ' '
         self.thisChamp = self.match_detail_participants['championId']
         self.thisDouble = self.match_detail_participants['doubleKills']

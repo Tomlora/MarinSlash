@@ -2,7 +2,7 @@ import pandas as pd
 from fonctions.gestion_bdd import (lire_bdd,
                                    requete_perso_bdd,
                                    lire_bdd_perso,
-                                   get_guild_data)
+                                   get_data_bdd)
 import datetime
 from fonctions.channels_discord import chan_discord
 import interactions
@@ -42,9 +42,6 @@ elo_lp = {'IRON' : 0,
         'GRANDMASTER' : 7,
         'CHALLENGER' : 8,
         'FIRST_GAME' : 0}
-
-
-chan_general = 768637526176432158
 
 
 class Aram(Extension):
@@ -214,9 +211,11 @@ class Aram(Extension):
 
         if currentHour == str(3):
             
-            data = get_guild_data()
+            data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
+                    INNER JOIN channels_module on tracker.server_id = channels_module.server_id
+                    where channels_module.league_aram = true''').fetchall()
             
-            for server_id in data.fetchall():
+            for server_id in data:
                 
                 guild = await interactions.get(client=self.bot,
                                                         obj=interactions.Guild,

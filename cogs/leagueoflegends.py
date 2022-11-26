@@ -9,6 +9,7 @@ from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import IntervalTrigger, create_task
 from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version
+from fonctions.channels_discord import verif_module
 
 
 from fonctions.gestion_bdd import (lire_bdd,
@@ -811,36 +812,37 @@ class LeagueofLegends(Extension):
                                        required=True)])
     async def loladd(self, ctx:CommandContext, *, summonername):
         try:
-            requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
-                              
-                            INSERT INTO suivi(
-	                        index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
-	                        VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);
-                         
-                            INSERT INTO suivi_24h(
-	                        index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
-	                        VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);
-                         
-                            INSERT INTO ranked_aram(
-	                        index, wins, losses, lp, games, k, d, a, activation, rank)
-	                        VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');
-                         
-                            INSERT INTO ranked_aram_24h(
-	                        index, wins, losses, lp, games, k, d, a, activation, rank)
-	                        VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');
-                         
-                            INSERT INTO records_personnel(index)
-                            VALUES (:summonername);
+            if verif_module('league_ranked', int(ctx.guild.id)):
+                requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
+                                
+                                INSERT INTO suivi(
+                                index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
+                                VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);
                             
-                            ALTER TABLE records3
-                            ADD COLUMN {summonername.lower} DOUBLE PRECISION;
+                                INSERT INTO suivi_24h(
+                                index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
+                                VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);
                             
-                            UPDATE records3 SET "{summonername.lower}" = 0;''',
-                         {'summonername' : summonername.lower(), 'id' : getId(summonername), 'discord' : int(ctx.author.id), 'guilde' : int(ctx.guild.id)})
+                                INSERT INTO ranked_aram(
+                                index, wins, losses, lp, games, k, d, a, activation, rank)
+                                VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');
+                            
+                                INSERT INTO ranked_aram_24h(
+                                index, wins, losses, lp, games, k, d, a, activation, rank)
+                                VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');
+                            
+                                INSERT INTO records_personnel(index)
+                                VALUES (:summonername);
+                                
+                                ALTER TABLE records3
+                                ADD COLUMN {summonername.lower} DOUBLE PRECISION;
+                                
+                                UPDATE records3 SET "{summonername.lower}" = 0;''',
+                            {'summonername' : summonername.lower(), 'id' : getId(summonername), 'discord' : int(ctx.author.id), 'guilde' : int(ctx.guild.id)})
 
-            
-
-            await ctx.send(summonername + " was successfully added to live-feed!")
+                await ctx.send(f"{summonername} was successfully added to live-feed!")
+            else:
+                await ctx.send('Module désactivé pour ce serveur')
         except:
             await ctx.send("Oops! There is no summoner with that name!")
 
@@ -871,7 +873,9 @@ class LeagueofLegends(Extension):
     @interactions.extension_command(name='lollist', description='Affiche la liste des joueurs suivis')
     async def lollist(self, ctx:CommandContext):
 
-        data = get_data_bdd('SELECT index from tracker').fetchall()
+        data = get_data_bdd(f'''SELECT index from tracker 
+                    where server_id = :server_id''', {'server_id' : int(ctx.guild.id)}).fetchall()
+        
         response = ""
 
         for key in data:
@@ -891,9 +895,11 @@ class LeagueofLegends(Extension):
 
         if currentHour == str(2):
             
-            data = get_guild_data()
+            data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
+                    INNER JOIN channels_module on tracker.server_id = channels_module.server_id
+                    where channels_module.league_ranked = true''').fetchall()
             
-            for server_id in data.fetchall():
+            for server_id in data:
                 
                 guild = await interactions.get(client=self.bot,
                                                         obj=interactions.Guild,
