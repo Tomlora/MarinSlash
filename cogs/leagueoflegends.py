@@ -775,13 +775,9 @@ class LeagueofLegends(Extension):
  
         for key, value in data: 
 
-            
-            try:
-                id_last_game = getId(key)
-            except:
-                print(f"erreur {key}") # joueur qui a posé pb
-                print(sys.exc_info()) # erreur
-                continue
+    
+            id_last_game = getId(key)
+
 
             if str(value) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
