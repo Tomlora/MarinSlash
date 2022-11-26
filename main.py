@@ -117,7 +117,7 @@ async def on_command_error(ctx: interactions.CommandContext, error):
         print('httperror')
         await ctx.send('Trop de requêtes')
     else:
-        print(error)
+        print(f'erreur : {error}')
         embed = interactions.Embed(title='Erreur', description=f'Description: \n `{error}`',
                               color=interactions.Color.red())
         await ctx.send(embeds=embed)
