@@ -795,8 +795,7 @@ class LeagueofLegends(Extension):
                     # update rank
                     await self.updaterank(key, discord_server_id)
                     
-                    if (time()-cd) >= 5:
-                        await self.bot._websocket._manage_heartbeat() # si riot bug, on dépasse le cooldown.
+
                     
                 except: 
                     print(f"erreur {key}") # joueur qui a posé pb
@@ -805,6 +804,9 @@ class LeagueofLegends(Extension):
                     
                 # update la bdd
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
+                
+            if (time()-cd) >= 5:
+                await self.bot._websocket._manage_heartbeat() # si riot bug, on dépasse le cooldown.
 
 
     @interactions.extension_command(name="loladd",
