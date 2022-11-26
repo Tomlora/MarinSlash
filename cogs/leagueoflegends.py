@@ -10,6 +10,7 @@ from interactions.ext.tasks import IntervalTrigger, create_task
 from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version
 from fonctions.channels_discord import verif_module
+from time import time
 
 
 from fonctions.gestion_bdd import (lire_bdd,
@@ -775,11 +776,10 @@ class LeagueofLegends(Extension):
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                     where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
         
-        await self.bot._websocket._manage_heartbeat() # si riot bug, on dépasse le cooldown.
         
         for key, value, server_id in data: 
 
-    
+            cd = time()
             id_last_game = getId(key)
 
 
@@ -795,6 +795,8 @@ class LeagueofLegends(Extension):
                     # update rank
                     await self.updaterank(key, discord_server_id)
                     
+                    if (time()-cd) >= 5:
+                        await self.bot._websocket._manage_heartbeat() # si riot bug, on dépasse le cooldown.
                     
                 except: 
                     print(f"erreur {key}") # joueur qui a posé pb
