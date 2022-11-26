@@ -1034,7 +1034,7 @@ class matchlol():
                                     k = :k,
                                     d = :d,
                                     a = :a,
-                                    rank = :rank,
+                                    rank = :rank
                                   WHERE index = :index''',
                                     {'wins' : wins,
                                     'losses' : losses,
