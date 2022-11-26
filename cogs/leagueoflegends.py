@@ -9,7 +9,7 @@ from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import IntervalTrigger, create_task
 from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version
-from time import time
+
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -769,12 +769,12 @@ class LeagueofLegends(Extension):
 
     async def update(self):
         
-        a = time()
+
         data = get_data_bdd(f'SELECT index, id from tracker where activation = true').fetchall()
         
  
         for key, value in data: 
-            b = time()
+
             
             try:
                 id_last_game = getId(key)
@@ -805,9 +805,6 @@ class LeagueofLegends(Extension):
                 # update la bdd
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
 
-            print(f'{key} : {round(time()-b,2)}')
-        print(f'{round(time()-a,2)}s')
-        print('-----------------')
 
     @interactions.extension_command(name="loladd",
                                     description="Ajoute le joueur au suivi",
