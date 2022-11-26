@@ -134,6 +134,7 @@ async def on_command_error(ctx: interactions.CommandContext, error):
     elif isinstance(error, commands.CommandOnCooldown):
         await ctx.send(f' {error}')
     elif isinstance(error, HTTPError):
+        print('httperror')
         await ctx.send('Trop de requêtes')
     else:
         embed = interactions.Embed(title='Erreur', description=f'Description: \n `{error}`',
