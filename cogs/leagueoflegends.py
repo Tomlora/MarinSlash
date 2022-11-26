@@ -770,10 +770,12 @@ class LeagueofLegends(Extension):
     async def update(self):
         
 
-        data = get_data_bdd(f'SELECT index, id from tracker where activation = true').fetchall()
+        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id from tracker 
+                    INNER JOIN channels_module on tracker.server_id = channels_module.server_id
+                    where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
         
  
-        for key, value in data: 
+        for key, value, server_id in data: 
 
     
             id_last_game = getId(key)
@@ -782,8 +784,7 @@ class LeagueofLegends(Extension):
             if str(value) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 try:
                     # identification du channel
-                    data = lire_bdd_perso(f'SELECT server_id, index from tracker where index= %(joueur)s', params={'joueur' : key})
-                    discord_server_id = chan_discord(int(data[key][0]))
+                    discord_server_id = chan_discord(int(server_id))
                     
                     # résumé de game
                     
