@@ -75,6 +75,8 @@ class Twitch(Extension):
             
         for joueur in data_joueur:
             await self.TwitchLive(joueur['index'], joueur['is_live'], session)
+            
+        await session.close()
 
 
 

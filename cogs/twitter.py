@@ -5,7 +5,6 @@ from interactions.ext.tasks import create_task, IntervalTrigger
 import os
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
 import sys
-from TwitterAPI import TwitterAPI
 from fonctions.permissions import isOwner2_slash
 from fonctions.channels_discord import chan_discord
 import oauthlib.oauth1, aiohttp
@@ -174,7 +173,7 @@ class Twitter(Extension):
                     except: # pas de détection du channel
                         print(sys.exc_info())
                         pass
-
+        await session.close()
 
 
 def setup(bot):
