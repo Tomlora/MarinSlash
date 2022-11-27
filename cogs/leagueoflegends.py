@@ -771,14 +771,15 @@ class LeagueofLegends(Extension):
         data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id from tracker 
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                     where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
-        
-        session = aiohttp.ClientSession()
+        timeout = aiohttp.ClientTimeOut(total=50)
+        session = aiohttp.ClientSession(timeout=timeout)
         
         print('session démarré')
 
         for key, value, server_id in data: 
 
             id_last_game = await getId(key, session)
+            
             
             b = time()
 
@@ -787,7 +788,6 @@ class LeagueofLegends(Extension):
                 print(key)
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
                 try:
-                    print('a')
                     a = time()
                     # identification du channel
                     discord_server_id = chan_discord(int(server_id))
@@ -796,17 +796,17 @@ class LeagueofLegends(Extension):
                     
                     await self.printLive(key, discord_server_id)
                     
-                    print('b')
+
                     # update rank
                     await self.updaterank(key, discord_server_id, session)
-                    print('c')
-                    print(f'cible {time()-a}')
+
+                    print(f'cible {round(time()-a,2)}')
                 except: 
                     print(f"erreur {key}") # joueur qui a posé pb
                     print(sys.exc_info()) # erreur
                     continue
                     
-        print(f'general {time() - b}')        # update la bdd
+        print(f'general {round(time() - b,2)}')        # update la bdd
         await session.close()        
                 
     @interactions.extension_command(name="loladd",
