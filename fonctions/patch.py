@@ -113,6 +113,8 @@ class PatchNote:
             self.test : str = "Description of the patch note."
             print(f"Unable to found patch description from patchnote data. Placeholder text used instead.")
             
+        await self.session.close()
+            
             
     def patch_detail(self):
         self.detail_patch = self.soup.find_all(class_=["change-title", "summary", "change-detail-title ability-title", "attribute-change"])
