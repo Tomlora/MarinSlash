@@ -103,11 +103,6 @@ class Divers(Extension):
             # When it times out, edit the original message and remove the button(s)
             return await ctx.edit(components=[])
 
-            
-
-
-            
-
     @interactions.extension_command(name="quiz", description="Reponds au quizz")
     async def quiz(self, ctx : CommandContext):
         select = interactions.SelectMenu(
@@ -252,7 +247,7 @@ class Divers(Extension):
                                              )
                                     ])
     async def mute_time(self, ctx : CommandContext, member: interactions.Member, seconds: int, reason :str = "Aucune raison n'a été renseignée"):
-        if await ctx.has_permissions(interactions.Permissions.BAN_MEMBERS):
+        if await ctx.has_permissions(interactions.Permissions.MUTE_MEMBERS):
             muted_role = await self.get_muted_role(ctx.guild)
             self.database_handler.add_tempmute(int(member.id), int(ctx.guild_id),
                                         datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds))

@@ -13,6 +13,7 @@ import plotly.graph_objects as go
 from plotly.graph_objs import Layout
 import plotly.express as px
 from io import BytesIO
+import aiohttp
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -82,16 +83,18 @@ def get_key(my_dict, val):
         
     return "No key"
 
-def get_image(type, name, resize_x=80, resize_y=80):
+
+async def get_image(type, name, session : aiohttp.ClientSession, resize_x=80, resize_y=80):
     if type == "champion":
-        url = (f"https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/champions/{name}.png"
-        )
-        response = requests.get(url)
-        if response.status_code != 200:
-            img = Image.new("RGB", (resize_x, resize_y))
-        else:
-            img = Image.open(BytesIO(response.content))
-            img = img.resize((resize_x, resize_y))
+        url = (f"https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/champions/{name}.png")
+        async with session.get(url) as response:
+            # response = request.get(url)
+            if response.status != 200:
+                img = Image.new("RGB", (resize_x, resize_y))
+            else:
+                img_raw = await response.read()
+                img = Image.open(BytesIO(img_raw))
+                img = img.resize((resize_x, resize_y))
         return img
 
     elif type == "tier":
@@ -101,12 +104,14 @@ def get_image(type, name, resize_x=80, resize_y=80):
     
     elif type == "avatar":
         url = (f"https://ddragon.leagueoflegends.com/cdn/12.6.1/img/profileicon/{name}.png")
-        response = requests.get(url)
-        if response.status_code != 200:
-            img = Image.new("RGB", (resize_x, resize_y))
-        else:
-            img = Image.open(BytesIO(response.content))
-            img = img.resize((resize_x, resize_y))
+        async with session.get(url) as response:
+            # response = request.get(url)
+            if response.status != 200:
+                img = Image.new("RGB", (resize_x, resize_y))
+            else:
+                img_raw = await response.read()
+                img = Image.open(BytesIO(img_raw))
+                img = img.resize((resize_x, resize_y))
         return img
     
     elif type in ["items", "monsters", "epee"]:
@@ -140,9 +145,10 @@ my_region = 'euw1'
 region = "EUROPE"
 
 
-# Paramètres LoL
-version = lol_watcher.data_dragon.versions_for_region(my_region)
-champions_versions = version['n']['champion']
+
+
+
+
 
 def dict_data(thisId: int, match_detail, info):
     try:
@@ -197,28 +203,35 @@ def dict_data(thisId: int, match_detail, info):
     return liste
 
 
-def match_by_puuid(summonerName, idgames: int, index=0, queue=0, count=20):
-
-    me = lol_watcher.summoner.by_name(my_region, summonerName) # informations sur le joueur
+async def match_by_puuid(summonerName, idgames: int, session, index=0, queue=0, count=20):
+    params_me= {'api_key' : api_key_lol}
     if queue == 0:
-        my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=count, start=index)
+        params_my_match= {'start' : index, 'count' : count, 'api_key' : api_key_lol}
     else:
-        my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'], count=count, start=index, queue=queue) ## liste des id des matchs du joueur en fonction de son puuid
-    last_match = my_matches[idgames] # match n° idgames
-    match_detail_stats = lol_watcher.match.by_id(region, last_match) # detail du match sélectionné
+        params_my_match= {'queue' : queue, 'start' : index, 'count' : count, 'api_key' : api_key_lol}
+        
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{summonerName}', params=params_me) as session1:
+        me = await session1.json() # informations sur le joueur
+    async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{me["puuid"]}/ids?', params=params_my_match) as session2:
+        my_matches = await session2.json()
+    last_match = my_matches[idgames] # match n° idgames    
+    async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/{last_match}', params=params_me) as session3:
+        match_detail_stats = await session3.json() # detail du match sélectionné
 
     return last_match, match_detail_stats, me
 
 
 
-def getId(summonerName):
+async def getId(summonerName, session):
     try:
-        last_match, match_detail_stats, me = match_by_puuid(summonerName, 0)
+        last_match, match_detail_stats, me = await match_by_puuid(summonerName, 0, session)
+        print(str(match_detail_stats['info']['gameId']))
         return str(match_detail_stats['info']['gameId'])
-    except requests.exceptions.ReadTimeout: # timeout 
+    except KeyError:
         data = lire_bdd('tracker', 'dict')
         return str(data[summonerName]['id'])
     except:
+        print('erreur getId')
         data = lire_bdd('tracker', 'dict')
         print(sys.exc_info())
         return str(data[summonerName]['id'])
@@ -228,24 +241,54 @@ def getId(summonerName):
     
 class matchlol():
 
-    def __init__(self, summonerName, idgames:int, queue:int=0, index:int=0, sauvegarder:bool=False):
+    def __init__(self, summonerName, idgames:int, queue:int=0, index:int=0, count:int=20, sauvegarder:bool=False):
         self.summonerName = summonerName
         self.idgames = idgames
         self.queue = queue
         self.index = index
-        self.last_match, self.match_detail_stats, self.me = match_by_puuid(self.summonerName, self.idgames, self.index, self.queue)    
-        self.current_champ_list = lol_watcher.data_dragon.champions(champions_versions, False, 'fr_FR')
+        self.count = count    
+        self.sauvegarder = sauvegarder
+        self.params_me= {'api_key' : api_key_lol}
+
+        
+    
+    async def get_data_riot(self):
+
+        self.session = aiohttp.ClientSession()
+        if self.queue == 0:
+            params_my_match= {'start' : self.index, 'count' : self.count, 'api_key' : api_key_lol}
+        else:
+            params_my_match= {'queue' : self.queue, 'start' : self.index, 'count' : self.count, 'api_key' : api_key_lol}
+        async with self.session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{self.summonerName}', params=self.params_me) as session1:
+            self.me = await session1.json() # informations sur le joueur
+    
+        async with self.session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{self.me["puuid"]}/ids?', params=params_my_match) as session2:
+            my_matches = await session2.json()
+        self.last_match = my_matches[self.idgames] # match n° idgames    
+        async with self.session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/{self.last_match}', params=self.params_me) as session3:
+            self.match_detail_stats = await session3.json() # detail du match sélectionné
+        
         self.avatar = self.me['profileIconId']
         self.level_summoner = self.me['summonerLevel']
-        self.sauvegarder = sauvegarder
+        
+        async with self.session.get(f"https://ddragon.leagueoflegends.com/realms/euw.json") as session5:
+            self.version = await session5.json() 
+        
+        self.champions_versions = self.version['n']['champion']
+        
+        # async with...
+        async with self.session.get(f"https://ddragon.leagueoflegends.com/cdn/{self.champions_versions}/data/fr_FR/champion.json") as session6:
+            self.current_champ_list = await session6.json() 
+        
+        
+    async def prepare_data(self):
+        
+        # Detail de chaque champion...
         
         self.champ_dict = {}
         for key in self.current_champ_list['data']:
             row = self.current_champ_list['data'][key]
             self.champ_dict[row['key']] = row['id']  
-        
-        
-        # Detail de chaque champion...
 
         self.match_detail = pd.DataFrame(self.match_detail_stats)
         
@@ -358,7 +401,11 @@ class matchlol():
         self.thisGoldPerMinute = round((self.thisGold / self.thisTime), 2)
         self.thisDamagePerMinute = round(
             int(self.match_detail_participants['totalDamageDealtToChampions']) / self.thisTime, 0)
-        self.thisStats = lol_watcher.league.by_summoner(my_region, self.me['id'])
+        
+        async with self.session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{self.me['id']}",
+                                    params=self.params_me) as session4:
+            self.thisStats = await session4.json() # detail du match sélectionné
+        # self.thisStats = lol_watcher.league.by_summoner(my_region, self.me['id'])
         self.thisWinrateStat = ' '
         self.thisWinrate = ' '
         self.thisRank = ' '
@@ -786,9 +833,10 @@ class matchlol():
         'tier' : self.thisTier
         })
 
+   
             
-            
-    def resume_personnel(self, name_img, embed, difLP):
+    async def resume_personnel(self, name_img, embed, difLP):
+        
         """Resume personnel de sa game
         Parameters
         -----------
@@ -800,7 +848,7 @@ class matchlol():
         -----------
         embed discord"""
         # Gestion de l'image 1
-       
+
        ## Graphique KP
         values = [self.thisKP/100, 1-self.thisKP/100]
 
@@ -884,18 +932,18 @@ class matchlol():
         
         fill=(0,0,0)
         d.text((x_name, y_name), self.summonerName, font=font, fill=fill)
-        
-        im.paste(im=get_image("avatar", self.avatar, 100, 100),
+    
+        im.paste(im= await get_image("avatar", self.avatar, self.session, 100, 100),
             box=(x_name-240, y_name-20))
         
-        im.paste(im=get_image("champion", self.thisChampName, 100, 100),
+        im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100),
                 box=(x_name-120, y_name-20))
         
         d.text((x_name+700, y_name-20), f"Niveau {self.level_summoner}", font=font_little, fill=fill)
         
         if self.thisQ != "ARAM": # si ce n'est pas le mode aram, on prend la soloq normal
             if self.thisTier != ' ': # on vérifie que le joueur a des stats en soloq, sinon il n'y a rien à afficher
-                img_rank = get_image('tier', self.thisTier, 220, 220)
+                img_rank = await get_image('tier', self.thisTier, self.session, 220, 220)
                 
                             
                 im.paste(img_rank,(x_rank, y-140), img_rank.convert('RGBA'))
@@ -1016,7 +1064,7 @@ class matchlol():
                 deaths = d_actual + self.thisDeaths
                 a = a_actual + self.thisAssists
 
-                img_rank = get_image('tier', rank, 220, 220)
+                img_rank = await get_image('tier', rank, self.session, 220, 220)
             
                         
                 im.paste(img_rank,(x_rank, y-140), img_rank.convert('RGBA'))
@@ -1048,7 +1096,7 @@ class matchlol():
            
 
         
-        kp = get_image('autre', 'kp', 700, 500)
+        kp = await get_image('autre', 'kp', self.session, 700, 500)
         
                     
         im.paste(kp,(x_metric-150, y_metric+20), kp.convert('RGBA'))
@@ -1066,17 +1114,17 @@ class matchlol():
             d.text((x_metric + 640, y_metric),f'Vision : {self.thisVision} (AV : {self.thisVisionAdvantage}%)', font=font, fill=(0, 0, 0))
             d.text((x_metric + 640, y_metric+90),f'{self.thisVisionPerMin}/min', font=font, fill=(0, 0, 0))
             
-            im.paste(im=get_image("items", 3340, 100, 100),
+            im.paste(im= await get_image("items", 3340, self.session, 100, 100),
                     box=(x_metric + 650, y_metric+200))
             
             d.text((x_metric + 800, y_metric+220),f'{self.thisWards}', font=font, fill=(0, 0, 0))
             
-            im.paste(im=get_image("items", 3364, 100, 100),
+            im.paste(im=await get_image("items", 3364, self.session, 100, 100),
                     box=(x_metric + 650, y_metric+400))
             
             d.text((x_metric + 800, y_metric+420),f'{self.thisWardsKilled}', font=font, fill=(0, 0, 0))
             
-            im.paste(im=get_image("items", 2055, 100, 100),
+            im.paste(im=await get_image("items", 2055, self.session, 100, 100),
                     box=(x_metric + 650, y_metric+600))
             
             d.text((x_metric + 800, y_metric+620),f'{self.thisPink}', font=font, fill=(0, 0, 0))
@@ -1088,10 +1136,10 @@ class matchlol():
         kda_assists = 1490
         kda_gold = 2090
         
-        img_kda_kills = get_image('kda', 'rectangle bleu blanc', 300, 150)
-        img_kda_deaths = get_image('kda', 'rectangle rouge blanc', 300, 150)
-        img_kda_assists = get_image('kda', 'rectangle vert', 300, 150)
-        img_kda_gold = get_image('kda', 'rectangle gold', 300, 150)
+        img_kda_kills = await get_image('kda', 'rectangle bleu blanc', self.session, 300, 150)
+        img_kda_deaths = await get_image('kda', 'rectangle rouge blanc', self.session, 300, 150)
+        img_kda_assists = await get_image('kda', 'rectangle vert', self.session, 300, 150)
+        img_kda_gold = await get_image('kda', 'rectangle gold', self.session, 300, 150)
         
         im.paste(img_kda_kills,
                 (kda_kills, y_metric-190), img_kda_kills.convert('RGBA'))
@@ -1159,7 +1207,7 @@ class matchlol():
                 pass
             
             
-        im.paste(im=get_image("autre", 'stats', 1000, 800),
+        im.paste(im=await get_image("autre", 'stats', self.session, 1000, 800),
                     box=(x_metric + 900, y_metric+100))
         
         
@@ -1176,7 +1224,8 @@ class matchlol():
         return embed
         
         
-    def resume_general(self, name_img):
+    async def resume_general(self, name_img):
+
         '''Resume global de la game
         
         Parameters
@@ -1246,7 +1295,7 @@ class matchlol():
         # d.text((10, 120), f'Gold : {self.thisGold_team1}', font=font, fill=(255, 255, 255))
         # d.text((10, 720), f'Gold : {self.thisGold_team2}', font=font, fill=(0, 0, 0))
         
-        money = get_image('gold', 'dragon', 60, 60)
+        money = await get_image('gold', 'dragon', self.session, 60, 60)
         
         
         im.paste(money,(10, 120), money.convert('RGBA'))
@@ -1279,7 +1328,7 @@ class matchlol():
 
         for i in range(0, 10):
             im.paste(
-                im=get_image("champion", self.thisChampNameListe[i]),
+                im=await get_image("champion", self.thisChampNameListe[i], self.session),
                 box=(10, initial_y-10),
             )
             
@@ -1356,16 +1405,16 @@ class matchlol():
         n = 0
         for image in self.thisItems:
             if image != 0:
-                im.paste(get_image("items", image),
+                im.paste(await get_image("items", image, self.session),
                 box=(350 + n, 10))
                 n += 100
                 
         if self.thisQ != "ARAM":        
                 
-            drk = get_image('monsters', 'dragon')
-            elder = get_image('monsters', 'elder')
-            herald = get_image('monsters', 'herald')
-            nashor = get_image('monsters', 'nashor')       
+            drk = await get_image('monsters', 'dragon', self.session)
+            elder = await get_image('monsters', 'elder', self.session)
+            herald = await get_image('monsters', 'herald', self.session)
+            nashor = await get_image('monsters', 'nashor', self.session)       
                     
             im.paste(drk,(x_objectif, 10), drk.convert('RGBA'))
             d.text((x_objectif + 100, 20), str(self.thisDragonTeam), font=font, fill=(0, 0, 0))
@@ -1380,8 +1429,8 @@ class matchlol():
             d.text((x_objectif + 600 + 100, 20), str(self.thisBaronTeam), font=font, fill=(0, 0, 0))
             
         
-        img_blue_epee = get_image('epee', 'blue')
-        img_red_epee = get_image('epee', 'red')
+        img_blue_epee = await get_image('epee', 'blue', self.session)
+        img_red_epee = await get_image('epee', 'red', self.session)
         
         im.paste(img_blue_epee, (x_kill_total, 10), img_blue_epee.convert('RGBA'))
         d.text((x_kill_total + 100, 20), str(self.thisTeamKills), font=font, fill=(0, 0, 0))
@@ -1391,4 +1440,4 @@ class matchlol():
 
         im.save(f'{name_img}.png')
 
-
+        await self.session.close()

@@ -1,4 +1,5 @@
 import sys
+import aiohttp
 import pandas as pd
 import datetime
 import numpy as np
@@ -33,13 +34,6 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
 import os
-
-# Paramètres LoL
-version = lol_watcher.data_dragon.versions_for_region(my_region)
-champions_versions = version['n']['champion']
-
-
-
 
 
 def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed, url, saison:int, mode:str):
@@ -105,11 +99,14 @@ class LeagueofLegends(Extension):
         
         
 
-    def printInfo(self, summonerName, idgames: int, succes, sauvegarder:bool):
+    async def printInfo(self, summonerName, idgames: int, succes, sauvegarder:bool):
 
 
 
         match_info = matchlol(summonerName, idgames, sauvegarder=sauvegarder) #class
+        
+        await match_info.get_data_riot()
+        await match_info.prepare_data()
         
         
         if match_info.thisQId == 900: #urf 
@@ -607,11 +604,11 @@ class LeagueofLegends(Extension):
         
        # Gestion de l'image 1
        
-        embed = match_info.resume_personnel('resume_perso', embed, difLP)
+        embed = await match_info.resume_personnel('resume_perso', embed, difLP)
        
         # Gestion de l'image 2
         
-        match_info.resume_general('resume')
+        await match_info.resume_general('resume')
         
         # on charge les img
         
@@ -695,7 +692,7 @@ class LeagueofLegends(Extension):
         summonername = summonername.lower()
         
 
-        embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, sauvegarder=sauvegarder)
+        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, sauvegarder=sauvegarder)
 
 
         if embed != {}:
@@ -735,7 +732,7 @@ class LeagueofLegends(Extension):
             
             summonername = summonername.lower()
 
-            embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes, sauvegarder=sauvegarder)
+            embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes, sauvegarder=sauvegarder)
 
             if embed != {}:
                 await ctx.send(embeds=embed, files=resume)
@@ -750,7 +747,7 @@ class LeagueofLegends(Extension):
         
         summonername = summonername.lower()
         
-        embed, mode_de_jeu, resume, embed2, resume2 = self.printInfo(summonerName=summonername, idgames=0, succes=True, sauvegarder=True)
+        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername, idgames=0, succes=True, sauvegarder=True)
        
         if mode_de_jeu in ['RANKED', 'FLEX']:
             
@@ -776,11 +773,11 @@ class LeagueofLegends(Extension):
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                     where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
         
-        
+        session = aiohttp.ClientSession()
+
         for key, value, server_id in data: 
 
-            cd = time()
-            id_last_game = getId(key)
+            id_last_game = await getId(key, session)
 
 
             if str(value) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
@@ -800,16 +797,12 @@ class LeagueofLegends(Extension):
                 except: 
                     print(f"erreur {key}") # joueur qui a posé pb
                     print(sys.exc_info()) # erreur
-                    requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : 0, 'index' : key}) # on refait
+                    # requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : 0, 'index' : key}) # on refait
                     continue
                     
                 # update la bdd
+        await session.close()        
                 
-                
-            # if (time()-cd) >= 5:
-            #     await self.bot._websocket._manage_heartbeat() # si riot bug, on dépasse le cooldown.
-
-
     @interactions.extension_command(name="loladd",
                                     description="Ajoute le joueur au suivi",
                        options=[Option(name="summonername",
@@ -819,6 +812,7 @@ class LeagueofLegends(Extension):
     async def loladd(self, ctx:CommandContext, *, summonername):
         try:
             if verif_module('league_ranked', int(ctx.guild.id)):
+                session = aiohttp.ClientSession()
                 requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
                                 
                                 INSERT INTO suivi(
@@ -844,7 +838,7 @@ class LeagueofLegends(Extension):
                                 ADD COLUMN {summonername.lower} DOUBLE PRECISION;
                                 
                                 UPDATE records3 SET "{summonername.lower}" = 0;''',
-                            {'summonername' : summonername.lower(), 'id' : getId(summonername), 'discord' : int(ctx.author.id), 'guilde' : int(ctx.guild.id)})
+                            {'summonername' : summonername.lower(), 'id' : await getId(summonername, session), 'discord' : int(ctx.author.id), 'guilde' : int(ctx.guild.id)})
 
                 await ctx.send(f"{summonername} was successfully added to live-feed!")
             else:
