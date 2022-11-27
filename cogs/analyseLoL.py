@@ -18,7 +18,10 @@ import aiohttp
 from fonctions.match import (match_by_puuid,
                              lol_watcher,
                              my_region,
-                             region)
+                             region,
+                             get_version,
+                             get_champ_list,
+                             get_match_timeline)
 
 
 
@@ -142,8 +145,9 @@ class analyseLoL(Extension):
         global thisId, team
         warnings.simplefilter(action='ignore', category=FutureWarning)  # supprime les FutureWarnings dû à l'utilisation de pandas (.append/.drop)
         pd.options.mode.chained_assignment = None  # default='warn'
-        last_match, match_detail, me = await match_by_puuid(summonername, game)
-        timeline = lol_watcher.match.timeline_by_match(region, last_match)
+        session = aiohttp.ClientSession()
+        last_match, match_detail, me = await match_by_puuid(summonername, game, session)
+        timeline = await get_match_timeline(session, last_match)
         
 
             
@@ -483,19 +487,16 @@ class analyseLoL(Extension):
             liste_graph.append(interactions.File(name))
         
 
-        last_match, match_detail_stats, me = match_by_puuid(summonername, game)
+        last_match, match_detail_stats, me = await match_by_puuid(summonername, game)
 
         match_detail = pd.DataFrame(match_detail_stats)
 
         # current_champ_list = lol_watcher.data_dragon.champions(champions_versions, False, 'fr_FR')
         session = aiohttp.ClientSession()
-        async with session.get(f"https://ddragon.leagueoflegends.com/realms/euw.json") as session5:
-            version = await session5.json() 
+
+        version = await get_version(session)
         
-        champions_versions = version['n']['champion']
-        
-        async with session.get(f"https://ddragon.leagueoflegends.com/cdn/{champions_versions}/data/fr_FR/champion.json") as session6:
-            current_champ_list = await session6.json() 
+        current_champ_list = await get_champ_list(session, version)
 
         champ_dict = {}
         for key in current_champ_list['data']:

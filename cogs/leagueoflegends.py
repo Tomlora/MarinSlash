@@ -24,8 +24,9 @@ from fonctions.gestion_bdd import (lire_bdd,
 from fonctions.match import (matchlol,
                              getId,
                              dict_rankid,
-                             my_region,
-                             api_key_lol)
+                             get_league_by_summoner,
+                             get_summoner_by_name
+                             )
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 
 from time import sleep
@@ -629,12 +630,10 @@ class LeagueofLegends(Extension):
     async def updaterank(self, key, discord_server_id, session : aiohttp.ClientSession):
         
         suivirank = lire_bdd('suivi', 'dict')
-        async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{key}', params={'api_key' : api_key_lol}) as session7:
-            me = await session7.json() # informations sur le joueur
+        
+        me = await get_summoner_by_name(session, key)
             
-        async with session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{me['id']}",
-                                    params={'api_key' : api_key_lol}) as session8:
-            stats = await session8.json()
+        stats = await get_league_by_summoner(session, me)
 
         if len(stats) > 0:
             if str(stats[0]['queueType']) == 'RANKED_SOLO_5x5':

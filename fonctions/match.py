@@ -144,12 +144,44 @@ lol_watcher = LolWatcher(api_key_lol, timeout=7)
 my_region = 'euw1'
 region = "EUROPE"
 
+async def get_version(session : aiohttp.ClientSession):
+    async with session.get(f"https://ddragon.leagueoflegends.com/realms/euw.json") as session_version:
+        version = await session_version.json()
+    return version
 
+async def get_champ_list(session : aiohttp.ClientSession, version):
+    champions_versions = version['n']['champion']
+        
+    async with session.get(f"https://ddragon.leagueoflegends.com/cdn/{champions_versions}/data/fr_FR/champion.json") as session_champlist:
+        current_champ_list = await session_champlist.json() 
+    return current_champ_list
 
+async def get_summoner_by_name(session : aiohttp.ClientSession, key):
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{key}', params={'api_key' : api_key_lol}) as session_summoner:
+        me = await session_summoner.json() # informations sur le joueur
+    return me
+    
+async def get_league_by_summoner(session : aiohttp.ClientSession, me):
+    async with session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{me['id']}",
+                                    params={'api_key' : api_key_lol}) as session_league:
+        stats = await session_league.json()
+    return stats    
 
+async def get_list_matchs(session : aiohttp.ClientSession, me, params): 
+    async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{me["puuid"]}/ids?', params=params) as session_match:
+        my_matches = await session_match.json()
+    return my_matches
 
+async def get_match_detail(session : aiohttp.ClientSession, match_id, params):
+    async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/{match_id}', params=params) as session_match_detail:
+        match_detail_stats = await session_match_detail.json() # detail du match sélectionné
+    return match_detail_stats
 
-
+async def get_match_timeline(session : aiohttp.ClientSession, match_id):
+    async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/{match_id}/timeline', params={'api_key' : api_key_lol}) as session_timeline:
+        match_detail_timeline = await session_timeline.json()
+    return match_detail_timeline
+                           
 def dict_data(thisId: int, match_detail, info):
     try:
         if thisId > 4:
@@ -210,13 +242,10 @@ async def match_by_puuid(summonerName, idgames: int, session, index=0, queue=0, 
     else:
         params_my_match= {'queue' : queue, 'start' : index, 'count' : count, 'api_key' : api_key_lol}
         
-    async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{summonerName}', params=params_me) as session1:
-        me = await session1.json() # informations sur le joueur
-    async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{me["puuid"]}/ids?', params=params_my_match) as session2:
-        my_matches = await session2.json()
+    me = await get_summoner_by_name(session, summonerName)    
+    my_matches = await get_list_matchs(session, me, params_my_match)
     last_match = my_matches[idgames] # match n° idgames    
-    async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/{last_match}', params=params_me) as session3:
-        match_detail_stats = await session3.json() # detail du match sélectionné
+    match_detail_stats = await get_match_detail(session, last_match, params_me) # detail du match sélectionné
 
     return last_match, match_detail_stats, me
 
@@ -255,29 +284,21 @@ class matchlol():
 
         self.session = aiohttp.ClientSession()
         if self.queue == 0:
-            params_my_match= {'start' : self.index, 'count' : self.count, 'api_key' : api_key_lol}
+            self.params_my_match= {'start' : self.index, 'count' : self.count, 'api_key' : api_key_lol}
         else:
-            params_my_match= {'queue' : self.queue, 'start' : self.index, 'count' : self.count, 'api_key' : api_key_lol}
-        async with self.session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{self.summonerName}', params=self.params_me) as session1:
-            self.me = await session1.json() # informations sur le joueur
+            self.params_my_match= {'queue' : self.queue, 'start' : self.index, 'count' : self.count, 'api_key' : api_key_lol}
+        
+        self.me = await get_summoner_by_name(self.session, self.summonerName)
     
-        async with self.session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{self.me["puuid"]}/ids?', params=params_my_match) as session2:
-            my_matches = await session2.json()
-        self.last_match = my_matches[self.idgames] # match n° idgames    
-        async with self.session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/{self.last_match}', params=self.params_me) as session3:
-            self.match_detail_stats = await session3.json() # detail du match sélectionné
+        self.my_matches = await get_list_matchs(self.session, self.me, self.params_my_match)
+        self.last_match = self.my_matches[self.idgames] # match n° idgames    
+        self.match_detail_stats = await get_match_detail(self.session, self.last_match, self.params_me) # detail du match sélectionné
         
         self.avatar = self.me['profileIconId']
         self.level_summoner = self.me['summonerLevel']
         
-        async with self.session.get(f"https://ddragon.leagueoflegends.com/realms/euw.json") as session5:
-            self.version = await session5.json() 
-        
-        self.champions_versions = self.version['n']['champion']
-        
-        # async with...
-        async with self.session.get(f"https://ddragon.leagueoflegends.com/cdn/{self.champions_versions}/data/fr_FR/champion.json") as session6:
-            self.current_champ_list = await session6.json() 
+        self.version = await get_version(self.session)
+        self.current_champ_list = await get_champ_list(self.session, self.version)
         
         
     async def prepare_data(self):
