@@ -181,6 +181,16 @@ async def get_match_timeline(session : aiohttp.ClientSession, match_id):
     async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/{match_id}/timeline', params={'api_key' : api_key_lol}) as session_timeline:
         match_detail_timeline = await session_timeline.json()
     return match_detail_timeline
+
+async def get_challenges_config(session):
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/challenges/v1/challenges/config?api_key={api_key_lol}') as challenge_config:
+        data_challenges = await challenge_config.json()
+        return data_challenges
+
+async def get_challenges_data_joueur(session, puuid):
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/challenges/v1/player-data/{puuid}?api_key={api_key_lol}') as challenge_joueur:
+        data_joueur = await challenge_joueur.json()
+        return data_joueur   
                            
 def dict_data(thisId: int, match_detail, info):
     try:
