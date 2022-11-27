@@ -74,8 +74,8 @@ class tft(Extension):
 
         
      
-    async def stats_tft(self, summonername, idgames:int=0):
-        match_detail, id_match, puuid = await matchtft_by_puuid(summonername, idgames)
+    async def stats_tft(self, summonername, session, idgames:int=0, ):
+        match_detail, id_match, puuid = await matchtft_by_puuid(summonername, idgames, session)
         
         # identifier le joueur via son puuid
         
@@ -136,7 +136,7 @@ class tft(Extension):
         # Stats
         
         try:
-            profil = await get_stats_ranked(summonername)[0]
+            profil = await get_stats_ranked(session, summonername)[0]
             ranked = True
             wins = profil['wins']
             losses = profil['losses']
@@ -291,16 +291,18 @@ class tft(Extension):
     async def gametft(self, ctx:CommandContext, summonername, idgames:int=0):
         
         await ctx.defer(ephemeral=False)
+        
+        session = aiohttp.ClientSession()
     
-        embed = await self.stats_tft(summonername, idgames)
+        embed = await self.stats_tft(summonername, session, idgames)
         
         await ctx.send(embeds=embed)
         
         
-    async def printLivetft(self, summonername:str, discord_server_id:chan_discord):
+    async def printLivetft(self, summonername:str, discord_server_id:chan_discord, session):
 
         
-        embed = await self.stats_tft(summonername, idgames=0)
+        embed = await self.stats_tft(summonername, session, idgames=0)
         
         channel = await interactions.get(client=self.bot,
                                         obj=interactions.Channel,
@@ -311,17 +313,19 @@ class tft(Extension):
 
                
     async def updatetft(self):
+        
+        session = aiohttp.ClientSession()
         data = get_data_bdd('''SELECT trackertft.index, trackertft.id, tracker.server_id from trackertft
                     INNER JOIN tracker on trackertft.index = tracker.index''')
         for joueur, id_game, server_id in data:
             
-            match_detail, id_match, puuid = await matchtft_by_puuid(joueur, 0)
+            match_detail, id_match, puuid = await matchtft_by_puuid(joueur, 0, session)
             
             if str(id_game) != id_match:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = summonername // value = numéro de la game
                 try:
                     
                     discord_server_id = chan_discord(server_id)
-                    await self.printLivetft(joueur, discord_server_id)
+                    await self.printLivetft(joueur, discord_server_id, session)
                 except:
                     print(f"erreur {joueur}") # joueur qui a posé pb
                     print(sys.exc_info()) # erreur                    
@@ -339,6 +343,7 @@ class tft(Extension):
     async def tftadd(self, ctx:CommandContext, *, summonername):
         # TODO : à simplifier
         # TODO : refaire tftremove
+            session = aiohttp.ClientSession()
             data = lire_bdd('trackertft', 'dict')
             suivi_profil = lire_bdd('suivitft', 'dict')
             
@@ -349,7 +354,7 @@ class tft(Extension):
             tier = profil['tier']
             rank = profil['rank']
             lp = profil['leaguePoints']
-            match_detail, id_match, puuid = await matchtft_by_puuid(summonername, 0)
+            match_detail, id_match, puuid = await matchtft_by_puuid(summonername, 0, session)
             data[summonername] = {'id' : id_match}   # ajout du summonername (clé) et de l'id de la dernière game(getId)
             suivi_profil[summonername] = {'LP' : lp, 'tier': tier, 'rank': rank}
             data = pd.DataFrame.from_dict(data, orient="index")
