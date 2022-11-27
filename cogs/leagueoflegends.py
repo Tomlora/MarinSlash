@@ -771,7 +771,7 @@ class LeagueofLegends(Extension):
         data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id from tracker 
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                     where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
-        timeout = aiohttp.ClientTimeOut(total=50)
+        timeout = aiohttp.ClientTimeout(total=50)
         session = aiohttp.ClientSession(timeout=timeout)
         
         print('session démarré')
