@@ -115,7 +115,7 @@ class Challenges(Extension):
 
         currentHour = str(datetime.datetime.now().hour)
 
-        if currentHour == str(23):
+        if currentHour == str(6):
             
             liste_summonername = lire_bdd('tracker', 'dict')
             
