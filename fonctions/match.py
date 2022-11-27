@@ -225,7 +225,6 @@ async def match_by_puuid(summonerName, idgames: int, session, index=0, queue=0, 
 async def getId(summonerName, session):
     try:
         last_match, match_detail_stats, me = await match_by_puuid(summonerName, 0, session)
-        print(str(match_detail_stats['info']['gameId']))
         return str(match_detail_stats['info']['gameId'])
     except KeyError:
         data = lire_bdd('tracker', 'dict')
