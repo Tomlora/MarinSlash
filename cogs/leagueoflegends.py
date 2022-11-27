@@ -24,8 +24,8 @@ from fonctions.gestion_bdd import (lire_bdd,
 from fonctions.match import (matchlol,
                              getId,
                              dict_rankid,
-                             lol_watcher,
-                             my_region)
+                             my_region,
+                             api_key_lol)
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 
 from time import sleep
@@ -626,11 +626,15 @@ class LeagueofLegends(Extension):
         return embed, match_info.thisQ, resume, embed2, resume2
 
         
-    async def updaterank(self, key, discord_server_id):
+    async def updaterank(self, key, discord_server_id, session : aiohttp.ClientSession):
         
         suivirank = lire_bdd('suivi', 'dict')
-        me = lol_watcher.summoner.by_name(my_region, key)
-        stats = lol_watcher.league.by_summoner(my_region, me['id'])
+        async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{self.summonerName}', params={'api_key' : api_key_lol}) as session7:
+            me = await session7.json() # informations sur le joueur
+            
+        async with session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{me['id']}",
+                                    params={'api_key' : api_key_lol}) as session8:
+            stats = await session8.json()
 
         if len(stats) > 0:
             if str(stats[0]['queueType']) == 'RANKED_SOLO_5x5':
@@ -792,7 +796,7 @@ class LeagueofLegends(Extension):
                     await self.printLive(key, discord_server_id)
                     
                     # update rank
-                    await self.updaterank(key, discord_server_id)
+                    await self.updaterank(key, discord_server_id, session)
                     
                 except: 
                     print(f"erreur {key}") # joueur qui a posé pb
