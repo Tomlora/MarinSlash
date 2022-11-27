@@ -67,20 +67,23 @@ class Achievements_scoringlol(Extension):
             type=interactions.OptionType.STRING,
             required=True,
             choices=mode_de_jeu),
-                 
                 Option(
             name='records',
             description= 'afficher le cumul des records',
-            type=interactions.OptionType.BOOLEAN,
+            type=interactions.OptionType.STRING,
+            choices=[
+                Choice(name='ranked', value='ranked'),
+                Choice(name='aram', value='aram'),
+                Choice(name='tout', value='all'),
+                Choice(name='aucun', value='none')],
             required=False),
                 ],
         )
-    async def achievements(self, ctx:CommandContext, mode:str, records:bool=False):
+    async def achievements(self, ctx:CommandContext, mode:str, records:str='none'):
         
 
         # Succes
         suivi = lire_bdd('suivi', 'dict')
-        records1 = lire_bdd('records', 'dict')
 
         if mode == 'aram':
             
@@ -102,19 +105,23 @@ class Achievements_scoringlol(Extension):
         await ctx.defer(ephemeral=False)
 
         # Records
-        if records:
-            df2 = lire_bdd_perso('SELECT * from records').transpose()
+        if records != 'none':
+            if records in ['ranked', 'aram']:
+                sql = f'''SELECT "Joueur", Count("Joueur") from records
+                where mode = '{records}'
+                group by "Joueur"
+                order by "count" DESC'''
+            
+            elif records == 'all':
+                sql = f'''SELECT "Joueur", Count("Joueur") from records
+                group by "Joueur"
+                order by "count" DESC'''
 
-            plt.figure(figsize=(15, 8))
+            df_count = lire_bdd_perso(sql, index_col='Joueur').transpose().reset_index()
 
-            df2 = unifier_joueur(df2, 'Joueur')
-
-            df2_count = df2.groupby(by=['Joueur']).count().reset_index()
-
-            df2_count = df2_count.sort_values(by='Score', ascending=False)
-
-
-            fig = px.bar(df2_count, y='Score', x='Joueur', title=f"Records tout mode confondu", color='Joueur')
+            df_count = unifier_joueur(df_count, 'Joueur')
+            
+            fig = px.bar(df, 'Joueur', 'count', title=f'Record pour {records}', color='Joueur')
             fig.update_layout(showlegend=False)
             fig.write_image('plot.png')
 
