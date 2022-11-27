@@ -1,4 +1,4 @@
-import requests
+import aiohttp
 import os
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
 import interactions 
@@ -30,29 +30,32 @@ class Twitch(Extension):
         self.task1.start()
     
 
-    async def TwitchLive(self, pseudo_twitch: str, statut_twitch:bool):  # return the stream Id is streaming else returns -1
-        # TODO : Faire par serveur discord
-        
+    async def TwitchLive(self, pseudo_twitch: str, statut_twitch:bool, session):  # return the stream Id is streaming else returns -1
+            # TODO : Faire par serveur discord
         discord_server_id = chan_discord(494217748046544906)
 
         channel_lol = await interactions.get(client=self.bot,
                                                       obj=interactions.Channel,
                                                       object_id=discord_server_id.twitch)
-
-        r = requests.post(url=self.URL, params=self.body)
-
-        # data output
+            
+        async with session.post(self.URL, params=self.body) as user_twitch:
+            r = await user_twitch.json()
+            
+            # data output
         try:
-            keys = r.json()["access_token"]
+            keys = r["access_token"]
         except:
             print('Twitch : Data non disponible')
 
         headers = {
-            'Client-ID': self.client_id,
-            'Authorization': 'Bearer ' + keys
-        }
+                'Client-ID': self.client_id,
+                'Authorization': 'Bearer ' + keys
+            }
+            
+        async with session.get('https://api.twitch.tv/helix/search/channels?query=' + pseudo_twitch, headers=headers) as stream:
+            stream_data = await stream.json()
 
-        stream_data = requests.get(url='https://api.twitch.tv/helix/search/channels?query=' + pseudo_twitch, headers=headers).json()
+    
 
         if stream_data['data'][0]['is_live'] == True: # si le joueur est en live
             jeu = stream_data['data'][0]['game_name'] # on récupère le jeu streamé
@@ -65,11 +68,13 @@ class Twitch(Extension):
 
 
     async def Twitch_verif(self):
+        
+        session = aiohttp.ClientSession()
 
         data_joueur = get_data_bdd("SELECT index, is_live from twitch").mappings().all()
             
         for joueur in data_joueur:
-            await self.TwitchLive(joueur['index'], joueur['is_live'])
+            await self.TwitchLive(joueur['index'], joueur['is_live'], session)
 
 
 
