@@ -629,7 +629,7 @@ class LeagueofLegends(Extension):
     async def updaterank(self, key, discord_server_id, session : aiohttp.ClientSession):
         
         suivirank = lire_bdd('suivi', 'dict')
-        async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{self.summonerName}', params={'api_key' : api_key_lol}) as session7:
+        async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{key}', params={'api_key' : api_key_lol}) as session7:
             me = await session7.json() # informations sur le joueur
             
         async with session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{me['id']}",
