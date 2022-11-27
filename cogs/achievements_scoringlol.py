@@ -152,7 +152,7 @@ class Achievements_scoringlol(Extension):
         await ctx.send(f"Couronnes (Mode : {mode} et {int(settings['Nb_games']['score'])} games minimum) :\n" + result)
 
 
-        if records:
+        if records in ['ranked', 'aram', 'all']:
             await ctx.send('Informations : Les records de la page 3 ne sont pas comptabilisés', files=interactions.File('plot.png'))
             os.remove('plot.png')
             
