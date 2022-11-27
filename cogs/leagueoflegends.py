@@ -11,15 +11,13 @@ from interactions.ext.tasks import IntervalTrigger, create_task
 from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version
 from fonctions.channels_discord import verif_module
-from time import time
 
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
                                    get_data_bdd,
                                    requete_perso_bdd,
-                                   lire_bdd_perso,
-                                   get_guild_data)
+                                   lire_bdd_perso)
 
 from fonctions.match import (matchlol,
                              getId,
@@ -92,7 +90,7 @@ class LeagueofLegends(Extension):
     @interactions.extension_listener
     async def on_start(self):
 
-        self.task1 = create_task(IntervalTrigger(60))(self.update)
+        self.task1 = create_task(IntervalTrigger(60*1,5))(self.update)
         self.task1.start()
         
         self.task2 = create_task(IntervalTrigger(60*60))(self.lolsuivi)
@@ -101,8 +99,6 @@ class LeagueofLegends(Extension):
         
 
     async def printInfo(self, summonerName, idgames: int, succes, sauvegarder:bool):
-
-
 
         match_info = matchlol(summonerName, idgames, sauvegarder=sauvegarder) #class
         
@@ -782,7 +778,6 @@ class LeagueofLegends(Extension):
 
             id_last_game = await getId(key, session)
 
-
             if str(value) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 # update la bdd
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
@@ -800,7 +795,6 @@ class LeagueofLegends(Extension):
                 except: 
                     print(f"erreur {key}") # joueur qui a posé pb
                     print(sys.exc_info()) # erreur
-                    # requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : 0, 'index' : key}) # on refait
                     continue
                     
                 # update la bdd
