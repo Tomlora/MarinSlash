@@ -1,12 +1,14 @@
-import requests
 from bs4 import BeautifulSoup
 from markdownify import markdownify
+import aiohttp
 
 import pandas as pd
 
 
                 
 class PatchNote:
+    
+    
     
     headers = {'Accept': 'application/json'}
 
@@ -39,6 +41,9 @@ class PatchNote:
     
     def __init__(self, previous : int = 0, lang : str = 'fr-fr'):
         
+        self.session = aiohttp.ClientSession()
+        self.previous = previous
+        self.lang = lang
         if lang not in self.langs:
             print(f"Specified langage is not available. The list of available lang is:\n{self.langs}")
             raise ValueError
@@ -46,23 +51,27 @@ class PatchNote:
         
         self.menu_request_url : str = self.base_url+lang+self.patchs_notes_menu_url+self.end_url
         
+    async def get_data(self):
+        
         try:
-            patch_notes_menu_data = requests.get(self.menu_request_url, headers=self.headers).json()
+            async with self.session.get(self.menu_request_url, headers=self.headers) as menu_data:
+                patch_notes_menu_data = await menu_data.json() # informations sur le joueur
         except Exception:
             print(f"An error occured during the requests of the patchnotes menu data at url '{self.menu_request_url}'. Maybe 'lang' is not correct.")
             raise
         
         try:
-            patch_note_url = patch_notes_menu_data['result']['data']['articles']['nodes'][previous]['url']['url']
+            patch_note_url = patch_notes_menu_data['result']['data']['articles']['nodes'][self.previous]['url']['url']
         except Exception:
             print(f"An error occured while extracting the patch note url from the patchnotes menu.")
             raise
         
-        self.link :str = self.view_url + lang + patch_note_url 
-        self.patch_request_url : str = self.base_url+lang+patch_note_url+self.end_url
+        self.link :str = self.view_url + self.lang + patch_note_url 
+        self.patch_request_url : str = self.base_url+self.lang+patch_note_url+self.end_url
         
         try:
-            self.data = requests.get(self.patch_request_url, headers=self.headers).json()
+            async with self.session.get(self.patch_request_url, headers=self.headers) as data_request:
+                self.data = await data_request.json() # informations sur le joueur
         except Exception:
             print(f"An error occured during the request of the patchnote data at url '{self.patch_request_url}'")
             raise
