@@ -12,7 +12,7 @@ from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version
 from fonctions.channels_discord import verif_module
 
-
+from time import time
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
                                    get_data_bdd,
@@ -773,15 +773,22 @@ class LeagueofLegends(Extension):
                     where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
         
         session = aiohttp.ClientSession()
+        
+        print('session démarré')
 
         for key, value, server_id in data: 
 
             id_last_game = await getId(key, session)
+            
+            b = time()
 
             if str(value) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 # update la bdd
+                print(key)
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
                 try:
+                    print('a')
+                    a = time()
                     # identification du channel
                     discord_server_id = chan_discord(int(server_id))
                     
@@ -789,15 +796,17 @@ class LeagueofLegends(Extension):
                     
                     await self.printLive(key, discord_server_id)
                     
+                    print('b')
                     # update rank
                     await self.updaterank(key, discord_server_id, session)
-                    
+                    print('c')
+                    print(f'cible {time()-a}')
                 except: 
                     print(f"erreur {key}") # joueur qui a posé pb
                     print(sys.exc_info()) # erreur
                     continue
                     
-                # update la bdd
+        print(f'general {time() - b}')        # update la bdd
         await session.close()        
                 
     @interactions.extension_command(name="loladd",
