@@ -1,13 +1,13 @@
 import pandas as pd
 import ast
+import aiohttp
 import os
-import requests # Riotwatcher n'a pas les challenges donc on va faire une requests.get
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
                                    supprimer_bdd)
-from fonctions.match import (lol_watcher,
-                             my_region,
-                             api_key_lol)
+from fonctions.match import (get_challenges_config,
+                            get_summoner_by_name,
+                            get_challenges_data_joueur)
 import time
 import plotly.express as px
 import plotly.graph_objects as go
@@ -25,9 +25,8 @@ def extraire_variables_imbriquees(df, colonne):
     df = pd.concat([df.drop([colonne], axis=1), df[colonne].apply(pd.Series)], axis=1)
     return df
 
-def get_data_challenges():
-    data_challenges = requests.get(f'https://{my_region}.api.riotgames.com/lol/challenges/v1/challenges/config?api_key={api_key_lol}') # regroupe tous les défis
-    data_challenges = data_challenges.json()
+async def get_data_challenges(session):
+    data_challenges = await get_challenges_config(session)
     data_challenges = pd.DataFrame(data_challenges)
     data_challenges = extraire_variables_imbriquees(data_challenges, 'localizedNames')
     data_challenges = data_challenges[['id', 'state', 'thresholds', 'fr_FR']]
@@ -36,15 +35,11 @@ def get_data_challenges():
     data_challenges = data_challenges[['id', 'state','name', 'shortDescription', 'description', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER']] # on change l'ordre
     return data_challenges
 
-def get_puuid(summonername:str):
-    me = lol_watcher.summoner.by_name(my_region, summonername)
-    puuid = me['puuid']
-    return puuid
 
-def get_data_joueur(summonername:str):
-    puuid = get_puuid(summonername)
-    data_joueur = requests.get(f'https://{my_region}.api.riotgames.com/lol/challenges/v1/player-data/{puuid}?api_key={api_key_lol}')
-    data_joueur = data_joueur.json()
+
+async def get_data_joueur(summonername:str, session):
+    me = await get_summoner_by_name(session, summonername)
+    data_joueur = await get_challenges_data_joueur(session, me['puuid'])
     data_total_joueur = dict()
 
     data_total_joueur[summonername] = data_joueur['totalPoints'] #dict
@@ -64,7 +59,7 @@ def get_data_joueur(summonername:str):
     except KeyError:
             data_joueur_challenges.drop(['achievedTime'], axis=1, inplace=True)
 
-    data_challenges = get_data_challenges()
+    data_challenges = await get_data_challenges(session)
     # on fusionne en fonction de l'id :
     data_joueur_challenges = data_joueur_challenges.merge(data_challenges, left_on="challengeId", right_on='id')
     # on a besoin de savoir ce qui est le mieux dans les levels : on va donc créer une variable chiffrée représentatif de chaque niveau :
@@ -117,6 +112,7 @@ class Challenges(Extension):
 
         if currentHour == str(6):
             
+            session = aiohttp.ClientSession()
             liste_summonername = lire_bdd('tracker', 'dict')
             
             for table in ['challenges_total', 'challenges_category', 'challenges_data']:
@@ -124,7 +120,7 @@ class Challenges(Extension):
            
             for summonername in liste_summonername.keys():
 
-                total, category, challenges = get_data_joueur(summonername)
+                total, category, challenges = await get_data_joueur(summonername, session)
                 
                 if isinstance(challenges, pd.DataFrame): # si ce n'est pas un dataframe, la fonction a renvoyée 0, ce qui signifie : pas de données
                     sauvegarde_bdd(total, 'challenges_total', 'append')
@@ -134,6 +130,7 @@ class Challenges(Extension):
                     time.sleep(3)
                 else:
                     print(f'{summonername} : Pas de données')
+            session.close()        
             print('Les challenges ont été mis à jour.')
             
     
@@ -186,8 +183,8 @@ class Challenges(Extension):
                                        required=True)])
     async def challenges_profil(self, ctx:CommandContext, summonername:str):
         
-        
-        total_user, total_category, total_challenges = get_data_joueur(summonername)
+        session = aiohttp.ClientSession()
+        total_user, total_category, total_challenges = await get_data_joueur(summonername, session)
         
         def stats(categorie):
             level = total_category[categorie]['level']
