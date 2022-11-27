@@ -121,7 +121,7 @@ class Achievements_scoringlol(Extension):
 
             df_count = unifier_joueur(df_count, 'Joueur')
             
-            fig = px.bar(df, 'Joueur', 'count', title=f'Record pour {records}', color='Joueur')
+            fig = px.bar(df_count, 'Joueur', 'count', title=f'Record pour {records}', color='Joueur')
             fig.update_layout(showlegend=False)
             fig.write_image('plot.png')
 
