@@ -98,7 +98,7 @@ class analyseLoL(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
 
-    @interactions.extension_command(name="analyse durant la game",
+    @interactions.extension_command(name="analyse_durant_la_game",
                        description="Permet d'afficher des statistiques durant la game",
                        options=[Option(
                                     name="summonername",
@@ -438,7 +438,7 @@ class analyseLoL(Extension):
             os.remove(graph)
 
     CommandContext.send
-    @interactions.extension_command(name="analyse fin de game",
+    @interactions.extension_command(name="analyse_fin_de_game",
                        description="Voir des stats de fin de game",
                        options=[Option(
                                     name="summonername",
