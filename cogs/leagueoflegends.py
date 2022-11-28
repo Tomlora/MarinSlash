@@ -787,7 +787,7 @@ class LeagueofLegends(Extension):
 
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
                 try:
-                    a = time()
+
                     # identification du channel
                     discord_server_id = chan_discord(int(server_id))
                     
@@ -799,7 +799,7 @@ class LeagueofLegends(Extension):
                     # update rank
                     await self.updaterank(key, discord_server_id, session)
 
-                    print(f'cible {round(time()-a,2)}')
+ 
                 except: 
                     print(f"erreur {key}") # joueur qui a posé pb
                     print(sys.exc_info()) # erreur
