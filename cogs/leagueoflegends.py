@@ -771,20 +771,19 @@ class LeagueofLegends(Extension):
         data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id from tracker 
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                     where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
-        timeout = aiohttp.ClientTimeout(total=50)
+        timeout = aiohttp.ClientTimeout(total=20)
         session = aiohttp.ClientSession(timeout=timeout)
         
         print('session démarré')
 
-        c = time()
+
         for key, value, server_id in data: 
 
-            b = time()
+
             id_last_game = await getId(key, session)
             
-            print(f'getId {round(time() - b,2)}')
-            
 
+        
             if str(value) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 # update la bdd
 
@@ -808,7 +807,7 @@ class LeagueofLegends(Extension):
                     print(sys.exc_info()) # erreur
                     continue
                     
-        print(f'general {round(time() - c,2)}')        # update la bdd
+         # update la bdd
         await session.close()        
                 
     @interactions.extension_command(name="loladd",
