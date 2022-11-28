@@ -98,7 +98,7 @@ class analyseLoL(Extension):
     def __init__(self, bot):
         self.bot : interactions.Client = bot
 
-    @interactions.extension_command(name="analyse",
+    @interactions.extension_command(name="analyse durant la game",
                        description="Permet d'afficher des statistiques durant la game",
                        options=[Option(
                                     name="summonername",
@@ -438,7 +438,7 @@ class analyseLoL(Extension):
             os.remove(graph)
 
     CommandContext.send
-    @interactions.extension_command(name="var",
+    @interactions.extension_command(name="analyse fin de game",
                        description="Voir des stats de fin de game",
                        options=[Option(
                                     name="summonername",
@@ -716,73 +716,7 @@ class analyseLoL(Extension):
             await stat.delete()
             await ctx.send("Annulé")
     
-    @interactions.extension_command(name="var_10games",
-                       description="Voir des stats de fin de game sur 10 games",
-                       options=[Option(
-                                    name="summonername",
-                                    description = "Nom du joueur",
-                                    type=interactions.OptionType.STRING,
-                                    required=True),
-                                Option(
-                                    name="stat",
-                                    description = "Quel stat ?",
-                                    type=interactions.OptionType.STRING,
-                                    required=True,
-                                    choices=[
-                                    Choice(name="vision", value="vision")
-                                ])])
-    async def var_10games(self, ctx:CommandContext, summonername, stat):
-
-        me = lol_watcher.summoner.by_name(my_region, summonername)
-        my_matches = lol_watcher.match.matchlist_by_puuid(region, me['puuid'])
-
-        match = [lol_watcher.match.by_id(region, my_matches[i]) for i in
-                 range(0, 10)]  # liste en compréhension des 10 matchs
-
-        match_detail = match[0]
-
-        dic = {
-            (match_detail['info']['participants'][0]['summonerName']).lower().replace(" ", ""): 0,
-            (match_detail['info']['participants'][1]['summonerName']).lower().replace(" ", ""): 1,
-            (match_detail['info']['participants'][2]['summonerName']).lower().replace(" ", ""): 2,
-            (match_detail['info']['participants'][3]['summonerName']).lower().replace(" ", ""): 3,
-            (match_detail['info']['participants'][4]['summonerName']).lower().replace(" ", ""): 4,
-            (match_detail['info']['participants'][5]['summonerName']).lower().replace(" ", ""): 5,
-            (match_detail['info']['participants'][6]['summonerName']).lower().replace(" ", ""): 6,
-            (match_detail['info']['participants'][7]['summonerName']).lower().replace(" ", ""): 7,
-            (match_detail['info']['participants'][8]['summonerName']).lower().replace(" ", ""): 8,
-            (match_detail['info']['participants'][9]['summonerName']).lower().replace(" ", ""): 9
-        }
-
-        # stats
-        thisId = dic[
-            summonername.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
-
-        df = pd.DataFrame(match)
-
-
-        try:
-            if stat == "vision":
-
-                dict_score = {}
-
-                for i in range(0, 10): #i = la game
-                    dict_score['M' + str(i)] = df['info'][i]['participants'][thisId]['visionScore']
-
-                stats = sns.lineplot(x=dict_score.keys(), y=dict_score.values(), linewidth=2.5)
-                stats.set_title('Score Vision sur les 10 dernières games')
-                stats.set_xlabel('Match', fontsize=10)
-                stats.set_ylabel('Vision', fontsize=10)
-                plt.legend(title='Joueur', labels=[summonername])
-                plt.savefig(fname='plot')
-                plt.clf()
-                await ctx.send(file=interactions.File('plot.png'))
-                os.remove('plot.png')
-
-
-        except asyncio.TimeoutError:
-            await stat.delete()
-            await ctx.send("Annulé")
+    
 
 
 def setup(bot):

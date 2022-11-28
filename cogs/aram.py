@@ -222,7 +222,7 @@ class Aram(Extension):
                                                         object_id=server_id[0])  
 
                 
-                chan_discord_id = chan_discord(guild.id)
+                chan_discord_id = chan_discord(int(guild.id))
             
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
