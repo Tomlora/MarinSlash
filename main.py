@@ -73,8 +73,12 @@ async def on_guild_create(guild : interactions.Guild):
 async def on_guild_member_add(member : interactions.Member):
     '''Lorsque un nouveau user rejoint le discord'''
 
-    guild = member.guild
-    chan_discord_pm = chan_discord(int(guild.id))
+
+    chan_discord_pm = chan_discord(int(member.guild_id))
+    
+    guild = await interactions.get(client=bot,
+                                    obj=interactions.Channel,
+                                    object_id=member.guild_id)
     channel = await interactions.get(client=bot,
                                     obj=interactions.Channel,
                                     object_id=chan_discord_pm.chan_accueil)
@@ -91,8 +95,13 @@ async def on_guild_member_add(member : interactions.Member):
 @bot.event
 async def on_guild_member_remove(member : interactions.Member):
     '''Lorsque un nouveau user quitte le discord'''
-    guild = member.guild
-    chan_discord_pm = chan_discord(int(guild.id))
+
+
+    chan_discord_pm = chan_discord(int(member.guild_id))
+    
+    guild = await interactions.get(client=bot,
+                                    obj=interactions.Channel,
+                                    object_id=member.guild_id)
     channel = await interactions.get(client=bot,
                                     obj=interactions.Channel,
                                     object_id=chan_discord_pm.chan_accueil)
