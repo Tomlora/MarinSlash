@@ -784,7 +784,7 @@ class analyseLoL(Extension):
         if joueur != None:
             joueur = joueur.lower()
             df = df[df['joueur'] == joueur]
-            title += f'pour {joueur}'
+            title += f' pour {joueur}'
         
         if champion != None:
             df = df[df['champion'] == champion]
@@ -792,7 +792,7 @@ class analyseLoL(Extension):
         
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
-            title += f'en {mode_de_jeu}'
+            title += f' en {mode_de_jeu}'
             
         if calcul == 'count':
             title += f' ({calcul})'
