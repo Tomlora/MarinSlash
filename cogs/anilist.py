@@ -1,10 +1,8 @@
 import interactions
 from interactions import Choice, Option, Extension, CommandContext
-import requests
-import json
 import pandas as pd
 from fonctions.params import Version
-
+import aiohttp
 
 class Anilist(Extension):
     def __init__(self, bot):
@@ -12,7 +10,7 @@ class Anilist(Extension):
         self.url = 'https://graphql.anilist.co'
         
         
-    def __extract_anime(self, term, page=1, perpage=3):
+    async def __extract_anime(self, term, session :aiohttp.ClientSession, page=1, perpage=3):
       animeIDQS = """\
             query ($query: String, $page: Int, $perpage: Int) {
                 Page (page: $page, perPage: $perpage) {
@@ -42,20 +40,21 @@ class Anilist(Extension):
             }
         """
       preset = {"query": term, "page": page, "perpage": perpage}
-      req = requests.post(self.url,
-                          json={'query': animeIDQS, 'variables': preset})
+   
 
-      if req.status_code != 200:
-            raise Exception(f"Data post unsuccessful. ({req.status_code})")
+      async with session.post(self.url, json={'query': animeIDQS, 'variables': preset}) as anime:
+            if anime.status != 200:
+                raise Exception(f"Data post unsuccessful. ({anime.status})")
+            try:
+                extracted_data = await anime.json()
+            except ValueError:
+                return None
+            except TypeError:
+                return None
+            else:
+                return extracted_data
+                
 
-      try:
-          extracted_data = json.loads(req.text)
-      except ValueError:
-          return None
-      except TypeError:
-          return None
-      else:
-          return extracted_data
       
       
     @interactions.extension_command(
@@ -173,23 +172,26 @@ class Anilist(Extension):
             """
             
         await ctx.defer(ephemeral=False)
+        
+        session = aiohttp.ClientSession()
          
         preset = {"season": season, "seasonYear": year}
-        req = requests.post(self.url,
-                                json={'query': anime_season, 'variables': preset})
+        
 
-        if req.status_code != 200:
-                raise Exception(f"Data post unsuccessful. ({req.reason})")
+        async with session.post(self.url,
+                                json={'query': anime_season, 'variables': preset}) as anime:
 
-        try:
-            extracted_data = json.loads(req.text)
-            self.schedule = extracted_data
-        except ValueError:
-            return None
-        except TypeError:
-            return None
-        else:
-            self.schedule = extracted_data  
+            if anime.status != 200:
+                    raise Exception(f"Data post unsuccessful. ({anime.reason})")
+
+            try:
+                self.schedule = await anime.json()
+            except ValueError:
+                return None
+            except TypeError:
+                return None
+            else:
+                self.schedule = await anime.json() 
                 
         name_anime = []
         airing = []
@@ -219,10 +221,12 @@ class Anilist(Extension):
         embed.set_footer(text=f'Version {Version} by Tomlora')
             
         await ctx.send(embeds=embed)
+        
+        await session.close()
             
-    def _get_anime_id(self, sQ):
+    async def _get_anime_id(self, sQ, session):
         anime_list = []
-        data = self.__extract_anime(sQ)
+        data = await self.__extract_anime(sQ, session)
         for i in range(len(data['data']['Page']['media'])):
             curr_anime = data['data']['Page']['media'][i]['title']['romaji']
             anime_list.append(curr_anime)
@@ -235,13 +239,20 @@ class Anilist(Extension):
 
         return anime_ID
         
-    @interactions.extension_command(name="anime", description="Cherche un anime")  
+    @interactions.extension_command(name="anime", description="Cherche un anime",
+                                    options=[Option(
+                                        name='anime',
+                                        description="nom de l'animé",
+                                        type=interactions.OptionType.STRING,
+                                        required=True
+                                    )])  
     async def anime(self, ctx:CommandContext, anime):
         self.id = anime
         
+        session = aiohttp.ClientSession()
         ctx.defer(ephemeral=False)
         
-        self.name = self._get_anime_id(self.id)
+        self.name = await self._get_anime_id(self.id, session)
         
         if self.name == "Not found":
             ctx.send(f'{anime} non trouvé')
@@ -334,10 +345,13 @@ class Anilist(Extension):
         
         embed = interactions.Embed(title='Anime') 
 
-        response = requests.post(self.url, json={'query': query, 'variables': variables})
-        answer_complete = json.loads(response.text)["data"]["Page"]["media"][0]
+        session = aiohttp.ClientSession()
+        async with session.post(self.url, json={'query': query, 'variables': variables}) as anime:
+            response = await anime.json()
+
+        answer_complete = response["data"]["Page"]["media"][0]
         name = answer_complete['title']['romaji']
-        description = answer_complete['description'].replace("<br>", "")
+        description = answer_complete['description'].replace("<br>", "")[:900] # on veut éviter une description trop longue
         nb_ep = answer_complete['episodes']
         genres = ', '.join(answer_complete['genres'])
         cover = answer_complete['coverImage']['medium']
@@ -358,6 +372,8 @@ class Anilist(Extension):
         
         
         await ctx.send(embeds=embed)
+        
+        await session.close()
         
 
 def setup(bot):
