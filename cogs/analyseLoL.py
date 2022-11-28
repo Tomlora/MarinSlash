@@ -42,8 +42,33 @@ choice_analyse = [Choice(name="gold", value="gold"),
                     Choice(name='position', value='position')]
 
 def get_data_matchs(columns):
-    df = lire_bdd_perso(f'SELECT id, joueur, champion, match_id, {columns} from matchs where season = 12', index_col='id').transpose()
+    df = lire_bdd_perso(f'SELECT id, joueur, match_id, {columns} from matchs where season = 12', index_col='id').transpose()
     return df
+
+
+def get_embed(df, value, title, top):
+
+                        # On retire les données sans item
+    df_item = df[df[value] != 0]
+                        # On compte le nombre d'occurences
+    df_group = df_item.groupby(value).count().reset_index()
+                        # On trie du plus grand au plus petit
+    df_group = df_group.sort_values('joueur', ascending=False)
+                        # On retient le top x
+    df_group = df_group.head(top)
+                        # On fait le graphique
+    fig = px.histogram(df_group, value, 'joueur', color=value, title=title, text_auto=".i").update_xaxes(categoryorder='total descending')
+                        # On enlève la légende et l'axe y
+    fig.update_layout(showlegend=False)
+    fig.update_yaxes(visible=False)
+                        # On enregistre et transpose l'img aui format discord
+    fig.write_image(f'{value}.png')
+    file = interactions.File(f'{value}.png')
+                        # On prépare l'embed
+    embed = interactions.Embed()
+    embed.set_image(url=f'attachment://{value}.png')
+    
+    return embed, file
 
 def dict_data(thisId: int, match_detail, info):
     try:
@@ -730,14 +755,19 @@ class analyseLoL(Extension):
                                     type=interactions.OptionType.STRING,
                                     required=True,
                                     choices=[
-                               Choice(name='items', value='items')]),
+                               Choice(name='items', value='items'),
+                               Choice(name='champion', value='champion'),
+                               Choice(name='dommage', value='dommage'),
+                               Choice(name='tank', value='tank'),
+                               Choice(name='kda', value='kda')]),
                                 Option(
                                     name='calcul',
                                     description='quel type de calcul ?',
                                     type=interactions.OptionType.STRING,
                                     required=True,
                                     choices=[
-                                        Choice(name='comptage', value='count')]),
+                                        Choice(name='comptage', value='count'),
+                                        Choice(name='avg', value='avg')]),
                                 Option(
                                     name='joueur',
                                     description='se focaliser sur un joueur ?',
@@ -770,7 +800,7 @@ class analyseLoL(Extension):
                                         Choice(name='20', value=20)]
                                 )])    
     async def historique_lol(self, ctx:CommandContext, type, calcul:str, joueur:str=None, champion:str=None, mode_de_jeu:str=None, top:int=20):
-        title = ''
+
         if type == 'items':
             column = 'item1, item2, item3, item4, item5, item6, mode'
             column_list = ['item1', 'item2', 'item3', 'item4', 'item5', 'item6']
@@ -779,7 +809,20 @@ class analyseLoL(Extension):
                 data = json.load(mon_fichier)
             for column_item in column_list:
                 df[column_item] = df[column_item].apply(lambda x : 0 if x == 0 else data['data'][str(x)]['name'])
-            title += f'{type}'
+                
+        elif type == 'dommage':
+            df = get_data_matchs('champion, dmg, dmg_ad, dmg_ap, dmg_true') 
+            
+        elif type == 'tank':
+            df = get_data_matchs('champion, dmg_reduit, dmg_tank')
+        
+        elif type == 'kda':
+            df = get_data_matchs('champion, kills, assists, deaths')         
+            
+        elif type == 'champion':
+            df = get_data_matchs(type)    
+        
+        title = f'{type}'
         
         if joueur != None:
             joueur = joueur.lower()
@@ -793,67 +836,84 @@ class analyseLoL(Extension):
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
+        
+        title += f' ({calcul})'
             
         if calcul == 'count':
-            title += f' ({calcul})'
-            select = interactions.SelectMenu(
-                options=[
-                    interactions.SelectOption(label="item1", value="item1", emoji=interactions.Emoji(name='1️⃣')),
-                    interactions.SelectOption(label="item2", value="item2", emoji=interactions.Emoji(name='2️⃣')),
-                    interactions.SelectOption(label="item3", value="item3", emoji=interactions.Emoji(name='3️⃣')),
-                    interactions.SelectOption(label="item4", value="item4", emoji=interactions.Emoji(name='4️⃣')),
-                    interactions.SelectOption(label="item5", value="item5", emoji=interactions.Emoji(name='5️⃣')),
-                    interactions.SelectOption(label="item6", value="item6", emoji=interactions.Emoji(name='6️⃣'))
-                ],
-                custom_id='items',
-                placeholder="Ordre d'item",
-                min_values=1,
-                max_values=1
-            )
             
-            title += f' | Top {top}'
+            if type == 'items':
+                select = interactions.SelectMenu(
+                    options=[
+                        interactions.SelectOption(label="item1", value="item1", emoji=interactions.Emoji(name='1️⃣')),
+                        interactions.SelectOption(label="item2", value="item2", emoji=interactions.Emoji(name='2️⃣')),
+                        interactions.SelectOption(label="item3", value="item3", emoji=interactions.Emoji(name='3️⃣')),
+                        interactions.SelectOption(label="item4", value="item4", emoji=interactions.Emoji(name='4️⃣')),
+                        interactions.SelectOption(label="item5", value="item5", emoji=interactions.Emoji(name='5️⃣')),
+                        interactions.SelectOption(label="item6", value="item6", emoji=interactions.Emoji(name='6️⃣'))
+                    ],
+                    custom_id='items',
+                    placeholder="Ordre d'item",
+                    min_values=1,
+                    max_values=1
+                )
+                
+                title += f' | Top {top}'
+                
+                await ctx.send("Pour quel slot d'item ?",
+                                            components=select)
+
+                async def check(button_ctx):
+                        if int(button_ctx.author.user.id) == int(ctx.author.user.id):
+                            return True
+                        await ctx.send("I wasn't asking you!", ephemeral=True)
+                        return False
+                
+
+                while True:    
+                    try:
+                        button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+                            components=select, check=check, timeout=30
+                        )
+                        embed, file = get_embed(df, button_ctx.data.values[0], title, top)
+                        # On envoie
+                        await ctx.edit(embeds=embed, files=file)
+                    except asyncio.TimeoutError:
+                        # When it times out, edit the original message and remove the button(s)
+                        return await ctx.edit(components=[])
             
-            await ctx.send("Pour quel slot d'item ?",
-                                        components=select)
-
-            async def check(button_ctx):
-                    if int(button_ctx.author.user.id) == int(ctx.author.user.id):
-                        return True
-                    await ctx.send("I wasn't asking you!", ephemeral=True)
-                    return False
+            elif type == 'champion':
+                embed, files = get_embed(df, 'champion', title, top)
+                await ctx.send(embeds=embed, files=files)
+                     
+        elif calcul == 'avg':
             
+            if type== 'dommage':
+                
+                dict_stats = {'dmg' : 'total', 'dmg_ad' : 'ad', 'dmg_ap' : 'ap', 'dmg_true' : 'true'}
+                
+            if type == 'tank':
+                
+                dict_stats = {'dmg_tank' : 'tank', 'dmg_reduit' : 'reduit'}
+            
+            if type == 'kda':
+                
+                dict_stats = {'kills' : 'K', 'deaths' : 'D', 'assists' : 'A'}
+                
+            fig = go.Figure()
+            fig.update_layout(title = title)    
+            for column, name in dict_stats.items():
 
-            while True:    
-                try:
-                    button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
-                        components=select, check=check, timeout=30
-                    )
-                    value = button_ctx.data.values[0]
-                    # On retire les données sans item
-                    df_item = df[df[value] != 0]
-                    # On compte le nombre d'occurences
-                    df_group = df_item.groupby(value).count().reset_index()
-                    # On trie du plus grand au plus petit
-                    df_group = df_group.sort_values('joueur', ascending=False)
-                    # On retient le top x
-                    df_group = df_group.head(top)
-                    # On fait le graphique
-                    fig = px.histogram(df_group, value, 'joueur', color=value, title=title).update_xaxes(categoryorder='total descending')
-                    # On enlève la légende et l'axe y
-                    fig.update_layout(showlegend=False)
-                    fig.update_yaxes(visible=False)
-                    # On enregistre et transpose l'img aui format discord
-                    fig.write_image(f'{value}.png')
-                    file = interactions.File(f'{value}.png')
-                    # On prépare l'embed
-                    embed = interactions.Embed()
-                    embed.set_image(url=f'attachment://{value}.png')
-                    # On envoie
-                    await ctx.edit(embeds=embed, files=file)
-                except asyncio.TimeoutError:
-                    # When it times out, edit the original message and remove the button(s)
-                    return await ctx.edit(components=[])     
+               fig.add_trace(go.Histogram(x=df['joueur'], y=df[column], histfunc='avg', name=name, texttemplate="%{y:.0f}")).update_xaxes(categoryorder='total descending')
 
+            fig.update_yaxes(visible=False)
+            fig.write_image('stats.png')
+
+            files = interactions.File(f'stats.png')
+                                # On prépare l'embed
+            embed = interactions.Embed()
+            embed.set_image(url=f'attachment://stats.png')
+            
+            await ctx.send(embeds=embed, files=files)
 
 def setup(bot):
     analyseLoL(bot)
