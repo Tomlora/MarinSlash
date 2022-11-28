@@ -776,16 +776,18 @@ class LeagueofLegends(Extension):
         
         print('session démarré')
 
+        c = time()
         for key, value, server_id in data: 
 
+            b = time()
             id_last_game = await getId(key, session)
             
+            print(f'getId {round(time() - b,2)}')
             
-            b = time()
 
             if str(value) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 # update la bdd
-                print(key)
+
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {'id' : id_last_game, 'index' : key})
                 try:
                     a = time()
@@ -806,7 +808,7 @@ class LeagueofLegends(Extension):
                     print(sys.exc_info()) # erreur
                     continue
                     
-        print(f'general {round(time() - b,2)}')        # update la bdd
+        print(f'general {round(time() - c,2)}')        # update la bdd
         await session.close()        
                 
     @interactions.extension_command(name="loladd",
