@@ -42,7 +42,7 @@ choice_analyse = [Choice(name="gold", value="gold"),
                     Choice(name='position', value='position')]
 
 def get_data_matchs(columns):
-    df = lire_bdd_perso(f'SELECT id, joueur, match_id, {columns} from matchs where season = 12', index_col='id').transpose()
+    df = lire_bdd_perso(f'SELECT id, joueur, match_id, mode, {columns} from matchs where season = 12', index_col='id').transpose()
     return df
 
 
