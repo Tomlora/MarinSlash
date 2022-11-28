@@ -774,8 +774,6 @@ class LeagueofLegends(Extension):
         timeout = aiohttp.ClientTimeout(total=20)
         session = aiohttp.ClientSession(timeout=timeout)
         
-        print('session démarré')
-
 
         for key, value, server_id in data: 
 
