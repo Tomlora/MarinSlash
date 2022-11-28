@@ -1,8 +1,6 @@
 import interactions
 from interactions import Option, Extension, CommandContext
 from bs4 import BeautifulSoup
-import requests
-import json
 import pandas as pd
 from interactions.ext.wait_for import wait_for_component, setup as stp
 import asyncio
