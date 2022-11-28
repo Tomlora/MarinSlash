@@ -77,7 +77,7 @@ async def on_guild_member_add(member : interactions.Member):
     chan_discord_pm = chan_discord(int(member.guild_id))
     
     guild = await interactions.get(client=bot,
-                                    obj=interactions.Channel,
+                                    obj=interactions.Guild,
                                     object_id=member.guild_id)
     channel = await interactions.get(client=bot,
                                     obj=interactions.Channel,
@@ -96,21 +96,21 @@ async def on_guild_member_add(member : interactions.Member):
 async def on_guild_member_remove(member : interactions.Member):
     '''Lorsque un nouveau user quitte le discord'''
 
-
     chan_discord_pm = chan_discord(int(member.guild_id))
     
     guild = await interactions.get(client=bot,
-                                    obj=interactions.Channel,
+                                    obj=interactions.Guild,
                                     object_id=member.guild_id)
     channel = await interactions.get(client=bot,
                                     obj=interactions.Channel,
                                     object_id=chan_discord_pm.chan_accueil)
+    
     embed = interactions.Embed(title=f'Départ des {guild.name}',
                           description=f'Au revoir {member.name}, nous sommes encore {guild.member_count} membres !',
                           color=interactions.Color.blurple())
     embed.set_thumbnail(url=member.avatar_url)
     embed.set_footer(text=f'Version {Version} by Tomlora')
-    print(embed.title)
+
     await channel.send(embeds=embed)
 
 
