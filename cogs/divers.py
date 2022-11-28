@@ -90,6 +90,7 @@ class Divers(Extension):
                     return True
                 await ctx.send("I wasn't asking you!", ephemeral=True)
                 return False
+        
             
         try:
             # Like before, this wait_for listens for a certain event, but is made specifically for components.
@@ -261,6 +262,26 @@ class Divers(Extension):
                                 color=interactions.Color.red())
             
             await ctx.send(embeds=embed)
+    
+    @interactions.extension_command(name='my_cool_modal')
+    async def my_cool_modal(self, ctx):
+        modal =interactions.Modal(
+        title="Application Form",
+        custom_id="mod_app_form",
+        components=[interactions.TextInput(
+            style=interactions.TextStyleType.SHORT,
+            label='Combien font 1+1 ?',
+            custom_id='math',
+            min_length=1,
+            max_length=3)],
+        )
+    
+        await ctx.popup(modal)
+    
+    @interactions.extension_modal('mod_app_form')
+    async def modal_response(self, ctx, response:str):
+        await ctx.send(f'Tu as répondu {response}')
+
 
 def setup(bot):
     Divers(bot)
