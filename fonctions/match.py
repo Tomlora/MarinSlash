@@ -14,6 +14,7 @@ from plotly.graph_objs import Layout
 import plotly.express as px
 from io import BytesIO
 import aiohttp
+import asyncio
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -268,6 +269,9 @@ async def getId(summonerName, session):
     except KeyError:
         data = lire_bdd('tracker', 'dict')
         return str(data[summonerName]['id'])
+    except asyncio.exceptions.TimeoutError:
+        data = lire_bdd('tracker', 'dict')
+        return str(data[summonerName]['id'])      
     except:
         print('erreur getId')
         data = lire_bdd('tracker', 'dict')
