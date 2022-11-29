@@ -310,7 +310,7 @@ class LeagueofLegends(Extension):
     
         settings = settings.to_dict()
 
-        records_cumul = lire_bdd('records3', 'dict')
+        records_cumul = lire_bdd('records_cumul', 'dict')
         records_personnel = lire_bdd('records_personnel', 'dict')
         
         if match_info.thisQ == 'RANKED':
@@ -479,7 +479,7 @@ class LeagueofLegends(Extension):
 
                 
         if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
-            sauvegarde_bdd(records_cumul, 'records3')
+            sauvegarde_bdd(records_cumul, 'records_cumul')
 
                 
             # records personnels
@@ -837,10 +837,10 @@ class LeagueofLegends(Extension):
                                 INSERT INTO records_personnel(index)
                                 VALUES (:summonername);
                                 
-                                ALTER TABLE records3
+                                ALTER TABLE records_cumul
                                 ADD COLUMN {summonername.lower} DOUBLE PRECISION;
                                 
-                                UPDATE records3 SET "{summonername.lower}" = 0;''',
+                                UPDATE records_cumul SET "{summonername.lower}" = 0;''',
                             {'summonername' : summonername.lower(), 'id' : await getId(summonername, session), 'discord' : int(ctx.author.id), 'guilde' : int(ctx.guild.id)})
 
                 await ctx.send(f"{summonername} was successfully added to live-feed!")
