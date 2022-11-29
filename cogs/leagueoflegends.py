@@ -418,7 +418,6 @@ class LeagueofLegends(Extension):
         if match_info.thisQ == 'ARAM':
             dict_cumul = {"SOLOKILLS_ARAM": [match_info.thisSoloKills, np.arange(100, 1000, 100, int).tolist()], 
                         "NBGAMES_ARAM": [1, np.arange(50, 1000, 50, int).tolist()], 
-                        "DUREE_GAME_ARAM": [match_info.thisTime / 60, np.arange(500, 10000, 500, int).tolist()],
                         "KILLS_ARAM": [match_info.thisKills, np.arange(500, 10000, 500, int).tolist()],
                         "DEATHS_ARAM": [match_info.thisDeaths, np.arange(500, 10000, 500, int).tolist()],
                         "ASSISTS_ARAM": [match_info.thisAssists, np.arange(500, 10000, 500, int).tolist()],
@@ -431,7 +430,6 @@ class LeagueofLegends(Extension):
         else:
             dict_cumul = {"SOLOKILLS": [match_info.thisSoloKills, np.arange(100, 1000, 100, int).tolist()], 
                         "NBGAMES": [1, np.arange(50, 1000, 50, int).tolist()], 
-                        "DUREE_GAME": [match_info.thisTime / 60, np.arange(500, 10000, 500, int).tolist()],
                         "KILLS": [match_info.thisKills, np.arange(500, 10000, 500, int).tolist()],
                         "DEATHS": [match_info.thisDeaths, np.arange(500, 10000, 500, int).tolist()],
                         "ASSISTS": [match_info.thisAssists, np.arange(500, 10000, 500, int).tolist()],
@@ -846,6 +844,7 @@ class LeagueofLegends(Extension):
                             {'summonername' : summonername.lower(), 'id' : await getId(summonername, session), 'discord' : int(ctx.author.id), 'guilde' : int(ctx.guild.id)})
 
                 await ctx.send(f"{summonername} was successfully added to live-feed!")
+                await session.close()
             else:
                 await ctx.send('Module désactivé pour ce serveur')
         except:
