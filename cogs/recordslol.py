@@ -13,6 +13,13 @@ from interactions.ext.paginator import Page, Paginator
 from fonctions.params import Version
 
 
+####
+# SELECT joueur, champion, match_id, id_participant, MAX(kills) from matchs
+# WHERE mode = 'ARAM'
+# GROUP BY joueur, champion, match_id, id_participant
+# ORDER BY max DESC
+# FETCH FIRST 1 ROWS ONLY;
+
 emote = {
             "KDA": ":star:",
             "KP": ":trophy:",
@@ -213,7 +220,7 @@ class Recordslol(Extension):
 
         embed3 = interactions.Embed(title=f"Records Cumul & Moyenne S{saison} (Page 3/3) :bar_chart: ")
 
-        fichier3 = lire_bdd('records3', 'dict')
+        fichier3 = lire_bdd('records_cumul', 'dict')
 
         df = pd.DataFrame.from_dict(fichier3)
         df.fillna(0, inplace=True)
@@ -229,7 +236,7 @@ class Recordslol(Extension):
             col_penta = 'PENTA'
             col_quadra = 'QUADRA'
             col_solokills = 'SOLOKILLS'
-            col_duree = 'DUREE_GAME'
+
             
         elif mode == 'aram':
             col_games = 'NBGAMES_ARAM'
@@ -239,8 +246,7 @@ class Recordslol(Extension):
             list_avg = ['KILLS_MOYENNE', 'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']
             col_penta = 'PENTA_ARAM'
             col_quadra = 'QUADRA_ARAM'
-            col_solokills = 'SOLOKILLS_ARAM'
-            col_duree = 'DUREE_GAME_ARAM'            
+            col_solokills = 'SOLOKILLS_ARAM'           
         
         # Moyenne    
         df['KILLS_MOYENNE'] = 0
@@ -288,11 +294,6 @@ class Recordslol(Extension):
 
                 if key == col_games or key == col_penta or key == col_quadra or key == col_solokills:
                     value = int(value)
-
-                elif key == col_duree:
-                    # value = round(float(value), 2)
-                    # value = str(value).replace(".", "h")
-                    continue
 
 
                 elif key in [col_kills, col_deaths, col_assists, 'WARDS_SCORE', 'WARDS_POSEES', 'WARDS_DETRUITES',
@@ -456,7 +457,7 @@ class Recordslol(Extension):
         
         stat = [stat, stat2, stat3]
         
-        data = lire_bdd('records3', 'dict')
+        data = lire_bdd('records_cumul', 'dict')
 
         df = pd.DataFrame.from_dict(data)
         df.fillna(0, inplace=True)
@@ -472,7 +473,6 @@ class Recordslol(Extension):
             col_penta = 'PENTA'
             col_quadra = 'QUADRA'
             col_solokills = 'SOLOKILLS'
-            col_duree = 'DUREE_GAME'
             col_CS = 'CS'
             
         elif mode == 'aram':
@@ -484,7 +484,6 @@ class Recordslol(Extension):
             col_penta = 'PENTA_ARAM'
             col_quadra = 'QUADRA_ARAM'
             col_solokills = 'SOLOKILLS_ARAM'
-            col_duree = 'DUREE_GAME_ARAM'
             col_CS = 'CS_ARAM'
         # Moyenne
 
@@ -492,7 +491,7 @@ class Recordslol(Extension):
         df['DEATHS_MOYENNE'] = 0
         df['ASSISTS_MOYENNE'] = 0
         df['WARDS_MOYENNE'] = 0
-        df['DUREE_MOYENNE'] = 0
+
 
         df['KILLS_MOYENNE'] = np.where(df[col_games] > 0, df[col_kills] / df[col_games], 0)
         df['DEATHS_MOYENNE'] = np.where(df[col_games] > 0, df[col_deaths] / df[col_games], 0)
@@ -503,9 +502,7 @@ class Recordslol(Extension):
             df['WARDS_DETRUITES_MOYENNE'] = np.where(df[col_games] > 0, df['WARDS_DETRUITES'] / df[col_games], 0)
             df['WARDS_PINKS_MOYENNE'] = np.where(df[col_games] > 0, df['WARDS_PINKS'] / df[col_games], 0)
         
-        df['DUREE_MOYENNE'] = np.where(df[col_games] > 0, df[col_duree] / df[col_games], 0)
-        
-        df['DUREE_MOYENNE'] = round(df[col_duree] * 60, 2)
+
         
         if mode == 'ranked':
             for ward_col in ['WARDS_MOYENNE', 'WARDS_POSEES_MOYENNE', 'WARDS_DETRUITES_MOYENNE', 'WARDS_PINKS_MOYENNE']:
@@ -527,8 +524,6 @@ class Recordslol(Extension):
 
             fig = go.Figure()
             for key in dict:
-                if key == col_duree:
-                    df[key] = round(df[key], 2)
                 fig.add_trace(
                     go.Histogram(histfunc="sum", y=df[key], x=df['Joueurs'], name=str(key), texttemplate="%{y}",
                                  textfont_size=20))
@@ -611,21 +606,6 @@ class Recordslol(Extension):
 
                 graphique(fig, 'solokills.png')
 
-            if "GAMES" in stat:
-                variables = [col_games, col_duree]
-                              
-
-                fig = figure_hist(variables, col_games)
-
-                fig.write_image('plot.png')
-                await ctx.send(content="Durée des games exprimée en heures", file=interactions.File('plot.png'))
-                os.remove('plot.png')
-                
-                fig = px.pie(df, values='DUREE_MOYENNE', names='Joueurs', title='DUREE MOYENNE DES GAMES')
-                fig.update_traces(textinfo='value', textfont_size=20)
-                fig.write_image('pie.png')
-                await ctx.send(content="Durée des games exprimée en minutes", file=interactions.File('pie.png'))
-                os.remove('pie.png')
                 
             if fichier_recap is True:
                 url = "./obj/records/pantheon.xlsx"
