@@ -313,7 +313,7 @@ class Aram(Extension):
                                                     + str(suivi[key]['lp']) + "(" + str(difLP) + ")    " + emote, inline=False)
                                             
                         if difwins + diflosses > 0: # si supérieur à 0, le joueur a joué
-                            sql += f'''UPDATE ranked_aram_24h SET wins = {suivi[key]['wins']}, losses = {suivi[key]['losses']}, lp = {suivi[key]['LP']}, rank = '{tier}' where index = '{key}';'''
+                            sql += f'''UPDATE ranked_aram_24h SET wins = {suivi[key]['wins']}, losses = {suivi[key]['losses']}, lp = {suivi[key]['lp']}, rank = '{tier}' where index = '{key}';'''
                                                             
                     
                     channel_tracklol = await interactions.get(client=self.bot,
