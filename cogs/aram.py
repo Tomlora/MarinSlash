@@ -318,8 +318,10 @@ class Aram(Extension):
                     
                     channel_tracklol = await interactions.get(client=self.bot,
                                                       obj=interactions.Channel,
-                                                      object_id=chan_discord_id.lol_others) 
-                        
+                                                      object_id=chan_discord_id.lol_others)
+                    
+                    if sql != '': 
+                        requete_perso_bdd(sql)    
                     embed.set_footer(text=f'Version {Version} by Tomlora')  
 
                     await channel_tracklol.send(embeds=embed)
