@@ -121,12 +121,8 @@ class Twitter(Extension):
 
     async def twitter_suivi(self):
         # TODO : faire par serveur
-        discord_server_id = chan_discord(494217748046544906)
         session = aiohttp.ClientSession()
 
-        channel_tracklol = await interactions.get(client=self.bot,
-                                                      obj=interactions.Channel,
-                                                      object_id=discord_server_id.lol)
     
         df_twitter =  get_data_bdd('Select * from twitter')
         df_twitter = df_twitter.mappings().all()
@@ -165,7 +161,7 @@ class Twitter(Extension):
 
                     channel_tracklol = await interactions.get(client=self.bot,
                                                                     obj=interactions.Channel,
-                                                                    object_id=discord_server_id.tracklol) 
+                                                                    object_id=discord_server_id.lol) 
                     try:
                         await channel_tracklol.send(f'**MERCATO** {user} : ' + url_tweet)
                         requete_perso_bdd('UPDATE twitter SET id_last_msg_twitter = :id_last_msg WHERE id_twitter = :id_twitter', {'id_last_msg' : id_tweet,
