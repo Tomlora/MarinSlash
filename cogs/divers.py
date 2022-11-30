@@ -45,11 +45,11 @@ class Divers(Extension):
 
         return await self.createMutedRole(ctx)    
 
+    
 
     async def check_for_unmute(self):
         # print("Checking en cours...")
         data = get_guild_data()
-        
         for server_id in data.fetchall():
             
             guild = await interactions.get(client=self.bot,
@@ -195,12 +195,32 @@ class Divers(Extension):
     @interactions.extension_command(name="test_channel", description="test_channel")
     async def test_channel(self, ctx : CommandContext):
         if isOwner_slash(ctx):
-            new_chan = await ctx.guild.create_channel(name="chan de test",
+            
+            permission = [interactions.Overwrite(
+                                        id=int(ctx.author.id),
+                                        type=1, # user
+                                        allow=interactions.Permissions.VIEW_CHANNEL | interactions.Permissions.SEND_MESSAGES | interactions.Permissions.ATTACH_FILES),
+                         interactions.Overwrite(
+                                        id=450771618868887553,
+                                        type=0, # role
+                                        deny=interactions.Permissions.VIEW_CHANNEL),
+                         interactions.Overwrite(
+                             id=773517279328993290,
+                             type=0, # role
+                             allow=interactions.Permissions.VIEW_CHANNEL | interactions.Permissions.SEND_MESSAGES | interactions.Permissions.ATTACH_FILES)]
+            
+            
+            await ctx.guild.create_channel(name="chan de test",
                                      type=interactions.ChannelType.GUILD_TEXT,
-                                     parent_id=450771619648897034)
-            await new_chan.send('nouveau channel')
+                                     parent_id=450771619648897034,
+                                     # Permission
+                                    permission_overwrites=permission)
+            
+            # await new_chan.send('nouveau channel')
         else:
             await ctx.send("Tu n'as pas les droits")
+            
+
 
     # @bot.command(name='mute', description='mute someone')
     # @commands.has_permissions(ban_members=True)
@@ -219,6 +239,7 @@ class Divers(Extension):
     
     @interactions.extension_listener
     async def get_muted_role(self, guild: interactions.Guild) -> interactions.Role:
+        
         role = get(guild.roles, name="Muted")
         if role is not None:
             return role
@@ -248,6 +269,7 @@ class Divers(Extension):
                                              )
                                     ])
     async def mute_time(self, ctx : CommandContext, member: interactions.Member, seconds: int, reason :str = "Aucune raison n'a été renseignée"):
+    
         if await ctx.has_permissions(interactions.Permissions.MUTE_MEMBERS):
             muted_role = await self.get_muted_role(ctx.guild)
             self.database_handler.add_tempmute(int(member.id), int(ctx.guild_id),
