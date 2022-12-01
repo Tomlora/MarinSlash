@@ -10,7 +10,6 @@ import warnings
 from skimage import io
 from skimage.transform import resize
 import asyncio
-import seaborn as sns
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import aiohttp
@@ -42,11 +41,11 @@ choice_analyse = [Choice(name="gold", value="gold"),
                     Choice(name='position', value='position')]
 
 def get_data_matchs(columns):
-    df = lire_bdd_perso(f'SELECT id, joueur, match_id, mode, {columns} from matchs where season = 12', index_col='id').transpose()
+    df = lire_bdd_perso(f'SELECT id, joueur, match_id, mode, season, {columns} from matchs where season = 12', index_col='id').transpose()
     return df
 
 
-def get_embed(df, value, title, top):
+def transformation_top(df, value, title, top, showlegend=False):
 
                         # On retire les données sans item
     df_item = df[df[value] != 0]
@@ -59,14 +58,19 @@ def get_embed(df, value, title, top):
                         # On fait le graphique
     fig = px.histogram(df_group, value, 'joueur', color=value, title=title, text_auto=".i").update_xaxes(categoryorder='total descending')
                         # On enlève la légende et l'axe y
-    fig.update_layout(showlegend=False)
+    fig.update_layout(showlegend=showlegend)
     fig.update_yaxes(visible=False)
-                        # On enregistre et transpose l'img aui format discord
-    fig.write_image(f'{value}.png')
-    file = interactions.File(f'{value}.png')
+    # On enregistre et transpose l'img aui format discord
+    
+    return fig
+
+
+def get_embed(fig, name):
+    fig.write_image(f'{name}.png')
+    file = interactions.File(f'{name}.png')
                         # On prépare l'embed
     embed = interactions.Embed()
-    embed.set_image(url=f'attachment://{value}.png')
+    embed.set_image(url=f'attachment://{name}.png')
     
     return embed, file
 
@@ -759,7 +763,8 @@ class analyseLoL(Extension):
                                Choice(name='champion', value='champion'),
                                Choice(name='dommage', value='dommage'),
                                Choice(name='tank', value='tank'),
-                               Choice(name='kda', value='kda')]),
+                               Choice(name='kda', value='kda'),
+                               Choice(name='winrate', value='winrate')]),
                                 Option(
                                     name='calcul',
                                     description='quel type de calcul ?',
@@ -768,6 +773,11 @@ class analyseLoL(Extension):
                                     choices=[
                                         Choice(name='comptage', value='count'),
                                         Choice(name='avg', value='avg')]),
+                                Option(
+                                    name='season',
+                                    description='saison lol',
+                                    type=interactions.OptionType.INTEGER,
+                                    required=False),
                                 Option(
                                     name='joueur',
                                     description='se focaliser sur un joueur ?',
@@ -799,7 +809,7 @@ class analyseLoL(Extension):
                                         Choice(name='15', value=15),
                                         Choice(name='20', value=20)]
                                 )])    
-    async def historique_lol(self, ctx:CommandContext, type, calcul:str, joueur:str=None, champion:str=None, mode_de_jeu:str=None, top:int=20):
+    async def historique_lol(self, ctx:CommandContext, type, calcul:str, season:int=12, joueur:str=None, champion:str=None, mode_de_jeu:str=None, top:int=20):
 
         if type == 'items':
             column = 'item1, item2, item3, item4, item5, item6, mode'
@@ -820,9 +830,14 @@ class analyseLoL(Extension):
             df = get_data_matchs('champion, kills, assists, deaths')         
             
         elif type == 'champion':
-            df = get_data_matchs(type)    
+            df = get_data_matchs(type)
+        
+        elif type == 'winrate':
+            df = get_data_matchs('victoire')    
         
         title = f'{type}'
+        
+        df[df['season'] == season]
         
         if joueur != None:
             joueur = joueur.lower()
@@ -874,7 +889,8 @@ class analyseLoL(Extension):
                         button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
                             components=select, check=check, timeout=30
                         )
-                        embed, file = get_embed(df, button_ctx.data.values[0], title, top)
+                        fig = transformation_top(df, button_ctx.data.values[0], title, top)
+                        embed, file = get_embed(fig, 'stats')
                         # On envoie
                         await ctx.edit(embeds=embed, files=file)
                     except asyncio.TimeoutError:
@@ -882,8 +898,25 @@ class analyseLoL(Extension):
                         return await ctx.edit(components=[])
             
             elif type == 'champion':
-                embed, files = get_embed(df, 'champion', title, top)
+                fig = transformation_top(df, 'champion', title, top, showlegend=True)
+                embed, files = get_embed(fig, 'champion')
                 await ctx.send(embeds=embed, files=files)
+            
+            elif type == 'winrate':
+                
+                df['victoire'] = df['victoire'].map({True : 'Victoire',
+                        False : 'Défaite'})
+
+
+
+                values = df['victoire'].value_counts()
+                fig = go.Figure(data=[go.Pie(labels=values.index, values=values)])
+                fig.update_layout(title = title)
+                
+                embed, files = get_embed(fig, 'wr')
+                
+                await ctx.send(embeds=embed, files=files)
+                
                      
         elif calcul == 'avg':
             
@@ -906,12 +939,8 @@ class analyseLoL(Extension):
                fig.add_trace(go.Histogram(x=df['joueur'], y=df[column], histfunc='avg', name=name, texttemplate="%{y:.0f}")).update_xaxes(categoryorder='total descending')
 
             fig.update_yaxes(visible=False)
-            fig.write_image('stats.png')
-
-            files = interactions.File(f'stats.png')
-                                # On prépare l'embed
-            embed = interactions.Embed()
-            embed.set_image(url=f'attachment://stats.png')
+            
+            embed, files = get_embed(fig, 'stats')
             
             await ctx.send(embeds=embed, files=files)
 
