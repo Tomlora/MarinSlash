@@ -1305,13 +1305,13 @@ class matchlol():
         x_objectif = 1700
 
         try:
-            font = ImageFont.truetype("DejaVuSans.ttf", 50) # Ubuntu 18.04
+            font = ImageFont.truetype("DejaVuSans.ttf", 45) # Ubuntu 18.04
         except OSError:
             try:
                 font = ImageFont.truetype("arial.ttf", 50)  # Windows
             except OSError:
                 font = ImageFont.truetype(
-                        "AppleSDGothicNeo.ttc", 50
+                        "AppleSDGothicNeo.ttc", 45
                     )  # MacOS
         
 
@@ -1428,11 +1428,11 @@ class matchlol():
             fill = range_value(i, self.thisDamageListe)    
                 
   
-            d.text((x_dmg_percent + 15, initial_y), f'{round(self.thisDamageListe[i]/1000,0)}k', font=font, fill=fill)
+            d.text((x_dmg_percent + 15, initial_y), f'{int(self.thisDamageListe[i]/1000)}k', font=font, fill=fill)
 
             fill = range_value(i, np.array(self.thisDamageTakenListe) + np.array(self.thisDamageSelfMitigatedListe)) 
         
-            d.text((x_dmg_taken + 15, initial_y), f'{round(self.thisDamageTakenListe[i]/1000,0)}k / {round(self.thisDamageSelfMitigatedListe[i]/1000,0)}k', font=font, fill=fill)
+            d.text((x_dmg_taken + 15, initial_y), f'{int(self.thisDamageTakenListe[i]/1000)}k / {int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font, fill=fill)
  
             
 
