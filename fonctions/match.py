@@ -84,6 +84,15 @@ def get_key(my_dict, val):
         
     return "No key"
 
+def range_value(i, liste,min:bool=False):
+    if i == np.argmax(liste[:5]) or i-5 == np.argmax(liste[5:]):
+        fill=(0,128,0)
+    elif (min==True) and (i == np.argmin(liste[:5]) or i-5 == np.argmin(liste[5:])):
+        fill=(220,20,60)
+    else:
+        fill=(0,0,0)  
+    return fill
+
 
 async def get_image(type, name, session : aiohttp.ClientSession, resize_x=80, resize_y=80):
     if type == "champion":
@@ -568,6 +577,8 @@ class matchlol():
 
          
         self.thisDamageListe = dict_data(self.thisId, self.match_detail, 'totalDamageDealtToChampions')
+        self.thisDamageTakenListe = dict_data(self.thisId, self.match_detail, 'totalDamageTaken')
+        self.thisDamageSelfMitigatedListe = dict_data(self.thisId, self.match_detail,'damageSelfMitigated')
 
         # pseudo
 
@@ -757,7 +768,6 @@ class matchlol():
             (self.match_detail_challenges['teamDamagePercentage']) * 100, 2)
         self.thisDamageTakenRatio = round(
             (self.match_detail_challenges['damageTakenOnTeamPercentage']) * 100, 2)
-        
         
         self.thisDamageRatioListe = dict_data(self.thisId, self.match_detail, "teamDamagePercentage")
         self.thisDamageTakenRatioListe = dict_data(self.thisId, self.match_detail, "damageTakenOnTeamPercentage")
@@ -1272,24 +1282,24 @@ class matchlol():
         lineX = 2600
         lineY = 100
         
-        x_name = 500
-        x_level = x_name - 400
+        x_name = 450
+        x_level = x_name - 350
         x_ecart = x_name - 150
         x_kills = 1000
         x_deaths = x_kills + 100
         x_assists = x_deaths + 100
         
-        x_kda = x_assists + 200
+        x_kda = x_assists + 150
         
-        x_kp = x_kda + 200
+        x_kp = x_kda + 180
         
-        x_cs = x_kp + 200 
+        x_cs = x_kp + 180 
         
         x_vision = x_cs + 150
         
         x_dmg_percent = x_vision + 150
         
-        x_dmg_taken = x_dmg_percent + 250
+        x_dmg_taken = x_dmg_percent + 245
         
         x_kill_total = 1000
         x_objectif = 1700
@@ -1352,10 +1362,10 @@ class matchlol():
             d.text((x_deaths, y), 'D', font=font, fill=fill)
             d.text((x_assists, y), 'A', font=font, fill=fill)
             d.text((x_kda, y), 'KDA', font=font, fill=fill)
-            d.text((x_kp, y), 'KP', font=font, fill=fill)
+            d.text((x_kp+10, y), 'KP', font=font, fill=fill)
             d.text((x_cs, y), 'CS', font=font, fill=fill)
-            d.text((x_dmg_percent+10, y), "DMG%", font=font, fill=fill)
-            d.text((x_dmg_taken+15, y), 'TANK%', font=font, fill=fill)
+            d.text((x_dmg_percent+10, y), "DMG", font=font, fill=fill)
+            d.text((x_dmg_taken+15, y), 'TANK(reduit)', font=font, fill=fill)
             
             if self.thisQ != "ARAM": 
                 d.text((x_vision, y), 'VS', font=font, fill=fill)
@@ -1391,36 +1401,39 @@ class matchlol():
             else:
                 d.text((x_assists - 20, initial_y), str(self.thisAssistsListe[i]), font=font, fill=(0,0,0))
             
+            fill = range_value(i, self.thisKDAListe, True)
             
             if len(str(round(self.thisKDAListe[i],2)))==1: # Recentrer le résultat quand chiffre rond
-                d.text((x_kda + 35, initial_y), str(round(self.thisKDAListe[i],2)), font=font, fill=(0,0,0))
+                d.text((x_kda + 35, initial_y), str(round(self.thisKDAListe[i],2)), font=font, fill=fill)
             else:
-                d.text((x_kda, initial_y), str(round(self.thisKDAListe[i],2)), font=font, fill=(0,0,0))
+                d.text((x_kda, initial_y), str(round(self.thisKDAListe[i],2)), font=font, fill=fill)
                 
-            d.text((x_kp, initial_y), str(self.thisKPListe[i]) + "%", font=font, fill=(0, 0, 0))
+            fill = range_value(i, self.thisKPListe, True)
+                
+            d.text((x_kp, initial_y), str(self.thisKPListe[i]) + "%", font=font, fill=fill)
+            
+            fill = range_value(i, np.array(self.thisMinionListe) + np.array(self.thisJungleMonsterKilledListe)) 
             
             if len(str(self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i])) != 2:
-                d.text((x_cs, initial_y), str(self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=(0, 0, 0))
+                d.text((x_cs, initial_y), str(self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill)
             else:
-                d.text((x_cs + 10, initial_y), str(self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=(0, 0, 0))
+                d.text((x_cs + 10, initial_y), str(self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill)
                 
             if self.thisQ != "ARAM": 
                 
-                d.text((x_vision, initial_y), str(self.thisVisionListe[i]), font=font, fill=(0, 0, 0))
+                fill = range_value(i, self.thisVisionListe) 
                 
-                
-            if len(str(round(self.thisDamageRatioListe[i]*100,1))) == 3:     
-                d.text((x_dmg_percent + 15, initial_y), str(round(self.thisDamageRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
-            else:
-                d.text((x_dmg_percent, initial_y), str(round(self.thisDamageRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
-                
-                
-            if len(str(round(self.thisDamageTakenRatioListe[i]*100,1))) == 3:
-                d.text((x_dmg_taken + 15, initial_y), str(round(self.thisDamageTakenRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
-            else:
-                d.text((x_dmg_taken, initial_y), str(round(self.thisDamageTakenRatioListe[i]*100,1)) + "%", font=font, fill=(0,0,0))
-                
+                d.text((x_vision, initial_y), str(self.thisVisionListe[i]), font=font, fill=fill)
             
+            fill = range_value(i, self.thisDamageListe)    
+                
+  
+            d.text((x_dmg_percent + 15, initial_y), f'{round(self.thisDamageListe[i]/1000,0)}k', font=font, fill=fill)
+
+            fill = range_value(i, np.array(self.thisDamageTakenListe) + np.array(self.thisDamageSelfMitigatedListe)) 
+        
+            d.text((x_dmg_taken + 15, initial_y), f'{round(self.thisDamageTakenListe[i]/1000,0)}k / {round(self.thisDamageSelfMitigatedListe[i]/1000,0)}k', font=font, fill=fill)
+ 
             
 
             if i == 4:
