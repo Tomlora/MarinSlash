@@ -1130,7 +1130,13 @@ class matchlol():
                                     d = :d,
                                     a = :a,
                                     rank = :rank
-                                  WHERE index = :index''',
+                                  WHERE index = :index;
+                                  UPDATE matchs
+                                  SET tier = :rank,
+                                  lp = :lp
+                                  WHERE joueur = :index AND
+                                  match_id = :match_id AND
+                                  mode='ARAM';''',
                                     {'wins' : wins,
                                     'losses' : losses,
                                     'lp' : lp,
@@ -1139,7 +1145,8 @@ class matchlol():
                                     'd' : deaths,
                                     'a' : a,
                                     'rank' : rank,
-                                    'index' : self.summonerName.lower()})
+                                    'index' : self.summonerName.lower(),
+                                    'match_id' : self.last_match})
            
 
         
