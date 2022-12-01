@@ -1371,7 +1371,7 @@ class matchlol():
                 d.text((x_vision, y), 'VS', font=font, fill=fill)
 
         # participants
-        initial_y = 220
+        initial_y = 223
 
         for i in range(0, 10):
             im.paste(
