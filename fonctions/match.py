@@ -1346,9 +1346,9 @@ class matchlol():
         
         
         im.paste(money,(10, 120), money.convert('RGBA'))
-        d.text((80, 120), f'{self.thisGold_team1}', font=font, fill=(255, 255, 255))
+        d.text((83, 120), f'{self.thisGold_team1}', font=font, fill=(255, 255, 255))
         im.paste(money,(10, 720), money.convert('RGBA'))
-        d.text((80, 720), f'{self.thisGold_team2}', font=font, fill=(0, 0, 0))
+        d.text((83, 720), f'{self.thisGold_team2}', font=font, fill=(0, 0, 0))
         
         
         
