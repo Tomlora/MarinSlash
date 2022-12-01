@@ -1295,11 +1295,11 @@ class matchlol():
         
         x_cs = x_kp + 190 
         
-        x_vision = x_cs + 155
+        x_vision = x_cs + 160
         
         x_dmg_percent = x_vision + 145
         
-        x_dmg_taken = x_dmg_percent + 245
+        x_dmg_taken = x_dmg_percent + 240
         
         x_kill_total = 1000
         x_objectif = 1700
@@ -1338,7 +1338,7 @@ class matchlol():
 
 
         # match
-        d.text((10, 15), self.thisQ, font=font, fill=(0, 0, 0))
+        d.text((10, 18), self.thisQ, font=font, fill=(0, 0, 0))
         # d.text((10, 120), f'Gold : {self.thisGold_team1}', font=font, fill=(255, 255, 255))
         # d.text((10, 720), f'Gold : {self.thisGold_team2}', font=font, fill=(0, 0, 0))
         
@@ -1352,8 +1352,8 @@ class matchlol():
         
         
         
-        for y in range(120, 721, 600):
-            if y == 120:
+        for y in range(123, 721, 600):
+            if y == 123:
                 fill = (255,255,255)
             else:
                 fill = (0,0,0)
@@ -1376,7 +1376,7 @@ class matchlol():
         for i in range(0, 10):
             im.paste(
                 im=await get_image("champion", self.thisChampNameListe[i], self.session),
-                box=(10, initial_y-10),
+                box=(10, initial_y-13),
             )
             
             d.text((x_level, initial_y), "Niv " + str(self.thisLevelListe[i]), font=font, fill=(0,0,0))
@@ -1467,26 +1467,26 @@ class matchlol():
             nashor = await get_image('monsters', 'nashor', self.session)       
                     
             im.paste(drk,(x_objectif, 10), drk.convert('RGBA'))
-            d.text((x_objectif + 100, 20), str(self.thisDragonTeam), font=font, fill=(0, 0, 0))
+            d.text((x_objectif + 100, 23), str(self.thisDragonTeam), font=font, fill=(0, 0, 0))
             
             im.paste(elder,(x_objectif + 200, 10), elder.convert('RGBA'))
-            d.text((x_objectif + 200 + 100, 20), str(self.thisElderPerso), font=font, fill=(0, 0, 0))
+            d.text((x_objectif + 200 + 100, 23), str(self.thisElderPerso), font=font, fill=(0, 0, 0))
                 
             im.paste(herald,(x_objectif + 400, 10), herald.convert('RGBA'))
-            d.text((x_objectif + 400 + 100, 20), str(self.thisHeraldTeam), font=font, fill=(0, 0, 0))
+            d.text((x_objectif + 400 + 100, 23), str(self.thisHeraldTeam), font=font, fill=(0, 0, 0))
                     
             im.paste(nashor, (x_objectif + 600, 10), nashor.convert('RGBA'))
-            d.text((x_objectif + 600 + 100, 20), str(self.thisBaronTeam), font=font, fill=(0, 0, 0))
+            d.text((x_objectif + 600 + 100, 23), str(self.thisBaronTeam), font=font, fill=(0, 0, 0))
             
         
         img_blue_epee = await get_image('epee', 'blue', self.session)
         img_red_epee = await get_image('epee', 'red', self.session)
         
         im.paste(img_blue_epee, (x_kill_total, 10), img_blue_epee.convert('RGBA'))
-        d.text((x_kill_total + 100, 20), str(self.thisTeamKills), font=font, fill=(0, 0, 0))
+        d.text((x_kill_total + 100, 23), str(self.thisTeamKills), font=font, fill=(0, 0, 0))
         
         im.paste(img_red_epee, (x_kill_total + 300, 10), img_red_epee.convert('RGBA'))
-        d.text((x_kill_total + 300 + 100, 20), str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
+        d.text((x_kill_total + 300 + 100, 23), str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
 
         im.save(f'{name_img}.png')
 
