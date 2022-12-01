@@ -130,7 +130,7 @@ class Challenges(Extension):
                     time.sleep(3)
                 else:
                     print(f'{summonername} : Pas de données')
-            session.close()        
+            await session.close()        
             print('Les challenges ont été mis à jour.')
             
     
@@ -233,6 +233,7 @@ class Challenges(Extension):
         fig.write_image('plot.png')
         await ctx.send(f'Le joueur {summonername} a : \n{msg}\n TOTAL  : ** {str(total)} **') #txt
         await ctx.send(files=interactions.File('plot.png')) # visuel
+        await session.close()
         os.remove('plot.png')
         
 
