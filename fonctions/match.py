@@ -1293,11 +1293,11 @@ class matchlol():
         
         x_kp = x_kda + 180
         
-        x_cs = x_kp + 180 
+        x_cs = x_kp + 190 
         
-        x_vision = x_cs + 150
+        x_vision = x_cs + 155
         
-        x_dmg_percent = x_vision + 150
+        x_dmg_percent = x_vision + 145
         
         x_dmg_taken = x_dmg_percent + 245
         
