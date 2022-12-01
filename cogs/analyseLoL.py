@@ -14,6 +14,7 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import aiohttp
 import json
+from datetime import datetime
 
 from fonctions.match import (match_by_puuid,
                              lol_watcher,
@@ -764,7 +765,8 @@ class analyseLoL(Extension):
                                Choice(name='dommage', value='dommage'),
                                Choice(name='tank', value='tank'),
                                Choice(name='kda', value='kda'),
-                               Choice(name='winrate', value='winrate')]),
+                               Choice(name='winrate', value='winrate'),
+                               Choice(name='lp', value='lp')]),
                                 Option(
                                     name='calcul',
                                     description='quel type de calcul ?',
@@ -772,7 +774,8 @@ class analyseLoL(Extension):
                                     required=True,
                                     choices=[
                                         Choice(name='comptage', value='count'),
-                                        Choice(name='avg', value='avg')]),
+                                        Choice(name='avg', value='avg'),
+                                        Choice(name='progression', value='progression')]),
                                 Option(
                                     name='season',
                                     description='saison lol',
@@ -833,7 +836,10 @@ class analyseLoL(Extension):
             df = get_data_matchs(type)
         
         elif type == 'winrate':
-            df = get_data_matchs('victoire')    
+            df = get_data_matchs('victoire') 
+            
+        elif type == 'lp':
+            df = get_data_matchs('date, lp, tier, rank')   
         
         title = f'{type}'
         
@@ -917,6 +923,10 @@ class analyseLoL(Extension):
                 
                 await ctx.send(embeds=embed, files=files)
                 
+            else:
+                await ctx.send('Non disponible')
+                pass
+                
                      
         elif calcul == 'avg':
             
@@ -932,6 +942,10 @@ class analyseLoL(Extension):
                 
                 dict_stats = {'kills' : 'K', 'deaths' : 'D', 'assists' : 'A'}
                 
+            else:
+                await ctx.send('Non disponible')
+                pass
+                
             fig = go.Figure()
             fig.update_layout(title = title)    
             for column, name in dict_stats.items():
@@ -943,6 +957,25 @@ class analyseLoL(Extension):
             embed, files = get_embed(fig, 'stats')
             
             await ctx.send(embeds=embed, files=files)
+            
+        elif calcul == 'progression':
+            
+            if type == 'lp': 
+                df['date'] = df['date'].apply(lambda x : datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
+                df['datetime'] = pd.to_datetime(df['date'], infer_datetime_format=True)
+                df.sort_values(['datetime'], ascending=False, inplace=True)
+
+                fig = px.line(df, x='datetime', y='lp', color='joueur', title=title)
+                
+                embed, files = get_embed(fig, 'evo')
+                
+                await ctx.send(embeds=embed, files=files)
+            
+            else:
+                await ctx.send('Non disponible')
+                pass
+            
+            
 
 def setup(bot):
     analyseLoL(bot)
