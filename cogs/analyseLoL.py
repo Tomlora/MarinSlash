@@ -527,7 +527,7 @@ class analyseLoL(Extension):
 
         match_detail = pd.DataFrame(match_detail_stats)
 
-        # current_champ_list = lol_watcher.data_dragon.champions(champions_versions, False, 'fr_FR')
+
         session = aiohttp.ClientSession()
 
         version = await get_version(session)

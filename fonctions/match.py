@@ -1,13 +1,9 @@
 import pandas as pd
-
-from riotwatcher import LolWatcher
-import pandas as pd
 import warnings
 from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd
 import json
 import numpy as np
 import sys
-import requests
 from PIL import Image, ImageDraw, ImageFont
 import plotly.graph_objects as go
 from plotly.graph_objs import Layout
@@ -150,7 +146,7 @@ async def get_image(type, name, session : aiohttp.ClientSession, resize_x=80, re
 
 api_key_lol = os.environ.get('API_LOL')  # https://www.youtube.com/watch?v=IolxqkL7cD8
 
-lol_watcher = LolWatcher(api_key_lol, timeout=7)
+
 my_region = 'euw1'
 region = "EUROPE"
 
@@ -452,7 +448,6 @@ class matchlol():
         async with self.session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{self.me['id']}",
                                     params=self.params_me) as session4:
             self.thisStats = await session4.json() # detail du match sélectionné
-        # self.thisStats = lol_watcher.league.by_summoner(my_region, self.me['id'])
         self.thisWinrateStat = ' '
         self.thisWinrate = ' '
         self.thisRank = ' '
