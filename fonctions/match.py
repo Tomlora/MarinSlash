@@ -1435,7 +1435,7 @@ class matchlol():
             fill = range_value(i, self.thisDamageListe)    
                 
   
-            d.text((x_dmg_percent, initial_y), f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font, fill=fill)
+            d.text((x_dmg_percent - 10, initial_y), f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font, fill=fill)
 
             fill = range_value(i, np.array(self.thisDamageTakenListe) + np.array(self.thisDamageSelfMitigatedListe)) 
         
