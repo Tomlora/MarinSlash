@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 import os
 import io
-from rembg import remove
+# from rembg import remove
 
 
 class Divers(Extension):
@@ -372,8 +372,8 @@ class Divers(Extension):
             result[:, :, 3] = mask
         
         elif modele == '2':
-            
-            result = remove(img)
+            pass
+            # result = remove(img)
 
         # save resulting masked image
         cv2.imwrite('image.png', result)
