@@ -176,7 +176,11 @@ async def get_league_by_summoner(session : aiohttp.ClientSession, me):
                                     params={'api_key' : api_key_lol}) as session_league:
         stats = await session_league.json()
     return stats    
-
+async def get_summoner_by_puuid(session, puuid):
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}', params={'api_key' : api_key_lol}) as session_summoner:
+        me = await session_summoner.json()
+    return me
+    
 async def get_list_matchs(session : aiohttp.ClientSession, me, params): 
     async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{me["puuid"]}/ids?', params=params) as session_match:
         my_matches = await session_match.json()

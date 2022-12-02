@@ -1,14 +1,16 @@
 import pandas as pd
 import pickle
-from matplotlib import pyplot as plt
 import os
 import plotly.express as px
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
 import pickle
 import interactions
 from interactions import Choice, Option, Extension, CommandContext
+
+
         
 def unifier_joueur(df, colonne):
+    # TODO :  à remplacer par id discord
     df[colonne] = df[colonne].replace('stαte', 'state')
     df[colonne] = df[colonne].replace('linò', 'state')
     df[colonne] = df[colonne].replace('namiyeon', 'dawn')
@@ -201,7 +203,10 @@ class Achievements_scoringlol(Extension):
         embed.add_field(name="Couronnes disponibles", value=texte_achievements, inline=False)
 
         await ctx.send(embeds=embed)
-   
+
+
+  
+
 
 def setup(bot):
     Achievements_scoringlol(bot)

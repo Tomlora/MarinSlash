@@ -201,7 +201,7 @@ class Divers(Extension):
                                         type=1, # user
                                         allow=interactions.Permissions.VIEW_CHANNEL | interactions.Permissions.SEND_MESSAGES | interactions.Permissions.ATTACH_FILES),
                          interactions.Overwrite(
-                                        id=450771618868887553,
+                                        id=ctx.guild_id, # le rôle everyone a le même id que le serveur
                                         type=0, # role
                                         deny=interactions.Permissions.VIEW_CHANNEL),
                          interactions.Overwrite(
@@ -209,9 +209,10 @@ class Divers(Extension):
                              type=0, # role
                              allow=interactions.Permissions.VIEW_CHANNEL | interactions.Permissions.SEND_MESSAGES | interactions.Permissions.ATTACH_FILES)]
             
-            
+
             await ctx.guild.create_channel(name="chan de test",
                                      type=interactions.ChannelType.GUILD_TEXT,
+                                     # Catégorie où le channel est crée
                                      parent_id=450771619648897034,
                                      # Permission
                                     permission_overwrites=permission)

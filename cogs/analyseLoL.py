@@ -17,7 +17,7 @@ import json
 from datetime import datetime
 
 from fonctions.match import (match_by_puuid,
-                             lol_watcher,
+                             get_summoner_by_puuid,
                              my_region,
                              region,
                              get_version,
@@ -190,7 +190,7 @@ class analyseLoL(Extension):
 
         # timestamp à diviser par 60000
 
-        dict_joueur = [lol_watcher.summoner.by_puuid(my_region, timeline['metadata']['participants'][i])['name'] for i
+        dict_joueur = [await get_summoner_by_puuid(session, timeline['metadata']['participants'][i])['name'] for i
                        in range(0, 10)]  # liste en compréhension
         
 
@@ -815,6 +815,15 @@ class analyseLoL(Extension):
                                 )])    
     async def historique_lol(self, ctx:CommandContext, type, calcul:str, season:int=12, joueur:str=None, champion:str=None, mode_de_jeu:str=None, top:int=20):
 
+        dict_type = {
+            'dommage' : 'champion, dmg, dmg_ad, dmg_ap, dmg_true',
+            'tank' : 'champion, dmg_reduit, dmg_tank',
+            'kda' : 'champion, kills, assists, deaths',
+            'type' : type,
+            'winrate' : 'victoire',
+            'lp' : 'date, lp, tier, rank'
+            }
+        
         if type == 'items':
             column = 'item1, item2, item3, item4, item5, item6, victoire'
             column_list = ['item1', 'item2', 'item3', 'item4', 'item5', 'item6']
@@ -824,23 +833,9 @@ class analyseLoL(Extension):
             for column_item in column_list:
                 df[column_item] = df[column_item].apply(lambda x : 0 if x == 0 else data['data'][str(x)]['name'])
                 
-        elif type == 'dommage':
-            df = get_data_matchs('champion, dmg, dmg_ad, dmg_ap, dmg_true') 
+        else:
             
-        elif type == 'tank':
-            df = get_data_matchs('champion, dmg_reduit, dmg_tank')
-        
-        elif type == 'kda':
-            df = get_data_matchs('champion, kills, assists, deaths')         
-            
-        elif type == 'champion':
-            df = get_data_matchs(type)
-        
-        elif type == 'winrate':
-            df = get_data_matchs('victoire') 
-            
-        elif type == 'lp':
-            df = get_data_matchs('date, lp, tier, rank')   
+            df = get_data_matchs(dict_type[type]) 
         
         title = f'{type}'
         
