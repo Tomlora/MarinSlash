@@ -89,8 +89,7 @@ class SW(Extension):
             data_json = io.TextIOWrapper(file, encoding='utf-8')
             
             data_json = json.load(data_json)
-            
-            print(data_json)
+        
         
 
         
