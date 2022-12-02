@@ -960,16 +960,19 @@ class analyseLoL(Extension):
             
         elif calcul == 'progression':
             
-            if type == 'lp': 
-                df['date'] = df['date'].apply(lambda x : datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
-                df['datetime'] = pd.to_datetime(df['date'], infer_datetime_format=True)
-                df.sort_values(['datetime'], ascending=False, inplace=True)
+            if type == 'lp':
+                if mode_de_jeu != None: # on impose un mode de jeu, sinon les lp vont s'entremeler, ce qui n'a aucun sens
+                    df['date'] = df['date'].apply(lambda x : datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
+                    df['datetime'] = pd.to_datetime(df['date'], infer_datetime_format=True)
+                    df.sort_values(['datetime'], ascending=False, inplace=True)
 
-                fig = px.line(df, x='datetime', y='lp', color='joueur', title=title)
-                
-                embed, files = get_embed(fig, 'evo')
-                
-                await ctx.send(embeds=embed, files=files)
+                    fig = px.line(df, x='datetime', y='lp', color='joueur', title=title)
+                    
+                    embed, files = get_embed(fig, 'evo')
+                    
+                    await ctx.send(embeds=embed, files=files)
+                else:
+                    await ctx.send('Tu dois selectionner un mode de jeu pour cette analyse.')
             
             else:
                 await ctx.send('Non disponible')
