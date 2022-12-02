@@ -765,8 +765,8 @@ class analyseLoL(Extension):
                                Choice(name='dommage', value='dommage'),
                                Choice(name='tank', value='tank'),
                                Choice(name='kda', value='kda'),
-                               Choice(name='winrate', value='winrate'),
-                               Choice(name='lp', value='lp')]),
+                               Choice(name='lp', value='lp'),
+                               Choice(name='winrate', value='winrate')]),
                                 Option(
                                     name='calcul',
                                     description='quel type de calcul ?',
@@ -775,7 +775,8 @@ class analyseLoL(Extension):
                                     choices=[
                                         Choice(name='comptage', value='count'),
                                         Choice(name='avg', value='avg'),
-                                        Choice(name='progression', value='progression')]),
+                                        Choice(name='progression', value='progression'),
+                                        Choice(name='winrate', value='winrate')]),
                                 Option(
                                     name='season',
                                     description='saison lol',
@@ -815,7 +816,7 @@ class analyseLoL(Extension):
     async def historique_lol(self, ctx:CommandContext, type, calcul:str, season:int=12, joueur:str=None, champion:str=None, mode_de_jeu:str=None, top:int=20):
 
         if type == 'items':
-            column = 'item1, item2, item3, item4, item5, item6, mode'
+            column = 'item1, item2, item3, item4, item5, item6, victoire'
             column_list = ['item1', 'item2', 'item3', 'item4', 'item5', 'item6']
             df = get_data_matchs(column)
             with open('./obj/item.json', encoding='utf-8') as mon_fichier:
@@ -898,13 +899,19 @@ class analyseLoL(Extension):
                         fig = transformation_top(df, button_ctx.data.values[0], title, top)
                         embed, file = get_embed(fig, 'stats')
                         # On envoie
+
                         await ctx.edit(embeds=embed, files=file)
+
                     except asyncio.TimeoutError:
                         # When it times out, edit the original message and remove the button(s)
                         return await ctx.edit(components=[])
             
             elif type == 'champion':
-                fig = transformation_top(df, 'champion', title, top, showlegend=True)
+                if joueur != None:
+                    showlegend=True
+                else:
+                    showlegend=False
+                fig = transformation_top(df, 'champion', title, top, showlegend=showlegend)
                 embed, files = get_embed(fig, 'champion')
                 await ctx.send(embeds=embed, files=files)
             
@@ -977,8 +984,75 @@ class analyseLoL(Extension):
             else:
                 await ctx.send('Non disponible')
                 pass
+        
+        elif calcul == 'winrate':
             
+            if type == 'items':
+                
+                select = interactions.SelectMenu(
+                    options=[
+                        interactions.SelectOption(label="item1", value="item1", emoji=interactions.Emoji(name='1️⃣')),
+                        interactions.SelectOption(label="item2", value="item2", emoji=interactions.Emoji(name='2️⃣')),
+                        interactions.SelectOption(label="item3", value="item3", emoji=interactions.Emoji(name='3️⃣')),
+                        interactions.SelectOption(label="item4", value="item4", emoji=interactions.Emoji(name='4️⃣')),
+                        interactions.SelectOption(label="item5", value="item5", emoji=interactions.Emoji(name='5️⃣')),
+                        interactions.SelectOption(label="item6", value="item6", emoji=interactions.Emoji(name='6️⃣'))
+                    ],
+                    custom_id='items',
+                    placeholder="Ordre d'item",
+                    min_values=1,
+                    max_values=1
+                )
+                
+                title += f' | Top {top}'
+                
+                await ctx.send("Pour quel slot d'item ?",
+                                            components=select)
+
+                async def check(button_ctx):
+                        if int(button_ctx.author.user.id) == int(ctx.author.user.id):
+                            return True
+                        await ctx.send("I wasn't asking you!", ephemeral=True)
+                        return False
+                
+
+                while True:    
+                    try:
+                        button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+                            components=select, check=check, timeout=30
+                        )
+                        df['victoire'] = df['victoire'].replace({True : 'Victoire', False : 'Defaite'}) 
+                
+                        df_item = df[df[button_ctx.data.values[0]] != 0]
             
+                        df_item = df_item[['joueur', button_ctx.data.values[0], 'victoire']]
+                                            # On compte le nombre d'occurences
+                        df_group = df_item.groupby(['joueur', button_ctx.data.values[0]]).agg(['count']).reset_index()
+                        df_group = df_group.droplevel(1, axis=1)
+                        df_group.rename(columns={'victoire' : 'count'}, inplace=True)
+                        df_item = df_item.merge(df_group, how='left', on=['joueur', button_ctx.data.values[0]])
+                        # df_item.drop_duplicates(inplace=True)
+                        df_item = df_item.sort_values(['count'], ascending=False)
+                        df_item = df_item.head(top)
+                            # On fait le graphique
+                        fig = px.histogram(df_item, button_ctx.data.values[0], 'victoire', pattern_shape='victoire', color=button_ctx.data.values[0], title=title, text_auto=True, histfunc='count').update_xaxes(categoryorder='total descending')
+                                            # On enlève la légende et l'axe y
+                        fig.update_layout(showlegend=False)
+                        fig.update_yaxes(visible=False) 
+                        embed, file = get_embed(fig, 'stats')
+                        
+                        embed.add_field(name='description', value='Non-grisé : Victoire | Grisé : Défaite')
+                        # On envoie
+                        await ctx.edit(embeds=embed, files=file)
+                    except asyncio.TimeoutError:
+                        # When it times out, edit the original message and remove the button(s)
+                        return await ctx.edit(components=[])
+                
+                
+            
+            else:
+                await ctx.send('Non disponible')
+                pass
 
 def setup(bot):
     analyseLoL(bot)
