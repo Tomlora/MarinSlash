@@ -16,30 +16,33 @@ import warnings
 
 warnings.simplefilter('ignore')
 
+
 def extraire_variables_imbriquees(df, colonne):
     # Vocabulaire à connaitre : liste/dictionnaire en compréhension
-    df[colonne] = [ast.literal_eval(str(item)) for index, item in df[colonne].iteritems()]
+    df[colonne] = [ast.literal_eval(str(item))
+                   for index, item in df[colonne].iteritems()]
 
-    df = pd.concat([df.drop([colonne], axis=1), df[colonne].apply(pd.Series)], axis=1)
+    df = pd.concat([df.drop([colonne], axis=1),
+                   df[colonne].apply(pd.Series)], axis=1)
     return df
 
 
 class Leaguepedia(Extension):
     def __init__(self, bot):
-        self.bot : interactions.Client = bot
+        self.bot: interactions.Client = bot
         self.site = mwclient.Site('lol.fandom.com', path='/')
-    
+
     @interactions.extension_listener
     async def on_start(self):
-        
+
         self.task1 = create_task(IntervalTrigger(60*60))(self.recharge_oracle)
-        self.task1.start()    
-    
+        self.task1.start()
+
     async def recharge_oracle(self):
         '''Rechargement base oracle elixir'''
         currentHour = str(datetime.datetime.now().hour)
-        
-        if currentHour == str(13):   
+
+        if currentHour == str(13):
             rechargement_data_oracle()
 
     # @interactions.extension_command(name="league_avatar",
@@ -53,7 +56,7 @@ class Leaguepedia(Extension):
     #                                     )
     #                                 ])
     # async def leagueavatar(self, ctx:CommandContext, player):
-        
+
     #     def get_filename_url_to_open(site, filename, player, size=None):
     #         pattern = r'.*src\=\"(.+?)\".*'
     #         size = '|' + str(size) + 'px' if size else ''
@@ -66,7 +69,6 @@ class Leaguepedia(Extension):
     #         #In case you would like to save the image in a specific location, you can add the path after 'url,' in the line below.
     #         urllib.request.urlretrieve(url, player + '.png')
 
-
     #     response = self.site.api('cargoquery',
     #                             limit=1,
     #                             tables="PlayerImages",
@@ -78,28 +80,27 @@ class Leaguepedia(Extension):
     #     decoded = json.loads(parsed)
     #     url = str(decoded['cargoquery'][0]['title']['FileName'])
     #     get_filename_url_to_open(self.site, url, player)
-        
+
     #     await ctx.send(files=interactions.File(player + '.png'))
-        
+
     #     os.remove(player + '.png')
-        
-        
+
     @interactions.extension_command(name="lol_mercato",
                                     description="Les derniers mouvements",
-                        options=[Option(
-                            name="league",
-                            description= "Trié sur une league ?",
-                            type=interactions.OptionType.STRING,
-                            required=False)])
-    async def lol_mercato(self, ctx:CommandContext, league:str=""):
-        
+                                    options=[Option(
+                                        name="league",
+                                        description="Trié sur une league ?",
+                                        type=interactions.OptionType.STRING,
+                                        required=False)])
+    async def lol_mercato(self, ctx: CommandContext, league: str = ""):
+
         # On récupère les dernières infos mercato sur Leaguepedia
         response = self.site.api('cargoquery',
-        limit = 500,
-        tables = "RosterChanges=RC",
-        fields = "RC.Tournaments, RC.Date_Sort, RC.Player, RC.Direction, RC.Team, RC.Role",
-        order_by = "RC.Date_Sort DESC"
-    )
+                                 limit=500,
+                                 tables="RosterChanges=RC",
+                                 fields="RC.Tournaments, RC.Date_Sort, RC.Player, RC.Direction, RC.Team, RC.Role",
+                                 order_by="RC.Date_Sort DESC"
+                                 )
 
         ctx.defer(ephemeral=False)
         parsed = json.dumps(response)
@@ -115,24 +116,27 @@ class Leaguepedia(Extension):
         data_mercato['Mois'] = data_mercato['Date Sort'].dt.month
         data_mercato.drop(['Date Sort'], axis=1, inplace=True)
         data_mercato
-        
+
         # On ouvre la data oracle qui permet d'identifier les équipes et leurs régions
 
         data_oracle = loaddata_oracle()
 
-        data_equipe = data_oracle[['teamname', 'league']].drop_duplicates().set_index('teamname')
+        data_equipe = data_oracle[['teamname', 'league']
+                                  ].drop_duplicates().set_index('teamname')
 
-        data_mercato['Competition'] = data_mercato['Team'].map(data_equipe.to_dict()['league'])
-        
+        data_mercato['Competition'] = data_mercato['Team'].map(
+            data_equipe.to_dict()['league'])
+
         # On map des mots anglais par français
-        
-        data_mercato['Direction'] = data_mercato['Direction'].map({'Join' : 'Rejoint', 'Leave' : 'Quitte'})
-        
-        if not league == "": # Si tri sur une league
+
+        data_mercato['Direction'] = data_mercato['Direction'].map(
+            {'Join': 'Rejoint', 'Leave': 'Quitte'})
+
+        if not league == "":  # Si tri sur une league
             data_mercato = data_mercato[data_mercato['Competition'] == league]
-        
+
         embed = interactions.Embed(
-                title="Mercato", color=interactions.Color.orange())
+            title="Mercato", color=interactions.Color.orange())
 
         for key, value in data_mercato.head(10).iterrows():
             player = value['Player']
@@ -142,13 +146,12 @@ class Leaguepedia(Extension):
             jour = value['Jour']
             competition = value['Competition']
             role = value['Role']
-            
-            embed.add_field(name=player, value=f'{action} {equipe} ({competition}) en tant que {role} le {jour}-{mois}', inline=False)
-            
+
+            embed.add_field(
+                name=player, value=f'{action} {equipe} ({competition}) en tant que {role} le {jour}-{mois}', inline=False)
+
         await ctx.send(embeds=embed)
-        
-        
-        
+
 
 def setup(bot):
     Leaguepedia(bot)
