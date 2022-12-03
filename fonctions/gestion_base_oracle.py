@@ -13,7 +13,6 @@ def loaddata_oracle():
 def rechargement_data_oracle():
     jour, month, year = date_du_jour()
 
-
     # il faut ajouter le '0' devant, quand c'est nécessaire.
 
     if int(month) < 10:
