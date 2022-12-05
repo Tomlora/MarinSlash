@@ -159,7 +159,7 @@ class SW(Extension):
 
             # On cherche les infos d'Endless...
 
-            size_general, avg_score_general, max_general, size_guilde, avg_score_guilde, max_guilde, df_max, df_guilde_max = await comparaison(116424)
+            size_general, avg_score_general, max_general, size_guilde, avg_score_guilde, max_guilde, df_max, df_guilde_max = await comparaison(guilde_id)
 
             result = {
                 'general': [tcd_value[[100, 110, 120]], score],
@@ -175,7 +175,7 @@ class SW(Extension):
 
             if scoring == 'general':
                 embed.add_field(name=f'Scoring {scoring}', value=f'Joueur : **{pseudo}**\n' +
-                                f'Score : **{result[scoring][1]}** (__Moyenne Endless__ : **{avg_score_guilde}** )\n' +
+                                f'Score : **{result[scoring][1]}** (__Moyenne {guilde}__ : **{avg_score_guilde}** )\n' +
                                 f'Guilde : **{guilde}**')
             else:
                 embed.add_field(name=f'Scoring {scoring}', value=f'Joueur : **{pseudo}**\n' +
