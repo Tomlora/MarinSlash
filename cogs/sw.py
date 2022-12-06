@@ -9,6 +9,7 @@ import os
 import io
 import json
 from fonctions.channels_discord import verif_module
+from fonctions.permissions import *
 
 from fonctions.gestion_bdd import sauvegarde_bdd_sw, update_info_compte, get_user, requete_perso_bdd
 
@@ -194,6 +195,61 @@ class SW(Extension):
         else:
             await ctx.send('Désactivé sur ce serveur')
 
+    @interactions.extension_command(name="sw_gvo",
+                                    description="prepare la gvo",
+                                    options=[Option(
+                                        name='guilde',
+                                        description='nom de la guilde',
+                                        type=interactions.OptionType.STRING,
+                                        required=True),
+                                             Option(
+                                                 name='color',
+                                                 description='quelle couleur',
+                                                 type=interactions.OptionType.STRING,
+                                                 required=True,
+                                                 choices=[
+                                                     Choice(name='rouge', value='rouge'),
+                                                     Choice(name='jaune', value='jaune')
+                                                 ]
+                                             )])
+    async def test_channel(self, ctx: CommandContext, guilde:str, color:str):
+        if isOwner_slash(ctx):
+
+            permission = [interactions.Overwrite(
+                id=int(ctx.author.id),
+                type=1,  # user
+                allow=interactions.Permissions.VIEW_CHANNEL | interactions.Permissions.SEND_MESSAGES | interactions.Permissions.ATTACH_FILES),
+                interactions.Overwrite(
+                # le rôle everyone a le même id que le serveur
+                id=int(ctx.guild_id),
+                type=0,  # role
+                deny=interactions.Permissions.VIEW_CHANNEL),
+                interactions.Overwrite(
+                id=773517279328993290,
+                type=0,  # role
+                allow=interactions.Permissions.VIEW_CHANNEL | interactions.Permissions.SEND_MESSAGES | interactions.Permissions.ATTACH_FILES)]
+
+            if color == 'rouge':
+                color_guilde = '🔴'
+            elif color == 'jaune':
+                color_guilde == '🟨'
+                
+            await ctx.guild.create_channel(name=f"4nat-{color_guilde}{guilde}",
+                                           type=interactions.ChannelType.GUILD_TEXT,
+                                           # Catégorie où le channel est crée
+                                           parent_id=450771619648897034,
+                                           # Permission
+                                           permission_overwrites=permission)
+            await ctx.guild.create_channel(name=f"5nat-{color_guilde}{guilde}",
+                                           type=interactions.ChannelType.GUILD_TEXT,
+                                           # Catégorie où le channel est crée
+                                           parent_id=450771619648897034,
+                                           # Permission
+                                           permission_overwrites=permission)
+
+            # await new_chan.send('nouveau channel')
+        else:
+            await ctx.send("Tu n'as pas les droits")
 
 def setup(bot):
     SW(bot)
