@@ -1079,14 +1079,24 @@ class LeagueofLegends(Extension):
     async def upset(self, ctx):
         await ctx.send('https://clips.twitch.tv/CuriousBenevolentMageHotPokket-8M0TX_zTaGW7P2g7')
 
-    @interactions.extension_command(name='lol_discord', description='Link discord et lol')
-    async def link(self, ctx, summonername, member: interactions.Member):
+    @interactions.extension_command(name='lol_discord',
+                                    description='Link discord et lol',
+                                    options=[Option(
+                                        name='summonername',
+                                        description='pseudo lol',
+                                        type=interactions.OptionType.STRING,
+                                        required=True),
+                                             Option(
+                                                 name='member',
+                                                 description='compte discord',
+                                                 type=interactions.OptionType.USER,
+                                                 required=True
+                                    )])
+    async def link(self, ctx, summonername, member: interactions.User):
 
         summonername = summonername.lower()
-
         requete_perso_bdd('UPDATE tracker SET discord = :discord, server_id = :guild WHERE index = :summonername', {
                           'discord': int(member.id), 'server_id': int(ctx.guild.id), 'summonername': summonername})
-
         await ctx.send(f'Le compte LoL {summonername} a été link avec <@{int(member.id)}>')
 
 
