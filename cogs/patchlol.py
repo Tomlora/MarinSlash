@@ -55,7 +55,7 @@ class Patchlol(Extension):
                 guild = await interactions.get(client=self.bot,
                                                obj=interactions.Guild,
                                                object_id=server_id[0])
-                discord_server_id = chan_discord(guild.id)
+                discord_server_id = chan_discord(int(guild.id))
                 channel = await interactions.get(client=self.bot,
                                                  obj=interactions.Channel,
                                                  object_id=discord_server_id.tracklol)
