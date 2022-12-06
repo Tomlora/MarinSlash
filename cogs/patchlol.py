@@ -48,7 +48,7 @@ class Patchlol(Extension):
 
             data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
-                    where channels_module.league_ranked = true''').fetchall()
+                    where channels_module.league_ranked = true''')
 
             for server_id in data.fetchall():
 
