@@ -113,7 +113,7 @@ class tft(Extension):
 
         for augment in augments:
             augment = augment.replace(
-                'tft6_Augment_', '').replace('tft7_Augment_', '')
+                'TFT6_Augment_', '').replace('TFT7_Augment_', '').replace('TFT8_Augment_', '')
             msg_augment = f'{msg_augment} | {augment}'
 
         # Classement
@@ -203,17 +203,17 @@ class tft(Extension):
 
         embed.add_field(name="Durée de la game :",
                         value=f'{thisTime} minutes')
-
-        embed.add_field(name="Augments : ",
-                        value=msg_augment, inline=False)
-
-        # Stats
+        
+                # Stats
         if ranked:
             embed.add_field(name=f'Current rank : {tier} {rank} | {lp}LP ({difLP})',
                             value=f'winrate : {wr}% \nVictoires : {wins} | Defaites : {losses} ', inline=False)
         else:
             embed.add_field(name=f'Current rank : Non-classe',
                             value=f'En placement', inline=False)
+
+        embed.add_field(name="Augments : ",
+                        value=msg_augment, inline=False)
 
         # on va créer un dataframe pour les sort plus facilement
 
@@ -236,8 +236,6 @@ class tft(Extension):
         #               4:"Violet",
         #               5:"Gold"}
 
-
-
         # pareil ici
 
         df_mobs = pd.DataFrame(stats_joueur['units'])
@@ -245,15 +243,14 @@ class tft(Extension):
 
         for mob in df_mobs.iterrows():
             monster_name = mob[1]['character_id'].replace(
-                'tft7_', '').replace('TFT7_', '')
+                'tft8_', '').replace('TFT8_', '')
             monster_tier = mob[1]['tier']
             embed.add_field(name=f'{monster_name}',
-                            value=f'Tier : {monster_tier}', inline=True)
+                            value=f':star: : {monster_tier}', inline=True)
             
-        embed.add_field(name="Stats : ", value=f'Gold restants : {gold_restants} \n\
+        embed.add_field(name="Stats :bar_chart: : ", value=f':money_with_wings: : {gold_restants} \n\
                         Level : {level} \n\
-                        Dernier round : {last_round}\n\
-                        Joueurs éliminés : {joueurs_elimines}', inline=False)
+                        Dernier round : {last_round}', inline=False)
 
         embed.set_footer(
             text=f'Version {Version} by Tomlora - Match {id_match}')
