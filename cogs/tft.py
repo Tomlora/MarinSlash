@@ -188,13 +188,15 @@ class tft(Extension):
             sauvegarde_bdd(suivi_profil, 'suivitft')
 
         # Embed
-
-        summonername = summonername.upper()
-
+        
         data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {
                             'index': summonername})
         data = data.fetchall()
         color = rgb_to_discord(data[0][0], data[0][1], data[0][2])
+
+        summonername = summonername.upper()
+
+
 
         embed = interactions.Embed(
             title=f"** {summonername} ** vient de finir ** {classement}ème ** sur tft", color=color)
@@ -220,13 +222,13 @@ class tft(Extension):
 
         # [0] est l'index
         for set in df_traits.iterrows():
-            name = set[1]['name'].replace('Set7_', '')
+            name = set[1]['name'].replace('Set8_', '')
             tier_current = set[1]['tier_current']
             tier_total = set[1]['tier_total']
             nb_units = set[1]['num_units']
 
             embed.add_field(
-                name=name, value=f"Tier: {tier_current} / {tier_total} \nNombre d'unités: {nb_units}")
+                name=name, value=f"Tier: {tier_current} / {tier_total} \nNombre d'unités: {nb_units}", inline=True)
 
         # dic_rarity = {1 : "Blanc",
         #               2 : "Vert",
@@ -249,7 +251,7 @@ class tft(Extension):
                 'tft7_', '').replace('TFT7_', '')
             monster_tier = mob[1]['tier']
             embed.add_field(name=f'{monster_name}',
-                            value=f'Tier : {monster_tier}')
+                            value=f'Tier : {monster_tier}', inline=True)
 
         embed.set_footer(
             text=f'Version {Version} by Tomlora - Match {id_match}')
