@@ -43,7 +43,7 @@ choice_analyse = [Choice(name="gold", value="gold"),
 
 def get_data_matchs(columns):
     df = lire_bdd_perso(
-        f'SELECT id, joueur, match_id, mode, season, {columns} from matchs where season = 12', index_col='id').transpose()
+        f'SELECT id, joueur, champion, match_id, mode, season, {columns} from matchs where season = 12', index_col='id').transpose()
     return df
 
 
@@ -827,9 +827,10 @@ class analyseLoL(Extension):
     async def historique_lol(self, ctx: CommandContext, type, calcul: str, season: int = 12, joueur: str = None, champion: str = None, mode_de_jeu: str = None, top: int = 20):
 
         dict_type = {
-            'dommage': 'champion, dmg, dmg_ad, dmg_ap, dmg_true',
-            'tank': 'champion, dmg_reduit, dmg_tank',
-            'kda': 'champion, kills, assists, deaths',
+            'dommage': 'dmg, dmg_ad, dmg_ap, dmg_true',
+            'tank': 'dmg_reduit, dmg_tank',
+            'champion' : 'victoire',
+            'kda': 'kills, assists, deaths',
             'type': type,
             'winrate': 'victoire',
             'lp': 'date, lp, tier, rank'
