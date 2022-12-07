@@ -312,7 +312,7 @@ class tft(Extension):
                     print(sys.exc_info())  # erreur
 
                 requete_perso_bdd(f'UPDATE trackertft SET id = :id WHERE index = :index', {
-                                  'id': id_game, 'index': joueur})
+                                  'id': id_match, 'index': joueur})
 
         await session.close()
 
