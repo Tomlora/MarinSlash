@@ -236,10 +236,7 @@ class tft(Extension):
         #               4:"Violet",
         #               5:"Gold"}
 
-        embed.add_field(name="Stats : ", value=f'Gold restants : {gold_restants} \n\
-                        Level : {level} \n\
-                        Dernier round : {last_round}\n\
-                        Joueurs éliminés : {joueurs_elimines}', inline=False)
+
 
         # pareil ici
 
@@ -252,6 +249,11 @@ class tft(Extension):
             monster_tier = mob[1]['tier']
             embed.add_field(name=f'{monster_name}',
                             value=f'Tier : {monster_tier}', inline=True)
+            
+        embed.add_field(name="Stats : ", value=f'Gold restants : {gold_restants} \n\
+                        Level : {level} \n\
+                        Dernier round : {last_round}\n\
+                        Joueurs éliminés : {joueurs_elimines}', inline=False)
 
         embed.set_footer(
             text=f'Version {Version} by Tomlora - Match {id_match}')
