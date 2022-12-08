@@ -11,7 +11,11 @@ import json
 from fonctions.channels_discord import verif_module
 from fonctions.permissions import *
 
-from fonctions.gestion_bdd import sauvegarde_bdd_sw, update_info_compte, get_user, requete_perso_bdd
+from fonctions.gestion_bdd import (sauvegarde_bdd_sw,
+                                   update_info_compte,
+                                   get_user,
+                                   requete_perso_bdd,
+                                   get_data_bdd)
 
 
 def date_du_jour():
@@ -202,19 +206,20 @@ class SW(Extension):
                                         description='nom de la guilde',
                                         type=interactions.OptionType.STRING,
                                         required=True),
-                                             Option(
-                                                 name='color',
-                                                 description='quelle couleur',
-                                                 type=interactions.OptionType.STRING,
-                                                 required=True,
-                                                 choices=[
-                                                     Choice(name='rouge', value='rouge'),
-                                                     Choice(name='jaune', value='jaune')
-                                                 ]
-                                             )])
-    async def test_channel(self, ctx: CommandContext, guilde:str, color:str):
+                                        Option(
+                                        name='color',
+                                        description='quelle couleur',
+                                        type=interactions.OptionType.STRING,
+                                        required=True,
+                                        choices=[
+                                            Choice(
+                                                name='rouge', value='rouge'),
+                                            Choice(
+                                                name='jaune', value='jaune')
+                                        ]
+                                    )])
+    async def test_channel(self, ctx: CommandContext, guilde: str, color: str):
         if isOwner_slash(ctx):
-
             permission = [interactions.Overwrite(
                 id=int(ctx.author.id),
                 type=1,  # user
@@ -224,6 +229,7 @@ class SW(Extension):
                 id=int(ctx.guild_id),
                 type=0,  # role
                 deny=interactions.Permissions.VIEW_CHANNEL),
+                # rôle autorisé à participer au channel
                 interactions.Overwrite(
                 id=773517279328993290,
                 type=0,  # role
@@ -233,7 +239,7 @@ class SW(Extension):
                 color_guilde = '🔴'
             elif color == 'jaune':
                 color_guilde == '🟨'
-                
+
             await ctx.guild.create_channel(name=f"4nat-{color_guilde}{guilde}",
                                            type=interactions.ChannelType.GUILD_TEXT,
                                            # Catégorie où le channel est crée
@@ -250,6 +256,42 @@ class SW(Extension):
             # await new_chan.send('nouveau channel')
         else:
             await ctx.send("Tu n'as pas les droits")
+
+    @interactions.extension_command(name="score_guilde",
+                                    description="Moyenne de la guilde",
+                                    options=[Option(
+                                        name='guilde',
+                                        description='Nom de la guilde',
+                                        type=interactions.OptionType.STRING,
+                                        required=True,
+                                    ),
+                                        Option(
+                                        name="methode",
+                                        description="Methode de calcul",
+                                        type=interactions.OptionType.STRING,  # int pas assez grand pour discord
+                                        required=False,
+                                        choices=[
+                                            Choice(name='moyenne', value='avg')
+                                        ])
+                                    ])
+    async def score_guilde(self, ctx: CommandContext, guilde:str, methode:str):
+        
+        await ctx.defer(ephemeral=False)
+        
+        if isOwner_slash(ctx):
+        
+            stats = get_data_bdd('''SELECT * from sw_guilde where guilde = :guilde''', dict_params={'guilde' : guilde})
+            
+            # on cherche l'id
+            
+            stats = stats.mappings().all()[0]
+
+            guilde_id = stats['guilde_id']
+            
+            size_general, avg_score_general, max_general, size_guilde, avg_score_guilde, max_guilde, df_max, df_guilde_max = await comparaison(guilde_id)
+            
+            await ctx.send(f'Moyenne de {guilde} : {avg_score_guilde} ({size_guilde}) joueurs')
+        
 
 def setup(bot):
     SW(bot)
