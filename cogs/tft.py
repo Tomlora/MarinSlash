@@ -184,6 +184,7 @@ class tft(Extension):
             suivi_profil[summonername]['tier'] = tier
             suivi_profil[summonername]['rank'] = rank
             suivi_profil[summonername]['LP'] = lp
+            suivi_profil[summonername][f'top{classement}'] = suivi_profil[summonername][f'top{classement}'] + 1
 
             sauvegarde_bdd(suivi_profil, 'suivitft')
 
@@ -207,7 +208,11 @@ class tft(Extension):
                 # Stats
         if ranked:
             embed.add_field(name=f'Current rank : {tier} {rank} | {lp}LP ({difLP})',
-                            value=f'winrate : {wr}% \nVictoires : {wins} | Defaites : {losses} ', inline=False)
+                            value=f'winrate : **{wr}%** \n' + 
+                            f'Top1 : **{suivi_profil[summonername][f"top1"]}**| Top2 : **{suivi_profil[summonername][f"top2"]}**\
+                            Top 3 : **{suivi_profil[summonername][f"top3"]}** | Top 4 : **{suivi_profil[summonername][f"top4"]}** \n' +
+                            f'Top5 : **{suivi_profil[summonername][f"top5"]}** | Top 6 : **{suivi_profil[summonername][f"top6"]}**\
+                                Top 7 : **{suivi_profil[summonername][f"top7"]}** | Top 8 : **{suivi_profil[summonername][f"top8"]}**', inline=False)
         else:
             embed.add_field(name=f'Current rank : Non-classe',
                             value=f'En placement', inline=False)
@@ -234,7 +239,7 @@ class tft(Extension):
         #               2 : "Vert",
         #               3:"Bleu",
         #               4:"Violet",
-        #               5:"Gold"}
+        #               6:"Gold"}
 
         # pareil ici
 
