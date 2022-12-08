@@ -241,12 +241,14 @@ class tft(Extension):
         df_mobs = pd.DataFrame(stats_joueur['units'])
         df_mobs = df_mobs.sort_values(by='tier', ascending=False)
 
+        inline = False
         for mob in df_mobs.iterrows():
             monster_name = mob[1]['character_id'].replace(
                 'tft8_', '').replace('TFT8_', '')
             monster_tier = mob[1]['tier']
             embed.add_field(name=f'{monster_name}',
-                            value=f':star: : {monster_tier}', inline=True)
+                            value=f':star: : {monster_tier}', inline=inline)
+            inline = True
             
         embed.add_field(name="Stats :bar_chart: : ", value=f':money_with_wings: : {gold_restants} \n\
                         Level : {level} \n\
