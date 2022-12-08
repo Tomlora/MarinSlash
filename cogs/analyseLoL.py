@@ -768,146 +768,110 @@ class analyseLoL(Extension):
             #     Choice(name='lp', value='lp'),
             #     Choice(name='winrate', value='winrate')]),
 
-    parameters_commun = [Option(
-        name='season',
-        description='saison lol',
-        type=interactions.OptionType.INTEGER,
-        required=False),
-        Option(
-        name='joueur',
-        description='se focaliser sur un joueur ?',
-        type=interactions.OptionType.STRING,
-        required=False),
-        Option(
-        name='champion',
-        description='se focaliser sur un champion ?',
-        type=interactions.OptionType.STRING,
-        required=False),
-        Option(
-        name='mode_de_jeu',
-        description='se focaliser sur un mode de jeu ?',
-        type=interactions.OptionType.STRING,
-        required=False,
-        choices=[
-            Choice(name='soloq',
-                   value='RANKED'),
-            Choice(name='aram', value='ARAM')]),
-        Option(
-        name='top',
-        description='top x ?',
-        type=interactions.OptionType.INTEGER,
-        required=False,
-        choices=[
-            Choice(name='3', value=3),
-            Choice(name='5', value=5),
-            Choice(name='7', value=7),
-            Choice(name='10', value=10),
-            Choice(name='15', value=15),
-            Choice(name='20', value=20)]
-    )]
+    def parameters_commun():
+        parameters = [Option(
+            name='season',
+            description='saison lol',
+            type=interactions.OptionType.INTEGER,
+            required=False),
+            Option(
+            name='joueur',
+            description='se focaliser sur un joueur ?',
+            type=interactions.OptionType.STRING,
+            required=False),
+            Option(
+            name='champion',
+            description='se focaliser sur un champion ?',
+            type=interactions.OptionType.STRING,
+            required=False),
+            Option(
+            name='mode_de_jeu',
+            description='se focaliser sur un mode de jeu ?',
+            type=interactions.OptionType.STRING,
+            required=False,
+            choices=[
+                Choice(name='soloq',
+                       value='RANKED'),
+                Choice(name='aram', value='ARAM')]),
+            Option(
+            name='top',
+            description='top x ?',
+            type=interactions.OptionType.INTEGER,
+            required=False,
+            choices=[
+                Choice(name='3', value=3),
+                Choice(name='5', value=5),
+                Choice(name='7', value=7),
+                Choice(name='10', value=10),
+                Choice(name='15', value=15),
+                Choice(name='20', value=20)]
+        )]
+        return parameters
 
-    @interactions.extension_command(name="stats",
+    def option_subcommand(choices: list):
+        option = Option(
+            name='calcul',
+            description='quel type de calcul ?',
+            type=interactions.OptionType.STRING,
+            required=True,
+            choices=choices)
+        return option
+
+    @interactions.extension_command(name="stats_lol",
                                     description="Historique de game",
                                     options=[Option(
                                         name='items',
                                         description='type de recherche',
                                         type=interactions.OptionType.SUB_COMMAND,
                                         options=[
-                                            Option(
-                                                name='calcul',
-                                                description='quel type de calcul ?',
-                                                type=interactions.OptionType.STRING,
-                                                required=True,
-                                                choices=[
+                                            option_subcommand([
                                                     Choice(name='comptage',
                                                            value='count'),
                                                     Choice(name='winrate',
-                                                           value='winrate')
-                                                ]
-                                            )] + parameters_commun),
-                                        Option(
+                                                           value='winrate')])] + parameters_commun()),
+                                             Option(
                                         name='champion',
                                         description='type de recherche',
                                         type=interactions.OptionType.SUB_COMMAND,
                                         options=[
-                                            Option(
-                                                name='calcul',
-                                                description='quel type de calcul ?',
-                                                type=interactions.OptionType.STRING,
-                                                required=True,
-                                                choices=[
+                                                option_subcommand([
                                                     Choice(name='comptage',
                                                            value='count'),
                                                     Choice(name='winrate',
-                                                           value='winrate')
-                                                ]
-                                            ),
-                                        ] + parameters_commun),
-                                        Option(
+                                                           value='winrate')])] + parameters_commun()),
+                                             Option(
                                         name='dommage',
                                         description='type de recherche',
                                         type=interactions.OptionType.SUB_COMMAND,
                                         options=[
-                                            Option(
-                                                name='calcul',
-                                                description='quel type de calcul ?',
-                                                type=interactions.OptionType.STRING,
-                                                required=True,
-                                                choices=[
-                                                    Choice(
-                                                        name='avg', value='avg'),
-                                                ]
-                                            ),
-                                        ] + parameters_commun),
-                                        Option(
+                                            option_subcommand([
+                                                Choice(
+                                                    name='avg', value='avg')])] + parameters_commun()),
+                                             Option(
                                         name='tank',
                                         description='type de recherche',
                                         type=interactions.OptionType.SUB_COMMAND,
                                         options=[
-                                            Option(
-                                                name='calcul',
-                                                description='quel type de calcul ?',
-                                                type=interactions.OptionType.STRING,
-                                                required=True,
-                                                choices=[
-                                                    Choice(
-                                                        name='avg', value='avg'),
-                                                ]
-                                            ),
-                                        ] + parameters_commun),
-                                        Option(
+                                            option_subcommand([
+                                                Choice(
+                                                    name='avg', value='avg')])] + parameters_commun()),
+                                             Option(
                                         name='kda',
                                         description='type de recherche',
                                         type=interactions.OptionType.SUB_COMMAND,
                                         options=[
-                                            Option(
-                                                name='calcul',
-                                                description='quel type de calcul ?',
-                                                type=interactions.OptionType.STRING,
-                                                required=True,
-                                                choices=[
+                                                option_subcommand([
                                                     Choice(
-                                                        name='avg', value='avg'),
-                                                ]
-                                            ),
-                                        ] + parameters_commun),
-                                        Option(
+                                                        name='avg', value='avg')])] + parameters_commun()),
+                                             Option(
                                         name='lp',
                                         description='type de recherche',
                                         type=interactions.OptionType.SUB_COMMAND,
                                         options=[
-                                            Option(
-                                                name='calcul',
-                                                description='quel type de calcul ?',
-                                                type=interactions.OptionType.STRING,
-                                                required=True,
-                                                choices=[
-                                                    Choice(name='progression',
-                                                           value='progression'),
-                                                ]
-                                            ),
-                                        ] + parameters_commun),
-                                    ])
+                                            option_subcommand([
+                                                Choice(
+                                                    name='progression', value='progression')])] + parameters_commun()),
+                                             ])
     async def historique_lol(self, ctx: CommandContext, sub_command: str, calcul: str, season: int = 12, joueur: str = None, champion: str = None, mode_de_jeu: str = None, top: int = 20):
 
         dict_type = {
@@ -1006,7 +970,7 @@ class analyseLoL(Extension):
                         # When it times out, edit the original message and remove the button(s)
                         return await ctx.edit(components=[])
 
-            if calcul == 'winrate':
+            elif calcul == 'winrate':
                 while True:
                     try:
                         button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
@@ -1079,8 +1043,7 @@ class analyseLoL(Extension):
         elif sub_command in ['dommage', 'tank', 'kda']:
             if calcul == 'avg':
 
-                dict_stats = {'dommage': {'dmg': 'total', 'dmg_ad': 'ad',
-                              'dmg_ap': 'ap', 'dmg_true': 'true'},
+                dict_stats = {'dommage': {'dmg': 'total', 'dmg_ad': 'ad', 'dmg_ap': 'ap', 'dmg_true': 'true'},
                               'tank': {'dmg_tank': 'tank', 'dmg_reduit': 'reduit'},
                               'kda': {'kills': 'K', 'deaths': 'D', 'assists': 'A'}}
 
