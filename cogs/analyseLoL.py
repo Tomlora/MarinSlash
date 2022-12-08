@@ -819,36 +819,31 @@ class analyseLoL(Extension):
             Choice(name='15', value=15),
             Choice(name='20', value=20)]
     )]
+    
+    choice_comptage = Choice(name='comptage', value='count')
+    choice_winrate = Choice(name='winrate', value='winrate')
+    choice_avg = Choice(name='avg', value='avg')
+    choice_progression = Choice(name='progression', value='progression')
 
     @interactions.extension_command(name="stats_lol",
                                     description="Historique de game",
                                     options=[option_stats_lol(name='items',
-                                                               choices=[
-                                                                   Choice(
-                                                                       name='comptage', value='count'),
-                                                                   Choice(name='winrate', value='winrate')],
+                                                               choices=[choice_comptage, choice_winrate],
                                                                parameters_commun=parameters_commun),
                                              option_stats_lol(name='champion',
-                                                               choices=[
-                                                                   Choice(
-                                                                       name='comptage', value='count'),
-                                                                   Choice(name='winrate', value='winrate')],
+                                                               choices=[choice_comptage, choice_winrate],
                                                                parameters_commun=parameters_commun),
                                              option_stats_lol(name='dommage',
-                                                               choices=[
-                                                                   Choice(name='avg', value='avg')],
+                                                               choices=[choice_avg],
                                                                parameters_commun=parameters_commun),
                                              option_stats_lol(name='tank',
-                                                               choices=[
-                                                                   Choice(name='avg', value='avg')],
+                                                               choices=[choice_avg],
                                                                parameters_commun=parameters_commun),
                                              option_stats_lol(name='kda',
-                                                               choices=[
-                                                                   Choice(name='avg', value='avg')],
+                                                               choices=[choice_avg],
                                                                parameters_commun=parameters_commun),
                                              option_stats_lol(name='lp',
-                                                               choices=[
-                                                                   Choice(name='progression', value='progression')],
+                                                               choices=[choice_progression],
                                                                parameters_commun=parameters_commun),
                                              ])
     async def historique_lol(self, ctx: CommandContext, sub_command: str, calcul: str, season: int = 12, joueur: str = None, champion: str = None, mode_de_jeu: str = None, top: int = 20):
