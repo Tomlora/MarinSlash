@@ -100,13 +100,13 @@ class tft(Extension):
         thisQId = match_detail['info']['queue_id']
 
         if thisQId == 1100:
-            thisQ == "RANKED"
+            thisQ = "RANKED"
         else:
-            thisQ == "NORMAL"
+            thisQ = "NORMAL"
 
         # Durée
 
-        thisTime = round(match_detail['info']['game_length'] / 60, 0)
+        thisTime = int(round(match_detail['info']['game_length'] / 60, 0))
 
         augments = stats_joueur['augments']
 
@@ -122,22 +122,47 @@ class tft(Extension):
         classement = stats_joueur['placement']
         
         ## on sauvegarde si ranked
-        
+
         if thisQ == 'RANKED':
         
             requete_perso_bdd(f'''UPDATE suivitft
-                            SET top{classement} = top{classement} + 1 WHERE index = {summonername.lower()}''')
+                            SET top{classement} = top{classement} + 1 WHERE index = '{summonername.lower()}' ''')
         
         # Stats
 
         last_round = stats_joueur['last_round']
         level = stats_joueur['level']
         gold_restants = stats_joueur['gold_left']
+        dmg_total = stats_joueur['total_damage_to_players']
+        
+        # Calcul last round
+        
+        if last_round < 12:
+            first = 2
+            second = last_round - 4
+        elif last_round < 19:
+            first = 3
+            second = last_round - 11
+        elif last_round < 26:
+            first = 4
+            second = last_round - 18
+        elif last_round < 32:
+            first = 5
+            second = last_round - 25
+        elif last_round < 39:
+            first = 6
+            second = last_round - 32
+        elif last_round < 46:
+            first = 7
+            second = last_round - 39
+            
+        last_round = f'{first}-{second}'
 
         # Stats
 
         try:
-            profil = await get_stats_ranked(session, summonername)[0]
+            profil = await get_stats_ranked(session, summonername)
+            profil = profil[0]
             ranked = True
             wins = profil['wins']
             losses = profil['losses']
@@ -202,12 +227,18 @@ class tft(Extension):
         data = data.fetchall()
         color = rgb_to_discord(data[0][0], data[0][1], data[0][2])
 
-        summonername = summonername.upper()
 
-
+        emote_classement = {1 : ':one:',
+                            2 : ':two:',
+                            3 : ':three:',
+                            4 : ':four:',
+                            5 : ':five:',
+                            6 : ':six:',
+                            7 : ':seven:',
+                            8 : ':eight:'}
 
         embed = interactions.Embed(
-            title=f"** {summonername} ** vient de finir ** {classement}ème ** sur tft", color=color)
+            title=f"** {summonername.upper()} ** vient de finir ** {emote_classement[classement]}ème ** sur tft (R : {last_round})", color=color)
 
         embed.add_field(name="Durée de la game :",
                         value=f'{thisTime} minutes')
@@ -215,10 +246,10 @@ class tft(Extension):
                 # Stats
         if ranked:
             embed.add_field(name=f'Current rank : {tier} {rank} | {lp}LP ({difLP})',
-                            value=f'winrate : **{wr}%** \n' + 
-                            f'Top1 : **{suivi_profil[summonername][f"top1"]}**| Top2 : **{suivi_profil[summonername][f"top2"]}**\
-                            Top 3 : **{suivi_profil[summonername][f"top3"]}** | Top 4 : **{suivi_profil[summonername][f"top4"]}** \n' +
-                            f'Top5 : **{suivi_profil[summonername][f"top5"]}** | Top 6 : **{suivi_profil[summonername][f"top6"]}**\
+                            value=f'Winrate : **{wr}%** \n' + 
+                            f'Top 1 : **{suivi_profil[summonername][f"top1"]}** | Top 2 : **{suivi_profil[summonername][f"top2"]}** | \
+                            Top 3 : **{suivi_profil[summonername][f"top3"]}**  | Top 4 : **{suivi_profil[summonername][f"top4"]}**\n' +
+                            f'Top 5 : **{suivi_profil[summonername][f"top5"]}** | Top 6 : **{suivi_profil[summonername][f"top6"]}** | \
                                 Top 7 : **{suivi_profil[summonername][f"top7"]}** | Top 8 : **{suivi_profil[summonername][f"top8"]}**', inline=False)
         else:
             embed.add_field(name=f'Current rank : Non-classe',
@@ -242,11 +273,11 @@ class tft(Extension):
             embed.add_field(
                 name=name, value=f"Tier: {tier_current} / {tier_total} \nNombre d'unités: {nb_units}", inline=True)
 
-        # dic_rarity = {1 : "Blanc",
-        #               2 : "Vert",
-        #               3:"Bleu",
-        #               4:"Violet",
-        #               6:"Gold"}
+        dic_rarity = {0 : "1",
+                      1 : "2",
+                      2:"3",
+                      4:"4",
+                      6:"5"}
 
         # pareil ici
 
@@ -258,13 +289,14 @@ class tft(Extension):
             monster_name = mob[1]['character_id'].replace(
                 'tft8_', '').replace('TFT8_', '')
             monster_tier = mob[1]['tier']
-            embed.add_field(name=f'{monster_name}',
+            rarity = mob[1]['rarity']
+            embed.add_field(name=f'{monster_name} ({dic_rarity[rarity]}:moneybag:)',
                             value=f':star: : {monster_tier}', inline=inline)
             inline = True
             
-        embed.add_field(name="Stats :bar_chart: : ", value=f':money_with_wings: : {gold_restants} \n\
-                        Level : {level} \n\
-                        Dernier round : {last_round}', inline=False)
+        embed.add_field(name="Stats :bar_chart: : ", value=f':money_with_wings: : **{gold_restants}** \n\
+                        Level : **{level}** \n\
+                        Dégats infligés : **{dmg_total}**', inline=False)
 
         embed.set_footer(
             text=f'Version {Version} by Tomlora - Match {id_match}')
