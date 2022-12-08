@@ -757,86 +757,169 @@ class analyseLoL(Extension):
             await stat.delete()
             await ctx.send("Annulé")
 
-    @interactions.extension_command(name="historique_lol",
+            # Choice(name='items',
+            #            value='items'),
+            #     Choice(name='champion',
+            #            value='champion'),
+            #     Choice(name='dommage',
+            #            value='dommage'),
+            #     Choice(name='tank', value='tank'),
+            #     Choice(name='kda', value='kda'),
+            #     Choice(name='lp', value='lp'),
+            #     Choice(name='winrate', value='winrate')]),
+
+    parameters_commun = [Option(
+        name='season',
+        description='saison lol',
+        type=interactions.OptionType.INTEGER,
+        required=False),
+        Option(
+        name='joueur',
+        description='se focaliser sur un joueur ?',
+        type=interactions.OptionType.STRING,
+        required=False),
+        Option(
+        name='champion',
+        description='se focaliser sur un champion ?',
+        type=interactions.OptionType.STRING,
+        required=False),
+        Option(
+        name='mode_de_jeu',
+        description='se focaliser sur un mode de jeu ?',
+        type=interactions.OptionType.STRING,
+        required=False,
+        choices=[
+            Choice(name='soloq',
+                   value='RANKED'),
+            Choice(name='aram', value='ARAM')]),
+        Option(
+        name='top',
+        description='top x ?',
+        type=interactions.OptionType.INTEGER,
+        required=False,
+        choices=[
+            Choice(name='3', value=3),
+            Choice(name='5', value=5),
+            Choice(name='7', value=7),
+            Choice(name='10', value=10),
+            Choice(name='15', value=15),
+            Choice(name='20', value=20)]
+    )]
+
+    @interactions.extension_command(name="stats",
                                     description="Historique de game",
                                     options=[Option(
-                                        name='type',
+                                        name='items',
                                         description='type de recherche',
-                                        type=interactions.OptionType.STRING,
-                                        required=True,
-                                        choices=[
-                                            Choice(name='items',
-                                                   value='items'),
-                                            Choice(name='champion',
-                                                   value='champion'),
-                                            Choice(name='dommage',
-                                                   value='dommage'),
-                                            Choice(name='tank', value='tank'),
-                                            Choice(name='kda', value='kda'),
-                                            Choice(name='lp', value='lp'),
-                                            Choice(name='winrate', value='winrate')]),
-                                        Option(
-                                        name='calcul',
-                                        description='quel type de calcul ?',
-                                        type=interactions.OptionType.STRING,
-                                        required=True,
-                                        choices=[
-                                            Choice(name='comptage',
-                                                   value='count'),
-                                            Choice(name='avg', value='avg'),
-                                            Choice(name='progression',
-                                                   value='progression'),
-                                            Choice(name='winrate', value='winrate')]),
-                                        Option(
-                                        name='season',
-                                        description='saison lol',
-                                        type=interactions.OptionType.INTEGER,
-                                        required=False),
-                                        Option(
-                                        name='joueur',
-                                        description='se focaliser sur un joueur ?',
-                                        type=interactions.OptionType.STRING,
-                                        required=False),
+                                        type=interactions.OptionType.SUB_COMMAND,
+                                        options=[
+                                            Option(
+                                                name='calcul',
+                                                description='quel type de calcul ?',
+                                                type=interactions.OptionType.STRING,
+                                                required=True,
+                                                choices=[
+                                                    Choice(name='comptage',
+                                                           value='count'),
+                                                    Choice(name='winrate',
+                                                           value='winrate')
+                                                ]
+                                            )] + parameters_commun),
                                         Option(
                                         name='champion',
-                                        description='se focaliser sur un champion ?',
-                                        type=interactions.OptionType.STRING,
-                                        required=False),
+                                        description='type de recherche',
+                                        type=interactions.OptionType.SUB_COMMAND,
+                                        options=[
+                                            Option(
+                                                name='calcul',
+                                                description='quel type de calcul ?',
+                                                type=interactions.OptionType.STRING,
+                                                required=True,
+                                                choices=[
+                                                    Choice(name='comptage',
+                                                           value='count'),
+                                                    Choice(name='winrate',
+                                                           value='winrate')
+                                                ]
+                                            ),
+                                        ] + parameters_commun),
                                         Option(
-                                        name='mode_de_jeu',
-                                        description='se focaliser sur un mode de jeu ?',
-                                        type=interactions.OptionType.STRING,
-                                        required=False,
-                                        choices=[
-                                            Choice(name='soloq',
-                                                   value='RANKED'),
-                                            Choice(name='aram', value='ARAM')]),
+                                        name='dommage',
+                                        description='type de recherche',
+                                        type=interactions.OptionType.SUB_COMMAND,
+                                        options=[
+                                            Option(
+                                                name='calcul',
+                                                description='quel type de calcul ?',
+                                                type=interactions.OptionType.STRING,
+                                                required=True,
+                                                choices=[
+                                                    Choice(
+                                                        name='avg', value='avg'),
+                                                ]
+                                            ),
+                                        ] + parameters_commun),
                                         Option(
-                                        name='top',
-                                        description='top x ?',
-                                        type=interactions.OptionType.INTEGER,
-                                        required=False,
-                                        choices=[
-                                            Choice(name='3', value=3),
-                                            Choice(name='5', value=5),
-                                            Choice(name='7', value=7),
-                                            Choice(name='10', value=10),
-                                            Choice(name='15', value=15),
-                                            Choice(name='20', value=20)]
-                                    )])
-    async def historique_lol(self, ctx: CommandContext, type, calcul: str, season: int = 12, joueur: str = None, champion: str = None, mode_de_jeu: str = None, top: int = 20):
+                                        name='tank',
+                                        description='type de recherche',
+                                        type=interactions.OptionType.SUB_COMMAND,
+                                        options=[
+                                            Option(
+                                                name='calcul',
+                                                description='quel type de calcul ?',
+                                                type=interactions.OptionType.STRING,
+                                                required=True,
+                                                choices=[
+                                                    Choice(
+                                                        name='avg', value='avg'),
+                                                ]
+                                            ),
+                                        ] + parameters_commun),
+                                        Option(
+                                        name='kda',
+                                        description='type de recherche',
+                                        type=interactions.OptionType.SUB_COMMAND,
+                                        options=[
+                                            Option(
+                                                name='calcul',
+                                                description='quel type de calcul ?',
+                                                type=interactions.OptionType.STRING,
+                                                required=True,
+                                                choices=[
+                                                    Choice(
+                                                        name='avg', value='avg'),
+                                                ]
+                                            ),
+                                        ] + parameters_commun),
+                                        Option(
+                                        name='lp',
+                                        description='type de recherche',
+                                        type=interactions.OptionType.SUB_COMMAND,
+                                        options=[
+                                            Option(
+                                                name='calcul',
+                                                description='quel type de calcul ?',
+                                                type=interactions.OptionType.STRING,
+                                                required=True,
+                                                choices=[
+                                                    Choice(name='progression',
+                                                           value='progression'),
+                                                ]
+                                            ),
+                                        ] + parameters_commun),
+                                    ])
+    async def historique_lol(self, ctx: CommandContext, sub_command: str, calcul: str, season: int = 12, joueur: str = None, champion: str = None, mode_de_jeu: str = None, top: int = 20):
 
         dict_type = {
             'dommage': 'dmg, dmg_ad, dmg_ap, dmg_true',
             'tank': 'dmg_reduit, dmg_tank',
-            'champion' : 'victoire',
+            'champion': 'victoire',
             'kda': 'kills, assists, deaths',
-            'type': type,
-            'winrate': 'victoire',
+            'type': sub_command,
             'lp': 'date, lp, tier, rank'
         }
 
-        if type == 'items':
+        if sub_command == 'items':
             column = 'item1, item2, item3, item4, item5, item6, victoire'
             column_list = ['item1', 'item2',
                            'item3', 'item4', 'item5', 'item6']
@@ -849,9 +932,9 @@ class analyseLoL(Extension):
 
         else:
 
-            df = get_data_matchs(dict_type[type])
+            df = get_data_matchs(dict_type[sub_command])
 
-        title = f'{type}'
+        title = f'{sub_command}'
 
         df[df['season'] == season]
 
@@ -870,41 +953,43 @@ class analyseLoL(Extension):
 
         title += f' ({calcul})'
 
-        if calcul == 'count':
+        # if calcul == 'count':
 
-            if type == 'items':
-                select = interactions.SelectMenu(
-                    options=[
-                        interactions.SelectOption(
-                            label="item1", value="item1", emoji=interactions.Emoji(name='1️⃣')),
-                        interactions.SelectOption(
-                            label="item2", value="item2", emoji=interactions.Emoji(name='2️⃣')),
-                        interactions.SelectOption(
-                            label="item3", value="item3", emoji=interactions.Emoji(name='3️⃣')),
-                        interactions.SelectOption(
-                            label="item4", value="item4", emoji=interactions.Emoji(name='4️⃣')),
-                        interactions.SelectOption(
-                            label="item5", value="item5", emoji=interactions.Emoji(name='5️⃣')),
-                        interactions.SelectOption(
-                            label="item6", value="item6", emoji=interactions.Emoji(name='6️⃣'))
-                    ],
-                    custom_id='items',
-                    placeholder="Ordre d'item",
-                    min_values=1,
-                    max_values=1
-                )
+        if sub_command == 'items':
 
-                title += f' | Top {top}'
+            select = interactions.SelectMenu(
+                options=[
+                    interactions.SelectOption(
+                        label="item1", value="item1", emoji=interactions.Emoji(name='1️⃣')),
+                    interactions.SelectOption(
+                        label="item2", value="item2", emoji=interactions.Emoji(name='2️⃣')),
+                    interactions.SelectOption(
+                        label="item3", value="item3", emoji=interactions.Emoji(name='3️⃣')),
+                    interactions.SelectOption(
+                        label="item4", value="item4", emoji=interactions.Emoji(name='4️⃣')),
+                    interactions.SelectOption(
+                        label="item5", value="item5", emoji=interactions.Emoji(name='5️⃣')),
+                    interactions.SelectOption(
+                        label="item6", value="item6", emoji=interactions.Emoji(name='6️⃣'))
+                ],
+                custom_id='items',
+                placeholder="Ordre d'item",
+                min_values=1,
+                max_values=1
+            )
 
-                await ctx.send("Pour quel slot d'item ?",
-                               components=select)
+            title += f' | Top {top}'
 
-                async def check(button_ctx):
-                    if int(button_ctx.author.user.id) == int(ctx.author.user.id):
-                        return True
-                    await ctx.send("I wasn't asking you!", ephemeral=True)
-                    return False
+            await ctx.send("Pour quel slot d'item ?",
+                           components=select)
 
+            async def check(button_ctx):
+                if int(button_ctx.author.user.id) == int(ctx.author.user.id):
+                    return True
+                await ctx.send("I wasn't asking you!", ephemeral=True)
+                return False
+
+            if calcul == 'count':
                 while True:
                     try:
                         button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
@@ -921,125 +1006,7 @@ class analyseLoL(Extension):
                         # When it times out, edit the original message and remove the button(s)
                         return await ctx.edit(components=[])
 
-            elif type == 'champion':
-                if joueur != None:
-                    showlegend = True
-                else:
-                    showlegend = False
-                fig = transformation_top(
-                    df, 'champion', title, top, showlegend=showlegend)
-                embed, files = get_embed(fig, 'champion')
-                await ctx.send(embeds=embed, files=files)
-
-            elif type == 'winrate':
-
-                df['victoire'] = df['victoire'].map({True: 'Victoire',
-                                                     False: 'Défaite'})
-
-                values = df['victoire'].value_counts()
-                fig = go.Figure(
-                    data=[go.Pie(labels=values.index, values=values)])
-                fig.update_layout(title=title)
-
-                embed, files = get_embed(fig, 'wr')
-
-                await ctx.send(embeds=embed, files=files)
-
-            else:
-                await ctx.send('Non disponible')
-                pass
-
-        elif calcul == 'avg':
-
-            if type == 'dommage':
-
-                dict_stats = {'dmg': 'total', 'dmg_ad': 'ad',
-                              'dmg_ap': 'ap', 'dmg_true': 'true'}
-
-            if type == 'tank':
-
-                dict_stats = {'dmg_tank': 'tank', 'dmg_reduit': 'reduit'}
-
-            if type == 'kda':
-
-                dict_stats = {'kills': 'K', 'deaths': 'D', 'assists': 'A'}
-
-            else:
-                await ctx.send('Non disponible')
-                pass
-
-            fig = go.Figure()
-            fig.update_layout(title=title)
-            for column, name in dict_stats.items():
-
-                fig.add_trace(go.Histogram(x=df['joueur'], y=df[column], histfunc='avg', name=name,
-                              texttemplate="%{y:.0f}")).update_xaxes(categoryorder='total descending')
-
-            fig.update_yaxes(visible=False)
-
-            embed, files = get_embed(fig, 'stats')
-
-            await ctx.send(embeds=embed, files=files)
-
-        elif calcul == 'progression':
-
-            if type == 'lp':
-                if mode_de_jeu != None:  # on impose un mode de jeu, sinon les lp vont s'entremeler, ce qui n'a aucun sens
-                    df['date'] = df['date'].apply(
-                        lambda x: datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
-                    df['datetime'] = pd.to_datetime(
-                        df['date'], infer_datetime_format=True)
-                    df.sort_values(['datetime'], ascending=False, inplace=True)
-
-                    fig = px.line(df, x='datetime', y='lp',
-                                  color='joueur', title=title)
-
-                    embed, files = get_embed(fig, 'evo')
-
-                    await ctx.send(embeds=embed, files=files)
-                else:
-                    await ctx.send('Tu dois selectionner un mode de jeu pour cette analyse.')
-
-            else:
-                await ctx.send('Non disponible')
-                pass
-
-        elif calcul == 'winrate':
-
-            if type == 'items':
-
-                select = interactions.SelectMenu(
-                    options=[
-                        interactions.SelectOption(
-                            label="item1", value="item1", emoji=interactions.Emoji(name='1️⃣')),
-                        interactions.SelectOption(
-                            label="item2", value="item2", emoji=interactions.Emoji(name='2️⃣')),
-                        interactions.SelectOption(
-                            label="item3", value="item3", emoji=interactions.Emoji(name='3️⃣')),
-                        interactions.SelectOption(
-                            label="item4", value="item4", emoji=interactions.Emoji(name='4️⃣')),
-                        interactions.SelectOption(
-                            label="item5", value="item5", emoji=interactions.Emoji(name='5️⃣')),
-                        interactions.SelectOption(
-                            label="item6", value="item6", emoji=interactions.Emoji(name='6️⃣'))
-                    ],
-                    custom_id='items',
-                    placeholder="Ordre d'item",
-                    min_values=1,
-                    max_values=1
-                )
-
-                title += f' | Top {top}'
-
-                await ctx.send("Pour quel slot d'item ?",
-                               components=select)
-
-                async def check(button_ctx):
-                    if int(button_ctx.author.user.id) == int(ctx.author.user.id):
-                        return True
-                    await ctx.send("I wasn't asking you!", ephemeral=True)
-                    return False
-
+            if calcul == 'winrate':
                 while True:
                     try:
                         button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
@@ -1080,9 +1047,76 @@ class analyseLoL(Extension):
                         # When it times out, edit the original message and remove the button(s)
                         return await ctx.edit(components=[])
 
+        elif sub_command == 'champion':
+            if calcul == 'count':
+                if joueur != None:
+                    showlegend = True
+                else:
+                    showlegend = False
+                fig = transformation_top(
+                    df, 'champion', title, top, showlegend=showlegend)
+                embed, files = get_embed(fig, 'champion')
+                await ctx.send(embeds=embed, files=files)
+
+            elif type == 'winrate':
+
+                df['victoire'] = df['victoire'].map({True: 'Victoire',
+                                                     False: 'Défaite'})
+
+                values = df['victoire'].value_counts()
+                fig = go.Figure(
+                    data=[go.Pie(labels=values.index, values=values)])
+                fig.update_layout(title=title)
+
+                embed, files = get_embed(fig, 'wr')
+
+                await ctx.send(embeds=embed, files=files)
+
             else:
                 await ctx.send('Non disponible')
                 pass
+
+        elif sub_command in ['dommage', 'tank', 'kda']:
+            if calcul == 'avg':
+
+                dict_stats = {'dommage': {'dmg': 'total', 'dmg_ad': 'ad',
+                              'dmg_ap': 'ap', 'dmg_true': 'true'},
+                              'tank': {'dmg_tank': 'tank', 'dmg_reduit': 'reduit'},
+                              'kda': {'kills': 'K', 'deaths': 'D', 'assists': 'A'}}
+
+                dict_stats_choose = dict_stats[sub_command]
+
+                fig = go.Figure()
+                fig.update_layout(title=title)
+
+                for column, name in dict_stats_choose.items():
+
+                    fig.add_trace(go.Histogram(x=df['joueur'], y=df[column], histfunc='avg', name=name,
+                                               texttemplate="%{y:.0f}")).update_xaxes(categoryorder='total descending')
+
+                fig.update_yaxes(visible=False)
+
+                embed, files = get_embed(fig, 'stats')
+
+                await ctx.send(embeds=embed, files=files)
+
+        if sub_command == 'lp':
+            if calcul == 'progression':
+                if mode_de_jeu != None:  # on impose un mode de jeu, sinon les lp vont s'entremeler, ce qui n'a aucun sens
+                    df['date'] = df['date'].apply(
+                        lambda x: datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
+                    df['datetime'] = pd.to_datetime(
+                        df['date'], infer_datetime_format=True)
+                    df.sort_values(['datetime'], ascending=False, inplace=True)
+
+                    fig = px.line(df, x='datetime', y='lp',
+                                  color='joueur', title=title)
+
+                    embed, files = get_embed(fig, 'evo')
+
+                    await ctx.send(embeds=embed, files=files)
+                else:
+                    await ctx.send('Tu dois selectionner un mode de jeu pour cette analyse.')
 
 
 def setup(bot):
