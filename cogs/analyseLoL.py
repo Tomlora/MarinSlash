@@ -41,6 +41,20 @@ choice_analyse = [Choice(name="gold", value="gold"),
                   Choice(name='position', value='position')]
 
 
+def option_stats_lol(name, choices: list, parameters_commun, description='type de recherche'):
+    option = Option(
+        name=name,
+        description='type de recherche',
+        type=interactions.OptionType.SUB_COMMAND,
+        options=[Option(
+            name='calcul',
+            description='quel type de calcul ?',
+            type=interactions.OptionType.STRING,
+            required=True,
+            choices=choices)] + parameters_commun)
+    return option
+
+
 def get_data_matchs(columns):
     df = lire_bdd_perso(
         f'SELECT id, joueur, champion, match_id, mode, season, {columns} from matchs where season = 12', index_col='id').transpose()
@@ -768,109 +782,74 @@ class analyseLoL(Extension):
             #     Choice(name='lp', value='lp'),
             #     Choice(name='winrate', value='winrate')]),
 
-    def parameters_commun():
-        parameters = [Option(
-            name='season',
-            description='saison lol',
-            type=interactions.OptionType.INTEGER,
-            required=False),
-            Option(
-            name='joueur',
-            description='se focaliser sur un joueur ?',
-            type=interactions.OptionType.STRING,
-            required=False),
-            Option(
-            name='champion',
-            description='se focaliser sur un champion ?',
-            type=interactions.OptionType.STRING,
-            required=False),
-            Option(
-            name='mode_de_jeu',
-            description='se focaliser sur un mode de jeu ?',
-            type=interactions.OptionType.STRING,
-            required=False,
-            choices=[
-                Choice(name='soloq',
-                       value='RANKED'),
-                Choice(name='aram', value='ARAM')]),
-            Option(
-            name='top',
-            description='top x ?',
-            type=interactions.OptionType.INTEGER,
-            required=False,
-            choices=[
-                Choice(name='3', value=3),
-                Choice(name='5', value=5),
-                Choice(name='7', value=7),
-                Choice(name='10', value=10),
-                Choice(name='15', value=15),
-                Choice(name='20', value=20)]
-        )]
-        return parameters
-
-    def option_subcommand(choices: list):
-        option = Option(
-            name='calcul',
-            description='quel type de calcul ?',
-            type=interactions.OptionType.STRING,
-            required=True,
-            choices=choices)
-        return option
+    parameters_commun = [Option(
+        name='season',
+        description='saison lol',
+        type=interactions.OptionType.INTEGER,
+        required=False),
+        Option(
+        name='joueur',
+        description='se focaliser sur un joueur ?',
+        type=interactions.OptionType.STRING,
+        required=False),
+        Option(
+        name='champion',
+        description='se focaliser sur un champion ?',
+        type=interactions.OptionType.STRING,
+        required=False),
+        Option(
+        name='mode_de_jeu',
+        description='se focaliser sur un mode de jeu ?',
+        type=interactions.OptionType.STRING,
+        required=False,
+        choices=[
+            Choice(name='soloq',
+                   value='RANKED'),
+            Choice(name='aram', value='ARAM')]),
+        Option(
+        name='top',
+        description='top x ?',
+        type=interactions.OptionType.INTEGER,
+        required=False,
+        choices=[
+            Choice(name='3', value=3),
+            Choice(name='5', value=5),
+            Choice(name='7', value=7),
+            Choice(name='10', value=10),
+            Choice(name='15', value=15),
+            Choice(name='20', value=20)]
+    )]
 
     @interactions.extension_command(name="stats_lol",
                                     description="Historique de game",
-                                    options=[Option(
-                                        name='items',
-                                        description='type de recherche',
-                                        type=interactions.OptionType.SUB_COMMAND,
-                                        options=[
-                                            option_subcommand([
-                                                    Choice(name='comptage',
-                                                           value='count'),
-                                                    Choice(name='winrate',
-                                                           value='winrate')])] + parameters_commun()),
-                                             Option(
-                                        name='champion',
-                                        description='type de recherche',
-                                        type=interactions.OptionType.SUB_COMMAND,
-                                        options=[
-                                                option_subcommand([
-                                                    Choice(name='comptage',
-                                                           value='count'),
-                                                    Choice(name='winrate',
-                                                           value='winrate')])] + parameters_commun()),
-                                             Option(
-                                        name='dommage',
-                                        description='type de recherche',
-                                        type=interactions.OptionType.SUB_COMMAND,
-                                        options=[
-                                            option_subcommand([
-                                                Choice(
-                                                    name='avg', value='avg')])] + parameters_commun()),
-                                             Option(
-                                        name='tank',
-                                        description='type de recherche',
-                                        type=interactions.OptionType.SUB_COMMAND,
-                                        options=[
-                                            option_subcommand([
-                                                Choice(
-                                                    name='avg', value='avg')])] + parameters_commun()),
-                                             Option(
-                                        name='kda',
-                                        description='type de recherche',
-                                        type=interactions.OptionType.SUB_COMMAND,
-                                        options=[
-                                                option_subcommand([
-                                                    Choice(
-                                                        name='avg', value='avg')])] + parameters_commun()),
-                                             Option(
-                                        name='lp',
-                                        description='type de recherche',
-                                        type=interactions.OptionType.SUB_COMMAND,
-                                        options=[
-                                            option_subcommand([
-                                                Choice(
-                                                    name='progression', value='progression')])] + parameters_commun()),
+                                    options=[option_stats_lol(name='items',
+                                                               choices=[
+                                                                   Choice(
+                                                                       name='comptage', value='count'),
+                                                                   Choice(name='winrate', value='winrate')],
+                                                               parameters_commun=parameters_commun),
+                                             option_stats_lol(name='champion',
+                                                               choices=[
+                                                                   Choice(
+                                                                       name='comptage', value='count'),
+                                                                   Choice(name='winrate', value='winrate')],
+                                                               parameters_commun=parameters_commun),
+                                             option_stats_lol(name='dommage',
+                                                               choices=[
+                                                                   Choice(name='avg', value='avg')],
+                                                               parameters_commun=parameters_commun),
+                                             option_stats_lol(name='tank',
+                                                               choices=[
+                                                                   Choice(name='avg', value='avg')],
+                                                               parameters_commun=parameters_commun),
+                                             option_stats_lol(name='kda',
+                                                               choices=[
+                                                                   Choice(name='avg', value='avg')],
+                                                               parameters_commun=parameters_commun),
+                                             option_stats_lol(name='lp',
+                                                               choices=[
+                                                                   Choice(name='progression', value='progression')],
+                                                               parameters_commun=parameters_commun),
                                              ])
     async def historique_lol(self, ctx: CommandContext, sub_command: str, calcul: str, season: int = 12, joueur: str = None, champion: str = None, mode_de_jeu: str = None, top: int = 20):
 
