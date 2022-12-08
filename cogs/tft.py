@@ -8,6 +8,7 @@ from fonctions.channels_discord import chan_discord, rgb_to_discord
 import sys
 from fonctions.params import Version
 from fonctions.gestion_bdd import (lire_bdd,
+                                   lire_bdd_perso,
                                    sauvegarde_bdd,
                                    get_data_bdd,
                                    requete_perso_bdd)
@@ -119,12 +120,16 @@ class tft(Extension):
         # Classement
 
         classement = stats_joueur['placement']
-
+        
+        ## on sauvegarde
+        
+        requete_perso_bdd(f'''UPDATE suivitft
+                          SET top{classement} WHERE index = {summonername.lower}''')
+        
         # Stats
 
         last_round = stats_joueur['last_round']
         level = stats_joueur['level']
-        joueurs_elimines = stats_joueur['players_eliminated']
         gold_restants = stats_joueur['gold_left']
 
         # Stats
@@ -181,12 +186,14 @@ class tft(Extension):
                 difLP = 100 - lp + int(suivi_profil[summonername]['LP'])
                 difLP = "Promotion / +" + str(difLP)
 
-            suivi_profil[summonername]['tier'] = tier
-            suivi_profil[summonername]['rank'] = rank
-            suivi_profil[summonername]['LP'] = lp
-            suivi_profil[summonername][f'top{classement}'] = suivi_profil[summonername][f'top{classement}'] + 1
+            # TODO : sql
+            
+            requete_perso_bdd('''UPDATE suivitft
+                              SET tier = :tier, rank = :rank, "LP" = :lp WHERE index = :summonername''', {'tier' : tier,
+                                                                                                        'rank' : rank,
+                                                                                                        'lp' : lp,
+                                                                                                        'summonername' : summonername})
 
-            sauvegarde_bdd(suivi_profil, 'suivitft')
 
         # Embed
         
@@ -283,6 +290,8 @@ class tft(Extension):
         session = aiohttp.ClientSession()
 
         embed = await self.stats_tft(summonername, session, idgames)
+        
+        await session.close()
 
         await ctx.send(embeds=embed)
 
