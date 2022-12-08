@@ -856,6 +856,8 @@ class analyseLoL(Extension):
             'type': sub_command,
             'lp': 'date, lp, tier, rank'
         }
+        
+        await ctx.defer(ephemeral=False)
 
         if sub_command == 'items':
             column = 'item1, item2, item3, item4, item5, item6, victoire'
