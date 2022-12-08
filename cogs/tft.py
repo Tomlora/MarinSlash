@@ -121,10 +121,12 @@ class tft(Extension):
 
         classement = stats_joueur['placement']
         
-        ## on sauvegarde
+        ## on sauvegarde si ranked
         
-        requete_perso_bdd(f'''UPDATE suivitft
-                          SET top{classement} = top{classement} + 1 WHERE index = {summonername.lower}''')
+        if thisQ == 'RANKED':
+        
+            requete_perso_bdd(f'''UPDATE suivitft
+                            SET top{classement} = top{classement} + 1 WHERE index = {summonername.lower()}''')
         
         # Stats
 
