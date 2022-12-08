@@ -124,7 +124,7 @@ class tft(Extension):
         ## on sauvegarde
         
         requete_perso_bdd(f'''UPDATE suivitft
-                          SET top{classement} WHERE index = {summonername.lower}''')
+                          SET top{classement} = top{classement} + 1 WHERE index = {summonername.lower}''')
         
         # Stats
 
@@ -185,8 +185,6 @@ class tft(Extension):
             elif dict_rankid[classement_old] < dict_rankid[classement_new]:
                 difLP = 100 - lp + int(suivi_profil[summonername]['LP'])
                 difLP = "Promotion / +" + str(difLP)
-
-            # TODO : sql
             
             requete_perso_bdd('''UPDATE suivitft
                               SET tier = :tier, rank = :rank, "LP" = :lp WHERE index = :summonername''', {'tier' : tier,
