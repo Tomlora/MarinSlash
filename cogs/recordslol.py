@@ -13,12 +13,48 @@ from interactions.ext.paginator import Page, Paginator
 from fonctions.params import Version
 
 
-####
-# SELECT joueur, champion, match_id, id_participant, MAX(kills) from matchs
-# WHERE mode = 'ARAM'
-# GROUP BY joueur, champion, match_id, id_participant
-# ORDER BY max DESC
-# FETCH FIRST 1 ROWS ONLY;
+def trouver_records(df, category, methode='max'):
+    """
+    Trouve la ligne avec le record associé
+
+    Parameters
+    ----------
+    category : `string`
+        colonne où chercher le record
+    methode : str, optional
+        min ou max ?, by default 'max'
+
+    Returns
+    -------
+    joueur, champion, record, url
+    """
+    df[category] = pd.to_numeric(df[category])
+
+    try:
+        if methode == 'max':
+            col = df[category].idxmax(skipna=True)
+        elif methode == 'min':
+            col = df[category].idxmin(skipna=True)
+        lig = df.loc[col]
+        joueur = lig['joueur']
+        champion = lig['champion']
+        record = lig[category]
+        url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(lig["match_id"])[5:]}#participant{int(lig["id_participant"])+1}'
+    except:
+        return 0, 0, 0, 0
+
+    return joueur, champion, record, url_game
+
+
+def option_stats_records(name, params, description='type de recherche'):
+    option = Option(
+            name=name,
+            description=description,
+            type=interactions.OptionType.SUB_COMMAND,
+            options=params)
+
+    return option
+
 
 emote = {
     "KDA": ":star:",
@@ -125,6 +161,66 @@ emote = {
     "ALLIE_FEEDER_ARAM": ":monkey_face:"
 }
 
+emote_v2 = {
+    "kda": ":star:",
+    "kp": ":trophy:",
+    "cs": ":ghost:",
+    "cs_jungle": ":ghost:",
+    "jgl_dix_min": ":ghost:",
+    "cs_min": ":ghost:",
+    "cs_dix_min": ":ghost:",
+    "kills": ":dagger:",
+    "team_kills": ":dagger:",
+    "deaths": ":skull:",
+    "team_deaths": ":skull:",
+    "assists": ":crossed_swords:",
+    'vision_score': ":eye:",
+    'vision_wards': ":eyes:",
+    'vision_wards_killed': ":mag:",
+    'vision_pink': ":red_circle:",
+    "vision_avantage": ":eyes:",
+    "vision_min": ":eyes:",
+    'dmg': ":dart:",
+    'dmg_ad': ":dart:",
+    'dmg_ap': ":dart:",
+    'dmg_true': ":dart:",
+    'damageratio': ":dart:",
+    'dmg_min': ":dart:",
+    "% DMG": ":magic_wand:",
+    'double': ":two:",
+    'triple': ":three:",
+    'quadra': ":four:",
+    'penta': ":five:",
+    'time': ":timer:",
+    'SPELLS_USED': ":gun:",
+    'BUFFS_VOLEES': "<:PandaWow:732316840495415398>",
+    'SPELLS_EVITES': ":white_check_mark:",
+    'cs_max_avantage': ":ghost:",
+    'solokills': ":karate_uniform:",
+    'CS_APRES_10_MIN': ":ghost:",
+    'CS/MIN': ":ghost:",
+    'serie_kills': ":crossed_swords:",
+    'NB_SERIES_DE_KILLS': ":crossed_swords:",
+    'dmg_reduit': ":shield:",
+    'tankratio': ":shield:",
+    'dmg_tank': ":shield:",
+    'gold': ":euro:",
+    'gold_min': ":euro:",
+    'spell1' : ":magic_wand:",
+    'spell2' : ":magic_wand:",
+    'drake' : ":dragon:",
+    'baron' : ":space_invader:",
+    'herald' : ":space_invader:",
+    'heal_total': ":sparkling_heart:",
+    'heal_allies': ":two_hearts:",
+    "early_drake": ":timer:",
+    "early_baron": ":timer:",
+    "temps_dead" : ":timer:",
+    "level_max_avantage": ":wave:",
+    "couronne": ":crown:",
+    "shield": ":shield:",
+    "allie_feeder": ":monkey_face:",
+}
 
 choice_pantheon = [Choice(name="KDA", value="KDA"),
                    Choice(name='KDA moyenne', value='KDA moyenne'),
@@ -429,205 +525,119 @@ class Recordslol(Extension):
             ]
         ).run()
 
-    @interactions.extension_command(name="pantheon",
-                                    description="Cumul des statistiques",
-                                    options=[Option(name="stat",
-                                                    description="Quel stat ?",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=True,
-                                                    choices=choice_pantheon),
-                                             Option(name="mode",
-                                                    description="Quel mode de jeu ?",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=True, choices=[
-                                                        Choice(name='ranked',
-                                                               value='ranked'),
-                                                        Choice(name='aram', value='aram')]),
-                                             Option(name="stat2",
-                                                    description="Quel stat ?",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=False,
-                                                    choices=choice_pantheon),
-                                             Option(name="stat3",
-                                                    description="Quel stat ?",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=False, choices=choice_pantheon),
-                                             Option(name="fichier_recap",
-                                                    description="Fichier Excel recapitulatif",
-                                                    type=interactions.OptionType.BOOLEAN,
-                                                    required=False)
-                                             ])
-    async def pantheon(self, ctx: CommandContext, stat, mode: str, stat2: str = "no", stat3: str = "no", fichier_recap: bool = False):
+    parameters_communs = [Option(
+        name="mode",
+        description="Quel mode de jeu ?",
+        type=interactions.OptionType.STRING,
+        required=True, choices=[
+            Choice(name='ranked',
+                   value='RANKED'),
+            Choice(name='aram', value='ARAM')]),
+        Option(
+        name='saison',
+        description='saison league of legends',
+        type=interactions.OptionType.INTEGER,
+        required=False)]
+    
+    parameters_personnel = [Option(
+        name="mode",
+        description="Quel mode de jeu ?",
+        type=interactions.OptionType.STRING,
+        required=True, choices=[
+            Choice(name='ranked',
+                   value='RANKED'),
+            Choice(name='aram', value='ARAM')]),
+        Option(
+        name="joueur",
+        description="Quel joueur ?",
+        type=interactions.OptionType.STRING,
+        required=True),
+        Option(
+        name='saison',
+        description='saison league of legends',
+        type=interactions.OptionType.INTEGER,
+        required=False),
+        Option(
+        name='champion',
+        description='champion',
+        type=interactions.OptionType.STRING,
+        required=False)]
 
-        stat = [stat, stat2, stat3]
-
-        data = lire_bdd('records_cumul', 'dict')
-
-        df = pd.DataFrame.from_dict(data)
-        df.fillna(0, inplace=True)
-        df.index.name = "Joueurs"
-        df.reset_index(inplace=True)
-
-        if mode == 'ranked':
-            col_games = 'NBGAMES'
-            col_kills = 'KILLS'
-            col_deaths = 'DEATHS'
-            col_assists = 'ASSISTS'
-            list_avg = ['WARDS_MOYENNE', 'KILLS_MOYENNE',
-                        'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']
-            col_penta = 'PENTA'
-            col_quadra = 'QUADRA'
-            col_solokills = 'SOLOKILLS'
-            col_CS = 'CS'
-
-        elif mode == 'aram':
-            col_games = 'NBGAMES_ARAM'
-            col_kills = 'KILLS_ARAM'
-            col_deaths = 'DEATHS_ARAM'
-            col_assists = 'ASSISTS_ARAM'
-            list_avg = ['KILLS_MOYENNE', 'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']
-            col_penta = 'PENTA_ARAM'
-            col_quadra = 'QUADRA_ARAM'
-            col_solokills = 'SOLOKILLS_ARAM'
-            col_CS = 'CS_ARAM'
-        # Moyenne
-
-        df['KILLS_MOYENNE'] = 0
-        df['DEATHS_MOYENNE'] = 0
-        df['ASSISTS_MOYENNE'] = 0
-        df['WARDS_MOYENNE'] = 0
-
-        df['KILLS_MOYENNE'] = np.where(
-            df[col_games] > 0, df[col_kills] / df[col_games], 0)
-        df['DEATHS_MOYENNE'] = np.where(
-            df[col_games] > 0, df[col_deaths] / df[col_games], 0)
-        df['ASSISTS_MOYENNE'] = np.where(
-            df[col_games] > 0, df[col_assists] / df[col_games], 0)
-        if mode == 'ranked':
-            df['WARDS_MOYENNE'] = np.where(
-                df[col_games] > 0, df['WARDS_SCORE'] / df[col_games], 0)
-            df['WARDS_POSEES_MOYENNE'] = np.where(
-                df[col_games] > 0, df['WARDS_POSEES'] / df[col_games], 0)
-            df['WARDS_DETRUITES_MOYENNE'] = np.where(
-                df[col_games] > 0, df['WARDS_DETRUITES'] / df[col_games], 0)
-            df['WARDS_PINKS_MOYENNE'] = np.where(
-                df[col_games] > 0, df['WARDS_PINKS'] / df[col_games], 0)
-
-        if mode == 'ranked':
-            for ward_col in ['WARDS_MOYENNE', 'WARDS_POSEES_MOYENNE', 'WARDS_DETRUITES_MOYENNE', 'WARDS_PINKS_MOYENNE']:
-                df[ward_col] = round(df[ward_col], 2)
-
-        df.to_excel('./obj/records/pantheon.xlsx', index=False)
+    @interactions.extension_command(name="records_list_v2",
+                                    description="Voir les records détenues par les joueurs",
+                                    options=[option_stats_records(name='general',
+                                                                  params=parameters_communs, description='Records tout confondu'),
+                                             option_stats_records(name='personnel', params=parameters_personnel, description='Record sur un joueur')
+                                    ])
+    async def records_list_v2(self, ctx: CommandContext, sub_command : str, saison: int = 12, mode: str = 'ranked', joueur=None, champion=None):
 
         await ctx.defer(ephemeral=False)
 
-        liste_graph = list()
-        liste_delete = list()
+        current = 0
 
-        def graphique(fig, name):
-            fig.write_image(name)
-            liste_delete.append(name)
-            liste_graph.append(interactions.File(name))
+        fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': saison,
+                                                                                                                                        'mode': mode}).transpose()
 
-        def figure_hist(dict, title):  # Fonction pour faire l'histogramme en fonction d'un dict
+        if sub_command == 'personnel':
+            
+            joueur = joueur.lower()
+            
+            fichier = fichier[fichier['joueur'] == joueur]
+            
+            title = f'Records personnels {joueur} {mode} S{saison}'
+            
+            if champion != None:
+                fichier = fichier[fichier['champion'] == champion]
+                
+                title = f'Records personnels {joueur} ({champion}) {mode} S{saison}'
+        
+        else:
+            title = f'Records {mode} S{saison}'
+                
+        fichier1 = fichier.columns[3:22].drop(['champion', 'victoire'])
+        fichier2 = fichier.columns[22:45].drop(['team'])
+        fichier3 = fichier.columns[45:].drop(['afk', 'season', 'date', 'mode', 'rank', 'tier',
+                                             'lp', 'id_participant', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6'])
+        
 
-            fig = go.Figure()
-            for key in dict:
-                fig.add_trace(
-                    go.Histogram(histfunc="sum", y=df[key], x=df['Joueurs'], name=str(key), texttemplate="%{y}",
-                                 textfont_size=20))
-                fig.update_layout(
-                    title_text=title)  # title of plot
-            return fig
+        embed1 = interactions.Embed(
+            title=title + " (Page 1/3) :bar_chart:", color=interactions.Color.blurple())
 
-        try:
-            if "KDA" in stat:
-                variables = [col_kills, col_deaths, col_assists]
+        for column in fichier1:
+            joueur, champion, record, url = trouver_records(fichier, column)
 
-                df['KDA'] = (df[col_kills] + df[col_assists]) / df[col_deaths]
-                df['KDA'] = round(df['KDA'], 2)
+            embed1.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                             value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
 
-                fig = figure_hist(variables, "KDA")
+        embed2 = interactions.Embed(
+            title=title + " (Page 2/3) :bar_chart:", color=interactions.Color.blurple())
 
-                graphique(fig, 'KDA1.png')
+        for column in fichier2:
+            joueur, champion, record, url = trouver_records(fichier, column)
+            embed2.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                             value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
 
-                fig = px.pie(df, values='KDA', names='Joueurs', title='KDA')
-                fig.update_traces(textinfo='value', textfont_size=20)
+        embed3 = interactions.Embed(
+            title=title + " (Page 3/3) :bar_chart:", color=interactions.Color.blurple())
 
-                graphique(fig, 'KDA2.png')
+        for column in fichier3:
+            joueur, champion, record, url = trouver_records(fichier, column)
+            embed3.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                             value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
 
-                await ctx.send(
-                    f' __ Total KDA : __ \n Kills : {int(df[col_kills].sum())} \n Morts : {int(df[col_deaths].sum())} \n Assists : {int(df[col_assists].sum())}')
+        embed1.set_footer(text=f'Version {Version} by Tomlora')
+        embed2.set_footer(text=f'Version {Version} by Tomlora')
+        embed3.set_footer(text=f'Version {Version} by Tomlora')
 
-            if "VISION" in stat and mode == 'ranked':
-                variables = ['WARDS_POSEES', 'WARDS_DETRUITES', 'WARDS_PINKS']
-
-                fig = figure_hist(variables, "VISION")
-
-                graphique(fig, 'vision.png')
-
-                await ctx.send(
-                    f' __ Total : __ \n Wards posées : {int(df["WARDS_POSEES"].sum())} \n Wards détruites : {int(df["WARDS_DETRUITES"].sum())} \n Pinks : {int(df["WARDS_PINKS"].sum())}')
-
-            if "VISION" in stat and mode == 'aram':
-                await ctx.send('Pas de vision en aram !')
-
-            if "KDA moyenne" in stat:
-                variables = ['KILLS_MOYENNE',
-                             'DEATHS_MOYENNE', 'ASSISTS_MOYENNE']
-
-                fig = figure_hist(variables, "KDA moyenne")
-
-                graphique(fig, 'KDA_moyenne.png')
-
-            if "VISION moyenne" in stat and mode == 'ranked':
-                variables = ['WARDS_MOYENNE']
-
-                fig = figure_hist(variables, "VISION moyenne")
-
-                graphique(fig, 'vision_moyenne.png')
-
-                variables_avg = ['WARDS_POSEES_MOYENNE',
-                                 'WARDS_DETRUITES_MOYENNE', 'WARDS_PINKS_MOYENNE']
-
-                fig2 = figure_hist(variables_avg, "VISION moyenne par joueur")
-
-                graphique(fig2, 'vision_moyenne_par_joueur.png')
-
-            if "VISION moyenne" in stat and mode == 'aram':
-                await ctx.send('Pas de vision en aram !')
-
-            if "CS" in stat:
-                variables = [col_CS]
-
-                fig = figure_hist(variables, col_CS)
-
-                graphique(fig, 'CS.png')
-
-                await ctx.send(
-                    f' __ Total : __ \n CS : {int(df[col_CS].sum())}')
-
-            if "SOLOKILLS" in stat:
-                variables = [col_solokills]
-
-                fig = figure_hist(variables, col_solokills)
-                fig.update_xaxes(categoryorder="total descending")
-
-                graphique(fig, 'solokills.png')
-
-            if fichier_recap is True:
-                url = "./obj/records/pantheon.xlsx"
-                await ctx.send(files=interactions.File(url))
-
-            if len(liste_graph) >= 1:  # il faut au moins un graph
-                await ctx.send(files=liste_graph)
-
-            for graph in liste_delete:
-                os.remove(graph)
-
-        except asyncio.TimeoutError:
-            await stat.delete()
-            await ctx.send("Annulé")
+        await Paginator(
+            client=self.bot,
+            ctx=ctx,
+            pages=[
+                Page(embed1.title, embed1),
+                Page(embed2.title, embed2),
+                Page(embed3.title, embed3)
+            ]
+        ).run()
 
 
 def setup(bot):
