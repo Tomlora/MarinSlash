@@ -207,11 +207,11 @@ class tft(Extension):
 
             if dict_rankid[classement_old] > dict_rankid[classement_new]:  # 19-18
                 difLP = 100 + lp - int(suivi_profil[summonername]['LP'])
-                difLP = "Démote / -" + str(difLP)
+                difLP = "Démote :arrow_down: / -" + str(difLP)
 
             elif dict_rankid[classement_old] < dict_rankid[classement_new]:
                 difLP = 100 - lp + int(suivi_profil[summonername]['LP'])
-                difLP = "Promotion / +" + str(difLP)
+                difLP = "Promotion :arrow_up: / +" + str(difLP)
             
             requete_perso_bdd('''UPDATE suivitft
                               SET tier = :tier, rank = :rank, "LP" = :lp WHERE index = :summonername''', {'tier' : tier,
