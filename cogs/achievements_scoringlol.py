@@ -243,7 +243,7 @@ class Achievements_scoringlol(Extension):
 
         df['per game'] = df['couronne'] / df['joueur']
         
-        result = f'Couronnes : Mode **{mode} et 5 games minimum'
+        result = f'Couronnes : Mode **{mode} et 5 games minimum : \n'
         
         for joueur, stats in df.iterrows():
             
