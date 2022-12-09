@@ -998,6 +998,11 @@ class matchlol():
                                   'id_participant': self.thisId,
                                   'dmg_tank': self.thisDamageTakenNoFormat
                                })
+            
+    async def add_couronnes(self, points):
+        requete_perso_bdd('''UPDATE matchs SET couronne = :points WHERE match_id = :match_id AND joueur = :joueur''', {'points' : points,
+                                                                                                                       'match_id' : self.last_match,
+                                                                                                                       'joueur' : self.summonerName.lower()})
 
     async def resume_personnel(self, name_img, embed, difLP):
 
