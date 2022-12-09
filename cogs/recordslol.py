@@ -567,7 +567,8 @@ class Recordslol(Extension):
         # on rajoute quelques éléments sur d'autres pages...
         
         fichier1 = np.append(fichier1, ['kda', 'kp', 'damageratio'])
-        fichier1 = fichier.tolist()
+        
+        fichier1 = fichier1.tolist()
         
         if mode == 'ARAM': # on vire les records qui ne doivent pas être comptés en aram
             
