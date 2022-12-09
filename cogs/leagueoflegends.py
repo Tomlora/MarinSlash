@@ -406,6 +406,12 @@ class LeagueofLegends(Extension):
         if (int(match_info.thisTotalShielded) >= settings['Shield']['score']):
             exploits = exploits + \
                 f"\n ** :crown: :shield: Tu as shield {match_info.thisTotalShielded} **"
+            points = points + 1
+            
+        if (match_info.thisQ == "RANKED" and match_info.thisTime > 20 and succes is True) or\
+            (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
+ 
+            await match_info.add_couronnes(points)
 
         # Présence d'afk
         if match_info.AFKTeam >= 1:
