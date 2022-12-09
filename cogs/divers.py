@@ -12,8 +12,6 @@ from fonctions.gestion_bdd import get_guild_data
 import cv2
 import numpy as np
 import os
-import io
-# from rembg import remove
 
 
 class Divers(Extension):
@@ -197,19 +195,6 @@ class Divers(Extension):
 
 
 
-    # @bot.command(name='mute', description='mute someone')
-    # @commands.has_permissions(ban_members=True)
-    # async def mute(self, ctx, member: discord.Member, *, reason="Aucune raison n'a été renseigné"):
-    #     mutedRole = await self.getMutedRole(ctx)
-    #     await member.add_roles(mutedRole, reason=reason)
-    #     await ctx.send(f"{member.mention} a été mute !")
-
-    # @bot.command(name='unmute', description='unmute someone')
-    # @commands.has_permissions(ban_members=True)
-    # async def unmute(self, ctx, member: discord.Member, *, reason="Aucune raison n'a été renseigné"):
-    #     mutedRole = await self.getMutedRole(ctx)
-    #     await member.remove_roles(mutedRole, reason=reason)
-    #     await ctx.send(f"{member.mention} a été unmute !")
 
     @interactions.extension_listener
     async def get_muted_role(self, guild: interactions.Guild) -> interactions.Role:

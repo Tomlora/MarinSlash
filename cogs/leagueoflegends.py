@@ -13,7 +13,6 @@ from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version
 from fonctions.channels_discord import verif_module
 
-from time import time
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
                                    get_data_bdd,
@@ -24,7 +23,8 @@ from fonctions.match import (matchlol,
                              getId,
                              dict_rankid,
                              get_league_by_summoner,
-                             get_summoner_by_name
+                             get_summoner_by_name,
+                             trouver_records
                              )
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 
@@ -33,7 +33,44 @@ from time import sleep
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
+               
+def records_check2(fichier, category, result_category_match, embed, methode='max'):
+    '''TODO : fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': saison,
+    methode = min/max                                                                                                                                        'mode': mode}).transpose()
+    ''' 
+    
+    joueur, champion, record, url = trouver_records(fichier, category, methode)
+    
+    if methode == 'max':
+        if float(record) < float(result_category_match):
+            embed = embed + \
+                        f"\n ** :boom: Record {category} battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+    else:
+        if float(record) > float(result_category_match):
+            embed = embed + \
+                        f"\n ** :boom: Record {category} battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+                    
+    return embed
 
+def score_personnel(fichier_joueur, category, result_category_match, embed, methode='max'):
+    '''TODO : fichier_joueur = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s and joueur = %(joueur)s', index_col='id', params={'saison': saison,
+                                                                                                                                                            'joueur' : joueur,
+    methode = min/max                                                                                                                                        'mode': mode}).transpose()
+    ''' 
+    
+    joueur, champion, record, url = trouver_records(fichier_joueur, category, methode)
+    
+    if methode == 'max':
+        if float(record) < float(result_category_match):
+            embed = embed + \
+                f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record})"
+    else:
+        if float(record) > float(result_category_match):
+            embed = embed + \
+                f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record})"
+                    
+    return embed
+ 
 def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed, url, saison: int, mode: str):
     mode = mode.lower()
     if str(key_boucle) == str(key):
@@ -74,15 +111,7 @@ def palier(embed, key: str, stats: str, old_value: int, new_value: int, palier: 
     return embed
 
 
-def score_personnel(embed, key: str, summonerName: str, stats: str, old_value: float, new_value: float, url):
-    if key == stats:
-        if old_value < new_value:
-            requete_perso_bdd(f'''UPDATE records_personnel
-	SET "{key}" = :key_value, "{key + '_url'}" = :key_url_value 
-	WHERE index = :joueur''', {'key_value': new_value, 'key_url_value': url, 'joueur': summonerName.lower()})
-            embed = embed + \
-                f"\n ** :military_medal: Tu as battu ton record personnel en {stats.lower()} avec {new_value} {stats.lower()} ** (Anciennement : {old_value})"
-    return embed
+
 
 
 class LeagueofLegends(Extension):
@@ -99,13 +128,24 @@ class LeagueofLegends(Extension):
         self.task2 = create_task(IntervalTrigger(60*60))(self.lolsuivi)
         self.task2.start()
 
-    async def printInfo(self, summonerName, idgames: int, succes, sauvegarder: bool):
+    async def printInfo(self, summonerName, idgames: int, succes, sauvegarder: bool, identifiant_game = None):
+        
+        
 
-        match_info = matchlol(summonerName, idgames,
-                              sauvegarder=sauvegarder)  # class
+        match_info = matchlol(summonerName, idgames, identifiant_game=identifiant_game)  # class
 
         await match_info.get_data_riot()
         await match_info.prepare_data()
+        
+        # pour nouveau système de record
+        fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': match_info.season,
+                                                                                                                                       'mode': match_info.thisQ}).transpose()
+        
+        fichier_joueur = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s and joueur = %(joueur)s', index_col='id', params={'saison': match_info.season,
+                                                                                                                                                            'joueur' : summonerName.lower(),
+                                                                                                                                     'mode': match_info.thisQ}).transpose()
+        if sauvegarder:
+            await match_info.save_data()
 
         if match_info.thisQId == 900:  # urf
             return {}, 'URF'
@@ -152,6 +192,64 @@ class LeagueofLegends(Extension):
             records = lire_bdd_perso('SELECT index, "Score", "Champion", "Joueur", url from records where saison= %(saison)s and mode=%(mode)s', params={'saison': match_info.season,
                                                                                                                                                          'mode': match_info.thisQ.lower()})
             records = records.to_dict()
+
+            # nouveau système de records
+            # if int(match_info.thisDeaths) >= 1:
+            #     exploits = records_check2(fichier, 'kda', match_info.thisKDA, exploits)
+            # else:
+            #     exploits = records_check2(fichier, 'kda', float(
+            #                                      round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1),2)), exploits)
+            # exploits = records_check2(fichier, 'kp', match_info.thisKP, exploits)
+            # exploits = records_check2(fichier, 'cs', match_info.thisMinion, exploits)
+            # exploits = records_check2(fichier, 'cs_min', match_info.thisMinionPerMin, exploits)
+            # exploits = records_check2(fichier, 'kills', match_info.thisKills, exploits)
+            # exploits = records_check2(fichier, 'deaths', match_info.thisDeaths, exploits)
+            # exploits = records_check2(fichier, 'assists', match_info.thisAssists, exploits)
+            # exploits = records_check2(fichier, 'double', match_info.thisDouble, exploits)
+            # exploits = records_check2(fichier, 'triple', match_info.thisTriple, exploits)
+            # exploits = records_check2(fichier, 'quadra', match_info.thisQuadra, exploits)
+            # exploits = records_check2(fichier, 'penta', match_info.thisPenta, exploits)
+            # exploits = records_check2(fichier, 'team_kills', match_info.thisTeamKills, exploits)
+            # exploits = records_check2(fichier, 'team_deaths', match_info.thisTeamKillsOp, exploits)
+            # exploits = records_check2(fichier, 'time', match_info.thisTime, exploits)
+            # exploits = records_check2(fichier, 'dmg', match_info.thisDamageNoFormat, exploits)
+            # exploits = records_check2(fichier, 'dmg_ad', match_info.thisDamageADNoFormat, exploits)
+            # exploits = records_check2(fichier, 'dmg_ap', match_info.thisDamageAPNoFormat, exploits)
+            # exploits = records_check2(fichier, 'dmg_true', match_info.thisDamageTrueNoFormat, exploits)
+            # exploits = records_check2(fichier, 'gold', match_info.thisGoldNoFormat, exploits)
+            # exploits = records_check2(fichier, 'gold_min', match_info.thisGoldPerMinute, exploits)
+            # exploits = records_check2(fichier, 'dmg_min', match_info.thisDamagePerMinute, exploits)
+            # exploits = records_check2(fichier, 'solokills', match_info.thisSoloKills, exploits)
+            # exploits = records_check2(fichier, 'dmg_reduit', match_info.thisDamageSelfMitigated, exploits)
+            # exploits = records_check2(fichier, 'heal_total', match_info.thisTotalHealed, exploits)
+            # exploits = records_check2(fichier, 'heal_allies', match_info.thisTotalOnTeammates, exploits)
+            # exploits = records_check2(fichier, 'serie_kills', match_info.thisKillingSprees, exploits)
+            # exploits = records_check2(fichier, 'cs_dix_min', match_info.thisCSafter10min, exploits)
+            # exploits = records_check2(fichier, 'cs_max_avantage', match_info.thisCSAdvantageOnLane, exploits)
+            # exploits = records_check2(fichier, 'temps_dead', match_info.thisTimeSpendDead, exploits)
+            # exploits = records_check2(fichier, 'damageratio', match_info.thisDamageRatio, exploits)
+            # exploits = records_check2(fichier, 'tankratio', match_info.thisDamageTakenRatio, exploits)
+            # exploits = records_check2(fichier, 'dmg_tank', match_info.thisDamageTakenNoFormat, exploits)
+            # exploits = records_check2(fichier, 'shield', match_info.thisTotalShielded, exploits)
+            # exploits = records_check2(fichier, 'allie_feeder', match_info.thisAllieFeeder, exploits)
+            
+            # if match_info.thisQ == 'RANKED':
+                # exploits = records_check2(fichier, 'vision_score', match_info.thisVision, exploits)
+                # exploits = records_check2(fichier, 'vision_wards', match_info.thisWards, exploits)
+                # exploits = records_check2(fichier, 'vision_wards_killed', match_info.thisWardsKilled, exploits)
+                # exploits = records_check2(fichier, 'vision_pink', match_info.thisPink, exploits)
+                # exploits = records_check2(fichier, 'vision_min', match_info.thisVisionPerMin, exploits)
+                # exploits = records_check2(fichier, 'level_max_avantage', match_info.thisLevelAdvantage, exploits)
+                # exploits = records_check2(fichier, 'vision_avantage', match_info.thisVisionAdvantage, exploits)
+                # exploits = records_check2(fichier, 'early_drake', match_info.earliestDrake, exploits)
+                # exploits = records_check2(fichier, 'early_baron', match_info.earliestBaron, exploits)
+                # exploits = records_check2(fichier, 'jgl_dix_min', match_info.thisJUNGLEafter10min, exploits)
+                # exploits = records_check2(fichier, 'baron', match_info.thisBaronTeam, exploits)
+                # exploits = records_check2(fichier, 'drake', match_info.thisDragonTeam, exploits)
+                # exploits = records_check2(fichier, 'herald', match_info.thisHeraldTeam, exploits)
+                # exploits = records_check2(fichier, 'cs_jungle', match_info.thisJungleMonsterKilled, exploits)
+            
+
 
             for key, value in records.items():
                 if int(match_info.thisDeaths) >= 1:
@@ -411,6 +509,7 @@ class LeagueofLegends(Extension):
         if (match_info.thisQ == "RANKED" and match_info.thisTime > 20 and succes is True) or\
             (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
  
+            exploits = records_check2(fichier, 'couronne', points, exploits)
             await match_info.add_couronnes(points)
 
         # Présence d'afk
@@ -439,91 +538,64 @@ class LeagueofLegends(Extension):
         else:
             serie_victoire = 0
 
-        # Structure : Stat / Nombre / Palier sous forme de liste numérique
-
-        if match_info.thisQ == 'ARAM':
-            dict_cumul = {"SOLOKILLS_ARAM": [match_info.thisSoloKills, np.arange(100, 1000, 100, int).tolist()],
-                          "NBGAMES_ARAM": [1, np.arange(50, 1000, 50, int).tolist()],
-                          "KILLS_ARAM": [match_info.thisKills, np.arange(500, 10000, 500, int).tolist()],
-                          "DEATHS_ARAM": [match_info.thisDeaths, np.arange(500, 10000, 500, int).tolist()],
-                          "ASSISTS_ARAM": [match_info.thisAssists, np.arange(500, 10000, 500, int).tolist()],
-                          "CS_ARAM": [match_info.thisMinion, np.arange(10000, 100000, 10000, int).tolist()],
-                          "DOUBLE_ARAM": [match_info.thisDouble, np.arange(5, 100, 5, int).tolist()],
-                          "TRIPLE_ARAM": [match_info.thisTriple, np.arange(5, 100, 5, int).tolist()],
-                          "QUADRA_ARAM": [match_info.thisQuadra, np.arange(5, 100, 5, int).tolist()],
-                          "PENTA_ARAM": [match_info.thisPenta, np.arange(5, 100, 5, int).tolist()]}
-
-        else:
-            dict_cumul = {"SOLOKILLS": [match_info.thisSoloKills, np.arange(100, 1000, 100, int).tolist()],
-                          "NBGAMES": [1, np.arange(50, 1000, 50, int).tolist()],
-                          "KILLS": [match_info.thisKills, np.arange(500, 10000, 500, int).tolist()],
-                          "DEATHS": [match_info.thisDeaths, np.arange(500, 10000, 500, int).tolist()],
-                          "ASSISTS": [match_info.thisAssists, np.arange(500, 10000, 500, int).tolist()],
-                          "WARDS_SCORE": [match_info.thisVision, np.arange(500, 10000, 500, int).tolist()],
-                          "WARDS_POSEES": [match_info.thisWards, np.arange(500, 10000, 500, int).tolist()],
-                          "WARDS_DETRUITES": [match_info.thisWardsKilled, np.arange(500, 10000, 500, int).tolist()],
-                          "WARDS_PINKS": [match_info.thisPink, np.arange(500, 10000, 500, int).tolist()],
-                          "CS": [match_info.thisMinion, np.arange(10000, 100000, 10000, int).tolist()],
-                          "QUADRA": [match_info.thisQuadra, np.arange(5, 100, 5, int).tolist()],
-                          "PENTA": [match_info.thisPenta, np.arange(5, 100, 5, int).tolist()]}
-
-        if match_info.thisQ == 'ARAM':
-            metrics_personnel = {"SOLOKILLS_ARAM": match_info.thisSoloKills, "DUREE_GAME_ARAM": match_info.thisTime, "KILLS_ARAM": match_info.thisKills,
-                                 "DEATHS_ARAM": match_info.thisDeaths, "ASSISTS_ARAM": match_info.thisAssists,
-                                 "CS_ARAM": match_info.thisMinion, "QUADRA_ARAM": match_info.thisQuadra, "PENTA_ARAM": match_info.thisPenta, "DAMAGE_RATIO_ARAM": match_info.thisDamageRatio,
-                                 "DAMAGE_RATIO_ENCAISSE_ARAM": match_info.thisDamageTakenRatio, "CS/MIN_ARAM": match_info.thisMinionPerMin,
-                                 "KP_ARAM": match_info.thisKP,
-                                 "DMG_TOTAL_ARAM": match_info.match_detail_participants['totalDamageDealtToChampions'],
-                                 "DOUBLE_ARAM": match_info.thisDouble, "TRIPLE_ARAM": match_info.thisTriple, "NB_COURONNE_1_GAME_ARAM": points, "SHIELD_ARAM": match_info.thisTotalShielded,
-                                 "ALLIE_FEEDER_ARAM": match_info.thisAllieFeeder}
-        else:
-            metrics_personnel = {"SOLOKILLS": match_info.thisSoloKills, "DUREE_GAME": match_info.thisTime, "KILLS": match_info.thisKills,
-                                 "DEATHS": match_info.thisDeaths, "ASSISTS": match_info.thisAssists, "WARDS_SCORE": match_info.thisVision,
-                                 "WARDS_POSEES": match_info.thisWards, "WARDS_DETRUITES": match_info.thisWardsKilled, "WARDS_PINKS": match_info.thisPink,
-                                 "CS": match_info.thisMinion, "QUADRA": match_info.thisQuadra, "PENTA": match_info.thisPenta, "DAMAGE_RATIO": match_info.thisDamageRatio,
-                                 "DAMAGE_RATIO_ENCAISSE": match_info.thisDamageTakenRatio, "CS/MIN": match_info.thisMinionPerMin, "AVANTAGE_VISION": match_info.thisVisionAdvantage,
-                                 "KP": match_info.thisKP, "CS_AVANTAGE": match_info.thisCSAdvantageOnLane, "CS_APRES_10_MIN": match_info.thisCSafter10min,
-                                 "DMG_TOTAL": match_info.match_detail_participants['totalDamageDealtToChampions'],
-                                 "ECART_LEVEL": match_info.thisLevelAdvantage, "VISION/MIN": match_info.thisVisionPerMin,
-                                 "DOUBLE": match_info.thisDouble, "TRIPLE": match_info.thisTriple, "SERIE_VICTOIRE": serie_victoire, "NB_COURONNE_1_GAME": points, "SHIELD": match_info.thisTotalShielded,
-                                 "ALLIE_FEEDER": match_info.thisAllieFeeder}
-
-        for key, value in dict_cumul.items():
-
-            old_value = int(
-                records_cumul[key][summonerName.lower().replace(" ", "")])
-            records_cumul[key][summonerName.lower().replace(" ", "")] = records_cumul[key][
-                summonerName.lower().replace(" ",
-                                             "")] + value[0]
-            new_value = int(
-                records_cumul[key][summonerName.lower().replace(" ", "")])
-
-            # les paliers
-            if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
-                for key2 in dict_cumul.keys():
-                    exploits = palier(exploits, key, key2,
-                                      old_value, new_value, value[1])
-
-        if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
-            sauvegarde_bdd(records_cumul, 'records_cumul')
-
-            # records personnels
-        for key, value in metrics_personnel.items():
-
-            if (succes is True and match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == 'ARAM' and match_info.thisTime > 10):
-                old_value = float(
-                    records_personnel[summonerName.lower().replace(" ", "")][key])
-
-                for stats in metrics_personnel.keys():
-                    if len(exploits2) < 900:  # on ne peut pas dépasser 1024 caractères par embed
-                        exploits2 = score_personnel(exploits2, key, summonerName, stats, float(
-                            old_value), float(value), url_game)
-                    elif len(exploits3) < 900:
-                        exploits3 = score_personnel(exploits3, key, summonerName, stats, float(
-                            old_value), float(value), url_game)
-                    elif len(exploits4) < 900:
-                        exploits4 = score_personnel(exploits4, key, summonerName, stats, float(
-                            old_value), float(value), url_game)
+        # Records perso
+      
+        # if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20) or (match_info.thisQ == 'ARAM' and match_info.thisTime > 10): 
+        #     if int(match_info.thisDeaths) >= 1:
+        #         exploits = score_personnel(fichier_joueur, 'kda', match_info.thisKDA, exploits)
+        #     else:
+        #         exploits = score_personnel(fichier_joueur, 'kda', float(
+        #                                          round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1),2)), exploits)
+        #     exploits = score_personnel(fichier_joueur, 'kp', match_info.thisKP, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'cs', match_info.thisMinion, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'cs_min', match_info.thisMinionPerMin, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'kills', match_info.thisKills, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'deaths', match_info.thisDeaths, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'assists', match_info.thisAssists, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'double', match_info.thisDouble, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'triple', match_info.thisTriple, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'quadra', match_info.thisQuadra, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'penta', match_info.thisPenta, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'team_kills', match_info.thisTeamKills, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'team_deaths', match_info.thisTeamKillsOp, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'time', match_info.thisTime, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'dmg', match_info.thisDamageNoFormat, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'dmg_ad', match_info.thisDamageADNoFormat, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'dmg_ap', match_info.thisDamageAPNoFormat, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'dmg_true', match_info.thisDamageTrueNoFormat, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'gold', match_info.thisGoldNoFormat, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'gold_min', match_info.thisGoldPerMinute, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'dmg_min', match_info.thisDamagePerMinute, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'solokills', match_info.thisSoloKills, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'dmg_reduit', match_info.thisDamageSelfMitigated, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'heal_total', match_info.thisTotalHealed, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'heal_allies', match_info.thisTotalOnTeammates, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'serie_kills', match_info.thisKillingSprees, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'cs_dix_min', match_info.thisCSafter10min, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'cs_max_avantage', match_info.thisCSAdvantageOnLane, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'temps_dead', match_info.thisTimeSpendDead, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'damageratio', match_info.thisDamageRatio, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'tankratio', match_info.thisDamageTakenRatio, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'dmg_tank', match_info.thisDamageTakenNoFormat, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'shield', match_info.thisTotalShielded, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'allie_feeder', match_info.thisAllieFeeder, exploits)
+        #     exploits = score_personnel(fichier_joueur, 'couronne', points, exploits)
+        
+            # if match_info.thisQ == 'RANKED':
+            #     exploits = score_personnel(fichier_joueur, 'level_max_avantage', match_info.thisLevelAdvantage, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'vision_avantage', match_info.thisVisionAdvantage, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'early_drake', match_info.earliestDrake, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'early_baron', match_info.earliestBaron, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'jgl_dix_min', match_info.thisJUNGLEafter10min, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'baron', match_info.thisBaronTeam, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'drake', match_info.thisDragonTeam, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'herald', match_info.thisHeraldTeam, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'vision_score', match_info.thisVision, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'vision_wards', match_info.thisWards, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'vision_wards_killed', match_info.thisWardsKilled, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'vision_pink', match_info.thisPink, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'vision_min', match_info.thisVisionPerMin, exploits)
+            #     exploits = score_personnel(fichier_joueur, 'cs_jungle', match_info.thisJungleMonsterKilled, exploits)
 
         # Achievements
         if match_info.thisQ == "RANKED" and match_info.thisTime > 20 and succes is True:
@@ -642,7 +714,7 @@ class LeagueofLegends(Extension):
         resume2 = interactions.File('resume.png')
         embed2.set_image(url='attachment://resume.png')
 
-        if match_info.sauvegarder:
+        if sauvegarder:
             embed.set_footer(
                 text=f'Version {Version} by Tomlora - Match {str(match_info.last_match)} - Sauvegardé')
         else:
@@ -709,14 +781,18 @@ class LeagueofLegends(Extension):
                                              Option(name="sauvegarder",
                                                     description="sauvegarder la game",
                                                     type=interactions.OptionType.BOOLEAN,
+                                                    required=False),
+                                             Option(name='identifiant_game',
+                                                    description="A ne pas utiliser",
+                                                    type=interactions.OptionType.STRING,
                                                     required=False)])
-    async def game(self, ctx: CommandContext, summonername: str, numerogame: int, succes: bool, sauvegarder: bool = True):
+    async def game(self, ctx: CommandContext, summonername: str, numerogame: int, succes: bool, sauvegarder: bool = True, identifiant_game = None):
 
         await ctx.defer(ephemeral=False)
 
         summonername = summonername.lower()
 
-        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, sauvegarder=sauvegarder)
+        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, sauvegarder=sauvegarder, identifiant_game=identifiant_game)
 
         if embed != {}:
             await ctx.send(embeds=embed, files=resume)

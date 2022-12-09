@@ -25,6 +25,18 @@ def date_du_jour():
     return f'{currentDay}/{currentMonth}/{currentYear}'
 
 
+def get_guildeid_by_name(guilde):
+    
+    get_data_bdd('''SELECT * from sw_guilde where guilde = :guilde''', dict_params={'guilde' : guilde})
+    
+    # on cherche l'id
+    stats = stats.mappings().all()[0]
+
+    guilde_id = stats['guilde_id']
+    
+    return guilde_id
+
+
 # Params
 category_selected = ['Violent', 'Will', 'Destroy', 'Despair']
 category_value = ", ".join(category_selected)
@@ -280,17 +292,14 @@ class SW(Extension):
         
         if isOwner_slash(ctx):
         
-            stats = get_data_bdd('''SELECT * from sw_guilde where guilde = :guilde''', dict_params={'guilde' : guilde})
-            
-            # on cherche l'id
-            
-            stats = stats.mappings().all()[0]
-
-            guilde_id = stats['guilde_id']
+            guilde_id = get_guildeid_by_name(guilde)
             
             size_general, avg_score_general, max_general, size_guilde, avg_score_guilde, max_guilde, df_max, df_guilde_max = await comparaison(guilde_id)
             
             await ctx.send(f'Moyenne de {guilde} : {avg_score_guilde} ({size_guilde}) joueurs')
+        
+        else:
+            await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
         
 
 def setup(bot):

@@ -79,9 +79,11 @@ def trouver_records(df, category, methode='max'):
 
     Parameters
     ----------
-    category : `string`
+    df : `dataframe`
+        df avec les records
+    category : `str`
         colonne où chercher le record
-    methode : str, optional
+    methode : `str`, optional
         min ou max ?, by default 'max'
 
     Returns
@@ -341,14 +343,14 @@ async def getId(summonerName, session):
 
 class matchlol():
 
-    def __init__(self, summonerName, idgames: int, queue: int = 0, index: int = 0, count: int = 20, sauvegarder: bool = False):
+    def __init__(self, summonerName, idgames: int, queue: int = 0, index: int = 0, count: int = 20, identifiant_game = None):
         self.summonerName = summonerName
         self.idgames = idgames
         self.queue = queue
         self.index = index
         self.count = count
-        self.sauvegarder = sauvegarder
         self.params_me = {'api_key': api_key_lol}
+        self.identifiant_game = identifiant_game
 
     async def get_data_riot(self):
 
@@ -361,9 +363,12 @@ class matchlol():
                 'queue': self.queue, 'start': self.index, 'count': self.count, 'api_key': api_key_lol}
 
         self.me = await get_summoner_by_name(self.session, self.summonerName)
-
-        self.my_matches = await get_list_matchs(self.session, self.me, self.params_my_match)
-        self.last_match = self.my_matches[self.idgames]  # match n° idgames
+        
+        if self.identifiant_game == None:
+            self.my_matches = await get_list_matchs(self.session, self.me, self.params_my_match)
+            self.last_match = self.my_matches[self.idgames]  # match n° idgames
+        else:
+            self.last_match = self.identifiant_game
         # detail du match sélectionné
         self.match_detail_stats = await get_match_detail(self.session, self.last_match, self.params_me)
 
@@ -948,9 +953,9 @@ class matchlol():
             self.thisLoose = '0'
             self.thisWinStreak = '0'
 
-        # TODO save la game
-        if self.sauvegarder:
-            requete_perso_bdd(f'''INSERT INTO public.matchs(
+    async def save_data(self):
+        
+        requete_perso_bdd(f'''INSERT INTO public.matchs(
         match_id, joueur, role, champion, kills, assists, deaths, double, triple, quadra, penta,
         victoire, team_kills, team_deaths, "time", dmg, dmg_ad, dmg_ap, dmg_true, vision_score, cs, cs_jungle, vision_pink, vision_wards, vision_wards_killed,
         gold, spell1, spell2, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,

@@ -1,49 +1,14 @@
 import numpy as np
 import pandas as pd
-import asyncio
-
-import plotly.express as px
-import plotly.graph_objects as go
-import os
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
-
 import interactions
 from interactions import Choice, Option, Extension, CommandContext
 from interactions.ext.paginator import Page, Paginator
 from fonctions.params import Version
+from fonctions.match import trouver_records
 
 
-def trouver_records(df, category, methode='max'):
-    """
-    Trouve la ligne avec le record associé
 
-    Parameters
-    ----------
-    category : `string`
-        colonne où chercher le record
-    methode : str, optional
-        min ou max ?, by default 'max'
-
-    Returns
-    -------
-    joueur, champion, record, url
-    """
-    df[category] = pd.to_numeric(df[category])
-
-    try:
-        if methode == 'max':
-            col = df[category].idxmax(skipna=True)
-        elif methode == 'min':
-            col = df[category].idxmin(skipna=True)
-        lig = df.loc[col]
-        joueur = lig['joueur']
-        champion = lig['champion']
-        record = lig[category]
-        url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(lig["match_id"])[5:]}#participant{int(lig["id_participant"])+1}'
-    except:
-        return 0, 0, 0, 0
-
-    return joueur, champion, record, url_game
 
 
 def option_stats_records(name, params, description='type de recherche'):
