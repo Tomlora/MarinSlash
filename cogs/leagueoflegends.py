@@ -39,16 +39,20 @@ def records_check2(fichier, category, result_category_match, embed, methode='max
     methode = min/max                                                                                                                                        'mode': mode}).transpose()
     ''' 
     
-    joueur, champion, record, url = trouver_records(fichier, category, methode)
-    
-    if methode == 'max':
-        if float(record) < float(result_category_match):
-            embed = embed + \
-                        f"\n ** :boom: Record {category} battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+    if fichier.shape[0] > 0: # s'il y a des données, sinon first record
+        joueur, champion, record, url = trouver_records(fichier, category, methode)
+        
+        if methode == 'max':
+            if float(record) < float(result_category_match):
+                embed = embed + \
+                            f"\n ** :boom: Record {category} battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+        else:
+            if float(record) > float(result_category_match):
+                embed = embed + \
+                            f"\n ** :boom: Record {category} battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
     else:
-        if float(record) > float(result_category_match):
-            embed = embed + \
-                        f"\n ** :boom: Record {category} battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+        embed = embed + \
+                            f"\n ** :boom: Premier Record {category} avec {result_category_match} **"
                     
     return embed
 
@@ -58,16 +62,20 @@ def score_personnel(fichier_joueur, category, result_category_match, embed, meth
     methode = min/max                                                                                                                                        'mode': mode}).transpose()
     ''' 
     
-    joueur, champion, record, url = trouver_records(fichier_joueur, category, methode)
-    
-    if methode == 'max':
-        if float(record) < float(result_category_match):
-            embed = embed + \
-                f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record})"
+    if fichier_joueur.shape[0] > 0: # s'il y a des données, sinon first record
+        joueur, champion, record, url = trouver_records(fichier_joueur, category, methode)
+        
+        if methode == 'max':
+            if float(record) < float(result_category_match):
+                embed = embed + \
+                    f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record})"
+        else:
+            if float(record) > float(result_category_match):
+                embed = embed + \
+                    f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record})"
     else:
-        if float(record) > float(result_category_match):
-            embed = embed + \
-                f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record})"
+        embed = embed + \
+                            f"\n ** :military_medal: Premier Record personnel {category} avec {result_category_match} **"
                     
     return embed
  
