@@ -73,6 +73,37 @@ dict_points = {41: [11, -19],
                58: [28, -12],
                59: [29, -11]}
 
+def trouver_records(df, category, methode='max'):
+    """
+    Trouve la ligne avec le record associé
+
+    Parameters
+    ----------
+    category : `string`
+        colonne où chercher le record
+    methode : str, optional
+        min ou max ?, by default 'max'
+
+    Returns
+    -------
+    joueur, champion, record, url
+    """
+    df[category] = pd.to_numeric(df[category])
+
+    try:
+        if methode == 'max':
+            col = df[category].idxmax(skipna=True)
+        elif methode == 'min':
+            col = df[category].idxmin(skipna=True)
+        lig = df.loc[col]
+        joueur = lig['joueur']
+        champion = lig['champion']
+        record = lig[category]
+        url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(lig["match_id"])[5:]}#participant{int(lig["id_participant"])+1}'
+    except:
+        return 'inconnu', 'inconnu', 0, '#'
+
+    return joueur, champion, record, url_game
 
 def get_key(my_dict, val):
     for key, value in my_dict.items():
