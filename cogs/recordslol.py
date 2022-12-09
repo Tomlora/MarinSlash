@@ -561,8 +561,12 @@ class Recordslol(Extension):
                 
         fichier1 = fichier.columns[3:22].drop(['champion', 'victoire'])
         fichier2 = fichier.columns[22:45].drop(['team'])
-        fichier3 = fichier.columns[45:].drop(['afk', 'season', 'date', 'mode', 'rank', 'tier',
+        fichier3 = fichier.columns[45:].drop(['afk', 'season', 'date', 'mode', 'rank', 'tier', 'kda', 'kp', 'damageratio',
                                              'lp', 'id_participant', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6'])
+        
+        # on rajoute quelques éléments sur d'autres pages...
+        
+        fichier1 = np.append(fichier1, ['kda', 'kp', 'damageratio'])
         
         if mode == 'ARAM': # on vire les records qui ne doivent pas être comptés en aram
             
