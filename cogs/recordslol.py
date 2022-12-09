@@ -567,10 +567,12 @@ class Recordslol(Extension):
         # on rajoute quelques éléments sur d'autres pages...
         
         fichier1 = np.append(fichier1, ['kda', 'kp', 'damageratio'])
+        fichier1 = fichier.tolist()
         
         if mode == 'ARAM': # on vire les records qui ne doivent pas être comptés en aram
             
-            fichier1 = fichier1.drop(['cs_jungle', 'vision_score'])
+            fichier1.remove('cs_jungle')
+            fichier1.remove('vision_score')
             fichier2 = fichier2.drop(['vision_pink', 'vision_wards', 'vision_wards_killed',
                                       'jgl_dix_min', 'baron', 'drake', 'herald', 'vision_min', 'level_max_avantage'])
             fichier3 = fichier3.drop(['vision_avantage', 'early_drake', 'early_baron'])
