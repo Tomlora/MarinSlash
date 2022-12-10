@@ -33,11 +33,13 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
 
-def records_check2(fichier, category, result_category_match, embed, methode='max'):
-    '''TODO : fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': saison,
-    methode = min/max                                                                                                                                        'mode': mode}).transpose()
+def records_check2(fichier, fichier_joueur, category, result_category_match, embed, methode='max'):
+    '''Cherche s'il y a un record :
+    - Dans un premier temps, parmi tous les joueurs.
+    - Dans un second temps, parmi les stats du joueur.                                                                                                                                 
     '''
 
+    # Record sur tous les joueurs
     if fichier.shape[0] > 0:  # s'il y a des données, sinon first record
         joueur, champion, record, url = trouver_records(
             fichier, category, methode)
@@ -54,27 +56,19 @@ def records_check2(fichier, category, result_category_match, embed, methode='max
         embed = embed + \
             f"\n ** :boom: Premier Record {category} avec {result_category_match} **"
 
-    return embed
-
-
-def score_personnel(fichier_joueur, category, result_category_match, embed, methode='max'):
-    '''TODO : fichier_joueur = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s and joueur = %(joueur)s', index_col='id', params={'saison': saison,
-                                                                                                                                                            'joueur' : joueur,
-    methode = min/max                                                                                                                                        'mode': mode}).transpose()
-    '''
-
+    # Record sur ses stats
     if fichier_joueur.shape[0] > 0:  # s'il y a des données, sinon first record
-        joueur, champion, record, url = trouver_records(
+        joueur_perso, champion_perso, record_perso, url = trouver_records(
             fichier_joueur, category, methode)
 
         if methode == 'max':
-            if float(record) < float(result_category_match):
+            if float(record_perso) < float(result_category_match):
                 embed = embed + \
-                    f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record})"
+                    f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record_perso})"
         else:
-            if float(record) > float(result_category_match):
+            if float(record_perso) > float(result_category_match):
                 embed = embed + \
-                    f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record})"
+                    f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record_perso})"
     else:
         embed = embed + \
             f"\n ** :military_medal: Premier Record personnel {category} avec {result_category_match} **"
@@ -110,7 +104,6 @@ def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampNa
                     f"\n ** :boom: Record {str(key).lower()} battu avec {Score_check} ** (Ancien : {ancien_score} par {detenteur_ancien_score})"
 
     return embed
-
 
 
 class LeagueofLegends(Extension):
@@ -154,9 +147,6 @@ class LeagueofLegends(Extension):
         url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(match_info.last_match)[5:]}#participant{int(match_info.thisId)+1}'
 
         exploits = "Observations :"
-        exploits2 = " "
-        exploits3 = " "
-        exploits4 = " "
 
         # Suivi
 
@@ -185,6 +175,7 @@ class LeagueofLegends(Extension):
             suivi[summonerName.lower().replace(
                 " ", "")]['LP'] = match_info.thisLP
 
+        # on ne prend que les ranked > 20 min ou aram > 10 min
         if (match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
 
             records = lire_bdd_perso('SELECT index, "Score", "Champion", "Joueur", url from records where saison= %(saison)s and mode=%(mode)s', params={'saison': match_info.season,
@@ -192,60 +183,60 @@ class LeagueofLegends(Extension):
             records = records.to_dict()
 
             # nouveau système de records
-            # if int(match_info.thisDeaths) >= 1:
-            #     exploits = records_check2(fichier, 'kda', match_info.thisKDA, exploits)
+            # if int(match_info.thisDeaths) >= 1: # on ne peut pas comparer à un perfect kda
+            #     exploits = records_check2(fichier, fichier_joueur, 'kda', match_info.thisKDA, exploits)
             # else:
-            #     exploits = records_check2(fichier, 'kda', float(
+            #     exploits = records_check2(fichier, fichier_joueur, 'kda', float(
             #                                      round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1),2)), exploits)
-            # exploits = records_check2(fichier, 'kp', match_info.thisKP, exploits)
-            # exploits = records_check2(fichier, 'cs', match_info.thisMinion, exploits)
-            # exploits = records_check2(fichier, 'cs_min', match_info.thisMinionPerMin, exploits)
-            # exploits = records_check2(fichier, 'kills', match_info.thisKills, exploits)
-            # exploits = records_check2(fichier, 'deaths', match_info.thisDeaths, exploits)
-            # exploits = records_check2(fichier, 'assists', match_info.thisAssists, exploits)
-            # exploits = records_check2(fichier, 'double', match_info.thisDouble, exploits)
-            # exploits = records_check2(fichier, 'triple', match_info.thisTriple, exploits)
-            # exploits = records_check2(fichier, 'quadra', match_info.thisQuadra, exploits)
-            # exploits = records_check2(fichier, 'penta', match_info.thisPenta, exploits)
-            # exploits = records_check2(fichier, 'team_kills', match_info.thisTeamKills, exploits)
-            # exploits = records_check2(fichier, 'team_deaths', match_info.thisTeamKillsOp, exploits)
-            # exploits = records_check2(fichier, 'time', match_info.thisTime, exploits)
-            # exploits = records_check2(fichier, 'dmg', match_info.thisDamageNoFormat, exploits)
-            # exploits = records_check2(fichier, 'dmg_ad', match_info.thisDamageADNoFormat, exploits)
-            # exploits = records_check2(fichier, 'dmg_ap', match_info.thisDamageAPNoFormat, exploits)
-            # exploits = records_check2(fichier, 'dmg_true', match_info.thisDamageTrueNoFormat, exploits)
-            # exploits = records_check2(fichier, 'gold', match_info.thisGoldNoFormat, exploits)
-            # exploits = records_check2(fichier, 'gold_min', match_info.thisGoldPerMinute, exploits)
-            # exploits = records_check2(fichier, 'dmg_min', match_info.thisDamagePerMinute, exploits)
-            # exploits = records_check2(fichier, 'solokills', match_info.thisSoloKills, exploits)
-            # exploits = records_check2(fichier, 'dmg_reduit', match_info.thisDamageSelfMitigated, exploits)
-            # exploits = records_check2(fichier, 'heal_total', match_info.thisTotalHealed, exploits)
-            # exploits = records_check2(fichier, 'heal_allies', match_info.thisTotalOnTeammates, exploits)
-            # exploits = records_check2(fichier, 'serie_kills', match_info.thisKillingSprees, exploits)
-            # exploits = records_check2(fichier, 'cs_dix_min', match_info.thisCSafter10min, exploits)
-            # exploits = records_check2(fichier, 'cs_max_avantage', match_info.thisCSAdvantageOnLane, exploits)
-            # exploits = records_check2(fichier, 'temps_dead', match_info.thisTimeSpendDead, exploits)
-            # exploits = records_check2(fichier, 'damageratio', match_info.thisDamageRatio, exploits)
-            # exploits = records_check2(fichier, 'tankratio', match_info.thisDamageTakenRatio, exploits)
-            # exploits = records_check2(fichier, 'dmg_tank', match_info.thisDamageTakenNoFormat, exploits)
-            # exploits = records_check2(fichier, 'shield', match_info.thisTotalShielded, exploits)
-            # exploits = records_check2(fichier, 'allie_feeder', match_info.thisAllieFeeder, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'kp', match_info.thisKP, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'cs', match_info.thisMinion, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'cs_min', match_info.thisMinionPerMin, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'kills', match_info.thisKills, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'deaths', match_info.thisDeaths, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'assists', match_info.thisAssists, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'double', match_info.thisDouble, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'triple', match_info.thisTriple, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'quadra', match_info.thisQuadra, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'penta', match_info.thisPenta, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'team_kills', match_info.thisTeamKills, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'team_deaths', match_info.thisTeamKillsOp, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'time', match_info.thisTime, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'dmg', match_info.thisDamageNoFormat, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'dmg_ad', match_info.thisDamageADNoFormat, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'dmg_ap', match_info.thisDamageAPNoFormat, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'dmg_true', match_info.thisDamageTrueNoFormat, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'gold', match_info.thisGoldNoFormat, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'gold_min', match_info.thisGoldPerMinute, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'dmg_min', match_info.thisDamagePerMinute, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'solokills', match_info.thisSoloKills, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'dmg_reduit', match_info.thisDamageSelfMitigated, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'heal_total', match_info.thisTotalHealed, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'heal_allies', match_info.thisTotalOnTeammates, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'serie_kills', match_info.thisKillingSprees, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'cs_dix_min', match_info.thisCSafter10min, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'cs_max_avantage', match_info.thisCSAdvantageOnLane, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'temps_dead', match_info.thisTimeSpendDead, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'damageratio', match_info.thisDamageRatio, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'tankratio', match_info.thisDamageTakenRatio, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'dmg_tank', match_info.thisDamageTakenNoFormat, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'shield', match_info.thisTotalShielded, exploits)
+            # exploits = records_check2(fichier, fichier_joueur, 'allie_feeder', match_info.thisAllieFeeder, exploits)
 
-            # if match_info.thisQ == 'RANKED':
-            # exploits = records_check2(fichier, 'vision_score', match_info.thisVision, exploits)
-            # exploits = records_check2(fichier, 'vision_wards', match_info.thisWards, exploits)
-            # exploits = records_check2(fichier, 'vision_wards_killed', match_info.thisWardsKilled, exploits)
-            # exploits = records_check2(fichier, 'vision_pink', match_info.thisPink, exploits)
-            # exploits = records_check2(fichier, 'vision_min', match_info.thisVisionPerMin, exploits)
-            # exploits = records_check2(fichier, 'level_max_avantage', match_info.thisLevelAdvantage, exploits)
-            # exploits = records_check2(fichier, 'vision_avantage', match_info.thisVisionAdvantage, exploits)
-            # exploits = records_check2(fichier, 'early_drake', match_info.earliestDrake, exploits)
-            # exploits = records_check2(fichier, 'early_baron', match_info.earliestBaron, exploits)
-            # exploits = records_check2(fichier, 'jgl_dix_min', match_info.thisJUNGLEafter10min, exploits)
-            # exploits = records_check2(fichier, 'baron', match_info.thisBaronTeam, exploits)
-            # exploits = records_check2(fichier, 'drake', match_info.thisDragonTeam, exploits)
-            # exploits = records_check2(fichier, 'herald', match_info.thisHeraldTeam, exploits)
-            # exploits = records_check2(fichier, 'cs_jungle', match_info.thisJungleMonsterKilled, exploits)
+            # if match_info.thisQ == 'RANKED': # seulement en ranked
+            #     exploits = records_check2(fichier, fichier_joueur, 'vision_score', match_info.thisVision, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'vision_wards', match_info.thisWards, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'vision_wards_killed', match_info.thisWardsKilled, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'vision_pink', match_info.thisPink, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'vision_min', match_info.thisVisionPerMin, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'level_max_avantage', match_info.thisLevelAdvantage, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'vision_avantage', match_info.thisVisionAdvantage, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'early_drake', match_info.earliestDrake, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'early_baron', match_info.earliestBaron, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'jgl_dix_min', match_info.thisJUNGLEafter10min, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'baron', match_info.thisBaronTeam, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'drake', match_info.thisDragonTeam, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'herald', match_info.thisHeraldTeam, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, 'cs_jungle', match_info.thisJungleMonsterKilled, exploits)
 
             for key, value in records.items():
                 if int(match_info.thisDeaths) >= 1:
@@ -403,9 +394,6 @@ class LeagueofLegends(Extension):
 
         settings = settings.to_dict()
 
-        records_cumul = lire_bdd('records_cumul', 'dict')
-        records_personnel = lire_bdd('records_personnel', 'dict')
-
         if match_info.thisQ == 'RANKED':
             if int(match_info.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
                 exploits = exploits + \
@@ -501,7 +489,8 @@ class LeagueofLegends(Extension):
         if (match_info.thisQ == "RANKED" and match_info.thisTime > 20 and succes is True) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
 
-            exploits = records_check2(fichier, 'couronne', points, exploits)
+            exploits = records_check2(
+                fichier, fichier_joueur, 'couronne', points, exploits)
             await match_info.add_couronnes(points)
 
         # Présence d'afk
@@ -529,6 +518,8 @@ class LeagueofLegends(Extension):
             serie_victoire = 0
         else:
             serie_victoire = 0
+
+        # TODO : records personnel
 
         # Achievements
         # TODO : à supprimer dès s13
@@ -581,18 +572,6 @@ class LeagueofLegends(Extension):
                 embed.add_field(
                     name="Records 5",
                     value=exploits[4095:])
-
-        if len(exploits2) > 5:  # si plus de 15 lettres, alors il y a un exploit personnel
-            embed.add_field(name="Statistiques personnelles : ",
-                            value=exploits2, inline=False)
-
-        if len(exploits3) > 5:  # si plus de 15 lettres, alors il y a un exploit personnel
-            embed.add_field(name="Statistiques personnelles Part2: ",
-                            value=exploits3, inline=False)
-
-        if len(exploits4) > 5:  # si plus de 15 lettres, alors il y a un exploit personnel
-            embed.add_field(name="Statistiques personnelles Part3: ",
-                            value=exploits4, inline=False)
 
         # # Objectifs
         if match_info.thisQ != "ARAM":
@@ -1013,9 +992,8 @@ class LeagueofLegends(Extension):
 
                     if sql != '':  # si vide, pas de requête
                         requete_perso_bdd(sql)
-                        
-                        
-                    if totalgames > 0: # s'il n'y a pas de game, on ne va pas afficher le récap
+
+                    if totalgames > 0:  # s'il n'y a pas de game, on ne va pas afficher le récap
                         await channel_tracklol.send(embeds=embed)
                         await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
 
