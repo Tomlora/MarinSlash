@@ -132,12 +132,13 @@ class Achievements_scoringlol(Extension):
 
     @interactions.extension_command(name="achievements_regles",
                                     description="Conditions pour débloquer des couronnes",
-                                    options=[Option(
-                                        name='mode',
-                                        description='mode de jeu',
-                                        type=interactions.OptionType.STRING,
-                                        required=True,
-                                        choices=mode_de_jeu)])
+                                    options=[
+                                        Option(
+                                            name='mode',
+                                            description='mode de jeu',
+                                            type=interactions.OptionType.STRING,
+                                            required=True,
+                                            choices=mode_de_jeu)])
     async def achievements_regles(self,
                                   ctx: CommandContext,
                                   mode: str):
@@ -184,19 +185,20 @@ class Achievements_scoringlol(Extension):
 
     @interactions.extension_command(name="achievements_v2",
                                     description="Voir le nombre records détenues par les joueurs",
-                                    options=[Option(
-                                        name="mode",
-                                        description="Quel mode de jeu ?",
-                                        type=interactions.OptionType.STRING,
-                                        required=True, choices=[
-                                            Choice(name='ranked',
-                                                   value='RANKED'),
-                                            Choice(name='aram', value='ARAM')]),
+                                    options=[
                                         Option(
-                                        name='saison',
-                                        description='saison league of legends',
-                                        type=interactions.OptionType.INTEGER,
-                                        required=False)
+                                            name="mode",
+                                            description="Quel mode de jeu ?",
+                                            type=interactions.OptionType.STRING,
+                                            required=True, choices=[
+                                                Choice(name='ranked',
+                                                       value='RANKED'),
+                                                Choice(name='aram', value='ARAM')]),
+                                        Option(
+                                            name='saison',
+                                            description='saison league of legends',
+                                            type=interactions.OptionType.INTEGER,
+                                            required=False)
                                     ])
     async def achievements2(self,
                             ctx: CommandContext,

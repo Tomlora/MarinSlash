@@ -26,14 +26,15 @@ def date_du_jour():
 
 
 def get_guildeid_by_name(guilde):
-    
-    get_data_bdd('''SELECT * from sw_guilde where guilde = :guilde''', dict_params={'guilde' : guilde})
-    
+
+    get_data_bdd('''SELECT * from sw_guilde where guilde = :guilde''',
+                 dict_params={'guilde': guilde})
+
     # on cherche l'id
     stats = stats.mappings().all()[0]
 
     guilde_id = stats['guilde_id']
-    
+
     return guilde_id
 
 
@@ -62,30 +63,32 @@ class SW(Extension):
 
     @interactions.extension_command(name="analyse_sw",
                                     description="Summoners Wars",
-                                    options=[Option(
-                                        name='scoring',
-                                        description='Quel type de scoring ?',
-                                        type=interactions.OptionType.STRING,
-                                        required=False,
-                                        choices=[
-                                            Choice(name='general',
-                                                   value='general'),
-                                            Choice(name='artefact',
-                                                   value='artefact'),
-                                            Choice(name='speed', value='speed')
-                                        ]
-                                    ),
+                                    options=[
                                         Option(
-                                        name="id_msg",
-                                        description="Quel mode de jeu ?",
-                                        type=interactions.OptionType.STRING,  # int pas assez grand pour discord
-                                        required=False),
+                                            name='scoring',
+                                            description='Quel type de scoring ?',
+                                            type=interactions.OptionType.STRING,
+                                            required=False,
+                                            choices=[
+                                                Choice(name='general',
+                                                       value='general'),
+                                                Choice(name='artefact',
+                                                       value='artefact'),
+                                                Choice(name='speed',
+                                                       value='speed')
+                                            ]
+                                        ),
                                         Option(
-                                        name='fichier_json',
-                                        description='Fichier json',
-                                        type=interactions.OptionType.ATTACHMENT,
-                                        required=False
-                                    )])
+                                            name="id_msg",
+                                            description="Quel mode de jeu ?",
+                                            type=interactions.OptionType.STRING,  # int pas assez grand pour discord
+                                            required=False),
+                                        Option(
+                                            name='fichier_json',
+                                            description='Fichier json',
+                                            type=interactions.OptionType.ATTACHMENT,
+                                            required=False
+                                        )])
     async def analyse_sw(self,
                          ctx: CommandContext,
                          scoring: str = 'general',
@@ -217,42 +220,44 @@ class SW(Extension):
 
     @interactions.extension_command(name="sw_gvo",
                                     description="prepare la gvo",
-                                    options=[Option(
-                                        name='guilde',
-                                        description='nom de la guilde',
-                                        type=interactions.OptionType.STRING,
-                                        required=True),
+                                    options=[
                                         Option(
-                                        name='color',
-                                        description='quelle couleur',
-                                        type=interactions.OptionType.STRING,
-                                        required=True,
-                                        choices=[
-                                            Choice(
-                                                name='rouge', value='rouge'),
-                                            Choice(
-                                                name='jaune', value='jaune')
-                                        ]
-                                    )])
+                                            name='guilde',
+                                            description='nom de la guilde',
+                                            type=interactions.OptionType.STRING,
+                                            required=True),
+                                        Option(
+                                            name='color',
+                                            description='quelle couleur',
+                                            type=interactions.OptionType.STRING,
+                                            required=True,
+                                            choices=[
+                                                Choice(
+                                                    name='rouge', value='rouge'),
+                                                Choice(
+                                                    name='jaune', value='jaune')
+                                            ]
+                                        )])
     async def test_channel(self,
                            ctx: CommandContext,
                            guilde: str,
                            color: str):
         if isOwner_slash(ctx):
-            permission = [interactions.Overwrite(
-                id=int(ctx.author.id),
-                type=1,  # user
-                allow=interactions.Permissions.VIEW_CHANNEL | interactions.Permissions.SEND_MESSAGES | interactions.Permissions.ATTACH_FILES),
+            permission = [
                 interactions.Overwrite(
-                # le rôle everyone a le même id que le serveur
-                id=int(ctx.guild_id),
-                type=0,  # role
-                deny=interactions.Permissions.VIEW_CHANNEL),
+                    id=int(ctx.author.id),
+                    type=1,  # user
+                    allow=interactions.Permissions.VIEW_CHANNEL | interactions.Permissions.SEND_MESSAGES | interactions.Permissions.ATTACH_FILES),
+                interactions.Overwrite(
+                    # le rôle everyone a le même id que le serveur
+                    id=int(ctx.guild_id),
+                    type=0,  # role
+                    deny=interactions.Permissions.VIEW_CHANNEL),
                 # rôle autorisé à participer au channel
                 interactions.Overwrite(
-                id=773517279328993290,
-                type=0,  # role
-                allow=interactions.Permissions.VIEW_CHANNEL | interactions.Permissions.SEND_MESSAGES | interactions.Permissions.ATTACH_FILES)]
+                    id=773517279328993290,
+                    type=0,  # role
+                    allow=interactions.Permissions.VIEW_CHANNEL | interactions.Permissions.SEND_MESSAGES | interactions.Permissions.ATTACH_FILES)]
 
             if color == 'rouge':
                 color_guilde = '🔴'
@@ -278,39 +283,41 @@ class SW(Extension):
 
     @interactions.extension_command(name="score_guilde",
                                     description="Moyenne de la guilde",
-                                    options=[Option(
-                                        name='guilde',
-                                        description='Nom de la guilde',
-                                        type=interactions.OptionType.STRING,
-                                        required=True,
-                                    ),
+                                    options=[
                                         Option(
-                                        name="methode",
-                                        description="Methode de calcul",
-                                        type=interactions.OptionType.STRING,  # int pas assez grand pour discord
-                                        required=False,
-                                        choices=[
-                                            Choice(name='moyenne', value='avg')
-                                        ])
+                                            name='guilde',
+                                            description='Nom de la guilde',
+                                            type=interactions.OptionType.STRING,
+                                            required=True,
+                                        ),
+                                        Option(
+                                            name="methode",
+                                            description="Methode de calcul",
+                                            type=interactions.OptionType.STRING,  # int pas assez grand pour discord
+                                            required=False,
+                                            choices=[
+                                                Choice(name='moyenne',
+                                                       value='avg')
+                                            ])
                                     ])
     async def score_guilde(self,
                            ctx: CommandContext,
-                           guilde:str,
-                           methode:str):
-        
+                           guilde: str,
+                           methode: str):
+
         await ctx.defer(ephemeral=False)
-        
+
         if isOwner_slash(ctx):
-        
+
             guilde_id = get_guildeid_by_name(guilde)
-            
+
             size_general, avg_score_general, max_general, size_guilde, avg_score_guilde, max_guilde, df_max, df_guilde_max = await comparaison(guilde_id)
-            
+
             await ctx.send(f'Moyenne de {guilde} : {avg_score_guilde} ({size_guilde}) joueurs')
-        
+
         else:
             await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
-        
+
 
 def setup(bot):
     SW(bot)

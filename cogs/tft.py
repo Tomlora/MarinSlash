@@ -120,23 +120,23 @@ class tft(Extension):
         # Classement
 
         classement = stats_joueur['placement']
-        
-        ## on sauvegarde si ranked
+
+        # on sauvegarde si ranked
 
         if thisQ == 'RANKED':
-        
+
             requete_perso_bdd(f'''UPDATE suivitft
                             SET top{classement} = top{classement} + 1 WHERE index = '{summonername.lower()}' ''')
-        
+
         # Stats
 
         last_round = stats_joueur['last_round']
         level = stats_joueur['level']
         gold_restants = stats_joueur['gold_left']
         dmg_total = stats_joueur['total_damage_to_players']
-        
+
         # Calcul last round
-        
+
         if last_round < 12:
             first = 2
             second = last_round - 4
@@ -155,7 +155,7 @@ class tft(Extension):
         elif last_round < 46:
             first = 7
             second = last_round - 39
-            
+
         last_round = f'{first}-{second}'
 
         # Stats
@@ -212,41 +212,39 @@ class tft(Extension):
             elif dict_rankid[classement_old] < dict_rankid[classement_new]:
                 difLP = 100 - lp + int(suivi_profil[summonername]['LP'])
                 difLP = "Promotion :arrow_up: / +" + str(difLP)
-            
-            requete_perso_bdd('''UPDATE suivitft
-                              SET tier = :tier, rank = :rank, "LP" = :lp WHERE index = :summonername''', {'tier' : tier,
-                                                                                                        'rank' : rank,
-                                                                                                        'lp' : lp,
-                                                                                                        'summonername' : summonername})
 
+            requete_perso_bdd('''UPDATE suivitft
+                              SET tier = :tier, rank = :rank, "LP" = :lp WHERE index = :summonername''', {'tier': tier,
+                                                                                                          'rank': rank,
+                                                                                                          'lp': lp,
+                                                                                                          'summonername': summonername})
 
         # Embed
-        
+
         data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {
                             'index': summonername})
         data = data.fetchall()
         color = rgb_to_discord(data[0][0], data[0][1], data[0][2])
 
-
-        emote_classement = {1 : ':one:',
-                            2 : ':two:',
-                            3 : ':three:',
-                            4 : ':four:',
-                            5 : ':five:',
-                            6 : ':six:',
-                            7 : ':seven:',
-                            8 : ':eight:'}
+        emote_classement = {1: ':one:',
+                            2: ':two:',
+                            3: ':three:',
+                            4: ':four:',
+                            5: ':five:',
+                            6: ':six:',
+                            7: ':seven:',
+                            8: ':eight:'}
 
         embed = interactions.Embed(
             title=f"** {summonername.upper()} ** vient de finir ** {emote_classement[classement]}ème ** sur tft (R : {last_round})", color=color)
 
         embed.add_field(name="Durée de la game :",
                         value=f'{thisTime} minutes')
-        
-                # Stats
+
+        # Stats
         if ranked:
             embed.add_field(name=f'Current rank : {tier} {rank} | {lp}LP ({difLP})',
-                            value=f'Winrate : **{wr}%** \n' + 
+                            value=f'Winrate : **{wr}%** \n' +
                             f'Top 1 : **{suivi_profil[summonername][f"top1"]}** | Top 2 : **{suivi_profil[summonername][f"top2"]}** | \
                             Top 3 : **{suivi_profil[summonername][f"top3"]}**  | Top 4 : **{suivi_profil[summonername][f"top4"]}**\n' +
                             f'Top 5 : **{suivi_profil[summonername][f"top5"]}** | Top 6 : **{suivi_profil[summonername][f"top6"]}** | \
@@ -273,11 +271,11 @@ class tft(Extension):
             embed.add_field(
                 name=name, value=f"Tier: {tier_current} / {tier_total} \nNombre d'unités: {nb_units}", inline=True)
 
-        dic_rarity = {0 : "1",
-                      1 : "2",
-                      2:"3",
-                      4:"4",
-                      6:"5"}
+        dic_rarity = {0: "1",
+                      1: "2",
+                      2: "3",
+                      4: "4",
+                      6: "5"}
 
         # pareil ici
 
@@ -293,7 +291,7 @@ class tft(Extension):
             embed.add_field(name=f'{monster_name} ({dic_rarity[rarity]}:moneybag:)',
                             value=f':star: : {monster_tier}', inline=inline)
             inline = True
-            
+
         embed.add_field(name="Stats :bar_chart: : ", value=f':money_with_wings: : **{gold_restants}** \n\
                         Level : **{level}** \n\
                         Dégats infligés : **{dmg_total}**', inline=False)
@@ -305,24 +303,28 @@ class tft(Extension):
 
     @interactions.extension_command(name="gametft",
                                     description="Recap tft",
-                                    options=[Option(name="summonername",
+                                    options=[
+                                        Option(name="summonername",
                                                     description="Nom du joueur",
                                                     type=interactions.OptionType.STRING,
                                                     required=True),
-                                             Option(name="idgames",
+                                        Option(name="idgames",
                                                     description="numero de la game",
                                                     type=interactions.OptionType.INTEGER,
                                                     required=False,
                                                     min_value=0,
                                                     max_value=10)])
-    async def gametft(self, ctx: CommandContext, summonername, idgames: int = 0):
+    async def gametft(self,
+                      ctx: CommandContext,
+                      summonername,
+                      idgames: int = 0):
 
         await ctx.defer(ephemeral=False)
 
         session = aiohttp.ClientSession()
 
         embed = await self.stats_tft(summonername, session, idgames)
-        
+
         await session.close()
 
         await ctx.send(embeds=embed)
@@ -363,12 +365,15 @@ class tft(Extension):
 
     @interactions.extension_command(name="tftadd",
                                     description="Ajoute le joueur au suivi",
-                                    options=[Option(
-                                        name="summonername",
-                                        description="Nom du joueur",
-                                        type=interactions.OptionType.STRING,
-                                        required=True)])
-    async def tftadd(self, ctx: CommandContext, *, summonername):
+                                    options=[
+                                        Option(
+                                            name="summonername",
+                                            description="Nom du joueur",
+                                            type=interactions.OptionType.STRING,
+                                            required=True)])
+    async def tftadd(self,
+                     ctx: CommandContext,
+                     summonername):
         # TODO : à simplifier
         # TODO : refaire tftremove
         session = aiohttp.ClientSession()

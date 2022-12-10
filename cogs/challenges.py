@@ -189,7 +189,8 @@ class Challenges(Extension):
         os.remove('plot.png')
 
     @interactions.extension_command(name="challenges_profil", description="Profil du compte",
-                                    options=[Option(name="summonername",
+                                    options=[
+                                        Option(name="summonername",
                                                     description="Nom du joueur",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
@@ -254,7 +255,8 @@ class Challenges(Extension):
 
     @interactions.extension_command(name="challenges_top",
                                     description="Affiche un classement pour le défi spécifié",
-                                    options=[Option(name="nbpages",
+                                    options=[
+                                        Option(name="nbpages",
                                                     description="Quel page ? Les challenges sont en ordre alphabétique",
                                                     type=interactions.OptionType.INTEGER,
                                                     required=True)])
@@ -315,7 +317,8 @@ class Challenges(Extension):
 
     @interactions.extension_command(name="challenges_top_name",
                                     description="Affiche un classement pour le défi spécifié (nom du defi)",
-                                    options=[Option(name="defi",
+                                    options=[
+                                        Option(name="defi",
                                                     description="Quel defi ?",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
@@ -351,7 +354,7 @@ class Challenges(Extension):
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
     async def challenges_best(self,
-                              ctx : CommandContext,
+                              ctx: CommandContext,
                               summonername: str):
 
         # tous les summonername sont en minuscule :

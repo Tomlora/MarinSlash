@@ -53,7 +53,8 @@ class Aram(Extension):
         self.task1 = create_task(IntervalTrigger(60*60))(self.lolsuivi_aram)
         self.task1.start()
 
-    @interactions.extension_command(name="classement_aram", description="classement en aram")
+    @interactions.extension_command(name="classement_aram",
+                                    description="classement en aram")
     async def ladder_aram(self, ctx: CommandContext):
 
         suivi_aram = lire_bdd('ranked_aram', 'dict')
@@ -95,16 +96,17 @@ class Aram(Extension):
 
     @interactions.extension_command(name='ranked_aram',
                                     description='Activation/Désactivation',
-                                    options=[Option(
-                                        name='summonername',
-                                        description="nom ingame",
-                                        type=interactions.OptionType.STRING,
-                                        required=True),
+                                    options=[
                                         Option(
-                                        name="activation",
-                                        description="True : Activé / False : Désactivé",
-                                        type=interactions.OptionType.BOOLEAN,
-                                        required=True)])
+                                            name='summonername',
+                                            description="nom ingame",
+                                            type=interactions.OptionType.STRING,
+                                            required=True),
+                                        Option(
+                                            name="activation",
+                                            description="True : Activé / False : Désactivé",
+                                            type=interactions.OptionType.BOOLEAN,
+                                            required=True)])
     async def update_activation(self,
                                 ctx: CommandContext,
                                 summonername: str,

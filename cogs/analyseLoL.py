@@ -40,43 +40,44 @@ choice_analyse = [Choice(name="gold", value="gold"),
                   Choice(name='vision', value='vision'),
                   Choice(name='position', value='position')]
 
-parameters_commun_stats_lol = [Option(
-    name='season',
-    description='saison lol',
-    type=interactions.OptionType.INTEGER,
-    required=False),
+parameters_commun_stats_lol = [
     Option(
-    name='joueur',
-    description='se focaliser sur un joueur ?',
-    type=interactions.OptionType.STRING,
-    required=False),
+        name='season',
+        description='saison lol',
+        type=interactions.OptionType.INTEGER,
+        required=False),
     Option(
-    name='champion',
-    description='se focaliser sur un champion ?',
-    type=interactions.OptionType.STRING,
-    required=False),
+        name='joueur',
+        description='se focaliser sur un joueur ?',
+        type=interactions.OptionType.STRING,
+        required=False),
     Option(
-    name='mode_de_jeu',
-    description='se focaliser sur un mode de jeu ?',
-    type=interactions.OptionType.STRING,
-    required=False,
-    choices=[
-        Choice(name='soloq',
-               value='RANKED'),
-        Choice(name='aram', value='ARAM')]),
+        name='champion',
+        description='se focaliser sur un champion ?',
+        type=interactions.OptionType.STRING,
+        required=False),
     Option(
-    name='top',
-    description='top x ?',
-    type=interactions.OptionType.INTEGER,
-    required=False,
-    choices=[
-        Choice(name='3', value=3),
-        Choice(name='5', value=5),
-        Choice(name='7', value=7),
-        Choice(name='10', value=10),
-        Choice(name='15', value=15),
-        Choice(name='20', value=20)]
-)]
+        name='mode_de_jeu',
+        description='se focaliser sur un mode de jeu ?',
+        type=interactions.OptionType.STRING,
+        required=False,
+        choices=[
+            Choice(name='soloq',
+                   value='RANKED'),
+            Choice(name='aram', value='ARAM')]),
+    Option(
+        name='top',
+        description='top x ?',
+        type=interactions.OptionType.INTEGER,
+        required=False,
+        choices=[
+            Choice(name='3', value=3),
+            Choice(name='5', value=5),
+            Choice(name='7', value=7),
+            Choice(name='10', value=10),
+            Choice(name='15', value=15),
+            Choice(name='20', value=20)]
+    )]
 
 
 def option_stats_lol(name,
@@ -87,12 +88,13 @@ def option_stats_lol(name,
         name=name,
         description=description,
         type=interactions.OptionType.SUB_COMMAND,
-        options=[Option(
-            name='calcul',
-            description='quel type de calcul ?',
-            type=interactions.OptionType.STRING,
-            required=True,
-            choices=choices)] + parameters_commun_stats_lol)
+        options=[
+            Option(
+                name='calcul',
+                description='quel type de calcul ?',
+                type=interactions.OptionType.STRING,
+                required=True,
+                choices=choices)] + parameters_commun_stats_lol)
     return option
 
 
@@ -189,29 +191,30 @@ class analyseLoL(Extension):
 
     @interactions.extension_command(name="analyse_durant_la_game",
                                     description="Permet d'afficher des statistiques durant la game",
-                                    options=[Option(
-                                        name="summonername",
-                                        description="Nom du joueur",
-                                        type=interactions.OptionType.STRING,
-                                        required=True),
+                                    options=[
                                         Option(
-                                        name="stat",
-                                        description="Quel stat ?",
-                                        type=interactions.OptionType.STRING,
-                                        required=True,
-                                        choices=choice_analyse),
+                                            name="summonername",
+                                            description="Nom du joueur",
+                                            type=interactions.OptionType.STRING,
+                                            required=True),
+                                        Option(
+                                            name="stat",
+                                            description="Quel stat ?",
+                                            type=interactions.OptionType.STRING,
+                                            required=True,
+                                            choices=choice_analyse),
                                         Option(name="stat2",
                                                description="Quel stat ?",
                                                type=interactions.OptionType.STRING,
                                                required=False,
                                                choices=choice_analyse),
                                         Option(
-                                        name="game",
-                                        description="Numero Game",
-                                        type=interactions.OptionType.INTEGER,
-                                        required=False,
-                                        min_value=0,
-                                        max_value=10)])
+                                            name="game",
+                                            description="Numero Game",
+                                            type=interactions.OptionType.INTEGER,
+                                            required=False,
+                                            min_value=0,
+                                            max_value=10)])
     async def analyse(self,
                       ctx: CommandContext,
                       summonername: str,
@@ -535,36 +538,37 @@ class analyseLoL(Extension):
 
     @interactions.extension_command(name="analyse_fin_de_game",
                                     description="Voir des stats de fin de game",
-                                    options=[Option(
-                                        name="summonername",
-                                        description="Nom du joueur",
-                                        type=interactions.OptionType.STRING,
-                                        required=True),
+                                    options=[
                                         Option(
-                                        name="stat",
-                                        description="Quel stat ?",
-                                        type=interactions.OptionType.STRING,
-                                        required=True,
-                                        choices=choice_var),
+                                            name="summonername",
+                                            description="Nom du joueur",
+                                            type=interactions.OptionType.STRING,
+                                            required=True),
                                         Option(
-                                        name="stat2",
-                                        description="Quel stat ?",
-                                        type=interactions.OptionType.STRING,
-                                        required=False,
-                                        choices=choice_var),
+                                            name="stat",
+                                            description="Quel stat ?",
+                                            type=interactions.OptionType.STRING,
+                                            required=True,
+                                            choices=choice_var),
                                         Option(
-                                        name="stat3",
-                                        description="Quel stat ?",
-                                        type=interactions.OptionType.STRING,
-                                        required=False,
-                                        choices=choice_var),
+                                            name="stat2",
+                                            description="Quel stat ?",
+                                            type=interactions.OptionType.STRING,
+                                            required=False,
+                                            choices=choice_var),
                                         Option(
-                                        name="game",
-                                        description="Game de 0 à 10 (0 étant la dernière)",
-                                        type=interactions.OptionType.INTEGER,
-                                        required=False,
-                                        min_value=0,
-                                        max_value=10)])
+                                            name="stat3",
+                                            description="Quel stat ?",
+                                            type=interactions.OptionType.STRING,
+                                            required=False,
+                                            choices=choice_var),
+                                        Option(
+                                            name="game",
+                                            description="Game de 0 à 10 (0 étant la dernière)",
+                                            type=interactions.OptionType.INTEGER,
+                                            required=False,
+                                            min_value=0,
+                                            max_value=10)])
     async def var(self,
                   ctx: CommandContext,
                   summonername, stat: str,
@@ -825,42 +829,43 @@ class analyseLoL(Extension):
 
     @interactions.extension_command(name="stats_lol",
                                     description="Historique de game",
-                                    options=[option_stats_lol(name='items',
+                                    options=[
+                                        option_stats_lol(name='items',
                                                               choices=[
                                                                   choice_comptage, choice_winrate],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
                                                               description='stats sur les items'),
-                                             option_stats_lol(name='champion',
+                                        option_stats_lol(name='champion',
                                                               choices=[
                                                                   choice_comptage, choice_winrate],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
                                                               description='stats sur les champions'),
-                                             option_stats_lol(name='dommage',
+                                        option_stats_lol(name='dommage',
                                                               choices=[
                                                                   choice_avg],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
                                                               description='stats sur les dégats'),
-                                             option_stats_lol(name='tank',
+                                        option_stats_lol(name='tank',
                                                               choices=[
                                                                   choice_avg],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
                                                               description='stats sur le tanking'),
-                                             option_stats_lol(name='kda',
+                                        option_stats_lol(name='kda',
                                                               choices=[
                                                                   choice_avg],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
                                                               description='stats sur le kda'),
-                                             option_stats_lol(name='lp',
+                                        option_stats_lol(name='lp',
                                                               choices=[
                                                                   choice_progression],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
                                                               description='stats sur les lp'),
-                                             option_stats_lol(name='games',
+                                        option_stats_lol(name='games',
                                                               choices=[
                                                                   choice_comptage],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
                                                               description='stats sur les games')
-                                             ])
+                                    ])
     async def historique_lol(self,
                              ctx: CommandContext,
                              sub_command: str,

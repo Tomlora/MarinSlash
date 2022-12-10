@@ -64,7 +64,8 @@ class Divers(Extension):
                     self.database_handler.revoke_tempmute(row["id"])
                     await member.remove_role(role=muted_role, guild_id=guild.id)
 
-    @interactions.extension_command(name="hello", description="Saluer le bot")
+    @interactions.extension_command(name="hello",
+                                    description="Saluer le bot")
     async def hello(self, ctx: CommandContext):
         buttons = [
             interactions.Button(
@@ -103,7 +104,8 @@ class Divers(Extension):
             # When it times out, edit the original message and remove the button(s)
             return await ctx.edit(components=[])
 
-    @interactions.extension_command(name="quiz", description="Reponds au quizz")
+    @interactions.extension_command(name="quiz",
+                                    description="Reponds au quizz")
     async def quiz(self, ctx: CommandContext):
         select = interactions.SelectMenu(
             options=[
@@ -152,18 +154,22 @@ class Divers(Extension):
 
     @interactions.extension_command(name='spank',
                                     description='spank un membre',
-                                    options=[Option(
-                                        name='member',
-                                        description='membre discord',
-                                        type=interactions.OptionType.USER,
-                                        required=True),
+                                    options=[
                                         Option(
-                                        name='reason',
-                                        description='motif du spank',
-                                        type=interactions.OptionType.STRING,
-                                        required=False
-                                    )])
-    async def spank_slash(self, ctx: CommandContext, member: interactions.Member, reason="Aucune raison n'a été renseignée"):
+                                            name='member',
+                                            description='membre discord',
+                                            type=interactions.OptionType.USER,
+                                            required=True),
+                                        Option(
+                                            name='reason',
+                                            description='motif du spank',
+                                            type=interactions.OptionType.STRING,
+                                            required=False
+                                        )])
+    async def spank_slash(self,
+                          ctx: CommandContext,
+                          member: interactions.Member,
+                          reason="Aucune raison n'a été renseignée"):
         if isOwner_slash(ctx):
 
             muted_role = await self.get_muted_role(ctx.guild)
@@ -193,9 +199,6 @@ class Divers(Extension):
 
             await ctx.send(embeds=embed)
 
-
-
-
     @interactions.extension_listener
     async def get_muted_role(self, guild: interactions.Guild) -> interactions.Role:
 
@@ -209,22 +212,23 @@ class Divers(Extension):
 
     @interactions.extension_command(name="mute_time",
                                     description="mute someone for x secondes",
-                                    options=[Option(
-                                        name="member",
-                                        description="membre du discord",
-                                        type=interactions.OptionType.USER,
-                                        required=True),
+                                    options=[
                                         Option(
-                                        name="seconds",
-                                        description="Temps de mute en secondes",
-                                        type=interactions.OptionType.INTEGER,
-                                        required=True),
+                                            name="member",
+                                            description="membre du discord",
+                                            type=interactions.OptionType.USER,
+                                            required=True),
                                         Option(
-                                        name="reason",
-                                        description="reason",
-                                        type=interactions.OptionType.STRING,
-                                        required=False
-                                    )
+                                            name="seconds",
+                                            description="Temps de mute en secondes",
+                                            type=interactions.OptionType.INTEGER,
+                                            required=True),
+                                        Option(
+                                            name="reason",
+                                            description="reason",
+                                            type=interactions.OptionType.STRING,
+                                            required=False
+                                        )
                                     ])
     async def mute_time(self,
                         ctx: CommandContext,

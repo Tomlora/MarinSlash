@@ -141,7 +141,8 @@ class LeagueofLegends(Extension):
                         sauvegarder: bool,
                         identifiant_game=None):
 
-        match_info = matchlol(summonerName, idgames,
+        match_info = matchlol(summonerName,
+                              idgames,
                               identifiant_game=identifiant_game)  # class
 
         await match_info.get_data_riot()
@@ -668,24 +669,25 @@ class LeagueofLegends(Extension):
 
     @interactions.extension_command(name="game",
                                     description="Voir les statistiques d'une games",
-                                    options=[Option(name="summonername",
+                                    options=[
+                                        Option(name="summonername",
                                                     description="Nom du joueur",
                                                     type=interactions.OptionType.STRING, required=True),
-                                             Option(name="numerogame",
+                                        Option(name="numerogame",
                                                     description="Numero de la game, de 0 à 100",
                                                     type=interactions.OptionType.INTEGER,
                                                     required=True,
                                                     min_value=0,
                                                     max_value=100),
-                                             Option(name="succes",
+                                        Option(name="succes",
                                                     description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non",
                                                     type=interactions.OptionType.BOOLEAN,
                                                     required=True),
-                                             Option(name="sauvegarder",
+                                        Option(name="sauvegarder",
                                                     description="sauvegarder la game",
                                                     type=interactions.OptionType.BOOLEAN,
                                                     required=False),
-                                             Option(name='identifiant_game',
+                                        Option(name='identifiant_game',
                                                     description="A ne pas utiliser",
                                                     type=interactions.OptionType.STRING,
                                                     required=False)])
@@ -701,7 +703,12 @@ class LeagueofLegends(Extension):
 
         summonername = summonername.lower()
 
-        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(), idgames=int(numerogame), succes=succes, sauvegarder=sauvegarder, identifiant_game=identifiant_game)
+        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(),
+                                                                           idgames=int(
+                                                                               numerogame),
+                                                                           succes=succes,
+                                                                           sauvegarder=sauvegarder,
+                                                                           identifiant_game=identifiant_game)
 
         if embed != {}:
             await ctx.send(embeds=embed, files=resume)
@@ -817,7 +824,8 @@ class LeagueofLegends(Extension):
 
     @interactions.extension_command(name="loladd",
                                     description="Ajoute le joueur au suivi",
-                                    options=[Option(name="summonername",
+                                    options=[
+                                        Option(name="summonername",
                                                     description="Nom du joueur",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
@@ -854,11 +862,12 @@ class LeagueofLegends(Extension):
             await ctx.send("Oops! There is no summoner with that name!")
 
     @interactions.extension_command(name='lolremove', description='Activation/Désactivation du tracker',
-                                    options=[Option(name='summonername',
+                                    options=[
+                                        Option(name='summonername',
                                                     description="nom ingame",
                                                     type=interactions.OptionType.STRING,
                                                     required=True),
-                                             Option(name="activation",
+                                        Option(name="activation",
                                                     description="True : Activé / False : Désactivé",
                                                     type=interactions.OptionType.BOOLEAN,
                                                     required=True)])
@@ -879,7 +888,8 @@ class LeagueofLegends(Extension):
         except KeyError:
             await ctx.send('Joueur introuvable')
 
-    @interactions.extension_command(name='lollist', description='Affiche la liste des joueurs suivis')
+    @interactions.extension_command(name='lollist',
+                                    description='Affiche la liste des joueurs suivis')
     async def lollist(self, ctx: CommandContext):
 
         data = get_data_bdd(f'''SELECT index from tracker 
@@ -1081,19 +1091,20 @@ class LeagueofLegends(Extension):
 
     @interactions.extension_command(name='lol_discord',
                                     description='Link discord et lol',
-                                    options=[Option(
-                                        name='summonername',
-                                        description='pseudo lol',
-                                        type=interactions.OptionType.STRING,
-                                        required=True),
+                                    options=[
                                         Option(
-                                        name='member',
-                                        description='compte discord',
-                                        type=interactions.OptionType.USER,
-                                        required=True
-                                    )])
+                                            name='summonername',
+                                            description='pseudo lol',
+                                            type=interactions.OptionType.STRING,
+                                            required=True),
+                                        Option(
+                                            name='member',
+                                            description='compte discord',
+                                            type=interactions.OptionType.USER,
+                                            required=True
+                                        )])
     async def link(self,
-                   ctx : CommandContext,
+                   ctx: CommandContext,
                    summonername,
                    member: interactions.User):
 

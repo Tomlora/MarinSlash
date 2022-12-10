@@ -9,15 +9,12 @@ from fonctions.match import trouver_records
 import plotly.express as px
 
 
-
-
-
 def option_stats_records(name, params, description='type de recherche'):
     option = Option(
-            name=name,
-            description=description,
-            type=interactions.OptionType.SUB_COMMAND,
-            options=params)
+        name=name,
+        description=description,
+        type=interactions.OptionType.SUB_COMMAND,
+        options=params)
 
     return option
 
@@ -172,16 +169,16 @@ emote_v2 = {
     'dmg_tank': ":shield:",
     'gold': ":euro:",
     'gold_min': ":euro:",
-    'spell1' : ":magic_wand:",
-    'spell2' : ":magic_wand:",
-    'drake' : ":dragon:",
-    'baron' : ":space_invader:",
-    'herald' : ":space_invader:",
+    'spell1': ":magic_wand:",
+    'spell2': ":magic_wand:",
+    'drake': ":dragon:",
+    'baron': ":space_invader:",
+    'herald': ":space_invader:",
     'heal_total': ":sparkling_heart:",
     'heal_allies': ":two_hearts:",
     "early_drake": ":timer:",
     "early_baron": ":timer:",
-    "temps_dead" : ":timer:",
+    "temps_dead": ":timer:",
     "level_max_avantage": ":wave:",
     "couronne": ":crown:",
     "shield": ":shield:",
@@ -203,14 +200,15 @@ class Recordslol(Extension):
 
     @interactions.extension_command(name="records_list_s12",
                                     description="Voir les records détenues par les joueurs (réservé s12)",
-                                    options=[Option(
-                                        name="mode",
-                                        description="Quel mode de jeu ?",
-                                        type=interactions.OptionType.STRING,
-                                        required=True, choices=[
-                                            Choice(name='ranked',
-                                                   value='ranked'),
-                                            Choice(name='aram', value='aram')])
+                                    options=[
+                                        Option(
+                                            name="mode",
+                                            description="Quel mode de jeu ?",
+                                            type=interactions.OptionType.STRING,
+                                            required=True, choices=[
+                                                Choice(name='ranked',
+                                                       value='ranked'),
+                                                Choice(name='aram', value='aram')])
                                     ])
     async def records_list(self,
                            ctx: CommandContext,
@@ -401,12 +399,15 @@ class Recordslol(Extension):
 
     @interactions.extension_command(name="records_personnel_s12",
                                     description="Record personnel (réservé s12)",
-                                    options=[Option(
-                                        name="joueur",
-                                        description="Pseudo LoL",
-                                        type=interactions.OptionType.STRING,
-                                        required=True)])
-    async def records_personnel(self, ctx: CommandContext, joueur: str):
+                                    options=[
+                                        Option(
+                                            name="joueur",
+                                            description="Pseudo LoL",
+                                            type=interactions.OptionType.STRING,
+                                            required=True)])
+    async def records_personnel(self,
+                                ctx: CommandContext,
+                                joueur: str):
 
         joueur = joueur.lower()
 
@@ -489,53 +490,57 @@ class Recordslol(Extension):
             ]
         ).run()
 
-    parameters_communs = [Option(
-        name="mode",
-        description="Quel mode de jeu ?",
-        type=interactions.OptionType.STRING,
-        required=True, choices=[
-            Choice(name='ranked',
-                   value='RANKED'),
-            Choice(name='aram', value='ARAM')]),
+    parameters_communs = [
         Option(
-        name='saison',
-        description='saison league of legends',
-        type=interactions.OptionType.INTEGER,
-        required=False)]
-    
-    parameters_personnel = [Option(
-        name="mode",
-        description="Quel mode de jeu ?",
-        type=interactions.OptionType.STRING,
-        required=True, choices=[
-            Choice(name='ranked',
-                   value='RANKED'),
-            Choice(name='aram', value='ARAM')]),
+            name="mode",
+            description="Quel mode de jeu ?",
+            type=interactions.OptionType.STRING,
+            required=True, choices=[
+                Choice(name='ranked',
+                       value='RANKED'),
+                Choice(name='aram', value='ARAM')]),
         Option(
-        name="joueur",
-        description="Quel joueur ?",
-        type=interactions.OptionType.STRING,
-        required=True),
+            name='saison',
+            description='saison league of legends',
+            type=interactions.OptionType.INTEGER,
+            required=False)]
+
+    parameters_personnel = [
         Option(
-        name='saison',
-        description='saison league of legends',
-        type=interactions.OptionType.INTEGER,
-        required=False),
+            name="mode",
+            description="Quel mode de jeu ?",
+            type=interactions.OptionType.STRING,
+            required=True, choices=[
+                Choice(name='ranked',
+                       value='RANKED'),
+                Choice(name='aram', value='ARAM')]),
         Option(
-        name='champion',
-        description='champion',
-        type=interactions.OptionType.STRING,
-        required=False)]
+            name="joueur",
+            description="Quel joueur ?",
+            type=interactions.OptionType.STRING,
+            required=True),
+        Option(
+            name='saison',
+            description='saison league of legends',
+            type=interactions.OptionType.INTEGER,
+            required=False),
+        Option(
+            name='champion',
+            description='champion',
+            type=interactions.OptionType.STRING,
+            required=False)]
 
     @interactions.extension_command(name="records_list_v2",
                                     description="Voir les records détenues par les joueurs",
-                                    options=[option_stats_records(name='general',
+                                    options=[
+                                        option_stats_records(name='general',
                                                                   params=parameters_communs, description='Records tout confondu'),
-                                             option_stats_records(name='personnel', params=parameters_personnel, description='Record sur un joueur')
+                                        option_stats_records(
+                                            name='personnel', params=parameters_personnel, description='Record sur un joueur')
                                     ])
     async def records_list_v2(self,
                               ctx: CommandContext,
-                              sub_command : str,
+                              sub_command: str,
                               saison: int = 12,
                               mode: str = 'ranked',
                               joueur=None,
@@ -549,41 +554,41 @@ class Recordslol(Extension):
                                                                                                                                         'mode': mode}).transpose()
 
         if sub_command == 'personnel':
-            
+
             joueur = joueur.lower()
-            
+
             fichier = fichier[fichier['joueur'] == joueur]
-            
+
             title = f'Records personnels {joueur} {mode} S{saison}'
-            
+
             if champion != None:
                 fichier = fichier[fichier['champion'] == champion]
-                
+
                 title = f'Records personnels {joueur} ({champion}) {mode} S{saison}'
-        
+
         else:
             title = f'Records {mode} S{saison}'
-                
+
         fichier1 = fichier.columns[3:22].drop(['champion', 'victoire'])
         fichier2 = fichier.columns[22:45].drop(['team'])
         fichier3 = fichier.columns[45:].drop(['afk', 'season', 'date', 'mode', 'rank', 'tier', 'kda', 'kp', 'damageratio',
                                              'lp', 'id_participant', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6'])
-        
+
         # on rajoute quelques éléments sur d'autres pages...
-        
+
         fichier1 = np.append(fichier1, ['kda', 'kp', 'damageratio'])
-        
+
         fichier1 = fichier1.tolist()
-        
-        if mode == 'ARAM': # on vire les records qui ne doivent pas être comptés en aram
-            
+
+        if mode == 'ARAM':  # on vire les records qui ne doivent pas être comptés en aram
+
             fichier1.remove('cs_jungle')
             fichier1.remove('vision_score')
             fichier2 = fichier2.drop(['vision_pink', 'vision_wards', 'vision_wards_killed',
                                       'jgl_dix_min', 'baron', 'drake', 'herald',
                                       'vision_min', 'level_max_avantage'])
-            fichier3 = fichier3.drop(['vision_avantage', 'early_drake', 'early_baron'])
-        
+            fichier3 = fichier3.drop(
+                ['vision_avantage', 'early_drake', 'early_baron'])
 
         embed1 = interactions.Embed(
             title=title + " (Page 1/3) :bar_chart:", color=interactions.Color.blurple())
@@ -623,9 +628,6 @@ class Recordslol(Extension):
                 Page(embed3.title, embed3)
             ]
         ).run()
-        
-
-        
 
 
 def setup(bot):

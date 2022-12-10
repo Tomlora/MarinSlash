@@ -20,7 +20,8 @@ class Github(Extension):
 
     @interactions.extension_command(name="github",
                                     description="GitHub",
-                                    options=[Option(name="pseudo",
+                                    options=[
+                                        Option(name="pseudo",
                                                     description="Pseudo Github",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])

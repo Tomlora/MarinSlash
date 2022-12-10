@@ -81,7 +81,8 @@ class Twitch(Extension):
 
     @interactions.extension_command(name="addtwitch",
                                     description="Ajoute un compte au tracker twitch",
-                                    options=[Option(name="pseudo_twitch",
+                                    options=[
+                                        Option(name="pseudo_twitch",
                                                     description="Pseudo du compte Twitch",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
@@ -95,7 +96,8 @@ class Twitch(Extension):
 
     @interactions.extension_command(name="deltwitch",
                                     description="Supprime un compte du tracker twitch",
-                                    options=[Option(name="pseudo_twitch",
+                                    options=[
+                                        Option(name="pseudo_twitch",
                                                     description="Pseudo du compte Twitch",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
