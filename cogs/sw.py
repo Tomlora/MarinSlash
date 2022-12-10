@@ -86,7 +86,11 @@ class SW(Extension):
                                         type=interactions.OptionType.ATTACHMENT,
                                         required=False
                                     )])
-    async def analyse_sw(self, ctx: CommandContext, scoring: str = 'general', id_msg: str = None, fichier_json: interactions.Attachment = None):
+    async def analyse_sw(self,
+                         ctx: CommandContext,
+                         scoring: str = 'general',
+                         id_msg: str = None,
+                         fichier_json: interactions.Attachment = None):
 
         if verif_module('summoners_war', int(ctx.guild.id)):
 
@@ -230,7 +234,10 @@ class SW(Extension):
                                                 name='jaune', value='jaune')
                                         ]
                                     )])
-    async def test_channel(self, ctx: CommandContext, guilde: str, color: str):
+    async def test_channel(self,
+                           ctx: CommandContext,
+                           guilde: str,
+                           color: str):
         if isOwner_slash(ctx):
             permission = [interactions.Overwrite(
                 id=int(ctx.author.id),
@@ -286,7 +293,10 @@ class SW(Extension):
                                             Choice(name='moyenne', value='avg')
                                         ])
                                     ])
-    async def score_guilde(self, ctx: CommandContext, guilde:str, methode:str):
+    async def score_guilde(self,
+                           ctx: CommandContext,
+                           guilde:str,
+                           methode:str):
         
         await ctx.defer(ephemeral=False)
         
