@@ -9,7 +9,6 @@ from interactions import Extension
 class activity(Extension):
     def __init__(self, bot: interactions.Client):
         self.bot = bot
-        # self.on_ready = self.bot.event(self.on_ready)
 
     @interactions.extension_listener
     async def on_start(self):
@@ -22,7 +21,6 @@ class activity(Extension):
 
     @interactions.extension_listener
     async def on_ready(self):
-        # TODO : faire via BDD
 
         data = get_guild_data()
 
@@ -31,7 +29,7 @@ class activity(Extension):
             guild = await interactions.get(client=self.bot,
                                            obj=interactions.Guild,
                                            object_id=server_id[0])
-        # for guild in self.bot.guilds:
+
             text_channel_list = []
             for channel in await guild.get_all_channels():
                 text_channel_list.append(channel.id)

@@ -20,35 +20,7 @@ def unifier_joueur(df, colonne):
     return df
 
 
-def ajouter_game(role, df, pseudo, kills, deaths, assists, kp, wardsplaced, wardskilled, pink, cs, csm, score: 0):
-    df = df.append({'Role': role, 'Pseudo': pseudo, 'Kills': kills, 'Deaths': deaths, 'Assists': assists, 'KP': kp,
-                   'WardsPlaced': wardsplaced, 'WardsKilled': wardskilled, 'Pink': pink, 'cs': cs, 'csm': csm, 'score': score}, ignore_index=True)
-    return df
 
-
-def find_modele_ml(role):
-    reg = pickle.load(open(f'./obj/ML/reg_{role}.pkl', 'rb'))
-    return reg
-
-
-def scoring(role, pseudo, kills, deaths, assists, kp, wardsplaced, wardskilled, pink, cs, csm):
-
-    variables = ['Kills', 'Deaths', 'Assists', 'KP',
-                 'WardsPlaced', 'WardsKilled', 'Pink', 'cs', 'csm']
-
-    reg = find_modele_ml(role)
-
-    df_predict = pd.DataFrame(
-        columns=['Role', 'Pseudo', 'Kills', 'Deaths', 'Assists', 'KP', 'WardsPlaced', 'WardsKilled', 'Pink', 'cs',
-                 'csm',
-                 'score'])
-    df_predict = ajouter_game(role, df_predict, pseudo, kills, deaths, assists, kp, wardsplaced, wardskilled, pink, cs,
-                              csm,
-                              0)
-
-    predict = round(reg.predict(df_predict[variables].values)[0], 2)
-
-    return predict
 
 
 class Achievements_scoringlol(Extension):
@@ -59,8 +31,8 @@ class Achievements_scoringlol(Extension):
                    Choice(name='aram', value='aram')]
 
     @interactions.extension_command(
-        name="achievements",
-        description="Voir les couronnes acquis par les joueurs",
+        name="achievements_s12",
+        description="Voir les couronnes acquis par les joueurs (Réservé s12)",
         options=[Option(
             name='mode',
             description='mode de jeu',
@@ -208,7 +180,7 @@ class Achievements_scoringlol(Extension):
         await ctx.send(embeds=embed)
         
         
-    @interactions.extension_command(name="achievements2",
+    @interactions.extension_command(name="achievements_v2",
                                     description="Voir le nombre records détenues par les joueurs",
                                     options=[Option(
                                         name="mode",

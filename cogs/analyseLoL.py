@@ -23,7 +23,7 @@ from fonctions.match import (match_by_puuid,
                              get_version,
                              get_champ_list,
                              get_match_timeline)
-
+from fonctions.channels_discord import get_embed
 from fonctions.gestion_bdd import lire_bdd_perso
 
 
@@ -40,18 +40,56 @@ choice_analyse = [Choice(name="gold", value="gold"),
                   Choice(name='vision', value='vision'),
                   Choice(name='position', value='position')]
 
+parameters_commun_stats_lol = [Option(
+        name='season',
+        description='saison lol',
+        type=interactions.OptionType.INTEGER,
+        required=False),
+        Option(
+        name='joueur',
+        description='se focaliser sur un joueur ?',
+        type=interactions.OptionType.STRING,
+        required=False),
+        Option(
+        name='champion',
+        description='se focaliser sur un champion ?',
+        type=interactions.OptionType.STRING,
+        required=False),
+        Option(
+        name='mode_de_jeu',
+        description='se focaliser sur un mode de jeu ?',
+        type=interactions.OptionType.STRING,
+        required=False,
+        choices=[
+            Choice(name='soloq',
+                   value='RANKED'),
+            Choice(name='aram', value='ARAM')]),
+        Option(
+        name='top',
+        description='top x ?',
+        type=interactions.OptionType.INTEGER,
+        required=False,
+        choices=[
+            Choice(name='3', value=3),
+            Choice(name='5', value=5),
+            Choice(name='7', value=7),
+            Choice(name='10', value=10),
+            Choice(name='15', value=15),
+            Choice(name='20', value=20)]
+    )]
 
-def option_stats_lol(name, choices: list, parameters_commun, description='type de recherche'):
+
+def option_stats_lol(name, choices: list, parameters_commun_stats_lol, description='type de recherche'):
     option = Option(
         name=name,
-        description='type de recherche',
+        description=description,
         type=interactions.OptionType.SUB_COMMAND,
         options=[Option(
             name='calcul',
             description='quel type de calcul ?',
             type=interactions.OptionType.STRING,
             required=True,
-            choices=choices)] + parameters_commun)
+            choices=choices)] + parameters_commun_stats_lol)
     return option
 
 
@@ -82,14 +120,7 @@ def transformation_top(df, value, title, top, showlegend=False):
     return fig
 
 
-def get_embed(fig, name):
-    fig.write_image(f'{name}.png')
-    file = interactions.File(f'{name}.png')
-    # On prépare l'embed
-    embed = interactions.Embed()
-    embed.set_image(url=f'attachment://{name}.png')
 
-    return embed, file
 
 
 def dict_data(thisId: int, match_detail, info):
@@ -523,7 +554,12 @@ class analyseLoL(Extension):
                                         required=False,
                                         min_value=0,
                                         max_value=10)])
-    async def var(self, ctx: CommandContext, summonername, stat: str, stat2: str = 'no', stat3: str = 'no', game: int = 0):
+    async def var(self,
+                  ctx: CommandContext,
+                  summonername, stat: str,
+                  stat2: str = 'no',
+                  stat3: str = 'no',
+                  game: int = 0):
 
         stat = [stat, stat2, stat3]
 
@@ -771,54 +807,7 @@ class analyseLoL(Extension):
             await stat.delete()
             await ctx.send("Annulé")
 
-            # Choice(name='items',
-            #            value='items'),
-            #     Choice(name='champion',
-            #            value='champion'),
-            #     Choice(name='dommage',
-            #            value='dommage'),
-            #     Choice(name='tank', value='tank'),
-            #     Choice(name='kda', value='kda'),
-            #     Choice(name='lp', value='lp'),
-            #     Choice(name='winrate', value='winrate')]),
 
-    parameters_commun = [Option(
-        name='season',
-        description='saison lol',
-        type=interactions.OptionType.INTEGER,
-        required=False),
-        Option(
-        name='joueur',
-        description='se focaliser sur un joueur ?',
-        type=interactions.OptionType.STRING,
-        required=False),
-        Option(
-        name='champion',
-        description='se focaliser sur un champion ?',
-        type=interactions.OptionType.STRING,
-        required=False),
-        Option(
-        name='mode_de_jeu',
-        description='se focaliser sur un mode de jeu ?',
-        type=interactions.OptionType.STRING,
-        required=False,
-        choices=[
-            Choice(name='soloq',
-                   value='RANKED'),
-            Choice(name='aram', value='ARAM')]),
-        Option(
-        name='top',
-        description='top x ?',
-        type=interactions.OptionType.INTEGER,
-        required=False,
-        choices=[
-            Choice(name='3', value=3),
-            Choice(name='5', value=5),
-            Choice(name='7', value=7),
-            Choice(name='10', value=10),
-            Choice(name='15', value=15),
-            Choice(name='20', value=20)]
-    )]
     
     choice_comptage = Choice(name='comptage', value='count')
     choice_winrate = Choice(name='winrate', value='winrate')
@@ -829,27 +818,42 @@ class analyseLoL(Extension):
                                     description="Historique de game",
                                     options=[option_stats_lol(name='items',
                                                                choices=[choice_comptage, choice_winrate],
-                                                               parameters_commun=parameters_commun),
+                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                               description='stats sur les items'),
                                              option_stats_lol(name='champion',
                                                                choices=[choice_comptage, choice_winrate],
-                                                               parameters_commun=parameters_commun),
+                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                               description='stats sur les champions'),
                                              option_stats_lol(name='dommage',
                                                                choices=[choice_avg],
-                                                               parameters_commun=parameters_commun),
+                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                               description='stats sur les dégats'),
                                              option_stats_lol(name='tank',
                                                                choices=[choice_avg],
-                                                               parameters_commun=parameters_commun),
+                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                               description='stats sur le tanking'),
                                              option_stats_lol(name='kda',
                                                                choices=[choice_avg],
-                                                               parameters_commun=parameters_commun),
+                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                               description='stats sur le kda'),
                                              option_stats_lol(name='lp',
                                                                choices=[choice_progression],
-                                                               parameters_commun=parameters_commun),
+                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                               description='stats sur les lp'),
                                              option_stats_lol(name='games',
                                                               choices=[choice_comptage],
-                                                              parameters_commun=parameters_commun)
+                                                              parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                              description='stats sur les games')
                                              ])
-    async def historique_lol(self, ctx: CommandContext, sub_command: str, calcul: str, season: int = 12, joueur: str = None, champion: str = None, mode_de_jeu: str = None, top: int = 20):
+    async def historique_lol(self,
+                             ctx: CommandContext,
+                             sub_command: str,
+                             calcul: str,
+                             season: int = 12,
+                             joueur: str = None,
+                             champion: str = None,
+                             mode_de_jeu: str = None,
+                             top: int = 20):
 
         dict_type = {
             'dommage': 'dmg, dmg_ad, dmg_ap, dmg_true',
@@ -1064,7 +1068,8 @@ class analyseLoL(Extension):
         if sub_command == 'games':
             if calcul == 'count':
                 df = df.groupby('joueur').count()
-                fig = px.histogram(x=df.index, y=df['victoire'], text_auto=True, title=title).update_xaxes(categoryorder="total descending")
+                fig = px.histogram(x=df.index, y=df['victoire'], color=df.index, text_auto=True, title=title).update_xaxes(categoryorder="total descending")
+                fig.update_layout(showlegend=False)
                 embed, files = get_embed(fig, 'games')
                 
                 await ctx.send(embeds=embed, files=files)
