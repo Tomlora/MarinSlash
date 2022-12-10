@@ -36,7 +36,9 @@ class PatchNote:
         'ko-kr'
     ]
 
-    def __init__(self, previous: int = 0, lang: str = 'fr-fr'):
+    def __init__(self,
+                 previous: int = 0,
+                 lang: str = 'fr-fr'):
 
         self.session = aiohttp.ClientSession()
         self.previous = previous

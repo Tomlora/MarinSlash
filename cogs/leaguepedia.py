@@ -92,7 +92,9 @@ class Leaguepedia(Extension):
                                         description="Trié sur une league ?",
                                         type=interactions.OptionType.STRING,
                                         required=False)])
-    async def lol_mercato(self, ctx: CommandContext, league: str = ""):
+    async def lol_mercato(self,
+                          ctx: CommandContext,
+                          league: str = ""):
 
         # On récupère les dernières infos mercato sur Leaguepedia
         response = self.site.api('cargoquery',

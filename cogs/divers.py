@@ -226,7 +226,11 @@ class Divers(Extension):
                                         required=False
                                     )
                                     ])
-    async def mute_time(self, ctx: CommandContext, member: interactions.Member, seconds: int, reason: str = "Aucune raison n'a été renseignée"):
+    async def mute_time(self,
+                        ctx: CommandContext,
+                        member: interactions.Member,
+                        seconds: int,
+                        reason: str = "Aucune raison n'a été renseignée"):
 
         if await ctx.has_permissions(interactions.Permissions.MUTE_MEMBERS):
             muted_role = await self.get_muted_role(ctx.guild)
@@ -259,7 +263,9 @@ class Divers(Extension):
         await ctx.popup(modal)
 
     @interactions.extension_modal('mod_app_form')
-    async def modal_response(self, ctx, response: str):
+    async def modal_response(self,
+                             ctx,
+                             response: str):
         await ctx.send(f'Tu as répondu {response}')
 
     @interactions.extension_command(name='remove_background',
@@ -270,7 +276,9 @@ class Divers(Extension):
                                         type=interactions.OptionType.ATTACHMENT,
                                         required=True
                                     )])
-    async def remove_background(self, ctx: CommandContext, image: interactions.Attachment):
+    async def remove_background(self,
+                                ctx: CommandContext,
+                                image: interactions.Attachment):
 
         if not image.filename.endswith('.png') and not image.filename.endswith('.jpg'):
             return await ctx.send("Incompatible. Il faut une image au format png ou jpg")

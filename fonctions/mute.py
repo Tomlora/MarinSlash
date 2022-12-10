@@ -8,7 +8,10 @@ class DatabaseHandler():
         DB = os.environ.get('API_SQL')
         self.engine = create_engine(DB, echo=False)
 
-    def add_tempmute(self, user_id: int, guild_id: int, expiration_date: datetime.datetime):
+    def add_tempmute(self,
+                     user_id: int,
+                     guild_id: int,
+                     expiration_date: datetime.datetime):
         con = self.engine.connect()
         query = text(
             "INSERT INTO Tempmute (user_id, guild_id, expiration_date) VALUES (:user_id, :guild_id, :expiration_date);")

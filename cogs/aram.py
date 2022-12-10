@@ -107,7 +107,8 @@ class Aram(Extension):
                                         required=True)])
     async def update_activation(self,
                                 ctx: CommandContext,
-                                summonername: str, activation: bool):
+                                summonername: str,
+                                activation: bool):
 
         summonername = summonername.lower()
 
@@ -196,7 +197,11 @@ class Aram(Extension):
                                             description='nombre de lp',
                                             type=interactions.OptionType.INTEGER,
                                             required=True)])
-    async def carton(self, ctx: CommandContext, couleur: str, summonername: str, nombre: int):
+    async def carton(self,
+                     ctx: CommandContext,
+                     couleur: str,
+                     summonername: str,
+                     nombre: int):
         if isOwner_slash(ctx):
             if couleur == 'vert':
                 requete_perso_bdd('UPDATE ranked_aram SET lp = lp + :nombre WHERE index = :summonername', {

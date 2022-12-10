@@ -4,7 +4,9 @@ import interactions
 
 class chan_discord():
 
-    def __init__(self, server_id: int, bot=None):
+    def __init__(self,
+                 server_id: int,
+                 bot=None):
 
         self.server_id = server_id
         self.bot_discord = bot
@@ -71,7 +73,9 @@ def verif_module(variable: str, guild_id: int) -> bool:
                           'server_id': guild_id}).fetchall()[0][0]
     return result == True
 
-def get_embed(fig, name, color = interactions.Color.blurple()):
+def get_embed(fig,
+              name,
+              color = interactions.Color.blurple()):
     """Prépare l'image à insérer avec l'embed
 
     Parameters

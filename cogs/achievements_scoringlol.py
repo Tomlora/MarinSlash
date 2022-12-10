@@ -20,9 +20,6 @@ def unifier_joueur(df, colonne):
     return df
 
 
-
-
-
 class Achievements_scoringlol(Extension):
     def __init__(self, bot) -> None:
         self.bot: interactions.Client = bot
@@ -33,25 +30,29 @@ class Achievements_scoringlol(Extension):
     @interactions.extension_command(
         name="achievements_s12",
         description="Voir les couronnes acquis par les joueurs (Réservé s12)",
-        options=[Option(
-            name='mode',
-            description='mode de jeu',
-            type=interactions.OptionType.STRING,
-            required=True,
-            choices=mode_de_jeu),
+        options=[
             Option(
-            name='records',
-            description='afficher le cumul des records',
-            type=interactions.OptionType.STRING,
-            choices=[
-                Choice(name='ranked', value='ranked'),
-                Choice(name='aram', value='aram'),
-                Choice(name='tout', value='all'),
-                Choice(name='aucun', value='none')],
-            required=False),
+                name='mode',
+                description='mode de jeu',
+                type=interactions.OptionType.STRING,
+                required=True,
+                choices=mode_de_jeu),
+            Option(
+                name='records',
+                description='afficher le cumul des records',
+                type=interactions.OptionType.STRING,
+                choices=[
+                    Choice(name='ranked', value='ranked'),
+                    Choice(name='aram', value='aram'),
+                    Choice(name='tout', value='all'),
+                    Choice(name='aucun', value='none')],
+                required=False),
         ],
     )
-    async def achievements(self, ctx: CommandContext, mode: str, records: str = 'none'):
+    async def achievements(self,
+                           ctx: CommandContext,
+                           mode: str,
+                           records: str = 'none'):
 
         # Succes
         suivi = lire_bdd('suivi', 'dict')
@@ -137,7 +138,9 @@ class Achievements_scoringlol(Extension):
                                         type=interactions.OptionType.STRING,
                                         required=True,
                                         choices=mode_de_jeu)])
-    async def achievements_regles(self, ctx: CommandContext, mode: str):
+    async def achievements_regles(self,
+                                  ctx: CommandContext,
+                                  mode: str):
 
         if mode == 'aram':
 
@@ -178,8 +181,7 @@ class Achievements_scoringlol(Extension):
                         value=texte_achievements, inline=False)
 
         await ctx.send(embeds=embed)
-        
-        
+
     @interactions.extension_command(name="achievements_v2",
                                     description="Voir le nombre records détenues par les joueurs",
                                     options=[Option(
@@ -196,37 +198,35 @@ class Achievements_scoringlol(Extension):
                                         type=interactions.OptionType.INTEGER,
                                         required=False)
                                     ])
-    async def achievements2(self, ctx: CommandContext, mode:str, saison: int = 12):
-        
+    async def achievements2(self,
+                            ctx: CommandContext,
+                            mode: str,
+                            saison: int = 12):
+
         await ctx.defer(ephemeral=False)
-        
+
         df = lire_bdd_perso('SELECT distinct id, joueur, couronne from matchs where season = %(season)s and mode = %(mode)s', index_col='id',
-                    params={'season' : saison, 'mode' : mode}).transpose()
-        
-        
+                            params={'season': saison, 'mode': mode}).transpose()
+
         # on regroupe par joueur
-        df = df.groupby('joueur').agg({'couronne' : 'sum', 'joueur' : 'count'})
-        
+        df = df.groupby('joueur').agg({'couronne': 'sum', 'joueur': 'count'})
+
         # 5 games minimum
-        
+
         df = df[df['joueur'] >= 5]
-        
+
         # on calcule par game
 
         df['per game'] = df['couronne'] / df['joueur']
-        
+
         result = f'Couronnes : Mode **{mode} et 5 games minimum : \n'
-        
+
         for joueur, stats in df.iterrows():
-            
+
             result += f"**{joueur} ** : {stats['couronne']} :crown: en {stats['joueur']} games ({round(stats['per game'],2)} :crown: / games) \n"
-            
-        
+
         await ctx.send(result)
-            
-            
 
 
 def setup(bot):
     Achievements_scoringlol(bot)
- 

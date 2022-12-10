@@ -193,7 +193,9 @@ class Challenges(Extension):
                                                     description="Nom du joueur",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
-    async def challenges_profil(self, ctx: CommandContext, summonername: str):
+    async def challenges_profil(self,
+                                ctx: CommandContext,
+                                summonername: str):
 
         session = aiohttp.ClientSession()
         total_user, total_category, total_challenges = await get_data_joueur(summonername, session)
@@ -256,7 +258,9 @@ class Challenges(Extension):
                                                     description="Quel page ? Les challenges sont en ordre alphabétique",
                                                     type=interactions.OptionType.INTEGER,
                                                     required=True)])
-    async def challenges_top(self, ctx: CommandContext, nbpages: int):
+    async def challenges_top(self,
+                             ctx: CommandContext,
+                             nbpages: int):
 
         # 232 défis
 
@@ -315,7 +319,9 @@ class Challenges(Extension):
                                                     description="Quel defi ?",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
-    async def challenges_top_name(self, ctx: CommandContext, defi: str):
+    async def challenges_top_name(self,
+                                  ctx: CommandContext,
+                                  defi: str):
 
         bdd_user_challenges = lire_bdd('challenges_data').transpose()
         # on prend les éléments qui nous intéressent
@@ -344,7 +350,9 @@ class Challenges(Extension):
                                                     description="Nom du joueur (Pas d'espace dans le pseudo !)",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
-    async def challenges_best(self, ctx, summonername: str):
+    async def challenges_best(self,
+                              ctx : CommandContext,
+                              summonername: str):
 
         # tous les summonername sont en minuscule :
         summonername = summonername.lower()

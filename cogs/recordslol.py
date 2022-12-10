@@ -212,7 +212,9 @@ class Recordslol(Extension):
                                                    value='ranked'),
                                             Choice(name='aram', value='aram')])
                                     ])
-    async def records_list(self, ctx: CommandContext, mode: str = 'ranked'):
+    async def records_list(self,
+                           ctx: CommandContext,
+                           mode: str = 'ranked'):
 
         await ctx.defer(ephemeral=False)
 
@@ -531,7 +533,13 @@ class Recordslol(Extension):
                                                                   params=parameters_communs, description='Records tout confondu'),
                                              option_stats_records(name='personnel', params=parameters_personnel, description='Record sur un joueur')
                                     ])
-    async def records_list_v2(self, ctx: CommandContext, sub_command : str, saison: int = 12, mode: str = 'ranked', joueur=None, champion=None):
+    async def records_list_v2(self,
+                              ctx: CommandContext,
+                              sub_command : str,
+                              saison: int = 12,
+                              mode: str = 'ranked',
+                              joueur=None,
+                              champion=None):
 
         await ctx.defer(ephemeral=False)
 
@@ -572,7 +580,8 @@ class Recordslol(Extension):
             fichier1.remove('cs_jungle')
             fichier1.remove('vision_score')
             fichier2 = fichier2.drop(['vision_pink', 'vision_wards', 'vision_wards_killed',
-                                      'jgl_dix_min', 'baron', 'drake', 'herald', 'vision_min', 'level_max_avantage'])
+                                      'jgl_dix_min', 'baron', 'drake', 'herald',
+                                      'vision_min', 'level_max_avantage'])
             fichier3 = fichier3.drop(['vision_avantage', 'early_drake', 'early_baron'])
         
 
@@ -618,8 +627,6 @@ class Recordslol(Extension):
 
         
 
-        
-        
 
 def setup(bot):
     Recordslol(bot)

@@ -306,7 +306,12 @@ def dict_data(thisId: int, match_detail, info):
     return liste
 
 
-async def match_by_puuid(summonerName, idgames: int, session, index=0, queue=0, count=20):
+async def match_by_puuid(summonerName,
+                         idgames: int,
+                         session,
+                         index=0,
+                         queue=0,
+                         count=20):
     params_me = {'api_key': api_key_lol}
     if queue == 0:
         params_my_match = {'start': index,
@@ -343,7 +348,13 @@ async def getId(summonerName, session):
 
 class matchlol():
 
-    def __init__(self, summonerName, idgames: int, queue: int = 0, index: int = 0, count: int = 20, identifiant_game = None):
+    def __init__(self,
+                 summonerName,
+                 idgames: int,
+                 queue: int = 0,
+                 index: int = 0,
+                 count: int = 20,
+                 identifiant_game = None):
         self.summonerName = summonerName
         self.idgames = idgames
         self.queue = queue
@@ -1043,7 +1054,10 @@ class matchlol():
                                                                                                                        'match_id' : self.last_match,
                                                                                                                        'joueur' : self.summonerName.lower()})
 
-    async def resume_personnel(self, name_img, embed, difLP):
+    async def resume_personnel(self,
+                               name_img,
+                               embed,
+                               difLP):
 
         """Resume personnel de sa game
         Parameters
@@ -1450,7 +1464,8 @@ class matchlol():
 
         return embed
 
-    async def resume_general(self, name_img):
+    async def resume_general(self,
+                             name_img):
 
         '''Resume global de la game
 

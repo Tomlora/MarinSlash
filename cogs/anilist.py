@@ -79,7 +79,11 @@ class Anilist(Extension):
                        Choice(name='automne', value='FALL')
                    ])
         ])
-    async def anime_season(self, ctx: CommandContext, nb_anime: int = 10, year=2022, season: str = 'SUMMER'):
+    async def anime_season(self,
+                           ctx: CommandContext,
+                           nb_anime: int = 10,
+                           year=2022,
+                           season: str = 'SUMMER'):
         anime_season = """\
         query ($season : MediaSeason, $seasonYear : Int) {
     Page {
@@ -244,7 +248,9 @@ class Anilist(Extension):
                                         type=interactions.OptionType.STRING,
                                         required=True
                                     )])
-    async def anime(self, ctx: CommandContext, anime):
+    async def anime(self,
+                    ctx: CommandContext,
+                    anime):
         self.id = anime
 
         session = aiohttp.ClientSession()

@@ -33,7 +33,12 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
 
-def records_check2(fichier, fichier_joueur, category, result_category_match, embed, methode='max'):
+def records_check2(fichier,
+                   fichier_joueur,
+                   category,
+                   result_category_match,
+                   embed,
+                   methode='max'):
     '''Cherche s'il y a un record :
     - Dans un premier temps, parmi tous les joueurs.
     - Dans un second temps, parmi les stats du joueur.                                                                                                                                 
@@ -76,7 +81,16 @@ def records_check2(fichier, fichier_joueur, category, result_category_match, emb
     return embed
 
 
-def records_check(fichier, key_boucle, key: str, Score_check: float, thisChampName, summonerName, embed, url, saison: int, mode: str):
+def records_check(fichier,
+                  key_boucle,
+                  key: str,
+                  Score_check: float,
+                  thisChampName,
+                  summonerName,
+                  embed,
+                  url,
+                  saison: int,
+                  mode: str):
     mode = mode.lower()
     if str(key_boucle) == str(key):
         # ici on veut le plus faible et pas égale à 0
@@ -120,7 +134,12 @@ class LeagueofLegends(Extension):
         self.task2 = create_task(IntervalTrigger(60*60))(self.lolsuivi)
         self.task2.start()
 
-    async def printInfo(self, summonerName, idgames: int, succes, sauvegarder: bool, identifiant_game=None):
+    async def printInfo(self,
+                        summonerName,
+                        idgames: int,
+                        succes,
+                        sauvegarder: bool,
+                        identifiant_game=None):
 
         match_info = matchlol(summonerName, idgames,
                               identifiant_game=identifiant_game)  # class
@@ -670,7 +689,13 @@ class LeagueofLegends(Extension):
                                                     description="A ne pas utiliser",
                                                     type=interactions.OptionType.STRING,
                                                     required=False)])
-    async def game(self, ctx: CommandContext, summonername: str, numerogame: int, succes: bool, sauvegarder: bool = True, identifiant_game=None):
+    async def game(self,
+                   ctx: CommandContext,
+                   summonername: str,
+                   numerogame: int,
+                   succes: bool,
+                   sauvegarder: bool = True,
+                   identifiant_game=None):
 
         await ctx.defer(ephemeral=False)
 
@@ -706,7 +731,13 @@ class LeagueofLegends(Extension):
                                                     description='Sauvegarder les games',
                                                     type=interactions.OptionType.BOOLEAN,
                                                     required=False)])
-    async def game_multi(self, ctx: CommandContext, summonername: str, debut: int, fin: int, succes: bool, sauvegarder: bool = True):
+    async def game_multi(self,
+                         ctx: CommandContext,
+                         summonername: str,
+                         debut: int,
+                         fin: int,
+                         succes: bool,
+                         sauvegarder: bool = True):
 
         await ctx.defer(ephemeral=False)
 
@@ -790,7 +821,9 @@ class LeagueofLegends(Extension):
                                                     description="Nom du joueur",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
-    async def loladd(self, ctx: CommandContext, *, summonername):
+    async def loladd(self,
+                     ctx: CommandContext,
+                     summonername):
         try:
             if verif_module('league_ranked', int(ctx.guild.id)):
                 session = aiohttp.ClientSession()
@@ -829,7 +862,10 @@ class LeagueofLegends(Extension):
                                                     description="True : Activé / False : Désactivé",
                                                     type=interactions.OptionType.BOOLEAN,
                                                     required=True)])
-    async def lolremove(self, ctx: CommandContext, summonername: str, activation: bool):
+    async def lolremove(self,
+                        ctx: CommandContext,
+                        summonername: str,
+                        activation: bool):
 
         summonername = summonername.lower()
 
@@ -1015,7 +1051,12 @@ class LeagueofLegends(Extension):
                                                     description="B",
                                                     type=interactions.OptionType.INTEGER,
                                                     required=True)])
-    async def color_recap(self, ctx: CommandContext, summonername: str, rouge: int, vert: int, bleu: int):
+    async def color_recap(self,
+                          ctx: CommandContext,
+                          summonername: str,
+                          rouge: int,
+                          vert: int,
+                          bleu: int):
 
         await ctx.defer(ephemeral=False)
 
@@ -1051,7 +1092,10 @@ class LeagueofLegends(Extension):
                                         type=interactions.OptionType.USER,
                                         required=True
                                     )])
-    async def link(self, ctx, summonername, member: interactions.User):
+    async def link(self,
+                   ctx : CommandContext,
+                   summonername,
+                   member: interactions.User):
 
         summonername = summonername.lower()
         requete_perso_bdd('UPDATE tracker SET discord = :discord, server_id = :guild WHERE index = :summonername', {

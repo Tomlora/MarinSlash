@@ -24,7 +24,9 @@ class Github(Extension):
                                                     description="Pseudo Github",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
-    async def github(self, ctx: CommandContext, pseudo: str):
+    async def github(self,
+                     ctx: CommandContext,
+                     pseudo: str):
         session = aiohttp.ClientSession()
 
         async with session.get(f"https://api.github.com/users/{pseudo}") as req:

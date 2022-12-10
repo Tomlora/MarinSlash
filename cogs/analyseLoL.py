@@ -41,45 +41,48 @@ choice_analyse = [Choice(name="gold", value="gold"),
                   Choice(name='position', value='position')]
 
 parameters_commun_stats_lol = [Option(
-        name='season',
-        description='saison lol',
-        type=interactions.OptionType.INTEGER,
-        required=False),
-        Option(
-        name='joueur',
-        description='se focaliser sur un joueur ?',
-        type=interactions.OptionType.STRING,
-        required=False),
-        Option(
-        name='champion',
-        description='se focaliser sur un champion ?',
-        type=interactions.OptionType.STRING,
-        required=False),
-        Option(
-        name='mode_de_jeu',
-        description='se focaliser sur un mode de jeu ?',
-        type=interactions.OptionType.STRING,
-        required=False,
-        choices=[
-            Choice(name='soloq',
-                   value='RANKED'),
-            Choice(name='aram', value='ARAM')]),
-        Option(
-        name='top',
-        description='top x ?',
-        type=interactions.OptionType.INTEGER,
-        required=False,
-        choices=[
-            Choice(name='3', value=3),
-            Choice(name='5', value=5),
-            Choice(name='7', value=7),
-            Choice(name='10', value=10),
-            Choice(name='15', value=15),
-            Choice(name='20', value=20)]
-    )]
+    name='season',
+    description='saison lol',
+    type=interactions.OptionType.INTEGER,
+    required=False),
+    Option(
+    name='joueur',
+    description='se focaliser sur un joueur ?',
+    type=interactions.OptionType.STRING,
+    required=False),
+    Option(
+    name='champion',
+    description='se focaliser sur un champion ?',
+    type=interactions.OptionType.STRING,
+    required=False),
+    Option(
+    name='mode_de_jeu',
+    description='se focaliser sur un mode de jeu ?',
+    type=interactions.OptionType.STRING,
+    required=False,
+    choices=[
+        Choice(name='soloq',
+               value='RANKED'),
+        Choice(name='aram', value='ARAM')]),
+    Option(
+    name='top',
+    description='top x ?',
+    type=interactions.OptionType.INTEGER,
+    required=False,
+    choices=[
+        Choice(name='3', value=3),
+        Choice(name='5', value=5),
+        Choice(name='7', value=7),
+        Choice(name='10', value=10),
+        Choice(name='15', value=15),
+        Choice(name='20', value=20)]
+)]
 
 
-def option_stats_lol(name, choices: list, parameters_commun_stats_lol, description='type de recherche'):
+def option_stats_lol(name,
+                     choices: list,
+                     parameters_commun_stats_lol,
+                     description='type de recherche'):
     option = Option(
         name=name,
         description=description,
@@ -99,7 +102,11 @@ def get_data_matchs(columns):
     return df
 
 
-def transformation_top(df, value, title, top, showlegend=False):
+def transformation_top(df,
+                       value,
+                       title,
+                       top,
+                       showlegend=False):
 
     # On retire les données sans item
     df_item = df[df[value] != 0]
@@ -120,10 +127,9 @@ def transformation_top(df, value, title, top, showlegend=False):
     return fig
 
 
-
-
-
-def dict_data(thisId: int, match_detail, info):
+def dict_data(thisId: int,
+              match_detail,
+              info):
     try:
         if thisId > 4:
             infos1 = match_detail['info']['participants'][5][info]
@@ -206,7 +212,12 @@ class analyseLoL(Extension):
                                         required=False,
                                         min_value=0,
                                         max_value=10)])
-    async def analyse(self, ctx: CommandContext, summonername: str, stat: str, stat2: str = "no", game: int = 0):
+    async def analyse(self,
+                      ctx: CommandContext,
+                      summonername: str,
+                      stat: str,
+                      stat2: str = "no",
+                      game: int = 0):
 
         stat = [stat, stat2]
         liste_graph = list()
@@ -807,8 +818,6 @@ class analyseLoL(Extension):
             await stat.delete()
             await ctx.send("Annulé")
 
-
-    
     choice_comptage = Choice(name='comptage', value='count')
     choice_winrate = Choice(name='winrate', value='winrate')
     choice_avg = Choice(name='avg', value='avg')
@@ -817,31 +826,38 @@ class analyseLoL(Extension):
     @interactions.extension_command(name="stats_lol",
                                     description="Historique de game",
                                     options=[option_stats_lol(name='items',
-                                                               choices=[choice_comptage, choice_winrate],
-                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
-                                                               description='stats sur les items'),
+                                                              choices=[
+                                                                  choice_comptage, choice_winrate],
+                                                              parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                              description='stats sur les items'),
                                              option_stats_lol(name='champion',
-                                                               choices=[choice_comptage, choice_winrate],
-                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
-                                                               description='stats sur les champions'),
+                                                              choices=[
+                                                                  choice_comptage, choice_winrate],
+                                                              parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                              description='stats sur les champions'),
                                              option_stats_lol(name='dommage',
-                                                               choices=[choice_avg],
-                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
-                                                               description='stats sur les dégats'),
+                                                              choices=[
+                                                                  choice_avg],
+                                                              parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                              description='stats sur les dégats'),
                                              option_stats_lol(name='tank',
-                                                               choices=[choice_avg],
-                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
-                                                               description='stats sur le tanking'),
+                                                              choices=[
+                                                                  choice_avg],
+                                                              parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                              description='stats sur le tanking'),
                                              option_stats_lol(name='kda',
-                                                               choices=[choice_avg],
-                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
-                                                               description='stats sur le kda'),
+                                                              choices=[
+                                                                  choice_avg],
+                                                              parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                              description='stats sur le kda'),
                                              option_stats_lol(name='lp',
-                                                               choices=[choice_progression],
-                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
-                                                               description='stats sur les lp'),
+                                                              choices=[
+                                                                  choice_progression],
+                                                              parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                              description='stats sur les lp'),
                                              option_stats_lol(name='games',
-                                                              choices=[choice_comptage],
+                                                              choices=[
+                                                                  choice_comptage],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
                                                               description='stats sur les games')
                                              ])
@@ -862,9 +878,9 @@ class analyseLoL(Extension):
             'kda': 'kills, assists, deaths',
             'type': sub_command,
             'lp': 'date, lp, tier, rank',
-            'games' : 'victoire'
+            'games': 'victoire'
         }
-        
+
         await ctx.defer(ephemeral=False)
 
         if sub_command == 'items':
@@ -1064,14 +1080,15 @@ class analyseLoL(Extension):
                     await ctx.send(embeds=embed, files=files)
                 else:
                     await ctx.send('Tu dois selectionner un mode de jeu pour cette analyse.')
-                    
+
         if sub_command == 'games':
             if calcul == 'count':
                 df = df.groupby('joueur').count()
-                fig = px.histogram(x=df.index, y=df['victoire'], color=df.index, text_auto=True, title=title).update_xaxes(categoryorder="total descending")
+                fig = px.histogram(x=df.index, y=df['victoire'], color=df.index, text_auto=True, title=title).update_xaxes(
+                    categoryorder="total descending")
                 fig.update_layout(showlegend=False)
                 embed, files = get_embed(fig, 'games')
-                
+
                 await ctx.send(embeds=embed, files=files)
 
 

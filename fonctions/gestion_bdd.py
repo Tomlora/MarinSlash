@@ -12,7 +12,8 @@ DB = os.environ.get('API_SQL')
 engine = create_engine(DB, echo=False)
 
 
-def lire_bdd(nom_table, format: str = "df"):
+def lire_bdd(nom_table,
+             format: str = "df"):
     """Lire la BDD
 
     Parameters
@@ -37,7 +38,10 @@ def lire_bdd(nom_table, format: str = "df"):
     return df
 
 
-def lire_bdd_perso(requests: str, format: str = "df", index_col: str = "index", params=None):
+def lire_bdd_perso(requests: str,
+                   format: str = "df",
+                   index_col: str = "index",
+                   params=None):
     """Lire la BDD
 
     Parameters
@@ -68,7 +72,11 @@ def lire_bdd_perso(requests: str, format: str = "df", index_col: str = "index", 
     return df
 
 
-def sauvegarde_bdd(df, nom_table, methode_save='replace', dtype={'Score': Float(), 'serie': BigInteger()}):
+def sauvegarde_bdd(df,
+                   nom_table,
+                   methode_save='replace',
+                   dtype={'Score': Float(),
+                          'serie': BigInteger()}):
     """Sauvegarde la BDD au format dataframe
 
     Parameters
@@ -102,7 +110,8 @@ def supprimer_bdd(nom_table):
     conn.close()
 
 
-def get_data_bdd(request: text, dict_params=None):
+def get_data_bdd(request: text,
+                 dict_params=None):
     conn = engine.connect()
     sql = text(request)
     if dict_params == None:
@@ -114,7 +123,8 @@ def get_data_bdd(request: text, dict_params=None):
     return data
 
 
-def requete_perso_bdd(request: text, dict_params: dict = None):
+def requete_perso_bdd(request: text,
+                      dict_params: dict = None):
     """
     request : requête sql au format text
 
@@ -139,7 +149,9 @@ def get_guild_data():
 # ------ SW
 
 
-def sauvegarde_bdd_sw(df, nom_table, methode_save='replace'):
+def sauvegarde_bdd_sw(df,
+                      nom_table,
+                      methode_save='replace'):
     """Sauvegarde la BDD au format dataframe
     Parameters
     -----------
@@ -160,7 +172,9 @@ def sauvegarde_bdd_sw(df, nom_table, methode_save='replace'):
     conn.close()
 
 
-async def get_user(joueur, type: str = 'name_user', id_compte: int = 0):
+async def get_user(joueur,
+                   type: str = 'name_user',
+                   id_compte: int = 0):
     '''Return l'id, la guilde et la visibilité du joueur demandé
     type : name_user ou id'''
     # à adapter avec l'id du compte quand on aura assez d'infos
@@ -185,7 +199,9 @@ async def get_user(joueur, type: str = 'name_user', id_compte: int = 0):
     return id_joueur, visibility, guildeid
 
 
-def update_info_compte(joueur, guildeid, compteid):
+def update_info_compte(joueur,
+                       guildeid,
+                       compteid):
     conn = engine.connect()
     params_sql = {'joueur': joueur,
                   'guilde_id': guildeid, 'joueur_id': compteid}
