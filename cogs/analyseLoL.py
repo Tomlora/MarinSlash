@@ -1064,7 +1064,7 @@ class analyseLoL(Extension):
         if sub_command == 'games':
             if calcul == 'count':
                 df = df.groupby('joueur').count()
-                fig = px.histogram(x=df.index, y=df['victoire'], text_auto=True).update_xaxes(categoryorder="total descending")
+                fig = px.histogram(x=df.index, y=df['victoire'], text_auto=True, title=title).update_xaxes(categoryorder="total descending")
                 embed, files = get_embed(fig, 'games')
                 
                 await ctx.send(embeds=embed, files=files)
