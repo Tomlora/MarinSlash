@@ -6,6 +6,7 @@ from interactions import Choice, Option, Extension, CommandContext
 from interactions.ext.paginator import Page, Paginator
 from fonctions.params import Version
 from fonctions.match import trouver_records
+import plotly.express as px
 
 
 
@@ -200,8 +201,8 @@ class Recordslol(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
 
-    @interactions.extension_command(name="records_list",
-                                    description="Voir les records détenues par les joueurs",
+    @interactions.extension_command(name="records_list_s12",
+                                    description="Voir les records détenues par les joueurs (réservé s12)",
                                     options=[Option(
                                         name="mode",
                                         description="Quel mode de jeu ?",
@@ -209,18 +210,14 @@ class Recordslol(Extension):
                                         required=True, choices=[
                                             Choice(name='ranked',
                                                    value='ranked'),
-                                            Choice(name='aram', value='aram')]),
-                                        Option(
-                                        name='saison',
-                                        description='saison league of legends',
-                                        type=interactions.OptionType.INTEGER,
-                                        required=False)
+                                            Choice(name='aram', value='aram')])
                                     ])
-    async def records_list(self, ctx: CommandContext, saison: int = 12, mode: str = 'ranked'):
+    async def records_list(self, ctx: CommandContext, mode: str = 'ranked'):
 
         await ctx.defer(ephemeral=False)
 
         current = 0
+        saison = 12
 
         fichier = lire_bdd_perso('SELECT index, "Score", "Champion", "Joueur", url from records where saison= %(saison)s AND mode=%(mode)s', params={'saison': saison,
                                                                                                                                                      'mode': mode}).transpose()
@@ -400,8 +397,8 @@ class Recordslol(Extension):
             ]
         ).run()
 
-    @interactions.extension_command(name="records_personnel",
-                                    description="Record personnel",
+    @interactions.extension_command(name="records_personnel_s12",
+                                    description="Record personnel (réservé s12)",
                                     options=[Option(
                                         name="joueur",
                                         description="Pseudo LoL",
@@ -617,7 +614,12 @@ class Recordslol(Extension):
                 Page(embed3.title, embed3)
             ]
         ).run()
+        
 
+        
+
+        
+        
 
 def setup(bot):
     Recordslol(bot)
