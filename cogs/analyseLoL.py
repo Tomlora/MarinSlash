@@ -845,6 +845,9 @@ class analyseLoL(Extension):
                                              option_stats_lol(name='lp',
                                                                choices=[choice_progression],
                                                                parameters_commun=parameters_commun),
+                                             option_stats_lol(name='games',
+                                                              choices=[choice_comptage],
+                                                              parameters_commun=parameters_commun)
                                              ])
     async def historique_lol(self, ctx: CommandContext, sub_command: str, calcul: str, season: int = 12, joueur: str = None, champion: str = None, mode_de_jeu: str = None, top: int = 20):
 
@@ -854,7 +857,8 @@ class analyseLoL(Extension):
             'champion': 'victoire',
             'kda': 'kills, assists, deaths',
             'type': sub_command,
-            'lp': 'date, lp, tier, rank'
+            'lp': 'date, lp, tier, rank',
+            'games' : 'victoire'
         }
         
         await ctx.defer(ephemeral=False)
@@ -1056,6 +1060,14 @@ class analyseLoL(Extension):
                     await ctx.send(embeds=embed, files=files)
                 else:
                     await ctx.send('Tu dois selectionner un mode de jeu pour cette analyse.')
+                    
+        if sub_command == 'games':
+            if calcul == 'count':
+                df = df.groupby('joueur').count()
+                fig = px.histogram(x=df.index, y=df['victoire'], text_auto=True).update_xaxes(categoryorder="total descending")
+                embed, files = get_embed(fig, 'games')
+                
+                await ctx.send(embeds=embed, files=files)
 
 
 def setup(bot):
