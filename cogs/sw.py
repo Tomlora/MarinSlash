@@ -27,7 +27,7 @@ def date_du_jour():
 
 def get_guildeid_by_name(guilde):
 
-    get_data_bdd('''SELECT * from sw_guilde where guilde = :guilde''',
+    stats = get_data_bdd('''SELECT * from sw_guilde where guilde = :guilde''',
                  dict_params={'guilde': guilde})
 
     # on cherche l'id
