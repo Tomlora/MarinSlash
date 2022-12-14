@@ -534,8 +534,6 @@ class analyseLoL(Extension):
         for graph in liste_delete:
             os.remove(graph)
 
-    CommandContext.send
-
     @interactions.extension_command(name="analyse_fin_de_game",
                                     description="Voir des stats de fin de game",
                                     options=[

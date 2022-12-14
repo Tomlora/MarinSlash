@@ -143,7 +143,7 @@ def requete_perso_bdd(request: text,
 
 
 def get_guild_data():
-    return get_data_bdd(f'''SELECT server_id from channels_discord''')
+    return get_data_bdd(f'''SELECT server_id from channels_module where activation = true ''')
 
 
 # ------ SW

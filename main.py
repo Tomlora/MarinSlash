@@ -69,10 +69,14 @@ async def on_guild_create(guild : interactions.Guild):
                      'admin' : int(guild.owner_id),
                     'role_admin' : 0})
         
-# @bot.event
-# async def on_guild_delete(guild : interactions.Guild):
-       # TODO : Ajouter une colonne Activation/Désactivation
-#         requete_perso_bdd(f'''DELETE FROM channels_discord where server_id = :server_id''', {'server_id' : int(guild.id)})
+        else: # si on l'a déjà, il vient de rejoindre à nouveau le serveur.
+            requete_perso_bdd(f'''UPDATE channels_module SET activation = :activation where server_id = :server_id''', {'server_id' : int(guild.id),
+                                                                                                              'activation' : 'true'})
+        
+@bot.event
+async def on_guild_delete(guild : interactions.Guild):
+        requete_perso_bdd(f'''UPDATE channels_module SET activation = :activation where server_id = :server_id''', {'server_id' : int(guild.id),
+                                                                                                              'activation' : 'false'})
 
 @bot.event
 async def on_guild_member_add(member : interactions.Member):
