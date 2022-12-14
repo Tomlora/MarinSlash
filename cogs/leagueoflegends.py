@@ -57,6 +57,10 @@ def records_check2(fichier,
             if float(record) > float(result_category_match):
                 embed = embed + \
                     f"\n ** :boom: Record {category} battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+        
+        if float(record) == float(result_category_match): # si égalité
+            embed = embed + \
+                f"\n ** :medal: Tu as égalé le record {category} de {joueur}"
     else:
         embed = embed + \
             f"\n ** :boom: Premier Record {category} avec {result_category_match} **"
@@ -965,8 +969,9 @@ class LeagueofLegends(Extension):
                     df['tier_pts'] = df['tier'].apply(changement_tier)
                     df['rank_pts'] = df['rank'].apply(changement_rank)
 
-                    df.sort_values(by=['tier_pts', 'rank_pts', 'LP'], ascending=[
-                                   False, False, False], inplace=True)
+                    df.sort_values(by=['tier_pts', 'rank_pts', 'LP'],
+                                   ascending=[False, False, False],
+                                   inplace=True)
 
                     sql = ''
 
@@ -1096,7 +1101,7 @@ class LeagueofLegends(Extension):
         await ctx.send('https://clips.twitch.tv/CuriousBenevolentMageHotPokket-8M0TX_zTaGW7P2g7')
 
     @interactions.extension_command(name='lol_discord',
-                                    description='Link discord et lol',
+                                    description='Relie un compte discord et un compte league of legends',
                                     options=[
                                         Option(
                                             name='summonername',
