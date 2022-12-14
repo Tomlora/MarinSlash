@@ -37,7 +37,7 @@ async def on_message_create(message : interactions.Message):
         
         guild = await message.get_guild()
         role = get(guild.roles, name="Muted")
-        
+
         if role.id in message.member.roles:
             await message.delete()
             
@@ -49,6 +49,7 @@ async def on_message_create(message : interactions.Message):
 @bot.event
 async def on_guild_create(guild : interactions.Guild):
 
+
         # on_guild_create peut marcher si le serveur n'est pas disponible, on va donc check si on l'a dans la bdd ou pas.
         if lire_bdd_perso(f'''SELECT server_id from channels_discord where server_id = {int(guild.id)}''', index_col='server_id').shape[1] != 1:
         # si on l'a pas, on l'ajoute
@@ -59,14 +60,18 @@ async def on_guild_create(guild : interactions.Guild):
             
             requete_perso_bdd(f'''INSERT INTO channels_discord(
                         server_id, id_owner, id_owner2, chan_pm, chan_tracklol, chan_accueil, chan_twitch, chan_lol, chan_tft, chan_lol_others, role_admin)
-                        VALUES (:server_id, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :chan);
+                        VALUES (:server_id, :tom, :admin, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :role_admin);
                         INSERT INTO channels_module(server_id)
                         VALUES (:server_id);''',
-                    {'server_id' : int(guild.id), 'chan' : int(text_channel_list[0])})
+                    {'server_id' : int(guild.id),
+                     'chan' : int(text_channel_list[0]),
+                     'tom' : 298418038460514314,
+                     'admin' : int(guild.owner_id),
+                    'role_admin' : 0})
         
 # @bot.event
 # async def on_guild_delete(guild : interactions.Guild):
-       
+       # TODO : Ajouter une colonne Activation/Désactivation
 #         requete_perso_bdd(f'''DELETE FROM channels_discord where server_id = :server_id''', {'server_id' : int(guild.id)})
 
 @bot.event
@@ -97,7 +102,6 @@ async def on_guild_member_remove(member : interactions.Member):
     '''Lorsque un nouveau user quitte le discord'''
 
     chan_discord_pm = chan_discord(int(member.guild_id))
-    
     guild = await interactions.get(client=bot,
                                     obj=interactions.Guild,
                                     object_id=member.guild_id)
