@@ -100,3 +100,26 @@ def get_embed(fig,
     embed.set_image(url=f'attachment://{name}.png')
 
     return embed, file
+
+
+def mention(id_discord:int, type:str) -> str:
+    """Formate l'id pour mentionner un membre, un role ou un channel
+
+    Parameters
+    ----------
+    id_discord : int
+        id à mentionner
+    type : str
+        membre / role ou channel
+
+    Returns
+    -------
+    str
+        mention à insérer dans un string
+    """
+    if type=='membre':
+        return f'<@{id_discord}>'
+    elif type=='role':
+        return f'<@&{id_discord}>'
+    elif type=='channel':
+        return f'<#{id_discord}>'
