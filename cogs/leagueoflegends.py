@@ -405,16 +405,19 @@ class LeagueofLegends(Extension):
         points = 0
 
         if match_info.thisQ == 'ARAM':
-
+                # couronnes pour aram
             settings = lire_bdd_perso(
                 f'SELECT index, score_aram as score from achievements_settings')
-        else:
+        else: # couronnes si autre mode de jeu
             settings = lire_bdd_perso(
                 f'SELECT index, score as score from achievements_settings')
 
         settings = settings.to_dict()
 
-        if match_info.thisQ == 'RANKED':
+        
+        ## Couronnes 
+        
+        if match_info.thisQ == 'RANKED': # pour only ranked 
             if int(match_info.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
                 exploits = exploits + \
                     f"\n ** :crown: :wave: Tu as au moins {match_info.thisLevelAdvantage} niveaux d'avance sur ton adversaire durant la game**"
@@ -460,7 +463,8 @@ class LeagueofLegends(Extension):
                 exploits = exploits + \
                     f"\n ** :crown: :ghost: Tu as plus de {match_info.thisCSAdvantageOnLane} CS d'avance sur ton adversaire durant la game**"
                 points = points + 1
-
+                
+        ## pour tous les modes
         if float(match_info.thisKDA) >= settings['KDA']['score']:
             exploits = exploits + \
                 f"\n ** :crown: :star: Ce joueur a un bon KDA avec un KDA de {match_info.thisKDA} **"
@@ -508,9 +512,10 @@ class LeagueofLegends(Extension):
 
         if (match_info.thisQ == "RANKED" and match_info.thisTime > 20 and succes is True) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
-
+            # on add les couronnes si ranked (> 20 min) ou aram (> 10 min))
             exploits = records_check2(
                 fichier, fichier_joueur, 'couronne', points, exploits)
+            
             await match_info.add_couronnes(points)
 
         # Présence d'afk
@@ -663,7 +668,7 @@ class LeagueofLegends(Extension):
                     print('Channel impossible')
                     print(sys.exc_info())
 
-                requete_perso_bdd('UPDATE suivi SET tier = :tier, rank = :rank where index =: joueur', {'tier': tier,
+                requete_perso_bdd('UPDATE suivi SET tier = :tier, rank = :rank where index = :joueur', {'tier': tier,
                                                                                                         'rank': rank,
                                                                                                         'joueur': key})
 
