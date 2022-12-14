@@ -27,7 +27,8 @@ class Settings(Extension):
                                        thumbnail=interactions.EmbedImageStruct(url=ctx.guild.icon_url))
 
             for variable, valeur in data.items():
-                embed1.add_field(name=variable, value=valeur, inline=True)
+                if not variable == 'activation': # on ne veut pas cette variable dans notre embed
+                    embed1.add_field(name=variable, value=valeur, inline=True)
                 
             # embed 2 avec les identifiants channels    
 
@@ -41,7 +42,14 @@ class Settings(Extension):
             data2 = data2.mappings().all()[0]
             
             for variable, valeur in data2.items():
-                embed2.add_field(name=variable, value=valeur, inline=True)
+                if variable == 'server_id': # en fonction de la variable, discord ne mentionne pas de la même manière. Pour un serveur id, classique
+                    embed2.add_field(name=variable, value=valeur, inline=True)
+                elif variable in ['id_owner', 'id_owner2']: # pour un membre, c'est @
+                    embed2.add_field(name=variable, value=f'<@{valeur}>', inline=True)
+                elif variable == 'role_admin' : # pour un role, c'est @&
+                    embed2.add_field(name=variable, value=f'<@&{valeur}>', inline=True)
+                else: # pour un channel, c'est #
+                    embed2.add_field(name=variable, value=f'<#{valeur}>', inline=True)
                 
             await Paginator(
                 client=self.bot,
