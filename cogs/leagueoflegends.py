@@ -839,6 +839,7 @@ class LeagueofLegends(Extension):
                      summonername):
         try:
             if verif_module('league_ranked', int(ctx.guild.id)):
+                summonername = summonername.lower()
                 session = aiohttp.ClientSession()
                 requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
                                 
@@ -859,12 +860,12 @@ class LeagueofLegends(Extension):
                                 VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');''',
                                   {'summonername': summonername.lower(), 'id': await getId(summonername, session), 'discord': int(ctx.author.id), 'guilde': int(ctx.guild.id)})
 
-                await ctx.send(f"{summonername} was successfully added to live-feed!")
+                await ctx.send(f"{summonername} a été ajouté avec succès au live-feed!")
                 await session.close()
             else:
                 await ctx.send('Module désactivé pour ce serveur')
         except:
-            await ctx.send("Oops! There is no summoner with that name!")
+            await ctx.send("Oops! Ce joueur n'existe pas.")
 
     @interactions.extension_command(name='lolremove', description='Activation/Désactivation du tracker',
                                     options=[
