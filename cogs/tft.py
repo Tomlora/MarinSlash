@@ -218,6 +218,15 @@ class tft(Extension):
                                                                                                           'rank': rank,
                                                                                                           'lp': lp,
                                                                                                           'summonername': summonername})
+            
+        # Moyenne classement
+        
+        nbgames = 0
+        somme_rank = 0
+        for i in range(1, 9):
+            nbgames += suivi_profil[summonername]['top' + str(i)]
+            somme_rank += suivi_profil[summonername]['top' + str(i)] * i
+        score_avg = round(somme_rank / nbgames, 1)  
 
         # Embed
 
@@ -225,6 +234,8 @@ class tft(Extension):
                             'index': summonername})
         data = data.fetchall()
         color = rgb_to_discord(data[0][0], data[0][1], data[0][2])
+        
+        
 
         emote_classement = {1: ':one:',
                             2: ':two:',
@@ -244,8 +255,9 @@ class tft(Extension):
         # Stats
         if ranked:
             embed.add_field(name=f'Current rank : {tier} {rank} | {lp}LP ({difLP})',
-                            value=f'Winrate : **{wr}%** \n' +
-                            f'Top 1 : **{suivi_profil[summonername][f"top1"]}** | Top 2 : **{suivi_profil[summonername][f"top2"]}** | \
+                            value=f'Winrate : **{wr}%** \n', inline=False)
+            embed.add_field(name=f'Classement moyen : **{score_avg}** ({nbgames} games)',
+                            value = f'Top 1 : **{suivi_profil[summonername][f"top1"]}** | Top 2 : **{suivi_profil[summonername][f"top2"]}** | \
                             Top 3 : **{suivi_profil[summonername][f"top3"]}**  | Top 4 : **{suivi_profil[summonername][f"top4"]}**\n' +
                             f'Top 5 : **{suivi_profil[summonername][f"top5"]}** | Top 6 : **{suivi_profil[summonername][f"top6"]}** | \
                                 Top 7 : **{suivi_profil[summonername][f"top7"]}** | Top 8 : **{suivi_profil[summonername][f"top8"]}**', inline=False)
