@@ -34,15 +34,17 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 
 def records_check2(fichier,
-                   fichier_joueur,
-                   fichier_champion,
-                   category,
-                   result_category_match,
-                   embed,
+                   fichier_joueur=None,
+                   fichier_champion=None,
+                   category=None,
+                   result_category_match=None,
+                   embed=None,
                    methode='max'):
     '''Cherche s'il y a un record :
     - Dans un premier temps, parmi tous les joueurs.
-    - Dans un second temps, parmi les stats du joueur.                                                                                                                                 
+    - Dans un second temps, parmi les stats du joueur.
+    
+    None à la place du fichier pour désactiver un check.                                                                                                                                 
     '''
 
     # Record sur tous les joueurs
@@ -67,43 +69,45 @@ def records_check2(fichier,
             f"\n ** :boom: Premier Record {category} avec {result_category_match} **"
 
     # Record sur ses stats personnels
-    if fichier_joueur.shape[0] > 0:  # s'il y a des données, sinon first record
-        joueur_perso, champion_perso, record_perso, url = trouver_records(
-            fichier_joueur, category, methode)
+    if fichier_joueur != None:
+        if fichier_joueur.shape[0] > 0:  # s'il y a des données, sinon first record
+            joueur_perso, champion_perso, record_perso, url = trouver_records(
+                fichier_joueur, category, methode)
 
-        if methode == 'max':
-            if float(record_perso) < float(result_category_match):
-                embed = embed + \
-                    f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record_perso})"
-        else:
-            if float(record_perso) > float(result_category_match):
-                embed = embed + \
-                    f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record_perso})"
-        
-        if float(record_perso) == float(result_category_match):
-            embed = embed + \
-                f"\n ** :medal: Tu as égalé ton record personnel en {category}"
+            if methode == 'max':
+                if float(record_perso) < float(result_category_match):
+                    embed = embed + \
+                        f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record_perso})"
+            else:
+                if float(record_perso) > float(result_category_match):
+                    embed = embed + \
+                        f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record_perso})"
             
-    else:
-        embed = embed + \
-            f"\n ** :military_medal: Premier Record personnel {category} avec {result_category_match} **"
+            if float(record_perso) == float(result_category_match):
+                embed = embed + \
+                    f"\n ** :medal: Tu as égalé ton record personnel en {category}"
+                
+        else:
+            embed = embed + \
+                f"\n ** :military_medal: Premier Record personnel {category} avec {result_category_match} **"
             
     # Record sur les champions
-    if fichier_champion.shape[0] > 0:  # s'il y a des données, sinon first record
-        joueur_champion, champion_champion, record_champion, url = trouver_records(
-            fichier_champion, category, methode)
+    if fichier_champion != None:
+        if fichier_champion.shape[0] > 0:  # s'il y a des données, sinon first record
+            joueur_champion, champion_champion, record_champion, url = trouver_records(
+                fichier_champion, category, methode)
 
-        if methode == 'max':
-            if float(record_champion) < float(result_category_match):
-                embed = embed + \
-                    f"\n ** :rocket: Tu as battu le record sur le champion en {category.lower()} avec {result_category_match} ** (Anciennement : {record_champion})"
+            if methode == 'max':
+                if float(record_champion) < float(result_category_match):
+                    embed = embed + \
+                        f"\n ** :rocket: Tu as battu le record sur le champion en {category.lower()} avec {result_category_match} ** (Anciennement : {record_champion})"
+            else:
+                if float(record_champion) > float(result_category_match):
+                    embed = embed + \
+                        f"\n ** :rocket: Tu as battu le record sur le champion en {category.lower()} avec {result_category_match} ** (Anciennement : {record_champion})"
         else:
-            if float(record_champion) > float(result_category_match):
-                embed = embed + \
-                    f"\n ** :rocket: Tu as battu le record sur le champion en {category.lower()} avec {result_category_match} ** (Anciennement : {record_champion})"
-    else:
-        embed = embed + \
-            f"\n ** :rocket: Premier Record personnel sur le champion en {category} avec {result_category_match} **"
+            embed = embed + \
+                f"\n ** :rocket: Premier Record personnel sur le champion en {category} avec {result_category_match} **"
 
     return embed
 
@@ -246,9 +250,9 @@ class LeagueofLegends(Extension):
 
             # nouveau système de records
             # if int(match_info.thisDeaths) >= 1: # on ne peut pas comparer à un perfect kda
-            #     exploits = records_check2(fichier, fichier_joueur, 'kda', match_info.thisKDA, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kda', match_info.thisKDA, exploits)
             # else:
-            #     exploits = records_check2(fichier, fichier_joueur, 'kda', float(
+            #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kda', float(
             #                                      round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1),2)), exploits)
             # exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kp', match_info.thisKP, exploits)
             # exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'cs', match_info.thisMinion, exploits)
@@ -295,9 +299,9 @@ class LeagueofLegends(Extension):
             #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'early_drake', match_info.earliestDrake, exploits)
             #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'early_baron', match_info.earliestBaron, exploits)
             #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'jgl_dix_min', match_info.thisJUNGLEafter10min, exploits)
-            #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'baron', match_info.thisBaronTeam, exploits)
-            #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'drake', match_info.thisDragonTeam, exploits)
-            #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'herald', match_info.thisHeraldTeam, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, None, 'baron', match_info.thisBaronTeam, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, None, 'drake', match_info.thisDragonTeam, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, None, 'herald', match_info.thisHeraldTeam, exploits)
             #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'cs_jungle', match_info.thisJungleMonsterKilled, exploits)
 
             for key, value in records.items():

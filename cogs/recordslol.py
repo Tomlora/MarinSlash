@@ -503,6 +503,11 @@ class Recordslol(Extension):
             name='saison',
             description='saison league of legends',
             type=interactions.OptionType.INTEGER,
+            required=False),
+        Option(
+            name='champion',
+            description='champion',
+            type=interactions.OptionType.STRING,
             required=False)]
 
     parameters_personnel = [
@@ -548,26 +553,31 @@ class Recordslol(Extension):
 
         await ctx.defer(ephemeral=False)
 
-        current = 0
-
         fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': saison,
                                                                                                                                         'mode': mode}).transpose()
 
+        if champion != None:
+
+            fichier = fichier[fichier['champion'] == champion]
+            
         if sub_command == 'personnel':
 
             joueur = joueur.lower()
 
             fichier = fichier[fichier['joueur'] == joueur]
+            
+            if champion !=None:
 
-            title = f'Records personnels {joueur} {mode} S{saison}'
-
-            if champion != None:
-                fichier = fichier[fichier['champion'] == champion]
-
-                title = f'Records personnels {joueur} ({champion}) {mode} S{saison}'
+                title = f'Records personnels {joueur} {mode} S{saison}'
+            else:
+                title = f'Records personnels {joueur} {mode} S{saison} ({champion})'
 
         else:
-            title = f'Records {mode} S{saison}'
+            
+            if champion != None:
+                title = f'Records {mode} S{saison}'
+            else:
+                title = f'Records {mode} S{saison} ({champion})'
 
         fichier1 = fichier.columns[3:22].drop(['champion', 'victoire'])
         fichier2 = fichier.columns[22:45].drop(['team'])
