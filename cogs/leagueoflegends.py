@@ -11,6 +11,7 @@ from interactions.ext.tasks import IntervalTrigger, create_task
 from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version
 from fonctions.channels_discord import verif_module
+import traceback
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -69,7 +70,7 @@ def records_check2(fichier,
             f"\n ** :boom: Premier Record {category} avec {result_category_match} **"
 
     # Record sur ses stats personnels
-    if fichier_joueur != None:
+    if isinstance(fichier_joueur, pd.DataFrame):
         if fichier_joueur.shape[0] > 0:  # s'il y a des données, sinon first record
             joueur_perso, champion_perso, record_perso, url = trouver_records(
                 fichier_joueur, category, methode)
@@ -92,7 +93,7 @@ def records_check2(fichier,
                 f"\n ** :military_medal: Premier Record personnel {category} avec {result_category_match} **"
             
     # Record sur les champions
-    if fichier_champion != None:
+    if isinstance(fichier_champion, pd.DataFrame):
         if fichier_champion.shape[0] > 0:  # s'il y a des données, sinon first record
             joueur_champion, champion_champion, record_champion, url = trouver_records(
                 fichier_champion, category, methode)
@@ -182,7 +183,7 @@ class LeagueofLegends(Extension):
         # pour nouveau système de record
         fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': match_info.season,
                                                                                                                                         'mode': match_info.thisQ}).transpose()
-
+        
         fichier_joueur = lire_bdd_perso('''SELECT distinct *
                                         from matchs
                                         where season = %(saison)s
@@ -200,7 +201,7 @@ class LeagueofLegends(Extension):
                                         params={'saison': match_info.season,
                                                 'champion': match_info.thisChampName,
                                                 'mode': match_info.thisQ}).transpose()
-        
+
         if sauvegarder:
             await match_info.save_data()
 
@@ -254,7 +255,10 @@ class LeagueofLegends(Extension):
             # else:
             #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kda', float(
             #                                      round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1),2)), exploits)
-            # exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kp', match_info.thisKP, exploits)
+            try:
+                exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kp', match_info.thisKP, exploits)
+            except:
+                print(traceback.format_exc())
             # exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'cs', match_info.thisMinion, exploits)
             # exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'cs_min', match_info.thisMinionPerMin, exploits)
             # exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kills', match_info.thisKills, exploits)
