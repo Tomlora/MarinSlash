@@ -198,7 +198,7 @@ class LeagueofLegends(Extension):
                                         and mode = %(mode)s and champion = %(champion)s''',
                                         index_col='id',
                                         params={'saison': match_info.season,
-                                                'champion': match_info.thisChampName.lower(),
+                                                'champion': match_info.thisChampName,
                                                 'mode': match_info.thisQ}).transpose()
         
         if sauvegarder:
