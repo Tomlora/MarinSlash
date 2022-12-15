@@ -11,7 +11,6 @@ from interactions.ext.tasks import IntervalTrigger, create_task
 from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version
 from fonctions.channels_discord import verif_module
-import traceback
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -255,10 +254,8 @@ class LeagueofLegends(Extension):
             # else:
             #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kda', float(
             #                                      round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1),2)), exploits)
-            try:
-                exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kp', match_info.thisKP, exploits)
-            except:
-                print(traceback.format_exc())
+
+            # exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kp', match_info.thisKP, exploits)
             # exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'cs', match_info.thisMinion, exploits)
             # exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'cs_min', match_info.thisMinionPerMin, exploits)
             # exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kills', match_info.thisKills, exploits)
