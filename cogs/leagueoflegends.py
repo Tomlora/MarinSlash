@@ -85,7 +85,7 @@ def records_check2(fichier,
             
             if float(record_perso) == float(result_category_match):
                 embed = embed + \
-                    f"\n ** :medal: Tu as égalé ton record personnel en {category}"
+                    f"\n ** :medal: Tu as égalé ton record personnel en {category} **"
                 
         else:
             embed = embed + \
