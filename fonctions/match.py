@@ -259,53 +259,17 @@ async def get_challenges_data_joueur(session, puuid):
 def dict_data(thisId: int, match_detail, info):
     try:
         if thisId > 4:
-            infos1 = match_detail['info']['participants'][5][info]
-            infos2 = match_detail['info']['participants'][6][info]
-            infos3 = match_detail['info']['participants'][7][info]
-            infos4 = match_detail['info']['participants'][8][info]
-            infos5 = match_detail['info']['participants'][9][info]
-            infos6 = match_detail['info']['participants'][0][info]
-            infos7 = match_detail['info']['participants'][1][info]
-            infos8 = match_detail['info']['participants'][2][info]
-            infos9 = match_detail['info']['participants'][3][info]
-            infos10 = match_detail['info']['participants'][4][info]
+            liste = [match_detail['info']['participants'][i][info] for i in range(5, 10)] + \
+                    [match_detail['info']['participants'][i][info] for i in range(0, 5)]
         else:
-            infos1 = match_detail['info']['participants'][0][info]
-            infos2 = match_detail['info']['participants'][1][info]
-            infos3 = match_detail['info']['participants'][2][info]
-            infos4 = match_detail['info']['participants'][3][info]
-            infos5 = match_detail['info']['participants'][4][info]
-            infos6 = match_detail['info']['participants'][5][info]
-            infos7 = match_detail['info']['participants'][6][info]
-            infos8 = match_detail['info']['participants'][7][info]
-            infos9 = match_detail['info']['participants'][8][info]
-            infos10 = match_detail['info']['participants'][9][info]
+            liste = [match_detail['info']['participants'][i][info] for i in range(0, 10)]
     except:
         if thisId > 4:
-            infos1 = match_detail['info']['participants'][5]['challenges'][info]
-            infos2 = match_detail['info']['participants'][6]['challenges'][info]
-            infos3 = match_detail['info']['participants'][7]['challenges'][info]
-            infos4 = match_detail['info']['participants'][8]['challenges'][info]
-            infos5 = match_detail['info']['participants'][9]['challenges'][info]
-            infos6 = match_detail['info']['participants'][0]['challenges'][info]
-            infos7 = match_detail['info']['participants'][1]['challenges'][info]
-            infos8 = match_detail['info']['participants'][2]['challenges'][info]
-            infos9 = match_detail['info']['participants'][3]['challenges'][info]
-            infos10 = match_detail['info']['participants'][4]['challenges'][info]
-        else:
-            infos1 = match_detail['info']['participants'][0]['challenges'][info]
-            infos2 = match_detail['info']['participants'][1]['challenges'][info]
-            infos3 = match_detail['info']['participants'][2]['challenges'][info]
-            infos4 = match_detail['info']['participants'][3]['challenges'][info]
-            infos5 = match_detail['info']['participants'][4]['challenges'][info]
-            infos6 = match_detail['info']['participants'][5]['challenges'][info]
-            infos7 = match_detail['info']['participants'][6]['challenges'][info]
-            infos8 = match_detail['info']['participants'][7]['challenges'][info]
-            infos9 = match_detail['info']['participants'][8]['challenges'][info]
-            infos10 = match_detail['info']['participants'][9]['challenges'][info]
+            liste = [match_detail['info']['participants'][i]['challenges'][info] for i in range(5, 10)] + \
+                    [match_detail['info']['participants'][i]['challenges'][info] for i in range(0, 5)]
 
-    liste = [infos1, infos2, infos3, infos4, infos5,
-             infos6, infos7, infos8, infos9, infos10]
+        else:
+            liste = [match_detail['info']['participants'][i]['challenges'][info] for i in range(0, 10)]
 
     return liste
 
@@ -404,18 +368,7 @@ class matchlol():
 
         self.match_detail = pd.DataFrame(self.match_detail_stats)
 
-        self.dic = {
-            (self.match_detail['info']['participants'][0]['summonerName']).lower().replace(" ", ""): 0,
-            (self.match_detail['info']['participants'][1]['summonerName']).lower().replace(" ", ""): 1,
-            (self.match_detail['info']['participants'][2]['summonerName']).lower().replace(" ", ""): 2,
-            (self.match_detail['info']['participants'][3]['summonerName']).lower().replace(" ", ""): 3,
-            (self.match_detail['info']['participants'][4]['summonerName']).lower().replace(" ", ""): 4,
-            (self.match_detail['info']['participants'][5]['summonerName']).lower().replace(" ", ""): 5,
-            (self.match_detail['info']['participants'][6]['summonerName']).lower().replace(" ", ""): 6,
-            (self.match_detail['info']['participants'][7]['summonerName']).lower().replace(" ", ""): 7,
-            (self.match_detail['info']['participants'][8]['summonerName']).lower().replace(" ", ""): 8,
-            (self.match_detail['info']['participants'][9]['summonerName']).lower().replace(" ", ""): 9
-        }
+        self.dic = {(self.match_detail['info']['participants'][i]['summonerName']).lower().replace(" ", ""): i for i in range(10)}
 
         # stats
         self.thisId = self.dic[
@@ -502,8 +455,8 @@ class matchlol():
             self.thisPing = 0
 
         self.item = self.match_detail_participants
-        self.thisItems = [self.item['item0'], self.item['item1'], self.item['item2'],
-                          self.item['item3'], self.item['item4'], self.item['item5']]
+        
+        self.thisItems = [self.item[f'item{i}'] for i in range(6)]
 
         # item6 = ward. Pas utile
 
@@ -675,19 +628,7 @@ class matchlol():
 
         # champ
 
-        self.thisChampName1 = self.champ_dict[str(self.thisChampListe[0])]
-        self.thisChampName2 = self.champ_dict[str(self.thisChampListe[1])]
-        self.thisChampName3 = self.champ_dict[str(self.thisChampListe[2])]
-        self.thisChampName4 = self.champ_dict[str(self.thisChampListe[3])]
-        self.thisChampName5 = self.champ_dict[str(self.thisChampListe[4])]
-        self.thisChampName6 = self.champ_dict[str(self.thisChampListe[5])]
-        self.thisChampName7 = self.champ_dict[str(self.thisChampListe[6])]
-        self.thisChampName8 = self.champ_dict[str(self.thisChampListe[7])]
-        self.thisChampName9 = self.champ_dict[str(self.thisChampListe[8])]
-        self.thisChampName10 = self.champ_dict[str(self.thisChampListe[9])]
-
-        self.thisChampNameListe = [self.thisChampName1, self.thisChampName2, self.thisChampName3, self.thisChampName4,
-                                   self.thisChampName5, self.thisChampName6, self.thisChampName7, self.thisChampName8, self.thisChampName9, self.thisChampName10]
+        self.thisChampNameListe = [self.champ_dict[str(champ)] for champ in self.thisChampListe]
 
         # total kills
 
@@ -720,16 +661,12 @@ class matchlol():
         self.thisGoldListe = dict_data(
             self.thisId, self.match_detail, 'goldEarned')
 
-        self.thisChampTeam1 = [self.thisChampName1, self.thisChampName2,
-                               self.thisChampName3, self.thisChampName4, self.thisChampName5]
-        self.thisChampTeam2 = [self.thisChampName6, self.thisChampName7,
-                               self.thisChampName8, self.thisChampName9, self.thisChampName10]
-        self.thisGold_team1 = self.thisGoldListe[0] + self.thisGoldListe[1] + \
-            self.thisGoldListe[2] + \
-            self.thisGoldListe[3] + self.thisGoldListe[4]
-        self.thisGold_team2 = self.thisGoldListe[5] + self.thisGoldListe[6] + \
-            self.thisGoldListe[7] + \
-            self.thisGoldListe[8] + self.thisGoldListe[9]
+        self.thisChampTeam1 = [self.thisChampNameListe[i] for i in range(5)]
+        self.thisChampTeam2 = [self.thisChampNameListe[i] for i in range(5,10)]
+        
+        
+        self.thisGold_team1 = sum(self.thisGoldListe[:5])
+        self.thisGold_team2 = sum(self.thisGoldListe[5:10])
 
         self.thisVisionListe = dict_data(
             self.thisId, self.match_detail, 'visionScore')
@@ -743,14 +680,17 @@ class matchlol():
 
         self.thisLevelListe = dict_data(
             self.thisId, self.match_detail, "champLevel")
+        
+        def ecart_role(ally):
+            return (self.thisMinionListe[ally] + self.thisJungleMonsterKilledListe[ally]) - (
+                self.thisMinionListe[ally+5] + self.thisJungleMonsterKilledListe[ally+5])
 
         if self.team == 0:
             self.ecart_top_gold = self.thisGoldListe[0] - self.thisGoldListe[5]
             self.ecart_jgl_gold = self.thisGoldListe[1] - self.thisGoldListe[6]
             self.ecart_mid_gold = self.thisGoldListe[2] - self.thisGoldListe[7]
             self.ecart_adc_gold = self.thisGoldListe[3] - self.thisGoldListe[8]
-            self.ecart_supp_gold = self.thisGoldListe[4] - \
-                self.thisGoldListe[9]
+            self.ecart_supp_gold = self.thisGoldListe[4] - self.thisGoldListe[9]
 
             self.ecart_top_gold_affiche = self.thisGoldListe[0] - \
                 self.thisGoldListe[5]
@@ -773,38 +713,17 @@ class matchlol():
                 self.thisVisionListe[8]
             self.ecart_supp_vision = self.thisVisionListe[4] - \
                 self.thisVisionListe[9]
+                
+                
+            self.ecart_top_cs = ecart_role(0)
+            self.ecart_jgl_cs = ecart_role(1)
+            self.ecart_mid_cs = ecart_role(2)
+            self.ecart_adc_cs = ecart_role(3)
+            self.ecart_supp_cs = ecart_role(4)
 
-            self.ecart_top_cs = (self.thisMinionListe[0] + self.thisJungleMonsterKilledListe[0]) - (
-                self.thisMinionListe[5] + self.thisJungleMonsterKilledListe[5])
-            self.ecart_jgl_cs = (self.thisMinionListe[1] + self.thisJungleMonsterKilledListe[1]) - (
-                self.thisMinionListe[6] + self.thisJungleMonsterKilledListe[6])
-            self.ecart_mid_cs = (self.thisMinionListe[2] + self.thisJungleMonsterKilledListe[2]) - (
-                self.thisMinionListe[7] + self.thisJungleMonsterKilledListe[7])
-            self.ecart_adc_cs = (self.thisMinionListe[3] + self.thisJungleMonsterKilledListe[3]) - (
-                self.thisMinionListe[8] + self.thisJungleMonsterKilledListe[8])
-            self.ecart_supp_cs = (self.thisMinionListe[4] + self.thisJungleMonsterKilledListe[4]) - (
-                self.thisMinionListe[9] + self.thisJungleMonsterKilledListe[9])
-
-            self.thisKPListe = [int(round((self.thisKillsListe[0] + self.thisAssistsListe[0]) / (self.thisTeamKills), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[1] + self.thisAssistsListe[1]) / (self.thisTeamKills), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[2] + self.thisAssistsListe[2]) / (self.thisTeamKills), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[3] + self.thisAssistsListe[3]) / (self.thisTeamKills), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[4] + self.thisAssistsListe[4]) / (self.thisTeamKills), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[5] + self.thisAssistsListe[5]) / (self.thisTeamKillsOp), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[6] + self.thisAssistsListe[6]) / (self.thisTeamKillsOp), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[7] + self.thisAssistsListe[7]) / (self.thisTeamKillsOp), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[8] + self.thisAssistsListe[8]) / (self.thisTeamKillsOp), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[9] + self.thisAssistsListe[9]) / (self.thisTeamKillsOp), 2) * 100),
-                                ]
+            self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (self.thisTeamKills if i < 5
+                                                                                                 else self.thisTeamKillsOp), 2) * 100)
+                                for i in range(10)]
 
         elif self.team == 1:
 
@@ -837,37 +756,16 @@ class matchlol():
             self.ecart_supp_vision = self.thisVisionListe[4] - \
                 self.thisVisionListe[9]
 
-            self.ecart_top_cs = (self.thisMinionListe[0] + self.thisJungleMonsterKilledListe[0]) - (
-                self.thisMinionListe[5] + self.thisJungleMonsterKilledListe[5])
-            self.ecart_jgl_cs = (self.thisMinionListe[1] + self.thisJungleMonsterKilledListe[1]) - (
-                self.thisMinionListe[6] + self.thisJungleMonsterKilledListe[6])
-            self.ecart_mid_cs = (self.thisMinionListe[2] + self.thisJungleMonsterKilledListe[2]) - (
-                self.thisMinionListe[7] + self.thisJungleMonsterKilledListe[7])
-            self.ecart_adc_cs = (self.thisMinionListe[3] + self.thisJungleMonsterKilledListe[3]) - (
-                self.thisMinionListe[8] + self.thisJungleMonsterKilledListe[8])
-            self.ecart_supp_cs = (self.thisMinionListe[4] + self.thisJungleMonsterKilledListe[4]) - (
-                self.thisMinionListe[9] + self.thisJungleMonsterKilledListe[9])
+            self.ecart_top_cs = ecart_role(0)
+            self.ecart_jgl_cs = ecart_role(1)
+            self.ecart_mid_cs = ecart_role(2)
+            self.ecart_adc_cs = ecart_role(3)
+            self.ecart_supp_cs = ecart_role(4)
 
-            self.thisKPListe = [int(round((self.thisKillsListe[0] + self.thisAssistsListe[0]) / (self.thisTeamKills), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[1] + self.thisAssistsListe[1]) / (self.thisTeamKills), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[2] + self.thisAssistsListe[2]) / (self.thisTeamKills), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[3] + self.thisAssistsListe[3]) / (self.thisTeamKills), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[4] + self.thisAssistsListe[4]) / (self.thisTeamKills), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[5] + self.thisAssistsListe[5]) / (self.thisTeamKillsOp), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[6] + self.thisAssistsListe[6]) / (self.thisTeamKillsOp), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[7] + self.thisAssistsListe[7]) / (self.thisTeamKillsOp), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[8] + self.thisAssistsListe[8]) / (self.thisTeamKillsOp), 2) * 100),
-                                int(round(
-                                    (self.thisKillsListe[9] + self.thisAssistsListe[9]) / (self.thisTeamKillsOp), 2) * 100),
-                                ]
+            self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (self.thisTeamKills if i < 5
+                                                                                                 else self.thisTeamKillsOp), 2) * 100)
+                                for i in range(10)]
+
 
         self.adversaire_direct = {"TOP": self.ecart_top_gold, "JUNGLE": self.ecart_jgl_gold,
                                   "MID": self.ecart_mid_gold, "ADC": self.ecart_adc_gold, "SUPPORT": self.ecart_supp_gold}

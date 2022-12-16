@@ -8,49 +8,52 @@ from interactions.ext.paginator import Page, Paginator
 class Settings(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        
+
     @interactions.extension_command(name="settings",
                                     description="settings")
     async def settings(self, ctx: CommandContext):
         if isOwner_slash(ctx):
            # on récupère les infos
             await ctx.defer(ephemeral=False)
-            
+
             data = get_data_bdd(
                 'SELECT * from channels_module WHERE server_id = :server_id ', {'server_id': int(ctx.guild_id)})
            # on transforme
             data = data.mappings().all()[0]
-            
+
             # on prépare l'embed 1 avec les modules
 
             embed1 = interactions.Embed(title=f'Settings pour {ctx.guild.name} (Modules)',
-                                       thumbnail=interactions.EmbedImageStruct(url=ctx.guild.icon_url))
+                                        thumbnail=interactions.EmbedImageStruct(url=ctx.guild.icon_url))
 
             for variable, valeur in data.items():
-                if not variable == 'activation': # on ne veut pas cette variable dans notre embed
+                if not variable == 'activation':  # on ne veut pas cette variable dans notre embed
                     embed1.add_field(name=variable, value=valeur, inline=True)
-                
-            # embed 2 avec les identifiants channels    
+
+            # embed 2 avec les identifiants channels
 
             embed2 = interactions.Embed(title=f'Settings pour {ctx.guild.name} (Channels)',
-                                       thumbnail=interactions.EmbedImageStruct(url=ctx.guild.icon_url))
-            
+                                        thumbnail=interactions.EmbedImageStruct(url=ctx.guild.icon_url))
+
             data2 = get_data_bdd(
                 'SELECT * from channels_discord WHERE server_id = :server_id ', {'server_id': int(ctx.guild_id)})
-            
+
             # on transforme
             data2 = data2.mappings().all()[0]
-            
+
             for variable, valeur in data2.items():
-                if variable == 'server_id': # en fonction de la variable, discord ne mentionne pas de la même manière. Pour un serveur id, classique
+                if variable == 'server_id':  # en fonction de la variable, discord ne mentionne pas de la même manière. Pour un serveur id, classique
                     embed2.add_field(name=variable, value=valeur, inline=True)
-                elif variable in ['id_owner', 'id_owner2']: # pour un membre, c'est @
-                    embed2.add_field(name=variable, value=f'<@{valeur}>', inline=True)
-                elif variable == 'role_admin' : # pour un role, c'est @&
-                    embed2.add_field(name=variable, value=f'<@&{valeur}>', inline=True)
-                else: # pour un channel, c'est #
-                    embed2.add_field(name=variable, value=f'<#{valeur}>', inline=True)
-                
+                elif variable in ['id_owner', 'id_owner2']:  # pour un membre, c'est @
+                    embed2.add_field(
+                        name=variable, value=f'<@{valeur}>', inline=True)
+                elif variable == 'role_admin':  # pour un role, c'est @&
+                    embed2.add_field(
+                        name=variable, value=f'<@&{valeur}>', inline=True)
+                else:  # pour un channel, c'est #
+                    embed2.add_field(
+                        name=variable, value=f'<#{valeur}>', inline=True)
+
             await Paginator(
                 client=self.bot,
                 ctx=ctx,
@@ -59,8 +62,6 @@ class Settings(Extension):
                     Page(embed2.title, embed2),
                 ]
             ).run()
-            
-            
 
         else:
             await ctx.send("Tu n'as pas l'autorisation.")
@@ -97,9 +98,7 @@ class Settings(Extension):
                            'tft': ['league_tft'],
                            'sw': ['summoners_war']}
 
-
             params = dict_params[parametres]
-
 
             for parametre in params:
                 requete_perso_bdd(f'UPDATE channels_module SET {parametre} = {activation} where server_id = :server_id', {
@@ -162,8 +161,8 @@ class Settings(Extension):
                                                                                                                            'server_id': int(ctx.guild.id)})
             elif sub_command == 'admin':
                 requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :joueur_id WHERE server_id = :server_id', {'joueur_id': int(proprietaire.id),
-                                                                                                                           'server_id': int(ctx.guild.id)})
-                
+                                                                                                                          'server_id': int(ctx.guild.id)})
+
             await ctx.send('Modification effectuée avec succès.')
         else:
             await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")

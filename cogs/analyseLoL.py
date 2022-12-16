@@ -612,16 +612,10 @@ class analyseLoL(Extension):
         pseudo = dict_data(thisId, match_detail, 'summonerName')
         thisChamp = dict_data(thisId, match_detail, 'championId')
 
-        thisChampName1 = champ_dict[str(thisChamp[0])]
-        thisChampName2 = champ_dict[str(thisChamp[1])]
-        thisChampName3 = champ_dict[str(thisChamp[2])]
-        thisChampName4 = champ_dict[str(thisChamp[3])]
-        thisChampName5 = champ_dict[str(thisChamp[4])]
-        thisChampName6 = champ_dict[str(thisChamp[5])]
-        thisChampName7 = champ_dict[str(thisChamp[6])]
-        thisChampName8 = champ_dict[str(thisChamp[7])]
-        thisChampName9 = champ_dict[str(thisChamp[8])]
-        thisChampName10 = champ_dict[str(thisChamp[9])]
+        champ_names = []
+        for i in range(len(thisChamp)):
+            champ_names.append(champ_dict[str(thisChamp[i])])
+
 
         try:
             if "dmg" in stat:
@@ -629,18 +623,7 @@ class analyseLoL(Extension):
                 thisStats = dict_data(
                     thisId, match_detail, 'totalDamageDealtToChampions')
 
-                dict_score = {
-                    pseudo[0] + "(" + thisChampName1 + ")": thisStats[0],
-                    pseudo[1] + "(" + thisChampName2 + ")": thisStats[1],
-                    pseudo[2] + "(" + thisChampName3 + ")": thisStats[2],
-                    pseudo[3] + "(" + thisChampName4 + ")": thisStats[3],
-                    pseudo[4] + "(" + thisChampName5 + ")": thisStats[4],
-                    pseudo[5] + "(" + thisChampName6 + ")": thisStats[5],
-                    pseudo[6] + "(" + thisChampName7 + ")": thisStats[6],
-                    pseudo[7] + "(" + thisChampName8 + ")": thisStats[7],
-                    pseudo[8] + "(" + thisChampName9 + ")": thisStats[8],
-                    pseudo[9] + "(" + thisChampName10 + ")": thisStats[9],
-                }
+                dict_score = {pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
 
                 df = pd.DataFrame.from_dict(dict_score, orient='index')
                 df = df.reset_index()
@@ -656,18 +639,7 @@ class analyseLoL(Extension):
 
                 thisStats = dict_data(thisId, match_detail, 'goldEarned')
 
-                dict_score = {
-                    pseudo[0] + "(" + thisChampName1 + ")": thisStats[0],
-                    pseudo[1] + "(" + thisChampName2 + ")": thisStats[1],
-                    pseudo[2] + "(" + thisChampName3 + ")": thisStats[2],
-                    pseudo[3] + "(" + thisChampName4 + ")": thisStats[3],
-                    pseudo[4] + "(" + thisChampName5 + ")": thisStats[4],
-                    pseudo[5] + "(" + thisChampName6 + ")": thisStats[5],
-                    pseudo[6] + "(" + thisChampName7 + ")": thisStats[6],
-                    pseudo[7] + "(" + thisChampName8 + ")": thisStats[7],
-                    pseudo[8] + "(" + thisChampName9 + ")": thisStats[8],
-                    pseudo[9] + "(" + thisChampName10 + ")": thisStats[9],
-                }
+                dict_score = {pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
 
                 # print(dict_score)
                 df = pd.DataFrame.from_dict(dict_score, orient='index')
@@ -684,18 +656,7 @@ class analyseLoL(Extension):
 
                 thisStats = dict_data(thisId, match_detail, 'visionScore')
 
-                dict_score = {
-                    pseudo[0] + "(" + thisChampName1 + ")": thisStats[0],
-                    pseudo[1] + "(" + thisChampName2 + ")": thisStats[1],
-                    pseudo[2] + "(" + thisChampName3 + ")": thisStats[2],
-                    pseudo[3] + "(" + thisChampName4 + ")": thisStats[3],
-                    pseudo[4] + "(" + thisChampName5 + ")": thisStats[4],
-                    pseudo[5] + "(" + thisChampName6 + ")": thisStats[5],
-                    pseudo[6] + "(" + thisChampName7 + ")": thisStats[6],
-                    pseudo[7] + "(" + thisChampName8 + ")": thisStats[7],
-                    pseudo[8] + "(" + thisChampName9 + ")": thisStats[8],
-                    pseudo[9] + "(" + thisChampName10 + ")": thisStats[9],
-                }
+                dict_score = {pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
 
                 df = pd.DataFrame.from_dict(dict_score, orient='index')
                 df = df.reset_index()
@@ -714,18 +675,7 @@ class analyseLoL(Extension):
                 damageSelfMitigated = dict_data(
                     thisId, match_detail, 'damageSelfMitigated')
 
-                dict_score = {
-                    pseudo[0] + "(" + thisChampName1 + ")": [totalDamageTaken[0], damageSelfMitigated[0]],
-                    pseudo[1] + "(" + thisChampName2 + ")": [totalDamageTaken[1], damageSelfMitigated[1]],
-                    pseudo[2] + "(" + thisChampName3 + ")": [totalDamageTaken[2], damageSelfMitigated[2]],
-                    pseudo[3] + "(" + thisChampName4 + ")": [totalDamageTaken[3], damageSelfMitigated[3]],
-                    pseudo[4] + "(" + thisChampName5 + ")": [totalDamageTaken[4], damageSelfMitigated[4]],
-                    pseudo[5] + "(" + thisChampName6 + ")": [totalDamageTaken[5], damageSelfMitigated[5]],
-                    pseudo[6] + "(" + thisChampName7 + ")": [totalDamageTaken[6], damageSelfMitigated[6]],
-                    pseudo[7] + "(" + thisChampName8 + ")": [totalDamageTaken[7], damageSelfMitigated[7]],
-                    pseudo[8] + "(" + thisChampName9 + ")": [totalDamageTaken[8], damageSelfMitigated[8]],
-                    pseudo[9] + "(" + thisChampName10 + ")": [totalDamageTaken[9], damageSelfMitigated[9]],
-                }
+                dict_score = {pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
 
                 # print(dict_score)
                 df = pd.DataFrame.from_dict(dict_score, orient='index')
@@ -752,18 +702,7 @@ class analyseLoL(Extension):
                 thisStats = dict_data(
                     thisId, match_detail, 'totalHealsOnTeammates')
 
-                dict_score = {
-                    pseudo[0] + "(" + thisChampName1 + ")": thisStats[0],
-                    pseudo[1] + "(" + thisChampName2 + ")": thisStats[1],
-                    pseudo[2] + "(" + thisChampName3 + ")": thisStats[2],
-                    pseudo[3] + "(" + thisChampName4 + ")": thisStats[3],
-                    pseudo[4] + "(" + thisChampName5 + ")": thisStats[4],
-                    pseudo[5] + "(" + thisChampName6 + ")": thisStats[5],
-                    pseudo[6] + "(" + thisChampName7 + ")": thisStats[6],
-                    pseudo[7] + "(" + thisChampName8 + ")": thisStats[7],
-                    pseudo[8] + "(" + thisChampName9 + ")": thisStats[8],
-                    pseudo[9] + "(" + thisChampName10 + ")": thisStats[9],
-                }
+                dict_score = {pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
 
                 # print(dict_score)
                 df = pd.DataFrame.from_dict(dict_score, orient='index')
@@ -780,18 +719,7 @@ class analyseLoL(Extension):
 
                 thisStats = dict_data(thisId, match_detail, 'soloKills')
 
-                dict_score = {
-                    pseudo[0] + "(" + thisChampName1 + ")": thisStats[0],
-                    pseudo[1] + "(" + thisChampName2 + ")": thisStats[1],
-                    pseudo[2] + "(" + thisChampName3 + ")": thisStats[2],
-                    pseudo[3] + "(" + thisChampName4 + ")": thisStats[3],
-                    pseudo[4] + "(" + thisChampName5 + ")": thisStats[4],
-                    pseudo[5] + "(" + thisChampName6 + ")": thisStats[5],
-                    pseudo[6] + "(" + thisChampName7 + ")": thisStats[6],
-                    pseudo[7] + "(" + thisChampName8 + ")": thisStats[7],
-                    pseudo[8] + "(" + thisChampName9 + ")": thisStats[8],
-                    pseudo[9] + "(" + thisChampName10 + ")": thisStats[9],
-                }
+                dict_score = {pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
 
                 df = pd.DataFrame.from_dict(dict_score, orient='index')
                 df = df.reset_index()

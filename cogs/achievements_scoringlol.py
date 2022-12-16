@@ -184,7 +184,7 @@ class Achievements_scoringlol(Extension):
         await ctx.send(embeds=embed)
 
     @interactions.extension_command(name="achievements_v2",
-                                    description="Voir le nombre records détenues par les joueurs",
+                                    description="Voir le nombre de records détenu par les joueurs",
                                     options=[
                                         Option(
                                             name="mode",
