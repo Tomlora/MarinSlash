@@ -73,6 +73,7 @@ dict_points = {41: [11, -19],
                58: [28, -12],
                59: [29, -11]}
 
+
 def trouver_records(df, category, methode='max'):
     """
     Trouve la ligne avec le record associé
@@ -96,6 +97,8 @@ def trouver_records(df, category, methode='max'):
         if methode == 'max':
             col = df[category].idxmax(skipna=True)
         elif methode == 'min':
+            df = df[df[category] != 0] # pas de 0. Ca veut dire qu'il n'ont pas fait l'objectif par exemple
+            df = df[df[category] != 0.0]
             col = df[category].idxmin(skipna=True)
         lig = df.loc[col]
         joueur = lig['joueur']
@@ -106,6 +109,7 @@ def trouver_records(df, category, methode='max'):
         return 'inconnu', 'inconnu', 0, '#'
 
     return joueur, champion, record, url_game
+
 
 def get_key(my_dict, val):
     for key, value in my_dict.items():
@@ -354,7 +358,7 @@ class matchlol():
                  queue: int = 0,
                  index: int = 0,
                  count: int = 20,
-                 identifiant_game = None):
+                 identifiant_game=None):
         self.summonerName = summonerName
         self.idgames = idgames
         self.queue = queue
@@ -374,7 +378,7 @@ class matchlol():
                 'queue': self.queue, 'start': self.index, 'count': self.count, 'api_key': api_key_lol}
 
         self.me = await get_summoner_by_name(self.session, self.summonerName)
-        
+
         if self.identifiant_game == None:
             self.my_matches = await get_list_matchs(self.session, self.me, self.params_my_match)
             self.last_match = self.my_matches[self.idgames]  # match n° idgames
@@ -965,7 +969,7 @@ class matchlol():
             self.thisWinStreak = '0'
 
     async def save_data(self):
-        
+
         requete_perso_bdd(f'''INSERT INTO public.matchs(
         match_id, joueur, role, champion, kills, assists, deaths, double, triple, quadra, penta,
         victoire, team_kills, team_deaths, "time", dmg, dmg_ad, dmg_ap, dmg_true, vision_score, cs, cs_jungle, vision_pink, vision_wards, vision_wards_killed,
@@ -977,82 +981,82 @@ class matchlol():
         :gold, :spell1, :spell2, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
         :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
         :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield, :early_baron, :allie_feeder);''',
-                              {'match_id': self.last_match,
-                               'joueur': self.summonerName.lower(),
-                               'role': self.thisPosition,
-                               'champion': self.thisChampName,
-                               'kills': self.thisKills,
-                               'assists': self.thisAssists,
-                               'deaths': self.thisDeaths,
-                               'double': self.thisDouble,
-                               'triple': self.thisTriple,
-                               'quadra': self.thisQuadra,
-                               'penta': self.thisPenta,
-                               'result': self.thisWinBool,
-                               'team_kills': self.thisTeamKills,
-                               'team_deaths': self.thisTeamKillsOp,
-                               'time': self.thisTime,
-                               'dmg': self.thisDamageNoFormat,
-                               'dmg_ad': self.thisDamageADNoFormat,
-                               'dmg_ap': self.thisDamageAPNoFormat,
-                               'dmg_true': self.thisDamageTrueNoFormat,
-                               'vision_score': self.thisVision,
-                               'cs': self.thisMinion,
-                               'cs_jungle': self.thisJungleMonsterKilled,
-                               'vision_pink': self.thisPink,
-                               'vision_wards': self.thisWards,
-                               'vision_wards_killed': self.thisWardsKilled,
-                               'gold': self.thisGoldNoFormat,
-                               'spell1': self.spell1,
-                               'spell2': self.spell2,
-                               'cs_min': self.thisMinionPerMin,
-                               'vision_min': self.thisVisionPerMin,
-                               'gold_min': self.thisGoldPerMinute,
-                               'dmg_min': self.thisDamagePerMinute,
-                               'solokills': self.thisSoloKills,
-                               'dmg_reduit': self.thisDamageSelfMitigated,
-                               'heal_total': self.thisTotalHealed,
-                               'heal_allies': self.thisTotalOnTeammates,
-                               'serie_kills': self.thisKillingSprees,
-                               'cs_dix_min': self.thisCSafter10min,
-                               'jgl_dix_min': self.thisJUNGLEafter10min,
-                               'baron': self.thisBaronTeam,
-                               'drake': self.thisDragonTeam,
-                               'team': self.team,
-                               'herald': self.thisHeraldTeam,
-                               'cs_max_avantage': self.thisCSAdvantageOnLane,
-                               'level_max_avantage': self.thisLevelAdvantage,
-                               'afk': self.AFKTeamBool,
-                               'vision_avantage': self.thisVisionAdvantage,
-                               'early_drake': self.earliestDrake,
-                               'temps_dead': self.thisTimeSpendDead,
-                               'item1': self.thisItems[0],
-                               'item2': self.thisItems[1],
-                               'item3': self.thisItems[2],
-                               'item4': self.thisItems[3],
-                               'item5': self.thisItems[4],
-                               'item6': self.thisItems[5],
-                               'kp': self.thisKP,
-                               'kda': self.thisKDA,
-                               'mode': self.thisQ,
-                               'season': self.season,
-                               'date': int(self.timestamp),
-                                  'damageratio': self.thisDamageRatio,
-                                  'tankratio': self.thisDamageTakenRatio,
-                                  'rank': self.thisRank,
-                                  'tier': self.thisTier,
-                                  'lp': self.thisLP,
-                                  'id_participant': self.thisId,
-                                  'dmg_tank': self.thisDamageTakenNoFormat,
-                                  'shield' : self.thisTotalShielded,
-                                  'early_baron' : self.earliestBaron,
-                                  'allie_feeder' : self.thisAllieFeeder
-                               })
-            
+                          {'match_id': self.last_match,
+                           'joueur': self.summonerName.lower(),
+                           'role': self.thisPosition,
+                           'champion': self.thisChampName,
+                           'kills': self.thisKills,
+                           'assists': self.thisAssists,
+                           'deaths': self.thisDeaths,
+                           'double': self.thisDouble,
+                           'triple': self.thisTriple,
+                           'quadra': self.thisQuadra,
+                           'penta': self.thisPenta,
+                           'result': self.thisWinBool,
+                           'team_kills': self.thisTeamKills,
+                           'team_deaths': self.thisTeamKillsOp,
+                           'time': self.thisTime,
+                           'dmg': self.thisDamageNoFormat,
+                           'dmg_ad': self.thisDamageADNoFormat,
+                           'dmg_ap': self.thisDamageAPNoFormat,
+                           'dmg_true': self.thisDamageTrueNoFormat,
+                           'vision_score': self.thisVision,
+                           'cs': self.thisMinion,
+                           'cs_jungle': self.thisJungleMonsterKilled,
+                           'vision_pink': self.thisPink,
+                           'vision_wards': self.thisWards,
+                           'vision_wards_killed': self.thisWardsKilled,
+                           'gold': self.thisGoldNoFormat,
+                           'spell1': self.spell1,
+                           'spell2': self.spell2,
+                           'cs_min': self.thisMinionPerMin,
+                           'vision_min': self.thisVisionPerMin,
+                           'gold_min': self.thisGoldPerMinute,
+                           'dmg_min': self.thisDamagePerMinute,
+                           'solokills': self.thisSoloKills,
+                           'dmg_reduit': self.thisDamageSelfMitigated,
+                           'heal_total': self.thisTotalHealed,
+                           'heal_allies': self.thisTotalOnTeammates,
+                           'serie_kills': self.thisKillingSprees,
+                           'cs_dix_min': self.thisCSafter10min,
+                           'jgl_dix_min': self.thisJUNGLEafter10min,
+                           'baron': self.thisBaronTeam,
+                           'drake': self.thisDragonTeam,
+                           'team': self.team,
+                           'herald': self.thisHeraldTeam,
+                           'cs_max_avantage': self.thisCSAdvantageOnLane,
+                           'level_max_avantage': self.thisLevelAdvantage,
+                           'afk': self.AFKTeamBool,
+                           'vision_avantage': self.thisVisionAdvantage,
+                           'early_drake': self.earliestDrake,
+                           'temps_dead': self.thisTimeSpendDead,
+                           'item1': self.thisItems[0],
+                           'item2': self.thisItems[1],
+                           'item3': self.thisItems[2],
+                           'item4': self.thisItems[3],
+                           'item5': self.thisItems[4],
+                           'item6': self.thisItems[5],
+                           'kp': self.thisKP,
+                           'kda': self.thisKDA,
+                           'mode': self.thisQ,
+                           'season': self.season,
+                           'date': int(self.timestamp),
+                           'damageratio': self.thisDamageRatio,
+                           'tankratio': self.thisDamageTakenRatio,
+                           'rank': self.thisRank,
+                           'tier': self.thisTier,
+                           'lp': self.thisLP,
+                           'id_participant': self.thisId,
+                           'dmg_tank': self.thisDamageTakenNoFormat,
+                           'shield': self.thisTotalShielded,
+                           'early_baron': self.earliestBaron,
+                           'allie_feeder': self.thisAllieFeeder
+                           })
+
     async def add_couronnes(self, points):
-        requete_perso_bdd('''UPDATE matchs SET couronne = :points WHERE match_id = :match_id AND joueur = :joueur''', {'points' : points,
-                                                                                                                       'match_id' : self.last_match,
-                                                                                                                       'joueur' : self.summonerName.lower()})
+        requete_perso_bdd('''UPDATE matchs SET couronne = :points WHERE match_id = :match_id AND joueur = :joueur''', {'points': points,
+                                                                                                                       'match_id': self.last_match,
+                                                                                                                       'joueur': self.summonerName.lower()})
 
     async def resume_personnel(self,
                                name_img,
