@@ -220,6 +220,8 @@ class Achievements_scoringlol(Extension):
         # on calcule par game
 
         df['per game'] = df['couronne'] / df['joueur']
+        
+        df.sort_values('per game', ascending=False, inplace=True)
 
         result = f'Couronnes : Mode **{mode}** et 5 games minimum : \n'
 
