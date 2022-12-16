@@ -624,7 +624,10 @@ class Recordslol(Extension):
             title=title + " (Page 3/3) :bar_chart:", color=interactions.Color.blurple())
 
         for column in fichier3:
-            joueur, champion, record, url = trouver_records(fichier, column)
+            methode = 'max'
+            if column in ['early_drake', 'early_baron']:
+                methode = 'min'
+            joueur, champion, record, url = trouver_records(fichier, column, methode)
             embed3.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
                              value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
 
@@ -695,15 +698,18 @@ class Recordslol(Extension):
         liste_joueurs_general = []
         liste_joueurs_champion = []
         for records in liste_records:
+            methode = 'max'
+            if records in ['early_drake', 'early_baron']:
+                methode = 'min'
             joueur, champion, record, url_game = trouver_records(
-                fichier, records)
+                fichier, records, methode)
             liste_joueurs_general.append(joueur)
 
             for champion in list_champ['data']:
                 try:
                     fichier_champion = fichier[fichier['champion'] == champion]
                     joueur, champion, record, url_game = trouver_records(
-                        fichier_champion, records)
+                        fichier_champion, records, methode)
                     liste_joueurs_champion.append(joueur)
                 except:  # personne a le record
                     pass

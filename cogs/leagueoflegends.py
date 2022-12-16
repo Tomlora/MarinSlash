@@ -297,12 +297,12 @@ class LeagueofLegends(Extension):
             #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'vision_min', match_info.thisVisionPerMin, exploits)
             #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'level_max_avantage', match_info.thisLevelAdvantage, exploits)
             #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'vision_avantage', match_info.thisVisionAdvantage, exploits)
-            #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'early_drake', match_info.earliestDrake, exploits)
-            #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'early_baron', match_info.earliestBaron, exploits)
+            #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'early_drake', match_info.earliestDrake, exploits, 'min')
+            #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'early_baron', match_info.earliestBaron, exploits, 'min')
             #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'jgl_dix_min', match_info.thisJUNGLEafter10min, exploits)
-            #     exploits = records_check2(fichier, fichier_joueur, None, 'baron', match_info.thisBaronTeam, exploits)
-            #     exploits = records_check2(fichier, fichier_joueur, None, 'drake', match_info.thisDragonTeam, exploits)
-            #     exploits = records_check2(fichier, fichier_joueur, None, 'herald', match_info.thisHeraldTeam, exploits)
+                # exploits = records_check2(fichier, fichier_joueur, None, 'baron', match_info.thisBaronTeam, exploits)
+                # exploits = records_check2(fichier, fichier_joueur, None, 'drake', match_info.thisDragonTeam, exploits)
+                # exploits = records_check2(fichier, fichier_joueur, None, 'herald', match_info.thisHeraldTeam, exploits)
             #     exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'cs_jungle', match_info.thisJungleMonsterKilled, exploits)
 
             for key, value in records.items():
