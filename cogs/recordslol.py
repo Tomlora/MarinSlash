@@ -627,7 +627,8 @@ class Recordslol(Extension):
             methode = 'max'
             if column in ['early_drake', 'early_baron']:
                 methode = 'min'
-            joueur, champion, record, url = trouver_records(fichier, column, methode)
+            joueur, champion, record, url = trouver_records(
+                fichier, column, methode)
             embed3.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
                              value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
 
@@ -664,12 +665,19 @@ class Recordslol(Extension):
                                                 Choice(name='aram',
                                                        value='ARAM')
                                             ]
+                                        ),
+                                        Option(
+                                            name='champion',
+                                            description='focus sur un champion ?',
+                                            type=interactions.OptionType.STRING,
+                                            required=False
                                         )
                                     ])
     async def records_count(self,
                             ctx: CommandContext,
                             saison: int = 12,
-                            mode: str = 'RANKED'):
+                            mode: str = 'RANKED',
+                            champion: str = None):
 
         await ctx.defer(ephemeral=False)
 
@@ -680,7 +688,7 @@ class Recordslol(Extension):
         # on récupère les champions
 
         list_champ = await get_champ_list(session, version)
-        
+
         await session.close()
 
         # data
@@ -695,81 +703,110 @@ class Recordslol(Extension):
                          'vision_score', 'vision_wards', 'vision_wards_killed', 'vision_pink', 'vision_min', 'level_max_avantage', 'vision_avantage', 'early_drake', 'early_baron',
                          'jgl_dix_min', 'baron', 'drake', 'herald', 'cs_jungle']
 
-        liste_joueurs_general = []
-        liste_joueurs_champion = []
-        for records in liste_records:
-            methode = 'max'
-            if records in ['early_drake', 'early_baron']:
-                methode = 'min'
-            joueur, champion, record, url_game = trouver_records(
-                fichier, records, methode)
-            liste_joueurs_general.append(joueur)
+        if champion == None:
+            liste_joueurs_general = []
+            liste_joueurs_champion = []
+            for records in liste_records:
+                methode = 'max'
+                if records in ['early_drake', 'early_baron']:
+                    methode = 'min'
+                joueur, champion, record, url_game = trouver_records(
+                    fichier, records, methode)
+                liste_joueurs_general.append(joueur)
 
-            for champion in list_champ['data']:
+                for champion in list_champ['data']:
+                    try:
+                        fichier_champion = fichier[fichier['champion']
+                                                   == champion]
+                        joueur, champion, record, url_game = trouver_records(
+                            fichier_champion, records, methode)
+                        liste_joueurs_champion.append(joueur)
+                    except:  # personne a le record
+                        pass
+
+            counts_general = pd.Series(liste_joueurs_general).value_counts()
+            counts_champion = pd.Series(liste_joueurs_champion).value_counts()
+
+            select = interactions.SelectMenu(
+                options=[
+                    interactions.SelectOption(
+                        label="general", value="general", emoji=interactions.Emoji(name='1️⃣')),
+                    interactions.SelectOption(
+                        label="par champion", value="par champion", emoji=interactions.Emoji(name='2️⃣')),
+                ],
+                custom_id='selection',
+                placeholder="Choix des records",
+                min_values=1,
+                max_values=1
+            )
+
+            await ctx.send("Quel type de record ?",
+                           components=select)
+
+            async def check(button_ctx):
+                if int(button_ctx.author.user.id) == int(ctx.author.user.id):
+                    return True
+                await ctx.send("I wasn't asking you!", ephemeral=True)
+                return False
+
+            while True:
                 try:
-                    fichier_champion = fichier[fichier['champion'] == champion]
-                    joueur, champion, record, url_game = trouver_records(
-                        fichier_champion, records, methode)
-                    liste_joueurs_champion.append(joueur)
-                except:  # personne a le record
-                    pass
+                    button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+                        components=select, check=check, timeout=30
+                    )
 
-        counts_general = pd.Series(liste_joueurs_general).value_counts()
-        counts_champion = pd.Series(liste_joueurs_champion).value_counts()
+                    if button_ctx.data.values[0] == 'general':
+                        fig = px.histogram(counts_general,
+                                           counts_general.index,
+                                           counts_general.values,
+                                           text_auto=True,
+                                           color=counts_general.index,
+                                           title=f'General ({mode})')
 
-        select = interactions.SelectMenu(
-            options=[
-                interactions.SelectOption(
-                    label="general", value="general", emoji=interactions.Emoji(name='1️⃣')),
-                interactions.SelectOption(
-                    label="par champion", value="par champion", emoji=interactions.Emoji(name='2️⃣')),
-            ],
-            custom_id='selection',
-            placeholder="Choix des records",
-            min_values=1,
-            max_values=1
-        )
+                    elif button_ctx.data.values[0] == 'par champion':
+                        fig = px.histogram(counts_champion,
+                                           counts_champion.index,
+                                           counts_champion.values,
+                                           text_auto=True,
+                                           color=counts_champion.index,
+                                           title=f'Par champion ({mode})')
 
-        await ctx.send("Quel type de record ?",
-                       components=select)
+                    fig.update_layout(showlegend=False)
+                    embed, file = get_embed(fig, 'stats')
+                    # On envoie
 
-        async def check(button_ctx):
-            if int(button_ctx.author.user.id) == int(ctx.author.user.id):
-                return True
-            await ctx.send("I wasn't asking you!", ephemeral=True)
-            return False
+                    await ctx.edit(embeds=embed, files=file)
 
-        while True:
-            try:
-                button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
-                    components=select, check=check, timeout=30
-                )
+                except asyncio.TimeoutError:
+                    # When it times out, edit the original message and remove the button(s)
+                    return await ctx.edit(components=[])
 
-                if button_ctx.data.values[0] == 'general':
-                    fig = px.histogram(counts_general,
-                                       counts_general.index,
-                                       counts_general.values,
-                                       text_auto=True,
-                                       color=counts_general.index,
-                                       title=f'General ({mode})')
+        elif champion != None:  # si un champion en particulier
+            fichier = fichier[fichier['champion'] == champion]
 
-                elif button_ctx.data.values[0] == 'par champion':
-                    fig = px.histogram(counts_champion,
-                                       counts_champion.index,
-                                       counts_champion.values,
-                                       text_auto=True,
-                                       color=counts_champion.index,
-                                       title=f'Par champion ({mode})')
+            liste_joueurs_champion = []
 
-                fig.update_layout(showlegend=False)
-                embed, file = get_embed(fig, 'stats')
-                # On envoie
+            for records in liste_records:
+                methode = 'max'
+                if records in ['early_drake', 'early_baron']:
+                    methode = 'min'
+                joueur, champion, record, url_game = trouver_records(
+                    fichier, records, methode)
+                liste_joueurs_champion.append(joueur)
 
-                await ctx.edit(embeds=embed, files=file)
+            counts_champion = pd.Series(liste_joueurs_champion).value_counts()
 
-            except asyncio.TimeoutError:
-                # When it times out, edit the original message and remove the button(s)
-                return await ctx.edit(components=[])
+            fig = px.histogram(counts_champion,
+                               counts_champion.index,
+                               counts_champion.values,
+                               text_auto=True,
+                               color=counts_champion.index,
+                               title=f'Record {champion} ({mode}) ')
+            
+            embed, file = get_embed(fig, 'stats')
+            
+            await ctx.send(embeds=embed, files=file)
+            
 
 
 def setup(bot):
