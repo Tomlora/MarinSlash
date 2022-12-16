@@ -107,7 +107,7 @@ def records_check2(fichier,
                         f"\n ** :rocket: Tu as battu le record sur le champion en {category.lower()} avec {result_category_match} ** (Anciennement : {record_champion})"
         else:
             embed = embed + \
-                f"\n ** :rocket: Premier Record personnel sur le champion en {category} avec {result_category_match} **"
+                f"\n ** :rocket: Premier record sur le champion en {category} avec {result_category_match} **"
 
     return embed
 
