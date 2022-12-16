@@ -243,8 +243,10 @@ class analyseLoL(Extension):
 
         # timestamp à diviser par 60000
 
-        dict_joueur = [await get_summoner_by_puuid(session, timeline['metadata']['participants'][i])['name'] for i
-                       in range(0, 10)]  # liste en compréhension
+        dict_joueur = []
+        for i in range(0, 10):
+            summoner = await get_summoner_by_puuid(session, timeline['metadata']['participants'][i])
+            dict_joueur.append(summoner['name'])
 
         if summonername in dict_joueur:
             thisId = list(dict_joueur).index(summonername)
@@ -295,17 +297,13 @@ class analyseLoL(Extension):
                                                        '8': dict_joueur[7],
                                                        '9': dict_joueur[8],
                                                        '10': dict_joueur[9]})
-            df_ward['points'] = 1
-            df_ward['points'] = np.where(
-                df_ward.wardType == 'YELLOW TRINKET', 1, df_ward.points)
-            df_ward['points'] = np.where(
-                df_ward.wardType == 'UNDEFINED', 2, df_ward.points)
-            df_ward['points'] = np.where(
-                df_ward.wardType == 'CONTROL_WARD', 3, df_ward.points)
-            df_ward['points'] = np.where(
-                df_ward.wardType == 'SIGHT_WARD', 4, df_ward.points)
-            df_ward['points'] = np.where(
-                df_ward.wardType == 'BLUE_TRINKET', 5, df_ward.points)
+            ward_points = {'YELLOW TRINKET': 1,
+                           'UNDEFINED': 2,
+                           'CONTROL_WARD': 3,
+                           'SIGHT_WARD': 4,
+                           'BLUE_TRINKET': 5}
+            
+            df_ward['points'] = df_ward['wardType'].map(ward_points).fillna(1)
 
             df_ward['size'] = 4
 
@@ -389,11 +387,7 @@ class analyseLoL(Extension):
 
             df_timeline['joueur'] = df_timeline['participantId']
 
-            df_timeline['team'] = "a"
-            df_timeline['team'] = np.where(
-                df_timeline.joueur <= 5, team[0], df_timeline.team)
-            df_timeline['team'] = np.where(
-                df_timeline.joueur >= 6, team[1], df_timeline.team)
+            df_timeline['team'] = np.where(df_timeline.joueur <= 5, team[0], team[1])
 
             df_timeline = df_timeline.groupby(['team', 'timestamp'], as_index=False)[
                 'totalGold'].sum()
@@ -414,11 +408,7 @@ class analyseLoL(Extension):
 
             df_timeline_diff.dropna(axis=0, inplace=True)
 
-            df_timeline_diff['signe'] = "a"
-            df_timeline_diff['signe'] = np.where(
-                df_timeline_diff.ecart < 0, "negatif", df_timeline_diff.signe)
-            df_timeline_diff['signe'] = np.where(
-                df_timeline_diff.ecart > 0, "positif", df_timeline_diff.signe)
+            df_timeline_diff['signe'] = np.where(df_timeline_diff.ecart < 0, 'negatif', 'positif')
 
             # Graphique
             # Src : https://matplotlib.org/stable/gallery/lines_bars_and_markers/multicolored_line.html
@@ -586,15 +576,17 @@ class analyseLoL(Extension):
             liste_delete.append(name)
             liste_graph.append(interactions.File(name))
 
-        last_match, match_detail_stats, me = await match_by_puuid(summonername, game)
+        session = aiohttp.ClientSession()
+
+        last_match, match_detail_stats, me = await match_by_puuid(summonername, game, session)
 
         match_detail = pd.DataFrame(match_detail_stats)
-
-        session = aiohttp.ClientSession()
 
         version = await get_version(session)
 
         current_champ_list = await get_champ_list(session, version)
+
+        await session.close()
 
         champ_dict = {}
         for key in current_champ_list['data']:
