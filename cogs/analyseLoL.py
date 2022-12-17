@@ -989,14 +989,53 @@ class analyseLoL(Extension):
         if sub_command == 'lp':
             if calcul == 'progression':
                 if mode_de_jeu != None:  # on impose un mode de jeu, sinon les lp vont s'entremeler, ce qui n'a aucun sens
-                    df['date'] = df['date'].apply(
-                        lambda x: datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
-                    df['datetime'] = pd.to_datetime(
-                        df['date'], infer_datetime_format=True)
-                    df.sort_values(['datetime'], ascending=False, inplace=True)
+                    
+                    if mode_de_jeu == 'RANKED':
+                        df['ladder'] = df['tier'].str[0] + ' ' + df['rank']
 
-                    fig = px.line(df, x='datetime', y='lp',
-                                  color='joueur', title=title)
+                        df['date'] = df['date'].apply(
+                            lambda x: datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
+                        df['datetime'] = pd.to_datetime(
+                            df['date'], infer_datetime_format=True)
+                        
+                        df.sort_values(['date'], ascending=False, inplace=True)
+
+                        df['date'] = df['datetime'].dt.strftime('%d %m')
+                        
+                        df = df.groupby(['joueur', 'date', 'ladder']).agg({'lp' : 'max'}).reset_index()
+                        
+                        df['jour'] = df['date'].astype('str').str[:2]
+                        df['mois'] = df['date'].astype('str').str[3:]
+
+                        df.sort_values(['mois', 'jour'], ascending=[True, True], inplace=True)
+                        fig = px.line(df, x='date', y='lp',
+                                      color='joueur', text='ladder', title=title)
+                        
+                        # on ré-order l'axe des dates. 
+                        fig.update_xaxes(categoryorder='array', categoryarray=df['date'].to_xarray().values)
+                    
+                    elif mode_de_jeu == 'ARAM':
+                        df['date'] = df['date'].apply(
+                            lambda x: datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
+                        df['datetime'] = pd.to_datetime(
+                            df['date'], infer_datetime_format=True)
+                        df.sort_values(['datetime'], ascending=True, inplace=True)
+
+                        df['date'] = df['datetime'].dt.strftime('%d %m')
+                        
+                        df = df.groupby(['joueur', 'date', 'tier']).agg({'lp' : 'max'}).reset_index()
+                        
+                        df['jour'] = df['date'].astype('str').str[:2]
+                        df['mois'] = df['date'].astype('str').str[3:]
+
+                        df.sort_values(['mois', 'jour'], ascending=[True, True], inplace=True)
+                        
+                        fig = px.line(df, x='date', y='lp',
+                                  color='joueur', text='tier', title=title)
+                        
+                        # on ré-order l'axe des dates.
+                        fig.update_xaxes(categoryorder='array', categoryarray=df['date'].to_xarray().values)
+                        
 
                     embed, files = get_embed(fig, 'evo')
 
