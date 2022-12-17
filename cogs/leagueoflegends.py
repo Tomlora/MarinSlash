@@ -100,7 +100,7 @@ def records_check2(fichier,
             if methode == 'max':
                 if float(record_champion) < float(result_category_match):
                     embed = embed + \
-                        f"\n ** :rocket: Tu as battu le record sur le champion en {category.lower()} avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
+                        f"\n ** :rocket: Tu as battu le record sur {champion_champion} en {category.lower()} avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
             else:
                 if float(record_champion) > float(result_category_match):
                     embed = embed + \
