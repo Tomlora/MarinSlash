@@ -486,7 +486,7 @@ class LeagueofLegends(Extension):
         
         ## Couronnes 
         
-        if match_info.thisQ == 'RANKED': # pour only ranked 
+        if match_info.thisQ in ['RANKED', 'NORMAL']: # pour only ranked/normal game 
             if int(match_info.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
                 exploits +=\
                     f"\n ** :crown: :wave: Tu as au moins {match_info.thisLevelAdvantage} niveaux d'avance sur ton adversaire durant la game**"
@@ -579,7 +579,7 @@ class LeagueofLegends(Extension):
                 f"\n ** :crown: :shield: Tu as shield {match_info.thisTotalShielded} **"
             points += 1
 
-        if (match_info.thisQ == "RANKED" and match_info.thisTime > 20 and succes is True) or\
+        if (match_info.thisQ in ['RANKED', 'NORMAL'] and match_info.thisTime > 20 and succes is True) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
             # on add les couronnes si ranked (> 20 min) ou aram (> 10 min))
             exploits = records_check2(
