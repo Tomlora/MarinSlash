@@ -63,7 +63,7 @@ def records_check2(fichier,
         
         if float(record) == float(result_category_match): # si égalité
             embed = embed + \
-                f"\n ** :medal: Tu as égalé le record {category} de {joueur}"
+                f"\n ** :medal: Tu as égalé le record {category} de {joueur} **"
     else:
         embed = embed + \
             f"\n ** :boom: Premier Record {category} avec {result_category_match} **"
