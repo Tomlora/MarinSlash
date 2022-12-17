@@ -193,7 +193,8 @@ class Achievements_scoringlol(Extension):
                                             required=True, choices=[
                                                 Choice(name='ranked',
                                                        value='RANKED'),
-                                                Choice(name='aram', value='ARAM')]),
+                                                Choice(name='aram', value='ARAM'),
+                                                Choice(name='normal', value='NORMAL')]),
                                         Option(
                                             name='saison',
                                             description='saison league of legends',
