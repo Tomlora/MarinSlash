@@ -990,8 +990,31 @@ class analyseLoL(Extension):
             if calcul == 'progression':
                 if mode_de_jeu != None:  # on impose un mode de jeu, sinon les lp vont s'entremeler, ce qui n'a aucun sens
                     
+                    dict_points = {'F' : 0,
+                                    'B' : 1000,
+                                    'S' : 2000,
+                                    'G' : 3000,
+                                    'P' : 4000,
+                                    'D' : 5000,
+                                    'M' : 6000,
+                                    'I' : 100,
+                                    'II' : 200,
+                                    'III' : 300,
+                                    'IV' : 400,
+                                    ' ' : 0}
+                    
+                    def transfo_points(x, mode):
+                        if mode == 'RANKED':
+                            value = x['ladder'].split(' ')[1]
+                            points = dict_points[x['ladder'][0]] + dict_points[value] + x['lp']
+                        elif mode == 'ARAM':
+                            points = dict_points[x['tier'][0]] + x['lp']
+                        return points
+                    
+                    
+                    
                     if mode_de_jeu == 'RANKED':
-                        df['ladder'] = df['tier'].str[0] + ' ' + df['rank']
+                        df['ladder'] = df['tier'].str[0] + ' ' + df['rank'] + ' / ' + df['lp'].astype('str') + ' LP'
 
                         df['date'] = df['date'].apply(
                             lambda x: datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
@@ -1008,8 +1031,14 @@ class analyseLoL(Extension):
                         df['mois'] = df['date'].astype('str').str[3:]
 
                         df.sort_values(['mois', 'jour'], ascending=[True, True], inplace=True)
-                        fig = px.line(df, x='date', y='lp',
+                        
+                        df['points'] = df.apply(transfo_points, axis=1, mode='RANKED')
+                        
+                        
+                        fig = px.line(df, x='date', y='points',
                                       color='joueur', text='ladder', title=title)
+                        
+                        fig.update_yaxes(visible=False)
                         
                         # on ré-order l'axe des dates. 
                         fig.update_xaxes(categoryorder='array', categoryarray=df['date'].to_xarray().values)
@@ -1023,6 +1052,8 @@ class analyseLoL(Extension):
 
                         df['date'] = df['datetime'].dt.strftime('%d %m')
                         
+                        df['ladder'] = df['tier'].str[0] + ' / ' + df['lp'].astype('str') + ' LP'
+                        
                         df = df.groupby(['joueur', 'date', 'tier']).agg({'lp' : 'max'}).reset_index()
                         
                         df['jour'] = df['date'].astype('str').str[:2]
@@ -1030,8 +1061,13 @@ class analyseLoL(Extension):
 
                         df.sort_values(['mois', 'jour'], ascending=[True, True], inplace=True)
                         
-                        fig = px.line(df, x='date', y='lp',
+                        df['points'] = df.apply(transfo_points, axis=1, mode='ARAM')
+                        
+                        
+                        fig = px.line(df, x='date', y='points',
                                   color='joueur', text='tier', title=title)
+                        
+                        fig.update_yaxes(visible=False)
                         
                         # on ré-order l'axe des dates.
                         fig.update_xaxes(categoryorder='array', categoryarray=df['date'].to_xarray().values)
