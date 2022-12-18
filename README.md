@@ -17,7 +17,7 @@ Les visuels sont réalisés avec :
 - Plotly express / Plotly.graph_objects
 - Pygal
 - Pillow
-- Images crées par moi-même
+- Images créees par moi-même
 
 Autres librairies utilisées :
 - Pandas
