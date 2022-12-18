@@ -115,7 +115,9 @@ Le bot est capable de détecter un nouveau patch, et de partager un résumé en 
 
 ## Teamfight Tactics
 
-- En attente de l'accord de Riot Games pour la pérennité de l'outil..
+ <p align="center">
+  <img width="400" height="800" src="https://raw.githubusercontent.com/Tomlora/MarinSlash/main/tft.png">
+</p>
 
 ## Automatisation
 
