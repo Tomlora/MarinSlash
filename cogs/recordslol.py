@@ -511,7 +511,17 @@ class Recordslol(Extension):
             name='champion',
             description='champion',
             type=interactions.OptionType.STRING,
-            required=False)]
+            required=False),
+        Option(
+            name='view',
+            description='global ou serveur ?',
+            type=interactions.OptionType.STRING,
+            required=False,
+            choices=[
+                Choice(name='global', value='global'),
+                Choice(name='serveur', value='serveur')
+            ]
+        )]
 
     parameters_personnel = [
         Option(
@@ -552,12 +562,23 @@ class Recordslol(Extension):
                               saison: int = 12,
                               mode: str = 'ranked',
                               joueur=None,
-                              champion=None):
+                              champion=None,
+                              view='global'):
 
         await ctx.defer(ephemeral=False)
-
-        fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': saison,
+        
+        
+        if view == 'global':
+            fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': saison,
                                                                                                                                         'mode': mode}).transpose()
+        elif view == 'serveur':
+            fichier = lire_bdd_perso('''SELECT distinct matchs.* from matchs
+                                     INNER JOIN tracker on tracker.index = matchs.joueur
+                                     where season = %(saison)s and mode = %(mode)s
+                                     and server_id = %(guild_id)s''', index_col='id', params={'saison': saison,
+                                                                                              'mode': mode,
+                                                                                              'guild_id' : int(ctx.guild_id)}).transpose()
+            
 
         if champion != None:
 
@@ -671,13 +692,24 @@ class Recordslol(Extension):
                                             description='focus sur un champion ?',
                                             type=interactions.OptionType.STRING,
                                             required=False
+                                        ),
+                                        Option(
+                                            name='view',
+                                            description='Global ou serveur ?',
+                                            type=interactions.OptionType.STRING,
+                                            required=False,
+                                            choices=[
+                                                Choice(name='global', value='global'),
+                                                Choice(name='serveur', value='serveur')
+                                            ]
                                         )
                                     ])
     async def records_count(self,
                             ctx: CommandContext,
                             saison: int = 12,
                             mode: str = 'RANKED',
-                            champion: str = None):
+                            champion: str = None,
+                            view : str = 'global'):
 
         await ctx.defer(ephemeral=False)
 
@@ -692,8 +724,17 @@ class Recordslol(Extension):
         await session.close()
 
         # data
-        fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': saison,
+        if view == 'global':
+            fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': saison,
                                                                                                                                         'mode': mode}).transpose()
+        elif view == 'serveur':
+            fichier = lire_bdd_perso('''SELECT distinct matchs.* from matchs
+                                     INNER JOIN tracker on tracker.index = matchs.joueur
+                                     where season = %(saison)s
+                                     and mode = %(mode)s
+                                     and server_id = %(guild_id)s''', index_col='id', params={'saison': saison,
+                                                                                                'mode': mode,
+                                                                                                'guild_id' : int(ctx.guild_id)}).transpose()
 
         # liste records
 

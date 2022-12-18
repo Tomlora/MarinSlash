@@ -170,7 +170,8 @@ class LeagueofLegends(Extension):
                         idgames: int,
                         succes,
                         sauvegarder: bool,
-                        identifiant_game=None):
+                        identifiant_game=None,
+                        guild_id : int = 0):
 
         match_info = matchlol(summonerName,
                               idgames,
@@ -180,26 +181,34 @@ class LeagueofLegends(Extension):
         await match_info.prepare_data()
 
         # pour nouveau système de record
-        fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': match_info.season,
-                                                                                                                                        'mode': match_info.thisQ}).transpose()
+        fichier = lire_bdd_perso('''SELECT distinct matchs.* from matchs
+                         INNER JOIN tracker ON tracker.index = matchs.joueur
+                         where season = %(saison)s and mode = %(mode)s and server_id = %(guild_id)s''', index_col='id', params={'saison': 12,
+                                                                                                    'mode': 'RANKED',
+                                                                                                    'guild_id' : guild_id}).transpose()
         
-        fichier_joueur = lire_bdd_perso('''SELECT distinct *
-                                        from matchs
+        fichier_joueur = lire_bdd_perso('''SELECT distinct matchs.* from matchs
+                                        INNER JOIN tracker on tracker.index = matchs.joueur
                                         where season = %(saison)s
-                                        and mode = %(mode)s and joueur = %(joueur)s''',
+                                        and mode = %(mode)s
+                                        and joueur = %(joueur)s
+                                        and server_id = %(guild_id)s''',
                                         index_col='id',
                                         params={'saison': match_info.season,
                                                 'joueur': summonerName.lower(),
-                                                'mode': match_info.thisQ}).transpose()
+                                                'mode': match_info.thisQ,
+                                                'guild_id' : guild_id}).transpose()
         
-        fichier_champion = lire_bdd_perso('''SELECT distinct *
-                                        from matchs
+        fichier_champion = lire_bdd_perso('''SELECT distinct matchs.* from matchs
+                                          INNER JOIN tracker on tracker.index = matchs.joueur
                                         where season = %(saison)s
-                                        and mode = %(mode)s and champion = %(champion)s''',
+                                        and mode = %(mode)s and champion = %(champion)s
+                                        and server_id = %(guild_id)s''',
                                         index_col='id',
                                         params={'saison': match_info.season,
                                                 'champion': match_info.thisChampName,
-                                                'mode': match_info.thisQ}).transpose()
+                                                'mode': match_info.thisQ,
+                                                'guild_id' : guild_id}).transpose()
 
         if sauvegarder:
             await match_info.save_data()
@@ -771,7 +780,8 @@ class LeagueofLegends(Extension):
                                                                                numerogame),
                                                                            succes=succes,
                                                                            sauvegarder=sauvegarder,
-                                                                           identifiant_game=identifiant_game)
+                                                                           identifiant_game=identifiant_game,
+                                                                           guild_id = int(ctx.guild_id))
 
         if embed != {}:
             await ctx.send(embeds=embed, files=resume)
@@ -815,7 +825,7 @@ class LeagueofLegends(Extension):
 
             summonername = summonername.lower()
 
-            embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes, sauvegarder=sauvegarder)
+            embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes, sauvegarder=sauvegarder, guild_id = int(ctx.guild_id))
 
             if embed != {}:
                 await ctx.send(embeds=embed, files=resume)
@@ -829,7 +839,7 @@ class LeagueofLegends(Extension):
 
         summonername = summonername.lower()
 
-        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername, idgames=0, succes=True, sauvegarder=True)
+        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername, idgames=0, succes=True, sauvegarder=True, guild_id = discord_server_id.server_id)
 
         if mode_de_jeu in ['RANKED', 'FLEX']:
 
