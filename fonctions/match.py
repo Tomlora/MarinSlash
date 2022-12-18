@@ -1146,24 +1146,21 @@ class matchlol():
 
                 # rank
 
-                if lp < 100:
-                    rank = 'IRON'
-                elif lp < 200:
-                    rank = 'BRONZE'
-                elif lp < 300:
-                    rank = 'SILVER'
-                elif lp < 500:
-                    rank = 'GOLD'
-                elif lp < 800:
-                    rank = 'PLATINUM'
-                elif lp < 1200:
-                    rank = 'DIAMOND'
-                elif lp < 1600:
-                    rank = 'MASTER'
-                elif lp < 2000:
-                    rank = 'GRANDMASTER'
-                elif lp > 2000:
-                    rank = 'CHALLENGER'
+                ranks = [
+                    ('IRON', 100),
+                    ('BRONZE', 200),
+                    ('SILVER', 300),
+                    ('GOLD', 500),
+                    ('PLATINUM', 800),
+                    ('DIAMOND', 1200),
+                    ('MASTER', 1600),
+                    ('GRANDMASTER', 2000),
+                    ('CHALLENGER', float('inf'))
+                ]
+
+                for rank, lp_threshold in ranks:
+                    if lp < lp_threshold:
+                        break
 
                 # SIMULATION CHANGEMENT ELO
 
@@ -1417,26 +1414,34 @@ class matchlol():
 
         dict_position = {"TOP": 2, "JUNGLE": 3,
                          "MID": 4, "ADC": 5, "SUPPORT": 6}
+        
+        def draw_gray_line(i: int) -> None:
+            im.paste(line, (0, i * lineY))
+        
+        def draw_blue_line(i: int) -> None:
+            im.paste(Image.new("RGB", (lineX, lineY), (85, 85, 255)), (0, i * lineY))
+
+        def draw_red_line(i: int) -> None:
+            im.paste(Image.new("RGB", (lineX, lineY), (255, 70, 70)), (0, i * lineY))
+
+        def draw_light_blue_line(i: int) -> None:
+            im.paste(Image.new("RGB", (lineX, lineY), (173, 216, 230)), (0, i*lineY))
+            
 
         for i in range(0, 13):
             if i % 2 == 0:
-                im.paste(line, (0, i * lineY))
+                draw_gray_line(i)
             elif i == 1:
-                im.paste(Image.new("RGB", (lineX, lineY), (85, 85, 255)),
-                         (0, i * lineY))  # Ligne bleu
+                draw_blue_line(i)
             elif i == 7:
-                im.paste(Image.new("RGB", (lineX, lineY), (255, 70, 70)),
-                         (0, i * lineY))  # Ligne rouge
+                draw_red_line(i)
 
             if self.thisQ != "ARAM":
                 if i == dict_position[self.thisPosition]:
-                    im.paste(Image.new("RGB", (lineX, lineY),
-                             (173, 216, 230)), (0, i*lineY))
+                    draw_light_blue_line(i)
 
         # match
         d.text((10, 20), self.thisQ, font=font, fill=(0, 0, 0))
-        # d.text((10, 120), f'Gold : {self.thisGold_team1}', font=font, fill=(255, 255, 255))
-        # d.text((10, 720), f'Gold : {self.thisGold_team2}', font=font, fill=(0, 0, 0))
 
         money = await get_image('gold', 'dragon', self.session, 60, 60)
 
