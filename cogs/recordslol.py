@@ -598,7 +598,7 @@ class Recordslol(Extension):
 
         else:
 
-            if champion != None:
+            if champion == None:
                 title = f'Records {mode} S{saison}'
             else:
                 title = f'Records {mode} S{saison} ({champion})'
