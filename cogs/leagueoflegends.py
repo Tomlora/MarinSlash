@@ -705,36 +705,29 @@ class LeagueofLegends(Extension):
         stats = await get_league_by_summoner(session, me)
 
         if len(stats) > 0:
-            if str(stats[0]['queueType']) == 'RANKED_SOLO_5x5':
-                i = 0
-            else:
-                i = 1
+            i = 0 if stats[0]['queueType'] == 'RANKED_SOLO_5x5' else 1
 
-            tier = str(stats[i]['tier'])
-            rank = str(stats[i]['rank'])
-            level = tier + " " + rank
-
-            if str(suivirank[key]['tier']) + " " + str(suivirank[key]['rank']) != level:
-                rank_old = str(suivirank[key]['tier']) + \
-                    " " + str(suivirank[key]['rank'])
+            rank_old = f"{suivirank[key]['tier']} {suivirank[key]['rank']}"
+            rank = f"{stats[i]['tier']} {stats[i]['rank']}"
+            if rank_old != rank:
 
                 try:
                     channel_tracklol = await interactions.get(client=self.bot,
                                                               obj=interactions.Channel,
                                                               object_id=discord_server_id.tracklol)
-                    if dict_rankid[rank_old] > dict_rankid[level]:  # 19 > 18
-                        await channel_tracklol.send(f' Le joueur **{key}** a démote du rank **{rank_old}** à **{level}**')
+                    if dict_rankid[rank_old] > dict_rankid[rank]:  # 19 > 18
+                        await channel_tracklol.send(f' Le joueur **{key}** a démote du rank **{rank_old}** à **{rank}**')
                         await channel_tracklol.send(files=interactions.File('./img/notstonks.jpg'))
-                    elif dict_rankid[rank_old] < dict_rankid[level]:
-                        await channel_tracklol.send(f' Le joueur **{key}** a été promu du rank **{rank_old}** à **{level}**')
+                    elif dict_rankid[rank_old] < dict_rankid[rank]:
+                        await channel_tracklol.send(f' Le joueur **{key}** a été promu du rank **{rank_old}** à **{rank}**')
                         await channel_tracklol.send(files=interactions.File('./img/stonks.jpg'))
 
                 except:
                     print('Channel impossible')
                     print(sys.exc_info())
 
-                requete_perso_bdd('UPDATE suivi SET tier = :tier, rank = :rank where index = :joueur', {'tier': tier,
-                                                                                                        'rank': rank,
+                requete_perso_bdd('UPDATE suivi SET tier = :tier, rank = :rank where index = :joueur', {'tier': stats[i]['tier'],
+                                                                                                        'rank': stats[i]['rank'],
                                                                                                         'joueur': key})
 
     @interactions.extension_command(name="game",
@@ -857,9 +850,10 @@ class LeagueofLegends(Extension):
 
     async def update(self):
 
-        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id from tracker 
-                    INNER JOIN channels_module on tracker.server_id = channels_module.server_id
-                    where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
+        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id
+                            from tracker 
+                            INNER JOIN channels_module on tracker.server_id = channels_module.server_id
+                            where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
         timeout = aiohttp.ClientTimeout(total=20)
         session = aiohttp.ClientSession(timeout=timeout)
 
