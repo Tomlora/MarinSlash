@@ -6,6 +6,7 @@ from requests.exceptions import HTTPError
 from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso
 from fonctions.channels_discord import chan_discord
 from fonctions.params import Version
+import traceback
 
 
 
@@ -37,7 +38,8 @@ async def on_message_create(message : interactions.Message):
         
         guild = await message.get_guild()
         role = get(guild.roles, name="Muted")
-
+        
+        
         if role.id in message.member.roles:
             await message.delete()
             
@@ -124,7 +126,7 @@ async def on_guild_member_remove(member : interactions.Member):
 
 
 @bot.event
-async def on_command_error(ctx: interactions.CommandContext, error):
+async def on_command_error(ctx: interactions.CommandContext, error : commands.errors):
     
     if isinstance(error, commands.CommandNotFound):
         await ctx.send("Cette commande n'existe pas")
@@ -138,7 +140,7 @@ async def on_command_error(ctx: interactions.CommandContext, error):
         print('httperror')
         await ctx.send('Trop de requêtes')
     else:
-        print(f'erreur : {error}')
+        traceback.print_exception(type(error), error, error.__traceback__)
         embed = interactions.Embed(title='Erreur', description=f'Description: \n `{error}`',
                               color=interactions.Color.red())
         await ctx.send(embeds=embed)
