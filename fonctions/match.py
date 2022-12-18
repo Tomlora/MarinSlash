@@ -91,9 +91,9 @@ def trouver_records(df, category, methode='max'):
     -------
     joueur, champion, record, url
     """
-    df[category] = pd.to_numeric(df[category])
-
+    
     try:
+        df[category] = pd.to_numeric(df[category])
         if methode == 'max':
             col = df[category].idxmax(skipna=True)
         elif methode == 'min':
