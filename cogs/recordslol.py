@@ -231,7 +231,7 @@ class Recordslol(Extension):
         response = ""
 
         embed1 = interactions.Embed(
-            title=f"Records {mode} S{saison} (Page 1/3) :bar_chart:", color=interactions.Color.blurple())
+            title=f"Records {mode} S12 (Page 1/3) :bar_chart:", color=interactions.Color.blurple())
 
         for key, value in fichier1.iterrows():
             valeur = ""
@@ -256,7 +256,7 @@ class Recordslol(Extension):
         embed1.set_footer(text=f'Version {Version} by Tomlora')
 
         embed2 = interactions.Embed(
-            title=f"Records {mode} S{saison} (Page 2/3) :bar_chart:", color=interactions.Color.blurple())
+            title=f"Records {mode} S12 (Page 2/3) :bar_chart:", color=interactions.Color.blurple())
 
         for key, value in fichier2.iterrows():
             valeur2 = ""
@@ -281,7 +281,7 @@ class Recordslol(Extension):
         embed2.set_footer(text=f'Version {Version} by Tomlora')
 
         embed3 = interactions.Embed(
-            title=f"Records Cumul & Moyenne S{saison} (Page 3/3) :bar_chart: ")
+            title=f"Records Cumul & Moyenne S12 (Page 3/3) :bar_chart: ")
 
         fichier3 = lire_bdd('records_cumul', 'dict')
 

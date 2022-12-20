@@ -7,7 +7,6 @@ import pickle
 import interactions
 from interactions import Choice, Option, Extension, CommandContext
 import numpy as np
-from fonctions.params import saison
 
 
 def unifier_joueur(df, colonne):
@@ -56,7 +55,7 @@ class Achievements_scoringlol(Extension):
                            records: str = 'none'):
 
         # Succes
-        suivi = lire_bdd(f'suivi_s{saison}', 'dict')
+        suivi = lire_bdd(f'suivi_s12', 'dict')
 
         if mode == 'aram':
 
