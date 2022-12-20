@@ -9,7 +9,7 @@ import interactions
 from interactions import Choice, Option, Extension, CommandContext
 from fonctions.permissions import isOwner_slash
 from interactions.ext.tasks import IntervalTrigger, create_task
-from fonctions.params import Version
+from fonctions.params import Version, saison
 
 
 dict_points = {41: [11, -19],
@@ -57,7 +57,7 @@ class Aram(Extension):
                                     description="classement en aram")
     async def ladder_aram(self, ctx: CommandContext):
 
-        suivi_aram = lire_bdd('ranked_aram', 'dict')
+        suivi_aram = lire_bdd(f'ranked_aram_s{saison}', 'dict')
 
         await ctx.defer(ephemeral=False)
 
@@ -243,7 +243,7 @@ class Aram(Extension):
 
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
-                df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, tracker.server_id from ranked_aram as suivi 
+                df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, tracker.server_id from ranked_aram_s{saison} as suivi 
                                         INNER join tracker ON tracker.index = suivi.index 
                                         where tracker.server_id = {int(guild.id)} ''')
                 df_24h = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, tracker.server_id from ranked_aram_24h as suivi

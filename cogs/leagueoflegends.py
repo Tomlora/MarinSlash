@@ -9,7 +9,7 @@ import interactions
 from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import IntervalTrigger, create_task
 from interactions.ext.wait_for import wait_for_component, setup as stp
-from fonctions.params import Version
+from fonctions.params import Version, saison
 from fonctions.channels_discord import verif_module
 
 from fonctions.gestion_bdd import (lire_bdd,
@@ -225,7 +225,7 @@ class LeagueofLegends(Extension):
 
         # Suivi
 
-        suivi = lire_bdd('suivi', 'dict')
+        suivi = lire_bdd(f'suivi_s{saison}', 'dict')
 
         try:
             if suivi[summonerName.lower().replace(" ", "")]['tier'] == match_info.thisTier and suivi[summonerName.lower().replace(" ", "")]['rank'] == match_info.thisRank:
@@ -642,7 +642,7 @@ class LeagueofLegends(Extension):
             suivi[summonerName.lower().replace(" ", "")]['games_aram'] = suivi[summonerName.lower().replace(" ", "")][
                 'games_aram'] + 1
 
-        sauvegarde_bdd(suivi, 'suivi')  # achievements + suivi
+        sauvegarde_bdd(suivi, f'suivi_s{saison}')  # achievements + suivi
 
         # observations
 
@@ -707,7 +707,7 @@ class LeagueofLegends(Extension):
 
     async def updaterank(self, key, discord_server_id, session: aiohttp.ClientSession):
 
-        suivirank = lire_bdd('suivi', 'dict')
+        suivirank = lire_bdd(f'suivi_s{saison}', 'dict')
 
         me = await get_summoner_by_name(session, key)
 
@@ -735,7 +735,7 @@ class LeagueofLegends(Extension):
                     print('Channel impossible')
                     print(sys.exc_info())
 
-                requete_perso_bdd('UPDATE suivi SET tier = :tier, rank = :rank where index = :joueur', {'tier': stats[i]['tier'],
+                requete_perso_bdd(f'UPDATE suivi_s{saison} SET tier = :tier, rank = :rank where index = :joueur', {'tier': stats[i]['tier'],
                                                                                                         'rank': stats[i]['rank'],
                                                                                                         'joueur': key})
 
@@ -912,7 +912,7 @@ class LeagueofLegends(Extension):
                 session = aiohttp.ClientSession()
                 requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
                                 
-                                INSERT INTO suivi(
+                                INSERT INTO suivi_s{saison}(
                                 index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
                                 VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);
                             
@@ -920,7 +920,7 @@ class LeagueofLegends(Extension):
                                 index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
                                 VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);
                             
-                                INSERT INTO ranked_aram(
+                                INSERT INTO ranked_aram_s{saison}(
                                 index, wins, losses, lp, games, k, d, a, activation, rank)
                                 VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');
                             
@@ -1001,7 +1001,7 @@ class LeagueofLegends(Extension):
 
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
-                df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi 
+                df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_s{saison} as suivi
                                     INNER join tracker ON tracker.index = suivi.index 
                                     where suivi.tier != 'Non-classe' and tracker.server_id = {int(guild.id)} ''')
                 df_24h = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_24h as suivi
