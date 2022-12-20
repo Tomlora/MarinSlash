@@ -738,7 +738,7 @@ class Recordslol(Extension):
 
         # liste records
 
-        liste_records = ['kda', 'kp', 'cs', 'cs_min', 'deaths', 'assists', 'double', 'triple', 'quadra', 'penta', 'team_kills',
+        liste_records = ['kda', 'kp', 'kills', 'cs', 'cs_min', 'deaths', 'assists', 'double', 'triple', 'quadra', 'penta', 'team_kills', 'spell1', 'spell2',
                          'team_deaths', 'time', 'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'gold', 'gold_min', 'dmg_min', 'solokills', 'dmg_reduit', 'heal_total', 'heal_allies',
                          'serie_kills', 'cs_dix_min', 'cs_max_avantage', 'temps_dead', 'damageratio', 'tankratio', 'dmg_tank', 'shield', 'allie_feeder',
                          'vision_score', 'vision_wards', 'vision_wards_killed', 'vision_pink', 'vision_min', 'level_max_avantage', 'vision_avantage', 'early_drake', 'early_baron',
