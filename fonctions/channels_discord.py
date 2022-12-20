@@ -1,6 +1,7 @@
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd, get_data_bdd
 from time import time
 import interactions
+import re
 
 class chan_discord():
 
@@ -123,3 +124,21 @@ def mention(id_discord:int, type:str) -> str:
         return f'<@&{id_discord}>'
     elif type=='channel':
         return f'<#{id_discord}>'
+
+
+async def convertion_temps(ctx : interactions.CommandContext, time):
+    match = re.match(r"(\d+)([hms])?", time)
+    if not match:
+        ctx.send("Entrez le temps sous la forme '2h30m' ou '15s'", ephemeral=True)
+    
+    time_conversions = {
+    "h": 3600,
+    "m": 60,
+    "s": 1
+    }
+    
+    amount = int(match.group(1))
+    unit = match.group(2)
+    seconds = amount * time_conversions[unit]
+    
+    return seconds
