@@ -14,7 +14,7 @@ import numpy as np
 import os
 from fonctions.channels_discord import convertion_temps
 
-
+reminders = {}
 class Divers(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
@@ -361,9 +361,48 @@ class Divers(Extension):
             duree = await convertion_temps(ctx, time)
         except:
             pass
+        
+        if ctx.author.id not in reminders:
+            reminders[ctx.author.id] = []
+        reminders[ctx.author.id].append((msg, duree))
         await ctx.send(f'Le rappel est programmé dans {duree} secondes', ephemeral=True)
         await asyncio.sleep(duree)
         await ctx.author.send(msg)
+        reminders[ctx.author.id].pop(0)
+        
+    @interactions.extension_command(name='remind_delete',
+                                    description="Liste des rappels",
+                                    options=[Option(
+                                        name='numero_rappel',
+                                        description='numero du rappel obtenu avec remind_list',
+                                        type=interactions.OptionType.INTEGER,
+                                        required=True
+                                    )])
+    async def list_reminders(self,
+                             ctx: CommandContext,
+                             numero_rappel:int):
+        if ctx.author.id not in reminders:
+            await ctx.send("Vous n'avez pas de rappels enregistrés.", ephemeral=True)
+        else:
+            reminders[ctx.author.id].pop(numero_rappel)
+            await ctx.send('Fait !')
+
+
+    @interactions.extension_command(name='remind_list',
+                                    description="Liste des rappels")
+    async def list_reminders(self, ctx: CommandContext):
+        if ctx.author.id not in reminders:
+            await ctx.send("Vous n'avez pas de rappels enregistrés.", ephemeral=True)
+        else:
+            if len(reminders[ctx.author.id]) > 0:
+                current_time = datetime.datetime.now()
+
+                for i, reminder in enumerate(reminders[ctx.author.id]):
+                    msg, delay = reminder
+                    delay_total = current_time + datetime.timedelta(seconds=delay)
+                    await ctx.send(f'Rappel #{i+1}: "{msg}" à {delay_total.strftime("%d/%m/%Y %H:%M:%S")} secondes', ephemeral=True)
+            else:
+                await ctx.send('Tous les rappels ont été éxécutés.', ephemeral=True)
         
 
 def setup(bot):
