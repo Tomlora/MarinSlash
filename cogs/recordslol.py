@@ -11,7 +11,6 @@ import plotly.express as px
 import asyncio
 from fonctions.channels_discord import get_embed
 
-
 def option_stats_records(name, params, description='type de recherche'):
     option = Option(
         name=name,
@@ -213,7 +212,7 @@ class Recordslol(Extension):
                                                        value='ranked'),
                                                 Choice(name='aram', value='aram')])
                                     ])
-    async def records_list(self,
+    async def records_list_s12(self,
                            ctx: CommandContext,
                            mode: str = 'ranked'):
 
@@ -408,7 +407,7 @@ class Recordslol(Extension):
                                             description="Pseudo LoL",
                                             type=interactions.OptionType.STRING,
                                             required=True)])
-    async def records_personnel(self,
+    async def records_personnel_s12(self,
                                 ctx: CommandContext,
                                 joueur: str):
 
@@ -548,7 +547,7 @@ class Recordslol(Extension):
             type=interactions.OptionType.STRING,
             required=False)]
 
-    @interactions.extension_command(name="records_list_v2",
+    @interactions.extension_command(name="records_list",
                                     description="Voir les records détenues par les joueurs",
                                     options=[
                                         option_stats_records(name='general',
