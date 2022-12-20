@@ -49,7 +49,7 @@ class Achievements_scoringlol(Extension):
                 required=False),
         ],
     )
-    async def achievements(self,
+    async def achievements_s12(self,
                            ctx: CommandContext,
                            mode: str,
                            records: str = 'none'):
@@ -183,7 +183,7 @@ class Achievements_scoringlol(Extension):
 
         await ctx.send(embeds=embed)
 
-    @interactions.extension_command(name="achievements_v2",
+    @interactions.extension_command(name="achievements",
                                     description="Voir le nombre de records détenu par les joueurs",
                                     options=[
                                         Option(
