@@ -5,7 +5,7 @@ from interactions.ext.tasks import create_task, IntervalTrigger
 import os
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
 import sys
-from fonctions.permissions import isOwner2_slash
+from fonctions.permissions import isOwner_slash
 from fonctions.channels_discord import chan_discord
 import oauthlib.oauth1
 import aiohttp
@@ -68,48 +68,24 @@ class Twitter(Extension):
         self.task1 = create_task(IntervalTrigger(60*2))(self.twitter_suivi)
         self.task1.start()
 
-    # @interactions.extension_command(name="last_tweet",
-    #                    description="Dernier tweet",
-    #                    options=[Option(name="pseudo",
-    #                                    description= "pseudo twitter",
-    #                                    type=interactions.OptionType.STRING,
-    #                                    required=True),
-    #                             Option(name="num_tweet",
-    #                                    description="numero tweet, de 0 à 5",
-    #                                    type=interactions.OptionType.INTEGER,
-    #                                    required=False,
-    #                                    min_value=0,
-    #                                    max_value=5)])
-    # async def last_tweet(self, ctx:CommandContext, pseudo:str, num_tweet:int=0):
-
-    #     user_id = get_user_id(pseudo)
-    #     ctx.defer(ephemeral=False)
-
-    #     id_tweet, msg_tweet = get_tweet(user_id, num_tweet=num_tweet)
-
-    #     url_tweet = f'https://twitter.com/{pseudo}/status/{id_tweet}'
-
-    #     await ctx.send(f'Tweet {pseudo} : ' + url_tweet)
-
     @interactions.extension_command(name="add_tweet",
                                     description="Ajoute un twitter au tracking",
                                     options=[Option(name="pseudo",
                                                     description="pseudo twitter",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
-    @isOwner2_slash()
     async def add_tweet(self, ctx: CommandContext, pseudo: str):
+        if isOwner_slash(ctx):
+            session = aiohttp.ClientSession()
+            user_id = await get_user_id(pseudo, session)
 
-        session = aiohttp.ClientSession()
-        user_id = await get_user_id(pseudo, session)
+            requete_perso_bdd('''INSERT INTO public.twitter(
+                            twitter, id_twitter, id_last_msg_twitter)
+                            VALUES (:twitter, :id_twitter, 0);''',
+                            {'twitter': pseudo, 'id_twitter': user_id})
+            ctx.defer(ephemeral=False)
 
-        requete_perso_bdd('''INSERT INTO public.twitter(
-	                    twitter, id_twitter, id_last_msg_twitter)
-	                    VALUES (:twitter, :id_twitter, 0);''',
-                          {'twitter': pseudo, 'id_twitter': user_id})
-        ctx.defer(ephemeral=False)
-
-        await ctx.send(f'{pseudo} ajouté !')
+            await ctx.send(f'{pseudo} ajouté !')
 
     async def twitter_suivi(self):
         # TODO : faire par serveur
