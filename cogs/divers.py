@@ -12,6 +12,7 @@ from fonctions.gestion_bdd import get_guild_data
 import cv2
 import numpy as np
 import os
+from fonctions.channels_discord import convertion_temps
 
 
 class Divers(Extension):
@@ -19,6 +20,7 @@ class Divers(Extension):
         self.bot: interactions.Client = bot
         stp(self.bot)
         self.database_handler = DatabaseHandler()
+        global tasks
 
     @interactions.extension_listener
     async def on_start(self):
@@ -336,6 +338,33 @@ class Divers(Extension):
         os.remove('image_original.png')
         os.remove('image.png')
 
+    @interactions.extension_command(name='remindme',
+                                    description="Rappel",
+                                    options=[
+                                        Option(
+                                            name='msg',
+                                            description='msg dans le rappel',
+                                            type=interactions.OptionType.STRING,
+                                            required=True
+                                        ),
+                                        Option(
+                                            name='time',
+                                            description="Duree (Format h/m/s). Par exemple, 1h20 s'écrit 1h20m",
+                                            type=interactions.OptionType.STRING,
+                                            required=True)])
+    async def remindme(self,
+                       ctx: CommandContext,
+                       msg: str,
+                       time: str):
+        
+        try:
+            duree = await convertion_temps(ctx, time)
+        except:
+            pass
+        await ctx.send(f'Le rappel est programmé dans {duree} secondes', ephemeral=True)
+        await asyncio.sleep(duree)
+        await ctx.author.send(msg)
+        
 
 def setup(bot):
     Divers(bot)
