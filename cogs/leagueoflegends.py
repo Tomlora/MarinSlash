@@ -55,18 +55,18 @@ def records_check2(fichier,
         if methode == 'max':
             if float(record) < float(result_category_match):
                 embed = embed + \
-                    f"\n ** :boom: Record {category} battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+                    f"\n ** :boom: Record __{category}__ battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
         else:
             if float(record) > float(result_category_match):
                 embed = embed + \
-                    f"\n ** :boom: Record {category} battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+                    f"\n ** :boom: Record __{category}__ battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
         
         if float(record) == float(result_category_match): # si égalité
             embed = embed + \
-                f"\n ** :medal: Tu as égalé le record {category} de {joueur} **"
+                f"\n ** :medal: Tu as égalé le record __{category}__ de {joueur} **"
     else:
         embed = embed + \
-            f"\n ** :boom: Premier Record {category} avec {result_category_match} **"
+            f"\n ** :boom: Premier Record __{category}__ avec {result_category_match} **"
 
     # Record sur ses stats personnels
     if isinstance(fichier_joueur, pd.DataFrame):
@@ -77,19 +77,19 @@ def records_check2(fichier,
             if methode == 'max':
                 if float(record_perso) < float(result_category_match):
                     embed = embed + \
-                        f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record_perso})"
+                        f"\n ** :military_medal: Tu as battu ton record personnel en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_perso})"
             else:
                 if float(record_perso) > float(result_category_match):
                     embed = embed + \
-                        f"\n ** :military_medal: Tu as battu ton record personnel en {category.lower()} avec {result_category_match} ** (Anciennement : {record_perso})"
+                        f"\n ** :military_medal: Tu as battu ton record personnel en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_perso})"
             
             if float(record_perso) == float(result_category_match):
                 embed = embed + \
-                    f"\n ** :medal: Tu as égalé ton record personnel en {category} **"
+                    f"\n ** :medal: Tu as égalé ton record personnel en __{category}__ **"
                 
         else:
             embed = embed + \
-                f"\n ** :military_medal: Premier Record personnel {category} avec {result_category_match} **"
+                f"\n ** :military_medal: Premier Record personnel __{category}__ avec {result_category_match} **"
             
     # Record sur les champions
     if isinstance(fichier_champion, pd.DataFrame):
@@ -100,14 +100,14 @@ def records_check2(fichier,
             if methode == 'max':
                 if float(record_champion) < float(result_category_match):
                     embed = embed + \
-                        f"\n ** :rocket: Tu as battu le record sur {champion_champion} en {category.lower()} avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
+                        f"\n ** :rocket: Tu as battu le record sur {champion_champion} en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
             else:
                 if float(record_champion) > float(result_category_match):
                     embed = embed + \
-                        f"\n ** :rocket: Tu as battu le record sur {champion_champion} en {category.lower()} avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
+                        f"\n ** :rocket: Tu as battu le record sur {champion_champion} en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
         else:
             embed = embed + \
-                f"\n ** :rocket: Premier record sur le champion en {category} avec {result_category_match} **"
+                f"\n ** :rocket: Premier record sur le champion en __{category}__ avec {result_category_match} **"
 
     return embed
 
@@ -906,6 +906,7 @@ class LeagueofLegends(Extension):
     async def loladd(self,
                      ctx: CommandContext,
                      summonername):
+        # TODO : enlever la colonne achievements quand s13
         try:
             if verif_module('league_ranked', int(ctx.guild.id)):
                 summonername = summonername.lower()
