@@ -115,7 +115,7 @@ class Aram(Extension):
         summonername = summonername.lower()
 
         try:
-            requete_perso_bdd('UPDATE ranked_aram SET activation = :activation WHERE index = :index', {
+            requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET activation = :activation WHERE index = :index', {
                               'activation': activation, 'index': summonername})
             if activation:
                 await ctx.send('Ranked activé !')
@@ -206,15 +206,15 @@ class Aram(Extension):
                      nombre: int):
         if isOwner_slash(ctx):
             if couleur == 'vert':
-                requete_perso_bdd('UPDATE ranked_aram SET lp = lp + :nombre WHERE index = :summonername', {
+                requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp + :nombre WHERE index = :summonername', {
                                   'nombre': nombre, 'summonername': summonername.lower()})
                 msg = f'Les LP pour {summonername} ont été ajoutés.'
             if couleur == 'rouge':
-                requete_perso_bdd('UPDATE ranked_aram SET lp = lp - :nombre WHERE index = :summonername', {
+                requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp - :nombre WHERE index = :summonername', {
                                   'nombre': nombre, 'summonername': summonername.lower()})
                 msg = f'Les LP pour {summonername} ont été retirés.'
         else:
-            requete_perso_bdd('UPDATE ranked_aram SET lp = lp - 1 WHERE index = :summonername', {
+            requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp - 1 WHERE index = :summonername', {
                               'summonername': summonername.lower()})
             msg = 'Bien essayé ! Tu perds 1 lp.'
 
