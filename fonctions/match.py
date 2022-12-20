@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import warnings
 from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd
+from fonctions.params import saison
 import json
 import numpy as np
 import sys
@@ -1087,7 +1088,7 @@ class matchlol():
                 d.text((x_rank+220, y-45), 'En placement', font=font, fill=fill)
         else:
 
-            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank from ranked_aram WHERE index = :index', {
+            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank from ranked_aram_s{saison} WHERE index = :index', {
                                      'index': self.summonerName}).fetchall()
 
             wins_actual = data_aram[0]['wins']
@@ -1190,7 +1191,7 @@ class matchlol():
                 d.text((x_rank+220, y+10),
                        f'{wins}W {losses}L     {round(wr,1)}% ', font=font_little, fill=fill)
 
-                requete_perso_bdd(f'''UPDATE ranked_aram
+                requete_perso_bdd(f'''UPDATE ranked_aram_s{saison}
                                     SET wins = :wins,
                                     losses = :losses,
                                     lp = :lp,
