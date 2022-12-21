@@ -646,11 +646,11 @@ class LeagueofLegends(Extension):
         # observations
 
         # ici, ça va de 1 à 10.. contrairement à Rito qui va de 1 à 9
-        embed.add_field(name="Game", value=f"[LeagueofGraph]({url_game})")
+        embed.add_field(name="Game", value=f"[LeagueofGraph]({url_game})", inline=True)
         embed.add_field(
-            name="OPGG", value=f"[Profil](https://euw.op.gg/summoners/euw/{summonerName})")
+            name="OPGG", value=f"[Profil](https://euw.op.gg/summoners/euw/{summonerName})", inline=True)
         embed.add_field(
-            name="Stats", value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)")
+            name="Stats", value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)", inline=True)
 
         # on découpe le texte embed
         chunk_size = 1024
@@ -667,7 +667,7 @@ class LeagueofLegends(Extension):
                 records_emoji[emoji] = exploits.count(emoji)
             
 
-            exploits = 'Observations (** Beta S13 **) : \n __Quelle performance :PandaDawn: ! __ \n'
+            exploits = 'Observations (** Beta S13 **) : \n __ :PandaDawn: Quelle performance  ! __ \n'
             for emoji, count in records_emoji.items():
                 if count > 0:
                     if emoji == ':rocket:':
