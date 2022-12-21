@@ -39,11 +39,11 @@ def records_check2(fichier,
                    category=None,
                    result_category_match=None,
                    embed=None,
-                   methode='max'):
+                   methode='max') -> str:
     '''Cherche s'il y a un record :
     - Dans un premier temps, parmi tous les joueurs.
     - Dans un second temps, parmi les stats du joueur.
-    
+
     None à la place du fichier pour désactiver un check.                                                                                                                                 
     '''
 
@@ -60,8 +60,8 @@ def records_check2(fichier,
             if float(record) > float(result_category_match):
                 embed = embed + \
                     f"\n ** :boom: Record __{category}__ battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
-        
-        if float(record) == float(result_category_match): # si égalité
+
+        if float(record) == float(result_category_match):  # si égalité
             embed = embed + \
                 f"\n ** :medal: Tu as égalé le record __{category}__ de {joueur} **"
     else:
@@ -70,7 +70,8 @@ def records_check2(fichier,
 
     # Record sur ses stats personnels
     if isinstance(fichier_joueur, pd.DataFrame):
-        if fichier_joueur.shape[0] > 0:  # s'il y a des données, sinon first record
+        # s'il y a des données, sinon first record
+        if fichier_joueur.shape[0] > 0:
             joueur_perso, champion_perso, record_perso, url = trouver_records(
                 fichier_joueur, category, methode)
 
@@ -82,18 +83,19 @@ def records_check2(fichier,
                 if float(record_perso) > float(result_category_match):
                     embed = embed + \
                         f"\n ** :military_medal: Tu as battu ton record personnel en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_perso})"
-            
+
             if float(record_perso) == float(result_category_match):
                 embed = embed + \
                     f"\n ** :medal: Tu as égalé ton record personnel en __{category}__ **"
-                
+
         else:
             embed = embed + \
                 f"\n ** :military_medal: Premier Record personnel __{category}__ avec {result_category_match} **"
-            
+
     # Record sur les champions
     if isinstance(fichier_champion, pd.DataFrame):
-        if fichier_champion.shape[0] > 0:  # s'il y a des données, sinon first record
+        # s'il y a des données, sinon first record
+        if fichier_champion.shape[0] > 0:
             joueur_champion, champion_champion, record_champion, url = trouver_records(
                 fichier_champion, category, methode)
 
@@ -121,7 +123,7 @@ def records_check(fichier,
                   embed,
                   url,
                   saison: int,
-                  mode: str):
+                  mode: str) -> str:
     mode = mode.lower()
     if str(key_boucle) == str(key):
         # ici on veut le plus faible et pas égale à 0
@@ -171,7 +173,7 @@ class LeagueofLegends(Extension):
                         succes,
                         sauvegarder: bool,
                         identifiant_game=None,
-                        guild_id : int = 0):
+                        guild_id: int = 0):
 
         match_info = matchlol(summonerName,
                               idgames,
@@ -183,10 +185,10 @@ class LeagueofLegends(Extension):
         # pour nouveau système de record
         fichier = lire_bdd_perso('''SELECT distinct matchs.* from matchs
                          INNER JOIN tracker ON tracker.index = matchs.joueur
-                         where season = %(saison)s and mode = %(mode)s and server_id = %(guild_id)s''', index_col='id', params={'saison': 12,
-                                                                                                    'mode': 'RANKED',
-                                                                                                    'guild_id' : guild_id}).transpose()
-        
+                         where season = %(saison)s and mode = %(mode)s and server_id = %(guild_id)s''', index_col='id', params={'saison': match_info.season,
+                                                                                                                                'mode': 'RANKED',
+                                                                                                                                'guild_id': guild_id}).transpose()
+
         fichier_joueur = lire_bdd_perso('''SELECT distinct matchs.* from matchs
                                         INNER JOIN tracker on tracker.index = matchs.joueur
                                         where season = %(saison)s
@@ -197,18 +199,18 @@ class LeagueofLegends(Extension):
                                         params={'saison': match_info.season,
                                                 'joueur': summonerName.lower(),
                                                 'mode': match_info.thisQ,
-                                                'guild_id' : guild_id}).transpose()
-        
+                                                'guild_id': guild_id}).transpose()
+
         fichier_champion = lire_bdd_perso('''SELECT distinct matchs.* from matchs
                                           INNER JOIN tracker on tracker.index = matchs.joueur
                                         where season = %(saison)s
                                         and mode = %(mode)s and champion = %(champion)s
                                         and server_id = %(guild_id)s''',
-                                        index_col='id',
-                                        params={'saison': match_info.season,
-                                                'champion': match_info.thisChampName,
-                                                'mode': match_info.thisQ,
-                                                'guild_id' : guild_id}).transpose()
+                                          index_col='id',
+                                          params={'saison': match_info.season,
+                                                  'champion': match_info.thisChampName,
+                                                  'mode': match_info.thisQ,
+                                                  'guild_id': guild_id}).transpose()
 
         if sauvegarder:
             await match_info.save_data()
@@ -256,85 +258,83 @@ class LeagueofLegends(Extension):
             records = lire_bdd_perso('SELECT index, "Score", "Champion", "Joueur", url from records where saison= %(saison)s and mode=%(mode)s', params={'saison': match_info.season,
                                                                                                                                                          'mode': match_info.thisQ.lower()})
             records = records.to_dict()
-            
+
             # pour le nouveau système de records
-            param_records = {'kda' : match_info.thisKDA,
-                             'kp' : match_info.thisKP,
-                             'cs' : match_info.thisMinion,
-                             'cs_min' : match_info.thisMinionPerMin,
-                             'kills' : match_info.thisKills,
-                             'deaths' : match_info.thisDeaths,
-                             'assists' : match_info.thisAssists,
-                             'double' : match_info.thisDouble,
-                             'triple' : match_info.thisTriple,
-                             'quadra' : match_info.thisQuadra,
-                             'penta' : match_info.thisPenta,
+            param_records = {'kda': match_info.thisKDA,
+                             'kp': match_info.thisKP,
+                             'cs': match_info.thisMinion,
+                             'cs_min': match_info.thisMinionPerMin,
+                             'kills': match_info.thisKills,
+                             'deaths': match_info.thisDeaths,
+                             'assists': match_info.thisAssists,
+                             'double': match_info.thisDouble,
+                             'triple': match_info.thisTriple,
+                             'quadra': match_info.thisQuadra,
+                             'penta': match_info.thisPenta,
                              'team_kills': match_info.thisTeamKills,
-                             'team_deaths' : match_info.thisTeamKillsOp,
-                             'time' : match_info.thisTime,
-                             'dmg' : match_info.thisDamageNoFormat,
-                             'dmg_ad' : match_info.thisDamageADNoFormat,
-                             'dmg_ap' : match_info.thisDamageAPNoFormat,
-                             'dmg_true' : match_info.thisDamageTrueNoFormat,
-                             'gold' : match_info.thisGoldNoFormat,
-                             'gold_min' : match_info.thisGoldPerMinute,
-                             'dmg_min' : match_info.thisDamagePerMinute,
-                             'solokills' : match_info.thisSoloKills,
-                             'dmg_reduit' : match_info.thisDamageSelfMitigated,
-                             'heal_total' : match_info.thisTotalHealed,
-                             'heal_allies' : match_info.thisTotalOnTeammates,
-                             'serie_kills' : match_info.thisKillingSprees,
+                             'team_deaths': match_info.thisTeamKillsOp,
+                             'time': match_info.thisTime,
+                             'dmg': match_info.thisDamageNoFormat,
+                             'dmg_ad': match_info.thisDamageADNoFormat,
+                             'dmg_ap': match_info.thisDamageAPNoFormat,
+                             'dmg_true': match_info.thisDamageTrueNoFormat,
+                             'gold': match_info.thisGoldNoFormat,
+                             'gold_min': match_info.thisGoldPerMinute,
+                             'dmg_min': match_info.thisDamagePerMinute,
+                             'solokills': match_info.thisSoloKills,
+                             'dmg_reduit': match_info.thisDamageSelfMitigated,
+                             'heal_total': match_info.thisTotalHealed,
+                             'heal_allies': match_info.thisTotalOnTeammates,
+                             'serie_kills': match_info.thisKillingSprees,
                              'cs_dix_min': match_info.thisCSafter10min,
-                             'cs_max_avantage' : match_info.thisCSAdvantageOnLane,
-                             'temps_dead' : match_info.thisTimeSpendDead,
-                             'damageratio' : match_info.thisDamageRatio,
-                             'tankratio' : match_info.thisDamageTakenRatio,
-                             'dmg_tank' : match_info.thisDamageTakenNoFormat,
-                             'shield' : match_info.thisTotalShielded,
-                             'allie_feeder' : match_info.thisAllieFeeder}
-            
-            param_records_only_ranked = {'vision_score' : match_info.thisVision,
-                                         'vision_wards' : match_info.thisWards,
-                                         'vision_wards_killed' : match_info.thisWardsKilled,
-                                         'vision_pink' : match_info.thisPink,
-                                         'vision_min' : match_info.thisVisionPerMin,
-                                         'level_max_avantage' : match_info.thisLevelAdvantage,
-                                         'vision_avantage' : match_info.thisVisionAdvantage,
-                                         'early_drake' : match_info.earliestDrake,
-                                         'early_baron' : match_info.earliestBaron,
-                                         'jgl_dix_min' : match_info.thisJUNGLEafter10min,
-                                         'baron' : match_info.thisBaronTeam,
-                                         'drake' : match_info.thisDragonTeam,
-                                         'herald' : match_info.thisHeraldTeam,
-                                         'cs_jungle' : match_info.thisJungleMonsterKilled}
+                             'cs_max_avantage': match_info.thisCSAdvantageOnLane,
+                             'temps_dead': match_info.thisTimeSpendDead,
+                             'damageratio': match_info.thisDamageRatio,
+                             'tankratio': match_info.thisDamageTakenRatio,
+                             'dmg_tank': match_info.thisDamageTakenNoFormat,
+                             'shield': match_info.thisTotalShielded,
+                             'allie_feeder': match_info.thisAllieFeeder}
+
+            param_records_only_ranked = {'vision_score': match_info.thisVision,
+                                         'vision_wards': match_info.thisWards,
+                                         'vision_wards_killed': match_info.thisWardsKilled,
+                                         'vision_pink': match_info.thisPink,
+                                         'vision_min': match_info.thisVisionPerMin,
+                                         'level_max_avantage': match_info.thisLevelAdvantage,
+                                         'vision_avantage': match_info.thisVisionAdvantage,
+                                         'early_drake': match_info.earliestDrake,
+                                         'early_baron': match_info.earliestBaron,
+                                         'jgl_dix_min': match_info.thisJUNGLEafter10min,
+                                         'baron': match_info.thisBaronTeam,
+                                         'drake': match_info.thisDragonTeam,
+                                         'herald': match_info.thisHeraldTeam,
+                                         'cs_jungle': match_info.thisJungleMonsterKilled}
 
             # nouveau système de records
-            
+
             # for parameter, value in param_records.items():
             #     # on ajoute les conditions
-                
+
             #     if parameter == 'kda':
             #         if int(match_info.thisDeaths) >= 1: # on ne peut pas comparer à un perfect kda
             #             exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kda', match_info.thisKDA, exploits)
             #         else:
             #             exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kda', float(
             #                                          round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1),2)), exploits)
-            #     else:    
+            #     else:
             #         exploits = records_check2(fichier, fichier_joueur, fichier_champion, parameter, value, exploits)
 
             # if match_info.thisQ == 'RANKED': # seulement en ranked
             #     for parameter, value in param_records_only_ranked.items():
             #         methode = 'max'
-                    
+
             #         if parameter in ['early_drake', 'early_baron']: # si ce sont ces deux records, on veut le plus petit résultat
             #             methode = 'min'
-                        
-                    
+
             #         if parameter in ['baron', 'drake', 'herald']: # on ne veut pas les records par champion sur ces stats.
-            #             exploits = records_check2(fichier, fichier_joueur, None, parameter, value, exploits, methode) 
+            #             exploits = records_check2(fichier, fichier_joueur, None, parameter, value, exploits, methode)
             #         else:
             #             exploits = records_check2(fichier, fichier_joueur, fichier_champion, parameter, value, exploits, methode)
-
 
             for key, value in records.items():
                 if int(match_info.thisDeaths) >= 1:
@@ -483,19 +483,18 @@ class LeagueofLegends(Extension):
         points = 0
 
         if match_info.thisQ == 'ARAM':
-                # couronnes pour aram
+            # couronnes pour aram
             settings = lire_bdd_perso(
                 f'SELECT index, score_aram as score from achievements_settings')
-        else: # couronnes si autre mode de jeu
+        else:  # couronnes si autre mode de jeu
             settings = lire_bdd_perso(
                 f'SELECT index, score as score from achievements_settings')
 
         settings = settings.to_dict()
 
-        
-        ## Couronnes 
-        
-        if match_info.thisQ in ['RANKED', 'NORMAL']: # pour only ranked/normal game 
+        # Couronnes
+
+        if match_info.thisQ in ['RANKED', 'NORMAL']:  # pour only ranked/normal game
             if int(match_info.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
                 exploits +=\
                     f"\n ** :crown: :wave: Tu as au moins {match_info.thisLevelAdvantage} niveaux d'avance sur ton adversaire durant la game**"
@@ -541,8 +540,8 @@ class LeagueofLegends(Extension):
                 exploits +=\
                     f"\n ** :crown: :ghost: Tu as plus de {match_info.thisCSAdvantageOnLane} CS d'avance sur ton adversaire durant la game**"
                 points += 1
-                
-        ## pour tous les modes
+
+        # pour tous les modes
         if float(match_info.thisKDA) >= settings['KDA']['score']:
             exploits +=\
                 f"\n ** :crown: :star: Ce joueur a un bon KDA avec un KDA de {match_info.thisKDA} **"
@@ -593,7 +592,7 @@ class LeagueofLegends(Extension):
             # on add les couronnes si ranked (> 20 min) ou aram (> 10 min))
             exploits = records_check2(
                 fichier, fichier_joueur, fichier_champion, 'couronne', points, exploits)
-            
+
             await match_info.add_couronnes(points)
 
         # Présence d'afk
@@ -656,21 +655,41 @@ class LeagueofLegends(Extension):
         # on découpe le texte embed
         chunk_size = 1024
         num_chunks = len(exploits) // chunk_size + 1
-        
+
         if len(exploits) <= chunk_size:
             embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
                             value=exploits, inline=False)
+
+        # elif len(exploits) > 5700: # TODO : si l'exploit est trop grand pour l'embed :
+        #     records_emoji = {':boom:': 0, ':medal:': 0, ':military_medal:': 0, ':rocket:': 0, ':crown:': 0}
+            
+        #     for emoji in records_emoji:
+        #         records_emoji[emoji] = exploits.count(emoji)
+            
+        #     exploits = 'Quelle performance :PandaDawn: ! \n'
+        #     for emoji, count in records.items():
+        #         if count > 0:
+        #             if emoji == ':rocket:':
+        #                 exploits += f'{emoji} Tu as battu **{count}** records sur {match_info.thisChampName} \n'
+        #             elif emoji == 'medal':
+        #                 exploits += f'{emoji} Tu as égalé **{count}** records \n'
+        #             else:
+        #                 exploits += f'{emoji} Tu as battu **{count}** records \n'
+        #     embed.add_field(name=f'Durée de la game : {int(match_info.thisTime)} minutes', value=exploits)
+
 
         else:
             for i in range(num_chunks):
                 start = i * chunk_size
                 end = (i + 1) * chunk_size
                 if i == 0:
-                    field_name = "Durée de la game : " + str(int(match_info.thisTime)) + " minutes"
+                    field_name = "Durée de la game : " + \
+                        str(int(match_info.thisTime)) + " minutes"
                 else:
                     field_name = f"Records {i + 1}"
                 field_value = exploits[start:end]
-                embed.add_field(name=field_name, value=field_value, inline=False)
+                embed.add_field(name=field_name,
+                                value=field_value, inline=False)
 
         # # Objectifs
         if match_info.thisQ != "ARAM":
@@ -736,8 +755,8 @@ class LeagueofLegends(Extension):
                     print(sys.exc_info())
 
                 requete_perso_bdd(f'UPDATE suivi_s{saison} SET tier = :tier, rank = :rank where index = :joueur', {'tier': stats[i]['tier'],
-                                                                                                        'rank': stats[i]['rank'],
-                                                                                                        'joueur': key})
+                                                                                                                   'rank': stats[i]['rank'],
+                                                                                                                   'joueur': key})
 
     @interactions.extension_command(name="game",
                                     description="Voir les statistiques d'une games",
@@ -781,7 +800,7 @@ class LeagueofLegends(Extension):
                                                                            succes=succes,
                                                                            sauvegarder=sauvegarder,
                                                                            identifiant_game=identifiant_game,
-                                                                           guild_id = int(ctx.guild_id))
+                                                                           guild_id=int(ctx.guild_id))
 
         if embed != {}:
             await ctx.send(embeds=embed, files=resume)
@@ -825,7 +844,7 @@ class LeagueofLegends(Extension):
 
             summonername = summonername.lower()
 
-            embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes, sauvegarder=sauvegarder, guild_id = int(ctx.guild_id))
+            embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes, sauvegarder=sauvegarder, guild_id=int(ctx.guild_id))
 
             if embed != {}:
                 await ctx.send(embeds=embed, files=resume)
@@ -839,7 +858,7 @@ class LeagueofLegends(Extension):
 
         summonername = summonername.lower()
 
-        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername, idgames=0, succes=True, sauvegarder=True, guild_id = discord_server_id.server_id)
+        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername, idgames=0, succes=True, sauvegarder=True, guild_id=discord_server_id.server_id)
 
         if mode_de_jeu in ['RANKED', 'FLEX']:
 
