@@ -666,15 +666,19 @@ class LeagueofLegends(Extension):
             for emoji in records_emoji:
                 records_emoji[emoji] = exploits.count(emoji)
             
+
             exploits = 'Observations (** Beta S13 **) : \n Quelle performance :PandaDawn: ! \n'
-            for emoji, count in records.items():
+            for emoji, count in records_emoji.items():
                 if count > 0:
                     if emoji == ':rocket:':
                         exploits += f'{emoji} Tu as battu **{count}** records sur {match_info.thisChampName} \n'
                     elif emoji == 'medal':
                         exploits += f'{emoji} Tu as égalé **{count}** records \n'
+                    elif emoji == ':military_medal:':
+                        exploits += f'{emoji} Tu as égalé **{count}** records personnels \n'
                     else:
                         exploits += f'{emoji} Tu as battu **{count}** records \n'
+
             embed.add_field(name=f'Durée de la game : {int(match_info.thisTime)} minutes', value=exploits)
 
 
