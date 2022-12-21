@@ -351,11 +351,18 @@ class Divers(Extension):
                                             name='time',
                                             description="Duree (Format h/m/s). Par exemple, 1h20 s'écrit 1h20m",
                                             type=interactions.OptionType.STRING,
-                                            required=True)])
+                                            required=True),
+                                        Option(
+                                            name='public',
+                                            description='public ou private ?',
+                                            type=interactions.OptionType.BOOLEAN,
+                                            required=False
+                                        )])
     async def remindme(self,
                        ctx: CommandContext,
                        msg: str,
-                       time: str):
+                       time: str,
+                       public: bool = False):
         
         try:
             duree = await convertion_temps(ctx, time)
@@ -367,7 +374,10 @@ class Divers(Extension):
         reminders[ctx.author.id].append((msg, duree))
         await ctx.send(f'Le rappel est programmé dans {duree} secondes', ephemeral=True)
         await asyncio.sleep(duree)
-        await ctx.author.send(msg)
+        if public:
+            ctx.send('msg')
+        else:
+            await ctx.author.send(msg)
         reminders[ctx.author.id].pop(0)
         
     @interactions.extension_command(name='remind_delete',
@@ -402,7 +412,7 @@ class Divers(Extension):
                     delay_total = current_time + datetime.timedelta(seconds=delay)
                     await ctx.send(f'Rappel #{i+1}: "{msg}" à {delay_total.strftime("%d/%m/%Y %H:%M:%S")} secondes', ephemeral=True)
             else:
-                await ctx.send('Tous les rappels ont été éxécutés.', ephemeral=True)
+                await ctx.send('Tous les rappels ont été éxecutés.', ephemeral=True)
         
 
 def setup(bot):
