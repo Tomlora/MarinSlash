@@ -299,9 +299,9 @@ class Aram(Extension):
                         difwins = int(suivi[key]['wins']) - wins
                         diflosses = int(suivi[key]['losses']) - losses
                         difLP = int(suivi[key]['lp']) - LP
-                        totalwin = totalwin + difwins
-                        totaldef = totaldef + diflosses
-                        totalgames = totalwin + totaldef
+                        totalwin += difwins
+                        totaldef += diflosses
+                        totalgames += totalwin + totaldef
 
                         # evolution
 
@@ -322,12 +322,9 @@ class Aram(Extension):
                                 emote = ":arrow_right:"
 
                         embed.add_field(name=str(key) + " ( " + tier + " )",
-                                        value="V : " +
-                                        str(suivi[key]['wins']) +
-                                        "(" + str(difwins) + ") | D : "
-                                        + str(suivi[key]['losses']) +
-                                        "(" + str(diflosses) + ") | LP :  "
-                                        + str(suivi[key]['lp']) + "(" + str(difLP) + ")    " + emote, inline=False)
+                                        value=f"V : {suivi[key]['wins']} ({difwins}) | " +
+                                        f"D : {suivi[key]['losses']} ({diflosses}) | " +
+                                        f"LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)
 
                         if difwins + diflosses > 0:  # si supérieur à 0, le joueur a joué
                             sql += f'''UPDATE ranked_aram_24h SET wins = {suivi[key]['wins']}, losses = {suivi[key]['losses']}, lp = {suivi[key]['lp']}, rank = '{tier}' where index = '{key}';'''
