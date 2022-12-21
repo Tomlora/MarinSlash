@@ -380,7 +380,7 @@ class matchlol():
         self.match_detail_challenges = self.match_detail_participants['challenges']
         self.thisPosition = self.match_detail_participants['teamPosition']
         # self.season = int(self.match_detail['info']['gameVersion'][0:2])
-        self.season = 12  # TODO a modifier quand s13
+        self.season = 13  # TODO a modifier quand s13
 
         if (str(self.thisPosition) == "MIDDLE"):
             self.thisPosition = "MID"
