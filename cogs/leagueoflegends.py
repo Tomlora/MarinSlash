@@ -589,10 +589,12 @@ class LeagueofLegends(Extension):
 
         if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20 and succes is True) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
-            # on add les couronnes si ranked (> 20 min) ou aram (> 10 min))
+            # Le record de couronne n'est disponible qu'en ranked / aram
             exploits = records_check2(
                 fichier, fichier_joueur, fichier_champion, 'couronne', points, exploits)
 
+        if (match_info.thisQ  in ['RANKED', 'NORMAL'] and match_info.thisTime > 20 and succes is True) or\
+                (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
             await match_info.add_couronnes(points)
 
         # Présence d'afk
