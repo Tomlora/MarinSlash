@@ -253,7 +253,7 @@ class LeagueofLegends(Extension):
                 " ", "")]['LP'] = match_info.thisLP
 
         # on ne prend que les ranked > 20 min ou aram > 10 min
-        if (match_info.thisQ == "RANKED" and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
+        if (match_info.thisQ in ["RANKED", "NORMAL"] and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
 
             records = lire_bdd_perso('SELECT index, "Score", "Champion", "Joueur", url from records where saison= %(saison)s and mode=%(mode)s', params={'saison': match_info.season,
                                                                                                                                                          'mode': match_info.thisQ.lower()})
@@ -324,7 +324,7 @@ class LeagueofLegends(Extension):
                 else:
                     exploits = records_check2(fichier, fichier_joueur, fichier_champion, parameter, value, exploits)
 
-            if match_info.thisQ == 'RANKED': # seulement en ranked
+            if match_info.thisQ in ['RANKED', 'NORMAL']: # seulement en ranked
                 for parameter, value in param_records_only_ranked.items():
                     methode = 'max'
 
