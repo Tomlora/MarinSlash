@@ -595,6 +595,7 @@ class LeagueofLegends(Extension):
 
         if (match_info.thisQ  in ['RANKED', 'NORMAL'] and match_info.thisTime > 20 and succes is True) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
+            # on ajoute les couronnes pour les modes ranked, normal, aram
             await match_info.add_couronnes(points)
 
         # Présence d'afk
@@ -669,7 +670,7 @@ class LeagueofLegends(Extension):
                 records_emoji[emoji] = exploits.count(emoji)
             
 
-            exploits = 'Observations (** Beta S13 **) : \n __ :PandaDawn: Quelle performance  ! __ \n'
+            exploits = ':star: __ Wow ! __ (** Beta S13 **) : \n'
             for emoji, count in records_emoji.items():
                 if count > 0:
                     if emoji == ':rocket:':
