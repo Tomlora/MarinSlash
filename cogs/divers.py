@@ -484,8 +484,10 @@ class Divers(Extension):
                              'public' : public,
                              'msg' : msg})
         
-        
-        await ctx.send(f'Rappel enregistré pour {heure}:{minute}', ephemeral=public)
+        if public:
+            await ctx.send(f'Rappel enregistré pour {heure}:{minute}', ephemeral=False)
+        else:
+            await ctx.send(f'Rappel enregistré pour {heure}:{minute}', ephemeral=True)
         
     @interactions.extension_command(name='remindme_list_quotidien',
                                     description="Rappel à répéter")
