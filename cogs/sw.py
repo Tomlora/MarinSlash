@@ -223,12 +223,12 @@ class SW(Extension):
                                     options=[
                                         Option(
                                             name='guilde_rouge',
-                                            description='nom de la guilde rouge',
+                                            description="nom de la guilde rouge (pas d'espace !)",
                                             type=interactions.OptionType.STRING,
                                             required=True),
                                         Option(
                                             name='guilde_jaune',
-                                            description='nom de la guilde jaune',
+                                            description="nom de la guilde jaune (pas d'espace !)",
                                             type=interactions.OptionType.STRING,
                                             required=True)
                                         ])
@@ -236,7 +236,7 @@ class SW(Extension):
                            ctx: CommandContext,
                            guilde_rouge: str,
                            guilde_jaune: str):
-        if isOwner_slash(ctx):
+        if isOwner_or_mod_slash(ctx):
             permission = [
                 interactions.Overwrite(
                     id=int(ctx.author.id),
