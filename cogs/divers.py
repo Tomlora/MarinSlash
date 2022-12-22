@@ -383,7 +383,7 @@ class Divers(Extension):
             await ctx.author.send(msg)
         reminders[ctx.author.id].pop(0)
         
-    @interactions.extension_command(name='remind_delete_ponctuel',
+    @interactions.extension_command(name='remindme_delete_ponctuel',
                                     description="Liste des rappels ponctuels",
                                     options=[Option(
                                         name='numero_rappel',
@@ -401,7 +401,7 @@ class Divers(Extension):
             await ctx.send('Fait !')
 
 
-    @interactions.extension_command(name='remind_list_ponctuel',
+    @interactions.extension_command(name='remindme_list_ponctuel',
                                     description="Liste des rappels ponctuels")
     async def list_reminders(self, ctx: CommandContext):
         if ctx.author.id not in reminders:
