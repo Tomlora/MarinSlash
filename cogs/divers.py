@@ -440,7 +440,7 @@ class Divers(Extension):
                                         Option(name='repetition',
                                                description='Combien de fois ? (2 à 365)',
                                                type=interactions.OptionType.INTEGER,
-                                               min_value=2,
+                                               min_value=1,
                                                max_value=365,
                                                required=True),
                                         Option(
@@ -485,7 +485,7 @@ class Divers(Extension):
                              'msg' : msg})
         
         
-        await ctx.send(f'Rappel enregistré pour {heure}:{minute}')
+        await ctx.send(f'Rappel enregistré pour {heure}:{minute}', ephemeral=public)
         
     @interactions.extension_command(name='remindme_list_quotidien',
                                     description="Rappel à répéter")
