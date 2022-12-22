@@ -46,6 +46,9 @@ def records_check2(fichier,
 
     None à la place du fichier pour désactiver un check.                                                                                                                                 
     '''
+    
+    if result_category_match == 0:  # si le score est de 0, inutile
+        return embed
 
     # Record sur tous les joueurs
     if fichier.shape[0] > 0:  # s'il y a des données, sinon first record
