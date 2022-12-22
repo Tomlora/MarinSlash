@@ -25,6 +25,7 @@ from fonctions.match import (match_by_puuid,
                              get_match_timeline)
 from fonctions.channels_discord import get_embed
 from fonctions.gestion_bdd import lire_bdd_perso
+from fonctions.params import saison
 
 
 choice_var = [Choice(name="dmg", value="dmg"),
@@ -98,9 +99,9 @@ def option_stats_lol(name,
     return option
 
 
-def get_data_matchs(columns):
+def get_data_matchs(columns, season):
     df = lire_bdd_perso(
-        f'SELECT id, joueur, champion, match_id, mode, season, {columns} from matchs where season = 12', index_col='id').transpose()
+        f'SELECT id, joueur, champion, match_id, mode, season, {columns} from matchs where season = {season}', index_col='id').transpose()
     return df
 
 
@@ -788,7 +789,7 @@ class analyseLoL(Extension):
                              ctx: CommandContext,
                              sub_command: str,
                              calcul: str,
-                             season: int = 12,
+                             season: int = saison,
                              joueur: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
@@ -810,7 +811,7 @@ class analyseLoL(Extension):
             column = 'item1, item2, item3, item4, item5, item6, victoire'
             column_list = ['item1', 'item2',
                            'item3', 'item4', 'item5', 'item6']
-            df = get_data_matchs(column)
+            df = get_data_matchs(column, saison)
             with open('./obj/item.json', encoding='utf-8') as mon_fichier:
                 data = json.load(mon_fichier)
             for column_item in column_list:
@@ -819,7 +820,7 @@ class analyseLoL(Extension):
 
         else:
 
-            df = get_data_matchs(dict_type[sub_command])
+            df = get_data_matchs(dict_type[sub_command], saison)
 
         title = f'{sub_command}'
 

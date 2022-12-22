@@ -3,6 +3,7 @@ import pickle
 import os
 import plotly.express as px
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
+from fonctions.params import saison
 import pickle
 import interactions
 from interactions import Choice, Option, Extension, CommandContext
@@ -204,7 +205,7 @@ class Achievements_scoringlol(Extension):
     async def achievements2(self,
                             ctx: CommandContext,
                             mode: str,
-                            saison: int = 12):
+                            saison: int = saison):
 
         await ctx.defer(ephemeral=False)
 

@@ -4,7 +4,7 @@ from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
 import interactions
 from interactions import Choice, Option, Extension, CommandContext
 from interactions.ext.paginator import Page, Paginator
-from fonctions.params import Version
+from fonctions.params import Version, saison
 from fonctions.match import trouver_records, get_champ_list, get_version
 from aiohttp import ClientSession
 import plotly.express as px
@@ -558,7 +558,7 @@ class Recordslol(Extension):
     async def records_list_v2(self,
                               ctx: CommandContext,
                               sub_command: str,
-                              saison: int = 12,
+                              saison: int = saison,
                               mode: str = 'ranked',
                               joueur=None,
                               champion=None,
@@ -705,7 +705,7 @@ class Recordslol(Extension):
                                     ])
     async def records_count(self,
                             ctx: CommandContext,
-                            saison: int = 12,
+                            saison: int = saison,
                             mode: str = 'RANKED',
                             champion: str = None,
                             view : str = 'global'):
