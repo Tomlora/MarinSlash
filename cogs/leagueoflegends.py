@@ -675,7 +675,7 @@ class LeagueofLegends(Extension):
                 if count > 0:
                     if emoji == ':rocket:':
                         exploits += f'{emoji} Tu as battu **{count}** records sur {match_info.thisChampName} \n'
-                    elif emoji == 'medal':
+                    elif emoji == ':medal:':
                         exploits += f'{emoji} Tu as égalé **{count}** records généraux ou personnels \n'
                     elif emoji == ':military_medal:':
                         exploits += f'{emoji} Tu as battu **{count}** records personnels \n'
