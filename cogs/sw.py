@@ -222,26 +222,20 @@ class SW(Extension):
                                     description="prepare la gvo",
                                     options=[
                                         Option(
-                                            name='guilde',
-                                            description='nom de la guilde',
+                                            name='guilde_rouge',
+                                            description='nom de la guilde rouge',
                                             type=interactions.OptionType.STRING,
                                             required=True),
                                         Option(
-                                            name='color',
-                                            description='quelle couleur',
+                                            name='guilde_jaune',
+                                            description='nom de la guilde jaune',
                                             type=interactions.OptionType.STRING,
-                                            required=True,
-                                            choices=[
-                                                Choice(
-                                                    name='rouge', value='rouge'),
-                                                Choice(
-                                                    name='jaune', value='jaune')
-                                            ]
-                                        )])
+                                            required=True)
+                                        ])
     async def test_channel(self,
                            ctx: CommandContext,
-                           guilde: str,
-                           color: str):
+                           guilde_rouge: str,
+                           guilde_jaune: str):
         if isOwner_slash(ctx):
             permission = [
                 interactions.Overwrite(
@@ -259,23 +253,23 @@ class SW(Extension):
                     type=0,  # role
                     allow=interactions.Permissions.VIEW_CHANNEL | interactions.Permissions.SEND_MESSAGES | interactions.Permissions.ATTACH_FILES)]
 
-            if color == 'rouge':
-                color_guilde = '🔴'
-            elif color == 'jaune':
-                color_guilde == '🟨'
+            dict_guilde = {guilde_rouge : '🔴',
+                            guilde_jaune : '🟨'}
 
-            await ctx.guild.create_channel(name=f"4nat-{color_guilde}{guilde}",
-                                           type=interactions.ChannelType.GUILD_TEXT,
-                                           # Catégorie où le channel est crée
-                                           parent_id=450771619648897034,
-                                           # Permission
-                                           permission_overwrites=permission)
-            await ctx.guild.create_channel(name=f"5nat-{color_guilde}{guilde}",
-                                           type=interactions.ChannelType.GUILD_TEXT,
-                                           # Catégorie où le channel est crée
-                                           parent_id=450771619648897034,
-                                           # Permission
-                                           permission_overwrites=permission)
+            for guilde, color in dict_guilde.items():
+
+                await ctx.guild.create_channel(name=f"4nat-{color}{guilde}",
+                                            type=interactions.ChannelType.GUILD_TEXT,
+                                            # Catégorie où le channel est crée
+                                            parent_id=450771619648897034,
+                                            # Permission
+                                            permission_overwrites=permission)
+                await ctx.guild.create_channel(name=f"5nat-{color}{guilde}",
+                                            type=interactions.ChannelType.GUILD_TEXT,
+                                            # Catégorie où le channel est crée
+                                            parent_id=450771619648897034,
+                                            # Permission
+                                            permission_overwrites=permission)
 
             # await new_chan.send('nouveau channel')
         else:
