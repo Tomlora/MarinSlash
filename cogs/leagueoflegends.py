@@ -189,7 +189,7 @@ class LeagueofLegends(Extension):
         fichier = lire_bdd_perso('''SELECT distinct matchs.* from matchs
                          INNER JOIN tracker ON tracker.index = matchs.joueur
                          where season = %(saison)s and mode = %(mode)s and server_id = %(guild_id)s''', index_col='id', params={'saison': match_info.season,
-                                                                                                                                'mode': 'RANKED',
+                                                                                                                                'mode': match_info.thisQ,
                                                                                                                                 'guild_id': guild_id}).transpose()
 
         fichier_joueur = lire_bdd_perso('''SELECT distinct matchs.* from matchs
