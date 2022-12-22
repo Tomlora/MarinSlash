@@ -9,7 +9,7 @@ import interactions
 from interactions import Choice, Option, Extension, CommandContext
 from fonctions.permissions import isOwner_slash
 from interactions.ext.tasks import IntervalTrigger, create_task
-from fonctions.params import Version, saison
+from fonctions.params import Version, saison, heure_aram
 
 
 dict_points = {41: [11, -19],
@@ -227,7 +227,7 @@ class Aram(Extension):
 
         currentHour = str(datetime.datetime.now().hour)
 
-        if currentHour == str(3):
+        if currentHour == str(heure_aram):
 
             data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id

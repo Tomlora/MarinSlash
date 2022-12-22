@@ -9,7 +9,7 @@ import interactions
 from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import IntervalTrigger, create_task
 from interactions.ext.wait_for import wait_for_component, setup as stp
-from fonctions.params import Version, saison
+from fonctions.params import Version, saison, heure_lolsuivi
 from fonctions.channels_discord import verif_module
 
 from fonctions.gestion_bdd import (lire_bdd,
@@ -1014,7 +1014,7 @@ class LeagueofLegends(Extension):
 
         currentHour = str(datetime.datetime.now().hour)
 
-        if currentHour == str(2):
+        if currentHour == str(heure_lolsuivi):
 
             data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
