@@ -1,5 +1,6 @@
 import calendar
 from datetime import datetime
+from dateutil import tz
 
 
 def findDay(date):
@@ -15,8 +16,10 @@ def date_du_jour():
 
 
 def heure_actuelle():
-    currentHour = datetime.now().hour
-    currentMinute = datetime.now().minute
+    '''Renvoie l'heure et la minute actuelle'''
+    timezone=tz.gettz('Europe/Paris')
+    currentHour = datetime.now(tz=timezone).hour
+    currentMinute = datetime.now(tz=timezone).minute
     return currentHour, currentMinute
 
 # def jour_de_la_semaine():

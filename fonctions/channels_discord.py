@@ -126,7 +126,21 @@ def mention(id_discord:int, type:str) -> str:
         return f'<#{id_discord}>'
 
 
-async def convertion_temps(ctx : interactions.CommandContext, time):
+async def convertion_temps(ctx : interactions.CommandContext, time) -> int:
+    """_summary_
+
+    Parameters
+    ----------
+    ctx : interactions.CommandContext
+        _description_
+    time : _str_
+        Temps sous la forme "1h20m" ou "1h20m50s"
+
+    Returns
+    -------
+    _int_
+        Temps en secondes
+    """
     match = re.match(r"(\d+)([hms])?", time)
     if not match:
         ctx.send("Entrez le temps sous la forme '2h30m' ou '15s'", ephemeral=True)
