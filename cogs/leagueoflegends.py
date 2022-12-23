@@ -38,7 +38,6 @@ def records_check2(fichier,
                    fichier_champion=None,
                    category=None,
                    result_category_match=None,
-                   embed=None,
                    methode='max') -> str:
     '''Cherche s'il y a un record :
     - Dans un premier temps, parmi tous les joueurs.
@@ -46,6 +45,7 @@ def records_check2(fichier,
 
     None à la place du fichier pour désactiver un check.                                                                                                                                 
     '''
+    embed = ''
     
     if result_category_match == 0:  # si le score est de 0, inutile
         return embed
@@ -57,19 +57,15 @@ def records_check2(fichier,
 
         if methode == 'max':
             if float(record) < float(result_category_match):
-                embed = embed + \
-                    f"\n ** :boom: Record __{category}__ battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+                embed += f"\n ** :boom: Record __{category}__ battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
         else:
             if float(record) > float(result_category_match):
-                embed = embed + \
-                    f"\n ** :boom: Record __{category}__ battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+                embed += f"\n ** :boom: Record __{category}__ battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
 
         if float(record) == float(result_category_match):  # si égalité
-            embed = embed + \
-                f"\n ** :medal: Tu as égalé le record __{category}__ de {joueur} **"
+            embed += f"\n ** :medal: Tu as égalé le record __{category}__ de {joueur} **"
     else:
-        embed = embed + \
-            f"\n ** :boom: Premier Record __{category}__ avec {result_category_match} **"
+        embed += f"\n ** :boom: Premier Record __{category}__ avec {result_category_match} **"
 
     # Record sur ses stats personnels
     if isinstance(fichier_joueur, pd.DataFrame):
@@ -80,20 +76,16 @@ def records_check2(fichier,
 
             if methode == 'max':
                 if float(record_perso) < float(result_category_match):
-                    embed = embed + \
-                        f"\n ** :military_medal: Tu as battu ton record personnel en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_perso})"
+                    embed += f"\n ** :military_medal: Tu as battu ton record personnel en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_perso})"
             else:
                 if float(record_perso) > float(result_category_match):
-                    embed = embed + \
-                        f"\n ** :military_medal: Tu as battu ton record personnel en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_perso})"
+                    embed += f"\n ** :military_medal: Tu as battu ton record personnel en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_perso})"
 
-            if float(record_perso) == float(result_category_match):
-                embed = embed + \
-                    f"\n ** :medal: Tu as égalé ton record personnel en __{category}__ **"
+            if float(record_perso) == float(result_category_match) and joueur != joueur_perso: # sinon ça fait doublon
+                embed += f"\n ** :medal: Tu as égalé ton record personnel en __{category}__ **"
 
         else:
-            embed = embed + \
-                f"\n ** :military_medal: Premier Record personnel __{category}__ avec {result_category_match} **"
+            embed += f"\n ** :military_medal: Premier Record personnel __{category}__ avec {result_category_match} **"
 
     # Record sur les champions
     if isinstance(fichier_champion, pd.DataFrame):
@@ -104,15 +96,12 @@ def records_check2(fichier,
 
             if methode == 'max':
                 if float(record_champion) < float(result_category_match):
-                    embed = embed + \
-                        f"\n ** :rocket: Tu as battu le record sur {champion_champion} en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
+                    embed += f"\n ** :rocket: Tu as battu le record sur {champion_champion} en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
             else:
                 if float(record_champion) > float(result_category_match):
-                    embed = embed + \
-                        f"\n ** :rocket: Tu as battu le record sur {champion_champion} en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
+                    embed += f"\n ** :rocket: Tu as battu le record sur {champion_champion} en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
         else:
-            embed = embed + \
-                f"\n ** :rocket: Premier record sur le champion en __{category}__ avec {result_category_match} **"
+            embed += f"\n ** :rocket: Premier record sur le champion en __{category}__ avec {result_category_match} **"
 
     return embed
 
@@ -314,30 +303,42 @@ class LeagueofLegends(Extension):
                                          'cs_jungle': match_info.thisJungleMonsterKilled}
 
             # nouveau système de records
-
+            chunk = 1
+            chunk_size = 700
             for parameter, value in param_records.items():
                 # on ajoute les conditions
+                
+                if len(exploits) >= chunk * chunk_size:
+                    # Detection pour passer à l'embed suivant
+                    chunk += 1
+                    exploits += '#' 
+
 
                 if parameter == 'kda':
                     if int(match_info.thisDeaths) >= 1: # on ne peut pas comparer à un perfect kda
-                        exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kda', match_info.thisKDA, exploits)
+                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, 'kda', match_info.thisKDA)
                     else:
-                        exploits = records_check2(fichier, fichier_joueur, fichier_champion, 'kda', float(
-                                                     round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1),2)), exploits)
+                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, 'kda', float(
+                                                     round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1),2)))
                 else:
-                    exploits = records_check2(fichier, fichier_joueur, fichier_champion, parameter, value, exploits)
+                    exploits += records_check2(fichier, fichier_joueur, fichier_champion, parameter, value)
 
             if match_info.thisQ == 'RANKED': # seulement en ranked
                 for parameter, value in param_records_only_ranked.items():
+                    
+                    if len(exploits) >= chunk * chunk_size:
+                        chunk += 1
+                        exploits += '#'
+                         
                     methode = 'max'
 
                     if parameter in ['early_drake', 'early_baron']: # si ce sont ces deux records, on veut le plus petit résultat
                         methode = 'min'
 
                     if parameter in ['baron', 'drake', 'herald']: # on ne veut pas les records par champion sur ces stats.
-                        exploits = records_check2(fichier, fichier_joueur, None, parameter, value, exploits, methode)
+                        exploits += records_check2(fichier, fichier_joueur, None, parameter, value, methode)
                     else:
-                        exploits = records_check2(fichier, fichier_joueur, fichier_champion, parameter, value, exploits, methode)
+                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, parameter, value, methode)
 
             # for key, value in records.items():
             #     if int(match_info.thisDeaths) >= 1:
@@ -496,6 +497,8 @@ class LeagueofLegends(Extension):
         settings = settings.to_dict()
 
         # Couronnes
+        
+        exploits += '#'
 
         if match_info.thisQ in ['RANKED', 'NORMAL']:  # pour only ranked/normal game
             if int(match_info.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
@@ -543,6 +546,7 @@ class LeagueofLegends(Extension):
                 exploits +=\
                     f"\n ** :crown: :ghost: Tu as plus de {match_info.thisCSAdvantageOnLane} CS d'avance sur ton adversaire durant la game**"
                 points += 1
+                
 
         # pour tous les modes
         if float(match_info.thisKDA) >= settings['KDA']['score']:
@@ -595,6 +599,8 @@ class LeagueofLegends(Extension):
             # Le record de couronne n'est disponible qu'en ranked / aram
             exploits = records_check2(
                 fichier, fichier_joueur, fichier_champion, 'couronne', points, exploits)
+            
+
 
         if (match_info.thisQ  in ['RANKED', 'NORMAL'] and match_info.thisTime > 20 and succes is True) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
@@ -660,13 +666,13 @@ class LeagueofLegends(Extension):
 
         # on découpe le texte embed
         chunk_size = 1024
-        num_chunks = len(exploits) // chunk_size + 1
 
         if len(exploits) <= chunk_size:
+            exploits = exploits.replace('#', '').replace(' #', '')
             embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
                             value=exploits, inline=False)
 
-        elif len(exploits) > 5700: # TODO : si l'exploit est trop grand pour l'embed :
+        elif len(exploits) > 5700: # si l'exploit est trop grand pour l'embed :
             records_emoji = {':boom:': 0, ':medal:': 0, ':military_medal:': 0, ':rocket:': 0, ':crown:': 0}
             
             for emoji in records_emoji:
@@ -691,15 +697,15 @@ class LeagueofLegends(Extension):
 
 
         else:
-            for i in range(num_chunks):
-                start = i * chunk_size
-                end = (i + 1) * chunk_size
+            exploits = exploits.split('#')
+
+            for i in range(len(exploits)):
                 if i == 0:
                     field_name = "Durée de la game : " + \
                         str(int(match_info.thisTime)) + " minutes"
                 else:
                     field_name = f"Records {i + 1}"
-                field_value = exploits[start:end]
+                field_value = exploits[i]
                 embed.add_field(name=field_name,
                                 value=field_value, inline=False)
 
