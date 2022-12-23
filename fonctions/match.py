@@ -533,6 +533,7 @@ class matchlol():
         self.thisDragonTeam = self.team_stats['dragon']['kills']
         self.thisHeraldTeam = self.team_stats['riftHerald']['kills']
         self.thisTurretsKillsTeam = self.team_stats['tower']['kills']
+    
 
         # A voir...
 
@@ -616,6 +617,14 @@ class matchlol():
             self.thisId, self.match_detail, 'totalDamageTaken')
         self.thisDamageSelfMitigatedListe = dict_data(
             self.thisId, self.match_detail, 'damageSelfMitigated')
+        
+        if self.thisQ == 'ARAM':
+            try:
+                self.snowball = self.match_detail_challenges['snowballsHit']
+            except:
+                self.snowball = 0
+        else:
+            self.snowball = -1
 
         # pseudo
 
