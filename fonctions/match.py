@@ -501,7 +501,7 @@ class matchlol():
         self.thisSoloKills = self.match_detail_challenges['soloKills']
         self.thisDanceHerald = self.match_detail_challenges['dancedWithRiftHerald']
         self.thisPerfectGame = self.match_detail_challenges['perfectGame']
-        self.thisJUNGLEafter10min = self.match_detail_challenges['jungleCsBefore10Minutes']
+        self.thisJUNGLEafter10min = int(self.match_detail_challenges['jungleCsBefore10Minutes'])
         self.thisCSafter10min = self.match_detail_challenges[
             'laneMinionsFirst10Minutes'] + self.thisJUNGLEafter10min
         self.thisKillingSprees = self.match_detail_participants['killingSprees']
