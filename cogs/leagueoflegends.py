@@ -317,7 +317,6 @@ class LeagueofLegends(Extension):
                     exploits += records_check2(fichier, fichier_joueur, fichier_champion, parameter, value, methode)
 
 
-        print(match_info.snowball)
         # on le fait après sinon ça flingue les records
         match_info.thisDamageTurrets = "{:,}".format(
             match_info.thisDamageTurrets).replace(',', ' ').replace('.', ',')
