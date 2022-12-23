@@ -185,6 +185,7 @@ emote_v2 = {
     "couronne": ":crown:",
     "shield": ":shield:",
     "allie_feeder": ":monkey_face:",
+    "snowball" : ":baseball:",
 }
 
 choice_pantheon = [Choice(name="KDA", value="KDA"),
@@ -612,6 +613,9 @@ class Recordslol(Extension):
         fichier1 = np.append(fichier1, ['kda', 'kp', 'damageratio'])
 
         fichier1 = fichier1.tolist()
+        
+        if mode == 'RANKED':
+            fichier3 = fichier3.drop(['snowball'])
 
         if mode == 'ARAM':  # on vire les records qui ne doivent pas être comptés en aram
 
@@ -737,11 +741,15 @@ class Recordslol(Extension):
 
         # liste records
 
+
         liste_records = ['kda', 'kp', 'kills', 'cs', 'cs_min', 'deaths', 'assists', 'double', 'triple', 'quadra', 'penta', 'team_kills', 'spell1', 'spell2',
                          'team_deaths', 'time', 'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'gold', 'gold_min', 'dmg_min', 'solokills', 'dmg_reduit', 'heal_total', 'heal_allies',
                          'serie_kills', 'cs_dix_min', 'cs_max_avantage', 'temps_dead', 'damageratio', 'tankratio', 'dmg_tank', 'shield', 'allie_feeder',
                          'vision_score', 'vision_wards', 'vision_wards_killed', 'vision_pink', 'vision_min', 'level_max_avantage', 'vision_avantage', 'early_drake', 'early_baron',
                          'jgl_dix_min', 'baron', 'drake', 'herald', 'cs_jungle']
+        
+        if mode == 'ARAM':
+            liste_records.append('snowball')
 
         if champion == None:
             liste_joueurs_general = []

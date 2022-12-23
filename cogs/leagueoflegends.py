@@ -262,6 +262,8 @@ class LeagueofLegends(Extension):
                                          'drake': match_info.thisDragonTeam,
                                          'herald': match_info.thisHeraldTeam,
                                          'cs_jungle': match_info.thisJungleMonsterKilled}
+            
+            param_records_only_aram = {'snowball' : match_info.snowball}
 
             # nouveau système de records
             chunk = 1
@@ -301,9 +303,21 @@ class LeagueofLegends(Extension):
                         exploits += records_check2(fichier, fichier_joueur, None, parameter, value, methode)
                     else:
                         exploits += records_check2(fichier, fichier_joueur, fichier_champion, parameter, value, methode)
+                        
+            if match_info.thisQ == 'ARAM': # seulement en aram
+                for parameter, value in param_records_only_aram.items():
+                    
+                    if len(exploits) >= chunk * chunk_size:
+                        # Detection pour passer à l'embed suivant
+                        chunk += 1
+                        exploits += '#'
+                         
+                    methode = 'max'
+
+                    exploits += records_check2(fichier, fichier_joueur, fichier_champion, parameter, value, methode)
 
 
-
+        print(match_info.snowball)
         # on le fait après sinon ça flingue les records
         match_info.thisDamageTurrets = "{:,}".format(
             match_info.thisDamageTurrets).replace(',', ' ').replace('.', ',')
