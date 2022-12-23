@@ -442,7 +442,7 @@ class LeagueofLegends(Extension):
         if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20 and succes is True) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
             # Le record de couronne n'est disponible qu'en ranked / aram
-            exploits = records_check2(
+            exploits += records_check2(
                 fichier, fichier_joueur, fichier_champion, 'couronne', points, exploits)
             
 
