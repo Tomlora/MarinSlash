@@ -337,8 +337,9 @@ class Aram(Extension):
                         requete_perso_bdd(sql)
                     embed.set_footer(text=f'Version {Version} by Tomlora')
 
-                    await channel_tracklol.send(embeds=embed)
-                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
+                    if totalgames > 0:
+                        await channel_tracklol.send(embeds=embed)
+                        await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
 
 
 def setup(bot):
