@@ -301,7 +301,7 @@ class Aram(Extension):
                         difLP = int(suivi[key]['lp']) - LP
                         totalwin += difwins
                         totaldef += diflosses
-                        totalgames += totalwin + totaldef
+                        totalgames = totalwin + totaldef
 
                         # evolution
 
