@@ -246,7 +246,9 @@ class LeagueofLegends(Extension):
                              'tankratio': match_info.thisDamageTakenRatio,
                              'dmg_tank': match_info.thisDamageTakenNoFormat,
                              'shield': match_info.thisTotalShielded,
-                             'allie_feeder': match_info.thisAllieFeeder}
+                             'allie_feeder': match_info.thisAllieFeeder,
+                             'temps_vivant' : match_info.thisTimeSpendAlive,
+                             'dmg_tower' : match_info.thisDamageTurrets}
 
             param_records_only_ranked = {'vision_score': match_info.thisVision,
                                          'vision_wards': match_info.thisWards,
@@ -510,7 +512,7 @@ class LeagueofLegends(Extension):
             embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
                             value=exploits, inline=False)
 
-        elif len(exploits) > 5700: # si l'exploit est trop grand pour l'embed :
+        elif len(exploits) > 4000: # si l'exploit est trop grand pour l'embed à partir de 6000... mais déjà 4000, c'est peu lisible :
             records_emoji = {':boom:': 0, ':medal:': 0, ':military_medal:': 0, ':rocket:': 0}
             
             for emoji in records_emoji:

@@ -171,8 +171,6 @@ emote_v2 = {
     'dmg_tank': ":shield:",
     'gold': ":euro:",
     'gold_min': ":euro:",
-    'spell1': ":magic_wand:",
-    'spell2': ":magic_wand:",
     'drake': ":dragon:",
     'baron': ":space_invader:",
     'herald': ":space_invader:",
@@ -186,6 +184,8 @@ emote_v2 = {
     "shield": ":shield:",
     "allie_feeder": ":monkey_face:",
     "snowball" : ":baseball:",
+    "temps_vivant" : ":hourglass:",
+    "dmg_tower" : ":tokyo_tower:"
 }
 
 choice_pantheon = [Choice(name="KDA", value="KDA"),
@@ -604,8 +604,8 @@ class Recordslol(Extension):
                 title = f'Records {mode} S{saison} ({champion})'
 
         fichier1 = fichier.columns[3:22].drop(['champion', 'victoire'])
-        fichier2 = fichier.columns[22:45].drop(['team'])
-        fichier3 = fichier.columns[45:].drop(['afk', 'season', 'date', 'mode', 'rank', 'tier', 'kda', 'kp', 'damageratio',
+        fichier2 = fichier.columns[22:45].drop(['team', 'afk'])
+        fichier3 = fichier.columns[45:].drop(['season', 'date', 'mode', 'rank', 'tier', 'kda', 'kp', 'damageratio',
                                              'lp', 'id_participant', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6'])
 
         # on rajoute quelques éléments sur d'autres pages...
@@ -742,11 +742,11 @@ class Recordslol(Extension):
         # liste records
 
 
-        liste_records = ['kda', 'kp', 'kills', 'cs', 'cs_min', 'deaths', 'assists', 'double', 'triple', 'quadra', 'penta', 'team_kills', 'spell1', 'spell2',
+        liste_records = ['kda', 'kp', 'kills', 'cs', 'cs_min', 'deaths', 'assists', 'double', 'triple', 'quadra', 'penta', 'team_kills',
                          'team_deaths', 'time', 'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'gold', 'gold_min', 'dmg_min', 'solokills', 'dmg_reduit', 'heal_total', 'heal_allies',
                          'serie_kills', 'cs_dix_min', 'cs_max_avantage', 'temps_dead', 'damageratio', 'tankratio', 'dmg_tank', 'shield', 'allie_feeder',
                          'vision_score', 'vision_wards', 'vision_wards_killed', 'vision_pink', 'vision_min', 'level_max_avantage', 'vision_avantage', 'early_drake', 'early_baron',
-                         'jgl_dix_min', 'baron', 'drake', 'herald', 'cs_jungle']
+                         'jgl_dix_min', 'baron', 'drake', 'herald', 'cs_jungle', 'temps_vivant', 'dmg_tower']
         
         if mode == 'ARAM':
             liste_records.append('snowball')
