@@ -42,7 +42,6 @@ def records_check2(fichier,
     '''Cherche s'il y a un record :
     - Dans un premier temps, parmi tous les joueurs.
     - Dans un second temps, parmi les stats du joueur.
-
     None à la place du fichier pour désactiver un check.                                                                                                                                 
     '''
     embed = ''
@@ -102,7 +101,7 @@ def records_check2(fichier,
                 if float(record_champion) > float(result_category_match):
                     embed += f"\n ** :rocket: Record sur {champion_champion} - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_champion} par {joueur_champion})"
         else:
-            embed += f"\n ** :rocket: Premier Record sur {champion_champion} - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
+            embed += f"\n ** :rocket: Premier Record sur le champion - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
 
     return embed
 
@@ -370,20 +369,20 @@ class LeagueofLegends(Extension):
         if match_info.thisQ in ['RANKED', 'NORMAL']:  # pour only ranked/normal game
             if int(match_info.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
                 couronnes_embed +=\
-                    f"\n ** :crown: :wave: Tu as au moins {match_info.thisLevelAdvantage} niveaux d'avance sur ton adversaire durant la game**"
+                    f"\n ** :crown: :wave: {match_info.thisLevelAdvantage} niveaux d'avance sur ton adversaire durant la game**"
                 points += 1
 
             if (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(support)']['score'] and str(match_info.thisPosition) == "SUPPORT") or (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(autres)']['score'] and str(match_info.thisPosition) != "SUPPORT"):
                 couronnes_embed +=\
-                    f"\n ** :crown: :eye: Ce joueur a un gros avantage de vision sur son adversaire avec {match_info.thisVisionAdvantage}% **"
+                    f"\n ** :crown: :eye: Avantage de vision sur son adversaire avec {match_info.thisVisionAdvantage}% **"
                 points += 1
 
             if (float(match_info.thisDragonTeam) >= settings['Dragon']['score']):
-                couronnes_embed += f"\n ** :crown: :dragon: Tu as obtenu l'âme du dragon **"
+                couronnes_embed += f"\n ** :crown: :dragon: Âme du dragon **"
                 points += 1
 
             if (int(match_info.thisDanceHerald) >= 1):
-                couronnes_embed += f"\n ** :crown: :dancer: A dansé avec l'Herald **"
+                couronnes_embed += f"\n ** :crown: :dancer: Danse avec l'Herald **"
                 points += 1
 
             if (int(match_info.thisPerfectGame) >= 1):
@@ -391,73 +390,73 @@ class LeagueofLegends(Extension):
                 points += 2
 
             if int(match_info.thisDeaths) == int(settings['Ne_pas_mourir']['score']):
-                couronnes_embed += "\n ** :crown: :heart: Ce joueur n'est pas mort de la game ** \n ** :crown: :star: Ce joueur a un PERFECT KDA **"
+                couronnes_embed += "\n ** :crown: :heart: N'est pas mort de la game ** \n ** :crown: :star: PERFECT KDA **"
                 points += 2
 
             if float(match_info.thisVisionPerMin) >= settings['Vision/min(support)']['score'] and str(match_info.thisPosition) == "SUPPORT":
                 couronnes_embed +=\
-                    f"\n ** :crown: :eye: Ce joueur a un gros score de vision avec {match_info.thisVisionPerMin} / min **"
+                    f"\n ** :crown: :eye: Gros score de vision avec {match_info.thisVisionPerMin} / min **"
                 points += 1
 
             if int(match_info.thisVisionPerMin) >= settings['Vision/min(autres)']['score'] and str(match_info.thisPosition) != "SUPPORT":
                 couronnes_embed +=\
-                    f"\n ** :crown: :eye: Ce joueur a un gros score de vision avec {match_info.thisVisionPerMin} / min **"
+                    f"\n ** :crown: :eye: Gros score de vision avec {match_info.thisVisionPerMin} / min **"
                 points += 1
 
             if int(match_info.thisSoloKills) >= settings['Solokills']['score']:
                 couronnes_embed +=\
-                    f"\n ** :crown: :muscle: Ce joueur a réalisé {match_info.thisSoloKills} solokills **"
+                    f"\n ** :crown: :muscle: {match_info.thisSoloKills} solokills **"
                 points += 1
 
             if int(match_info.thisCSAdvantageOnLane) >= settings['CSAvantage']['score']:
                 couronnes_embed +=\
-                    f"\n ** :crown: :ghost: Tu as plus de {match_info.thisCSAdvantageOnLane} CS d'avance sur ton adversaire durant la game**"
+                    f"\n ** :crown: :ghost: {match_info.thisCSAdvantageOnLane} CS d'avance sur ton adversaire durant la game**"
                 points += 1
 
         # pour tous les modes
         if float(match_info.thisKDA) >= settings['KDA']['score']:
             couronnes_embed +=\
-                f"\n ** :crown: :star: Ce joueur a un bon KDA avec un KDA de {match_info.thisKDA} **"
+                f"\n ** :crown: :star: Bon KDA : {match_info.thisKDA} **"
             points += 1
 
         if int(match_info.thisKP) >= settings['KP']['score']:
             couronnes_embed +=\
-                f"\n ** :crown: :dagger: Ce joueur a participé à énormément de kills dans son équipe avec {match_info.thisKP} % **"
+                f"\n ** :crown: :dagger: Participation à beaucoup de kills : {match_info.thisKP} % **"
             points += 1
 
         if int(match_info.thisPenta) >= settings['Pentakill']['score']:
             couronnes_embed +=\
-                f"\n ** :crown: :five: Ce joueur a pentakill ** {match_info.thisPenta} fois"
+                f"\n ** :crown: :five: Pentakill ** {match_info.thisPenta} fois"
             points += (1 * int(match_info.thisPenta))
 
         if int(match_info.thisQuadra) >= settings['Quadrakill']['score']:
             couronnes_embed +=\
-                f"\n ** :crown: :four: Ce joueur a quadrakill ** {match_info.thisQuadra} fois"
+                f"\n ** :crown: :four: Quadrakill ** {match_info.thisQuadra} fois"
             points += (1 * int(match_info.thisQuadra))
 
         if int(match_info.thisMinionPerMin) >= settings['CS/min']['score']:
             couronnes_embed +=\
-                f"\n ** :crown: :ghost: Ce joueur a bien farm avec {match_info.thisMinionPerMin} CS / min **"
+                f"\n ** :crown: :ghost: {match_info.thisMinionPerMin} CS / min **"
             points += 1
 
         if int(match_info.thisDamageRatio) >= settings['%_dmg_équipe']['score']:
             couronnes_embed +=\
-                f"\n ** :crown: :dart: Ce joueur a infligé beaucoup de dmg avec {match_info.thisDamageRatio}%  pour son équipe **"
+                f"\n ** :crown: :dart: Beaucoup de dmg avec {match_info.thisDamageRatio}% **"
             points += 1
 
         if int(match_info.thisDamageTakenRatio) >= settings['%_dmg_tank']['score']:
             couronnes_embed +=\
-                f"\n ** :crown: :shield: Ce joueur a bien tank pour son équipe avec {match_info.thisDamageTakenRatio}% **"
+                f"\n ** :crown: :shield: Bon tanking : {match_info.thisDamageTakenRatio}% **"
             points += 1
 
         if int(match_info.thisTotalOnTeammates) >= settings['Total_Heals_sur_alliés']['score']:
             couronnes_embed +=\
-                f"\n ** :crown: :heart: Ce joueur a heal plus de {match_info.thisTotalOnTeammatesFormat} sur ses alliés **"
+                f"\n ** :crown: :heart: Heal plus de {match_info.thisTotalOnTeammatesFormat} sur ses alliés **"
             points += 1
 
         if (int(match_info.thisTotalShielded) >= settings['Shield']['score']):
             couronnes_embed +=\
-                f"\n ** :crown: :shield: Tu as shield {match_info.thisTotalShielded} **"
+                f"\n ** :crown: :shield: Shield : {match_info.thisTotalShielded} **"
             points += 1
 
         if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20 and succes is True) or\
