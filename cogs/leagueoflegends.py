@@ -3,7 +3,6 @@ import sys
 import aiohttp
 import pandas as pd
 import datetime
-import numpy as np
 import warnings
 import interactions
 from interactions import Option, Extension, CommandContext
@@ -11,6 +10,7 @@ from interactions.ext.tasks import IntervalTrigger, create_task
 from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version, saison, heure_lolsuivi
 from fonctions.channels_discord import verif_module
+from cogs.recordslol import emote_v2
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -57,15 +57,15 @@ def records_check2(fichier,
 
         if methode == 'max':
             if float(record) < float(result_category_match):
-                embed += f"\n ** :boom: Record __{category}__ battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+                embed += f"\n ** :boom: Nouveau Record {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
         else:
             if float(record) > float(result_category_match):
-                embed += f"\n ** :boom: Record __{category}__ battu avec {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+                embed += f"\n ** :boom: Nouveau Record {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
 
         if float(record) == float(result_category_match):  # si égalité
-            embed += f"\n ** :medal: Tu as égalé le record __{category}__ de {joueur} **"
+            embed += f"\n ** :medal: Egalisation record {emote_v2.get(category, ':star:')}__{category}__ de {joueur} **"
     else:
-        embed += f"\n ** :boom: Premier Record __{category}__ avec {result_category_match} **"
+        embed += f"\n ** :boom: Premier Record {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
 
     # Record sur ses stats personnels
     if isinstance(fichier_joueur, pd.DataFrame):
@@ -76,17 +76,17 @@ def records_check2(fichier,
 
             if methode == 'max':
                 if float(record_perso) < float(result_category_match):
-                    embed += f"\n ** :military_medal: Tu as battu ton record personnel en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_perso})"
+                    embed += f"\n ** :military_medal: Nouveau Record personnel {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_perso})"
             else:
                 if float(record_perso) > float(result_category_match):
-                    embed += f"\n ** :military_medal: Tu as battu ton record personnel en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_perso})"
+                    embed += f"\n ** :military_medal: Nouveau Record personnel {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_perso})"
 
             # sinon ça fait doublon
             if float(record_perso) == float(result_category_match) and joueur != joueur_perso:
-                embed += f"\n ** :medal: Tu as égalé ton record personnel en __{category}__ **"
+                embed += f"\n ** :medal: Egalisation record personnel {emote_v2.get(category, ':star:')}__{category}__ **"
 
         else:
-            embed += f"\n ** :military_medal: Premier Record personnel __{category}__ avec {result_category_match} **"
+            embed += f"\n ** :military_medal: Premier Record personnel {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
 
     # Record sur les champions
     if isinstance(fichier_champion, pd.DataFrame):
@@ -97,12 +97,12 @@ def records_check2(fichier,
 
             if methode == 'max':
                 if float(record_champion) < float(result_category_match):
-                    embed += f"\n ** :rocket: Tu as battu le record sur {champion_champion} en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
+                    embed += f"\n ** :rocket: Nouveau record sur {champion_champion} {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
             else:
                 if float(record_champion) > float(result_category_match):
-                    embed += f"\n ** :rocket: Tu as battu le record sur {champion_champion} en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
+                    embed += f"\n ** :rocket: Nouveau record sur {champion_champion} {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
         else:
-            embed += f"\n ** :rocket: Premier record sur le champion en __{category}__ avec {result_category_match} **"
+            embed += f"\n ** :rocket: Premier record sur {champion_champion} {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
 
     return embed
 
