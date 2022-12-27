@@ -113,7 +113,7 @@ class Challenges(Extension):
         self.task1.start()
 
     async def challenges_maj(self):
-        '''Chaque jour, à 23h, on actualise les challenges.
+        '''Chaque jour, à 6h, on actualise les challenges.
         Cette requête est obligatoirement à faire une fois par jour, sur un créneau creux pour éviter de surcharger les requêtes Riot'''
 
         currentHour = str(datetime.datetime.now().hour)
@@ -200,6 +200,8 @@ class Challenges(Extension):
 
         session = aiohttp.ClientSession()
         total_user, total_category, total_challenges = await get_data_joueur(summonername, session)
+        
+        total_user = total_user[summonername]
 
         def stats(categorie):
             level = total_category[categorie]['level']
@@ -222,7 +224,6 @@ class Challenges(Extension):
 
         fig = go.Figure()
         i = 0
-        total = 0
 
         # dict de paramètres
         domain = {0: [0, 0], 1: [0, 2], 2: [1, 1],
@@ -233,7 +234,7 @@ class Challenges(Extension):
             # dict de parametres
 
             msg = msg + \
-                f"{argument[0]} : ** {argument[2]} ** points / ** {argument[3]} ** possibles (niveau {argument[1]}) . Seulement {argument[4]}% des joueurs font mieux \n"
+                f"{argument[0]} : ** {argument[2]} ** points / ** {argument[3]} ** possibles (niveau {argument[1]}) . Seulement **{argument[4]}**% des joueurs font mieux \n"
             fig.add_trace(go.Indicator(value=argument[2],
                                        title={
                                            'text': argument[0] + " (" + argument[1] + ")", 'font': {'size': 16}},
@@ -243,13 +244,11 @@ class Challenges(Extension):
                                        domain={'row': domain[i][0], 'column': domain[i][1]}))
             fig.update_layout(
                 grid={'rows': 3, 'columns': 3, 'pattern': "independent"})
-            total = total + argument[2]
             i = i+1
 
         fig.write_image('plot.png')
         # txt
-        await ctx.send(f'Le joueur {summonername} a : \n{msg}\n TOTAL  : ** {str(total)} **')
-        await ctx.send(files=interactions.File('plot.png'))  # visuel
+        await ctx.send(f'Le joueur {summonername} a : \n{msg}\n __TOTAL__  : **{total_user["current"]}** / **{total_user["max"]}** (niveau {total_user["level"]}). Seulement **({total_user["percentile"]}** des joueurs font mieux.)', files=interactions.File('plot.png'))
         await session.close()
         os.remove('plot.png')
 
