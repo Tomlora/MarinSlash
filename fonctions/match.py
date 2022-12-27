@@ -14,6 +14,8 @@ from io import BytesIO
 import aiohttp
 import asyncio
 
+# TODO : rajouter temps en vie
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -418,6 +420,8 @@ class matchlol():
 
         self.thisTimeSpendDead = round(
             float(self.match_detail_participants['totalTimeSpentDead'])/60, 2)
+        
+        self.thisTimeSpendAlive = round(self.thisTime - self.thisTimeSpendDead, 2)
 
         self.thisDamageTaken = int(
             self.match_detail_participants['totalDamageTaken'])
@@ -832,6 +836,7 @@ class matchlol():
 
         self.thisDamageObjectives = "{:,}".format(
             self.thisDamageObjectives).replace(',', ' ').replace('.', ',')
+        
 
         try:
             self.thisKP = int(
@@ -881,14 +886,14 @@ class matchlol():
         requete_perso_bdd(f'''INSERT INTO public.matchs(
         match_id, joueur, role, champion, kills, assists, deaths, double, triple, quadra, penta,
         victoire, team_kills, team_deaths, "time", dmg, dmg_ad, dmg_ap, dmg_true, vision_score, cs, cs_jungle, vision_pink, vision_wards, vision_wards_killed,
-        gold, spell1, spell2, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
+        gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
         baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
-        item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield, early_baron, allie_feeder, snowball)
+        item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield, early_baron, allie_feeder, snowball, temps_vivant, dmg_tower)
         VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
         :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
-        :gold, :spell1, :spell2, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
+        :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
         :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
-        :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield, :early_baron, :allie_feeder, :snowball);''',
+        :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield, :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower);''',
                           {'match_id': self.last_match,
                            'joueur': self.summonerName.lower(),
                            'role': self.thisPosition,
@@ -915,8 +920,6 @@ class matchlol():
                            'vision_wards': self.thisWards,
                            'vision_wards_killed': self.thisWardsKilled,
                            'gold': self.thisGoldNoFormat,
-                           'spell1': self.spell1,
-                           'spell2': self.spell2,
                            'cs_min': self.thisMinionPerMin,
                            'vision_min': self.thisVisionPerMin,
                            'gold_min': self.thisGoldPerMinute,
@@ -959,7 +962,9 @@ class matchlol():
                            'shield': self.thisTotalShielded,
                            'early_baron': self.earliestBaron,
                            'allie_feeder': self.thisAllieFeeder,
-                           'snowball' : self.snowball
+                           'snowball' : self.snowball,
+                           'temps_vivant' : self.thisTimeSpendAlive,
+                           'dmg_tower' : self.thisDamageTurrets
                            })
 
     async def add_couronnes(self, points):
