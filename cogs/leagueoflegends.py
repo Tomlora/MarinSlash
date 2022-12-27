@@ -46,7 +46,7 @@ def records_check2(fichier,
     None à la place du fichier pour désactiver un check.                                                                                                                                 
     '''
     embed = ''
-    
+
     if result_category_match == 0:  # si le score est de 0, inutile
         return embed
 
@@ -81,7 +81,8 @@ def records_check2(fichier,
                 if float(record_perso) > float(result_category_match):
                     embed += f"\n ** :military_medal: Tu as battu ton record personnel en __{category.lower()}__ avec {result_category_match} ** (Anciennement : {record_perso})"
 
-            if float(record_perso) == float(result_category_match) and joueur != joueur_perso: # sinon ça fait doublon
+            # sinon ça fait doublon
+            if float(record_perso) == float(result_category_match) and joueur != joueur_perso:
                 embed += f"\n ** :medal: Tu as égalé ton record personnel en __{category}__ **"
 
         else:
@@ -176,7 +177,7 @@ class LeagueofLegends(Extension):
 
         url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(match_info.last_match)[5:]}#participant{int(match_info.thisId)+1}'
 
-        exploits = "Observations (** Beta S13 **) :"
+        exploits = ''
 
         # Suivi
 
@@ -247,8 +248,8 @@ class LeagueofLegends(Extension):
                              'dmg_tank': match_info.thisDamageTakenNoFormat,
                              'shield': match_info.thisTotalShielded,
                              'allie_feeder': match_info.thisAllieFeeder,
-                             'temps_vivant' : match_info.thisTimeSpendAlive,
-                             'dmg_tower' : match_info.thisDamageTurrets}
+                             'temps_vivant': match_info.thisTimeSpendAlive,
+                             'dmg_tower': match_info.thisDamageTurrets}
 
             param_records_only_ranked = {'vision_score': match_info.thisVision,
                                          'vision_wards': match_info.thisWards,
@@ -264,60 +265,66 @@ class LeagueofLegends(Extension):
                                          'drake': match_info.thisDragonTeam,
                                          'herald': match_info.thisHeraldTeam,
                                          'cs_jungle': match_info.thisJungleMonsterKilled}
-            
-            param_records_only_aram = {'snowball' : match_info.snowball}
+
+            param_records_only_aram = {'snowball': match_info.snowball}
 
             # nouveau système de records
             chunk = 1
             chunk_size = 700
             for parameter, value in param_records.items():
                 # on ajoute les conditions
-                
+
                 if len(exploits) >= chunk * chunk_size:
                     # Detection pour passer à l'embed suivant
                     chunk += 1
-                    exploits += '#' 
-
+                    exploits += '#'
 
                 if parameter == 'kda':
-                    if int(match_info.thisDeaths) >= 1: # on ne peut pas comparer à un perfect kda
-                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, 'kda', match_info.thisKDA)
+                    # on ne peut pas comparer à un perfect kda
+                    if int(match_info.thisDeaths) >= 1:
+                        exploits += records_check2(fichier, fichier_joueur,
+                                                   fichier_champion, 'kda', match_info.thisKDA)
                     else:
                         exploits += records_check2(fichier, fichier_joueur, fichier_champion, 'kda', float(
-                                                     round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1),2)))
+                            round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1), 2)))
                 else:
-                    exploits += records_check2(fichier, fichier_joueur, fichier_champion, parameter, value)
+                    exploits += records_check2(fichier, fichier_joueur,
+                                               fichier_champion, parameter, value)
 
-            if match_info.thisQ == 'RANKED': # seulement en ranked
+            if match_info.thisQ == 'RANKED':  # seulement en ranked
                 for parameter, value in param_records_only_ranked.items():
-                    
+
                     if len(exploits) >= chunk * chunk_size:
                         # Detection pour passer à l'embed suivant
                         chunk += 1
                         exploits += '#'
-                         
+
                     methode = 'max'
 
-                    if parameter in ['early_drake', 'early_baron']: # si ce sont ces deux records, on veut le plus petit résultat
+                    # si ce sont ces deux records, on veut le plus petit résultat
+                    if parameter in ['early_drake', 'early_baron']:
                         methode = 'min'
 
-                    if parameter in ['baron', 'drake', 'herald']: # on ne veut pas les records par champion sur ces stats.
-                        exploits += records_check2(fichier, fichier_joueur, None, parameter, value, methode)
+                    # on ne veut pas les records par champion sur ces stats.
+                    if parameter in ['baron', 'drake', 'herald']:
+                        exploits += records_check2(fichier, fichier_joueur,
+                                                   None, parameter, value, methode)
                     else:
-                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, parameter, value, methode)
-                        
-            if match_info.thisQ == 'ARAM': # seulement en aram
+                        exploits += records_check2(fichier, fichier_joueur,
+                                                   fichier_champion, parameter, value, methode)
+
+            if match_info.thisQ == 'ARAM':  # seulement en aram
                 for parameter, value in param_records_only_aram.items():
-                    
+
                     if len(exploits) >= chunk * chunk_size:
                         # Detection pour passer à l'embed suivant
                         chunk += 1
                         exploits += '#'
-                         
+
                     methode = 'max'
 
-                    exploits += records_check2(fichier, fichier_joueur, fichier_champion, parameter, value, methode)
-
+                    exploits += records_check2(fichier, fichier_joueur,
+                                               fichier_champion, parameter, value, methode)
 
         # on le fait après sinon ça flingue les records
         match_info.thisDamageTurrets = "{:,}".format(
@@ -357,7 +364,7 @@ class LeagueofLegends(Extension):
         settings = settings.to_dict()
 
         # Couronnes
-        
+
         couronnes_embed = ''
 
         if match_info.thisQ in ['RANKED', 'NORMAL']:  # pour only ranked/normal game
@@ -406,7 +413,6 @@ class LeagueofLegends(Extension):
                 couronnes_embed +=\
                     f"\n ** :crown: :ghost: Tu as plus de {match_info.thisCSAdvantageOnLane} CS d'avance sur ton adversaire durant la game**"
                 points += 1
-                
 
         # pour tous les modes
         if float(match_info.thisKDA) >= settings['KDA']['score']:
@@ -459,10 +465,8 @@ class LeagueofLegends(Extension):
             # Le record de couronne n'est disponible qu'en ranked / aram
             exploits += records_check2(
                 fichier, fichier_joueur, fichier_champion, 'couronne', points, exploits)
-            
 
-
-        if (match_info.thisQ  in ['RANKED', 'NORMAL'] and match_info.thisTime > 20 and succes is True) or\
+        if (match_info.thisQ in ['RANKED', 'NORMAL'] and match_info.thisTime > 20 and succes is True) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
             # on ajoute les couronnes pour les modes ranked, normal, aram
             await match_info.add_couronnes(points)
@@ -498,7 +502,8 @@ class LeagueofLegends(Extension):
         # observations
 
         # ici, ça va de 1 à 10.. contrairement à Rito qui va de 1 à 9
-        embed.add_field(name="Game", value=f"[LeagueofGraph]({url_game})", inline=True)
+        embed.add_field(
+            name="Game", value=f"[LeagueofGraph]({url_game})", inline=True)
         embed.add_field(
             name="OPGG", value=f"[Profil](https://euw.op.gg/summoners/euw/{summonerName})", inline=True)
         embed.add_field(
@@ -506,20 +511,26 @@ class LeagueofLegends(Extension):
 
         # on découpe le texte embed
         chunk_size = 1024
+        max_len = 4000
 
-        if len(exploits) <= chunk_size:
+        if exploits == '':
+            embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
+                            value=f'Aucun exploit', inline=False)
+
+        elif len(exploits) <= chunk_size:
             exploits = exploits.replace('#', '').replace(' #', '')
             embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
                             value=exploits, inline=False)
 
-        elif len(exploits) > 4000: # si l'exploit est trop grand pour l'embed à partir de 6000... mais déjà 4000, c'est peu lisible :
-            records_emoji = {':boom:': 0, ':medal:': 0, ':military_medal:': 0, ':rocket:': 0}
-            
+        # si l'exploit est trop grand pour l'embed à partir de 6000... mais déjà 4000, c'est peu lisible :
+        elif len(exploits) > max_len:
+            records_emoji = {':boom:': 0, ':medal:': 0,
+                             ':military_medal:': 0, ':rocket:': 0}
+
             for emoji in records_emoji:
                 records_emoji[emoji] = exploits.count(emoji)
-            
 
-            exploits = ':star: __ Wow ! __ (** Beta S13 **) : \n'
+            exploits = ':star: __ Wow ! __ : \n'
             for emoji, count in records_emoji.items():
                 if count > 0:
                     if emoji == ':rocket:':
@@ -531,11 +542,11 @@ class LeagueofLegends(Extension):
                     else:
                         exploits += f'{emoji} Tu as battu **{count}** records \n'
 
-            embed.add_field(name=f'Durée de la game : {int(match_info.thisTime)} minutes', value=exploits)
+            embed.add_field(
+                name=f'Durée de la game : {int(match_info.thisTime)} minutes', value=exploits)
 
-
-        else: # si l'embed nécessite plusieurs fields, et est inférieur à la longueur max de l'embed
-            exploits = exploits.split('#') # on split sur notre mot clé
+        else:  # si l'embed nécessite plusieurs fields, et est inférieur à la longueur max de l'embed
+            exploits = exploits.split('#')  # on split sur notre mot clé
 
             for i in range(len(exploits)):
                 if i == 0:
@@ -546,9 +557,8 @@ class LeagueofLegends(Extension):
                 field_value = exploits[i]
                 embed.add_field(name=field_name,
                                 value=field_value, inline=False)
-        
-        
-        if points >= 1:      
+
+        if points >= 1:
             embed.add_field(name='Couronnes', value=couronnes_embed)
         else:
             embed.add_field(name='Couronnes', value='Aucune couronne obtenue')
