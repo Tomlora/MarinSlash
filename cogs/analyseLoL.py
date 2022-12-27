@@ -226,6 +226,8 @@ class analyseLoL(Extension):
         stat = [stat, stat2]
         liste_graph = list()
         liste_delete = list()
+        
+        summonername = summonername.lower()
 
         def graphique(fig, name):
             fig.write_image(name)
@@ -247,8 +249,10 @@ class analyseLoL(Extension):
         dict_joueur = []
         for i in range(0, 10):
             summoner = await get_summoner_by_puuid(session, timeline['metadata']['participants'][i])
-            dict_joueur.append(summoner['name'])
+            dict_joueur.append(summoner['name'].lower())
 
+        await session.close()
+        
         if summonername in dict_joueur:
             thisId = list(dict_joueur).index(summonername)
 
