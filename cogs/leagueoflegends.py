@@ -57,10 +57,10 @@ def records_check2(fichier,
 
         if methode == 'max':
             if float(record) < float(result_category_match):
-                embed += f"\n ** :boom: Nouveau Record {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+                embed += f"\n ** :boom: Record {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
         else:
             if float(record) > float(result_category_match):
-                embed += f"\n ** :boom: Nouveau Record {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+                embed += f"\n ** :boom: Record {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
 
         if float(record) == float(result_category_match):  # si égalité
             embed += f"\n ** :medal: Egalisation record {emote_v2.get(category, ':star:')}__{category}__ de {joueur} **"
@@ -76,10 +76,10 @@ def records_check2(fichier,
 
             if methode == 'max':
                 if float(record_perso) < float(result_category_match):
-                    embed += f"\n ** :military_medal: Nouveau Record personnel {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_perso})"
+                    embed += f"\n ** :military_medal: Record personnel {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_perso})"
             else:
                 if float(record_perso) > float(result_category_match):
-                    embed += f"\n ** :military_medal: Nouveau Record personnel {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_perso})"
+                    embed += f"\n ** :military_medal: Record personnel {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_perso})"
 
             # sinon ça fait doublon
             if float(record_perso) == float(result_category_match) and joueur != joueur_perso:
@@ -97,12 +97,12 @@ def records_check2(fichier,
 
             if methode == 'max':
                 if float(record_champion) < float(result_category_match):
-                    embed += f"\n ** :rocket: Nouveau record sur {champion_champion} {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
+                    embed += f"\n ** :rocket: Record sur {champion_champion} {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
             else:
                 if float(record_champion) > float(result_category_match):
-                    embed += f"\n ** :rocket: Nouveau record sur {champion_champion} {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
+                    embed += f"\n ** :rocket: Record sur {champion_champion} {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Anciennement : {record_champion} par {joueur_champion})"
         else:
-            embed += f"\n ** :rocket: Premier record sur {champion_champion} {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
+            embed += f"\n ** :rocket: Premier Record sur {champion_champion} {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
 
     return embed
 
