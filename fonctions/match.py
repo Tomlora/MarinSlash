@@ -94,13 +94,14 @@ def trouver_records(df, category, methode='max'):
     -------
     joueur, champion, record, url
     """
-    
+
     try:
         df[category] = pd.to_numeric(df[category])
         if methode == 'max':
             col = df[category].idxmax(skipna=True)
         elif methode == 'min':
-            df = df[df[category] != 0] # pas de 0. Ca veut dire qu'il n'ont pas fait l'objectif par exemple
+            # pas de 0. Ca veut dire qu'il n'ont pas fait l'objectif par exemple
+            df = df[df[category] != 0]
             df = df[df[category] != 0.0]
             col = df[category].idxmin(skipna=True)
         lig = df.loc[col]
@@ -263,16 +264,20 @@ def dict_data(thisId: int, match_detail, info):
     try:
         if thisId > 4:
             liste = [match_detail['info']['participants'][i][info] for i in range(5, 10)] + \
-                    [match_detail['info']['participants'][i][info] for i in range(0, 5)]
+                    [match_detail['info']['participants'][i][info]
+                        for i in range(0, 5)]
         else:
-            liste = [match_detail['info']['participants'][i][info] for i in range(0, 10)]
+            liste = [match_detail['info']['participants'][i][info]
+                     for i in range(0, 10)]
     except:
         if thisId > 4:
             liste = [match_detail['info']['participants'][i]['challenges'][info] for i in range(5, 10)] + \
-                    [match_detail['info']['participants'][i]['challenges'][info] for i in range(0, 5)]
+                    [match_detail['info']['participants'][i]['challenges'][info]
+                        for i in range(0, 5)]
 
         else:
-            liste = [match_detail['info']['participants'][i]['challenges'][info] for i in range(0, 10)]
+            liste = [match_detail['info']['participants'][i]
+                     ['challenges'][info] for i in range(0, 10)]
 
     return liste
 
@@ -326,6 +331,23 @@ class matchlol():
                  index: int = 0,
                  count: int = 20,
                  identifiant_game=None):
+        """Class pour traiter les matchs
+
+        Parameters
+        ----------
+        summonerName : `str`
+            nom d'un joueur lol
+        idgames : `int`
+            numéro de la game -> 0 étant la plus récente
+        queue : `int`, optional
+            type de game : se référer à l'api riot, by default 0 (toutes les games)
+        index : `int`, optional
+            numéro de la game où on commence la recherche, by default 0
+        count : `int`, optional
+            nombre de games à afficher dans la recherche, by default 20
+        identifiant_game : _type_, optional
+            id d'une game. Ignore tous les paramètres précédents exceptés summonername si renseigné, by default None
+        """
         self.summonerName = summonerName
         self.idgames = idgames
         self.queue = queue
@@ -335,7 +357,12 @@ class matchlol():
         self.identifiant_game = identifiant_game
 
     async def get_data_riot(self):
-
+        """Récupère les infos de base : 
+        - id du joueur
+        - id de la game
+        - version du jeu
+        - liste des champions"""
+        
         self.session = aiohttp.ClientSession()
         if self.queue == 0:
             self.params_my_match = {'start': self.index,
@@ -346,10 +373,11 @@ class matchlol():
 
         self.me = await get_summoner_by_name(self.session, self.summonerName)
 
+        # on recherche l'id de la game.
         if self.identifiant_game == None:
             self.my_matches = await get_list_matchs(self.session, self.me, self.params_my_match)
             self.last_match = self.my_matches[self.idgames]  # match n° idgames
-        else:
+        else:  # si identifiant_game est renseigné, on l'a déjà en entrée.
             self.last_match = self.identifiant_game
         # detail du match sélectionné
         self.match_detail_stats = await get_match_detail(self.session, self.last_match, self.params_me)
@@ -357,10 +385,13 @@ class matchlol():
         self.avatar = self.me['profileIconId']
         self.level_summoner = self.me['summonerLevel']
 
+        # on a besoin de la version du jeu pour obtenir les champions
         self.version = await get_version(self.session)
+        # get champion list
         self.current_champ_list = await get_champ_list(self.session, self.version)
 
     async def prepare_data(self):
+        """Récupère les données de la game"""
 
         # Detail de chaque champion...
 
@@ -371,7 +402,8 @@ class matchlol():
 
         self.match_detail = pd.DataFrame(self.match_detail_stats)
 
-        self.dic = {(self.match_detail['info']['participants'][i]['summonerName']).lower().replace(" ", ""): i for i in range(10)}
+        self.dic = {(self.match_detail['info']['participants'][i]['summonerName']).lower(
+        ).replace(" ", ""): i for i in range(10)}
 
         # stats
         self.thisId = self.dic[
@@ -420,8 +452,9 @@ class matchlol():
 
         self.thisTimeSpendDead = round(
             float(self.match_detail_participants['totalTimeSpentDead'])/60, 2)
-        
-        self.thisTimeSpendAlive = round(self.thisTime - self.thisTimeSpendDead, 2)
+
+        self.thisTimeSpendAlive = round(
+            self.thisTime - self.thisTimeSpendDead, 2)
 
         self.thisDamageTaken = int(
             self.match_detail_participants['totalDamageTaken'])
@@ -460,7 +493,7 @@ class matchlol():
             self.thisPing = 0
 
         self.item = self.match_detail_participants
-        
+
         self.thisItems = [self.item[f'item{i}'] for i in range(6)]
 
         # item6 = ward. Pas utile
@@ -505,7 +538,8 @@ class matchlol():
         self.thisSoloKills = self.match_detail_challenges['soloKills']
         self.thisDanceHerald = self.match_detail_challenges['dancedWithRiftHerald']
         self.thisPerfectGame = self.match_detail_challenges['perfectGame']
-        self.thisJUNGLEafter10min = int(self.match_detail_challenges['jungleCsBefore10Minutes'])
+        self.thisJUNGLEafter10min = int(
+            self.match_detail_challenges['jungleCsBefore10Minutes'])
         self.thisCSafter10min = self.match_detail_challenges[
             'laneMinionsFirst10Minutes'] + self.thisJUNGLEafter10min
         self.thisKillingSprees = self.match_detail_participants['killingSprees']
@@ -537,7 +571,6 @@ class matchlol():
         self.thisDragonTeam = self.team_stats['dragon']['kills']
         self.thisHeraldTeam = self.team_stats['riftHerald']['kills']
         self.thisTurretsKillsTeam = self.team_stats['tower']['kills']
-    
 
         # A voir...
 
@@ -621,7 +654,7 @@ class matchlol():
             self.thisId, self.match_detail, 'totalDamageTaken')
         self.thisDamageSelfMitigatedListe = dict_data(
             self.thisId, self.match_detail, 'damageSelfMitigated')
-        
+
         if self.thisQ == 'ARAM':
             try:
                 self.snowball = self.match_detail_challenges['snowballsHit']
@@ -642,7 +675,8 @@ class matchlol():
 
         # champ
 
-        self.thisChampNameListe = [self.champ_dict[str(champ)] for champ in self.thisChampListe]
+        self.thisChampNameListe = [
+            self.champ_dict[str(champ)] for champ in self.thisChampListe]
 
         # total kills
 
@@ -676,9 +710,9 @@ class matchlol():
             self.thisId, self.match_detail, 'goldEarned')
 
         self.thisChampTeam1 = [self.thisChampNameListe[i] for i in range(5)]
-        self.thisChampTeam2 = [self.thisChampNameListe[i] for i in range(5,10)]
-        
-        
+        self.thisChampTeam2 = [self.thisChampNameListe[i]
+                               for i in range(5, 10)]
+
         self.thisGold_team1 = sum(self.thisGoldListe[:5])
         self.thisGold_team2 = sum(self.thisGoldListe[5:10])
 
@@ -694,7 +728,7 @@ class matchlol():
 
         self.thisLevelListe = dict_data(
             self.thisId, self.match_detail, "champLevel")
-        
+
         def ecart_role(ally):
             return (self.thisMinionListe[ally] + self.thisJungleMonsterKilledListe[ally]) - (
                 self.thisMinionListe[ally+5] + self.thisJungleMonsterKilledListe[ally+5])
@@ -704,7 +738,8 @@ class matchlol():
             self.ecart_jgl_gold = self.thisGoldListe[1] - self.thisGoldListe[6]
             self.ecart_mid_gold = self.thisGoldListe[2] - self.thisGoldListe[7]
             self.ecart_adc_gold = self.thisGoldListe[3] - self.thisGoldListe[8]
-            self.ecart_supp_gold = self.thisGoldListe[4] - self.thisGoldListe[9]
+            self.ecart_supp_gold = self.thisGoldListe[4] - \
+                self.thisGoldListe[9]
 
             self.ecart_top_gold_affiche = self.thisGoldListe[0] - \
                 self.thisGoldListe[5]
@@ -727,8 +762,7 @@ class matchlol():
                 self.thisVisionListe[8]
             self.ecart_supp_vision = self.thisVisionListe[4] - \
                 self.thisVisionListe[9]
-                
-                
+
             self.ecart_top_cs = ecart_role(0)
             self.ecart_jgl_cs = ecart_role(1)
             self.ecart_mid_cs = ecart_role(2)
@@ -779,7 +813,6 @@ class matchlol():
             self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (self.thisTeamKills if i < 5
                                                                                                  else self.thisTeamKillsOp), 2) * 100)
                                 for i in range(10)]
-
 
         self.adversaire_direct = {"TOP": self.ecart_top_gold, "JUNGLE": self.ecart_jgl_gold,
                                   "MID": self.ecart_mid_gold, "ADC": self.ecart_adc_gold, "SUPPORT": self.ecart_supp_gold}
@@ -836,7 +869,6 @@ class matchlol():
 
         self.thisDamageObjectives = "{:,}".format(
             self.thisDamageObjectives).replace(',', ' ').replace('.', ',')
-        
 
         try:
             self.thisKP = int(
@@ -882,6 +914,7 @@ class matchlol():
             self.thisWinStreak = '0'
 
     async def save_data(self):
+        """Sauvegarde l'ensemble des données dans la base de données"""
 
         requete_perso_bdd(f'''INSERT INTO public.matchs(
         match_id, joueur, role, champion, kills, assists, deaths, double, triple, quadra, penta,
@@ -962,12 +995,14 @@ class matchlol():
                            'shield': self.thisTotalShielded,
                            'early_baron': self.earliestBaron,
                            'allie_feeder': self.thisAllieFeeder,
-                           'snowball' : self.snowball,
-                           'temps_vivant' : self.thisTimeSpendAlive,
-                           'dmg_tower' : self.thisDamageTurrets
+                           'snowball': self.snowball,
+                           'temps_vivant': self.thisTimeSpendAlive,
+                           'dmg_tower': self.thisDamageTurrets
                            })
 
     async def add_couronnes(self, points):
+        """Ajoute les couronnes dans la base de données"""
+
         requete_perso_bdd('''UPDATE matchs SET couronne = :points WHERE match_id = :match_id AND joueur = :joueur''', {'points': points,
                                                                                                                        'match_id': self.last_match,
                                                                                                                        'joueur': self.summonerName.lower()})
@@ -1101,7 +1136,8 @@ class matchlol():
                         (x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L     {self.thisWinrateStat}% ', font=font_little, fill=fill)
             else:  # si pas de stats en soloq
                 d.text((x_rank+220, y-45), 'En placement', font=font, fill=fill)
-        else:
+
+        else:  # si c'est l'aram, le traitement est différent
 
             data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank from ranked_aram_s{saison} WHERE index = :index', {
                                      'index': self.summonerName}).fetchall()
@@ -1206,6 +1242,7 @@ class matchlol():
                 d.text((x_rank+220, y+10),
                        f'{wins}W {losses}L     {round(wr,1)}% ', font=font_little, fill=fill)
 
+                # on met à jour
                 requete_perso_bdd(f'''UPDATE ranked_aram_s{saison}
                                     SET wins = :wins,
                                     losses = :losses,
@@ -1430,19 +1467,21 @@ class matchlol():
 
         dict_position = {"TOP": 2, "JUNGLE": 3,
                          "MID": 4, "ADC": 5, "SUPPORT": 6}
-        
+
         def draw_gray_line(i: int) -> None:
             im.paste(line, (0, i * lineY))
-        
+
         def draw_blue_line(i: int) -> None:
-            im.paste(Image.new("RGB", (lineX, lineY), (85, 85, 255)), (0, i * lineY))
+            im.paste(Image.new("RGB", (lineX, lineY),
+                     (85, 85, 255)), (0, i * lineY))
 
         def draw_red_line(i: int) -> None:
-            im.paste(Image.new("RGB", (lineX, lineY), (255, 70, 70)), (0, i * lineY))
+            im.paste(Image.new("RGB", (lineX, lineY),
+                     (255, 70, 70)), (0, i * lineY))
 
         def draw_light_blue_line(i: int) -> None:
-            im.paste(Image.new("RGB", (lineX, lineY), (173, 216, 230)), (0, i*lineY))
-            
+            im.paste(Image.new("RGB", (lineX, lineY),
+                     (173, 216, 230)), (0, i*lineY))
 
         for i in range(0, 13):
             if i % 2 == 0:
