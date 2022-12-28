@@ -126,12 +126,12 @@ def mention(id_discord:int, type:str) -> str:
     str
         mention à insérer dans un string
     """
-    if type=='membre':
-        return f'<@{id_discord}>'
-    elif type=='role':
-        return f'<@&{id_discord}>'
-    elif type=='channel':
-        return f'<#{id_discord}>'
+    
+    dict_mention = {'membre' : f'<@{id_discord}>',
+                    'role' : f'<@&{id_discord}>',
+                    'channel' : f'<#{id_discord}>'}
+
+    return dict_mention[type]
 
 
 async def convertion_temps(ctx : interactions.CommandContext, time) -> int:
