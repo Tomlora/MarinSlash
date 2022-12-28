@@ -114,15 +114,6 @@ def trouver_records(df, category, methode='max'):
 
     return joueur, champion, record, url_game
 
-
-def get_key(my_dict, val):
-    for key, value in my_dict.items():
-        if val == value:
-            return key
-
-    return "No key"
-
-
 def range_value(i, liste, min: bool = False):
     if i == np.argmax(liste[:5]) or i-5 == np.argmax(liste[5:]):
         fill = (0, 128, 0)
@@ -161,8 +152,6 @@ async def get_image(type, name, session: aiohttp.ClientSession, resize_x=80, res
     
     return img
 
-
-# https://www.youtube.com/watch?v=IolxqkL7cD8
 api_key_lol = os.environ.get('API_LOL')
 
 
@@ -656,12 +645,14 @@ class matchlol():
         self.thisKillsListe = dict_data(
             self.thisId, self.match_detail, 'kills')
 
-        self.thisTeamKills = self.thisKillsListe[0] + self.thisKillsListe[1] + \
-            self.thisKillsListe[2] + \
-            self.thisKillsListe[3] + self.thisKillsListe[4]
-        self.thisTeamKillsOp = self.thisKillsListe[5] + self.thisKillsListe[6] + \
-            self.thisKillsListe[7] + \
-            self.thisKillsListe[8] + self.thisKillsListe[9]
+        self.thisTeamKills = 0
+        self.thisTeamKillsOp = 0
+        
+        for i, kill in enumerate(self.thisKillsListe):
+            if i < 5:
+                self.thisTeamKills += kill
+            else:
+                self.thisTeamKillsOp += kill
 
         # deaths
 
@@ -796,52 +787,38 @@ class matchlol():
             self.ecart_gold = "Indisponible"
 
         # mise en forme
-        self.thisGold_team1 = "{:,}".format(
-            self.thisGold_team1).replace(',', ' ').replace('.', ',')
-        self.thisGold_team2 = "{:,}".format(
-            self.thisGold_team2).replace(',', ' ').replace('.', ',')
+        
+        variables_format = [self.thisGold_team1,
+                     self.thisGold_team2,
+                     self.ecart_top_gold,
+                     self.ecart_jgl_gold,
+                     self.ecart_mid_gold,
+                     self.ecart_adc_gold,
+                     self.ecart_supp_gold,
+                     self.thisGold,
+                     self.thisDamage,
+                     self.thisDamageAD,
+                     self.thisDamageAP,
+                     self.thisDamageTrue,
+                     self.thisDamageTaken,
+                     self.thisDamageTakenAD,
+                     self.thisDamageTakenAP,
+                     self.thisDamageTakenTrue,
+                     self.thisDamageObjectives]
 
-        self.ecart_top_gold = "{:,}".format(
-            self.ecart_top_gold).replace(',', ' ').replace('.', ',')
-        self.ecart_jgl_gold = "{:,}".format(
-            self.ecart_jgl_gold).replace(',', ' ').replace('.', ',')
-        self.ecart_mid_gold = "{:,}".format(
-            self.ecart_mid_gold).replace(',', ' ').replace('.', ',')
-        self.ecart_adc_gold = "{:,}".format(
-            self.ecart_adc_gold).replace(',', ' ').replace('.', ',')
-        self.ecart_supp_gold = "{:,}".format(
-            self.ecart_supp_gold).replace(',', ' ').replace('.', ',')
+        for var in variables_format:
+            var = "{:,}".format(var).replace(',', ' ').replace('.', ',')
 
-        self.thisGold = "{:,}".format(self.thisGold).replace(
-            ',', ' ').replace('.', ',')
         if self.ecart_gold != "Indisponible":  # si nombre
             self.ecart_gold = "{:,}".format(
                 self.ecart_gold).replace(',', ' ').replace('.', ',')
-        self.thisDamage = "{:,}".format(
-            self.thisDamage).replace(',', ' ').replace('.', ',')
-        self.thisDamageAD = "{:,}".format(
-            self.thisDamageAD).replace(',', ' ').replace('.', ',')
-        self.thisDamageAP = "{:,}".format(
-            self.thisDamageAP).replace(',', ' ').replace('.', ',')
-        self.thisDamageTrue = "{:,}".format(
-            self.thisDamageTrue).replace(',', ' ').replace('.', ',')
-        self.thisDamageTaken = "{:,}".format(
-            self.thisDamageTaken).replace(',', ' ').replace('.', ',')
+
         self.thisDamageSelfMitigatedFormat = "{:,}".format(
             self.thisDamageSelfMitigated).replace(',', ' ').replace('.', ',')
         self.thisTimeLiving = str(self.thisTimeLiving).replace(".", "m")
         self.thisTotalOnTeammatesFormat = "{:,}".format(
             self.thisTotalOnTeammates).replace(',', ' ').replace('.', ',')
 
-        self.thisDamageTakenAD = "{:,}".format(
-            self.thisDamageTakenAD).replace(',', ' ').replace('.', ',')
-        self.thisDamageTakenAP = "{:,}".format(
-            self.thisDamageTakenAP).replace(',', ' ').replace('.', ',')
-        self.thisDamageTakenTrue = "{:,}".format(
-            self.thisDamageTakenTrue).replace(',', ' ').replace('.', ',')
-
-        self.thisDamageObjectives = "{:,}".format(
-            self.thisDamageObjectives).replace(',', ' ').replace('.', ',')
 
         try:
             self.thisKP = int(
