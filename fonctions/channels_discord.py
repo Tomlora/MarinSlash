@@ -2,12 +2,20 @@ from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd, get_data_bd
 from time import time
 import interactions
 import re
-
 class chan_discord():
 
     def __init__(self,
                  server_id: int,
-                 bot=None):
+                 bot :interactions.Client = None):
+        """Class pour récupérer toutes les identifiants d'un serveur discord
+
+        Parameters
+        ----------
+        server_id : `int`
+            id du serveur
+        bot : interactions.Client, optional
+            bot interactions
+        """
 
         self.server_id = server_id
         self.bot_discord = bot
@@ -127,7 +135,7 @@ def mention(id_discord:int, type:str) -> str:
 
 
 async def convertion_temps(ctx : interactions.CommandContext, time) -> int:
-    """_summary_
+    """Convertit un format XhXmXs en secondes
 
     Parameters
     ----------
