@@ -134,59 +134,32 @@ def range_value(i, liste, min: bool = False):
 
 
 async def get_image(type, name, session: aiohttp.ClientSession, resize_x=80, resize_y=80):
-    if type == "champion":
-        url = (
-            f"https://raw.githubusercontent.com/Tomlora/MarinSlash/main/img/champions/{name}.png")
-        async with session.get(url) as response:
-            # response = request.get(url)
-            if response.status != 200:
-                img = Image.new("RGB", (resize_x, resize_y))
-            else:
-                img_raw = await response.read()
-                img = Image.open(BytesIO(img_raw))
-                img = img.resize((resize_x, resize_y))
-        return img
-
-    elif type == "tier":
-        img = Image.open(f"./img/{name}.png")
-        img = img.resize((resize_x, resize_y))
-        return img
-
-    elif type == "avatar":
-        url = (
-            f"https://ddragon.leagueoflegends.com/cdn/12.6.1/img/profileicon/{name}.png")
-        async with session.get(url) as response:
-            # response = request.get(url)
-            if response.status != 200:
-                img = Image.new("RGB", (resize_x, resize_y))
-            else:
-                img_raw = await response.read()
-                img = Image.open(BytesIO(img_raw))
-                img = img.resize((resize_x, resize_y))
-        return img
-
-    elif type in ["items", "monsters", "epee"]:
-        img = Image.open(f'./img/{type}/{name}.png')
-        img = img.resize((resize_x, resize_y))
-        return img
-
-    elif type == "gold":
-        img = Image.open(f'./img/money.png')
-        img = img.resize((resize_x, resize_y))
-
-        return img
-
-    elif type == "autre":
-        img = Image.open(f'{name}.png')
-        img = img.resize((resize_x, resize_y))
-
-        return img
-
-    elif type == "kda":
-        img = Image.open(f'./img/rectangle/{name}.png')
-        img = img.resize((resize_x, resize_y))
-
-        return img
+    url_mapping = {
+        "champion": f"https://ddragon.leagueoflegends.com/cdn/12.22.1/img/champion/{name}.png",
+        "tier": f"./img/{name}.png",
+        "avatar": f"https://ddragon.leagueoflegends.com/cdn/12.22.1/img/profileicon/{name}.png",
+        "items": f'https://ddragon.leagueoflegends.com/cdn/12.22.1/img/item/{name}.png',
+        "monsters": f'./img/monsters/{name}.png',
+        "epee": f'./img/epee/{name}.png',
+        "gold": f'./img/money.png',
+        "autre": f'{name}.png',
+        "kda": f'./img/rectangle/{name}.png',
+    }
+    
+    url = url_mapping.get(type)
+    if url is None:
+        raise ValueError(f"Invalid image type: {type}")
+    
+    if "./" in url or type == 'autre': # si c'est vrai, l'image est en local.
+        img = Image.open(url)
+    else:
+        response = await session.get(url)
+        response.raise_for_status()
+        img_raw = await response.read()
+        img = Image.open(BytesIO(img_raw))
+    img = img.resize((resize_x, resize_y))
+    
+    return img
 
 
 # https://www.youtube.com/watch?v=IolxqkL7cD8
