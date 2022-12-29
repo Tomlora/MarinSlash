@@ -13,6 +13,7 @@ import plotly.express as px
 from io import BytesIO
 import aiohttp
 import asyncio
+import pickle
 
 # TODO : rajouter temps en vie
 
@@ -411,6 +412,15 @@ class matchlol():
         self.thisDamageADNoFormat = self.match_detail_participants['physicalDamageDealtToChampions']
         self.thisDamageTrue = self.match_detail_participants['trueDamageDealtToChampions']
         self.thisDamageTrueNoFormat = self.match_detail_participants['trueDamageDealtToChampions']
+        
+        self.thisDoubleListe = dict_data(
+            self.thisId, self.match_detail, 'doubleKills')
+        self.thisTripleListe = dict_data(
+            self.thisId, self.match_detail, 'tripleKills')
+        self.thisQuadraListe = dict_data(
+            self.thisId, self.match_detail, 'quadraKills')
+        self.thisPentaListe = dict_data(
+            self.thisId, self.match_detail, 'pentaKills')
 
         self.thisTimeSpendDead = round(
             float(self.match_detail_participants['totalTimeSpentDead'])/60, 2)
@@ -445,7 +455,7 @@ class matchlol():
         self.thisGold = int(self.match_detail_participants['goldEarned'])
         self.thisGoldNoFormat = int(
             self.match_detail_participants['goldEarned'])
-
+        
         self.spell1 = self.match_detail_participants['summoner1Id']
         self.spell2 = self.match_detail_participants['summoner2Id']
 
@@ -453,7 +463,7 @@ class matchlol():
             self.thisPing = self.match_detail_participants['basicPings']
         except:
             self.thisPing = 0
-
+            
         self.item = self.match_detail_participants
 
         self.thisItems = [self.item[f'item{i}'] for i in range(6)]
@@ -682,6 +692,8 @@ class matchlol():
 
         self.thisVisionListe = dict_data(
             self.thisId, self.match_detail, 'visionScore')
+        
+        self.thisVisionPerMinListe = [round((self.thisVisionListe[i] / self.thisTime), 1) for i in range(10)]
 
         self.thisJungleMonsterKilledListe = dict_data(
             self.thisId, self.match_detail, 'neutralMinionsKilled')
@@ -689,6 +701,8 @@ class matchlol():
             self.thisId, self.match_detail, 'totalMinionsKilled')
 
         self.thisKDAListe = dict_data(self.thisId, self.match_detail, "kda")
+        
+        self.thisMinionPerMinListe = [round((self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]) / self.thisTime, 1) for i in range(10)]
 
         self.thisLevelListe = dict_data(
             self.thisId, self.match_detail, "champLevel")
@@ -1374,6 +1388,31 @@ class matchlol():
         Parameters
         -----------
         name_img : nom de l'image enregistré'''
+        
+        model = pickle.load(open('model/scoring_ridge.pkl', 'rb'))
+        
+        def scoring(i):
+            """Calcule la performance d'un joueur
+            """
+            
+            score = model.predict(pd.DataFrame([[self.thisKillsListe[i],
+                                                 self.thisAssistsListe[i],
+                                                 self.thisDeathsListe[i],
+                                                 self.thisDoubleListe[i],
+                                                 self.thisTripleListe[i],
+                                                 self.thisQuadraListe[i],
+                                                 self.thisPentaListe[i],
+                                                 self.thisDamageListe[i],
+                                                 self.thisVisionListe[i],
+                                                 self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i],
+                                                 self.thisMinionPerMinListe[i],
+                                                 self.thisVisionPerMinListe[i],
+                                                 self.thisKPListe[i],
+                                                 self.thisKDAListe[i],
+                                                 self.thisDamageTakenListe[i]]]))
+
+            return str(round(score[0],1))
+            
         # Gestion de l'image 2
         lineX = 2600
         lineY = 100
@@ -1381,17 +1420,18 @@ class matchlol():
         x_name = 450
         x_level = x_name - 350
         x_ecart = x_name - 150
-        x_kills = 1000
+        x_kills = 1000 + 120
+        x_score = x_kills - 180
         x_deaths = x_kills + 100
         x_assists = x_deaths + 100
 
-        x_kda = x_assists + 150
+        x_kda = x_assists + 110
 
-        x_kp = x_kda + 180
+        x_kp = x_kda + 150
 
-        x_cs = x_kp + 190
+        x_cs = x_kp + 150
 
-        x_vision = x_cs + 160
+        x_vision = x_cs + 150
 
         x_dmg_percent = x_vision + 150
 
@@ -1462,6 +1502,7 @@ class matchlol():
             else:
                 fill = (0, 0, 0)
             d.text((x_name, y), 'Name', font=font, fill=fill)
+            
             d.text((x_kills, y), 'K', font=font, fill=fill)
             d.text((x_deaths, y), 'D', font=font, fill=fill)
             d.text((x_assists, y), 'A', font=font, fill=fill)
@@ -1469,10 +1510,11 @@ class matchlol():
             d.text((x_kp+10, y), 'KP', font=font, fill=fill)
             d.text((x_cs, y), 'CS', font=font, fill=fill)
             d.text((x_dmg_percent+10, y), "DMG", font=font, fill=fill)
-            d.text((x_dmg_taken+15, y), 'TANK(reduit)', font=font, fill=fill)
+            d.text((x_dmg_taken+10, y), 'TANK(reduit)', font=font, fill=fill)
 
             if self.thisQ != "ARAM":
                 d.text((x_vision, y), 'VS', font=font, fill=fill)
+                d.text((x_score-20, y), 'Score', font=font, fill=fill)
 
         # participants
         initial_y = 223
@@ -1485,9 +1527,14 @@ class matchlol():
 
             d.text((x_level, initial_y), "Niv " +
                    str(self.thisLevelListe[i]), font=font, fill=(0, 0, 0))
-
+            
             d.text((x_name, initial_y),
                    self.thisPseudoListe[i], font=font, fill=(0, 0, 0))
+            
+            # Scoring
+            if self.thisQ != "ARAM":
+                d.text((x_score, initial_y),
+                    scoring(i), font=font, fill=(0,0,0))
 
             if len(str(self.thisKillsListe[i])) == 1:
                 d.text((x_kills, initial_y), str(
