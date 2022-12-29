@@ -153,8 +153,28 @@ class Settings(Extension):
                                                    Option(name='proprietaire',
                                                           description='proprietaire du discord',
                                                           type=interactions.OptionType.USER)
+                                               ]),
+                                        Option(name='role_staff', # TODO : séparer admin / modo
+                                               description='Modifier le role staff',
+                                               type=interactions.OptionType.SUB_COMMAND,
+                                               options=[
+                                                   Option(name='parametres',
+                                                          description='quel partie du staff ?',
+                                                          type=interactions.OptionType.STRING,
+                                                          choices=[
+                                                              Choice(name='admin', value='role_admin')
+                                                          ]),
+                                                   Option(name='role',
+                                                          description='quel role pour le staff ?',
+                                                          type=interactions.OptionType.ROLE)
                                                ])])
-    async def modifier_channel(self, ctx: CommandContext, sub_command: str, parametres, channel: interactions.Channel = None, proprietaire: interactions.User = None):
+    async def modifier_channel(self,
+                               ctx: CommandContext,
+                               sub_command: str,
+                               parametres,
+                               channel: interactions.Channel = None,
+                               proprietaire: interactions.User = None,
+                               role : interactions.Role = None):
         if isOwner_slash(ctx):
             if sub_command == 'channel':
                 requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :channel_id WHERE server_id = :server_id', {'channel_id': int(channel.id),
@@ -162,6 +182,10 @@ class Settings(Extension):
             elif sub_command == 'admin':
                 requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :joueur_id WHERE server_id = :server_id', {'joueur_id': int(proprietaire.id),
                                                                                                                           'server_id': int(ctx.guild.id)})
+            elif sub_command == 'role_staff':
+                requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :role_id WHERE server_id = :server_id', {'role_id': int(role.id),
+                                                                                                                          'server_id': int(ctx.guild.id)})
+                
 
             await ctx.send('Modification effectuée avec succès.')
         else:
