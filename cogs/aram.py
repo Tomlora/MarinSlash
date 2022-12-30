@@ -140,7 +140,7 @@ class Aram(Extension):
         embed.add_field(name='Déroulement général', value=texte_general)
 
         embed2 = interactions.Embed(
-            title='Palier', description="Rang", color=interactions.Color.blue())
+            title='Palier', description="Rang", color=interactions.Color.blurple())
 
         embed2.add_field(name='IRON', value="LP < 100")
         embed2.add_field(name='BRONZE', value="100 < LP < 200")
@@ -153,7 +153,7 @@ class Aram(Extension):
         embed2.add_field(name='CHALLENGER', value="2000 < LP")
 
         embed3 = interactions.Embed(
-            title='Calcul points', description="MMR", color=interactions.Color.orange())
+            title='Calcul points', description="MMR", color=interactions.Color.yellow())
 
         embed3.add_field(name="5 premières games", value=f"5 premières games \n" +
                          "V : **+50**  | D : **0**", inline=False)
