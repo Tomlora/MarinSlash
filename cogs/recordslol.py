@@ -623,9 +623,9 @@ class Recordslol(Extension):
             fichier1.remove('vision_score')
             fichier2 = fichier2.drop(['vision_pink', 'vision_wards', 'vision_wards_killed',
                                       'jgl_dix_min', 'baron', 'drake', 'herald',
-                                      'vision_min', 'level_max_avantage'])
+                                      'vision_min', 'level_max_avantage', 'vision_avantage'])
             fichier3 = fichier3.drop(
-                ['vision_avantage', 'early_drake', 'early_baron'])
+                ['early_drake', 'early_baron'])
 
         embed1 = interactions.Embed(
             title=title + " (Page 1/3) :bar_chart:", color=interactions.Color.blurple())
