@@ -57,7 +57,7 @@ class Aram(Extension):
                                     description="classement en aram")
     async def ladder_aram(self, ctx: CommandContext):
 
-        suivi_aram = lire_bdd(f'ranked_aram_s{saison}', 'dict')
+        suivi_aram = lire_bdd_perso(f'''SELECT * from ranked_aram_s{saison} where games != 0''', format='dict')
 
         await ctx.defer(ephemeral=False)
 
@@ -70,6 +70,7 @@ class Aram(Extension):
             title="Suivi LOL", description='ARAM', color=interactions.Color.blurple())
 
         for key in df['index']:
+            
 
             wr = round((suivi_aram[key]['wins'] /
                        suivi_aram[key]['games'])*100, 2)
