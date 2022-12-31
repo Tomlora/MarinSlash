@@ -625,7 +625,7 @@ class Recordslol(Extension):
                                       'jgl_dix_min', 'baron', 'drake', 'herald',
                                       'vision_min', 'level_max_avantage', 'vision_avantage'])
             fichier3 = fichier3.drop(
-                ['early_drake', 'early_baron'])
+                ['early_drake', 'early_baron', 'note'])
 
         embed1 = interactions.Embed(
             title=title + " (Page 1/3) :bar_chart:", color=interactions.Color.blurple())
