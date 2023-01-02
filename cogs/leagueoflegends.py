@@ -366,7 +366,7 @@ class LeagueofLegends(Extension):
 
         couronnes_embed = ''
 
-        if match_info.thisQ in ['RANKED', 'NORMAL']:  # pour only ranked/normal game
+        if match_info.thisQ in ['RANKED', 'NORMAL', 'FLEX']:  # pour only ranked/normal game
             if int(match_info.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
                 couronnes_embed +=\
                     f"\n ** :crown: :wave: {match_info.thisLevelAdvantage} niveaux d'avance sur ton adversaire durant la game**"
@@ -465,7 +465,7 @@ class LeagueofLegends(Extension):
             exploits += records_check2(
                 fichier, fichier_joueur, fichier_champion, 'couronne', points, exploits)
 
-        if (match_info.thisQ in ['RANKED', 'NORMAL'] and match_info.thisTime > 20 and succes is True) or\
+        if (match_info.thisQ in ['RANKED', 'NORMAL', 'FLEX'] and match_info.thisTime > 20 and succes is True) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
             # on ajoute les couronnes pour les modes ranked, normal, aram
             await match_info.add_couronnes(points)
