@@ -746,9 +746,19 @@ class matchlol():
             self.ecart_mid_cs = ecart_role(2)
             self.ecart_adc_cs = ecart_role(3)
             self.ecart_supp_cs = ecart_role(4)
+            
+            # on crée des variables temporaires pour le kpliste, car si une team ne fait pas de kills, on va diviser par 0, ce qui n'est pas possible
+            temp_team_kills = self.thisTeamKills
+            temp_team_kills_op = self.thisTeamKillsOp
 
-            self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (self.thisTeamKills if i < 5
-                                                                                                 else self.thisTeamKillsOp), 2) * 100)
+            if temp_team_kills == 0:
+                temp_team_kills = 1
+            if temp_team_kills_op == 0:
+                temp_team_kills_op = 1            
+
+        
+            self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (temp_team_kills if i < 5
+                                                                                                 else temp_team_kills_op), 2) * 100)
                                 for i in range(10)]
 
         elif self.team == 1:
@@ -788,8 +798,18 @@ class matchlol():
             self.ecart_adc_cs = ecart_role(3)
             self.ecart_supp_cs = ecart_role(4)
 
-            self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (self.thisTeamKills if i < 5
-                                                                                                 else self.thisTeamKillsOp), 2) * 100)
+            # on crée des variables temporaires pour le kpliste, car si une team ne fait pas de kills, on va diviser par 0, ce qui n'est pas possible
+            temp_team_kills = self.thisTeamKills
+            temp_team_kills_op = self.thisTeamKillsOp
+
+            if temp_team_kills == 0:
+                temp_team_kills = 1
+            if temp_team_kills_op == 0:
+                temp_team_kills_op = 1            
+
+        
+            self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (temp_team_kills if i < 5
+                                                                                                 else temp_team_kills_op), 2) * 100)
                                 for i in range(10)]
 
         self.adversaire_direct = {"TOP": self.ecart_top_gold, "JUNGLE": self.ecart_jgl_gold,
