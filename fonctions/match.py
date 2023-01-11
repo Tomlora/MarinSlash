@@ -376,7 +376,6 @@ class matchlol():
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
         self.match_detail_challenges = self.match_detail_participants['challenges']
         self.thisPosition = self.match_detail_participants['teamPosition']
-        # self.season = int(self.match_detail['info']['gameVersion'][0:2])
         self.season = 13  # TODO a modifier quand s13
 
         if (str(self.thisPosition) == "MIDDLE"):
@@ -1095,6 +1094,20 @@ class matchlol():
 
         d.text((x_name+700, y_name-20),
                f"Niveau {self.level_summoner}", font=font_little, fill=fill)
+        
+        try: # Rank last season
+            if self.thisQ != 'ARAM':
+                data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{self.season-1} where index = '{self.summonerName}' ''')
+                self.tier_last_season = data_last_season.mappings().all()[0]['tier']
+            else:
+                data_last_season = get_data_bdd(f'''SELECT index, rank from ranked_aram_s{self.season-1} where index = '{self.summonerName}' ''')
+                self.tier_last_season = data_last_season.mappings().all()[0]['rank']
+            
+            img_tier_last_season = await get_image("tier", self.tier_last_season, self.session, 100, 100)
+            
+            im.paste(img_tier_last_season,(x_name+950, y_name-50), img_tier_last_season.convert('RGBA'))
+        except: # si pas d'info, on ne fait rien
+            pass  
 
         if self.thisQ != "ARAM":  # si ce n'est pas le mode aram, on prend la soloq normal
             if self.thisTier != ' ':  # on vérifie que le joueur a des stats en soloq, sinon il n'y a rien à afficher
