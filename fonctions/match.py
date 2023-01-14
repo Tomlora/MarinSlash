@@ -896,6 +896,7 @@ class matchlol():
             self.thisLoose = '0'
             self.thisWinStreak = '0'
 
+
     async def save_data(self):
         """Sauvegarde l'ensemble des données dans la base de données"""
 
