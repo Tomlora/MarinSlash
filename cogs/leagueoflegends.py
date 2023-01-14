@@ -61,7 +61,7 @@ def records_check2(fichier,
             if float(record) > float(result_category_match):
                 embed += f"\n ** :boom: Record - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
 
-        if float(record) == float(result_category_match):  # si égalité
+        if float(record) == float(result_category_match) and not category in ['baron', 'herald', 'drake']:  # si égalité
             embed += f"\n ** :medal: Egalisation record - {emote_v2.get(category, ':star:')}__{category}__ de {joueur} **"
     else:
         embed += f"\n ** :boom: Premier Record - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
@@ -81,7 +81,7 @@ def records_check2(fichier,
                     embed += f"\n ** :military_medal: Record personnel - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_perso})"
 
             # sinon ça fait doublon
-            if float(record_perso) == float(result_category_match) and joueur != joueur_perso:
+            if float(record_perso) == float(result_category_match) and joueur != joueur_perso and not category in ['baron', 'herald', 'drake']:
                 embed += f"\n ** :medal: Egalisation record personnel - {emote_v2.get(category, ':star:')}__{category}__ **"
 
         else:
@@ -512,7 +512,7 @@ class LeagueofLegends(Extension):
         chunk_size = 1024
         max_len = 4000
 
-        if exploits == '':
+        if exploits == '': # si l'exploit est vide, il n'y a aucun exploit
             embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
                             value=f'Aucun exploit', inline=False)
 
@@ -554,8 +554,9 @@ class LeagueofLegends(Extension):
                 else:
                     field_name = f"Records {i + 1}"
                 field_value = exploits[i]
-                embed.add_field(name=field_name,
-                                value=field_value, inline=False)
+                if not field_value in ['', ' ']: # parfois la découpe renvoie un espace vide.
+                    embed.add_field(name=field_name,
+                                    value=field_value, inline=False)
 
         if points >= 1:
             embed.add_field(name='Couronnes', value=couronnes_embed)
@@ -804,12 +805,12 @@ class LeagueofLegends(Extension):
                 requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
                                 
                                 INSERT INTO suivi_s{saison}(
-                                index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
-                                VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);
+                                index, wins, losses, "LP", tier, rank, serie)
+                                VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0);
                             
                                 INSERT INTO suivi_24h(
-                                index, wins, losses, "LP", tier, rank, "Achievements", games, serie)
-                                VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0, 0, 0);
+                                index, wins, losses, "LP", tier, rank, serie)
+                                VALUES (:summonername, 0, 0, 0, 'Non-classe', 0, 0);
                             
                                 INSERT INTO ranked_aram_s{saison}(
                                 index, wins, losses, lp, games, k, d, a, activation, rank)
@@ -853,6 +854,48 @@ class LeagueofLegends(Extension):
                 await ctx.send('Tracker désactivé !')
         except KeyError:
             await ctx.send('Joueur introuvable')
+            
+    @interactions.extension_command(name="lolrename",
+                                    description="Ajoute le joueur au suivi",
+                                    options=[
+                                        Option(name="ancien_pseudo",
+                                                    description="Ancien pseudo ingame (sans espace !)",
+                                                    type=interactions.OptionType.STRING,
+                                                    required=True),
+                                        Option(name='nouveau_pseudo',
+                                               description='Nouveau pseudo ingame (sans espace !)',
+                                               type=interactions.OptionType.STRING,
+                                               required=True)])
+    async def lolrename(self,
+                     ctx: CommandContext,
+                     ancien_pseudo,
+                     nouveau_pseudo):
+
+        if verif_module('league_ranked', int(ctx.guild.id)):
+            ancien_pseudo = ancien_pseudo.lower()
+            nouveau_pseudo = nouveau_pseudo.lower()
+
+            requete_perso_bdd(f'''UPDATE tracker set index = :nouveau where index = :ancien;
+                                
+                                UPDATE suivi_s{saison} set index = :nouveau where index = :ancien
+                                
+                                UPDATE suivi_s{saison-1} set index = :nouveau where index = :ancien
+                            
+                                UPDATE suivi_24h set index = :nouveau where index = :ancien;
+                            
+                                UPDATE ranked_aram_s{saison} set index = :nouveau where index = :ancien;
+                                
+                                UPDATE ranked_aram_s{saison-1} set index = :nouveau where index = :ancien;
+                            
+                                UPDATE ranked_aram_24h set index = :nouveau where index = :ancien;
+                                
+                                UPDATE matchs set joueur = :nouveau where joueur = :ancien''',
+                                  {'ancien': ancien_pseudo, 'nouveau': nouveau_pseudo})
+
+            await ctx.send(f"{ancien_pseudo} a été modifié en {nouveau_pseudo} avec succès au live-feed!")
+        else:
+            await ctx.send('Module désactivé pour ce serveur')
+
 
     @interactions.extension_command(name='lollist',
                                     description='Affiche la liste des joueurs suivis')
@@ -897,7 +940,7 @@ class LeagueofLegends(Extension):
                                     where suivi.tier != 'Non-classe' and tracker.server_id = {int(guild.id)} ''')
                 df_24h = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_24h as suivi
                                     INNER join tracker ON tracker.index = suivi.index 
-                                    where suivi.tier != 'Non-classe' and tracker.server_id = {int(guild.id)} ''')
+                                    and tracker.server_id = {int(guild.id)} ''')
 
                 if df.shape[1] > 0:  # si pas de data, inutile de continuer
 
@@ -905,7 +948,8 @@ class LeagueofLegends(Extension):
                     df_24h = df_24h.transpose().reset_index()
 
                     def changement_tier(x):
-                        dict_chg_tier = {'IRON': 1,
+                        dict_chg_tier = {'Non-classe' : 0,
+                                         'IRON': 1,
                                          'BRONZE': 1,
                                          'SILVER': 2,
                                          'GOLD': 3,
@@ -1077,7 +1121,7 @@ class LeagueofLegends(Extension):
 
         summonername = summonername.lower()
         requete_perso_bdd('UPDATE tracker SET discord = :discord, server_id = :guild WHERE index = :summonername', {
-                          'discord': int(member.id), 'server_id': int(ctx.guild.id), 'summonername': summonername})
+                          'discord': int(member.id), 'guild': int(ctx.guild.id), 'summonername': summonername})
         await ctx.send(f'Le compte LoL {summonername} a été link avec <@{int(member.id)}>')
 
 
