@@ -650,7 +650,7 @@ class Artefact():
         return self.tcd_arte, self.score_a
 
 
-async def comparaison(guilde_id):  # à changer par guilde_id
+async def comparaison(guilde_id, score='score_general'):  # à changer par guilde_id
     # Lire la BDD
     df_actuel = lire_bdd_perso(
         'SELECT * from sw_user, sw_score WHERE sw_user.id = sw_score.id', index_col='joueur')
@@ -662,25 +662,25 @@ async def comparaison(guilde_id):  # à changer par guilde_id
     df_max = df_actuel.groupby('joueur').max()
 
     # On trie du plus grand au plus petit
-    df_max['rank'] = df_max['score'].rank(ascending=False, method='min')
+    df_max['rank'] = df_max['score_general'].rank(ascending=False, method='min')
 
     # Nb joueurs
     size_general = len(df_max)
 
     # Score moyen
-    avg_score_general = int(round(df_max['score'].mean(), 0))
+    avg_score_general = int(round(df_max[score].mean(), 0))
 
     # Meilleur score
-    max_general = int(df_max['score'].max())
+    max_general = int(df_max[score].max())
 
     # On refait les mêmes étapes pour la guilde Endless
     df_guilde = df_actuel[df_actuel['guilde_id'] == guilde_id]
     # df_guilde = df_actuel[df_actuel['guilde'] == guilde]
     df_guilde_max = df_guilde.groupby('joueur').max()
     size_guilde = len(df_guilde_max)
-    avg_score_guilde = int(round(df_guilde_max['score'].mean(), 0))
-    max_guilde = int(df_guilde_max['score'].max())
-    df_guilde_max['rank'] = df_guilde_max['score'].rank(
+    avg_score_guilde = int(round(df_guilde_max[score].mean(), 0))
+    max_guilde = int(df_guilde_max[score].max())
+    df_guilde_max['rank'] = df_guilde_max[score].rank(
         ascending=False, method='min')
 
     return size_general, avg_score_general, max_general, size_guilde, avg_score_guilde, max_guilde, df_max, df_guilde_max
