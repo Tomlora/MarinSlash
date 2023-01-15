@@ -306,7 +306,7 @@ class SW(Extension):
     async def score_guilde(self,
                            ctx: CommandContext,
                            guilde: str,
-                           methode: str,
+                           methode: str='avg',
                            calcul='score_general'):
 
         await ctx.defer(ephemeral=False)
@@ -317,7 +317,7 @@ class SW(Extension):
 
             size_general, avg_score_general, max_general, size_guilde, avg_score_guilde, max_guilde, df_max, df_guilde_max = await comparaison(guilde_id, calcul)
 
-            await ctx.send(f'Moyenne de {guilde} : {avg_score_guilde} ({size_guilde}) joueurs')
+            await ctx.send(f'Moyenne de {guilde} : **{avg_score_guilde}** | ({size_guilde}) joueurs')
 
         else:
             await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
