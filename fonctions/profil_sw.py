@@ -662,7 +662,7 @@ async def comparaison(guilde_id, score='score_general'):  # à changer par guild
     df_max = df_actuel.groupby('joueur').max()
 
     # On trie du plus grand au plus petit
-    df_max['rank'] = df_max['score_general'].rank(ascending=False, method='min')
+    df_max['rank'] = df_max[score].rank(ascending=False, method='min')
 
     # Nb joueurs
     size_general = len(df_max)
