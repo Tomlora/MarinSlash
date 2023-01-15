@@ -170,8 +170,8 @@ class SW(Extension):
 
             sauvegarde_bdd_sw(tcd_value, 'sw', 'append')
 
-            df_scoring = pd.DataFrame({'id': [id_joueur], 'score': [score],
-                                       'date': [date_du_jour()]})
+            df_scoring = pd.DataFrame({'id': [id_joueur], 'score_general': [score],
+                                       'date': [date_du_jour()], 'score_spd' : [score_spd], 'score_arte' : [score_arte]})
             df_scoring.set_index('id', inplace=True)
 
             sauvegarde_bdd_sw(df_scoring, 'sw_score', 'append')
@@ -292,12 +292,22 @@ class SW(Extension):
                                             choices=[
                                                 Choice(name='moyenne',
                                                        value='avg')
-                                            ])
+                                            ]),
+                                        Option(name='calcul',
+                                               description='quel scoring ?',
+                                               type=interactions.OptionType.STRING,
+                                               required=False,
+                                               choices=[
+                                                   Choice(name='general', value='score_general'),
+                                                   Choice(name='artefact', value='scoring_arte'),
+                                                   Choice(name='speed', value='score_spd')
+                                               ])
                                     ])
     async def score_guilde(self,
                            ctx: CommandContext,
                            guilde: str,
-                           methode: str):
+                           methode: str,
+                           calcul='score_general'):
 
         await ctx.defer(ephemeral=False)
 
@@ -305,7 +315,7 @@ class SW(Extension):
 
             guilde_id = get_guildeid_by_name(guilde)
 
-            size_general, avg_score_general, max_general, size_guilde, avg_score_guilde, max_guilde, df_max, df_guilde_max = await comparaison(guilde_id)
+            size_general, avg_score_general, max_general, size_guilde, avg_score_guilde, max_guilde, df_max, df_guilde_max = await comparaison(guilde_id, calcul)
 
             await ctx.send(f'Moyenne de {guilde} : {avg_score_guilde} ({size_guilde}) joueurs')
 
