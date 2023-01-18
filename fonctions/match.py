@@ -1214,7 +1214,7 @@ class matchlol():
 
                 # SIMULATION CHANGEMENT ELO
 
-                if games >= 5 and self.AFKTeam == 0:  # si plus de 5 games et pas d'afk
+                if games > 5 and self.AFKTeam == 0:  # si plus de 5 games et pas d'afk
                     lp = lp - elo_lp[rank]  # malus en fonction du elo
 
                 # pas de lp negatif
