@@ -45,6 +45,7 @@ def records_check2(fichier,
     None à la place du fichier pour désactiver un check.                                                                                                                                 
     '''
     embed = ''
+    category_exclusion_egalite = ['baron', 'herald', 'drake']
 
     if result_category_match == 0:  # si le score est de 0, inutile
         return embed
@@ -61,7 +62,7 @@ def records_check2(fichier,
             if float(record) > float(result_category_match):
                 embed += f"\n ** :boom: Record - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
 
-        if float(record) == float(result_category_match) and not category in ['baron', 'herald', 'drake']:  # si égalité
+        if float(record) == float(result_category_match) and not category in category_exclusion_egalite:  # si égalité
             embed += f"\n ** :medal: Egalisation record - {emote_v2.get(category, ':star:')}__{category}__ de {joueur} **"
     else:
         embed += f"\n ** :boom: Premier Record - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
@@ -81,7 +82,7 @@ def records_check2(fichier,
                     embed += f"\n ** :military_medal: Record personnel - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_perso})"
 
             # sinon ça fait doublon
-            if float(record_perso) == float(result_category_match) and joueur != joueur_perso and not category in ['baron', 'herald', 'drake']:
+            if float(record_perso) == float(result_category_match) and joueur != joueur_perso and not category in category_exclusion_egalite:
                 embed += f"\n ** :medal: Egalisation record personnel - {emote_v2.get(category, ':star:')}__{category}__ **"
 
         else:
@@ -169,10 +170,13 @@ class LeagueofLegends(Extension):
             await match_info.save_data()
 
         if match_info.thisQId == 900:  # urf
-            return {}, 'URF'
+            return {}, 'URF', 0, 0, 0
 
         if match_info.thisQId == 840:
-            return {}, 'Bot'  # bot game
+            return {}, 'Bot', 0, 0, 0  # bot game
+        
+        if match_info.thisTime <= 3.0:
+            return {}, 'Remake', 0, 0, 0
 
         url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(match_info.last_match)[5:]}#participant{int(match_info.thisId)+1}'
 
@@ -526,9 +530,11 @@ class LeagueofLegends(Extension):
             records_emoji = {':boom:': 0, ':medal:': 0,
                              ':military_medal:': 0, ':rocket:': 0}
 
+            # on compte par emoji
             for emoji in records_emoji:
                 records_emoji[emoji] = exploits.count(emoji)
 
+            # on show
             exploits = ':star: __ Wow ! __ : \n'
             for emoji, count in records_emoji.items():
                 if count > 0:
@@ -564,12 +570,12 @@ class LeagueofLegends(Extension):
             embed.add_field(name='Couronnes', value='Aucune couronne obtenue')
 
         # # Objectifs
-        if match_info.thisQ != "ARAM":
-            embed.add_field(name="Team :", value=f"\nEcart top - Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
-                            + f"Ecart jgl - Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
-                            + f"Ecart mid - Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
-                            + f"Ecart adc - Vision : **{match_info.ecart_adc_vision}** | CS : **{match_info.ecart_adc_cs}** \n"
-                            + f"Ecart supp - Vision : **{match_info.ecart_supp_vision}** | CS : **{match_info.ecart_supp_cs}**", inline=False)
+        # if match_info.thisQ != "ARAM":
+        #     embed.add_field(name="Team :", value=f"\nEcart top - Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
+        #                     + f"Ecart jgl - Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
+        #                     + f"Ecart mid - Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
+        #                     + f"Ecart adc - Vision : **{match_info.ecart_adc_vision}** | CS : **{match_info.ecart_adc_cs}** \n"
+        #                     + f"Ecart supp - Vision : **{match_info.ecart_supp_vision}** | CS : **{match_info.ecart_supp_cs}**", inline=False)
 
        # Gestion de l'image 1
 
@@ -955,7 +961,9 @@ class LeagueofLegends(Extension):
                                          'GOLD': 3,
                                          'PLATINUM': 4,
                                          'DIAMOND': 5,
-                                         'MASTER': 6}
+                                         'MASTER': 6,
+                                         'GRANDMASTER' : 7,
+                                         'CHALLENGER' : 8}
                         return dict_chg_tier[x]
 
                     def changement_rank(x):
