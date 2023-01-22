@@ -1,15 +1,17 @@
 # MarinSlash
-__Bot discord affichant des statistiques (League of Legends, TFT, Twitch, Swarfarm) sous forme visuel__
+__Bot discord affichant des statistiques (League of Legends, TFT, Twitch, Summoners Wars, Twitter, Github ...) sous forme visuel__
 
-Le bot collecte, traite et réutilise les données automatiquement. On peut également lui demander certaines actions.
+Le bot collecte, traite et réutilise les données automatiquement et en continu. On peut également lui demander certaines actions.
 
 # Ressources
 
 Pour diversifier mes compétences, le bot stocke des données dans :
 - Des fichiers pickle (paramètres du bot + la régression linéaire)
 - Un fichier texte (les identifiants de certains channels ou comptes Discord)
-- Une BDD SQL avec sqlite3, sqlalchemy et posgresql (les data league of legends) 
+- Une BDD SQL avec sqlite3, sqlalchemy et posgresql (Data des différents jeux) 
 - Json
+
+****
 
 Les visuels sont réalisés avec :
 - Matplotlib
@@ -19,6 +21,7 @@ Les visuels sont réalisés avec :
 - Pillow
 - Images créees par moi-même
 
+**** 
 Autres librairies utilisées :
 - Pandas
 - Numpy
@@ -108,6 +111,7 @@ Le bot est capable de détecter un nouveau patch, et de partager un résumé en 
   <img width="480" height="390" src="https://github.com/Tomlora/MarinSlash/blob/main/recap.png?raw=true">
 </p>
 
+****
 
 ## Teamfight Tactics
 
@@ -135,22 +139,23 @@ Le bot est capable de détecter un nouveau patch, et de partager un résumé en 
 
 - Le bot peut servir d'alarme pour les joueurs qui souhaitent suivre certaines compétitions. En effet, via un calendrier, le bot peut annoncer lorsqu'une game pro commence.
 
+****
 ## Projet 2 : Musique
 
 Le bot peut être un DJ dans un salon vocal Discord.
 
-
+****
 ## Projet 3 : Summoners Wars
 
 En utilisant un fichier json généré par Summoners Wars, le bot peut afficher divers informations sur son compte ou sur les contenus de guilde.
 Le bot est relié au projet [SummonersWars_ScoringRunage_Dashboard](https://github.com/Tomlora/SummonersWars_ScoringRunage_Dashboard), qui permet d'avoir un scoring de ses runes et artefacts.  
 
-
+****
 ## Projet 4 : Twitch
 
 Détermine dans un tracker si une personne a lancé son stream twitch, et sur quel jeu.
 
-
+****
 ## Projet 5 : Twitter
 
 Suit les tweets de certains journalistes pour avoir l'information rapidement selon des mots clés.
