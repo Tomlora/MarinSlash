@@ -200,6 +200,7 @@ choice_pantheon = [Choice(name="KDA", value="KDA"),
 class Recordslol(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
+        self.time_mini = {'RANKED' : 20, 'ARAM' : 10}
 
     @interactions.extension_command(name="records_list_s12",
                                     description="Voir les records détenues par les joueurs (réservé s12)",
@@ -569,15 +570,18 @@ class Recordslol(Extension):
         
         
         if view == 'global':
-            fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': saison,
-                                                                                                                                        'mode': mode}).transpose()
+            fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s and time >= %(time)s', index_col='id', params={'saison': saison,
+                                                                                                                                        'mode': mode,
+                                                                                                                                        'time' : self.time_mini[mode]}).transpose()
         elif view == 'serveur':
             fichier = lire_bdd_perso('''SELECT distinct matchs.* from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
                                      where season = %(saison)s and mode = %(mode)s
-                                     and server_id = %(guild_id)s''', index_col='id', params={'saison': saison,
+                                     and server_id = %(guild_id)s
+                                     and time >= %(time)s''', index_col='id', params={'saison': saison,
                                                                                               'mode': mode,
-                                                                                              'guild_id' : int(ctx.guild_id)}).transpose()
+                                                                                              'guild_id' : int(ctx.guild_id),
+                                                                                              'time' : self.time_mini[mode]}).transpose()
             
 
         if champion != None:
@@ -728,16 +732,19 @@ class Recordslol(Extension):
 
         # data
         if view == 'global':
-            fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s', index_col='id', params={'saison': saison,
-                                                                                                                                        'mode': mode}).transpose()
+            fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s and time >= %(time)s', index_col='id', params={'saison': saison,
+                                                                                                                                        'mode': mode,
+                                                                                                                                        'time' : self.time_mini[mode]}).transpose()
         elif view == 'serveur':
             fichier = lire_bdd_perso('''SELECT distinct matchs.* from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
                                      where season = %(saison)s
                                      and mode = %(mode)s
-                                     and server_id = %(guild_id)s''', index_col='id', params={'saison': saison,
+                                     and server_id = %(guild_id)s
+                                     and time >= %(time)s''', index_col='id', params={'saison': saison,
                                                                                                 'mode': mode,
-                                                                                                'guild_id' : int(ctx.guild_id)}).transpose()
+                                                                                                'guild_id' : int(ctx.guild_id),
+                                                                                                'time' : self.time_mini[mode]}).transpose()
 
         # liste records
 
