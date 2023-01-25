@@ -166,7 +166,7 @@ class LeagueofLegends(Extension):
                                                   'mode': match_info.thisQ,
                                                   'guild_id': guild_id}).transpose()
 
-        if sauvegarder:
+        if sauvegarder and match_info.thisTime >= 10.0:
             await match_info.save_data()
 
         if match_info.thisQId == 900:  # urf
@@ -274,13 +274,19 @@ class LeagueofLegends(Extension):
             # nouveau système de records
             chunk = 1
             chunk_size = 700
-            for parameter, value in param_records.items():
-                # on ajoute les conditions
-
+            
+            def check_chunk(exploits, chunk, chunk_size):
+                '''Détection pour passer à l'embed suivant'''
                 if len(exploits) >= chunk * chunk_size:
                     # Detection pour passer à l'embed suivant
                     chunk += 1
                     exploits += '#'
+                return exploits, chunk
+                
+            for parameter, value in param_records.items():
+                # on ajoute les conditions
+
+                exploits, chunk = check_chunk(exploits, chunk, chunk_size)
 
                 if parameter == 'kda':
                     # on ne peut pas comparer à un perfect kda
@@ -297,10 +303,7 @@ class LeagueofLegends(Extension):
             if match_info.thisQ == 'RANKED':  # seulement en ranked
                 for parameter, value in param_records_only_ranked.items():
 
-                    if len(exploits) >= chunk * chunk_size:
-                        # Detection pour passer à l'embed suivant
-                        chunk += 1
-                        exploits += '#'
+                    exploits, chunk = check_chunk(exploits, chunk, chunk_size)
 
                     methode = 'max'
 
@@ -319,10 +322,7 @@ class LeagueofLegends(Extension):
             if match_info.thisQ == 'ARAM':  # seulement en aram
                 for parameter, value in param_records_only_aram.items():
 
-                    if len(exploits) >= chunk * chunk_size:
-                        # Detection pour passer à l'embed suivant
-                        chunk += 1
-                        exploits += '#'
+                    exploits, chunk = check_chunk(exploits, chunk, chunk_size)
 
                     methode = 'max'
 
@@ -569,13 +569,6 @@ class LeagueofLegends(Extension):
         else:
             embed.add_field(name='Couronnes', value='Aucune couronne obtenue')
 
-        # # Objectifs
-        # if match_info.thisQ != "ARAM":
-        #     embed.add_field(name="Team :", value=f"\nEcart top - Vision : **{match_info.ecart_top_vision}** | CS : **{match_info.ecart_top_cs}** \n"
-        #                     + f"Ecart jgl - Vision: **{match_info.ecart_jgl_vision}** | CS : **{match_info.ecart_jgl_cs}** \n"
-        #                     + f"Ecart mid - Vision : **{match_info.ecart_mid_vision}** | CS : **{match_info.ecart_mid_cs}** \n"
-        #                     + f"Ecart adc - Vision : **{match_info.ecart_adc_vision}** | CS : **{match_info.ecart_adc_cs}** \n"
-        #                     + f"Ecart supp - Vision : **{match_info.ecart_supp_vision}** | CS : **{match_info.ecart_supp_cs}**", inline=False)
 
        # Gestion de l'image 1
 
