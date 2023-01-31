@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 import os
 from fonctions.channels_discord import convertion_temps, mention
-from fonctions.date import heure_actuelle
+from fonctions.date import heure_actuelle, time_actuelle
 
 reminders = {}
 
@@ -60,16 +60,18 @@ class Divers(Extension):
             duree = await convertion_temps(ctx, time)
         except:
             pass
+        
+        channel = ctx.channel
 
         if ctx.author.id not in reminders: # s'il n'a pas de rappel, on crée une liste avec l'id discord dans notre dict
             reminders[ctx.author.id] = []
         
-        current_time = datetime.datetime.now()    
+        current_time = time_actuelle()    
         reminders[ctx.author.id].append((msg, duree, current_time))
         await ctx.send(f'Le rappel est programmé dans {duree} secondes', ephemeral=True)
         await asyncio.sleep(duree)
         if public:
-            await ctx.send(msg)
+            await channel.send(msg)
         else:
             await ctx.author.send(msg)
         reminders[ctx.author.id].pop(0)
@@ -106,7 +108,7 @@ class Divers(Extension):
                         datetime.timedelta(seconds=delay)
                     await ctx.send(f'Rappel #{i+1}: "{msg}" à {delay_total.strftime("%d/%m/%Y %H:%M:%S")} secondes', ephemeral=True)
             else:
-                await ctx.send('Tous les rappels ont été éxecutés.', ephemeral=True)
+                await ctx.send('Tous les rappels ont été executés.', ephemeral=True)
 
     @interactions.extension_command(name='remindme_quotidien',
                                     description="Rappel à répéter",
