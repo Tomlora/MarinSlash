@@ -81,8 +81,8 @@ def records_check2(fichier,
                 if float(record_perso) > float(result_category_match):
                     embed += f"\n ** :military_medal: Record personnel - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_perso})"
 
-            # sinon ça fait doublon
-            if float(record_perso) == float(result_category_match) and joueur != joueur_perso and not category in category_exclusion_egalite:
+
+            if float(record_perso) == float(result_category_match) and not category in category_exclusion_egalite:
                 embed += f"\n ** :medal: Egalisation record personnel - {emote_v2.get(category, ':star:')}__{category}__ **"
 
         else:
@@ -137,13 +137,13 @@ class LeagueofLegends(Extension):
         await match_info.prepare_data()
 
         # pour nouveau système de record
-        fichier = lire_bdd_perso('''SELECT distinct matchs.* from matchs
+        fichier = lire_bdd_perso('''SELECT distinct matchs.*, tracker.discord from matchs
                          INNER JOIN tracker ON tracker.index = matchs.joueur
                          where season = %(saison)s and mode = %(mode)s and server_id = %(guild_id)s''', index_col='id', params={'saison': match_info.season,
                                                                                                                                 'mode': match_info.thisQ,
                                                                                                                                 'guild_id': guild_id}).transpose()
 
-        fichier_joueur = lire_bdd_perso('''SELECT distinct matchs.* from matchs
+        fichier_joueur = lire_bdd_perso('''SELECT distinct matchs.*, tracker.discord from matchs
                                         INNER JOIN tracker on tracker.index = matchs.joueur
                                         where season = %(saison)s
                                         and mode = %(mode)s
@@ -155,7 +155,7 @@ class LeagueofLegends(Extension):
                                                 'mode': match_info.thisQ,
                                                 'guild_id': guild_id}).transpose()
 
-        fichier_champion = lire_bdd_perso('''SELECT distinct matchs.* from matchs
+        fichier_champion = lire_bdd_perso('''SELECT distinct matchs.*, tracker.discord from matchs
                                           INNER JOIN tracker on tracker.index = matchs.joueur
                                         where season = %(saison)s
                                         and mode = %(mode)s and champion = %(champion)s
@@ -329,6 +329,8 @@ class LeagueofLegends(Extension):
                     exploits += records_check2(fichier, fichier_joueur,
                                                fichier_champion, parameter, value, methode)
 
+
+        print(exploits)
         # on le fait après sinon ça flingue les records
         match_info.thisDamageTurrets = "{:,}".format(
             match_info.thisDamageTurrets).replace(',', ' ').replace('.', ',')
