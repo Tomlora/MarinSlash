@@ -174,7 +174,7 @@ class LeagueofLegends(Extension):
 
         if match_info.thisQId == 840:
             return {}, 'Bot', 0, 0, 0  # bot game
-        
+
         if match_info.thisTime <= 3.0:
             return {}, 'Remake', 0, 0, 0
 
@@ -274,7 +274,7 @@ class LeagueofLegends(Extension):
             # nouveau système de records
             chunk = 1
             chunk_size = 700
-            
+
             def check_chunk(exploits, chunk, chunk_size):
                 '''Détection pour passer à l'embed suivant'''
                 if len(exploits) >= chunk * chunk_size:
@@ -282,7 +282,7 @@ class LeagueofLegends(Extension):
                     chunk += 1
                     exploits += '#'
                 return exploits, chunk
-                
+
             for parameter, value in param_records.items():
                 # on ajoute les conditions
 
@@ -370,7 +370,8 @@ class LeagueofLegends(Extension):
 
         couronnes_embed = ''
 
-        if match_info.thisQ in ['RANKED', 'NORMAL', 'FLEX']:  # pour only ranked/normal game
+        # pour only ranked/normal game
+        if match_info.thisQ in ['RANKED', 'NORMAL', 'FLEX']:
             if int(match_info.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
                 couronnes_embed +=\
                     f"\n ** :crown: :wave: {match_info.thisLevelAdvantage} niveaux d'avance sur ton adversaire durant la game**"
@@ -516,7 +517,7 @@ class LeagueofLegends(Extension):
         chunk_size = 1024
         max_len = 4000
 
-        if exploits == '': # si l'exploit est vide, il n'y a aucun exploit
+        if exploits == '':  # si l'exploit est vide, il n'y a aucun exploit
             embed.add_field(name="Durée de la game : " + str(int(match_info.thisTime)) + " minutes",
                             value=f'Aucun exploit', inline=False)
 
@@ -560,7 +561,8 @@ class LeagueofLegends(Extension):
                 else:
                     field_name = f"Records {i + 1}"
                 field_value = exploits[i]
-                if not field_value in ['', ' ']: # parfois la découpe renvoie un espace vide.
+                # parfois la découpe renvoie un espace vide.
+                if not field_value in ['', ' ']:
                     embed.add_field(name=field_name,
                                     value=field_value, inline=False)
 
@@ -568,7 +570,6 @@ class LeagueofLegends(Extension):
             embed.add_field(name='Couronnes', value=couronnes_embed)
         else:
             embed.add_field(name='Couronnes', value='Aucune couronne obtenue')
-
 
        # Gestion de l'image 1
 
@@ -853,9 +854,9 @@ class LeagueofLegends(Extension):
                 await ctx.send('Tracker désactivé !')
         except KeyError:
             await ctx.send('Joueur introuvable')
-            
+
     @interactions.extension_command(name="lolrename",
-                                    description="Ajoute le joueur au suivi",
+                                    description="Renomme un compte dans le suivi",
                                     options=[
                                         Option(name="ancien_pseudo",
                                                     description="Ancien pseudo ingame (sans espace !)",
@@ -866,9 +867,9 @@ class LeagueofLegends(Extension):
                                                type=interactions.OptionType.STRING,
                                                required=True)])
     async def lolrename(self,
-                     ctx: CommandContext,
-                     ancien_pseudo,
-                     nouveau_pseudo):
+                        ctx: CommandContext,
+                        ancien_pseudo,
+                        nouveau_pseudo):
 
         if verif_module('league_ranked', int(ctx.guild.id)):
             ancien_pseudo = ancien_pseudo.lower()
@@ -876,9 +877,9 @@ class LeagueofLegends(Extension):
 
             requete_perso_bdd(f'''UPDATE tracker set index = :nouveau where index = :ancien;
                                 
-                                UPDATE suivi_s{saison} set index = :nouveau where index = :ancien
+                                UPDATE suivi_s{saison} set index = :nouveau where index = :ancien;
                                 
-                                UPDATE suivi_s{saison-1} set index = :nouveau where index = :ancien
+                                UPDATE suivi_s{saison-1} set index = :nouveau where index = :ancien;
                             
                                 UPDATE suivi_24h set index = :nouveau where index = :ancien;
                             
@@ -888,13 +889,12 @@ class LeagueofLegends(Extension):
                             
                                 UPDATE ranked_aram_24h set index = :nouveau where index = :ancien;
                                 
-                                UPDATE matchs set joueur = :nouveau where joueur = :ancien''',
-                                  {'ancien': ancien_pseudo, 'nouveau': nouveau_pseudo})
+                                UPDATE matchs set joueur = :nouveau where joueur = :ancien;''',
+                              {'ancien': ancien_pseudo, 'nouveau': nouveau_pseudo})
 
             await ctx.send(f"{ancien_pseudo} a été modifié en {nouveau_pseudo} avec succès au live-feed!")
         else:
             await ctx.send('Module désactivé pour ce serveur')
-
 
     @interactions.extension_command(name='lollist',
                                     description='Affiche la liste des joueurs suivis')
@@ -947,7 +947,7 @@ class LeagueofLegends(Extension):
                     df_24h = df_24h.transpose().reset_index()
 
                     def changement_tier(x):
-                        dict_chg_tier = {'Non-classe' : 0,
+                        dict_chg_tier = {'Non-classe': 0,
                                          'IRON': 1,
                                          'BRONZE': 1,
                                          'SILVER': 2,
@@ -955,8 +955,8 @@ class LeagueofLegends(Extension):
                                          'PLATINUM': 4,
                                          'DIAMOND': 5,
                                          'MASTER': 6,
-                                         'GRANDMASTER' : 7,
-                                         'CHALLENGER' : 8}
+                                         'GRANDMASTER': 7,
+                                         'CHALLENGER': 8}
                         return dict_chg_tier[x]
 
                     def changement_rank(x):
