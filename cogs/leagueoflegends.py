@@ -53,7 +53,7 @@ def records_check2(fichier,
     # Record sur tous les joueurs
     if fichier.shape[0] > 0:  # s'il y a des données, sinon first record
         joueur, champion, record, url = trouver_records(
-            fichier, category, methode)
+            fichier, category, methode, identifiant='discord')
 
         if methode == 'max':
             if float(record) < float(result_category_match):
@@ -93,7 +93,7 @@ def records_check2(fichier,
         # s'il y a des données, sinon first record
         if fichier_champion.shape[0] > 0:
             joueur_champion, champion_champion, record_champion, url = trouver_records(
-                fichier_champion, category, methode)
+                fichier_champion, category, methode, identifiant='discord')
 
             if methode == 'max':
                 if float(record_champion) < float(result_category_match):
@@ -1014,12 +1014,14 @@ class LeagueofLegends(Extension):
                         # evolution
 
                         if dict_rankid[classement_old] > dict_rankid[classement_new]:  # 19-18
-                            difLP = 100 + LP - int(suivi[key]['LP'])
+                            if not classement_old in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
+                                difLP = 100 + LP - int(suivi[key]['LP']) # il n'y a pas -100 lp pour ce type de démote
                             difLP = "Démote / -" + str(difLP)
                             emote = ":arrow_down:"
 
                         elif dict_rankid[classement_old] < dict_rankid[classement_new]:
-                            difLP = 100 - LP + int(suivi[key]['LP'])
+                            if not classement_old in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
+                                difLP = 100 - LP + int(suivi[key]['LP']) # il n'y a pas +100 lp pour ce type de démote
                             difLP = "Promotion / +" + str(difLP)
                             emote = ":arrow_up:"
 

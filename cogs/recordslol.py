@@ -200,7 +200,7 @@ choice_pantheon = [Choice(name="KDA", value="KDA"),
 class Recordslol(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        self.time_mini = {'RANKED' : 20, 'ARAM' : 10}
+        self.time_mini = {'RANKED' : 20, 'ARAM' : 10} # minutes minimum pour compter dans les records
 
     @interactions.extension_command(name="records_list_s12",
                                     description="Voir les records détenues par les joueurs (réservé s12)",
@@ -507,7 +507,9 @@ class Recordslol(Extension):
             name='saison',
             description='saison league of legends',
             type=interactions.OptionType.INTEGER,
-            required=False),
+            required=False,
+            min_value=12,
+            max_value=saison),
         Option(
             name='champion',
             description='champion',
@@ -542,7 +544,9 @@ class Recordslol(Extension):
             name='saison',
             description='saison league of legends',
             type=interactions.OptionType.INTEGER,
-            required=False),
+            required=False,
+            min_value=12,
+            max_value=saison),
         Option(
             name='champion',
             description='champion',
@@ -570,11 +574,13 @@ class Recordslol(Extension):
         
         
         if view == 'global':
-            fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s and time >= %(time)s', index_col='id', params={'saison': saison,
+            fichier = lire_bdd_perso('''SELECT distinct matchs.*, tracker.discord from matchs
+                                     INNER JOIN tracker on tracker.index = matchs.joueur
+                                     where season = %(saison)s and mode = %(mode)s and time >= %(time)s''', index_col='id', params={'saison': saison,
                                                                                                                                         'mode': mode,
                                                                                                                                         'time' : self.time_mini[mode]}).transpose()
         elif view == 'serveur':
-            fichier = lire_bdd_perso('''SELECT distinct matchs.* from matchs
+            fichier = lire_bdd_perso('''SELECT distinct matchs.*, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
                                      where season = %(saison)s and mode = %(mode)s
                                      and server_id = %(guild_id)s
@@ -629,13 +635,13 @@ class Recordslol(Extension):
                                       'jgl_dix_min', 'baron', 'drake', 'herald',
                                       'vision_min', 'level_max_avantage', 'vision_avantage'])
             fichier3 = fichier3.drop(
-                ['early_drake', 'early_baron', 'note'])
+                ['early_drake', 'early_baron', 'note', 'discord'])
 
         embed1 = interactions.Embed(
             title=title + " (Page 1/3) :bar_chart:", color=interactions.Color.blurple())
 
         for column in fichier1:
-            joueur, champion, record, url = trouver_records(fichier, column)
+            joueur, champion, record, url = trouver_records(fichier, column, identifiant='discord')
 
             embed1.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
                              value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
@@ -644,7 +650,7 @@ class Recordslol(Extension):
             title=title + " (Page 2/3) :bar_chart:", color=interactions.Color.blurple())
 
         for column in fichier2:
-            joueur, champion, record, url = trouver_records(fichier, column)
+            joueur, champion, record, url = trouver_records(fichier, column, identifiant='discord')
             embed2.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
                              value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
 
@@ -656,7 +662,7 @@ class Recordslol(Extension):
             if column in ['early_drake', 'early_baron']:
                 methode = 'min'
             joueur, champion, record, url = trouver_records(
-                fichier, column, methode)
+                fichier, column, methode, identifiant='discord')
             embed3.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
                              value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
 
@@ -681,7 +687,9 @@ class Recordslol(Extension):
                                             name="saison",
                                             description="saison lol ?",
                                             type=interactions.OptionType.INTEGER,
-                                            required=False),
+                                            required=False,
+                                            min_value=12,
+                                            max_value=saison),
                                         Option(
                                             name='mode',
                                             description='quel mode de jeu ?',
