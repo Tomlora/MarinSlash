@@ -95,6 +95,7 @@ def trouver_records(df, category, methode='max', identifiant='joueur'):
         'joueur' ou 'discord, by default 'joueur'
         
         joueur renvoie au pseudo lol
+        
         discord renvoie au mention discord
 
     Returns
@@ -120,6 +121,11 @@ def trouver_records(df, category, methode='max', identifiant='joueur'):
         champion = lig['champion']
         record = lig[category]
         url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(lig["match_id"])[5:]}#participant{int(lig["id_participant"])+1}'
+        
+        if record == 0: # pas de record
+            joueur = 'inconnu'
+            champion = 'inconnu'
+            url_game = '#'
     except:
         return 'inconnu', 'inconnu', 0, '#'
 
