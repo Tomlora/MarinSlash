@@ -369,8 +369,12 @@ class matchlol():
         ).replace(" ", ""): i for i in range(10)}
 
         # stats
-        self.thisId = self.dic[
-            self.summonerName.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
+        try:
+            self.thisId = self.dic[
+                self.summonerName.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
+        except KeyError: # changement de pseudo ? On va faire avec le puuid
+            self.dic = {(self.match_detail['metadata']['participants'][i]) : i for i in range(10)}
+            self.thisId = self.dic[self.me['puuid']]
 
         self.thisQId = self.match_detail['info']['queueId']
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
@@ -1128,7 +1132,7 @@ class matchlol():
                     bo_losses = str(bo['losses'])
                     # bo_progress = str(bo['progress'])
                     d.text(
-                        (x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L {self.thisWinrateStat}% (BO : {bo_wins} / {bo_losses}) ', font=font_little, fill=fill)
+                        (x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L {self.thisWinrateStat}%  |  (BO3 : {bo_wins} / {bo_losses}) ', font=font_little, fill=fill)
                 else:
                     d.text(
                         (x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L     {self.thisWinrateStat}% ', font=font_little, fill=fill)
