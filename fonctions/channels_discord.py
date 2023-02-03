@@ -119,7 +119,7 @@ def mention(id_discord:int, type:str) -> str:
     id_discord : int
         id à mentionner
     type : str
-        membre / role ou channel
+        'membre' / 'role' ou 'channel'
 
     Returns
     -------

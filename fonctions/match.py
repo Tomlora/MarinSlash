@@ -3,6 +3,7 @@ import pandas as pd
 import warnings
 from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd
 from fonctions.params import saison
+from fonctions.channels_discord import mention
 import json
 import numpy as np
 import sys
@@ -78,7 +79,7 @@ dict_points = {41: [11, -19],
                59: [29, -11]}
 
 
-def trouver_records(df, category, methode='max'):
+def trouver_records(df, category, methode='max', identifiant='joueur'):
     """
     Trouve la ligne avec le record associé
 
@@ -90,6 +91,11 @@ def trouver_records(df, category, methode='max'):
         colonne où chercher le record
     methode : `str`, optional
         min ou max ?, by default 'max'
+    identifiant : `str`, optional
+        'joueur' ou 'discord, by default 'joueur'
+        
+        joueur renvoie au pseudo lol
+        discord renvoie au mention discord
 
     Returns
     -------
@@ -106,7 +112,11 @@ def trouver_records(df, category, methode='max'):
             df = df[df[category] != 0.0]
             col = df[category].idxmin(skipna=True)
         lig = df.loc[col]
-        joueur = lig['joueur']
+        if identifiant == 'joueur':
+            joueur = lig['joueur']
+        elif identifiant == 'discord':
+            joueur = mention(lig['discord'], 'membre')
+            
         champion = lig['champion']
         record = lig[category]
         url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(lig["match_id"])[5:]}#participant{int(lig["id_participant"])+1}'
@@ -380,7 +390,7 @@ class matchlol():
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
         self.match_detail_challenges = self.match_detail_participants['challenges']
         self.thisPosition = self.match_detail_participants['teamPosition']
-        self.season = 13  # TODO a modifier quand s13
+        self.season = 13  # TODO a modifier quand changement de saison
 
         if (str(self.thisPosition) == "MIDDLE"):
             self.thisPosition = "MID"
