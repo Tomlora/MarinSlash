@@ -77,7 +77,7 @@ class Divers(Extension):
         reminders[ctx.author.id].pop(0)
 
     @interactions.extension_command(name='remindme_delete_ponctuel',
-                                    description="Liste des rappels ponctuels",
+                                    description="Supprimer un rappel ponctuel",
                                     options=[Option(
                                         name='numero_rappel',
                                         description='numero du rappel obtenu avec remind_list',
@@ -201,7 +201,7 @@ class Divers(Extension):
                                                object_id=infos_rappel['guild'])
 
                 if infos_rappel["public"]:
-                    msg += f'__Rappel {id_rappel}__ prévue à **{infos_rappel["heure"]}:{infos_rappel["minute"]}** {infos_rappel["repetition"]} fois dans **{guild.name}** | Public : **Oui** : \n {infos_rappel["msg"]} \n '
+                    msg += f'__Rappel {id_rappel}__ prévue à **{infos_rappel["heure"]}:{infos_rappel["minute"]}** {infos_rappel["repetition"]} fois dans **{guild.name}** | Public : **Oui ({channel.name})** : \n {infos_rappel["msg"]} \n '
                 else:
                     msg += f'__Rappel {id_rappel}__ prévue à **{infos_rappel["heure"]}:{infos_rappel["minute"]}** {infos_rappel["repetition"]} fois dans **{guild.name}** | Channel **{channel.name}** : \n {infos_rappel["msg"]} \n '
 
@@ -209,6 +209,38 @@ class Divers(Extension):
 
         else:
             await ctx.send('Pas de rappel actif', ephemeral=True)
+            
+    @interactions.extension_command(name='remindme_quotidien_delete',
+                                    description="Rappel quotidien à supprimer",
+                                    options=[
+                                        Option(name='id_rappel',
+                                               description='numero du rappel',
+                                               type=interactions.OptionType.INTEGER,
+                                               required=True)
+                                    ])
+    async def remindme_quotidien_delete(self,
+                                      ctx: CommandContext,
+                                      id_rappel : int):
+
+        await ctx.defer(ephemeral=True)
+        
+        params = {'user_id': int(ctx.author.id),
+                'id_rappel' : id_rappel}
+
+        df = lire_bdd_perso('SELECT * from remind where "user" = %(user_id)s and "id" = %(id_rappel)s',
+                            index_col='id',
+                            params=params).transpose()
+
+        if len(df) >= 1:
+
+            requete_perso_bdd('''UPDATE remind SET repetition = 0
+                              WHERE "user" = :user_id AND "id" = :id_rappel''',
+                              dict_params=params)
+            
+            await ctx.send(f'Le rappel **{id_rappel}** a été désactivé', ephemeral=True)
+
+        else:
+            await ctx.send('Pas de rappel identifié à ton nom', ephemeral=True)
 
     async def remind_call(self):
         heure, minute = heure_actuelle()
