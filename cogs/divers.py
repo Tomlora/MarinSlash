@@ -12,6 +12,8 @@ from fonctions.gestion_bdd import get_guild_data
 import cv2
 import numpy as np
 import os
+from aiohttp import ClientSession, ClientError
+from interactions.ext.paginator import Page, Paginator
 
 
 
@@ -337,6 +339,103 @@ class Divers(Extension):
 
         os.remove('image_original.png')
         os.remove('image.png')
+        
+
+    @interactions.extension_command(name="hug",
+                                    description="Faire un calin",
+                                    options=[
+                                        Option(name="membre",
+                                                    description="Nom du joueur",
+                                                    type=interactions.OptionType.USER, required=True),
+                                        Option(name="intensite",
+                                                    description="Intensité",
+                                                    type=interactions.OptionType.INTEGER,
+                                                    required=True,
+                                                    min_value=0,
+                                                    max_value=10)])
+    async def hug(self,
+                   ctx: CommandContext,
+                   membre: interactions.User,
+                   intensite: int):
+        if intensite <= 0:
+            msg = "(っ˘̩╭╮˘̩)っ" + membre.mention
+        elif intensite <= 3:
+            msg = "(っ´▽｀)っ" + membre.mention
+        elif intensite <= 6:
+            msg = "╰(*´︶`*)╯" + membre.mention
+        elif intensite <= 9:
+            msg = "(つ≧▽≦)つ" + membre.mention
+        elif intensite >= 10:
+            msg = "(づ￣ ³￣)づ{} ⊂(´・ω・｀⊂)".format(membre.mention)
+            
+        await ctx.send(msg)
+        
+    @interactions.extension_command(name='dictionnaire',
+                                    description="Definition d'un mot",
+                                    options=[
+                                        Option(name='mot',
+                                               description='mot à chercher',
+                                               type=interactions.OptionType.STRING,
+                                               required=True)
+                                    ])
+    async def dictionnaire(self,
+                           ctx: CommandContext,
+                           mot : str):
+        
+        await ctx.defer(ephemeral=False)
+        
+        url = "https://api.urbandictionary.com/v0/define"
+
+        params = {"term": str(mot).lower()}
+
+        headers = {"content-type": "application/json"}
+        
+        try:
+            async with ClientSession() as session:
+                    async with session.get(url, headers=headers, params=params) as response:
+                        data = await response.json()
+
+        except ClientError:
+            await ctx.send(
+                ("Aucun mot n'a été trouvé.")
+            )
+            return
+        
+        if data.get("error") != 404:
+            if not data.get("list"):
+                return await ctx.send(("No Urban Dictionary entries were found."))
+            
+            embeds = []
+            
+            for ud in data['list']:
+                title_capitalize = ud['word'].capitalize()
+
+                embed = interactions.Embed()
+                
+                if len(title_capitalize) > 256:
+                    title_capitalize = title_capitalize[:253]
+                    
+                embed.title = title_capitalize
+                
+                embed.url = ud['permalink']
+                
+                description = ud['definition']
+                if len(description) > 2048:
+                    description = description[:2045]
+                embed.description= description
+                
+                embed.set_author(name=ud['author'])
+                embed.set_footer(text='Source : Urban Dictionary - by Tomlora')
+                
+                embeds.append(Page(embed.title, embed))  
+                
+            
+            if embeds is not None and len(embeds) > 0:
+                await Paginator(
+                            client=self.bot,
+                            ctx=ctx,
+                            pages=embeds
+                        ).run()      
 
 
 
