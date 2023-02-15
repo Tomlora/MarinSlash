@@ -82,9 +82,10 @@ def verif_module(variable: str, guild_id: int) -> bool:
                           'server_id': guild_id}).fetchall()[0][0]
     return result == True
 
+
 def get_embed(fig,
               name,
-              color = interactions.Color.blurple()):
+              color = interactions.Color.BLURPLE):
     """Prépare l'image à insérer avec l'embed
 
     Parameters
