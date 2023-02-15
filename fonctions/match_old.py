@@ -168,9 +168,6 @@ async def get_image(type, name, session: aiohttp.ClientSession, resize_x=80, res
 
 api_key_lol = os.environ.get('API_LOL')
 
-api_moba = os.environ.get('API_moba')
-url_api_moba = os.environ.get('url_moba')
-
 
 my_region = 'euw1'
 region = "EUROPE"
@@ -187,11 +184,11 @@ async def get_mobalytics(pseudo : str, session: aiohttp.ClientSession, match_id)
         'extensions': {
             'persistedQuery': {
                 'version': 1,
-                'sha256Hash': api_moba,
+                'sha256Hash': '258067fe2687bae0b272f9a4a4b32b19638921440ecfb8b729502d849841b7dc',
             },
         },
     }
-    async with session.post(url_api_moba, headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
+    async with session.post(f'https://app.mobalytics.gg/api/lol/graphql/v1/query', headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
         match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
         
     df_moba = pd.DataFrame(match_detail_stats['data']['lol']['player']['match']['participants'])
@@ -366,8 +363,9 @@ class matchlol():
         - version du jeu
         - liste des champions"""
         
-        self.session = aiohttp.ClientSession()
+        # self.session = aiohttp.ClientSession()
         
+        self.session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) # si le certificat riot est obsolète
         if self.queue == 0:
             self.params_my_match = {'start': self.index,
                                     'count': self.count, 'api_key': api_key_lol}
@@ -735,8 +733,6 @@ class matchlol():
 
         self.thisGold_team1 = sum(self.thisGoldListe[:5])
         self.thisGold_team2 = sum(self.thisGoldListe[5:10])
-        
-        self.gold_share = round((self.thisGoldNoFormat / self.thisGold_team1) * 100,2)
 
         self.thisVisionListe = dict_data(
             self.thisId, self.match_detail, 'visionScore')
@@ -929,15 +925,6 @@ class matchlol():
         self.avgtier_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['tier']
         self.avgrank_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['division']
         
-        if self.thisId >= 5:
-            dict_id = {5 : 0, 6 : 1, 7: 2, 8: 3, 9 : 4 }
-            
-            id_mobalytics = dict_id[self.thisId]
-        else:
-            id_mobalytics = self.thisId
-        
-        self.mvp = int(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[id_mobalytics]]['mvpScore'].values[0])
-        
         self.badges = self.data_mobalytics_complete['data']['lol']['player']['match']['subject']['badges']
 
         # on doit identifier les stats soloq (et non flex...)
@@ -975,14 +962,12 @@ class matchlol():
         victoire, team_kills, team_deaths, "time", dmg, dmg_ad, dmg_ap, dmg_true, vision_score, cs, cs_jungle, vision_pink, vision_wards, vision_wards_killed,
         gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
         baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
-        item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
-        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp)
+        item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield, early_baron, allie_feeder, snowball, temps_vivant, dmg_tower)
         VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
         :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
         :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
         :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
-        :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
-        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp);''',
+        :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield, :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower);''',
                           {'match_id': self.last_match,
                            'joueur': self.summonerName.lower(),
                            'role': self.thisPosition,
@@ -1053,9 +1038,7 @@ class matchlol():
                            'allie_feeder': self.thisAllieFeeder,
                            'snowball': self.snowball,
                            'temps_vivant': self.thisTimeSpendAlive,
-                           'dmg_tower': self.thisDamageTurrets,
-                           'gold_share' : self.gold_share,
-                           'mvp' : self.mvp
+                           'dmg_tower': self.thisDamageTurrets
                            })
 
     async def add_couronnes(self, points):
@@ -1064,142 +1047,60 @@ class matchlol():
         requete_perso_bdd('''UPDATE matchs SET couronne = :points WHERE match_id = :match_id AND joueur = :joueur''', {'points': points,
                                                                                                                        'match_id': self.last_match,
                                                                                                                        'joueur': self.summonerName.lower()})
-        
-    async def calcul_badges(self):
-        
-        def insight_text(slug, values, type):
-                  
-            type_comment = {'Positive' : ':green_circle:', 'Negative' : ':red_circle:', '' : ':first_place:' }
-            
-            dict_insight = {'early_game_farmer' : f'\n{type_comment[type]} Farm en early avec **{values[0]}** cs à 10 minutes',
-                        'never_slacking' : f'\n{type_comment[type]} **{values[0]}** cs en mid game',
-                        'teamfight_god' : f'\n{type_comment[type]} Gagné **{values[0]}** sur **{values[1]}** teamfights',
-                        'lane_tyrant' : f"\n{type_comment[type]} **{values[0]}** gold d'avance à 15 minutes",
-                        'stomp' : f"\n{type_comment[type]} **{values[0]}** gold d'avance",
-                        # 'how_could_you' : f"\n{type_comment[type]} **{values[0]}** wards placés", TODO A remettre quand rito aura corrigé
-                        # 'not_fan_of_wards' : f"\n{type_comment[type]} Placé **{values[0]}** wards",
-                        'servant_of_darkness' : f"\n{type_comment[type]} Détruit **{values[0]}** wards",
-                        'good_guy' : f"\n{type_comment[type]} Acheté **{values[0]}** pink",
-                        'no_dragons_taken' : f"\n{type_comment[type]} Aucun dragon",
-                        'no_rift_heralds_taken' : f"\n{type_comment[type]} Aucun herald",
-                        'no_objectives_taken' : f"\n{type_comment[type]} Aucun objectif",
-                        'ready_to_rumble' : f"\n{type_comment[type]} Proactif en early avec **{values[0]}** kills/assists avant 15 minutes",
-                        'pick_up_artist' : f"\n{type_comment[type]} Sécurisé **{values[0]}** picks",
-                        "wanderer" : f"\n{type_comment[type]} Roam énormément pour sécuriser kills et objectifs",
-                        'survivor' : f"\n{type_comment[type]} Seulement  **{values[0]}** morts",
-                        'elite_skirmisher' : f"\n{type_comment[type]} Gagné **{values[0]}** escarmouches sur **{values[1]}**",
-                        'on_fire' : f"\n{type_comment[type]} **{round(values[0],2)}** KDA",
-                        "wrecking_ball" : f"\n{type_comment[type]} **{values[0]}** Dégats aux structures",
-                        "ouch_you_hurt" : f"\n{type_comment[type]} **{values[0]}** Dommages infligés",
-                        "goblin_hoarder" : f"\n{type_comment[type]} **{int(values[0])}** Gold par minute",
-                        "bringer_of_carnage" : f"\n{type_comment[type]} **{values[0]}** Kills",
-                        "anti_kda_player" : f"\n{type_comment[type]} **{values[0]}** KDA",
-                        "what_powerspike" : f"\n{type_comment[type]} Pas atteint le niveau 11",
-                        "not_fan_of_farming" : f"\n {type_comment[type]} **{int(values[0])}** farm par minute",
-                        "immortal" : f"\n  {type_comment[type]} Immortel",
-                        # "visionary" : f"\n {type_comment[type]} **{values[0]}** wards placés", # TODO à remettre quand rito aura corrigé
-                        "no_control" : f"\n {type_comment[type]} Aucune pink",
-                        "blood_thirsty" : f"\n {type_comment[type]} Tu as réussi **{values[0]}** ganks dans les 10 premières minutes.",
-                        "superior_jungler" : f"\n {type_comment[type]} Tu as réussi plus de ganks que ton adversaire avec **{values[0]}**",
-                        "comeback_king" : f"\n {type_comment[type]} Tu as réussi à comeback après un début difficile",
-                        "safety_first" : f"\n {type_comment[type]} Tu as placé assez de vision pour préparer les objectifs neutres",
-                        'no_damage_to_turrets' : f"\n {type_comment[type]} Tu n'as pas tapé les tours"}
-            
-            return dict_insight.get(slug,'')
 
-        self.observations = ''
-        for insight in self.badges:
-            self.observations += insight_text(insight['slug'], insight['values'], insight['type'])
-            
-        # Autres : 
-        
-        if self.thisDouble >= 3:
-            self.observations += f"\n :green_circle: **{self.thisDouble}** doublé"
-            
-        if self.thisTriple >= 2:
-            self.observations += f"\n :green_circle: **{self.thisTriple}** triplé"
-        
-        if self.thisQuadra >= 2:
-            self.observations += f"\n :green_circle: **{self.thisQuadra}** quadra"
-            
-        if self.thisTotalHealed >= 5000:
-            self.observations += f"\n :green_circle: **{self.thisTotalHealed}** HP soignés"
-            
-        if self.thisTotalShielded >= 3000:
-            self.observations += f"\n :green_circle: **{self.thisTotalShielded} ** boucliers"
-            
-        if self.thisVisionAdvantage >= 60:
-            self.observations += f"\n :green_circle: **{self.thisVisionAdvantage}**% AV vision"
-        
-        elif self.thisVisionAdvantage <= -50:
-            self.observations += f"\n :red_circle: **{self.thisVisionAdvantage}**% AV vision"
-            
-        if self.thisSoloKills >= 1:
-            self.observations += f"\n :green_circle: **{self.thisSoloKills}** solokills"
-            
+    async def resume_personnel(self,
+                               name_img,
+                               embed,
+                               difLP):
 
-
-    async def resume_general(self,
-                             name_img,
-                             embed,
-                             difLP):
-
-        '''Resume global de la game
-
+        """Resume personnel de sa game
         Parameters
         -----------
-        name_img : nom de l'image enregistré'''
-        
-        model = pickle.load(open('model/scoring_ridge.pkl', 'rb'))
-        
-        # def scoring(i):
-        #     """Calcule la performance d'un joueur
-        #     """
-            
-        #     score = model.predict(pd.DataFrame([[self.thisKillsListe[i],
-        #                                          self.thisAssistsListe[i],
-        #                                          self.thisDeathsListe[i],
-        #                                          self.thisDoubleListe[i],
-        #                                          self.thisTripleListe[i],
-        #                                          self.thisQuadraListe[i],
-        #                                          self.thisPentaListe[i],
-        #                                          self.thisDamageListe[i],
-        #                                          self.thisVisionListe[i],
-        #                                          self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i],
-        #                                          self.thisMinionPerMinListe[i],
-        #                                          self.thisVisionPerMinListe[i],
-        #                                          self.thisKPListe[i],
-        #                                          self.thisKDAListe[i],
-        #                                          self.thisDamageTakenListe[i]]]))
+        name_img : nom de l'image enregistré
+        embed : embed discord
+        diflp : calcul
 
-        #     return str(round(score[0],1))
-            
-        # Gestion de l'image 2
-        lineX = 2600
-        lineY = 100
+        return
+        -----------
+        embed discord"""
+        # Gestion de l'image 1
 
-        x_name = 350
-        x_level = x_name - 350
-        x_ecart = x_name - 200
-        x_kills = 1000 + 120
-        x_score = x_kills - 160
-        x_deaths = x_kills + 100
-        x_assists = x_deaths + 100
+       # Graphique KP
+        values = [self.thisKP/100, 1-self.thisKP/100]
 
-        x_kda = x_assists + 110
+        layout = Layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
+        )
 
-        x_kp = x_kda + 150
+        fig = go.Figure(data=[go.Pie(labels=['a', 'b'],
+                                     values=values,
+                                     hole=.3,
+                                     marker_colors=['rgb(68,138,236)', 'rgb(243,243,243)'])], layout=layout)
+        fig.update_layout(showlegend=False,
+                          # Add annotations in the center of the donut pies.
+                          annotations=[dict(text=f'{self.thisKP}%', font_size=40, showarrow=False)])
+        fig.update_traces(textinfo='none')
 
-        x_cs = x_kp + 150
+        fig.write_image('kp.png')
 
-        x_vision = x_cs + 150
+        # Graphique stats
 
-        x_dmg_percent = x_vision + 150
+        stats_name = ['DMG', 'TANK', 'TANK_REDUC', 'Healing', 'Shield']
+        stats_value = [self.thisDamageNoFormat, self.thisDamageTakenNoFormat, self.thisDamageSelfMitigated,
+                       self.thisTotalHealed, self.thisTotalShielded]
 
-        x_dmg_taken = x_dmg_percent + 235
+        df_stats = pd.DataFrame([stats_name, stats_value]).transpose()
+        df_stats.columns = ['stats', 'value']
 
-        x_kill_total = 1000
-        x_objectif = 1700
+        fig = px.histogram(df_stats, 'stats', 'value',
+                           color='stats', text_auto=".i")
+        fig.update_traces(textfont_size=20)
+        fig.update_layout(showlegend=False, font=dict(size=20))
+        fig.update_yaxes(visible=False)
+        fig.write_image('stats.png')
+
+        # Image 1
 
         lineX = 2600
         lineY = 100
@@ -1212,7 +1113,7 @@ class matchlol():
         x_metric = 120
         y_metric = 400
 
-      
+        line = Image.new("RGB", (lineX, 190), (230, 230, 230))  # Ligne grise
 
         try:
             font = ImageFont.truetype("DejaVuSans.ttf", 50)  # Ubuntu 18.04
@@ -1235,11 +1136,9 @@ class matchlol():
                     "AppleSDGothicNeo.ttc", 40
                 )  # MacOS
 
-        im = Image.new("RGBA", (lineX, lineY * 13 + 190),
-                       (255, 255, 255))  # Ligne blanche
+        im = Image.new("RGBA", (lineX, 1400), (255, 255, 255))  # Ligne blanche
         d = ImageDraw.Draw(im)
-        
-        line = Image.new("RGB", (lineX, 190), (230, 230, 230))  # Ligne grise
+
         im.paste(line, (0, 0))
 
         fill = (0, 0, 0)
@@ -1424,31 +1323,246 @@ class matchlol():
                                    'a': a,
                                    'rank': rank,
                                    'index': self.summonerName.lower(),
-                                   'match_id': self.last_match})       
+                                   'match_id': self.last_match})
+
+        kp = await get_image('autre', 'kp', self.session, 700, 500)
+
+        im.paste(kp, (x_metric-150, y_metric+20), kp.convert('RGBA'))
+        d.text((x_metric + 170, y_metric+20), 'KP', font=font, fill=(0, 0, 0))
+
+        # CS
+
+        d.text((x_metric, y_metric+620),
+               f'Avantage CS : {int(self.thisCSAdvantageOnLane)}', font=font, fill=(0, 0, 0))
+        d.text((x_metric, y_metric+500),
+               f'CS/min : {int(self.thisMinionPerMin)}', font=font, fill=(0, 0, 0))
+
+        # Ward
+
+        if self.thisQ != "ARAM":
+
+            d.text((x_metric + 640, y_metric),
+                   f'Vision : {self.thisVision} (AV : {self.thisVisionAdvantage}%)', font=font, fill=(0, 0, 0))
+            d.text((x_metric + 640, y_metric+90),
+                   f'{self.thisVisionPerMin}/min', font=font, fill=(0, 0, 0))
+
+            im.paste(im=await get_image("items", 3340, self.session, 100, 100),
+                     box=(x_metric + 650, y_metric+200))
+
+            d.text((x_metric + 800, y_metric+220),
+                   f'{self.thisWards}', font=font, fill=(0, 0, 0))
+
+            im.paste(im=await get_image("items", 3364, self.session, 100, 100),
+                     box=(x_metric + 650, y_metric+400))
+
+            d.text((x_metric + 800, y_metric+420),
+                   f'{self.thisWardsKilled}', font=font, fill=(0, 0, 0))
+
+            im.paste(im=await get_image("items", 2055, self.session, 100, 100),
+                     box=(x_metric + 650, y_metric+600))
+
+            d.text((x_metric + 800, y_metric+620),
+                   f'{self.thisPink}', font=font, fill=(0, 0, 0))
+
+        # KDA
+
+        kda_kills = 290
+        kda_deaths = 890
+        kda_assists = 1490
+        kda_gold = 2090
+
+        img_kda_kills = await get_image('kda', 'rectangle bleu blanc', self.session, 300, 150)
+        img_kda_deaths = await get_image('kda', 'rectangle rouge blanc', self.session, 300, 150)
+        img_kda_assists = await get_image('kda', 'rectangle vert', self.session, 300, 150)
+        img_kda_gold = await get_image('kda', 'rectangle gold', self.session, 300, 150)
+
+        im.paste(img_kda_kills,
+                 (kda_kills, y_metric-190), img_kda_kills.convert('RGBA'))
+
+        im.paste(img_kda_deaths,
+                 (kda_deaths, y_metric-190), img_kda_deaths.convert('RGBA'))
+
+        im.paste(img_kda_assists,
+                 (kda_assists, y_metric-190), img_kda_assists.convert('RGBA'))
+
+        im.paste(img_kda_gold,
+                 (kda_gold, y_metric-190), img_kda_gold.convert('RGBA'))
+
+        d.text((kda_kills+20, y_metric-100), f'Kills',
+               font=font, fill=(255, 255, 255))
+        d.text((kda_deaths+20, y_metric-100), f'Morts',
+               font=font, fill=(255, 255, 255))
+        d.text((kda_assists+20, y_metric-100), f'Assists',
+               font=font, fill=(255, 255, 255))
+        d.text((kda_gold+20, y_metric-100), f'Gold', font=font, fill=(0, 0, 0))
+
+        # si le score est à deux chiffres, il faut décaler dans l'img
+        if int(self.thisKills) >= 10:
+            kda_kills = kda_kills - 30
+        d.text((kda_kills+240, y_metric-180),
+               f'{self.thisKills}', font=font, fill=(0, 0, 0))
+
+        if int(self.thisDeaths) >= 10:
+            kda_deaths = kda_deaths - 30
+        d.text((kda_deaths+240, y_metric-180),
+               f'{self.thisDeaths}', font=font, fill=(0, 0, 0))
+
+        if int(self.thisAssists) >= 10:
+            kda_assists = kda_assists - 30
+        d.text((kda_assists+240, y_metric-180),
+               f'{self.thisAssists}', font=font, fill=(0, 0, 0))
+
+        d.text((kda_gold+150, y_metric-180),
+               f'{round(self.thisGoldEarned/1000,1)}k', font=font, fill=(0, 0, 0))
+
+        # Stat du jour
+        if self.thisQ == 'ARAM':
+            suivi_24h = lire_bdd('ranked_aram_24h', 'dict')
+        else:
+            suivi_24h = lire_bdd('suivi_24h', 'dict')
+
+        if self.thisQ != 'ARAM':
+            try:
+                difwin = int(self.thisVictory) - \
+                    int(suivi_24h[self.summonerName.lower()]["wins"])
+                diflos = int(self.thisLoose) - \
+                    int(suivi_24h[self.summonerName.lower()]["losses"])
+
+                if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
+                    d.text((x_metric + 650, y_name+50),
+                           f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
+                    d.text((x_metric + 1120, y_name+50),
+                           f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
+
+            except KeyError:
+                pass
+
+        elif self.thisQ == 'ARAM' and activation:
+            try:
+                difwin = wins - \
+                    int(suivi_24h[self.summonerName.lower()]["wins"])
+                diflos = losses - \
+                    int(suivi_24h[self.summonerName.lower()]["losses"])
+
+                if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
+                    d.text((x_metric + 650, y_name+50),
+                           f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
+                    d.text((x_metric + 1120, y_name+50),
+                           f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
+
+            except KeyError:
+                pass
+
+        im.paste(im=await get_image("autre", 'stats', self.session, 1000, 800),
+                 box=(x_metric + 900, y_metric+100))
+
+        d.text((x_metric + 2000, y_metric+200),
+               f'Solokills : {self.thisSoloKills}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2000, y_metric+300),
+               f'Double : {self.thisDouble}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2000, y_metric+400),
+               f'Triple : {self.thisTriple}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2000, y_metric+500),
+               f'Quadra : {self.thisQuadra}', font=font, fill=(0, 0, 0))
+        d.text((x_metric + 2000, y_metric+600),
+               f'Penta : {self.thisPenta}', font=font, fill=(0, 0, 0))
+
+        im.save(f'{name_img}.png')
+
+        return embed
+
+    async def resume_general(self,
+                             name_img):
+
+        '''Resume global de la game
+
+        Parameters
+        -----------
+        name_img : nom de l'image enregistré'''
         
+        model = pickle.load(open('model/scoring_ridge.pkl', 'rb'))
+        
+        # def scoring(i):
+        #     """Calcule la performance d'un joueur
+        #     """
+            
+        #     score = model.predict(pd.DataFrame([[self.thisKillsListe[i],
+        #                                          self.thisAssistsListe[i],
+        #                                          self.thisDeathsListe[i],
+        #                                          self.thisDoubleListe[i],
+        #                                          self.thisTripleListe[i],
+        #                                          self.thisQuadraListe[i],
+        #                                          self.thisPentaListe[i],
+        #                                          self.thisDamageListe[i],
+        #                                          self.thisVisionListe[i],
+        #                                          self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i],
+        #                                          self.thisMinionPerMinListe[i],
+        #                                          self.thisVisionPerMinListe[i],
+        #                                          self.thisKPListe[i],
+        #                                          self.thisKDAListe[i],
+        #                                          self.thisDamageTakenListe[i]]]))
+
+        #     return str(round(score[0],1))
+            
+        # Gestion de l'image 2
+        lineX = 2600
+        lineY = 100
+
+        x_name = 350
+        x_level = x_name - 350
+        x_ecart = x_name - 200
+        x_kills = 1000 + 120
+        x_score = x_kills - 160
+        x_deaths = x_kills + 100
+        x_assists = x_deaths + 100
+
+        x_kda = x_assists + 110
+
+        x_kp = x_kda + 150
+
+        x_cs = x_kp + 150
+
+        x_vision = x_cs + 150
+
+        x_dmg_percent = x_vision + 150
+
+        x_dmg_taken = x_dmg_percent + 235
+
+        x_kill_total = 1000
+        x_objectif = 1700
+
+        try:
+            font = ImageFont.truetype("DejaVuSans.ttf", 45)  # Ubuntu 18.04
+        except OSError:
+            try:
+                font = ImageFont.truetype("arial.ttf", 50)  # Windows
+            except OSError:
+                font = ImageFont.truetype(
+                    "AppleSDGothicNeo.ttc", 45
+                )  # MacOS
+
+        im = Image.new("RGBA", (lineX, lineY * 13),
+                       (255, 255, 255))  # Ligne blanche
+        d = ImageDraw.Draw(im)
         line = Image.new("RGB", (lineX, lineY), (230, 230, 230))  # Ligne grise
-        
+
         dict_position = {"TOP": 2, "JUNGLE": 3,
                          "MID": 4, "ADC": 5, "SUPPORT": 6}
 
         def draw_gray_line(i: int) -> None:
-            im.paste(line, (0, (i * lineY) + 190))
+            im.paste(line, (0, i * lineY))
 
         def draw_blue_line(i: int) -> None:
             im.paste(Image.new("RGB", (lineX, lineY),
-                     (85, 85, 255)), (0, (i * lineY) + 190))
+                     (85, 85, 255)), (0, i * lineY))
 
         def draw_red_line(i: int) -> None:
             im.paste(Image.new("RGB", (lineX, lineY),
-                     (255, 70, 70)), (0, (i * lineY) + 190))
+                     (255, 70, 70)), (0, i * lineY))
 
         def draw_light_blue_line(i: int) -> None:
             im.paste(Image.new("RGB", (lineX, lineY),
-                     (173, 216, 230)), (0, (i*lineY) + 190))
-            
-        def draw_black_line() -> None:
-            im.paste(Image.new("RGB", (lineX, 3),
-                     (0, 0, 0)), (0, 180))
+                     (173, 216, 230)), (0, i*lineY))
 
         for i in range(0, 13):
             if i % 2 == 0:
@@ -1461,36 +1575,34 @@ class matchlol():
             if self.thisQ != "ARAM":
                 if i == dict_position[self.thisPosition]:
                     draw_light_blue_line(i)
-                    
-        draw_black_line()
 
         # match
-        d.text((10, 20 + 190), self.thisQ, font=font, fill=(0, 0, 0))
+        d.text((10, 20), self.thisQ, font=font, fill=(0, 0, 0))
 
         money = await get_image('gold', 'dragon', self.session, 60, 60)
 
-        im.paste(money, (10, 120 + 190), money.convert('RGBA'))
-        d.text((83, 120 + 190), f'{self.thisGold_team1}',
+        im.paste(money, (10, 120), money.convert('RGBA'))
+        d.text((83, 120), f'{self.thisGold_team1}',
                font=font, fill=(255, 255, 255))
-        im.paste(money, (10, 720 + 190), money.convert('RGBA'))
-        d.text((83, 720 + 190), f'{self.thisGold_team2}', font=font, fill=(0, 0, 0))
+        im.paste(money, (10, 720), money.convert('RGBA'))
+        d.text((83, 720), f'{self.thisGold_team2}', font=font, fill=(0, 0, 0))
         
         self.img_ally_avg = await get_image('tier', self.avgtier_ally.upper(), self.session, 100, 100)
         
-        im.paste(self.img_ally_avg, (x_name+200, 120-20 + 190), self.img_ally_avg.convert('RGBA'))
+        im.paste(self.img_ally_avg, (x_name+200, 120-20), self.img_ally_avg.convert('RGBA'))
         
-        d.text((x_name+300, 120 + 190), str(
+        d.text((x_name+300, 120), str(
                     self.avgrank_ally), font=font, fill=(0, 0, 0))
         
         self.img_enemy_avg = await get_image('tier', self.avgtier_enemy.upper(), self.session, 100, 100)
         
-        im.paste(self.img_enemy_avg, (x_name+200, 720-20 + 190), self.img_enemy_avg.convert('RGBA'))
+        im.paste(self.img_enemy_avg, (x_name+200, 720-20), self.img_enemy_avg.convert('RGBA'))
         
-        d.text((x_name+300, 720 + 190), str(
+        d.text((x_name+300, 720), str(
                     self.avgrank_enemy), font=font, fill=(0, 0, 0))
 
-        for y in range(123 + 190, 724 + 190, 600):
-            if y == 123 + 190:
+        for y in range(123, 724, 600):
+            if y == 123:
                 fill = (255, 255, 255)
             else:
                 fill = (0, 0, 0)
@@ -1512,16 +1624,7 @@ class matchlol():
                 
 
         # participants
-        initial_y = 223 + 190
-        
-        # array_scoring = np.array([]) # qu'on va mettre du plus grand au plus petit
-        # liste = []  # en ordre en fonction des joueurs
-        # for i in range(0,10):
-        #     liste.append(scoring(i))
-        #     scoring = liste[i]
-        #     array_scoring = np.append(array_scoring, scoring)
-        # array_scoring = np.sort(array_scoring)
-
+        initial_y = 223
 
         for i in range(0, 10):
             im.paste(
@@ -1546,10 +1649,9 @@ class matchlol():
                         tier_joueur), font=font, fill=(0, 0, 0))
             
             # Scoring
-            
-            # mvp_pts = np.where(array_scoring == liste[i])[0][0]
-            # d.text((x_score, initial_y),
-                #     mvp_pts), font=font, fill=(0,0,0))
+
+                # d.text((x_score, initial_y),
+                #     scoring(i), font=font, fill=(0,0,0))
                 
             scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['mvpScore'].values[0]
             
@@ -1631,7 +1733,7 @@ class matchlol():
                 initial_y += 100
 
         if self.thisQ != "ARAM":
-            y_ecart = 220 + 190
+            y_ecart = 220
             for ecart in [self.ecart_top_gold_affiche, self.ecart_jgl_gold_affiche, self.ecart_mid_gold_affiche, self.ecart_adc_gold_affiche, self.ecart_supp_gold_affiche]:
                 if ecart > 0:
                     d.text((x_ecart, y_ecart), str(round(ecart/1000, 1)
@@ -1646,7 +1748,7 @@ class matchlol():
         for image in self.thisItems:
             if image != 0:
                 im.paste(await get_image("items", image, self.session),
-                         box=(350 + n, 10 + 190))
+                         box=(350 + n, 10))
                 n += 100
 
         if self.thisQ != "ARAM":
@@ -1656,75 +1758,35 @@ class matchlol():
             herald = await get_image('monsters', 'herald', self.session)
             nashor = await get_image('monsters', 'nashor', self.session)
 
-            im.paste(drk, (x_objectif, 10 + 190), drk.convert('RGBA'))
-            d.text((x_objectif + 100, 25 + 190), str(self.thisDragonTeam),
+            im.paste(drk, (x_objectif, 10), drk.convert('RGBA'))
+            d.text((x_objectif + 100, 25), str(self.thisDragonTeam),
                    font=font, fill=(0, 0, 0))
 
-            im.paste(elder, (x_objectif + 200, 10 + 190), elder.convert('RGBA'))
-            d.text((x_objectif + 200 + 100, 25 + 190),
+            im.paste(elder, (x_objectif + 200, 10), elder.convert('RGBA'))
+            d.text((x_objectif + 200 + 100, 25),
                    str(self.thisElderPerso), font=font, fill=(0, 0, 0))
 
-            im.paste(herald, (x_objectif + 400, 10 + 190), herald.convert('RGBA'))
-            d.text((x_objectif + 400 + 100, 25 + 190),
+            im.paste(herald, (x_objectif + 400, 10), herald.convert('RGBA'))
+            d.text((x_objectif + 400 + 100, 25),
                    str(self.thisHeraldTeam), font=font, fill=(0, 0, 0))
 
-            im.paste(nashor, (x_objectif + 600, 10 + 190), nashor.convert('RGBA'))
-            d.text((x_objectif + 600 + 100, 25 + 190),
+            im.paste(nashor, (x_objectif + 600, 10), nashor.convert('RGBA'))
+            d.text((x_objectif + 600 + 100, 25),
                    str(self.thisBaronTeam), font=font, fill=(0, 0, 0))
 
         img_blue_epee = await get_image('epee', 'blue', self.session)
         img_red_epee = await get_image('epee', 'red', self.session)
 
-        im.paste(img_blue_epee, (x_kill_total, 10 + 190),
+        im.paste(img_blue_epee, (x_kill_total, 10),
                  img_blue_epee.convert('RGBA'))
-        d.text((x_kill_total + 100, 23 + 190), str(self.thisTeamKills),
+        d.text((x_kill_total + 100, 23), str(self.thisTeamKills),
                font=font, fill=(0, 0, 0))
 
-        im.paste(img_red_epee, (x_kill_total + 300, 10 + 190),
+        im.paste(img_red_epee, (x_kill_total + 300, 10),
                  img_red_epee.convert('RGBA'))
-        d.text((x_kill_total + 300 + 100, 23 + 190),
+        d.text((x_kill_total + 300 + 100, 23),
                str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
-        
-        # Stat du jour
-        if self.thisQ == 'ARAM':
-            suivi_24h = lire_bdd('ranked_aram_24h', 'dict')
-        else:
-            suivi_24h = lire_bdd('suivi_24h', 'dict')
-
-        if self.thisQ != 'ARAM':
-            try:
-                difwin = int(self.thisVictory) - \
-                    int(suivi_24h[self.summonerName.lower()]["wins"])
-                diflos = int(self.thisLoose) - \
-                    int(suivi_24h[self.summonerName.lower()]["losses"])
-
-                if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
-                    d.text((x_metric + 650, y_name+50),
-                           f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
-                    d.text((x_metric + 1120, y_name+50),
-                           f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
-
-            except KeyError:
-                pass
-
-        elif self.thisQ == 'ARAM' and activation:
-            try:
-                difwin = wins - \
-                    int(suivi_24h[self.summonerName.lower()]["wins"])
-                diflos = losses - \
-                    int(suivi_24h[self.summonerName.lower()]["losses"])
-
-                if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
-                    d.text((x_metric + 650, y_name+50),
-                           f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
-                    d.text((x_metric + 1120, y_name+50),
-                           f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
-
-            except KeyError:
-                pass
 
         im.save(f'{name_img}.png')
 
         await self.session.close()
-        
-        return embed
