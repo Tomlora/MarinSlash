@@ -67,7 +67,7 @@ class Aram(Extension):
         df.sort_values('lp', ascending=False, inplace=True)
 
         embed = interactions.Embed(
-            title="Suivi LOL", description='ARAM', color=interactions.Color.blurple())
+            title="Suivi LOL", description='ARAM', color=interactions.Color.BLURPLE)
 
         for key in df['index']:
             
@@ -135,12 +135,12 @@ class Aram(Extension):
         await ctx.defer(ephemeral=False)
 
         embed = interactions.Embed(
-            title='Help Aram', description='Règle', color=interactions.Color.blurple())
+            title='Help Aram', description='Règle', color=interactions.Color.BLURPLE)
 
         embed.add_field(name='Déroulement général', value=texte_general)
 
         embed2 = interactions.Embed(
-            title='Palier', description="Rang", color=interactions.Color.blurple())
+            title='Palier', description="Rang", color=interactions.Color.BLURPLE)
 
         embed2.add_field(name='IRON', value="LP < 100")
         embed2.add_field(name='BRONZE', value="100 < LP < 200")
@@ -153,7 +153,7 @@ class Aram(Extension):
         embed2.add_field(name='CHALLENGER', value="2000 < LP")
 
         embed3 = interactions.Embed(
-            title='Calcul points', description="MMR", color=interactions.Color.yellow())
+            title='Calcul points', description="MMR", color=interactions.Color.YELLOW)
 
         embed3.add_field(name="5 premières games", value=f"5 premières games \n" +
                          "V : **+50**  | D : **0**", inline=False)
@@ -220,7 +220,7 @@ class Aram(Extension):
             msg = 'Bien essayé ! Tu perds 1 lp.'
 
         embed = interactions.Embed(description=msg,
-                                   color=interactions.Color.blurple())
+                                   color=interactions.Color.BLURPLE)
 
         await ctx.send(embeds=embed)
 
@@ -279,7 +279,7 @@ class Aram(Extension):
                     joueur = suivi.keys()
 
                     embed = interactions.Embed(
-                        title="Suivi ARAM LOL", description='Periode : 24h', color=interactions.Color.blurple())
+                        title="Suivi ARAM LOL", description='Periode : 24h', color=interactions.Color.BLURPLE)
                     totalwin = 0
                     totaldef = 0
                     totalgames = 0

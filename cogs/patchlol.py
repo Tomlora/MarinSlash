@@ -40,7 +40,7 @@ class Patchlol(Extension):
             # Embed
 
             embed = interactions.Embed(
-                title=f"Le patch {patch_actuel.version_patch} est disponible ! ", color=interactions.Color.blurple())
+                title=f"Le patch {patch_actuel.version_patch} est disponible ! ", color=interactions.Color.BLURPLE)
             embed.set_image(url=patch_actuel.overview_image)
 
             embed.add_field(

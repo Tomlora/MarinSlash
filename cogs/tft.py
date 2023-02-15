@@ -424,7 +424,7 @@ class tft(Extension):
 
         response = response[:-2]
         embed = interactions.Embed(
-            title="Live feed list", description=response, colour=interactions.Color.blurple())
+            title="Live feed list", description=response, colour=interactions.Color.BLURPLE)
 
         await ctx.send(embeds=embed)
 

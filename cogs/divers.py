@@ -186,7 +186,7 @@ class Divers(Extension):
             else:
                 description = f"{member.name} a été spank par {ctx.author.name} pour {reason}"
             embed = interactions.Embed(description=description,
-                                       color=interactions.Color.red())
+                                       color=interactions.Color.RED)
             print("Une personne a été spank")
 
             await ctx.send(embeds=embed)
@@ -199,7 +199,7 @@ class Divers(Extension):
             description = f"Bien essayé. {ctx.author.name} s'est prank lui-même"
 
             embed = interactions.Embed(description=description,
-                                       color=interactions.Color.red())
+                                       color=interactions.Color.RED)
             print("Une personne s'est spank elle-même")
 
             await ctx.send(embeds=embed)
@@ -252,7 +252,7 @@ class Divers(Extension):
             else:
                 description = f"{member.mention} a été muté pour {seconds} secondes ! 🎙"
             embed = interactions.Embed(description=description,
-                                       color=interactions.Color.red())
+                                       color=interactions.Color.RED)
 
             await ctx.send(embeds=embed)
 
@@ -405,28 +405,37 @@ class Divers(Extension):
             if not data.get("list"):
                 return await ctx.send(("No Urban Dictionary entries were found."))
             
+            # on crée la liste d'embed pour paginator
             embeds = []
             
             for ud in data['list']:
-                title_capitalize = ud['word'].capitalize()
-
+                
+                # embed
                 embed = interactions.Embed()
                 
+                # titre
+                title_capitalize = ud['word'].capitalize()
                 if len(title_capitalize) > 256:
                     title_capitalize = title_capitalize[:253]
-                    
                 embed.title = title_capitalize
                 
+                #url
                 embed.url = ud['permalink']
                 
+                #définition
                 description = ud['definition']
+                exemple = ud['example']
                 if len(description) > 2048:
                     description = description[:2045]
-                embed.description= description
+                embed.description= description + f'\n\n **Exemple**: {exemple}'
                 
+                # author
                 embed.set_author(name=ud['author'])
+                
+                # pied de page
                 embed.set_footer(text='Source : Urban Dictionary - by Tomlora')
                 
+                # on ajoute à la liste d'embed
                 embeds.append(Page(embed.title, embed))  
                 
             

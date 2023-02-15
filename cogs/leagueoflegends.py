@@ -252,7 +252,8 @@ class LeagueofLegends(Extension):
                              'shield': match_info.thisTotalShielded,
                              'allie_feeder': match_info.thisAllieFeeder,
                              'temps_vivant': match_info.thisTimeSpendAlive,
-                             'dmg_tower': match_info.thisDamageTurrets}
+                             'dmg_tower': match_info.thisDamageTurrets,
+                             'gold_share' : match_info.gold_share}
 
             param_records_only_ranked = {'vision_score': match_info.thisVision,
                                          'vision_wards': match_info.thisWards,
@@ -927,7 +928,7 @@ class LeagueofLegends(Extension):
 
         response = response[:-2]
         embed = interactions.Embed(
-            title="Live feed list", description=response, color=interactions.Color.blurple())
+            title="Live feed list", description=response, color=interactions.Color.BLURPLE)
 
         await ctx.send(embeds=embed)
 
@@ -999,7 +1000,7 @@ class LeagueofLegends(Extension):
                     joueur = suivi.keys()
 
                     embed = interactions.Embed(
-                        title="Suivi LOL", description='Periode : 24h', color=interactions.Color.blurple())
+                        title="Suivi LOL", description='Periode : 24h', color=interactions.Color.BLURPLE)
                     totalwin = 0
                     totaldef = 0
                     totalgames = 0

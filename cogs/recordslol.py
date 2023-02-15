@@ -232,7 +232,7 @@ class Recordslol(Extension):
         response = ""
 
         embed1 = interactions.Embed(
-            title=f"Records {mode} S12 (Page 1/3) :bar_chart:", color=interactions.Color.blurple())
+            title=f"Records {mode} S12 (Page 1/3) :bar_chart:", color=interactions.Color.BLURPLE)
 
         for key, value in fichier1.iterrows():
             valeur = ""
@@ -257,7 +257,7 @@ class Recordslol(Extension):
         embed1.set_footer(text=f'Version {Version} by Tomlora')
 
         embed2 = interactions.Embed(
-            title=f"Records {mode} S12 (Page 2/3) :bar_chart:", color=interactions.Color.blurple())
+            title=f"Records {mode} S12 (Page 2/3) :bar_chart:", color=interactions.Color.BLURPLE)
 
         for key, value in fichier2.iterrows():
             valeur2 = ""
@@ -423,11 +423,11 @@ class Recordslol(Extension):
         df_part2 = df.iloc[18:]
 
         embed1 = interactions.Embed(
-            title=f"Records personnels {joueur} (1/3)", color=interactions.Color.blurple())
+            title=f"Records personnels {joueur} (1/3)", color=interactions.Color.BLURPLE)
         embed2 = interactions.Embed(
-            title=f"Records personnels {joueur} (2/3)", color=interactions.Color.blurple())
+            title=f"Records personnels {joueur} (2/3)", color=interactions.Color.BLURPLE)
         embed3 = interactions.Embed(
-            title=f"Records personnels ARAM {joueur} (3/3)", color=interactions.Color.blurple())
+            title=f"Records personnels ARAM {joueur} (3/3)", color=interactions.Color.BLURPLE)
 
         for key, valeur in df_part1.iteritems():
             # format
@@ -622,7 +622,7 @@ class Recordslol(Extension):
         fichier1 = fichier.columns[3:22].drop(['champion', 'victoire'])
         fichier2 = fichier.columns[22:45].drop(['team', 'afk'])
         fichier3 = fichier.columns[45:].drop(['season', 'date', 'mode', 'rank', 'tier', 'kda', 'kp', 'damageratio',
-                                             'lp', 'id_participant', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6', 'discord'])
+                                             'lp', 'id_participant', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6', 'discord', 'note', 'mvp'])
 
         # on rajoute quelques éléments sur d'autres pages...
 
@@ -641,10 +641,10 @@ class Recordslol(Extension):
                                       'jgl_dix_min', 'baron', 'drake', 'herald',
                                       'vision_min', 'level_max_avantage', 'vision_avantage'])
             fichier3 = fichier3.drop(
-                ['early_drake', 'early_baron', 'note'])
+                ['early_drake', 'early_baron', 'note', 'mvp'])
 
         embed1 = interactions.Embed(
-            title=title + " (Page 1/3) :bar_chart:", color=interactions.Color.blurple())
+            title=title + " (Page 1/3) :bar_chart:", color=interactions.Color.BLURPLE)
 
         for column in fichier1:
             joueur, champion, record, url = trouver_records(fichier, column, identifiant=methode_pseudo)
@@ -653,7 +653,7 @@ class Recordslol(Extension):
                              value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
 
         embed2 = interactions.Embed(
-            title=title + " (Page 2/3) :bar_chart:", color=interactions.Color.blurple())
+            title=title + " (Page 2/3) :bar_chart:", color=interactions.Color.BLURPLE)
 
         for column in fichier2:
             joueur, champion, record, url = trouver_records(fichier, column, identifiant=methode_pseudo)
@@ -661,7 +661,7 @@ class Recordslol(Extension):
                              value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
 
         embed3 = interactions.Embed(
-            title=title + " (Page 3/3) :bar_chart:", color=interactions.Color.blurple())
+            title=title + " (Page 3/3) :bar_chart:", color=interactions.Color.BLURPLE)
 
         for column in fichier3:
             methode = 'max'
@@ -767,7 +767,7 @@ class Recordslol(Extension):
                          'team_deaths', 'time', 'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'gold', 'gold_min', 'dmg_min', 'solokills', 'dmg_reduit', 'heal_total', 'heal_allies',
                          'serie_kills', 'cs_dix_min', 'cs_max_avantage', 'temps_dead', 'damageratio', 'tankratio', 'dmg_tank', 'shield', 'allie_feeder',
                          'vision_score', 'vision_wards', 'vision_wards_killed', 'vision_pink', 'vision_min', 'level_max_avantage', 'vision_avantage', 'early_drake', 'early_baron',
-                         'jgl_dix_min', 'baron', 'drake', 'herald', 'cs_jungle', 'temps_vivant', 'dmg_tower']
+                         'jgl_dix_min', 'baron', 'drake', 'herald', 'cs_jungle', 'temps_vivant', 'dmg_tower', 'gold_share']
         
         if mode == 'ARAM':
             liste_records.append('snowball')

@@ -179,7 +179,7 @@ class Achievements_scoringlol(Extension):
                 partie4 + partie5 + partie6 + partie7 + partie8
 
         embed = interactions.Embed(
-            title=f"** Règles {mode}: **", color=interactions.Color.yellow())
+            title=f"** Règles {mode}: **", color=interactions.Color.YELLOW)
         embed.add_field(name="Parametres", value=partie0, inline=False)
         embed.add_field(name="Couronnes disponibles",
                         value=texte_achievements, inline=False)

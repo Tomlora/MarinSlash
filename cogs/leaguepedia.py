@@ -138,7 +138,7 @@ class Leaguepedia(Extension):
             data_mercato = data_mercato[data_mercato['Competition'] == league]
 
         embed = interactions.Embed(
-            title="Mercato", color=interactions.Color.orange())
+            title="Mercato", color=interactions.Color.FUCHSIA)
 
         for key, value in data_mercato.head(10).iterrows():
             player = value['Player']
