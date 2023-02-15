@@ -572,6 +572,7 @@ class Recordslol(Extension):
 
         await ctx.defer(ephemeral=False)
         
+        methode_pseudo = 'discord'
         
         if view == 'global':
             fichier = lire_bdd_perso('''SELECT distinct matchs.*, tracker.discord from matchs
@@ -595,10 +596,15 @@ class Recordslol(Extension):
             fichier = fichier[fichier['champion'] == champion]
 
         if sub_command == 'personnel':
-
+            
             joueur = joueur.lower()
+            
+            id_joueur = lire_bdd_perso('''SELECT tracker.index, tracker.discord from tracker''',
+                                        format='dict', index_col='index')
 
-            fichier = fichier[fichier['joueur'] == joueur]
+            fichier = fichier[fichier['discord'] == id_joueur[joueur]['discord']]
+            
+            methode_pseudo = 'joueur'
 
             if champion != None:
 
@@ -616,7 +622,7 @@ class Recordslol(Extension):
         fichier1 = fichier.columns[3:22].drop(['champion', 'victoire'])
         fichier2 = fichier.columns[22:45].drop(['team', 'afk'])
         fichier3 = fichier.columns[45:].drop(['season', 'date', 'mode', 'rank', 'tier', 'kda', 'kp', 'damageratio',
-                                             'lp', 'id_participant', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6'])
+                                             'lp', 'id_participant', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6', 'discord'])
 
         # on rajoute quelques éléments sur d'autres pages...
 
@@ -635,13 +641,13 @@ class Recordslol(Extension):
                                       'jgl_dix_min', 'baron', 'drake', 'herald',
                                       'vision_min', 'level_max_avantage', 'vision_avantage'])
             fichier3 = fichier3.drop(
-                ['early_drake', 'early_baron', 'note', 'discord'])
+                ['early_drake', 'early_baron', 'note'])
 
         embed1 = interactions.Embed(
             title=title + " (Page 1/3) :bar_chart:", color=interactions.Color.blurple())
 
         for column in fichier1:
-            joueur, champion, record, url = trouver_records(fichier, column, identifiant='discord')
+            joueur, champion, record, url = trouver_records(fichier, column, identifiant=methode_pseudo)
 
             embed1.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
                              value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
@@ -650,7 +656,7 @@ class Recordslol(Extension):
             title=title + " (Page 2/3) :bar_chart:", color=interactions.Color.blurple())
 
         for column in fichier2:
-            joueur, champion, record, url = trouver_records(fichier, column, identifiant='discord')
+            joueur, champion, record, url = trouver_records(fichier, column, identifiant=methode_pseudo)
             embed2.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
                              value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
 
@@ -662,7 +668,7 @@ class Recordslol(Extension):
             if column in ['early_drake', 'early_baron']:
                 methode = 'min'
             joueur, champion, record, url = trouver_records(
-                fichier, column, methode, identifiant='discord')
+                fichier, column, methode, identifiant=methode_pseudo)
             embed3.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
                              value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
 

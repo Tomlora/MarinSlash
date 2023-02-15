@@ -147,7 +147,7 @@ class LeagueofLegends(Extension):
                                         INNER JOIN tracker on tracker.index = matchs.joueur
                                         where season = %(saison)s
                                         and mode = %(mode)s
-                                        and joueur = %(joueur)s
+                                        and discord = (SELECT tracker.discord from tracker WHERE tracker.index = %(joueur)s)
                                         and server_id = %(guild_id)s''',
                                         index_col='id',
                                         params={'saison': match_info.season,
@@ -330,7 +330,7 @@ class LeagueofLegends(Extension):
                                                fichier_champion, parameter, value, methode)
 
 
-        print(exploits)
+
         # on le fait après sinon ça flingue les records
         match_info.thisDamageTurrets = "{:,}".format(
             match_info.thisDamageTurrets).replace(',', ' ').replace('.', ',')
@@ -465,6 +465,7 @@ class LeagueofLegends(Extension):
             couronnes_embed +=\
                 f"\n ** :crown: :shield: Shield : {match_info.thisTotalShielded} **"
             points += 1
+            
 
         if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20 and succes is True) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
@@ -504,6 +505,10 @@ class LeagueofLegends(Extension):
             serie_victoire = 0
 
         sauvegarde_bdd(suivi, f'suivi_s{saison}')  # achievements + suivi
+        
+        # badges
+        
+        await match_info.calcul_badges()
 
         # observations
 
@@ -570,25 +575,27 @@ class LeagueofLegends(Extension):
 
         if points >= 1:
             embed.add_field(name='Couronnes', value=couronnes_embed)
-        else:
-            embed.add_field(name='Couronnes', value='Aucune couronne obtenue')
+            
+        if match_info.observations != '':
+            embed.add_field(name='Insights', value=match_info.observations)
+            
 
        # Gestion de l'image 1
 
-        embed = await match_info.resume_personnel('resume_perso', embed, difLP)
+        # embed = await match_info.resume_personnel('resume_perso', embed, difLP)
 
         # Gestion de l'image 2
 
-        await match_info.resume_general('resume')
+        embed = await match_info.resume_general('resume', embed, difLP)
 
         # on charge les img
 
-        resume = interactions.File('resume_perso.png')
-        embed.set_image(url='attachment://resume_perso.png')
+        # resume = interactions.File('resume_perso.png')
+        # embed.set_image(url='attachment://resume_perso.png')
 
-        embed2 = interactions.Embed(color=color)
-        resume2 = interactions.File('resume.png')
-        embed2.set_image(url='attachment://resume.png')
+        # embed = interactions.Embed(color=color)
+        resume = interactions.File('resume.png')
+        embed.set_image(url='attachment://resume.png')
 
         if sauvegarder:
             embed.set_footer(
@@ -596,7 +603,7 @@ class LeagueofLegends(Extension):
         else:
             embed.set_footer(
                 text=f'Version {Version} by Tomlora - Match {str(match_info.last_match)}')
-        return embed, match_info.thisQ, resume, embed2, resume2
+        return embed, match_info.thisQ, resume
 
     async def updaterank(self, key, discord_server_id, session: aiohttp.ClientSession):
 
@@ -668,7 +675,7 @@ class LeagueofLegends(Extension):
 
         summonername = summonername.lower()
 
-        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(),
+        embed, mode_de_jeu, resume= await self.printInfo(summonerName=summonername.lower(),
                                                                            idgames=int(
                                                                                numerogame),
                                                                            succes=succes,
@@ -678,9 +685,9 @@ class LeagueofLegends(Extension):
 
         if embed != {}:
             await ctx.send(embeds=embed, files=resume)
-            await ctx.send(embeds=embed2, files=resume2)
+            # await ctx.send(embeds=embed2, files=resume2)
             os.remove('resume.png')
-            os.remove('resume_perso.png')
+            # os.remove('resume_perso.png')
 
     @interactions.extension_command(name="game_multi",
                                     description="Voir les statistiques d'une games",
@@ -718,11 +725,15 @@ class LeagueofLegends(Extension):
 
             summonername = summonername.lower()
 
-            embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername.lower(), idgames=int(i), succes=succes, sauvegarder=sauvegarder, guild_id=int(ctx.guild_id))
+            embed, mode_de_jeu, resume= await self.printInfo(summonerName=summonername.lower(),
+                                                                               idgames=int(i),
+                                                                               succes=succes,
+                                                                               sauvegarder=sauvegarder,
+                                                                               guild_id=int(ctx.guild_id))
 
             if embed != {}:
                 await ctx.send(embeds=embed, files=resume)
-                await ctx.send(embeds=embed2, files=resume2)
+                # await ctx.send(embeds=embed2, files=resume2)
             else:
                 await ctx.send(f"La game {str(i)} n'a pas été comptabilisée")
 
@@ -732,7 +743,11 @@ class LeagueofLegends(Extension):
 
         summonername = summonername.lower()
 
-        embed, mode_de_jeu, resume, embed2, resume2 = await self.printInfo(summonerName=summonername, idgames=0, succes=True, sauvegarder=True, guild_id=discord_server_id.server_id)
+        embed, mode_de_jeu, resume= await self.printInfo(summonerName=summonername,
+                                                                           idgames=0,
+                                                                           succes=True,
+                                                                           sauvegarder=True,
+                                                                           guild_id=discord_server_id.server_id)
 
         if mode_de_jeu in ['RANKED', 'FLEX']:
 
@@ -746,10 +761,10 @@ class LeagueofLegends(Extension):
 
         if embed != {}:
             await channel_tracklol.send(embeds=embed, files=resume)
-            await channel_tracklol.send(embeds=embed2, files=resume2)
+            # await channel_tracklol.send(embeds=embed2, files=resume2)
 
             os.remove('resume.png')
-            os.remove('resume_perso.png')
+            # os.remove('resume_perso.png')
 
     async def update(self):
 

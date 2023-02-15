@@ -10,17 +10,6 @@ from interactions import Choice, Option, Extension, CommandContext
 import numpy as np
 
 
-def unifier_joueur(df, colonne):
-    # TODO :  à remplacer par id discord
-    df[colonne] = df[colonne].replace('stαte', 'state')
-    df[colonne] = df[colonne].replace('linò', 'state')
-    df[colonne] = df[colonne].replace('namiyeon', 'dawn')
-    df[colonne] = df[colonne].replace('chatobogan', 'dawn')
-    df[colonne] = df[colonne].replace('zyradelevingne', 'dawn')
-
-    return df
-
-
 class Achievements_scoringlol(Extension):
     def __init__(self, bot) -> None:
         self.bot: interactions.Client = bot
@@ -54,6 +43,19 @@ class Achievements_scoringlol(Extension):
                            ctx: CommandContext,
                            mode: str,
                            records: str = 'none'):
+        
+        
+        def unifier_joueur(df, colonne):
+            # Replace with Discord ID
+            replacements = {'stαte': 'state',
+                            'linò': 'state',
+                            'namiyeon': 'dawn',
+                            'chatobogan': 'dawn',
+                            'zyradelevingne': 'dawn'}
+
+            df[colonne] = df[colonne].replace(replacements)
+
+            return df
 
         # Succes
         suivi = lire_bdd(f'suivi_s12', 'dict')
