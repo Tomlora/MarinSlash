@@ -55,7 +55,7 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
 - Le score final est prédit sur la base du calcul d'op.gg, à partir d'une régression linéaire
 
  <p align="center">
-  <img width="550" height="1000" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese3.jpg?raw=true">
+  <img width="550" height="1000" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese3.png?raw=true">
 </p>
 
 -------------
