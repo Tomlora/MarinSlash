@@ -1072,7 +1072,7 @@ class matchlol():
             type_comment = {'Positive' : ':green_circle:', 'Negative' : ':red_circle:', '' : ':first_place:' }
             
             dict_insight = {'early_game_farmer' : f'\n{type_comment[type]} Farm en early avec **{values[0]}** cs à 10 minutes',
-                        'never_slacking' : f'\n{type_comment[type]} **{values[0]}** cs en mid game',
+                        # 'never_slacking' : f'\n{type_comment[type]} **{values[0]}** cs en mid game',
                         'teamfight_god' : f'\n{type_comment[type]} Gagné **{values[0]}** sur **{values[1]}** teamfights',
                         'lane_tyrant' : f"\n{type_comment[type]} **{values[0]}** gold d'avance à 15 minutes",
                         'stomp' : f"\n{type_comment[type]} **{values[0]}** gold d'avance",
@@ -1093,17 +1093,18 @@ class matchlol():
                         "ouch_you_hurt" : f"\n{type_comment[type]} **{values[0]}** Dommages infligés",
                         "goblin_hoarder" : f"\n{type_comment[type]} **{int(values[0])}** Gold par minute",
                         "bringer_of_carnage" : f"\n{type_comment[type]} **{values[0]}** Kills",
-                        "anti_kda_player" : f"\n{type_comment[type]} **{values[0]}** KDA",
+                        "anti_kda_player" : f"\n{type_comment[type]} **{round(values[0],2)}** KDA",
                         "what_powerspike" : f"\n{type_comment[type]} Pas atteint le niveau 11",
                         "not_fan_of_farming" : f"\n {type_comment[type]} **{int(values[0])}** farm par minute",
-                        "immortal" : f"\n  {type_comment[type]} Immortel",
+                        "immortal" : f"\n {type_comment[type]} Immortel",
                         # "visionary" : f"\n {type_comment[type]} **{values[0]}** wards placés", # TODO à remettre quand rito aura corrigé
-                        "no_control" : f"\n {type_comment[type]} Aucune pink",
-                        "blood_thirsty" : f"\n {type_comment[type]} Tu as réussi **{values[0]}** ganks dans les 10 premières minutes.",
-                        "superior_jungler" : f"\n {type_comment[type]} Tu as réussi plus de ganks que ton adversaire avec **{values[0]}**",
+                        "no_control" : f"\n{type_comment[type]} Aucune pink",
+                        "blood_thirsty" : f"\n{type_comment[type]} Tu as réussi **{values[0]}** ganks dans les 10 premières minutes.",
+                        "superior_jungler" : f"\n{type_comment[type]} Tu as réussi plus de ganks que ton adversaire avec **{values[0]}**",
                         "comeback_king" : f"\n {type_comment[type]} Tu as réussi à comeback après un début difficile",
-                        "safety_first" : f"\n {type_comment[type]} Tu as placé assez de vision pour préparer les objectifs neutres",
-                        'no_damage_to_turrets' : f"\n {type_comment[type]} Tu n'as pas tapé les tours"}
+                        "safety_first" : f"\n{type_comment[type]} Tu as placé assez de vision pour préparer les objectifs neutres",
+                        'no_damage_to_turrets' : f"\n{type_comment[type]} Tu n'as pas tapé les tours",
+                        'mvp' : f"\n{type_comment[type]} Meilleur joueur"}
             
             return dict_insight.get(slug,'')
 
@@ -1114,28 +1115,32 @@ class matchlol():
         # Autres : 
         
         if self.thisDouble >= 3:
-            self.observations += f"\n :green_circle: **{self.thisDouble}** doublé"
+            self.observations += f"\n:green_circle: **{self.thisDouble}** doublé"
             
         if self.thisTriple >= 2:
-            self.observations += f"\n :green_circle: **{self.thisTriple}** triplé"
+            self.observations += f"\n:green_circle: **{self.thisTriple}** triplé"
         
         if self.thisQuadra >= 2:
-            self.observations += f"\n :green_circle: **{self.thisQuadra}** quadra"
+            self.observations += f"\n:green_circle: **{self.thisQuadra}** quadra"
             
         if self.thisTotalHealed >= 5000:
-            self.observations += f"\n :green_circle: **{self.thisTotalHealed}** HP soignés"
+            self.observations += f"\n:green_circle: **{self.thisTotalHealed}** HP soignés"
             
         if self.thisTotalShielded >= 3000:
-            self.observations += f"\n :green_circle: **{self.thisTotalShielded} ** boucliers"
+            self.observations += f"\n:green_circle: **{self.thisTotalShielded} ** boucliers"
             
         if self.thisVisionAdvantage >= 60:
-            self.observations += f"\n :green_circle: **{self.thisVisionAdvantage}**% AV vision"
+            self.observations += f"\n:green_circle: **{self.thisVisionAdvantage}**% AV vision"
         
         elif self.thisVisionAdvantage <= -50:
-            self.observations += f"\n :red_circle: **{self.thisVisionAdvantage}**% AV vision"
+            self.observations += f"\n:red_circle: **{self.thisVisionAdvantage}**% AV vision"
             
         if self.thisSoloKills >= 1:
-            self.observations += f"\n :green_circle: **{self.thisSoloKills}** solokills"
+            self.observations += f"\n:green_circle: **{self.thisSoloKills}** solokills"
+            
+        if self.thisMinionPerMin >= 7:
+            self.observations += f'\n:green_circle: **{self.thisMinionPerMin}** cs/min'
+            
             
 
 
