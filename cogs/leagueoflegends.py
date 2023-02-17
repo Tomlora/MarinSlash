@@ -170,13 +170,13 @@ class LeagueofLegends(Extension):
             await match_info.save_data()
 
         if match_info.thisQId == 900:  # urf
-            return {}, 'URF', 0, 0, 0
+            return {}, 'URF', 0, 
 
         if match_info.thisQId == 840:
-            return {}, 'Bot', 0, 0, 0  # bot game
+            return {}, 'Bot', 0,   # bot game
 
         if match_info.thisTime <= 3.0:
-            return {}, 'Remake', 0, 0, 0
+            return {}, 'Remake', 0, 
 
         url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(match_info.last_match)[5:]}#participant{int(match_info.thisId)+1}'
 
