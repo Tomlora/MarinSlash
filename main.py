@@ -118,7 +118,7 @@ async def on_guild_member_add(member: interactions.Member):
     # msg de bienvenue
     embed = interactions.Embed(title=f'Bienvenue chez les {guild.name}',
                                description=f'Hello {member.name}, tu es notre {guild.member_count}ème membre !',
-                               color=interactions.Color.blurple())
+                               color=interactions.Color.BLURPLE)
     embed.set_thumbnail(url=member.avatar_url)
     embed.set_footer(text=f'Version {Version} by Tomlora')
 
@@ -149,7 +149,7 @@ async def on_guild_member_remove(member: interactions.Member):
     # msg de départ
     embed = interactions.Embed(title=f'Départ des {guild.name}',
                                description=f'Au revoir {member.name}, nous sommes encore {guild.member_count} membres !',
-                               color=interactions.Color.blurple())
+                               color=interactions.Color.BLURPLE)
     embed.set_thumbnail(url=member.avatar_url)
     embed.set_footer(text=f'Version {Version} by Tomlora')
 
@@ -180,7 +180,7 @@ async def on_command_error(ctx: interactions.CommandContext, error: commands.err
     else:
         traceback.print_exception(type(error), error, error.__traceback__)
         embed = interactions.Embed(title='Erreur', description=f'Description: \n `{error}`',
-                                   color=interactions.Color.red())
+                                   color=interactions.Color.RED)
         await ctx.send(embeds=embed)
 
 
