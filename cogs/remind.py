@@ -30,87 +30,87 @@ class Divers(Extension):
         self.task1 = create_task(IntervalTrigger(60))(self.remind_call)
         self.task1.start()
 
-    @interactions.extension_command(name='remindme_ponctuel',
-                                    description="Rappel ponctuel",
-                                    options=[
-                                        Option(
-                                            name='msg',
-                                            description='msg dans le rappel',
-                                            type=interactions.OptionType.STRING,
-                                            required=True
-                                        ),
-                                        Option(
-                                            name='time',
-                                            description="Duree (Format h/m/s). Par exemple, 1h20 s'écrit 1h20m",
-                                            type=interactions.OptionType.STRING,
-                                            required=True),
-                                        Option(
-                                            name='public',
-                                            description='public ou private ?',
-                                            type=interactions.OptionType.BOOLEAN,
-                                            required=False
-                                        )])
-    async def remindme_ponctuel(self,
-                                ctx: CommandContext,
-                                msg: str,
-                                time: str,
-                                public: bool = False):
+    # @interactions.extension_command(name='remindme_ponctuel',
+    #                                 description="Rappel ponctuel",
+    #                                 options=[
+    #                                     Option(
+    #                                         name='msg',
+    #                                         description='msg dans le rappel',
+    #                                         type=interactions.OptionType.STRING,
+    #                                         required=True
+    #                                     ),
+    #                                     Option(
+    #                                         name='time',
+    #                                         description="Duree (Format h/m/s). Par exemple, 1h20 s'écrit 1h20m",
+    #                                         type=interactions.OptionType.STRING,
+    #                                         required=True),
+    #                                     Option(
+    #                                         name='public',
+    #                                         description='public ou private ?',
+    #                                         type=interactions.OptionType.BOOLEAN,
+    #                                         required=False
+    #                                     )])
+    # async def remindme_ponctuel(self,
+    #                             ctx: CommandContext,
+    #                             msg: str,
+    #                             time: str,
+    #                             public: bool = False):
 
-        try:
-            duree = await convertion_temps(ctx, time)
-        except:
-            pass
+    #     try:
+    #         duree = await convertion_temps(ctx, time)
+    #     except:
+    #         pass
         
-        channel = ctx.channel
+    #     channel = ctx.channel
 
-        if ctx.author.id not in reminders: # s'il n'a pas de rappel, on crée une liste avec l'id discord dans notre dict
-            reminders[ctx.author.id] = []
+    #     if ctx.author.id not in reminders: # s'il n'a pas de rappel, on crée une liste avec l'id discord dans notre dict
+    #         reminders[ctx.author.id] = []
         
-        current_time = time_actuelle()    
-        reminders[ctx.author.id].append((msg, duree, current_time))
-        await ctx.send(f'Le rappel est programmé dans {duree} secondes', ephemeral=True)
-        await asyncio.sleep(duree)
-        if public:
-            await channel.send(msg)
-        else:
-            await ctx.author.send(msg)
-        reminders[ctx.author.id].pop(0)
+    #     current_time = time_actuelle()    
+    #     reminders[ctx.author.id].append((msg, duree, current_time))
+    #     await ctx.send(f'Le rappel est programmé dans {duree} secondes', ephemeral=True)
+    #     await asyncio.sleep(duree)
+    #     if public:
+    #         await channel.send(msg)
+    #     else:
+    #         await ctx.author.send(msg)
+    #     reminders[ctx.author.id].pop(0)
 
-    @interactions.extension_command(name='remindme_delete_ponctuel',
-                                    description="Supprimer un rappel ponctuel",
-                                    options=[Option(
-                                        name='numero_rappel',
-                                        description='numero du rappel obtenu avec remind_list',
-                                        type=interactions.OptionType.INTEGER,
-                                        required=True
-                                    )])
-    async def remindme_delete(self,
-                             ctx: CommandContext,
-                             numero_rappel: int):
-        if ctx.author.id not in reminders:
-            await ctx.send("Vous n'avez pas de rappels enregistrés.", ephemeral=True)
-        else:
-            reminders[ctx.author.id].pop(numero_rappel)
-            await ctx.send('Fait !')
+    # @interactions.extension_command(name='remindme_delete_ponctuel',
+    #                                 description="Supprimer un rappel ponctuel",
+    #                                 options=[Option(
+    #                                     name='numero_rappel',
+    #                                     description='numero du rappel obtenu avec remind_list',
+    #                                     type=interactions.OptionType.INTEGER,
+    #                                     required=True
+    #                                 )])
+    # async def remindme_delete(self,
+    #                          ctx: CommandContext,
+    #                          numero_rappel: int):
+    #     if ctx.author.id not in reminders:
+    #         await ctx.send("Vous n'avez pas de rappels enregistrés.", ephemeral=True)
+    #     else:
+    #         reminders[ctx.author.id].pop(numero_rappel)
+    #         await ctx.send('Fait !')
 
-    @interactions.extension_command(name='remindme_list_ponctuel',
-                                    description="Liste des rappels ponctuels")
-    async def list_reminders(self, ctx: CommandContext):
-        if ctx.author.id not in reminders:
-            await ctx.send("Vous n'avez pas de rappels enregistrés.", ephemeral=True)
-        else:
-            if len(reminders[ctx.author.id]) > 0:
+    # @interactions.extension_command(name='remindme_list_ponctuel',
+    #                                 description="Liste des rappels ponctuels")
+    # async def list_reminders(self, ctx: CommandContext):
+    #     if ctx.author.id not in reminders:
+    #         await ctx.send("Vous n'avez pas de rappels enregistrés.", ephemeral=True)
+    #     else:
+    #         if len(reminders[ctx.author.id]) > 0:
                 
 
-                for i, reminder in enumerate(reminders[ctx.author.id]):
-                    msg, delay, current_time = reminder
-                    delay_total = current_time + \
-                        datetime.timedelta(seconds=delay)
-                    await ctx.send(f'Rappel #{i+1}: "{msg}" à {delay_total.strftime("%d/%m/%Y %H:%M:%S")} secondes', ephemeral=True)
-            else:
-                await ctx.send('Tous les rappels ont été executés.', ephemeral=True)
+    #             for i, reminder in enumerate(reminders[ctx.author.id]):
+    #                 msg, delay, current_time = reminder
+    #                 delay_total = current_time + \
+    #                     datetime.timedelta(seconds=delay)
+    #                 await ctx.send(f'Rappel #{i+1}: "{msg}" à {delay_total.strftime("%d/%m/%Y %H:%M:%S")} secondes', ephemeral=True)
+    #         else:
+    #             await ctx.send('Tous les rappels ont été executés.', ephemeral=True)
 
-    @interactions.extension_command(name='remindme_quotidien',
+    @interactions.extension_command(name='remindme',
                                     description="Rappel à répéter",
                                     options=[
                                         Option(
@@ -136,6 +136,20 @@ class Divers(Extension):
                                                min_value=1,
                                                max_value=365,
                                                required=True),
+                                        Option(name='jour',
+                                               description='quel jour ?',
+                                               type=interactions.OptionType.STRING,
+                                               required=False,
+                                               choices=[
+                                                   Choice(name='Lundi', value='1'),
+                                                   Choice(name='Mardi', value='2'),
+                                                   Choice(name='Mercredi', value='3'),
+                                                   Choice(name='Jeudi', value='4'),
+                                                   Choice(name='Vendredi', value='5'),
+                                                   Choice(name='Samedi', value='6'),
+                                                   Choice(name='Dimanche', value='7'),
+                                                   Choice(name='Tous', value='0')
+                                               ]),
                                         Option(
                                             name='channel',
                                             description='dans quel channel écrire le msg ? (si public)',
@@ -153,6 +167,7 @@ class Divers(Extension):
                                  heure: int,
                                  minute: int,
                                  repetition: int,
+                                 jour:str = '0',
                                  channel: interactions.Channel = None,
                                  public: bool = False):
 
@@ -165,8 +180,8 @@ class Divers(Extension):
             channel_id = int(channel.id)
 
         requete_perso_bdd('''INSERT INTO remind(
-                            guild, channel, heure, minute, repetition, "user", public, msg)
-                            VALUES (:guild_id, :channel_id, :heure, :minute, :repetition, :user_id, :public, :msg);''',
+                            guild, channel, heure, minute, repetition, "user", public, msg, jour)
+                            VALUES (:guild_id, :channel_id, :heure, :minute, :repetition, :user_id, :public, :msg, :jour);''',
                           {'guild_id': guild_id,
                            'channel_id': channel_id,
                            'heure': heure,
@@ -174,11 +189,12 @@ class Divers(Extension):
                            'repetition': repetition,
                            'user_id': user_id,
                            'public': public,
-                           'msg': msg})
+                           'msg': msg,
+                           'jour' : int(jour)})
 
         await ctx.send(f'Rappel enregistré pour {heure}:{minute}', ephemeral=True)
 
-    @interactions.extension_command(name='remindme_list_quotidien',
+    @interactions.extension_command(name='remindme_list',
                                     description="Rappel à répéter")
     async def remindme_quotidien_list(self,
                                       ctx: CommandContext):
@@ -199,18 +215,20 @@ class Divers(Extension):
                 guild = await interactions.get(self.bot,
                                                interactions.Guild,
                                                object_id=infos_rappel['guild'])
+                
+                dict_day = {1 : 'Lundi', 2: 'Mardi', 3: 'Mercredi', 4: 'Jeudi', 5: 'Vendredi', 6 : 'Samedi', 7 : 'Dimanche', 0 : 'Tous les jours'}
 
                 if infos_rappel["public"]:
-                    msg += f'__Rappel {id_rappel}__ prévue à **{infos_rappel["heure"]}:{infos_rappel["minute"]}** {infos_rappel["repetition"]} fois dans **{guild.name}** | Public : **Oui ({channel.name})** : \n {infos_rappel["msg"]} \n '
+                    msg += f'__Rappel {id_rappel}__ prévue à **{infos_rappel["heure"]}:{infos_rappel["minute"]}** {dict_day[infos_rappel["jour"]]} {infos_rappel["repetition"]} fois dans **{guild.name}** | Public : **Oui ({channel.name})** : \n {infos_rappel["msg"]} \n '
                 else:
-                    msg += f'__Rappel {id_rappel}__ prévue à **{infos_rappel["heure"]}:{infos_rappel["minute"]}** {infos_rappel["repetition"]} fois dans **{guild.name}** | Channel **{channel.name}** : \n {infos_rappel["msg"]} \n '
+                    msg += f'__Rappel {id_rappel}__ prévue à **{infos_rappel["heure"]}:{infos_rappel["minute"]}** {dict_day[infos_rappel["jour"]]} {infos_rappel["repetition"]} fois dans **{guild.name}** | Channel **{channel.name}** : \n {infos_rappel["msg"]} \n '
 
             await ctx.send(msg, ephemeral=True)
 
         else:
             await ctx.send('Pas de rappel actif', ephemeral=True)
             
-    @interactions.extension_command(name='remindme_quotidien_delete',
+    @interactions.extension_command(name='remindme_delete',
                                     description="Rappel quotidien à supprimer",
                                     options=[
                                         Option(name='id_rappel',
@@ -244,20 +262,28 @@ class Divers(Extension):
 
     async def remind_call(self):
         heure, minute = heure_actuelle()
-        df = lire_bdd_perso('SELECT * from remind where heure = %(heure)s and minute = %(minute)s and repetition >= 1',
+        jour = datetime.datetime.now().isoweekday()
+        
+        df = lire_bdd_perso('''SELECT * from remind
+                            where heure = %(heure)s
+                            and minute = %(minute)s
+                            and repetition >= 1
+                            and jour in (0, %(jour)s)''',
                             index_col='id',
                             params={'heure': heure,
-                                    'minute': minute}).transpose()
+                                    'minute': minute,
+                                    'jour' : jour}).transpose()
 
         if len(df) >= 1:  # s'il y a des données
 
             for id_rappel, infos_rappel in df.iterrows():
+                # on cherche l'user qui a le rappel
                 user = await interactions.get(self.bot,
                                               interactions.User,
                                               object_id=infos_rappel['user'])
 
                 if infos_rappel['public']:
-
+                    # on cherche le channel à envoyer le rappel
                     channel = await interactions.get(self.bot,
                                                      interactions.Channel,
                                                      object_id=infos_rappel['channel'])
@@ -266,6 +292,7 @@ class Divers(Extension):
                 else:
                     await user.send(f'__Rappel__ : {infos_rappel["msg"]}')
 
+                # le rappel a été effectué, on le diminue de 1
                 requete_perso_bdd(
                     'UPDATE remind SET repetition = repetition - 1 where id = :id ', {'id': id_rappel})
 
