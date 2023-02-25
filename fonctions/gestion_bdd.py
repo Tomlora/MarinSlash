@@ -107,6 +107,7 @@ def supprimer_bdd(nom_table):
     conn = engine.connect()
     sql = text(f'DROP TABLE IF EXISTS {nom_table}')
     conn.execute(sql)
+    conn.commit()
     conn.close()
 
 
@@ -139,7 +140,8 @@ def requete_perso_bdd(request: text,
         conn.execute(sql)
     else:
         conn.execute(sql, dict_params)
-    conn.close
+    conn.commit()
+    conn.close()
 
 
 def get_guild_data():
@@ -195,6 +197,7 @@ async def get_user(joueur,
         sql = text(
             'UPDATE sw_user SET joueur_id = :joueur_id where joueur = :joueur')
         data = conn.execute(sql, {'joueur_id': id_compte, 'joueur': joueur})
+        conn.commit()
     conn.close()
     return id_joueur, visibility, guildeid
 
@@ -209,4 +212,5 @@ def update_info_compte(joueur,
     sql1 = text(
         'UPDATE sw_user SET guilde_id = :guilde_id, joueur = :joueur WHERE joueur_id = :joueur_id;')
     conn.execute(sql1, params_sql)
+    conn.commit()
     conn.close()
