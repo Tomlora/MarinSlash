@@ -737,6 +737,7 @@ class matchlol():
         self.thisGold_team2 = sum(self.thisGoldListe[5:10])
         
         self.gold_share = round((self.thisGoldNoFormat / self.thisGold_team1) * 100,2)
+        self.ecart_gold_team = self.thisGold_team1 - self.thisGold_team2
 
         self.thisVisionListe = dict_data(
             self.thisId, self.match_detail, 'visionScore')
@@ -940,9 +941,13 @@ class matchlol():
         
         self.badges = self.data_mobalytics_complete['data']['lol']['player']['match']['subject']['badges']
 
-        # on doit identifier les stats soloq (et non flex...)
+        if self.thisQ == 'FLEX':
+            stats_mode = "RANKED_FLEX_SR"
+        else:
+            stats_mode = "RANKED_SOLO_5x5"
+        
         try:
-            if str(self.thisStats[0]['queueType']) == "RANKED_SOLO_5x5":
+            if str(self.thisStats[0]['queueType']) == stats_mode:
                 self.i = 0
             else:
                 self.i = 1
@@ -976,13 +981,13 @@ class matchlol():
         gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
         baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
         item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
-        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp)
+        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team)
         VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
         :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
         :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
         :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
         :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
-        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp);''',
+        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team);''',
                           {'match_id': self.last_match,
                            'joueur': self.summonerName.lower(),
                            'role': self.thisPosition,
@@ -1055,7 +1060,8 @@ class matchlol():
                            'temps_vivant': self.thisTimeSpendAlive,
                            'dmg_tower': self.thisDamageTurrets,
                            'gold_share' : self.gold_share,
-                           'mvp' : self.mvp
+                           'mvp' : self.mvp,
+                           'ecart_gold_team' : self.ecart_gold_team
                            })
 
     async def add_couronnes(self, points):
@@ -1071,33 +1077,33 @@ class matchlol():
                   
             type_comment = {'Positive' : ':green_circle:', 'Negative' : ':red_circle:', '' : ':first_place:' }
             
-            dict_insight = {'early_game_farmer' : f'\n{type_comment[type]} Farm en early avec **{values[0]}** cs à 10 minutes',
+            dict_insight = {
+                        'early_game_farmer' : f'\n{type_comment[type]} Farm en early avec **{values[0]}** cs à 10 minutes',
                         # 'never_slacking' : f'\n{type_comment[type]} **{values[0]}** cs en mid game',
                         'teamfight_god' : f'\n{type_comment[type]} Gagné **{values[0]}** sur **{values[1]}** teamfights',
                         'lane_tyrant' : f"\n{type_comment[type]} **{values[0]}** gold d'avance à 15 minutes",
                         'stomp' : f"\n{type_comment[type]} **{values[0]}** gold d'avance",
-                        # 'how_could_you' : f"\n{type_comment[type]} **{values[0]}** wards placés", TODO A remettre quand rito aura corrigé
-                        # 'not_fan_of_wards' : f"\n{type_comment[type]} Placé **{values[0]}** wards",
+                        'how_could_you' : f"\n{type_comment[type]} **{values[0]}** wards placés",
+                        'not_fan_of_wards' : f"\n{type_comment[type]} Placé **{values[0]}** wards",
                         'servant_of_darkness' : f"\n{type_comment[type]} Détruit **{values[0]}** wards",
                         'good_guy' : f"\n{type_comment[type]} Acheté **{values[0]}** pink",
                         'no_dragons_taken' : f"\n{type_comment[type]} Aucun dragon",
                         'no_rift_heralds_taken' : f"\n{type_comment[type]} Aucun herald",
                         'no_objectives_taken' : f"\n{type_comment[type]} Aucun objectif",
-                        'ready_to_rumble' : f"\n{type_comment[type]} Proactif en early avec **{values[0]}** kills/assists avant 15 minutes",
                         'pick_up_artist' : f"\n{type_comment[type]} Sécurisé **{values[0]}** picks",
                         "wanderer" : f"\n{type_comment[type]} Roam énormément pour sécuriser kills et objectifs",
-                        'survivor' : f"\n{type_comment[type]} Seulement  **{values[0]}** morts",
+                        'survivor' : f"\n{type_comment[type]} Seulement  **{values[0]}** mort(s)",
                         'elite_skirmisher' : f"\n{type_comment[type]} Gagné **{values[0]}** escarmouches sur **{values[1]}**",
                         'on_fire' : f"\n{type_comment[type]} **{round(values[0],2)}** KDA",
                         "wrecking_ball" : f"\n{type_comment[type]} **{values[0]}** Dégats aux structures",
                         "ouch_you_hurt" : f"\n{type_comment[type]} **{values[0]}** Dommages infligés",
                         "goblin_hoarder" : f"\n{type_comment[type]} **{int(values[0])}** Gold par minute",
-                        "bringer_of_carnage" : f"\n{type_comment[type]} **{values[0]}** Kills",
+                        # "bringer_of_carnage" : f"\n{type_comment[type]} **{values[0]}** Kills",
                         "anti_kda_player" : f"\n{type_comment[type]} **{round(values[0],2)}** KDA",
-                        "what_powerspike" : f"\n{type_comment[type]} Pas atteint le niveau 11",
+                        # "what_powerspike" : f"\n{type_comment[type]} Pas atteint le niveau 11",
                         "not_fan_of_farming" : f"\n {type_comment[type]} **{int(values[0])}** farm par minute",
                         "immortal" : f"\n {type_comment[type]} Immortel",
-                        # "visionary" : f"\n {type_comment[type]} **{values[0]}** wards placés", # TODO à remettre quand rito aura corrigé
+                        "visionary" : f"\n {type_comment[type]} **{values[0]}** wards placés",
                         "no_control" : f"\n{type_comment[type]} Aucune pink",
                         "blood_thirsty" : f"\n{type_comment[type]} Tu as réussi **{values[0]}** ganks dans les 10 premières minutes.",
                         "superior_jungler" : f"\n{type_comment[type]} Tu as réussi plus de ganks que ton adversaire avec **{values[0]}**",
@@ -1106,11 +1112,18 @@ class matchlol():
                         'no_damage_to_turrets' : f"\n{type_comment[type]} Tu n'as pas tapé les tours",
                         'mvp' : f"\n{type_comment[type]} Meilleur joueur"}
             
+            if self.thisQ != 'ARAM':
+                dict_insight['ready_to_rumble'] = f"\n{type_comment[type]} Proactif en early avec **{values[0]}** kills/assists avant 15 minutes",
+                
+            
             return dict_insight.get(slug,'')
 
         self.observations = ''
-        for insight in self.badges:
-            self.observations += insight_text(insight['slug'], insight['values'], insight['type'])
+        try:
+            for insight in self.badges:
+                self.observations += insight_text(insight['slug'], insight['values'], insight['type'])
+        except TypeError: # si pas de badges
+            self.observations = ''
             
         # Autres : 
         
@@ -1129,10 +1142,10 @@ class matchlol():
         if self.thisTotalShielded >= 3000:
             self.observations += f"\n:green_circle: **{self.thisTotalShielded} ** boucliers"
             
-        if self.thisVisionAdvantage >= 60:
+        if self.thisVisionAdvantage >= 60 and self.thisQ != 'ARAM':
             self.observations += f"\n:green_circle: **{self.thisVisionAdvantage}**% AV vision"
         
-        elif self.thisVisionAdvantage <= -50:
+        elif self.thisVisionAdvantage <= -50 and self.thisQ != 'ARAM':
             self.observations += f"\n:red_circle: **{self.thisVisionAdvantage}**% AV vision"
             
         if self.thisSoloKills >= 1:
@@ -1515,7 +1528,6 @@ class matchlol():
             if self.thisQ != "ARAM":
                 d.text((x_vision, y), 'VS', font=font, fill=fill)
                 
-
         # participants
         initial_y = 223 + 190
         
@@ -1539,8 +1551,14 @@ class matchlol():
             
             # rank
             
-            rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['tier']
-            tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['division']
+            try:
+                rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['tier']
+                tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['division']
+            except IndexError:
+                data_mobalytics_copy = self.data_mobalytics.copy()
+                data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
+                rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['tier']
+                tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['division']
             
             if rank_joueur != '':
                 img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 100, 100)
@@ -1555,9 +1573,12 @@ class matchlol():
             # mvp_pts = np.where(array_scoring == liste[i])[0][0]
             # d.text((x_score, initial_y),
                 #     mvp_pts), font=font, fill=(0,0,0))
-                
-            scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['mvpScore'].values[0]
-            
+
+            try:
+                scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['mvpScore'].values[0]
+            except IndexError:
+                scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['mvpScore'].values[0]    
+                        
             color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (67,89,232), 10 : (220,20,60)}
 
                 
@@ -1696,7 +1717,7 @@ class matchlol():
         else:
             suivi_24h = lire_bdd('suivi_24h', 'dict')
 
-        if self.thisQ != 'ARAM':
+        if self.thisQ != 'ARAM' and self.thisQ != 'FLEX':
             try:
                 difwin = int(self.thisVictory) - \
                     int(suivi_24h[self.summonerName.lower()]["wins"])

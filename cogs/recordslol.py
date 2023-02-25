@@ -185,7 +185,9 @@ emote_v2 = {
     "allie_feeder": ":monkey_face:",
     "snowball" : ":baseball:",
     "temps_vivant" : ":hourglass:",
-    "dmg_tower" : ":tokyo_tower:"
+    "dmg_tower" : ":tokyo_tower:",
+    "gold_share" : ":dollar:",
+    "ecart_gold_team" : ":euro:"
 }
 
 choice_pantheon = [Choice(name="KDA", value="KDA"),
@@ -200,7 +202,7 @@ choice_pantheon = [Choice(name="KDA", value="KDA"),
 class Recordslol(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        self.time_mini = {'RANKED' : 20, 'ARAM' : 10} # minutes minimum pour compter dans les records
+        self.time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20} # minutes minimum pour compter dans les records
 
     @interactions.extension_command(name="records_list_s12",
                                     description="Voir les records détenues par les joueurs (réservé s12)",
@@ -220,11 +222,9 @@ class Recordslol(Extension):
 
         await ctx.defer(ephemeral=False)
 
-        current = 0
         saison = 12
 
-        fichier = lire_bdd_perso('SELECT index, "Score", "Champion", "Joueur", url from records where saison= %(saison)s AND mode=%(mode)s', params={'saison': saison,
-                                                                                                                                                     'mode': mode}).transpose()
+        fichier = lire_bdd_perso(f'''SELECT index, "Score", "Champion", "Joueur", url from records where saison= {saison} AND mode='{mode}' ''').transpose()
 
         fichier1 = fichier.iloc[:22]
         fichier2 = fichier.iloc[22:]
@@ -502,7 +502,8 @@ class Recordslol(Extension):
             required=True, choices=[
                 Choice(name='ranked',
                        value='RANKED'),
-                Choice(name='aram', value='ARAM')]),
+                Choice(name='aram', value='ARAM'),
+                Choice(name='flex', value='FLEX')]),
         Option(
             name='saison',
             description='saison league of legends',
@@ -534,7 +535,8 @@ class Recordslol(Extension):
             required=True, choices=[
                 Choice(name='ranked',
                        value='RANKED'),
-                Choice(name='aram', value='ARAM')]),
+                Choice(name='aram', value='ARAM'),
+                Choice(name='flex', value='FLEX')]),
         Option(
             name="joueur",
             description="Quel joueur ?",
@@ -575,20 +577,16 @@ class Recordslol(Extension):
         methode_pseudo = 'discord'
         
         if view == 'global':
-            fichier = lire_bdd_perso('''SELECT distinct matchs.*, tracker.discord from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
-                                     where season = %(saison)s and mode = %(mode)s and time >= %(time)s''', index_col='id', params={'saison': saison,
-                                                                                                                                        'mode': mode,
-                                                                                                                                        'time' : self.time_mini[mode]}).transpose()
+                                     where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]}''', index_col='id').transpose()
         elif view == 'serveur':
-            fichier = lire_bdd_perso('''SELECT distinct matchs.*, tracker.discord from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
-                                     where season = %(saison)s and mode = %(mode)s
-                                     and server_id = %(guild_id)s
-                                     and time >= %(time)s''', index_col='id', params={'saison': saison,
-                                                                                              'mode': mode,
-                                                                                              'guild_id' : int(ctx.guild_id),
-                                                                                              'time' : self.time_mini[mode]}).transpose()
+                                     where season = {saison}
+                                     and mode = '{mode}'
+                                     and server_id = {int(ctx.guild_id)}
+                                     and time >= {self.time_mini[mode]}''', index_col='id').transpose()
             
 
         if champion != None:
@@ -705,7 +703,9 @@ class Recordslol(Extension):
                                                 Choice(name='ranked',
                                                        value='RANKED'),
                                                 Choice(name='aram',
-                                                       value='ARAM')
+                                                       value='ARAM'),
+                                                Choice(name='flex',
+                                                       value='FLEX')
                                             ]
                                         ),
                                         Option(
@@ -746,19 +746,14 @@ class Recordslol(Extension):
 
         # data
         if view == 'global':
-            fichier = lire_bdd_perso('SELECT distinct * from matchs where season = %(saison)s and mode = %(mode)s and time >= %(time)s', index_col='id', params={'saison': saison,
-                                                                                                                                        'mode': mode,
-                                                                                                                                        'time' : self.time_mini[mode]}).transpose()
+            fichier = lire_bdd_perso(f'''SELECT distinct * from matchs where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]}''', index_col='id').transpose()
         elif view == 'serveur':
-            fichier = lire_bdd_perso('''SELECT distinct matchs.* from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.* from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
-                                     where season = %(saison)s
-                                     and mode = %(mode)s
-                                     and server_id = %(guild_id)s
-                                     and time >= %(time)s''', index_col='id', params={'saison': saison,
-                                                                                                'mode': mode,
-                                                                                                'guild_id' : int(ctx.guild_id),
-                                                                                                'time' : self.time_mini[mode]}).transpose()
+                                     where season = {saison}
+                                     and mode = '{mode}'
+                                     and server_id = '{int(ctx.guild_id)}'
+                                     and time >= {self.time_mini[mode]}''', index_col='id').transpose()
 
         # liste records
 
@@ -767,7 +762,7 @@ class Recordslol(Extension):
                          'team_deaths', 'time', 'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'gold', 'gold_min', 'dmg_min', 'solokills', 'dmg_reduit', 'heal_total', 'heal_allies',
                          'serie_kills', 'cs_dix_min', 'cs_max_avantage', 'temps_dead', 'damageratio', 'tankratio', 'dmg_tank', 'shield', 'allie_feeder',
                          'vision_score', 'vision_wards', 'vision_wards_killed', 'vision_pink', 'vision_min', 'level_max_avantage', 'vision_avantage', 'early_drake', 'early_baron',
-                         'jgl_dix_min', 'baron', 'drake', 'herald', 'cs_jungle', 'temps_vivant', 'dmg_tower', 'gold_share']
+                         'jgl_dix_min', 'baron', 'drake', 'herald', 'cs_jungle', 'temps_vivant', 'dmg_tower', 'gold_share', 'ecart_gold_team']
         
         if mode == 'ARAM':
             liste_records.append('snowball')

@@ -201,9 +201,9 @@ class Divers(Extension):
 
         await ctx.defer(ephemeral=True)
 
-        df = lire_bdd_perso('SELECT * from remind where "user" = %(user_id)s and repetition >= 1',
+        df = lire_bdd_perso(f'SELECT * from remind where "user" = {int(ctx.author.id)} and repetition >= 1',
                             index_col='id',
-                            params={'user_id': int(ctx.author.id)}).transpose()
+                            ).transpose()
 
         if len(df) >= 1:
             msg = 'Rappels actifs : \n'
@@ -242,12 +242,11 @@ class Divers(Extension):
 
         await ctx.defer(ephemeral=True)
         
-        params = {'user_id': int(ctx.author.id),
-                'id_rappel' : id_rappel}
 
-        df = lire_bdd_perso('SELECT * from remind where "user" = %(user_id)s and "id" = %(id_rappel)s',
+
+        df = lire_bdd_perso(f'SELECT * from remind where "user" = {int(ctx.author.id)} and "id" = {id_rappel}',
                             index_col='id',
-                            params=params).transpose()
+                            ).transpose()
 
         if len(df) >= 1:
 
@@ -264,15 +263,13 @@ class Divers(Extension):
         heure, minute = heure_actuelle()
         jour = datetime.datetime.now().isoweekday()
         
-        df = lire_bdd_perso('''SELECT * from remind
-                            where heure = %(heure)s
-                            and minute = %(minute)s
+        df = lire_bdd_perso(f'''SELECT * from remind
+                            where heure = {heure}
+                            and minute = {minute}
                             and repetition >= 1
-                            and jour in (0, %(jour)s)''',
+                            and jour in (0, {jour})''',
                             index_col='id',
-                            params={'heure': heure,
-                                    'minute': minute,
-                                    'jour' : jour}).transpose()
+                            ).transpose()
 
         if len(df) >= 1:  # s'il y a des données
 

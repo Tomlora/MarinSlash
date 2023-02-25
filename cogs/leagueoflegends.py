@@ -111,6 +111,7 @@ class LeagueofLegends(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
         stp(self.bot)
+        
 
     @interactions.extension_listener
     async def on_start(self):
@@ -137,34 +138,27 @@ class LeagueofLegends(Extension):
         await match_info.prepare_data()
 
         # pour nouveau système de record
-        fichier = lire_bdd_perso('''SELECT distinct matchs.*, tracker.discord from matchs
+        fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                          INNER JOIN tracker ON tracker.index = matchs.joueur
-                         where season = %(saison)s and mode = %(mode)s and server_id = %(guild_id)s''', index_col='id', params={'saison': match_info.season,
-                                                                                                                                'mode': match_info.thisQ,
-                                                                                                                                'guild_id': guild_id}).transpose()
+                         where season = {match_info.season} and mode = '{match_info.thisQ}' and server_id = {guild_id}''', index_col='id').transpose()
 
-        fichier_joueur = lire_bdd_perso('''SELECT distinct matchs.*, tracker.discord from matchs
+        fichier_joueur = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                         INNER JOIN tracker on tracker.index = matchs.joueur
-                                        where season = %(saison)s
-                                        and mode = %(mode)s
-                                        and discord = (SELECT tracker.discord from tracker WHERE tracker.index = %(joueur)s)
-                                        and server_id = %(guild_id)s''',
+                                        where season = {match_info.season}
+                                        and mode = '{match_info.thisQ}'
+                                        and discord = (SELECT tracker.discord from tracker WHERE tracker.index = '{summonerName.lower()}')
+                                        and server_id = {guild_id}''',
                                         index_col='id',
-                                        params={'saison': match_info.season,
-                                                'joueur': summonerName.lower(),
-                                                'mode': match_info.thisQ,
-                                                'guild_id': guild_id}).transpose()
+                                        ).transpose()
 
-        fichier_champion = lire_bdd_perso('''SELECT distinct matchs.*, tracker.discord from matchs
+        fichier_champion = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                           INNER JOIN tracker on tracker.index = matchs.joueur
-                                        where season = %(saison)s
-                                        and mode = %(mode)s and champion = %(champion)s
-                                        and server_id = %(guild_id)s''',
+                                        where season = {match_info.season}
+                                        and mode = '{match_info.thisQ}'
+                                        and champion = '{match_info.thisChampName}'
+                                        and server_id = {guild_id}''',
                                           index_col='id',
-                                          params={'saison': match_info.season,
-                                                  'champion': match_info.thisChampName,
-                                                  'mode': match_info.thisQ,
-                                                  'guild_id': guild_id}).transpose()
+                                        ).transpose()
 
         if sauvegarder and match_info.thisTime >= 10.0:
             await match_info.save_data()
@@ -210,10 +204,9 @@ class LeagueofLegends(Extension):
                 " ", "")]['LP'] = match_info.thisLP
 
         # on ne prend que les ranked > 20 min ou aram > 10 min
-        if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
+        if (match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
 
-            records = lire_bdd_perso('SELECT index, "Score", "Champion", "Joueur", url from records where saison= %(saison)s and mode=%(mode)s', params={'saison': match_info.season,
-                                                                                                                                                         'mode': match_info.thisQ.lower()})
+            records = lire_bdd_perso(f'''SELECT index, "Score", "Champion", "Joueur", url from records where saison= {match_info.season} and mode= '{match_info.thisQ.lower()}' ''')
             records = records.to_dict()
 
             # pour le nouveau système de records
@@ -253,7 +246,8 @@ class LeagueofLegends(Extension):
                              'allie_feeder': match_info.thisAllieFeeder,
                              'temps_vivant': match_info.thisTimeSpendAlive,
                              'dmg_tower': match_info.thisDamageTurrets,
-                             'gold_share' : match_info.gold_share}
+                             'gold_share' : match_info.gold_share,
+                             'ecart_gold_team' : match_info.ecart_gold_team}
 
             param_records_only_ranked = {'vision_score': match_info.thisVision,
                                          'vision_wards': match_info.thisWards,
@@ -301,7 +295,7 @@ class LeagueofLegends(Extension):
                     exploits += records_check2(fichier, fichier_joueur,
                                                fichier_champion, parameter, value)
 
-            if match_info.thisQ == 'RANKED':  # seulement en ranked
+            if match_info.thisQ in ['RANKED', 'FLEX']:  # seulement en ranked
                 for parameter, value in param_records_only_ranked.items():
 
                     exploits, chunk = check_chunk(exploits, chunk, chunk_size)

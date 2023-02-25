@@ -26,11 +26,11 @@ def lire_bdd(nom_table,
     conn = engine.connect()
     try:
         df = pd.read_sql(
-            f'SELECT * FROM {nom_table}', con=conn, index_col='index')
+            text(f'SELECT * FROM {nom_table}'), con=conn, index_col='index')
     except:
         nom_table = nom_table.lower()
         df = pd.read_sql(
-            f'SELECT * FROM {nom_table}', con=conn, index_col='index')
+            text(f'SELECT * FROM {nom_table}'), con=conn, index_col='index')
     df = df.transpose()
     if format == "dict":
         df = df.to_dict()
@@ -60,9 +60,9 @@ def lire_bdd_perso(requests: str,
     conn = engine.connect()
 
     if params == None:
-        df = pd.read_sql(requests, con=conn, index_col=index_col)
+        df = pd.read_sql(text(requests), con=conn, index_col=index_col)
     else:
-        df = pd.read_sql(requests, con=conn,
+        df = pd.read_sql(text(requests), con=conn,
                          index_col=index_col, params=params)
 
     df = df.transpose()

@@ -2,6 +2,8 @@ from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd, get_data_bd
 from time import time
 import interactions
 import re
+
+
 class chan_discord():
 
     def __init__(self,
@@ -29,8 +31,8 @@ class chan_discord():
 
         # on récupère les identifiants
 
-        self.dict_channel = lire_bdd_perso('Select * from channels_discord where server_id = %(server_id)s',
-                                           index_col='server_id', format='dict', params={'server_id': self.server_id})
+        self.dict_channel = lire_bdd_perso(f'Select * from channels_discord where server_id = {self.server_id}',
+                                           index_col='server_id', format='dict')
 
         self.dict_channel = self.dict_channel[self.server_id]
 
@@ -63,12 +65,12 @@ def rgb_to_discord(r: int, g: int, b: int):
     return ((r << 16) + (g << 8) + b)
 
 
-def verif_module(variable: str, guild_id: int) -> bool:
+def verif_module(module: str, guild_id: int) -> bool:
     """Vérifie si le module est activé pour le serveur associé
 
     Parameters
     ----------
-    variable : `str`
+    module : `str`
         nom du module
     guild_id : `int`
         identifiant de la guilde
@@ -78,7 +80,7 @@ def verif_module(variable: str, guild_id: int) -> bool:
     _result_
         True or False
     """
-    result = get_data_bdd(f'SELECT {variable} FROM channels_module where server_id = :server_id', {
+    result = get_data_bdd(f'SELECT {module} FROM channels_module where server_id = :server_id', {
                           'server_id': guild_id}).fetchall()[0][0]
     return result == True
 

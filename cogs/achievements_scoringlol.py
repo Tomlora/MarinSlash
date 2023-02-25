@@ -187,7 +187,7 @@ class Achievements_scoringlol(Extension):
         await ctx.send(embeds=embed)
 
     @interactions.extension_command(name="achievements",
-                                    description="Voir le nombre de records détenu par les joueurs",
+                                    description="Voir le nombre de records et mvp détenu par les joueurs",
                                     options=[
                                         Option(
                                             name="mode",
@@ -197,25 +197,41 @@ class Achievements_scoringlol(Extension):
                                                 Choice(name='ranked',
                                                        value='RANKED'),
                                                 Choice(name='aram', value='ARAM'),
-                                                Choice(name='normal', value='NORMAL')]),
+                                                Choice(name='normal', value='NORMAL'),
+                                                Choice(name='flex', value='FLEX')]),
                                         Option(
                                             name='saison',
                                             description='saison league of legends',
                                             type=interactions.OptionType.INTEGER,
-                                            required=False)
+                                            required=False),
+                                        Option(
+                                            name='tri',
+                                            description='manière de trier',
+                                            type=interactions.OptionType.STRING,
+                                            required=False,
+                                            choices=[
+                                                Choice(name='couronne', value='per game'),
+                                                Choice(name='mvp', value='mvp')
+                                            ]
+                                        )
                                     ])
     async def achievements2(self,
                             ctx: CommandContext,
                             mode: str,
-                            saison: int = saison):
+                            saison: int = saison,
+                            tri:str = 'per game'):
 
         await ctx.defer(ephemeral=False)
 
-        df = lire_bdd_perso('SELECT distinct id, joueur, couronne from matchs where season = %(season)s and mode = %(mode)s', index_col='id',
-                            params={'season': saison, 'mode': mode}).transpose()
+        df = lire_bdd_perso(f'''SELECT distinct id, joueur, couronne, mvp from matchs where season = {saison} and mode ='{mode}' ''', index_col='id',
+                            ).transpose()
 
+        # Il y a bcp de games sans ce système de mvp. On remplace les 0 par des nan pour qu'il ne soit pas compté dans la moyene
+        df['mvp'] = df['mvp'].replace({0 : np.nan})
         # on regroupe par joueur
-        df = df.groupby('joueur').agg({'couronne': 'sum', 'joueur': 'count'})
+        df = df.groupby('joueur').agg({'couronne': 'sum', 'joueur': 'count', 'mvp' : 'mean'})
+        # Les joueurs n'ayant aucune game ont des NaN. On les met à 0.
+        df['mvp'].fillna(0, inplace=True)
 
         # 5 games minimum
 
@@ -225,13 +241,16 @@ class Achievements_scoringlol(Extension):
 
         df['per game'] = df['couronne'] / df['joueur']
         
-        df.sort_values('per game', ascending=False, inplace=True)
+        df.sort_values(tri, ascending=False, inplace=True)
 
         result = f'Couronnes : Mode **{mode}** et 5 games minimum : \n'
 
         for joueur, stats in df.iterrows():
-
-            result += f"**{joueur} ** : {stats['couronne']} :crown: en {stats['joueur']} games ({round(stats['per game'],2)} :crown: / games) \n"
+            
+            if stats['mvp'] != 0:
+                result += f"**{joueur} ** : {stats['couronne']} :crown: en {stats['joueur']} games ({round(stats['per game'],2)} :crown: / games) | Moyenne de mvp : **{round(stats['mvp'],2)}** \n"
+            else:
+                result += f"**{joueur} ** : {stats['couronne']} :crown: en {stats['joueur']} games ({round(stats['per game'],2)} :crown: / games) \n"
 
         await ctx.send(result)
 
