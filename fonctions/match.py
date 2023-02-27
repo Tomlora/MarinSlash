@@ -1075,10 +1075,9 @@ class matchlol():
         
         def insight_text(slug, values, type):
                   
-            type_comment = {'Positive' : ':green_circle:', 'Negative' : ':red_circle:', '' : ':first_place:' }
-            print(slug)
+            type_comment = {'Positive' : ':green_circle:', 'Negative' : ':red_circle:', '': ':first_place'}
+
             dict_insight = {
-                        'early_game_farmer' : f'\n{type_comment[type]} Farm en early avec **{values[0]}** cs à 10 minutes',
                         # 'never_slacking' : f'\n{type_comment[type]} **{values[0]}** cs en mid game',
                         'teamfight_god' : f'\n{type_comment[type]} Gagné **{values[0]}** sur **{values[1]}** teamfights',
                         'lane_tyrant' : f"\n{type_comment[type]} **{values[0]}** gold d'avance à 15 minutes",
@@ -1100,7 +1099,7 @@ class matchlol():
                         "goblin_hoarder" : f"\n{type_comment[type]} **{int(values[0])}** Gold par minute",
                         # "bringer_of_carnage" : f"\n{type_comment[type]} **{values[0]}** Kills",
                         "anti_kda_player" : f"\n{type_comment[type]} **{round(values[0],2)}** KDA",
-                        # "what_powerspike" : f"\n{type_comment[type]} Pas atteint le niveau 11",
+                        "what_powerspike" : f"\n{type_comment[type]} Pas atteint le niveau 11",
                         "not_fan_of_farming" : f"\n {type_comment[type]} **{int(values[0])}** farm par minute",
                         "immortal" : f"\n {type_comment[type]} Immortel",
                         "visionary" : f"\n {type_comment[type]} **{values[0]}** wards placés",
@@ -1114,6 +1113,10 @@ class matchlol():
             
             if self.thisQ != 'ARAM':
                 dict_insight['ready_to_rumble'] = f"\n{type_comment[type]} Proactif en early avec **{values[0]}** kills/assists avant 15 minutes"
+                
+            if slug == 'early_game_farmer' and values[0] >= 85: # on l'ajoute à partir de 85 cs, car le calcul de base est trop gentil (65-70 cs)
+                dict_insight['early_game_farmer'] = f'\n{type_comment[type]} Farm en early avec **{values[0]}** cs à 10 minutes',
+                
                 
             return dict_insight.get(slug,'')
 
