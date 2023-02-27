@@ -1076,7 +1076,7 @@ class matchlol():
         def insight_text(slug, values, type):
                   
             type_comment = {'Positive' : ':green_circle:', 'Negative' : ':red_circle:', '' : ':first_place:' }
-            
+            print(slug)
             dict_insight = {
                         'early_game_farmer' : f'\n{type_comment[type]} Farm en early avec **{values[0]}** cs à 10 minutes',
                         # 'never_slacking' : f'\n{type_comment[type]} **{values[0]}** cs en mid game',
@@ -1113,17 +1113,17 @@ class matchlol():
                         'mvp' : f"\n{type_comment[type]} Meilleur joueur"}
             
             if self.thisQ != 'ARAM':
-                dict_insight['ready_to_rumble'] = f"\n{type_comment[type]} Proactif en early avec **{values[0]}** kills/assists avant 15 minutes",
+                dict_insight['ready_to_rumble'] = f"\n{type_comment[type]} Proactif en early avec **{values[0]}** kills/assists avant 15 minutes"
                 
-            
             return dict_insight.get(slug,'')
+
 
         self.observations = ''
         try:
             for insight in self.badges:
                 self.observations += insight_text(insight['slug'], insight['values'], insight['type'])
-        except TypeError: # si pas de badges
-            self.observations = ''
+        except TypeError as e: # si pas de badges
+            pass
             
         # Autres : 
         
@@ -1313,8 +1313,8 @@ class matchlol():
 
         else:  # si c'est l'aram, le traitement est différent
 
-            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank from ranked_aram_s{saison} WHERE index = :index', {
-                                     'index': self.summonerName}).fetchall()
+            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank from ranked_aram_s{saison} WHERE index = :index',
+                                     {'index': self.summonerName.lower()}).mappings().all()
 
             wins_actual = data_aram[0]['wins']
             losses_actual = data_aram[0]['losses']
