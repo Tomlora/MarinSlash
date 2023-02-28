@@ -617,32 +617,27 @@ class Recordslol(Extension):
             else:
                 title = f'Records {mode} S{saison} ({champion})'
 
-        fichier1 = fichier.columns[3:22].drop(['champion', 'victoire'])
-        fichier2 = fichier.columns[22:45].drop(['team', 'afk'])
-        fichier3 = fichier.columns[45:].drop(['season', 'date', 'mode', 'rank', 'tier', 'kda', 'kp', 'damageratio',
-                                             'lp', 'id_participant', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6', 'discord', 'note', 'mvp'])
+        fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills'] 
+        fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min']
+        fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
+        fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
+        fichier_tank_heal = ['dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
+        fichier_objectif = ['baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower']
+        fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'couronne', 'snowball']
 
         # on rajoute quelques éléments sur d'autres pages...
 
-        fichier1 = np.append(fichier1, ['kda', 'kp', 'damageratio'])
-
-        fichier1 = fichier1.tolist()
         
         if mode == 'RANKED':
-            fichier3 = fichier3.drop(['snowball'])
+            fichier_divers.remove('snowball')
 
         if mode == 'ARAM':  # on vire les records qui ne doivent pas être comptés en aram
 
-            fichier1.remove('cs_jungle')
-            fichier1.remove('vision_score')
-            fichier2 = fichier2.drop(['vision_pink', 'vision_wards', 'vision_wards_killed',
-                                      'jgl_dix_min', 'baron', 'drake', 'herald',
-                                      'vision_min', 'level_max_avantage', 'vision_avantage'])
-            fichier3 = fichier3.drop(
-                ['early_drake', 'early_baron'])
+            fichier_farming.remove('cs_jungle')
+            fichier_farming.remove('jgl_dix_min')
 
-        embed1 = interactions.Embed(
-            title=title + " (Page 1/3) :bar_chart:", color=interactions.Color.BLURPLE)
+
+
         
         def format_value(joueur, champion, url, short=False):
             text = ''
@@ -665,42 +660,95 @@ class Recordslol(Extension):
                 )
                 
                 return embed
-            
+        
+        embed1 = interactions.Embed(
+            title=title + " Kills :bar_chart:", color=interactions.Color.BLURPLE)    
 
-        for column in fichier1:
+        for column in fichier_kills:
             
             embed1 = creation_embed(fichier, column, methode_pseudo, embed1)
           
 
         embed2 = interactions.Embed(
-            title=title + " (Page 2/3) :bar_chart:", color=interactions.Color.BLURPLE)
+            title=title + " DMG :bar_chart:", color=interactions.Color.BLURPLE)
 
-        for column in fichier2:
+        for column in fichier_dmg:
             
             embed2 = creation_embed(fichier, column, methode_pseudo, embed2)
 
-        embed3 = interactions.Embed(
-            title=title + " (Page 3/3) :bar_chart:", color=interactions.Color.BLURPLE)
+        embed5 = interactions.Embed(
+            title=title + " Farming :bar_chart:", color=interactions.Color.BLURPLE)
 
-        for column in fichier3:
-            methode = 'max'
-            if column in ['early_drake', 'early_baron']:
-                methode = 'min'
+        for column in fichier_farming:
             
-            embed3 = creation_embed(fichier, column, methode_pseudo, embed3, methode)
+            embed5 = creation_embed(fichier, column, methode_pseudo, embed5)
+
+        embed6 = interactions.Embed(
+            title=title + " Tank/Heal :bar_chart:", color=interactions.Color.BLURPLE)
+
+        for column in fichier_tank_heal:
+            
+            embed6 = creation_embed(fichier, column, methode_pseudo, embed6)
+
+        embed7 = interactions.Embed(
+            title=title + " Divers :bar_chart:", color=interactions.Color.BLURPLE)
+
+        for column in fichier_divers:
+            
+            embed7 = creation_embed(fichier, column, methode_pseudo, embed7)
+
+
+        if mode != 'ARAM':
+            
+            embed3 = interactions.Embed(
+            title=title + " Vision :bar_chart:", color=interactions.Color.BLURPLE)
+
+            for column in fichier_vision:
+                
+                embed3 = creation_embed(fichier, column, methode_pseudo, embed3)
+
+                
+            embed4 = interactions.Embed(
+                title=title + " Objectif :bar_chart:", color=interactions.Color.BLURPLE)
+            
+            for column in fichier_objectif:
+                methode = 'max'
+                if column in ['early_drake', 'early_baron']:
+                    methode = 'min'
+                
+                embed4 = creation_embed(fichier, column, methode_pseudo, embed4, methode)
 
         embed1.set_footer(text=f'Version {Version} by Tomlora')
         embed2.set_footer(text=f'Version {Version} by Tomlora')
-        embed3.set_footer(text=f'Version {Version} by Tomlora')
+        
+        if mode !='ARAM':
+            embed3.set_footer(text=f'Version {Version} by Tomlora')
+            embed4.set_footer(text=f'Version {Version} by Tomlora')
 
-        await Paginator(
-            client=self.bot,
-            ctx=ctx,
+
+        if mode != 'ARAM':
             pages=[
                 Page(embed1.title, embed1),
                 Page(embed2.title, embed2),
-                Page(embed3.title, embed3)
+                Page(embed3.title, embed3),
+                Page(embed4.title, embed4),
+                Page(embed5.title, embed5),
+                Page(embed6.title, embed6),
+                Page(embed7.title, embed7)
             ]
+        else:
+            pages=[
+                Page(embed1.title, embed1),
+                Page(embed2.title, embed2),
+                Page(embed5.title, embed5),
+                Page(embed6.title, embed6),
+                Page(embed7.title, embed7)
+            ]
+            
+        await Paginator(
+            client=self.bot,
+            ctx=ctx,
+            pages=pages
         ).run()
 
     @interactions.extension_command(name="records_count",
