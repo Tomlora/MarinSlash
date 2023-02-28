@@ -644,39 +644,32 @@ class Recordslol(Extension):
         embed1 = interactions.Embed(
             title=title + " (Page 1/3) :bar_chart:", color=interactions.Color.BLURPLE)
         
-        def formate_value_embed(joueur, champion, url):
-            
+        def format_value(joueur, champion, url, short=False):
             text = ''
-            
             for j, c, u in zip(joueur, champion, url):
-                text += f'**__{j}__** [{c}]({u}) \n'
-                
+                if short:
+                    text += f'**__ {j} __ {c} ** \n'
+                else:
+                    text += f'**__{j}__** [{c}]({u}) \n'
             return text
         
-        def formate_value_short(joueur, champion):
-            text = ''
+        def creation_embed(fichier, column, methode_pseudo, embed, methode='max'):
+                joueur, champion, record, url = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo)
             
-            for j, c in zip(joueur, champion):
-                text += f'**__ {j} __ {c} ** \n'
+                value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"** {joueur[0]} ** [{champion[0]}]({url[0]})\n"
                 
-            return text
+                embed.add_field(
+                    name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                    value=f"Records : __ {record} __ \n {value_text}",
+                    inline=True
+                )
+                
+                return embed
             
 
         for column in fichier1:
-            joueur, champion, record, url = trouver_records_multiples(fichier, column, identifiant=methode_pseudo)
             
-
-            if len(joueur) <= 1:
-                embed1.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                                value=f"Records : __ {record}__ \n ** {joueur[0]} ** [{champion[0]}]({url[0]})", inline=True)
-            else:
-                text = formate_value_embed(joueur, champion, url)
-                # if len(text) <= 500:
-                embed1.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                                    value=f"Records : __ {record} __ \n {text}", inline=True)
-                # else :
-                #     embed1.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                #                     value=f"Records : __ {record} __ \n {formate_value_short(joueur, champion)} mi,i", inline=True)
+            embed1 = creation_embed(fichier, column, methode_pseudo, embed1)
           
 
         embed2 = interactions.Embed(
@@ -684,16 +677,7 @@ class Recordslol(Extension):
 
         for column in fichier2:
             
-            joueur, champion, record, url = trouver_records_multiples(fichier, column, identifiant=methode_pseudo)
-            
-            if len(joueur) <= 1:
-                embed2.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                                value=f"Records : __ {record}__ \n ** {joueur[0]} ** [{champion[0]}]({url[0]})", inline=True)
-            else:
-                text = formate_value_embed(joueur, champion, url)
-                # if len(text) <= 500:
-                embed2.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                                    value=f"Records : __ {record} __ \n {text}", inline=True)
+            embed2 = creation_embed(fichier, column, methode_pseudo, embed2)
 
         embed3 = interactions.Embed(
             title=title + " (Page 3/3) :bar_chart:", color=interactions.Color.BLURPLE)
@@ -702,17 +686,8 @@ class Recordslol(Extension):
             methode = 'max'
             if column in ['early_drake', 'early_baron']:
                 methode = 'min'
-            joueur, champion, record, url = trouver_records_multiples(
-                fichier, column, methode, identifiant=methode_pseudo)
             
-            if len(joueur) <= 1:
-                embed3.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                                value=f"Records : __ {record}__ \n ** {joueur[0]} ** [{champion[0]}]({url[0]})", inline=True)
-            else:
-                text = formate_value_embed(joueur, champion, url)
-                # if len(text) <= 500:
-                embed3.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                                    value=f"Records : __ {record} __ \n {text}", inline=True)
+            embed3 = creation_embed(fichier, column, methode_pseudo, embed3, methode)
 
         embed1.set_footer(text=f'Version {Version} by Tomlora')
         embed2.set_footer(text=f'Version {Version} by Tomlora')
