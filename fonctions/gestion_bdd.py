@@ -100,6 +100,7 @@ def sauvegarde_bdd(df,
         df = df.transpose()
     df.to_sql(nom_table, con=conn, if_exists=methode_save,
               index=True, method='multi', dtype=dtype)
+    conn.commit()
     conn.close()
 
 
@@ -171,6 +172,7 @@ def sauvegarde_bdd_sw(df,
         df = df.transpose()
     df.to_sql(nom_table, con=conn, if_exists=methode_save, index=True,
               method='multi', dtype={'Score': Float(), 'serie': BigInteger()})
+    conn.commit()
     conn.close()
 
 

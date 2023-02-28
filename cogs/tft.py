@@ -8,7 +8,6 @@ from fonctions.channels_discord import chan_discord, rgb_to_discord
 import sys
 from fonctions.params import Version
 from fonctions.gestion_bdd import (lire_bdd,
-                                   lire_bdd_perso,
                                    sauvegarde_bdd,
                                    get_data_bdd,
                                    requete_perso_bdd)

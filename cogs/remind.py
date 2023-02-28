@@ -250,9 +250,8 @@ class Divers(Extension):
 
         if len(df) >= 1:
 
-            requete_perso_bdd('''UPDATE remind SET repetition = 0
-                              WHERE "user" = :user_id AND "id" = :id_rappel''',
-                              dict_params=params)
+            requete_perso_bdd(f'''UPDATE remind SET repetition = 0
+                              WHERE "user" = {int(ctx.author.id)} AND "id" = {id_rappel}''')
             
             await ctx.send(f'Le rappel **{id_rappel}** a été désactivé', ephemeral=True)
 

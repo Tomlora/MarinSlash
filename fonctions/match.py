@@ -128,6 +128,75 @@ def trouver_records(df, category, methode='max', identifiant='joueur'):
 
     return joueur, champion, record, url_game
 
+def trouver_records_multiples(df, category, methode='max', identifiant = 'joueur'):
+    """
+        Trouve les lignes avec le record associé
+
+        Parameters
+        ----------
+        df : `dataframe`
+            df avec les records
+        category : `str`
+            colonne où chercher le record
+        methode : `str`, optional
+            min ou max ?, by default 'max'
+
+        Returns
+        -------
+        joueur, champion, record, url
+    """
+
+    try:
+
+        df[category] = pd.to_numeric(df[category])
+    
+        # Trouvez la valeur minimale de la colonne
+        if methode == 'max':
+            df = df[df[category] != 0]
+            df = df[df[category] != 0.0]
+            
+            col = df[category]
+            record = col.max(skipna=True)
+            
+        elif methode == 'min':
+            # pas de 0. Ca veut dire qu'il n'ont pas fait l'objectif par exemple
+            df = df[df[category] != 0]
+            df = df[df[category] != 0.0]
+            
+            col = df[category]
+            record = col.min(skipna=True)
+
+        # Sélectionnez toutes les lignes avec la même valeur minimale
+        max_min_rows : pd.DataFrame = df.loc[df[category] == record]
+        
+        # si le df est vide, pas de record
+        if max_min_rows.empty:
+            return ['inconnu'], ['inconnu'], 0, ['#']
+        
+        joueur = []
+        champion = []
+        url_game = []
+        
+        # on regarde chaque ligne où il y a le record
+        for lig, data in max_min_rows.iterrows():
+            
+           
+            if data['joueur'] not in joueur and mention(data['discord'], 'membre') not in joueur: # on affiche qu'une game du joueur. Pas besoin de toutes...
+                
+                if identifiant == 'joueur':
+                    joueur.append(data['joueur'])
+                elif identifiant == 'discord':
+                    joueur.append(mention(data['discord'], 'membre'))
+                    
+                champion.append(data['champion'])
+
+                url_game.append(f'https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}')
+           
+    except:
+        return ['inconnu'], ['inconnu'], 0, ['#']
+
+    return joueur, champion, record, url_game
+
 def range_value(i, liste, min: bool = False):
     if i == np.argmax(liste[:5]) or i-5 == np.argmax(liste[5:]):
         fill = (0, 128, 0)
@@ -1075,7 +1144,7 @@ class matchlol():
         
         def insight_text(slug, values, type):
                   
-            type_comment = {'Positive' : ':green_circle:', 'Negative' : ':red_circle:', '': ':first_place'}
+            type_comment = {'Positive' : ':green_circle:', 'Negative' : ':red_circle:', '': ':first_place:'}
 
             dict_insight = {
                         # 'never_slacking' : f'\n{type_comment[type]} **{values[0]}** cs en mid game',
@@ -1503,9 +1572,13 @@ class matchlol():
         d.text((x_name+300, 120 + 190), str(
                     self.avgrank_ally), font=font, fill=(0, 0, 0))
         
-        self.img_enemy_avg = await get_image('tier', self.avgtier_enemy.upper(), self.session, 100, 100)
+        try:
+            self.img_enemy_avg = await get_image('tier', self.avgtier_enemy.upper(), self.session, 100, 100)
         
-        im.paste(self.img_enemy_avg, (x_name+200, 720-20 + 190), self.img_enemy_avg.convert('RGBA'))
+            im.paste(self.img_enemy_avg, (x_name+200, 720-20 + 190), self.img_enemy_avg.convert('RGBA'))
+        
+        except FileNotFoundError:
+            self.img_enemy_avg = 'UNRANKED'
         
         d.text((x_name+300, 720 + 190), str(
                     self.avgrank_enemy), font=font, fill=(0, 0, 0))

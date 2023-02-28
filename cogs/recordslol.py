@@ -5,7 +5,7 @@ import interactions
 from interactions import Choice, Option, Extension, CommandContext
 from interactions.ext.paginator import Page, Paginator
 from fonctions.params import Version, saison
-from fonctions.match import trouver_records, get_champ_list, get_version
+from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples
 from aiohttp import ClientSession
 import plotly.express as px
 import asyncio
@@ -639,24 +639,61 @@ class Recordslol(Extension):
                                       'jgl_dix_min', 'baron', 'drake', 'herald',
                                       'vision_min', 'level_max_avantage', 'vision_avantage'])
             fichier3 = fichier3.drop(
-                ['early_drake', 'early_baron', 'note', 'mvp'])
+                ['early_drake', 'early_baron'])
 
         embed1 = interactions.Embed(
             title=title + " (Page 1/3) :bar_chart:", color=interactions.Color.BLURPLE)
+        
+        def formate_value_embed(joueur, champion, url):
+            
+            text = ''
+            
+            for j, c, u in zip(joueur, champion, url):
+                text += f'**__{j}__** [{c}]({u}) \n'
+                
+            return text
+        
+        def formate_value_short(joueur, champion):
+            text = ''
+            
+            for j, c in zip(joueur, champion):
+                text += f'**__ {j} __ {c} ** \n'
+                
+            return text
+            
 
         for column in fichier1:
-            joueur, champion, record, url = trouver_records(fichier, column, identifiant=methode_pseudo)
+            joueur, champion, record, url = trouver_records_multiples(fichier, column, identifiant=methode_pseudo)
+            
 
-            embed1.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                             value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
+            if len(joueur) <= 1:
+                embed1.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                                value=f"Records : __ {record}__ \n ** {joueur[0]} ** [{champion[0]}]({url[0]})", inline=True)
+            else:
+                text = formate_value_embed(joueur, champion, url)
+                # if len(text) <= 500:
+                embed1.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                                    value=f"Records : __ {record} __ \n {text}", inline=True)
+                # else :
+                #     embed1.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                #                     value=f"Records : __ {record} __ \n {formate_value_short(joueur, champion)} mi,i", inline=True)
+          
 
         embed2 = interactions.Embed(
             title=title + " (Page 2/3) :bar_chart:", color=interactions.Color.BLURPLE)
 
         for column in fichier2:
-            joueur, champion, record, url = trouver_records(fichier, column, identifiant=methode_pseudo)
-            embed2.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                             value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
+            
+            joueur, champion, record, url = trouver_records_multiples(fichier, column, identifiant=methode_pseudo)
+            
+            if len(joueur) <= 1:
+                embed2.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                                value=f"Records : __ {record}__ \n ** {joueur[0]} ** [{champion[0]}]({url[0]})", inline=True)
+            else:
+                text = formate_value_embed(joueur, champion, url)
+                # if len(text) <= 500:
+                embed2.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                                    value=f"Records : __ {record} __ \n {text}", inline=True)
 
         embed3 = interactions.Embed(
             title=title + " (Page 3/3) :bar_chart:", color=interactions.Color.BLURPLE)
@@ -665,10 +702,17 @@ class Recordslol(Extension):
             methode = 'max'
             if column in ['early_drake', 'early_baron']:
                 methode = 'min'
-            joueur, champion, record, url = trouver_records(
+            joueur, champion, record, url = trouver_records_multiples(
                 fichier, column, methode, identifiant=methode_pseudo)
-            embed3.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                             value=f"Records : __ [{record}]({url}) __ \n ** {joueur} ** ({champion})", inline=True)
+            
+            if len(joueur) <= 1:
+                embed3.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                                value=f"Records : __ {record}__ \n ** {joueur[0]} ** [{champion[0]}]({url[0]})", inline=True)
+            else:
+                text = formate_value_embed(joueur, champion, url)
+                # if len(text) <= 500:
+                embed3.add_field(name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                                    value=f"Records : __ {record} __ \n {text}", inline=True)
 
         embed1.set_footer(text=f'Version {Version} by Tomlora')
         embed2.set_footer(text=f'Version {Version} by Tomlora')
@@ -746,9 +790,9 @@ class Recordslol(Extension):
 
         # data
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct * from matchs where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]}''', index_col='id').transpose()
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs, tracker where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]}''', index_col='id').transpose()
         elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.* from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs, tracker
                                      INNER JOIN tracker on tracker.index = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
@@ -768,25 +812,39 @@ class Recordslol(Extension):
             liste_records.append('snowball')
 
         if champion == None:
+            # Initialisation des listes
             liste_joueurs_general = []
             liste_joueurs_champion = []
+
+            # Parcours des enregistrements dans liste_records
             for records in liste_records:
                 methode = 'max'
                 if records in ['early_drake', 'early_baron']:
                     methode = 'min'
-                joueur, champion, record, url_game = trouver_records(
-                    fichier, records, methode)
-                liste_joueurs_general.append(joueur)
 
+                # Appel de la fonction trouver_records_multiples
+                joueur, champion, record, url_game = trouver_records_multiples(
+                    fichier, records, methode)
+                
+                # Ajout des joueurs dans la liste_joueurs_general
+                liste_joueurs_general.extend(joueur)
+
+                # Parcours des champions dans la liste list_champ['data']
                 for champion in list_champ['data']:
                     try:
-                        fichier_champion = fichier[fichier['champion']
-                                                   == champion]
-                        joueur, champion, record, url_game = trouver_records(
+                        # Filtre le fichier par champion
+                        fichier_champion = fichier[fichier['champion'] == champion]
+
+                        # Appel de la fonction trouver_records_multiples
+                        joueur, champion, record, url_game = trouver_records_multiples(
                             fichier_champion, records, methode)
-                        liste_joueurs_champion.append(joueur)
+
+                        # Ajout des joueurs dans la liste_joueurs_champion
+                        liste_joueurs_champion.extend(joueur)
+
                     except:  # personne a le record
                         pass
+                    
 
             counts_general = pd.Series(liste_joueurs_general).value_counts()
             counts_champion = pd.Series(liste_joueurs_champion).value_counts()
@@ -848,16 +906,23 @@ class Recordslol(Extension):
         elif champion != None:  # si un champion en particulier
             fichier = fichier[fichier['champion'] == champion]
 
+            # Initialisation de la liste
             liste_joueurs_champion = []
 
+            # Parcours des enregistrements dans liste_records
             for records in liste_records:
                 methode = 'max'
-                if records in ['early_drake', 'early_baron']:
+                if record in ['early_drake', 'early_baron']:
                     methode = 'min'
-                joueur, champion, record, url_game = trouver_records(
-                    fichier, records, methode)
-                liste_joueurs_champion.append(joueur)
 
+                # Appel de la fonction trouver_records_multiples
+                joueur, champion, record, url_game = trouver_records_multiples(
+                    fichier, records, methode)
+
+                # Ajout des joueurs dans la liste_joueurs_champion
+                liste_joueurs_champion.extend(joueur)
+
+            # Comptage des occurrences des joueurs dans la liste
             counts_champion = pd.Series(liste_joueurs_champion).value_counts()
 
             fig = px.histogram(counts_champion,
