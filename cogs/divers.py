@@ -503,19 +503,24 @@ class Divers(Extension):
                 return await ctx.edit(components=[])
             
     @interactions.extension_command(name="ask_gpt3",
-                                    description="Pose une question",
+                                    description="Pose une question à une IA",
                                     options=[
                                         Option(
                                             name="question",
                                             description="Question",
                                             type=interactions.OptionType.STRING,
-                                            required=True)
+                                            required=True),
+                                        Option(name='private',
+                                               description='Réponse publique ou privée',
+                                               type=interactions.OptionType.BOOLEAN,
+                                               required=False),
                                     ])
     async def ask_gpt3(self,
                         ctx: CommandContext,
-                        question : str):
+                        question : str,
+                        private:bool=False):
         
-        await ctx.defer(ephemeral=True)
+        await ctx.defer(ephemeral=private)
 
         completion = openai.ChatCompletion.create(
                                 model="gpt-3.5-turbo", 
@@ -524,7 +529,7 @@ class Divers(Extension):
 
 
 
-        await ctx.send(completion['choices'][0]['message']['content'])
+        await ctx.send(f"Question : {question}\n{completion['choices'][0]['message']['content']}")
 
 def setup(bot):
     Divers(bot)
