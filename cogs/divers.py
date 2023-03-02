@@ -14,6 +14,7 @@ import numpy as np
 import os
 from aiohttp import ClientSession, ClientError
 from interactions.ext.paginator import Page, Paginator
+import openai
 
 
 
@@ -23,6 +24,7 @@ class Divers(Extension):
         self.bot: interactions.Client = bot
         stp(self.bot)
         self.database_handler = DatabaseHandler()
+        openai.api_key = os.environ.get('openai')
 
     @interactions.extension_listener
     async def on_start(self):
@@ -499,6 +501,30 @@ class Divers(Extension):
             except asyncio.TimeoutError:
             # When it times out, edit the original message and remove the button(s)
                 return await ctx.edit(components=[])
+            
+    @interactions.extension_command(name="ask_gpt3",
+                                    description="Pose une question",
+                                    options=[
+                                        Option(
+                                            name="question",
+                                            description="Question",
+                                            type=interactions.OptionType.STRING,
+                                            required=True)
+                                    ])
+    async def ask_gpt3(self,
+                        ctx: CommandContext,
+                        question : str):
+        
+        await ctx.defer(ephemeral=True)
+
+        completion = openai.ChatCompletion.create(
+                                model="gpt-3.5-turbo", 
+                                messages=[{"role": "user", "content": question}]
+                                    )
+
+
+
+        await ctx.send(completion['choices'][0]['message']['content'])
 
 def setup(bot):
     Divers(bot)
