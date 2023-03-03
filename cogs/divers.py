@@ -14,7 +14,9 @@ import numpy as np
 import os
 from aiohttp import ClientSession, ClientError
 from interactions.ext.paginator import Page, Paginator
-import openai
+import aiohttp
+import asyncio
+import async_timeout
 
 
 
@@ -24,7 +26,7 @@ class Divers(Extension):
         self.bot: interactions.Client = bot
         stp(self.bot)
         self.database_handler = DatabaseHandler()
-        openai.api_key = os.environ.get('openai')
+        self.api_key_openai = os.environ.get('openai')
 
     @interactions.extension_listener
     async def on_start(self):
@@ -522,14 +524,38 @@ class Divers(Extension):
         
         await ctx.defer(ephemeral=private)
 
-        completion = openai.ChatCompletion.create(
-                                model="gpt-3.5-turbo", 
-                                messages=[{"role": "user", "content": question}]
-                                    )
+        delay = 30
 
+        clientSession = aiohttp.ClientSession()
+    
+        header = {'Content-Type' : 'application/json',
+                'Authorization' : f'Bearer {self.api_key_openai}'}
+        
+        try:
+            async with async_timeout.timeout(delay=delay):
+                async with clientSession.post(headers=header,
+                                        url='https://api.openai.com/v1/chat/completions',
+                                        json={
+                                    'model' : 'gpt-3.5-turbo',
+                                    'messages' : [{'role' : 'user', 'content' : question}]
+                                            }) as session:
+                    try:                        
+                        if session.status == 200:
+                            reponse = await session.json()
+                            reponse = reponse['choices'][0]['message']['content']
+                            await ctx.send(f"Question : **{question}**\n{reponse}")
+                            await clientSession.close()
+                        else:
+                            await ctx.send("La requête n'a pas fonctionné", ephemeral=True)
+                            await clientSession.close()
+                    except Exception as e:
+                            await ctx.send("Une erreur est survenue", ephemeral=True)
+                            await clientSession.close()
+        except asyncio.TimeoutError as e:
+            await clientSession.close()
+        
+                    
 
-
-        await ctx.send(f"Question : {question}\n{completion['choices'][0]['message']['content']}")
-
+            
 def setup(bot):
     Divers(bot)
