@@ -12,6 +12,8 @@ from fonctions.params import Version, saison, heure_lolsuivi
 from fonctions.channels_discord import verif_module
 from cogs.recordslol import emote_v2
 
+
+
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
                                    get_data_bdd,
@@ -247,7 +249,8 @@ class LeagueofLegends(Extension):
                              'temps_vivant': match_info.thisTimeSpendAlive,
                              'dmg_tower': match_info.thisDamageTurrets,
                              'gold_share' : match_info.gold_share,
-                             'ecart_gold_team' : match_info.ecart_gold_team}
+                             'ecart_gold_team' : match_info.ecart_gold_team,
+                             'kills+assists' : match_info.thisKills + match_info.thisAssists}
 
             param_records_only_ranked = {'vision_score': match_info.thisVision,
                                          'vision_wards': match_info.thisWards,
@@ -509,11 +512,43 @@ class LeagueofLegends(Extension):
 
         # ici, ça va de 1 à 10.. contrairement à Rito qui va de 1 à 9
         embed.add_field(
-            name="Game", value=f"[LeagueofGraph]({url_game})", inline=True)
+            name="Game", value=f"[Graph]({url_game}) | [OPGG](https://euw.op.gg/summoners/euw/{summonerName}) ", inline=True)
+    
         embed.add_field(
-            name="OPGG", value=f"[Profil](https://euw.op.gg/summoners/euw/{summonerName})", inline=True)
-        embed.add_field(
-            name="Stats", value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)", inline=True)
+            name='Champ', value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)", inline=True)
+        
+        # on va chercher les stats du joueur:
+        
+        if match_info.thisQ == 'ARAM':
+            time = 10
+        else:
+            time = 15
+        
+        stats_joueur = lire_bdd_perso(f'''SELECT joueur, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
+                    (count(victoire) filter (where victoire = True)) as victoire,
+                    avg(kp) as kp,
+                    count(victoire) as nb_games
+                    from matchs WHERE joueur = '{match_info.summonerName.lower()}'
+                    and champion = '{match_info.thisChampName.capitalize()}'
+                    and season = {saison}
+                    and mode = '{match_info.thisQ}'
+                    and time > {time}
+                    GROUP BY joueur''', index_col='joueur').transpose()
+        
+
+        if not stats_joueur.empty:
+
+            k = round(stats_joueur.loc[match_info.summonerName.lower(), 'kills'],1)
+            d = round(stats_joueur.loc[match_info.summonerName.lower(), 'deaths'],)
+            a = round(stats_joueur.loc[match_info.summonerName.lower(), 'assists'],1)
+            kp = int(stats_joueur.loc[match_info.summonerName.lower(), 'kp'])
+            ratio_victoire = int((stats_joueur.loc[match_info.summonerName.lower(), 'victoire'] / stats_joueur.loc[match_info.summonerName.lower(), 'nb_games'])*100)
+            nb_games = int(stats_joueur.loc[match_info.summonerName.lower(), 'nb_games'])
+            embed.add_field(
+                name=f"{nb_games} games ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=True)
+            
+            
+
 
         # on découpe le texte embed
         chunk_size = 1024
