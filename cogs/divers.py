@@ -451,59 +451,6 @@ class Divers(Extension):
                         ).run()      
 
 
-    @interactions.extension_command(name='test_choice',
-                                    description="test",
-                                    )
-    async def test_choice(self, ctx : CommandContext):
-        embed1 = interactions.Embed(title='test', description='test1')
-        
-        def componants_equipe_vs_equipe(equipe1:str, equipe2:str, numero_button:int):
-            button1 = interactions.Button(
-                custom_id=f'button_{numero_button}',
-                style=interactions.ButtonStyle.PRIMARY,
-                label=equipe1
-            )
-            
-            button2 = interactions.Button(
-                custom_id=f'button_{numero_button+100}',
-                style=interactions.ButtonStyle.DANGER,
-                label=equipe2
-            )
-            
-            return interactions.ActionRow(components=[button1, button2])
-        
-        # possibilité de faire deux listes avec les équipes bleus + red, et faire -> for equipe_bleu, equipe_red in zip(liste_bleu, liste_red)
-        
-        
- 
-        
-        liste_bleu = ['FNC', 'SK']
-        liste_rouge = ['G2', 'MAD']
-        
-        liste_components = [componants_equipe_vs_equipe(equipe_bleu, equipe_red, n) for n, (equipe_bleu, equipe_red) in enumerate(zip(liste_bleu, liste_rouge))]
-
-        await ctx.send(embeds=embed1, components=liste_components)
-        
-
-        async def check(button_ctx):
-                    if int(button_ctx.author.user.id) == int(ctx.author.user.id):
-                        return True
-                    await ctx.send("I wasn't asking you!", ephemeral=True)
-                    return False
-
-        while True:
-            try:
-                button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
-                                components=liste_components, check=check, timeout=30
-                            )
-                print(button_ctx.data.custom_id)
-                if button_ctx.data.custom_id == 'button_id':
-                    print(button_ctx.label)
-                    await button_ctx.send('ok')
-            except asyncio.TimeoutError:
-            # When it times out, edit the original message and remove the button(s)
-                return await ctx.edit(components=[])
-            
     @interactions.extension_command(name="ask_gpt3",
                                     description="Pose une question à une IA",
                                     options=[
@@ -525,7 +472,6 @@ class Divers(Extension):
         await ctx.defer(ephemeral=private)
 
         delay = 30
-
         clientSession = aiohttp.ClientSession()
     
         header = {'Content-Type' : 'application/json',
@@ -537,13 +483,20 @@ class Divers(Extension):
                                         url='https://api.openai.com/v1/chat/completions',
                                         json={
                                     'model' : 'gpt-3.5-turbo',
-                                    'messages' : [{'role' : 'user', 'content' : question}]
+                                    'messages' : [{'role' : 'user',
+                                                   'content' : question}]
                                             }) as session:
                     try:                        
                         if session.status == 200:
                             reponse = await session.json()
                             reponse = reponse['choices'][0]['message']['content']
-                            await ctx.send(f"Question : **{question}**\n{reponse}")
+                            
+                            embed = interactions.Embed()
+                            embed.add_field(name=f'**{question}**', value=f'```{reponse}```')
+                            
+                            await ctx.send(embeds=embed)
+                            
+                            # await ctx.send(f"Question : **{question}**\n{reponse}")
                             await clientSession.close()
                         else:
                             await ctx.send("La requête n'a pas fonctionné", ephemeral=True)
@@ -552,6 +505,7 @@ class Divers(Extension):
                             await ctx.send("Une erreur est survenue", ephemeral=True)
                             await clientSession.close()
         except asyncio.TimeoutError as e:
+            await ctx.send('Erreur : Délai dépassé. Merci de reposer la question')
             await clientSession.close()
         
                     

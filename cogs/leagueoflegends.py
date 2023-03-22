@@ -11,6 +11,7 @@ from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version, saison, heure_lolsuivi
 from fonctions.channels_discord import verif_module
 from cogs.recordslol import emote_v2
+from fonctions.permissions import isOwner_slash
 
 
 
@@ -25,7 +26,9 @@ from fonctions.match import (matchlol,
                              dict_rankid,
                              get_league_by_summoner,
                              get_summoner_by_name,
-                             trouver_records
+                             trouver_records,
+                             label_rank,
+                             label_tier
                              )
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 
@@ -529,7 +532,7 @@ class LeagueofLegends(Extension):
                     avg(kp) as kp,
                     count(victoire) as nb_games
                     from matchs WHERE joueur = '{match_info.summonerName.lower()}'
-                    and champion = '{match_info.thisChampName.capitalize()}'
+                    and champion = '{match_info.thisChampName}'
                     and season = {saison}
                     and mode = '{match_info.thisQ}'
                     and time > {time}
@@ -805,15 +808,15 @@ class LeagueofLegends(Extension):
         timeout = aiohttp.ClientTimeout(total=20)
         session = aiohttp.ClientSession(timeout=timeout)
 
-        for key, value, server_id in data:
+        for summonername, last_game, server_id in data:
 
-            id_last_game = await getId(key, session)
+            id_last_game = await getId(summonername, session)
 
-            if str(value) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
+            if str(last_game) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 # update la bdd
 
                 requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {
-                                  'id': id_last_game, 'index': key})
+                                  'id': id_last_game, 'index': summonername})
                 try:
 
                     # identification du channel
@@ -821,13 +824,18 @@ class LeagueofLegends(Extension):
 
                     # résumé de game
 
-                    await self.printLive(key, discord_server_id)
+                    await self.printLive(summonername, discord_server_id)
 
                     # update rank
-                    await self.updaterank(key, discord_server_id, session)
-
+                    await self.updaterank(summonername, discord_server_id, session)
+                except TypeError:
+                    # on recommence dans 1 minute
+                    requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {
+                                  'id': last_game, 'index': summonername})
+                    print(f"erreur TypeError {summonername}")  # joueur qui a posé pb
+                    continue
                 except:
-                    print(f"erreur {key}")  # joueur qui a posé pb
+                    print(f"erreur {summonername}")  # joueur qui a posé pb
                     print(sys.exc_info())  # erreur
                     continue
 
@@ -849,7 +857,9 @@ class LeagueofLegends(Extension):
             if verif_module('league_ranked', int(ctx.guild.id)):
                 summonername = summonername.lower()
                 session = aiohttp.ClientSession()
-                requete_perso_bdd(f'''INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
+                requete_perso_bdd(f'''
+                                  
+                                INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
                                 
                                 INSERT INTO suivi_s{saison}(
                                 index, wins, losses, "LP", tier, rank, serie)
@@ -960,127 +970,105 @@ class LeagueofLegends(Extension):
             title="Live feed list", description=response, color=interactions.Color.BLURPLE)
 
         await ctx.send(embeds=embed)
-
-    async def lolsuivi(self):
-
-        currentHour = str(datetime.datetime.now().hour)
-
-        if currentHour == str(heure_lolsuivi):
-
-            data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
+        
+        
+    async def update_24h(self):
+        data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                     where channels_module.league_ranked = true''').fetchall()
 
-            for server_id in data:
+        for server_id in data:
 
-                guild = await interactions.get(client=self.bot,
+            guild = await interactions.get(client=self.bot,
                                                obj=interactions.Guild,
                                                object_id=server_id[0])
 
-                chan_discord_id = chan_discord(int(guild.id))
+            chan_discord_id = chan_discord(int(guild.id))
 
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
-                df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_s{saison} as suivi
+            df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_s{saison} as suivi
                                     INNER join tracker ON tracker.index = suivi.index 
                                     where suivi.tier != 'Non-classe' and tracker.server_id = {int(guild.id)} ''')
-                df_24h = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_24h as suivi
+            df_24h = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_24h as suivi
                                     INNER join tracker ON tracker.index = suivi.index 
                                     and tracker.server_id = {int(guild.id)} ''')
 
-                if df.shape[1] > 0:  # si pas de data, inutile de continuer
+            if df.shape[1] > 0:  # si pas de data, inutile de continuer
 
-                    df = df.transpose().reset_index()
-                    df_24h = df_24h.transpose().reset_index()
+                df = df.transpose().reset_index()
+                df_24h = df_24h.transpose().reset_index()
 
-                    def changement_tier(x):
-                        dict_chg_tier = {'Non-classe': 0,
-                                         'IRON': 1,
-                                         'BRONZE': 1,
-                                         'SILVER': 2,
-                                         'GOLD': 3,
-                                         'PLATINUM': 4,
-                                         'DIAMOND': 5,
-                                         'MASTER': 6,
-                                         'GRANDMASTER': 7,
-                                         'CHALLENGER': 8}
-                        return dict_chg_tier[x]
 
-                    def changement_rank(x):
-                        dict_chg_rank = {'IV': 1,
-                                         'III': 2,
-                                         'II': 3,
-                                         'I': 4}
-                        return dict_chg_rank[x]
 
                     # Pour l'ordre de passage
-                    df['tier_pts'] = df['tier'].apply(changement_tier)
-                    df['rank_pts'] = df['rank'].apply(changement_rank)
+                df['tier_pts'] = df['tier'].apply(label_tier)
+                df['rank_pts'] = df['rank'].apply(label_rank)
 
-                    df.sort_values(by=['tier_pts', 'rank_pts', 'LP'],
+                df.sort_values(by=['tier_pts', 'rank_pts', 'LP'],
                                    ascending=[False, False, False],
                                    inplace=True)
 
-                    sql = ''
+                sql = ''
 
-                    suivi = df.set_index('index').transpose().to_dict()
-                    suivi_24h = df_24h.set_index('index').transpose().to_dict()
+                suivi = df.set_index('index').transpose().to_dict()
+                suivi_24h = df_24h.set_index('index').transpose().to_dict()
 
-                    joueur = suivi.keys()
+                joueur = suivi.keys()
 
-                    embed = interactions.Embed(
+                embed = interactions.Embed(
                         title="Suivi LOL", description='Periode : 24h', color=interactions.Color.BLURPLE)
-                    totalwin = 0
-                    totaldef = 0
-                    totalgames = 0
+                totalwin = 0
+                totaldef = 0
+                totalgames = 0
 
-                    for key in joueur:
+                for key in joueur:
 
-                        # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
-                        wins = int(suivi_24h[key]['wins'])
-                        losses = int(suivi_24h[key]['losses'])
-                        nbgames = wins + losses
-                        LP = int(suivi_24h[key]['LP'])
-                        tier_old = str(suivi_24h[key]['tier'])
-                        rank_old = str(suivi_24h[key]['rank'])
-                        classement_old = tier_old + " " + rank_old
+                    # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
+                    wins = int(suivi_24h[key]['wins'])
+                    losses = int(suivi_24h[key]['losses'])
+                    nbgames = wins + losses
+                    LP = int(suivi_24h[key]['LP'])
+                    tier_old = str(suivi_24h[key]['tier'])
+                    rank_old = str(suivi_24h[key]['rank'])
+                    classement_old = tier_old + " " + rank_old
 
                         # on veut les stats soloq
 
-                        tier = str(suivi[key]['tier'])
-                        rank = str(suivi[key]['rank'])
-                        classement_new = tier + " " + rank
+                    tier = str(suivi[key]['tier'])
+                    rank = str(suivi[key]['rank'])
+                    classement_new = tier + " " + rank
 
-                        difwins = int(suivi[key]['wins']) - wins
-                        diflosses = int(suivi[key]['losses']) - losses
-                        difLP = int(suivi[key]['LP']) - LP
-                        totalwin = totalwin + difwins
-                        totaldef = totaldef + diflosses
-                        totalgames = totalwin + totaldef
+                    difwins = int(suivi[key]['wins']) - wins
+                    diflosses = int(suivi[key]['losses']) - losses
+                    difLP = int(suivi[key]['LP']) - LP
+                    totalwin = totalwin + difwins
+                    totaldef = totaldef + diflosses
+                    totalgames = totalwin + totaldef
 
-                        # evolution
+                    # evolution
 
-                        if dict_rankid[classement_old] > dict_rankid[classement_new]:  # 19-18
-                            if not classement_old in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
-                                difLP = 100 + LP - int(suivi[key]['LP']) # il n'y a pas -100 lp pour ce type de démote
-                            difLP = "Démote / -" + str(difLP)
-                            emote = ":arrow_down:"
+                    if dict_rankid[classement_old] > dict_rankid[classement_new]:  # 19-18
+                        if not classement_old in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
+                            difLP = 100 + LP - int(suivi[key]['LP']) # il n'y a pas -100 lp pour ce type de démote
+                        difLP = "Démote / -" + str(difLP)
+                        emote = ":arrow_down:"
 
-                        elif dict_rankid[classement_old] < dict_rankid[classement_new]:
-                            if not classement_old in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
-                                difLP = 100 - LP + int(suivi[key]['LP']) # il n'y a pas +100 lp pour ce type de démote
-                            difLP = "Promotion / +" + str(difLP)
+                    elif dict_rankid[classement_old] < dict_rankid[classement_new]:
+                        if not classement_old in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
+                            difLP = 100 - LP + int(suivi[key]['LP']) # il n'y a pas +100 lp pour ce type de démote
+                        difLP = "Promotion / +" + str(difLP)
+                        emote = ":arrow_up:"
+
+                    elif dict_rankid[classement_old] == dict_rankid[classement_new]:
+                        if difLP > 0:
                             emote = ":arrow_up:"
+                        elif difLP < 0:
+                            emote = ":arrow_down:"
+                        elif difLP == 0:
+                            emote = ":arrow_right:"
 
-                        elif dict_rankid[classement_old] == dict_rankid[classement_new]:
-                            if difLP > 0:
-                                emote = ":arrow_up:"
-                            elif difLP < 0:
-                                emote = ":arrow_down:"
-                            elif difLP == 0:
-                                emote = ":arrow_right:"
-
-                        embed.add_field(name=str(key) + " ( " + tier + " " + rank + " )",
+                    embed.add_field(name=str(key) + " ( " + tier + " " + rank + " )",
                                         value="V : " +
                                         str(suivi[key]['wins']) +
                                         "(" + str(difwins) + ") | D : "
@@ -1088,21 +1076,49 @@ class LeagueofLegends(Extension):
                                         "(" + str(diflosses) + ") | LP :  "
                                         + str(suivi[key]['LP']) + "(" + str(difLP) + ")    " + emote, inline=False)
 
-                        if difwins + diflosses > 0:  # si supérieur à 0, le joueur a joué
-                            sql += f'''UPDATE suivi_24h SET wins = {suivi[key]['wins']}, losses = {suivi[key]['losses']}, "LP" = {suivi[key]['LP']}, tier = '{suivi[key]['tier']}', rank = '{suivi[key]['rank']}' where index = '{key}';'''
+                    if difwins + diflosses > 0:  # si supérieur à 0, le joueur a joué
+                            sql += f'''UPDATE suivi_24h
+                            SET wins = {suivi[key]['wins']},
+                            losses = {suivi[key]['losses']},
+                            "LP" = {suivi[key]['LP']},
+                            tier = '{suivi[key]['tier']}',
+                            rank = '{suivi[key]['rank']}'
+                            where index = '{key}';'''
 
-                    channel_tracklol = await interactions.get(client=self.bot,
+                channel_tracklol = await interactions.get(client=self.bot,
                                                               obj=interactions.Channel,
                                                               object_id=chan_discord_id.tracklol)
 
-                    embed.set_footer(text=f'Version {Version} by Tomlora')
+                embed.set_footer(text=f'Version {Version} by Tomlora')
 
-                    if sql != '':  # si vide, pas de requête
-                        requete_perso_bdd(sql)
+                if sql != '':  # si vide, pas de requête
+                    requete_perso_bdd(sql)
 
-                    if totalgames > 0:  # s'il n'y a pas de game, on ne va pas afficher le récap
-                        await channel_tracklol.send(embeds=embed)
-                        await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
+                if totalgames > 0:  # s'il n'y a pas de game, on ne va pas afficher le récap
+                    await channel_tracklol.send(embeds=embed)
+                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
+
+    async def lolsuivi(self):
+
+        currentHour = str(datetime.datetime.now().hour)
+
+        if currentHour == str(heure_lolsuivi):
+            await self.update_24h()
+            
+
+    @interactions.extension_command(name="force_update24h",
+                                    description="Réservé à Tomlora")
+    async def force_update(self, ctx: CommandContext):
+
+
+        await ctx.defer(ephemeral=False)
+        
+        if isOwner_slash(ctx):
+            await self.update_24h()
+        
+        else:
+            await ctx.send("Tu n'as pas l'autorisation nécessaire")
+            
 
     @interactions.extension_command(name="color_recap",
                                     description="Modifier la couleur du recap",

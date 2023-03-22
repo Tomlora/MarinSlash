@@ -135,6 +135,7 @@ emote_v2 = {
     "cs_min": ":ghost:",
     "cs_dix_min": ":ghost:",
     "kills": ":dagger:",
+    "kills+assists" : ":dagger:",
     "team_kills": ":dagger:",
     "deaths": ":skull:",
     "team_deaths": ":skull:",
@@ -539,9 +540,15 @@ class Recordslol(Extension):
                 Choice(name='flex', value='FLEX')]),
         Option(
             name="joueur",
-            description="Quel joueur ?",
+            description="Compte LoL (pas nécessaire si compte discord renseigné)",
             type=interactions.OptionType.STRING,
-            required=True),
+            required=False),
+        Option(
+            name="compte_discord",
+            description='compte discord (pas nécessaire si compte lol renseigné)',
+            type=interactions.OptionType.USER,
+            required=False
+        ),
         Option(
             name='saison',
             description='saison league of legends',
@@ -568,8 +575,9 @@ class Recordslol(Extension):
                               sub_command: str,
                               saison: int = saison,
                               mode: str = 'ranked',
-                              joueur=None,
-                              champion=None,
+                              joueur= None,
+                              compte_discord : interactions.User = None,
+                              champion : str =None,
                               view='global'):
 
         await ctx.defer(ephemeral=False)
@@ -590,21 +598,42 @@ class Recordslol(Extension):
             
 
         if champion != None:
+            
+            champion = champion.capitalize()
 
             fichier = fichier[fichier['champion'] == champion]
 
         if sub_command == 'personnel':
-            
-            joueur = joueur.lower()
-            
-            id_joueur = lire_bdd_perso('''SELECT tracker.index, tracker.discord from tracker''',
-                                        format='dict', index_col='index')
 
-            fichier = fichier[fichier['discord'] == id_joueur[joueur]['discord']]
             
+            if joueur != None:
+            
+                joueur = joueur.lower()
+                
+                id_joueur = lire_bdd_perso('''SELECT tracker.index, tracker.discord from tracker''',
+                                            format='dict', index_col='index')
+
+                fichier = fichier[fichier['discord'] == id_joueur[joueur]['discord']]
+                
+              
+            elif compte_discord != None:
+                
+                id_discord = str(compte_discord.id)
+                               
+                joueur = compte_discord.username
+                
+                fichier = fichier[fichier['discord'] == id_discord]
+                
+            
+            elif joueur == None and compte_discord == None:
+                
+                fichier = fichier[fichier['discord'] == str(ctx.author.id)]
+                
+                joueur = ctx.author.name
+                
             methode_pseudo = 'joueur'
 
-            if champion != None:
+            if champion == None:
 
                 title = f'Records personnels {joueur} {mode} S{saison}'
             else:
@@ -617,7 +646,7 @@ class Recordslol(Extension):
             else:
                 title = f'Records {mode} S{saison} ({champion})'
 
-        fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills'] 
+        fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills'] 
         fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min']
         fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
         fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
@@ -637,8 +666,6 @@ class Recordslol(Extension):
             fichier_farming.remove('jgl_dix_min')
 
 
-
-        
         def format_value(joueur, champion, url, short=False):
             text = ''
             for j, c, u in zip(joueur, champion, url):
@@ -662,7 +689,7 @@ class Recordslol(Extension):
                 return embed
         
         embed1 = interactions.Embed(
-            title=title + " Kills :bar_chart:", color=interactions.Color.BLURPLE)    
+            title=title + " Kills", color=interactions.Color.BLURPLE)    
 
         for column in fichier_kills:
             
@@ -670,28 +697,28 @@ class Recordslol(Extension):
           
 
         embed2 = interactions.Embed(
-            title=title + " DMG :bar_chart:", color=interactions.Color.BLURPLE)
+            title=title + " DMG", color=interactions.Color.BLURPLE)
 
         for column in fichier_dmg:
             
             embed2 = creation_embed(fichier, column, methode_pseudo, embed2)
 
         embed5 = interactions.Embed(
-            title=title + " Farming :bar_chart:", color=interactions.Color.BLURPLE)
+            title=title + " Farming", color=interactions.Color.BLURPLE)
 
         for column in fichier_farming:
             
             embed5 = creation_embed(fichier, column, methode_pseudo, embed5)
 
         embed6 = interactions.Embed(
-            title=title + " Tank/Heal :bar_chart:", color=interactions.Color.BLURPLE)
+            title=title + " Tank/Heal", color=interactions.Color.BLURPLE)
 
         for column in fichier_tank_heal:
             
             embed6 = creation_embed(fichier, column, methode_pseudo, embed6)
 
         embed7 = interactions.Embed(
-            title=title + " Divers :bar_chart:", color=interactions.Color.BLURPLE)
+            title=title + " Divers", color=interactions.Color.BLURPLE)
 
         for column in fichier_divers:
             
@@ -701,7 +728,7 @@ class Recordslol(Extension):
         if mode != 'ARAM':
             
             embed3 = interactions.Embed(
-            title=title + " Vision :bar_chart:", color=interactions.Color.BLURPLE)
+            title=title + " Vision", color=interactions.Color.BLURPLE)
 
             for column in fichier_vision:
                 
@@ -709,7 +736,7 @@ class Recordslol(Extension):
 
                 
             embed4 = interactions.Embed(
-                title=title + " Objectif :bar_chart:", color=interactions.Color.BLURPLE)
+                title=title + " Objectif", color=interactions.Color.BLURPLE)
             
             for column in fichier_objectif:
                 methode = 'max'
@@ -720,13 +747,13 @@ class Recordslol(Extension):
 
         embed1.set_footer(text=f'Version {Version} by Tomlora')
         embed2.set_footer(text=f'Version {Version} by Tomlora')
-        
-        if mode !='ARAM':
-            embed3.set_footer(text=f'Version {Version} by Tomlora')
-            embed4.set_footer(text=f'Version {Version} by Tomlora')
-
+        embed5.set_footer(text=f'Version {Version} by Tomlora')
+        embed6.set_footer(text=f'Version {Version} by Tomlora')
+        embed7.set_footer(text=f'Version {Version} by Tomlora')
 
         if mode != 'ARAM':
+            embed3.set_footer(text=f'Version {Version} by Tomlora')
+            embed4.set_footer(text=f'Version {Version} by Tomlora')
             pages=[
                 Page(embed1.title, embed1),
                 Page(embed2.title, embed2),
@@ -748,7 +775,8 @@ class Recordslol(Extension):
         await Paginator(
             client=self.bot,
             ctx=ctx,
-            pages=pages
+            pages=pages,
+            timeout=180
         ).run()
 
     @interactions.extension_command(name="records_count",
@@ -824,15 +852,18 @@ class Recordslol(Extension):
 
         # liste records
 
+        liste_records = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills', 
+        'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
+        'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage',
+        'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
+        'baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower',
+        'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'couronne', 'kills+assists']
 
-        liste_records = ['kda', 'kp', 'kills', 'cs', 'cs_min', 'deaths', 'assists', 'double', 'triple', 'quadra', 'penta', 'team_kills',
-                         'team_deaths', 'time', 'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'gold', 'gold_min', 'dmg_min', 'solokills', 'dmg_reduit', 'heal_total', 'heal_allies',
-                         'serie_kills', 'cs_dix_min', 'cs_max_avantage', 'temps_dead', 'damageratio', 'tankratio', 'dmg_tank', 'shield', 'allie_feeder',
-                         'vision_score', 'vision_wards', 'vision_wards_killed', 'vision_pink', 'vision_min', 'level_max_avantage', 'vision_avantage', 'early_drake', 'early_baron',
-                         'jgl_dix_min', 'baron', 'drake', 'herald', 'cs_jungle', 'temps_vivant', 'dmg_tower', 'gold_share', 'ecart_gold_team']
-        
+
         if mode == 'ARAM':
             liste_records.append('snowball')
+            liste_records.remove('cs_jungle')
+            liste_records.remove('jgl_dix_min')
 
         if champion == None:
             # Initialisation des listes

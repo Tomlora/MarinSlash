@@ -9,7 +9,7 @@ from interactions import Extension
 class activity(Extension):
     def __init__(self, bot: interactions.Client):
         self.bot = bot
-
+        
     @interactions.extension_listener
     async def on_start(self):
         currentHour, currentMinute = heure_actuelle()

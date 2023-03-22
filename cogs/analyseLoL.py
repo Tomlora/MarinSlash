@@ -18,11 +18,10 @@ from datetime import datetime
 
 from fonctions.match import (match_by_puuid,
                              get_summoner_by_puuid,
-                             my_region,
-                             region,
                              get_version,
                              get_champ_list,
-                             get_match_timeline)
+                             get_match_timeline,
+                             label_ward)
 from fonctions.channels_discord import get_embed
 from fonctions.gestion_bdd import lire_bdd_perso
 from fonctions.params import saison
@@ -302,13 +301,9 @@ class analyseLoL(Extension):
                                                        '8': dict_joueur[7],
                                                        '9': dict_joueur[8],
                                                        '10': dict_joueur[9]})
-            ward_points = {'YELLOW TRINKET': 1,
-                           'UNDEFINED': 2,
-                           'CONTROL_WARD': 3,
-                           'SIGHT_WARD': 4,
-                           'BLUE_TRINKET': 5}
+
             
-            df_ward['points'] = df_ward['wardType'].map(ward_points).fillna(1)
+            df_ward['points'] = df_ward['wardType'].map(label_ward).fillna(1)
 
             df_ward['size'] = 4
 
@@ -1002,11 +997,14 @@ class analyseLoL(Extension):
                                     'P' : 4000,
                                     'D' : 5000,
                                     'M' : 6000,
+                                    'G' : 7000,
+                                    'C' : 8000,
                                     'I' : 100,
                                     'II' : 200,
                                     'III' : 300,
                                     'IV' : 400,
-                                    ' ' : 0}
+                                    ' ' : 0,
+                                    '' : 0}
                     
                     def transfo_points(x, mode):
                         if mode == 'RANKED':

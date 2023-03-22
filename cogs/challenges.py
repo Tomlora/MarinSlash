@@ -153,7 +153,7 @@ class Challenges(Extension):
         em.add_field(name="**Conditions**",
                      value="`Avoir joué depuis le patch 12.9  \nDisponible dans tous les modes de jeu`", inline=False)
         em.add_field(name="**Mise à jour des challenges**",
-                     value=f"`Mis à jour tous les jours avant minuit`", inline=False)
+                     value=f"`Mis à jour tous les jours à 6h`", inline=False)
         em.add_field(name="**Defis disponibles**",
                      value=f"`Il existe {nombre_de_defis} défis disponibles.`", inline=False)
 
@@ -248,7 +248,7 @@ class Challenges(Extension):
 
         fig.write_image('plot.png')
         # txt
-        await ctx.send(f'Le joueur {summonername} a : \n{msg}\n __TOTAL__  : **{total_user["current"]}** / **{total_user["max"]}** (niveau {total_user["level"]}). Seulement **({total_user["percentile"]}** des joueurs font mieux.)', files=interactions.File('plot.png'))
+        await ctx.send(f'Le joueur {summonername} a : \n{msg}\n __TOTAL__  : **{total_user["current"]}** / **{total_user["max"]}** (niveau {total_user["level"]}). Seulement **({total_user["percentile"]}%** des joueurs font mieux.)', files=interactions.File('plot.png'))
         await session.close()
         os.remove('plot.png')
 

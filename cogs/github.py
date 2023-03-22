@@ -7,12 +7,6 @@ import asyncio
 import aiohttp
 
 
-async def get_version(session: aiohttp.ClientSession):
-    async with session.get(f"https://ddragon.leagueoflegends.com/realms/euw.json") as session_version:
-        version = await session_version.json()
-    return version
-
-
 class Github(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot

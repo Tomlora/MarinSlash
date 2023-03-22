@@ -10,6 +10,8 @@ from interactions import Choice, Option, Extension, CommandContext
 from fonctions.permissions import isOwner_slash
 from interactions.ext.tasks import IntervalTrigger, create_task
 from fonctions.params import Version, saison, heure_aram
+from fonctions.permissions import isOwner_slash
+from fonctions.match import label_tier
 
 
 dict_points = {41: [11, -19],
@@ -223,124 +225,133 @@ class Aram(Extension):
                                    color=interactions.Color.BLURPLE)
 
         await ctx.send(embeds=embed)
+        
+    async def update_aram24h(self):
+        data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
+                    INNER JOIN channels_module on tracker.server_id = channels_module.server_id
+                    where channels_module.league_aram = true''').fetchall()
+
+        for server_id in data:
+
+            guild = await interactions.get(client=self.bot,
+                                               obj=interactions.Guild,
+                                               object_id=server_id[0])
+
+            chan_discord_id = chan_discord(int(guild.id))
+
+            # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
+
+            df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, tracker.server_id from ranked_aram_s{saison} as suivi 
+                                        INNER join tracker ON tracker.index = suivi.index 
+                                        where tracker.server_id = {int(guild.id)} ''')
+            df_24h = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, tracker.server_id from ranked_aram_24h as suivi
+                                        INNER join tracker ON tracker.index = suivi.index 
+                                        where tracker.server_id = {int(guild.id)} ''')
+
+            if df.shape[1] > 0:  # s'il y a des données
+
+                df = df.transpose().reset_index()
+
+                df_24h = df_24h.transpose().reset_index()
+
+
+                # Pour l'ordre de passage
+                df['tier_pts'] = df['rank'].apply(label_tier)
+
+                sql = ''
+                df.sort_values(by=['tier_pts', 'lp'], ascending=[
+                                   False, False], inplace=True)
+
+                suivi = df.set_index('index').transpose().to_dict()
+                suivi_24h = df_24h.set_index('index').transpose().to_dict()
+                joueur = suivi.keys()
+
+                embed = interactions.Embed(
+                        title="Suivi ARAM LOL", description='Periode : 24h', color=interactions.Color.BLURPLE)
+                totalwin = 0
+                totaldef = 0
+                totalgames = 0
+
+                for key in joueur:
+
+                        # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
+                    wins = int(suivi_24h[key]['wins'])
+                    losses = int(suivi_24h[key]['losses'])
+                    nbgames = wins + losses
+                    LP = int(suivi_24h[key]['lp'])
+                    tier_old = str(suivi_24h[key]['rank'])
+
+                    # on veut les stats soloq
+
+                    tier = str(suivi[key]['rank'])
+
+                    difwins = int(suivi[key]['wins']) - wins
+                    diflosses = int(suivi[key]['losses']) - losses
+                    difLP = int(suivi[key]['lp']) - LP
+                    totalwin += difwins
+                    totaldef += diflosses
+                    totalgames = totalwin + totaldef
+
+                    # evolution
+
+                    if elo_lp[tier_old] > elo_lp[tier]:  # 19-18
+                        difLP = "Démote / -" + str(difLP)
+                        emote = ":arrow_down:"
+
+                    elif elo_lp[tier_old] < elo_lp[tier]:
+                        difLP = "Promotion / +" + str(difLP)
+                        emote = ":arrow_up:"
+
+                    elif elo_lp[tier_old] == elo_lp[tier]:
+                        if difLP > 0:
+                            emote = ":arrow_up:"
+                        elif difLP < 0:
+                            emote = ":arrow_down:"
+                        elif difLP == 0:
+                            emote = ":arrow_right:"
+
+                    embed.add_field(name=str(key) + " ( " + tier + " )",
+                                        value=f"V : {suivi[key]['wins']} ({difwins}) | " +
+                                        f"D : {suivi[key]['losses']} ({diflosses}) | " +
+                                        f"LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)
+
+                    if difwins + diflosses > 0:  # si supérieur à 0, le joueur a joué
+                            sql += f'''UPDATE ranked_aram_24h
+                            SET wins = {suivi[key]['wins']},
+                            losses = {suivi[key]['losses']},
+                            lp = {suivi[key]['lp']},
+                            rank = '{tier}'
+                            where index = '{key}';'''
+
+                channel_tracklol = await interactions.get(client=self.bot,
+                                                              obj=interactions.Channel,
+                                                              object_id=chan_discord_id.lol_others)
+
+                if sql != '':
+                    requete_perso_bdd(sql)
+                embed.set_footer(text=f'Version {Version} by Tomlora')
+
+                if totalgames > 0:
+                    await channel_tracklol.send(embeds=embed)
+                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
 
     async def lolsuivi_aram(self):
 
         currentHour = str(datetime.datetime.now().hour)
 
         if currentHour == str(heure_aram):
+            await self.update_aram24h()
+            
+    @interactions.extension_command(name="force_update_aram24h",
+                                    description="Réservé à Tomlora")            
+    async def force_update_aram(self, ctx: CommandContext):
+        
+        if isOwner_slash(ctx):
+            await self.update_aram24h()
+        else:
+            await ctx.send("Tu n'as pas l'autorisation nécessaire.")
 
-            data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
-                    INNER JOIN channels_module on tracker.server_id = channels_module.server_id
-                    where channels_module.league_aram = true''').fetchall()
 
-            for server_id in data:
-
-                guild = await interactions.get(client=self.bot,
-                                               obj=interactions.Guild,
-                                               object_id=server_id[0])
-
-                chan_discord_id = chan_discord(int(guild.id))
-
-            # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
-
-                df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, tracker.server_id from ranked_aram_s{saison} as suivi 
-                                        INNER join tracker ON tracker.index = suivi.index 
-                                        where tracker.server_id = {int(guild.id)} ''')
-                df_24h = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, tracker.server_id from ranked_aram_24h as suivi
-                                        INNER join tracker ON tracker.index = suivi.index 
-                                        where tracker.server_id = {int(guild.id)} ''')
-
-                if df.shape[1] > 0:  # s'il y a des données
-
-                    df = df.transpose().reset_index()
-
-                    df_24h = df_24h.transpose().reset_index()
-
-                    def changement_tier(x):
-                        dict_chg_tier = {'IRON': 1,
-                                         'BRONZE': 1,
-                                         'SILVER': 2,
-                                         'GOLD': 3,
-                                         'PLATINUM': 4,
-                                         'DIAMOND': 5,
-                                         'MASTER': 6}
-                        return dict_chg_tier[x]
-
-                    # Pour l'ordre de passage
-                    df['tier_pts'] = df['rank'].apply(changement_tier)
-
-                    sql = ''
-                    df.sort_values(by=['tier_pts', 'lp'], ascending=[
-                                   False, False], inplace=True)
-
-                    suivi = df.set_index('index').transpose().to_dict()
-                    suivi_24h = df_24h.set_index('index').transpose().to_dict()
-                    joueur = suivi.keys()
-
-                    embed = interactions.Embed(
-                        title="Suivi ARAM LOL", description='Periode : 24h', color=interactions.Color.BLURPLE)
-                    totalwin = 0
-                    totaldef = 0
-                    totalgames = 0
-
-                    for key in joueur:
-
-                        # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
-                        wins = int(suivi_24h[key]['wins'])
-                        losses = int(suivi_24h[key]['losses'])
-                        nbgames = wins + losses
-                        LP = int(suivi_24h[key]['lp'])
-                        tier_old = str(suivi_24h[key]['rank'])
-
-                        # on veut les stats soloq
-
-                        tier = str(suivi[key]['rank'])
-
-                        difwins = int(suivi[key]['wins']) - wins
-                        diflosses = int(suivi[key]['losses']) - losses
-                        difLP = int(suivi[key]['lp']) - LP
-                        totalwin += difwins
-                        totaldef += diflosses
-                        totalgames = totalwin + totaldef
-
-                        # evolution
-
-                        if elo_lp[tier_old] > elo_lp[tier]:  # 19-18
-                            difLP = "Démote / -" + str(difLP)
-                            emote = ":arrow_down:"
-
-                        elif elo_lp[tier_old] < elo_lp[tier]:
-                            difLP = "Promotion / +" + str(difLP)
-                            emote = ":arrow_up:"
-
-                        elif elo_lp[tier_old] == elo_lp[tier]:
-                            if difLP > 0:
-                                emote = ":arrow_up:"
-                            elif difLP < 0:
-                                emote = ":arrow_down:"
-                            elif difLP == 0:
-                                emote = ":arrow_right:"
-
-                        embed.add_field(name=str(key) + " ( " + tier + " )",
-                                        value=f"V : {suivi[key]['wins']} ({difwins}) | " +
-                                        f"D : {suivi[key]['losses']} ({diflosses}) | " +
-                                        f"LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)
-
-                        if difwins + diflosses > 0:  # si supérieur à 0, le joueur a joué
-                            sql += f'''UPDATE ranked_aram_24h SET wins = {suivi[key]['wins']}, losses = {suivi[key]['losses']}, lp = {suivi[key]['lp']}, rank = '{tier}' where index = '{key}';'''
-
-                    channel_tracklol = await interactions.get(client=self.bot,
-                                                              obj=interactions.Channel,
-                                                              object_id=chan_discord_id.lol_others)
-
-                    if sql != '':
-                        requete_perso_bdd(sql)
-                    embed.set_footer(text=f'Version {Version} by Tomlora')
-
-                    if totalgames > 0:
-                        await channel_tracklol.send(embeds=embed)
-                        await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
 
 
 def setup(bot):
