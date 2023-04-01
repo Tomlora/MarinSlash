@@ -85,7 +85,6 @@ class Fantasy(Extension):
         liste_components = [componants_equipe_vs_equipe(equipe_bleu, equipe_red, n) for n, (equipe_bleu, equipe_red) in enumerate(zip(liste_bleu, liste_rouge))]
 
         msg = await ctx.send(embeds=embed1, components=liste_components)
-
         
         async def check(button_ctx):
                     if int(button_ctx.author.user.id) == int(ctx.author.user.id):

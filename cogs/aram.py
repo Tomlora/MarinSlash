@@ -12,6 +12,7 @@ from interactions.ext.tasks import IntervalTrigger, create_task
 from fonctions.params import Version, saison, heure_aram
 from fonctions.permissions import isOwner_slash
 from fonctions.match import label_tier
+from interactions.ext.paginator import Page, Paginator
 
 
 dict_points = {41: [11, -19],
@@ -176,10 +177,16 @@ class Aram(Extension):
             bonus_elo = bonus_elo + f"{key} : **-{value}** \n"
 
         embed3.add_field(name="Malus elo", value=bonus_elo, inline=False)
-
-        await ctx.send(embeds=embed)
-        await ctx.send(embeds=embed2)
-        await ctx.send(embeds=embed3)
+        
+        await Paginator(
+            client=self.bot,
+            ctx=ctx,
+            pages=[
+                Page(embed.title, embed),
+                Page(embed2.title, embed2),
+                Page(embed3.title, embed3)
+            ]
+        ).run()
 
     @interactions.extension_command(name='carton',
                                     description='Activation/Désactivation',

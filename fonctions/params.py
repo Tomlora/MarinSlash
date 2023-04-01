@@ -1,4 +1,5 @@
-Version = 14.0
+Version = 16.0
 saison = 13
-heure_aram = 5
-heure_lolsuivi = 4
+heure_aram = 4
+heure_lolsuivi = 3
+heure_challenge = 5

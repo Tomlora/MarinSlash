@@ -28,7 +28,8 @@ from fonctions.match import (matchlol,
                              get_summoner_by_name,
                              trouver_records,
                              label_rank,
-                             label_tier
+                             label_tier,
+                             get_spectator_data
                              )
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 
@@ -90,8 +91,8 @@ def records_check2(fichier,
             if float(record_perso) == float(result_category_match) and not category in category_exclusion_egalite:
                 embed += f"\n ** :medal: Egalisation record personnel - {emote_v2.get(category, ':star:')}__{category}__ **"
 
-        else:
-            embed += f"\n ** :military_medal: Premier Record personnel - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
+        # else:
+        #     embed += f"\n ** :military_medal: Premier Record personnel - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
 
     # Record sur les champions
     if isinstance(fichier_champion, pd.DataFrame):
@@ -106,8 +107,8 @@ def records_check2(fichier,
             else:
                 if float(record_champion) > float(result_category_match):
                     embed += f"\n ** :rocket: Record sur {champion_champion} - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_champion} par {joueur_champion})"
-        else:
-            embed += f"\n ** :rocket: Premier Record sur le champion - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
+        # else:
+        #     embed += f"\n ** :rocket: Premier Record sur le champion - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
 
     return embed
 
@@ -542,7 +543,7 @@ class LeagueofLegends(Extension):
         if not stats_joueur.empty:
 
             k = round(stats_joueur.loc[match_info.summonerName.lower(), 'kills'],1)
-            d = round(stats_joueur.loc[match_info.summonerName.lower(), 'deaths'],)
+            d = round(stats_joueur.loc[match_info.summonerName.lower(), 'deaths'],1)
             a = round(stats_joueur.loc[match_info.summonerName.lower(), 'assists'],1)
             kp = int(stats_joueur.loc[match_info.summonerName.lower(), 'kp'])
             ratio_victoire = int((stats_joueur.loc[match_info.summonerName.lower(), 'victoire'] / stats_joueur.loc[match_info.summonerName.lower(), 'nb_games'])*100)
@@ -707,6 +708,7 @@ class LeagueofLegends(Extension):
         await ctx.defer(ephemeral=False)
 
         summonername = summonername.lower()
+        
 
         embed, mode_de_jeu, resume= await self.printInfo(summonerName=summonername.lower(),
                                                                            idgames=int(
@@ -718,6 +720,7 @@ class LeagueofLegends(Extension):
 
         if embed != {}:
             await ctx.send(embeds=embed, files=resume)
+
             # await ctx.send(embeds=embed2, files=resume2)
             os.remove('resume.png')
             # os.remove('resume_perso.png')
@@ -801,22 +804,22 @@ class LeagueofLegends(Extension):
 
     async def update(self):
 
-        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id
+        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord
                             from tracker 
                             INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                             where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
         timeout = aiohttp.ClientTimeout(total=20)
         session = aiohttp.ClientSession(timeout=timeout)
 
-        for summonername, last_game, server_id in data:
+        for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id in data:
 
             id_last_game = await getId(summonername, session)
 
             if str(last_game) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 # update la bdd
 
-                requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {
-                                  'id': id_last_game, 'index': summonername})
+                requete_perso_bdd(f'UPDATE tracker SET id = :id, spec_send = :spec WHERE index = :index', {
+                                  'id': id_last_game, 'index': summonername, 'spec': False})
                 try:
 
                     # identification du channel
@@ -838,7 +841,39 @@ class LeagueofLegends(Extension):
                     print(f"erreur {summonername}")  # joueur qui a posé pb
                     print(sys.exc_info())  # erreur
                     continue
-
+                
+            if tracker_bool and not tracker_send:
+                try:
+                    url, gamemode, id_game, champ_joueur, icon = await get_spectator_data(summonername, session)
+                    
+                    url_opgg = f'https://www.op.gg/summoners/euw/{summonername}/ingame'
+                    
+                    league_of_graph = f'https://porofessor.gg/fr/live/euw/{summonername}'
+                    
+                    if url != None:
+                        member : interactions.Member = await interactions.get(self.bot,
+                                                        interactions.Member,
+                                                        object_id = discord_id,
+                                                        parent_id = server_id)
+                        
+                        if id_last_game != str(id_game):
+                            embed = interactions.Embed(title=f'{summonername.upper()} : Analyse de la game prête !')
+                            
+                            embed.add_field(name='Mode de jeu', value=gamemode)
+                            
+                            embed.add_field(name='OPGG', value=f"[General]({url_opgg}) | [Detail]({url}) ")
+                            embed.add_field(name='League of Graph', value=f"[{summonername.upper()}]({league_of_graph})")
+                            embed.add_field(name='Lolalytics', value=f'[{champ_joueur.capitalize()}](https://lolalytics.com/lol/{champ_joueur}/build/)')
+                            embed.set_thumbnail(url=icon)
+                            
+                            await member.send(embeds=embed)
+                        
+                            requete_perso_bdd(f'UPDATE tracker SET spec_send = :spec WHERE index = :index', {
+                                        'spec': True, 'index': summonername})
+                except TypeError:
+                    continue
+                except:
+                    continue
          # update la bdd
         await session.close()
 
@@ -884,33 +919,55 @@ class LeagueofLegends(Extension):
                 await ctx.send('Module désactivé pour ce serveur')
         except:
             await ctx.send("Oops! Ce joueur n'existe pas.")
+            
+            
 
-    @interactions.extension_command(name='lolremove', description='Activation/Désactivation du tracker',
+    @interactions.extension_command(name='tracker', description='Activation/Désactivation du tracker',
                                     options=[
                                         Option(name='summonername',
                                                     description="nom ingame",
                                                     type=interactions.OptionType.STRING,
                                                     required=True),
-                                        Option(name="activation",
+                                        Option(name="tracker_fin_de_game",
                                                     description="True : Activé / False : Désactivé",
                                                     type=interactions.OptionType.BOOLEAN,
-                                                    required=True)])
+                                                    required=False),
+                                        Option(name="tracker_debut_de_game",
+                                                    description="True : Activé / False : Désactivé",
+                                                    type=interactions.OptionType.BOOLEAN,
+                                                    required=False)])
     async def lolremove(self,
                         ctx: CommandContext,
                         summonername: str,
-                        activation: bool):
+                        tracker_fin_de_game: bool=None,
+                        tracker_debut_de_game: bool=None):
 
         summonername = summonername.lower()
 
-        try:
-            requete_perso_bdd('UPDATE tracker SET activation = :activation WHERE index = :index', {
-                              'activation': activation, 'index': summonername})
-            if activation:
-                await ctx.send('Tracker activé !')
-            else:
-                await ctx.send('Tracker désactivé !')
-        except KeyError:
-            await ctx.send('Joueur introuvable')
+        if tracker_fin_de_game != None:
+            try:
+                requete_perso_bdd('UPDATE tracker SET activation = :activation WHERE index = :index', {
+                                'activation': tracker_fin_de_game, 'index': summonername})
+                if tracker_fin_de_game:
+                    await ctx.send('Tracker fin de game activé !')
+                else:
+                    await ctx.send('Tracker fin de game désactivé !')
+            except KeyError:
+                await ctx.send('Joueur introuvable')
+
+        if tracker_debut_de_game != None:
+            try:
+                requete_perso_bdd('UPDATE tracker SET spec_tracker = :activation WHERE index = :index', {
+                                'activation': tracker_debut_de_game, 'index': summonername})
+                if tracker_debut_de_game:
+                    await ctx.send('Tracker debut de game activé !')
+                else:
+                    await ctx.send('Tracker debut de game désactivé !')
+            except KeyError:
+                await ctx.send('Joueur introuvable')
+        
+        if tracker_fin_de_game == None and tracker_debut_de_game == None:
+            await ctx.send('Tu dois choisir une option !')
 
     @interactions.extension_command(name="lolrename",
                                     description="Renomme un compte dans le suivi",
@@ -970,6 +1027,9 @@ class LeagueofLegends(Extension):
             title="Live feed list", description=response, color=interactions.Color.BLURPLE)
 
         await ctx.send(embeds=embed)
+        
+
+
         
         
     async def update_24h(self):

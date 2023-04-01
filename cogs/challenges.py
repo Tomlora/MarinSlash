@@ -8,6 +8,7 @@ from fonctions.gestion_bdd import (lire_bdd,
 from fonctions.match import (get_challenges_config,
                              get_summoner_by_name,
                              get_challenges_data_joueur)
+from fonctions.params import heure_challenge
 import time
 import plotly.express as px
 import plotly.graph_objects as go
@@ -17,6 +18,7 @@ import interactions
 from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import create_task, IntervalTrigger
 from interactions.ext.wait_for import wait_for_component, setup as stp
+
 
 
 def extraire_variables_imbriquees(df, colonne):
@@ -116,9 +118,9 @@ class Challenges(Extension):
         '''Chaque jour, à 6h, on actualise les challenges.
         Cette requête est obligatoirement à faire une fois par jour, sur un créneau creux pour éviter de surcharger les requêtes Riot'''
 
-        currentHour = str(datetime.datetime.now().hour)
+        currentHour = datetime.datetime.now().hour
 
-        if currentHour == str(6):
+        if currentHour == heure_challenge:
 
             session = aiohttp.ClientSession()
             liste_summonername = lire_bdd('tracker', 'dict')
@@ -283,6 +285,7 @@ class Challenges(Extension):
         channel = ctx.channel
 
         fait_choix = await ctx.send('Choisis le défi ', components=[interactions.ActionRow(select)])
+        
 
         def check(m):
             return m.author_id == ctx.author.id and m.origin_message.id == fait_choix.id

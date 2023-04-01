@@ -21,6 +21,34 @@ import pickle
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
+def label_tier(x):
+    dict_chg_tier = {'Non-classe': 0,
+                        'IRON': 1,
+                        'BRONZE': 1,
+                        'SILVER': 2,
+                        'GOLD': 3,
+                        'PLATINUM': 4,
+                        'DIAMOND': 5,
+                        'MASTER': 6,
+                        'GRANDMASTER': 7,
+                        'CHALLENGER': 8}
+    return dict_chg_tier.get(x,0)
+
+def label_rank(x):
+    dict_chg_rank = {'IV': 1,
+                    'III': 2,
+                    'II': 3,
+                    'I': 4}
+    return dict_chg_rank[x]
+
+
+
+label_ward = {'YELLOW TRINKET': 1,
+                'UNDEFINED': 2,
+                'CONTROL_WARD': 3,
+                'SIGHT_WARD': 4,
+                'BLUE_TRINKET': 5}
+
 
 dict_rankid = {"Non-classe 0": 0,
                "BRONZE IV": 1,
@@ -77,6 +105,12 @@ dict_points = {41: [11, -19],
                57: [27, -13],
                58: [28, -12],
                59: [29, -11]}
+
+
+dict_id_q = {420 : 'RANKED',
+             400 : 'NORMAL',
+             440 : 'FLEX',
+             450 : 'ARAM'}
 
 
 def trouver_records(df, category, methode='max', identifiant='joueur'):
@@ -209,10 +243,10 @@ def range_value(i, liste, min: bool = False):
 
 async def get_image(type, name, session: aiohttp.ClientSession, resize_x=80, resize_y=80):
     url_mapping = {
-        "champion": f"https://ddragon.leagueoflegends.com/cdn/12.22.1/img/champion/{name}.png",
+        "champion": f"https://ddragon.leagueoflegends.com/cdn/13.6.1/img/champion/{name}.png",
         "tier": f"./img/{name}.png",
-        "avatar": f"https://ddragon.leagueoflegends.com/cdn/12.22.1/img/profileicon/{name}.png",
-        "items": f'https://ddragon.leagueoflegends.com/cdn/12.22.1/img/item/{name}.png',
+        "avatar": f"https://ddragon.leagueoflegends.com/cdn/13.6.1/img/profileicon/{name}.png",
+        "items": f'https://ddragon.leagueoflegends.com/cdn/13.6.1/img/item/{name}.png',
         "monsters": f'./img/monsters/{name}.png',
         "epee": f'./img/epee/{name}.png',
         "gold": f'./img/money.png',
@@ -262,8 +296,9 @@ async def get_mobalytics(pseudo : str, session: aiohttp.ClientSession, match_id)
     }
     async with session.post(url_api_moba, headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
         match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
-        
+  
     df_moba = pd.DataFrame(match_detail_stats['data']['lol']['player']['match']['participants'])
+
     return df_moba, match_detail_stats
 
 
@@ -330,6 +365,13 @@ async def get_challenges_data_joueur(session, puuid):
     async with session.get(f'https://{my_region}.api.riotgames.com/lol/challenges/v1/player-data/{puuid}?api_key={api_key_lol}') as challenge_joueur:
         data_joueur = await challenge_joueur.json()
         return data_joueur
+    
+async def get_spectator(session, id):
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/spectator/v4/active-games/by-summoner/{id}?api_key={api_key_lol}') as session_spectator:
+        if session_spectator.status == 404:
+            return None
+        spectator = await session_spectator.json()
+        return spectator
 
 
 def dict_data(thisId: int, match_detail, info):
@@ -377,7 +419,7 @@ async def match_by_puuid(summonerName,
     return last_match, match_detail_stats, me
 
 
-async def getId(summonerName, session):
+async def getId(summonerName : str, session : aiohttp.ClientSession):
     try:
         last_match, match_detail_stats, me = await match_by_puuid(summonerName, 0, session)
         return str(match_detail_stats['info']['gameId'])
@@ -392,6 +434,59 @@ async def getId(summonerName, session):
         data = lire_bdd('tracker', 'dict')
         print(sys.exc_info())
         return str(data[summonerName]['id'])
+    
+    
+async def get_spectator_data(summonerName, session):
+    last_match, match_detail_stats, me = await match_by_puuid(summonerName, 0, session)
+    id = me['id']
+    data = await get_spectator(session, id )
+    
+    if data == None:
+        return None, None, None, None, None
+    
+
+        
+    thisQ = dict_id_q.get(data['gameQueueConfigId'], 'OTHER')
+        
+    summonerName = summonerName.lower()
+        
+        
+    id_game = data['gameId']
+        
+    df = pd.DataFrame(data['participants'])
+    df.sort_values('teamId', inplace=True)
+    
+    df['summonerName'] = df['summonerName'].str.lower()
+    
+    version = await get_version(session)
+    # get champion list
+    current_champ_list = await get_champ_list(session, version)
+    
+    champ_dict = {}
+    for key in current_champ_list['data']:
+                row = current_champ_list['data'][key]
+                champ_dict[row['key']] = row['id']
+                
+    df['champion'] = df['championId'].astype('str').map(champ_dict)
+    
+    champ_joueur = df.loc[df['summonerName'] == summonerName, 'champion'].values[0]
+    id_icon = df.loc[df['summonerName'] == summonerName, 'profileIconId'].values[0]
+    icon = f'https://ddragon.leagueoflegends.com/cdn/{version["n"]["profileicon"]}/img/profileicon/{id_icon}.png'
+    
+    df['summonerName'] = df['summonerName'].str.replace(' ', '%20') # pour l'url opgg, chaque espace = %20
+    
+    # on remplace les données par les noms des champions
+
+    
+    # liste des joueurs
+    
+    liste_joueurs = ''
+    for joueur in df['summonerName'].tolist():
+        liste_joueurs += joueur + ','
+        
+    url = f'https://www.op.gg/multisearch/euw?summoners={liste_joueurs}'
+    
+    return url, thisQ, id_game, champ_joueur, icon  
 
 
 class matchlol():
@@ -716,17 +811,8 @@ class matchlol():
                 (self.thisTurretsKillsPerso / self.thisTurretsKillsTeam)*100, 2)
         except:
             self.participation_tower = 0
-
-        if self.thisQId == 420:
-            self.thisQ = "RANKED"
-        elif self.thisQId == 400:
-            self.thisQ = "NORMAL"
-        elif self.thisQId == 440:
-            self.thisQ = "FLEX"
-        elif self.thisQId == 450:
-            self.thisQ = "ARAM"
-        else:
-            self.thisQ = "OTHER"
+        
+        self.thisQ = dict_id_q.get(self.thisQId, 'OTHER')
 
         if str(self.thisWinId) == 'True':
             self.thisWin = "GAGNER"
@@ -991,7 +1077,10 @@ class matchlol():
         
         # stats mobalytics
         
+
         self.data_mobalytics, self.data_mobalytics_complete = await get_mobalytics(self.summonerName, self.session, int(self.last_match[5:]))
+
+            
              
         self.avgtier_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['tier']
         self.avgrank_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['division']
@@ -1050,13 +1139,13 @@ class matchlol():
         gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
         baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
         item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
-        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team)
+        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists")
         VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
         :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
         :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
         :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
         :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
-        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team);''',
+        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka);''',
                           {'match_id': self.last_match,
                            'joueur': self.summonerName.lower(),
                            'role': self.thisPosition,
@@ -1130,7 +1219,8 @@ class matchlol():
                            'dmg_tower': self.thisDamageTurrets,
                            'gold_share' : self.gold_share,
                            'mvp' : self.mvp,
-                           'ecart_gold_team' : self.ecart_gold_team
+                           'ecart_gold_team' : self.ecart_gold_team,
+                           'ka' : self.thisKills + self.thisAssists
                            })
 
     async def add_couronnes(self, points):
@@ -1631,10 +1721,14 @@ class matchlol():
                 rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['tier']
                 tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['division']
             except IndexError:
-                data_mobalytics_copy = self.data_mobalytics.copy()
-                data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
-                rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['tier']
-                tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['division']
+                try:
+                    data_mobalytics_copy = self.data_mobalytics.copy()
+                    data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
+                    rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['tier']
+                    tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['division']
+                except IndexError:
+                    rank_joueur = ''
+                    tier_joueur = ''
             
             if rank_joueur != '':
                 img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 100, 100)
@@ -1653,7 +1747,10 @@ class matchlol():
             try:
                 scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['mvpScore'].values[0]
             except IndexError:
-                scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['mvpScore'].values[0]    
+                try:
+                    scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['mvpScore'].values[0]
+                except IndexError:
+                    scoring = '?'    
                         
             color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (67,89,232), 10 : (220,20,60)}
 
