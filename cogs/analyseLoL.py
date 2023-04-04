@@ -79,6 +79,55 @@ parameters_commun_stats_lol = [
             Choice(name='15', value=15),
             Choice(name='20', value=20)]),
     Option(
+        name='view',
+        description='global ou par serveur ?',
+        type=interactions.OptionType.STRING,
+        required=False,
+        choices=[
+            Choice(name='global', value='global'),
+            Choice(name='serveur', value='serveur')
+        ]
+    )
+  ]
+
+parameters_nbgames = [
+    Option(
+        name='season',
+        description='saison lol',
+        type=interactions.OptionType.INTEGER,
+        required=False),
+    Option(
+        name='joueur',
+        description='se focaliser sur un joueur ? Incompatible avec grouper par personne',
+        type=interactions.OptionType.STRING,
+        required=False),
+    Option(
+        name='champion',
+        description='se focaliser sur un champion ?',
+        type=interactions.OptionType.STRING,
+        required=False),
+    Option(
+        name='mode_de_jeu',
+        description='se focaliser sur un mode de jeu ?',
+        type=interactions.OptionType.STRING,
+        required=False,
+        choices=[
+            Choice(name='soloq',
+                   value='RANKED'),
+            Choice(name='aram', value='ARAM')]),
+    Option(
+        name='top',
+        description='top x ?',
+        type=interactions.OptionType.INTEGER,
+        required=False,
+        choices=[
+            Choice(name='3', value=3),
+            Choice(name='5', value=5),
+            Choice(name='7', value=7),
+            Choice(name='10', value=10),
+            Choice(name='15', value=15),
+            Choice(name='20', value=20)]),
+    Option(
         name='grouper',
         description='Grouper par joueur ou personne ? (Fonctionne uniquement avec games)',
         type=interactions.OptionType.STRING,
@@ -86,6 +135,15 @@ parameters_commun_stats_lol = [
         choices=[
             Choice(name='compte', value='joueur'),
             Choice(name='personne', value='discord')
+        ]),
+    Option(
+        name='view',
+        description='global ou par serveur ?',
+        type=interactions.OptionType.STRING,
+        required=False,
+        choices=[
+            Choice(name='global', value='global'),
+            Choice(name='serveur', value='serveur')
         ]
     )
   ]
@@ -109,12 +167,19 @@ def option_stats_lol(name,
     return option
 
 
-def get_data_matchs(columns, season, server_id):
-    df = lire_bdd_perso(
+def get_data_matchs(columns, season, server_id, view):
+    
+    if view == 'global':
+            df = lire_bdd_perso(
         f'''SELECT matchs.id, matchs.joueur, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
         INNER JOIN tracker ON tracker.index = matchs.joueur
-        where season = {season}
-        AND server_id = {server_id}''', index_col='id').transpose()
+        where season = {season}''', index_col='id').transpose()
+    else:
+        df = lire_bdd_perso(
+            f'''SELECT matchs.id, matchs.joueur, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
+            INNER JOIN tracker ON tracker.index = matchs.joueur
+            where season = {season}
+            AND server_id = {server_id}''', index_col='id').transpose()
     return df
 
 
@@ -762,6 +827,7 @@ class analyseLoL(Extension):
     choice_winrate = Choice(name='winrate', value='winrate')
     choice_avg = Choice(name='avg', value='avg')
     choice_progression = Choice(name='progression', value='progression')
+    choice_ecart = Choice(name='ecart', value='ecart')
 
     @interactions.extension_command(name="stats_lol",
                                     description="Historique de game",
@@ -793,13 +859,13 @@ class analyseLoL(Extension):
                                                               description='stats sur le kda'),
                                         option_stats_lol(name='lp',
                                                               choices=[
-                                                                  choice_progression],
+                                                                  choice_progression, choice_ecart],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
                                                               description='stats sur les lp'),
                                         option_stats_lol(name='games',
                                                               choices=[
                                                                   choice_comptage, choice_time_joue],
-                                                              parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                              parameters_commun_stats_lol=parameters_nbgames,
                                                               description='stats sur les games')
                                     ])
     async def historique_lol(self,
@@ -811,7 +877,8 @@ class analyseLoL(Extension):
                              champion: str = None,
                              mode_de_jeu: str = None,
                              top: int = 20,
-                             grouper: str = 'joueur'
+                             grouper: str = 'joueur',
+                             view: str = 'global'
                              ):
         
         dict_type = {
@@ -820,7 +887,7 @@ class analyseLoL(Extension):
             'champion': 'matchs.victoire',
             'kda': 'matchs.kills, matchs.assists, matchs.deaths',
             'type': f'matchs.{sub_command}',
-            'lp': 'matchs.date, matchs.lp, matchs.tier, matchs.rank',
+            'lp': 'matchs.date, matchs.lp, matchs.tier, matchs.rank, matchs.ecart_lp, matchs.victoire',
             'games': 'matchs.victoire, matchs.time'
         }
 
@@ -830,7 +897,7 @@ class analyseLoL(Extension):
             column = 'matchs.item1, matchs.item2, matchs.item3, matchs.item4, matchs.item5, matchs.item6, matchs.victoire'
             column_list = ['item1', 'item2',
                            'item3', 'item4', 'item5', 'item6']
-            df = get_data_matchs(column, saison, int(ctx.guild_id))
+            df = get_data_matchs(column, saison, int(ctx.guild_id), view)
             with open('./obj/item.json', encoding='utf-8') as mon_fichier:
                 data = json.load(mon_fichier)
             for column_item in column_list:
@@ -839,7 +906,9 @@ class analyseLoL(Extension):
 
         else:
 
-            df = get_data_matchs(dict_type[sub_command], saison, int(ctx.guild_id))
+            df = get_data_matchs(dict_type[sub_command], saison, int(ctx.guild_id), view)
+            
+
 
         title = f'{sub_command}'
 
@@ -995,6 +1064,7 @@ class analyseLoL(Extension):
 
                 fig = go.Figure()
                 fig.update_layout(title=title)
+                
 
                 for column, name in dict_stats_choose.items():
 
@@ -1102,7 +1172,27 @@ class analyseLoL(Extension):
                     await ctx.send(embeds=embed, files=files)
                 else:
                     await ctx.send('Tu dois selectionner un mode de jeu pour cette analyse.')
+            
+            elif calcul == 'ecart':
+                if champion != None:
+                    df = df.groupby('joueur').agg({'ecart_lp': 'sum', 'champion': 'count', 'victoire' : 'sum'})
+                    df.rename(columns={'champion' : 'nbgames'}, inplace=True)
+                    df['percent'] = df['victoire'] / df['nbgames']
+                    
+                    df.sort_values('ecart_lp', ascending=False, inplace=True)
+                    
+                    txt = f'{title} : '
 
+                    for joueur, data in df.iterrows():
+                        txt += f'''\n{joueur} : **{data['nbgames']}** games, **{data['victoire']}** wins, **{data['percent']:.2%}** winrate, **{data['ecart_lp']}** LP'''
+                        
+                        
+                    await ctx.send(txt)
+                
+                else:
+                    await ctx.send('Tu dois selectionner un champion pour cette analyse.')
+                
+                
         if sub_command == 'games':
             if calcul == 'count':
                 df = df.groupby('joueur').count()
@@ -1126,10 +1216,10 @@ class analyseLoL(Extension):
                 df['heure'] = (df['time'] % 1440) // 60
                 df['minute'] = (df['time'] % 1440) % 60
                 
-                txt = ''
+                txt = f'{title} : '
                 
                 for joueur, data in df.iterrows():
-                    txt += f'\n**{joueur}** : {int(data["jour"])} jours, {int(data["heure"])} heures, {int(data["minute"])} minutes, {int(data["nbgames"])} parties.' 
+                    txt += f'\n**{joueur}** : **{int(data["jour"])}** jours, **{int(data["heure"])}** heures, **{int(data["minute"])}** minutes, **{int(data["nbgames"])}** parties.' 
                  
                 
                 select = interactions.SelectMenu(
