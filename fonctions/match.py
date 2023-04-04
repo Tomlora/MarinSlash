@@ -21,6 +21,13 @@ import pickle
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
+def fix_temps(duree):
+    '''Convertit le temps en secondes en minutes et secondes'''
+    minutes = int(duree)
+    secondes = int((duree - minutes) * 60)/100
+    
+    return minutes + secondes
+
 def label_tier(x):
     dict_chg_tier = {'Non-classe': 0,
                         'IRON': 1,
@@ -607,11 +614,11 @@ class matchlol():
         self.thisDeaths = self.match_detail_participants['deaths']
         self.thisAssists = self.match_detail_participants['assists']
         self.thisWinId = self.match_detail_participants['win']
-        self.thisTimeLiving = round(
-            (int(self.match_detail_participants['longestTimeSpentLiving']) / 60), 2)
+        self.thisTimeLiving = fix_temps(round(
+            (int(self.match_detail_participants['longestTimeSpentLiving']) / 60), 2))
         self.thisWin = ' '
-        self.thisTime = round(
-            (int(self.match_detail['info']['gameDuration']) / 60), 2)
+        self.thisTime = fix_temps(round(
+            (int(self.match_detail['info']['gameDuration']) / 60), 2))
         self.thisDamage = self.match_detail_participants['totalDamageDealtToChampions']
         self.thisDamageNoFormat = self.match_detail_participants['totalDamageDealtToChampions']
         self.thisDamageAP = self.match_detail_participants['magicDamageDealtToChampions']
@@ -630,11 +637,11 @@ class matchlol():
         self.thisPentaListe = dict_data(
             self.thisId, self.match_detail, 'pentaKills')
 
-        self.thisTimeSpendDead = round(
-            float(self.match_detail_participants['totalTimeSpentDead'])/60, 2)
+        self.thisTimeSpendDead = fix_temps(round(
+            float(self.match_detail_participants['totalTimeSpentDead'])/60, 2))
 
-        self.thisTimeSpendAlive = round(
-            self.thisTime - self.thisTimeSpendDead, 2)
+        self.thisTimeSpendAlive = fix_temps(round(
+            self.thisTime - self.thisTimeSpendDead, 2))
 
         self.thisDamageTaken = int(
             self.match_detail_participants['totalDamageTaken'])
@@ -795,14 +802,14 @@ class matchlol():
             self.thisVisionAdvantage = 0
 
         try:  # si pas d'info, la team n'a pas fait de drake
-            self.earliestDrake = round(
-                self.match_detail_challenges['earliestDragonTakedown'] / 60, 2)
+            self.earliestDrake = fix_temps(round(
+                self.match_detail_challenges['earliestDragonTakedown'] / 60, 2))
         except:
             self.earliestDrake = 0
 
         try:
-            self.earliestBaron = round(
-                self.match_detail_challenges['earliestBaron'] / 60, 2)
+            self.earliestBaron = fix_temps(round(
+                self.match_detail_challenges['earliestBaron'] / 60, 2))
         except:
             self.earliestBaron = 0
 
@@ -1221,7 +1228,8 @@ class matchlol():
                            'mvp' : self.mvp,
                            'ecart_gold_team' : self.ecart_gold_team,
                            'ka' : self.thisKills + self.thisAssists
-                           })
+                           },
+                          )
 
     async def add_couronnes(self, points):
         """Ajoute les couronnes dans la base de données"""
@@ -1330,6 +1338,7 @@ class matchlol():
         -----------
         name_img : nom de l'image enregistré'''
         
+
         model = pickle.load(open('model/scoring_ridge.pkl', 'rb'))
         
         # def scoring(i):
@@ -1450,6 +1459,10 @@ class matchlol():
 
         if self.thisQ != "ARAM":  # si ce n'est pas le mode aram, on prend la soloq normal
             if self.thisTier != ' ':  # on vérifie que le joueur a des stats en soloq, sinon il n'y a rien à afficher
+                
+                requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
+                                                                                                                        'match_id': self.last_match,
+                                                                                                                        'joueur': self.summonerName.lower()})
                 img_rank = await get_image('tier', self.thisTier, self.session, 220, 220)
 
                 im.paste(img_rank, (x_rank, y-140), img_rank.convert('RGBA'))
@@ -1604,7 +1617,11 @@ class matchlol():
                                    'a': a,
                                    'rank': rank,
                                    'index': self.summonerName.lower(),
-                                   'match_id': self.last_match})       
+                                   'match_id': self.last_match})  
+                
+                requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
+                                                                                                                        'match_id': self.last_match,
+                                                                                                                        'joueur': self.summonerName.lower()})     
         
         line = Image.new("RGB", (lineX, lineY), (230, 230, 230))  # Ligne grise
         
