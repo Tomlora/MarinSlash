@@ -15,6 +15,7 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 import aiohttp
 import json
 from datetime import datetime
+from interactions.ext.paginator import Page, Paginator
 
 from fonctions.match import (match_by_puuid,
                              get_summoner_by_puuid,
@@ -48,7 +49,7 @@ parameters_commun_stats_lol = [
         required=False),
     Option(
         name='joueur',
-        description='se focaliser sur un joueur ?',
+        description='se focaliser sur un joueur ? Incompatible avec grouper par personne',
         type=interactions.OptionType.STRING,
         required=False),
     Option(
@@ -76,8 +77,18 @@ parameters_commun_stats_lol = [
             Choice(name='7', value=7),
             Choice(name='10', value=10),
             Choice(name='15', value=15),
-            Choice(name='20', value=20)]
-    )]
+            Choice(name='20', value=20)]),
+    Option(
+        name='grouper',
+        description='Grouper par joueur ou personne ? (Fonctionne uniquement avec games)',
+        type=interactions.OptionType.STRING,
+        required=False,
+        choices=[
+            Choice(name='compte', value='joueur'),
+            Choice(name='personne', value='discord')
+        ]
+    )
+  ]
 
 
 def option_stats_lol(name,
@@ -98,10 +109,18 @@ def option_stats_lol(name,
     return option
 
 
-def get_data_matchs(columns, season):
+def get_data_matchs(columns, season, server_id):
     df = lire_bdd_perso(
-        f'SELECT id, joueur, champion, match_id, mode, season, {columns} from matchs where season = {season}', index_col='id').transpose()
+        f'''SELECT matchs.id, matchs.joueur, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
+        INNER JOIN tracker ON tracker.index = matchs.joueur
+        where season = {season}
+        AND server_id = {server_id}''', index_col='id').transpose()
     return df
+
+
+
+
+
 
 
 def transformation_top(df,
@@ -273,8 +292,6 @@ class analyseLoL(Extension):
 
             df_timeline['timestamp'] = df_timeline['timestamp'] / \
                 60000  # arrondir à l'inférieur ou au supérieur ?
-
-            pd.set_option('display.max_columns', None)
 
             df_ward = df_timeline[(df_timeline['type'] == 'WARD_PLACED') | (
                 df_timeline['type'] == 'WARD_KILL')]
@@ -741,6 +758,7 @@ class analyseLoL(Extension):
             await ctx.send("Annulé")
 
     choice_comptage = Choice(name='comptage', value='count')
+    choice_time_joue = Choice(name='temps_joué', value='time')
     choice_winrate = Choice(name='winrate', value='winrate')
     choice_avg = Choice(name='avg', value='avg')
     choice_progression = Choice(name='progression', value='progression')
@@ -780,7 +798,7 @@ class analyseLoL(Extension):
                                                               description='stats sur les lp'),
                                         option_stats_lol(name='games',
                                                               choices=[
-                                                                  choice_comptage],
+                                                                  choice_comptage, choice_time_joue],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
                                                               description='stats sur les games')
                                     ])
@@ -792,25 +810,27 @@ class analyseLoL(Extension):
                              joueur: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
-                             top: int = 20):
-
+                             top: int = 20,
+                             grouper: str = 'joueur'
+                             ):
+        
         dict_type = {
-            'dommage': 'dmg, dmg_ad, dmg_ap, dmg_true',
-            'tank': 'dmg_reduit, dmg_tank',
-            'champion': 'victoire',
-            'kda': 'kills, assists, deaths',
-            'type': sub_command,
-            'lp': 'date, lp, tier, rank',
-            'games': 'victoire'
+            'dommage': 'matchs.dmg, matchs.dmg_ad, matchs.dmg_ap, matchs.dmg_true',
+            'tank': 'matchs.dmg_reduit, matchs.dmg_tank',
+            'champion': 'matchs.victoire',
+            'kda': 'matchs.kills, matchs.assists, matchs.deaths',
+            'type': f'matchs.{sub_command}',
+            'lp': 'matchs.date, matchs.lp, matchs.tier, matchs.rank',
+            'games': 'matchs.victoire, matchs.time'
         }
 
         await ctx.defer(ephemeral=False)
 
         if sub_command == 'items':
-            column = 'item1, item2, item3, item4, item5, item6, victoire'
+            column = 'matchs.item1, matchs.item2, matchs.item3, matchs.item4, matchs.item5, matchs.item6, matchs.victoire'
             column_list = ['item1', 'item2',
                            'item3', 'item4', 'item5', 'item6']
-            df = get_data_matchs(column, saison)
+            df = get_data_matchs(column, saison, int(ctx.guild_id))
             with open('./obj/item.json', encoding='utf-8') as mon_fichier:
                 data = json.load(mon_fichier)
             for column_item in column_list:
@@ -819,7 +839,7 @@ class analyseLoL(Extension):
 
         else:
 
-            df = get_data_matchs(dict_type[sub_command], saison)
+            df = get_data_matchs(dict_type[sub_command], saison, int(ctx.guild_id))
 
         title = f'{sub_command}'
 
@@ -829,6 +849,7 @@ class analyseLoL(Extension):
             joueur = joueur.lower()
             df = df[df['joueur'] == joueur]
             title += f' pour {joueur}'
+            
 
         if champion != None:
             df = df[df['champion'] == champion]
@@ -1091,6 +1112,73 @@ class analyseLoL(Extension):
                 embed, files = get_embed(fig, 'games')
 
                 await ctx.send(embeds=embed, files=files)
+                
+            elif calcul == 'time':
+                if grouper == 'discord':
+                    df = df.groupby('discord').agg({'time': 'sum', 'champion': 'count', 'joueur' : 'max'})
+                    df.set_index('joueur', inplace=True)
+                else:
+                    df = df.groupby('joueur').agg({'time': 'sum', 'champion': 'count'})
+                df.rename(columns={'champion' : 'nbgames'}, inplace=True)
+                
+                df.sort_values(by='time', ascending=False, inplace=True)
+                df['jour'] = df['time'] // 1440
+                df['heure'] = (df['time'] % 1440) // 60
+                df['minute'] = (df['time'] % 1440) % 60
+                
+                txt = ''
+                
+                for joueur, data in df.iterrows():
+                    txt += f'\n**{joueur}** : {int(data["jour"])} jours, {int(data["heure"])} heures, {int(data["minute"])} minutes, {int(data["nbgames"])} parties.' 
+                 
+                
+                select = interactions.SelectMenu(
+                options=[
+                    interactions.SelectOption(
+                        label="Nombre de games", value="nbgames", emoji=interactions.Emoji(name='1️⃣')),
+                    interactions.SelectOption(
+                        label="Temps joué", value="time", emoji=interactions.Emoji(name='2️⃣')),
+                ],
+                custom_id='selection',
+                placeholder="Choix de la statistique",
+                min_values=1,
+                max_values=1
+            )
+
+            await ctx.send("Quel stat ?",
+                           components=select)
+
+            async def check(button_ctx):
+                if int(button_ctx.author.user.id) == int(ctx.author.user.id):
+                    return True
+                await ctx.send("I wasn't asking you!", ephemeral=True)
+                return False
+
+            while True:
+                try:
+                    button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+                        components=select, check=check, timeout=30
+                    )
+
+                    if button_ctx.data.values[0] == 'nbgames':
+                        fig = px.histogram(df, x=df.index, y='nbgames', title='Nombre de parties jouées', color=df.index, text_auto=True)
+ 
+
+                    elif button_ctx.data.values[0] == 'time':
+                        fig = px.histogram(df, x=df.index, y='time', title='Temps de jeu', color=df.index)
+ 
+                    fig.update_xaxes(categoryorder="total descending")
+                    fig.update_layout(showlegend=False)
+                    embed, file = get_embed(fig, button_ctx.data.values[0])
+                    # On envoie
+
+                    await ctx.edit(content=txt, embeds=embed, files=file)
+                
+                except asyncio.TimeoutError:
+                    # When it times out, edit the original message and remove the button(s)
+                    return await ctx.edit(components=[])   
+                
+                
 
 
 def setup(bot):
