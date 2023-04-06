@@ -555,7 +555,8 @@ class matchlol():
                  queue: int = 0,
                  index: int = 0,
                  count: int = 20,
-                 identifiant_game=None):
+                 identifiant_game=None,
+                 me=None):
         """Class pour traiter les matchs
 
         Parameters
@@ -580,6 +581,7 @@ class matchlol():
         self.count = count
         self.params_me = {'api_key': api_key_lol}
         self.identifiant_game = identifiant_game
+        self.me = me
 
     async def get_data_riot(self):
         """Récupère les infos de base : 
@@ -597,7 +599,8 @@ class matchlol():
             self.params_my_match = {
                 'queue': self.queue, 'start': self.index, 'count': self.count, 'api_key': api_key_lol}
 
-        self.me = await get_summoner_by_name(self.session, self.summonerName)
+        if self.me == None:
+            self.me = await get_summoner_by_name(self.session, self.summonerName)
 
         # on recherche l'id de la game.
         if self.identifiant_game == None:
