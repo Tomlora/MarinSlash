@@ -814,12 +814,13 @@ class LeagueofLegends(Extension):
                 requete_perso_bdd(f'UPDATE tracker SET id = :id, spec_send = :spec WHERE index = :index', {
                                   'id': id_last_game, 'index': summonername, 'spec': False})
                 
-                # Changement de pseudo ?
+                
                 
                 me = await get_summoner_by_puuid(puuid, session)
                 
                 name_actuelle = me['name'].lower().replace(' ', '')
                 
+                # Changement de pseudo ?
                 if name_actuelle != summonername:
                     requete_perso_bdd(f'''UPDATE tracker set index = :nouveau where index = :ancien;
                                 
@@ -863,7 +864,7 @@ class LeagueofLegends(Extension):
                 
             if tracker_bool and not tracker_send:
                 try:
-                    url, gamemode, id_game, champ_joueur, icon = await get_spectator_data(summonername, session)
+                    url, gamemode, id_game, champ_joueur, icon = await get_spectator_data(puuid, session)
                     
                     url_opgg = f'https://www.op.gg/summoners/euw/{summonername}/ingame'
                     
