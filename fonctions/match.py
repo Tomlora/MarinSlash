@@ -1185,6 +1185,8 @@ class matchlol():
             self.thisVictory = '0'
             self.thisLoose = '0'
             self.thisWinStreak = '0'
+            
+        self.url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(self.last_match)[5:]}#participant{int(self.thisId)+1}'
 
 
     async def save_data(self):

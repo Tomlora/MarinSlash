@@ -76,7 +76,8 @@ def sauvegarde_bdd(df,
                    nom_table,
                    methode_save='replace',
                    dtype={'Score': Float(),
-                          'serie': BigInteger()}):
+                          'serie': BigInteger()},
+                   index=True):
     """Sauvegarde la BDD au format dataframe
 
     Parameters
@@ -99,7 +100,7 @@ def sauvegarde_bdd(df,
         df = pd.DataFrame(df)
         df = df.transpose()
     df.to_sql(nom_table, con=conn, if_exists=methode_save,
-              index=True, method='multi', dtype=dtype)
+              index=index, method='multi', dtype=dtype)
     conn.commit()
     conn.close()
 
