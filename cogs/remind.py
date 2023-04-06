@@ -1,4 +1,3 @@
-import asyncio
 from fonctions.permissions import *
 from discord.utils import get
 import datetime
@@ -9,11 +8,8 @@ from interactions.ext.wait_for import wait_for, wait_for_component, setup as stp
 from interactions.ext.tasks import IntervalTrigger, create_task
 import datetime
 from fonctions.gestion_bdd import get_guild_data, requete_perso_bdd, lire_bdd_perso
-import cv2
-import numpy as np
-import os
-from fonctions.channels_discord import convertion_temps, mention
-from fonctions.date import heure_actuelle, time_actuelle
+from fonctions.channels_discord import mention
+from fonctions.date import heure_actuelle
 
 reminders = {}
 

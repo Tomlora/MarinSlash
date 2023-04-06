@@ -18,7 +18,7 @@ class Achievements_scoringlol(Extension):
                    Choice(name='aram', value='aram')]
 
     @interactions.extension_command(
-        name="achievements_s12",
+        name="couronne_s12",
         description="Voir les couronnes acquis par les joueurs (Réservé s12)",
         options=[
             Option(
@@ -133,7 +133,7 @@ class Achievements_scoringlol(Extension):
             await ctx.send('Informations : Les records de la page 3 ne sont pas comptabilisés', files=interactions.File('plot.png'))
             os.remove('plot.png')
 
-    @interactions.extension_command(name="achievements_regles",
+    @interactions.extension_command(name="couronnes_regles",
                                     description="Conditions pour débloquer des couronnes",
                                     options=[
                                         Option(
@@ -186,7 +186,7 @@ class Achievements_scoringlol(Extension):
 
         await ctx.send(embeds=embed)
 
-    @interactions.extension_command(name="achievements",
+    @interactions.extension_command(name="couronnes",
                                     description="Voir le nombre de records et mvp détenu par les joueurs",
                                     options=[
                                         Option(

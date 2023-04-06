@@ -219,7 +219,7 @@ class Divers(Extension):
             role = await guild.create_role(name="Muted", permissions=permissions)
             return role
 
-    @interactions.extension_command(name="mute_time",
+    @interactions.extension_command(name="mute",
                                     description="mute someone for x secondes",
                                     options=[
                                         Option(

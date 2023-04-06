@@ -22,7 +22,6 @@ from fonctions.gestion_bdd import (lire_bdd,
                                    lire_bdd_perso)
 
 from fonctions.match import (matchlol,
-                             getId_with_summonername,
                              get_summoner_by_puuid,
                              getId_with_puuid,
                              dict_rankid,
@@ -133,7 +132,6 @@ class LeagueofLegends(Extension):
     async def printInfo(self,
                         summonerName,
                         idgames: int,
-                        succes,
                         sauvegarder: bool,
                         identifiant_game=None,
                         guild_id: int = 0,
@@ -150,7 +148,11 @@ class LeagueofLegends(Extension):
         # pour nouveau système de record
         fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                          INNER JOIN tracker ON tracker.index = matchs.joueur
-                         where season = {match_info.season} and mode = '{match_info.thisQ}' and server_id = {guild_id}''', index_col='id').transpose()
+                         where season = {match_info.season}
+                         and mode = '{match_info.thisQ}'
+                         and server_id = {guild_id}''',
+                         index_col='id'
+                         ).transpose()
 
         fichier_joueur = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                         INNER JOIN tracker on tracker.index = matchs.joueur
@@ -182,7 +184,7 @@ class LeagueofLegends(Extension):
         if match_info.thisTime <= 3.0:
             return {}, 'Remake', 0, 
 
-        url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(match_info.last_match)[5:]}#participant{int(match_info.thisId)+1}'
+        
 
         exploits = ''
 
@@ -473,13 +475,13 @@ class LeagueofLegends(Extension):
             points += 1
             
 
-        if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20 and succes is True) or\
+        if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
             # Le record de couronne n'est disponible qu'en ranked / aram
             exploits += records_check2(
                 fichier, fichier_joueur, fichier_champion, 'couronne', points, exploits)
 
-        if (match_info.thisQ in ['RANKED', 'NORMAL', 'FLEX'] and match_info.thisTime > 20 and succes is True) or\
+        if (match_info.thisQ in ['RANKED', 'NORMAL', 'FLEX'] and match_info.thisTime > 20) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
             # on ajoute les couronnes pour les modes ranked, normal, aram
             await match_info.add_couronnes(points)
@@ -490,7 +492,7 @@ class LeagueofLegends(Extension):
                 "\n ** :tired_face: Tu as eu un afk dans ton équipe :'( **"
 
         # Série de victoire
-        if match_info.thisWinStreak == "True" and match_info.thisQ == "RANKED" and succes is True and match_info.thisTime > 20:
+        if match_info.thisWinStreak == "True" and match_info.thisQ == "RANKED" and match_info.thisTime > 20:
             # si égal à 0, le joueur commence une série avec 3 wins
             if suivi[summonerName.lower().replace(" ", "")]["serie"] == 0:
                 suivi[summonerName.lower().replace(" ", "")]["serie"] = 3
@@ -520,7 +522,7 @@ class LeagueofLegends(Extension):
 
         # ici, ça va de 1 à 10.. contrairement à Rito qui va de 1 à 9
         embed.add_field(
-            name="Game", value=f"[Graph]({url_game}) | [OPGG](https://euw.op.gg/summoners/euw/{summonerName}) ", inline=True)
+            name="Game", value=f"[Graph]({match_info.url_game}) | [OPGG](https://euw.op.gg/summoners/euw/{summonerName}) ", inline=True)
     
         embed.add_field(
             name='Champ', value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)", inline=True)
@@ -681,10 +683,6 @@ class LeagueofLegends(Extension):
                                                     required=True,
                                                     min_value=0,
                                                     max_value=100),
-                                        Option(name="succes",
-                                                    description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non",
-                                                    type=interactions.OptionType.BOOLEAN,
-                                                    required=True),
                                         Option(name="sauvegarder",
                                                     description="sauvegarder la game",
                                                     type=interactions.OptionType.BOOLEAN,
@@ -697,7 +695,6 @@ class LeagueofLegends(Extension):
                    ctx: CommandContext,
                    summonername: str,
                    numerogame: int,
-                   succes: bool,
                    sauvegarder: bool = True,
                    identifiant_game=None):
 
@@ -707,9 +704,7 @@ class LeagueofLegends(Extension):
         
 
         embed, mode_de_jeu, resume= await self.printInfo(summonerName=summonername.lower(),
-                                                                           idgames=int(
-                                                                               numerogame),
-                                                                           succes=succes,
+                                                                           idgames=numerogame,
                                                                            sauvegarder=sauvegarder,
                                                                            identifiant_game=identifiant_game,
                                                                            guild_id=int(ctx.guild_id))
@@ -726,16 +721,12 @@ class LeagueofLegends(Extension):
                                                     type=interactions.OptionType.STRING,
                                                     required=True),
                                              Option(name="debut",
-                                                    description="Numero de la game, de 0 à 100",
+                                                    description="Numero de la game, de 0 à 100 (Game la plus recente)",
                                                     type=interactions.OptionType.INTEGER,
                                                     required=True),
                                              Option(name="fin",
-                                                    description="Numero de la game, de 0 à 100",
+                                                    description="Numero de la game, de 0 à 100 (Game la moins recente)",
                                                     type=interactions.OptionType.INTEGER,
-                                                    required=True),
-                                             Option(name="succes",
-                                                    description="Faut-il la compter dans les records/achievements ? True = Oui / False = Non",
-                                                    type=interactions.OptionType.BOOLEAN,
                                                     required=True),
                                              Option(name='sauvegarder',
                                                     description='Sauvegarder les games',
@@ -746,7 +737,6 @@ class LeagueofLegends(Extension):
                          summonername: str,
                          debut: int,
                          fin: int,
-                         succes: bool,
                          sauvegarder: bool = True):
 
         await ctx.defer(ephemeral=False)
@@ -756,8 +746,7 @@ class LeagueofLegends(Extension):
             summonername = summonername.lower()
 
             embed, mode_de_jeu, resume= await self.printInfo(summonerName=summonername.lower(),
-                                                                               idgames=int(i),
-                                                                               succes=succes,
+                                                                               idgames=i,
                                                                                sauvegarder=sauvegarder,
                                                                                guild_id=int(ctx.guild_id))
 
@@ -774,24 +763,21 @@ class LeagueofLegends(Extension):
 
         embed, mode_de_jeu, resume= await self.printInfo(summonerName=summonername,
                                                                            idgames=0,
-                                                                           succes=True,
                                                                            sauvegarder=True,
                                                                            guild_id=discord_server_id.server_id,
                                                                            me=me)
 
         if mode_de_jeu in ['RANKED', 'FLEX']:
-
-            channel_tracklol = await interactions.get(client=self.bot,
-                                                      obj=interactions.Channel,
-                                                      object_id=discord_server_id.tracklol)
+            tracklol = discord_server_id.tracklol
         else:
-            channel_tracklol = await interactions.get(client=self.bot,
+            tracklol = discord_server_id.lol_others
+
+        channel_tracklol = await interactions.get(client=self.bot,
                                                       obj=interactions.Channel,
-                                                      object_id=discord_server_id.lol_others)
+                                                      object_id=tracklol)
 
         if embed != {}:
             await channel_tracklol.send(embeds=embed, files=resume)
-
             os.remove('resume.png')
 
 
@@ -907,12 +893,12 @@ class LeagueofLegends(Extension):
     async def loladd(self,
                      ctx: CommandContext,
                      summonername):
-        # TODO : enlever la colonne achievements quand s13
         try:
             if verif_module('league_ranked', int(ctx.guild.id)):
                 summonername = summonername.lower().replace(' ', '')
                 session = aiohttp.ClientSession()
                 me = await get_summoner_by_name(summonername, session)
+                puuid = me['puuid']
                 requete_perso_bdd(f'''
                                   
                                 INSERT INTO tracker(index, id, discord, server_id, puuid) VALUES (:summonername, :id, :discord, :guilde, :puuid);
@@ -932,7 +918,7 @@ class LeagueofLegends(Extension):
                                 INSERT INTO ranked_aram_24h(
                                 index, wins, losses, lp, games, k, d, a, activation, rank)
                                 VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');''',
-                                  {'summonername': summonername.lower(), 'id': await getId_with_summonername(summonername, session), 'discord': int(ctx.author.id), 'guilde': int(ctx.guild.id), 'puuid' : me['puuid']})
+                                  {'summonername': summonername.lower(), 'id': await getId_with_puuid(puuid, session), 'discord': int(ctx.author.id), 'guilde': int(ctx.guild.id), 'puuid' : puuid})
 
                 await ctx.send(f"{summonername} a été ajouté avec succès au live-feed!")
                 await session.close()
@@ -990,46 +976,6 @@ class LeagueofLegends(Extension):
         if tracker_fin == None and tracker_debut == None:
             await ctx.send('Tu dois choisir une option !')
 
-    # @interactions.extension_command(name="lolrename",
-    #                                 description="Renomme un compte dans le suivi",
-    #                                 options=[
-    #                                     Option(name="ancien_pseudo",
-    #                                                 description="Ancien pseudo ingame (sans espace !)",
-    #                                                 type=interactions.OptionType.STRING,
-    #                                                 required=True),
-    #                                     Option(name='nouveau_pseudo',
-    #                                            description='Nouveau pseudo ingame (sans espace !)',
-    #                                            type=interactions.OptionType.STRING,
-    #                                            required=True)])
-    # async def lolrename(self,
-    #                     ctx: CommandContext,
-    #                     ancien_pseudo,
-    #                     nouveau_pseudo):
-
-    #     if verif_module('league_ranked', int(ctx.guild.id)):
-    #         ancien_pseudo = ancien_pseudo.lower()
-    #         nouveau_pseudo = nouveau_pseudo.lower()
-
-    #         requete_perso_bdd(f'''UPDATE tracker set index = :nouveau where index = :ancien;
-                                
-    #                             UPDATE suivi_s{saison} set index = :nouveau where index = :ancien;
-                                
-    #                             UPDATE suivi_s{saison-1} set index = :nouveau where index = :ancien;
-                            
-    #                             UPDATE suivi_24h set index = :nouveau where index = :ancien;
-                            
-    #                             UPDATE ranked_aram_s{saison} set index = :nouveau where index = :ancien;
-                                
-    #                             UPDATE ranked_aram_s{saison-1} set index = :nouveau where index = :ancien;
-                            
-    #                             UPDATE ranked_aram_24h set index = :nouveau where index = :ancien;
-                                
-    #                             UPDATE matchs set joueur = :nouveau where joueur = :ancien;''',
-    #                           {'ancien': ancien_pseudo, 'nouveau': nouveau_pseudo})
-
-    #         await ctx.send(f"{ancien_pseudo} a été modifié en {nouveau_pseudo} avec succès au live-feed!")
-    #     else:
-    #         await ctx.send('Module désactivé pour ce serveur')
 
     @interactions.extension_command(name='lollist',
                                     description='Affiche la liste des joueurs suivis')

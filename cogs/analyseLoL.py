@@ -18,7 +18,7 @@ from datetime import datetime
 from interactions.ext.paginator import Page, Paginator
 import seaborn as sns
 
-from fonctions.match import (match_by_puuid,
+from fonctions.match import (match_by_puuid_with_summonername,
                              get_summoner_by_puuid,
                              get_version,
                              get_champ_list,
@@ -325,14 +325,14 @@ class analyseLoL(Extension):
         warnings.simplefilter(action='ignore', category=FutureWarning)
         pd.options.mode.chained_assignment = None  # default='warn'
         session = aiohttp.ClientSession()
-        last_match, match_detail, me = await match_by_puuid(summonername, game, session)
+        last_match, match_detail, me = await match_by_puuid_with_summonername(summonername, game, session)
         timeline = await get_match_timeline(session, last_match)
 
         # timestamp à diviser par 60000
 
         dict_joueur = []
         for i in range(0, 10):
-            summoner = await get_summoner_by_puuid(session, timeline['metadata']['participants'][i])
+            summoner = await get_summoner_by_puuid(timeline['metadata']['participants'][i], session)
             dict_joueur.append(summoner['name'].lower())
 
         await session.close()
@@ -661,7 +661,7 @@ class analyseLoL(Extension):
 
         session = aiohttp.ClientSession()
 
-        last_match, match_detail_stats, me = await match_by_puuid(summonername, game, session)
+        last_match, match_detail_stats, me = await match_by_puuid_with_summonername(summonername, game, session)
 
         match_detail = pd.DataFrame(match_detail_stats)
 
@@ -848,7 +848,7 @@ class analyseLoL(Extension):
                                                               choices=[
                                                                   choice_comptage],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
-                                                              description='stats sur les dégats'),
+                                                              description='stats sur les kills et series de kills'),
                                         option_stats_lol(name='dommage',
                                                               choices=[
                                                                   choice_avg],
@@ -1067,7 +1067,7 @@ class analyseLoL(Extension):
                 
                 df = df.groupby('joueur').agg({'double' : ['sum', 'count'], 'triple' : 'sum', 'quadra' : 'sum', 'penta' : 'sum' })
                 df.columns = pd.Index([e[0] + "_" + e[1].upper() for e in df.columns.tolist()])
-                df.rename(columns={'double_SUM' : 'double', 'double_COUNT' : 'nbgames', 'triple_SUM' : 'triple', 'quadra_SUM' : 'quadra', 'penta_SUM' : 'penta'}, inplace=True)
+                df.rename(columns={'double_SUM' : 'double', 'double_COUNT' : 'nbgames', 'triple_SUM' : 'triple', 'quadra_SUM' : 'quadra', 'penta_SUM' : 'penta'}, inplace=True) #doubleCount sert à compter le nombre de games
                 
                 df.sort_values(['penta', 'quadra', 'triple', 'double'], ascending=[False, False, False, False], inplace=True)
                 
