@@ -344,8 +344,14 @@ async def get_summoner_by_puuid(session, puuid):
     return me
 
 
-async def get_list_matchs(session: aiohttp.ClientSession, me, params):
+async def get_list_matchs_with_me(session: aiohttp.ClientSession, me, params):
     async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{me["puuid"]}/ids?', params=params) as session_match:
+        my_matches = await session_match.json()
+    return my_matches
+
+
+async def get_list_matchs_with_puuid(session: aiohttp.ClientSession, puuid, params):
+    async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?', params=params) as session_match:
         my_matches = await session_match.json()
     return my_matches
 
@@ -403,7 +409,7 @@ def dict_data(thisId: int, match_detail, info):
     return liste
 
 
-async def match_by_puuid(summonerName,
+async def match_by_puuid_with_summonername(summonerName,
                          idgames: int,
                          session,
                          index=0,
@@ -418,17 +424,45 @@ async def match_by_puuid(summonerName,
                            'count': count, 'api_key': api_key_lol}
 
     me = await get_summoner_by_name(session, summonerName)
-    my_matches = await get_list_matchs(session, me, params_my_match)
+    my_matches = await get_list_matchs_with_me(session, me, params_my_match)
     last_match = my_matches[idgames]  # match n° idgames
     # detail du match sélectionné
     match_detail_stats = await get_match_detail(session, last_match, params_me)
 
     return last_match, match_detail_stats, me
 
+async def get_summoner_by_puuid(puuid, session:aiohttp.ClientSession):
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}?api_key={api_key_lol}') as summoner:
+        me = await summoner.json()
+        return me
+   
 
-async def getId(summonerName : str, session : aiohttp.ClientSession):
+
+async def match_by_puuid_with_puuid(puuid,
+                         idgames: int,
+                         session,
+                         index=0,
+                         queue=0,
+                         count=20):
+    params_me = {'api_key': api_key_lol}
+    if queue == 0:
+        params_my_match = {'start': index,
+                           'count': count, 'api_key': api_key_lol}
+    else:
+        params_my_match = {'queue': queue, 'start': index,
+                           'count': count, 'api_key': api_key_lol}
+
+    my_matches = await get_list_matchs_with_puuid(session, puuid, params_my_match)
+    last_match = my_matches[idgames]  # match n° idgames
+    # detail du match sélectionné
+    match_detail_stats = await get_match_detail(session, last_match, params_me)
+
+    return last_match, match_detail_stats
+
+
+async def getId_with_summonername(summonerName : str, session : aiohttp.ClientSession):
     try:
-        last_match, match_detail_stats, me = await match_by_puuid(summonerName, 0, session)
+        last_match, match_detail_stats, me = await match_by_puuid_with_summonername(summonerName, 0, session)
         return str(match_detail_stats['info']['gameId'])
     except KeyError:
         data = lire_bdd('tracker', 'dict')
@@ -441,10 +475,27 @@ async def getId(summonerName : str, session : aiohttp.ClientSession):
         data = lire_bdd('tracker', 'dict')
         print(sys.exc_info())
         return str(data[summonerName]['id'])
+
+async def getId_with_puuid(puuid : str, session : aiohttp.ClientSession):
+    try:
+        last_match, match_detail_stats = await match_by_puuid_with_puuid(puuid, 0, session)
+        return str(match_detail_stats['info']['gameId'])
+    except KeyError as e:
+        print(f'error keyerror : {e}')
+        data = lire_bdd('tracker').transpose()
+        return str(data.loc[data['puuid'] == puuid]['id'].values[0])
+    except asyncio.exceptions.TimeoutError:
+        print('error')
+        data = lire_bdd('tracker').transpose()
+        return str(data.loc[data['puuid'] == puuid]['id'].values[0])
+    except:
+        print('error')
+        data = lire_bdd('tracker').transpose()
+        return str(data.loc[data['puuid'] == puuid]['id'].values[0])
     
     
 async def get_spectator_data(summonerName, session):
-    last_match, match_detail_stats, me = await match_by_puuid(summonerName, 0, session)
+    last_match, match_detail_stats, me = await match_by_puuid_with_summonername(summonerName, 0, session)
     id = me['id']
     data = await get_spectator(session, id )
     
@@ -550,7 +601,7 @@ class matchlol():
 
         # on recherche l'id de la game.
         if self.identifiant_game == None:
-            self.my_matches = await get_list_matchs(self.session, self.me, self.params_my_match)
+            self.my_matches = await get_list_matchs_with_me(self.session, self.me, self.params_my_match)
             self.last_match = self.my_matches[self.idgames]  # match n° idgames
         else:  # si identifiant_game est renseigné, on l'a déjà en entrée.
             self.last_match = self.identifiant_game
