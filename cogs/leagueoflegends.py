@@ -136,11 +136,13 @@ class LeagueofLegends(Extension):
                         succes,
                         sauvegarder: bool,
                         identifiant_game=None,
-                        guild_id: int = 0):
+                        guild_id: int = 0,
+                        me=None):
 
         match_info = matchlol(summonerName,
                               idgames,
-                              identifiant_game=identifiant_game)  # class
+                              identifiant_game=identifiant_game,
+                              me=me)  # class
 
         await match_info.get_data_riot()
         await match_info.prepare_data()
@@ -632,11 +634,12 @@ class LeagueofLegends(Extension):
                 text=f'Version {Version} by Tomlora - Match {str(match_info.last_match)}')
         return embed, match_info.thisQ, resume
 
-    async def updaterank(self, key, discord_server_id, session: aiohttp.ClientSession):
+    async def updaterank(self, key, discord_server_id, session: aiohttp.ClientSession, me=None):
 
         suivirank = lire_bdd(f'suivi_s{saison}', 'dict')
 
-        me = await get_summoner_by_name(session, key)
+        if me == None:
+            me = await get_summoner_by_name(session, key)
 
         stats = await get_league_by_summoner(session, me)
 
@@ -765,7 +768,7 @@ class LeagueofLegends(Extension):
 
             sleep(5)
 
-    async def printLive(self, summonername, discord_server_id: chan_discord):
+    async def printLive(self, summonername, discord_server_id: chan_discord, me=None):
 
         summonername = summonername.lower()
 
@@ -773,7 +776,8 @@ class LeagueofLegends(Extension):
                                                                            idgames=0,
                                                                            succes=True,
                                                                            sauvegarder=True,
-                                                                           guild_id=discord_server_id.server_id)
+                                                                           guild_id=discord_server_id.server_id,
+                                                                           me=me)
 
         if mode_de_jeu in ['RANKED', 'FLEX']:
 
@@ -842,10 +846,10 @@ class LeagueofLegends(Extension):
 
                     # résumé de game
 
-                    await self.printLive(summonername, discord_server_id)
+                    await self.printLive(summonername, discord_server_id, me)
 
                     # update rank
-                    await self.updaterank(summonername, discord_server_id, session)
+                    await self.updaterank(summonername, discord_server_id, session, me)
                 except TypeError:
                     # on recommence dans 1 minute
                     requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {
@@ -985,46 +989,46 @@ class LeagueofLegends(Extension):
         if tracker_fin == None and tracker_debut == None:
             await ctx.send('Tu dois choisir une option !')
 
-    @interactions.extension_command(name="lolrename",
-                                    description="Renomme un compte dans le suivi",
-                                    options=[
-                                        Option(name="ancien_pseudo",
-                                                    description="Ancien pseudo ingame (sans espace !)",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=True),
-                                        Option(name='nouveau_pseudo',
-                                               description='Nouveau pseudo ingame (sans espace !)',
-                                               type=interactions.OptionType.STRING,
-                                               required=True)])
-    async def lolrename(self,
-                        ctx: CommandContext,
-                        ancien_pseudo,
-                        nouveau_pseudo):
+    # @interactions.extension_command(name="lolrename",
+    #                                 description="Renomme un compte dans le suivi",
+    #                                 options=[
+    #                                     Option(name="ancien_pseudo",
+    #                                                 description="Ancien pseudo ingame (sans espace !)",
+    #                                                 type=interactions.OptionType.STRING,
+    #                                                 required=True),
+    #                                     Option(name='nouveau_pseudo',
+    #                                            description='Nouveau pseudo ingame (sans espace !)',
+    #                                            type=interactions.OptionType.STRING,
+    #                                            required=True)])
+    # async def lolrename(self,
+    #                     ctx: CommandContext,
+    #                     ancien_pseudo,
+    #                     nouveau_pseudo):
 
-        if verif_module('league_ranked', int(ctx.guild.id)):
-            ancien_pseudo = ancien_pseudo.lower()
-            nouveau_pseudo = nouveau_pseudo.lower()
+    #     if verif_module('league_ranked', int(ctx.guild.id)):
+    #         ancien_pseudo = ancien_pseudo.lower()
+    #         nouveau_pseudo = nouveau_pseudo.lower()
 
-            requete_perso_bdd(f'''UPDATE tracker set index = :nouveau where index = :ancien;
+    #         requete_perso_bdd(f'''UPDATE tracker set index = :nouveau where index = :ancien;
                                 
-                                UPDATE suivi_s{saison} set index = :nouveau where index = :ancien;
+    #                             UPDATE suivi_s{saison} set index = :nouveau where index = :ancien;
                                 
-                                UPDATE suivi_s{saison-1} set index = :nouveau where index = :ancien;
+    #                             UPDATE suivi_s{saison-1} set index = :nouveau where index = :ancien;
                             
-                                UPDATE suivi_24h set index = :nouveau where index = :ancien;
+    #                             UPDATE suivi_24h set index = :nouveau where index = :ancien;
                             
-                                UPDATE ranked_aram_s{saison} set index = :nouveau where index = :ancien;
+    #                             UPDATE ranked_aram_s{saison} set index = :nouveau where index = :ancien;
                                 
-                                UPDATE ranked_aram_s{saison-1} set index = :nouveau where index = :ancien;
+    #                             UPDATE ranked_aram_s{saison-1} set index = :nouveau where index = :ancien;
                             
-                                UPDATE ranked_aram_24h set index = :nouveau where index = :ancien;
+    #                             UPDATE ranked_aram_24h set index = :nouveau where index = :ancien;
                                 
-                                UPDATE matchs set joueur = :nouveau where joueur = :ancien;''',
-                              {'ancien': ancien_pseudo, 'nouveau': nouveau_pseudo})
+    #                             UPDATE matchs set joueur = :nouveau where joueur = :ancien;''',
+    #                           {'ancien': ancien_pseudo, 'nouveau': nouveau_pseudo})
 
-            await ctx.send(f"{ancien_pseudo} a été modifié en {nouveau_pseudo} avec succès au live-feed!")
-        else:
-            await ctx.send('Module désactivé pour ce serveur')
+    #         await ctx.send(f"{ancien_pseudo} a été modifié en {nouveau_pseudo} avec succès au live-feed!")
+    #     else:
+    #         await ctx.send('Module désactivé pour ce serveur')
 
     @interactions.extension_command(name='lollist',
                                     description='Affiche la liste des joueurs suivis')
