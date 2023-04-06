@@ -22,7 +22,9 @@ from fonctions.gestion_bdd import (lire_bdd,
                                    lire_bdd_perso)
 
 from fonctions.match import (matchlol,
-                             getId,
+                             getId_with_summonername,
+                             get_summoner_by_puuid,
+                             getId_with_puuid,
                              dict_rankid,
                              get_league_by_summoner,
                              get_summoner_by_name,
@@ -531,7 +533,8 @@ class LeagueofLegends(Extension):
         stats_joueur = lire_bdd_perso(f'''SELECT joueur, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
                     (count(victoire) filter (where victoire = True)) as victoire,
                     avg(kp) as kp,
-                    count(victoire) as nb_games
+                    count(victoire) as nb_games,
+                    (avg(mvp) filter (where mvp != 0)) as mvp
                     from matchs WHERE joueur = '{match_info.summonerName.lower()}'
                     and champion = '{match_info.thisChampName}'
                     and season = {saison}
@@ -546,14 +549,13 @@ class LeagueofLegends(Extension):
             d = round(stats_joueur.loc[match_info.summonerName.lower(), 'deaths'],1)
             a = round(stats_joueur.loc[match_info.summonerName.lower(), 'assists'],1)
             kp = int(stats_joueur.loc[match_info.summonerName.lower(), 'kp'])
+            mvp = round(stats_joueur.loc[match_info.summonerName.lower(), 'mvp'],1)
             ratio_victoire = int((stats_joueur.loc[match_info.summonerName.lower(), 'victoire'] / stats_joueur.loc[match_info.summonerName.lower(), 'nb_games'])*100)
             nb_games = int(stats_joueur.loc[match_info.summonerName.lower(), 'nb_games'])
             embed.add_field(
-                name=f"{nb_games} games ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=True)
+                name=f"{nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=True)
             
-            
-
-
+        
         # on découpe le texte embed
         chunk_size = 1024
         max_len = 4000
@@ -613,21 +615,12 @@ class LeagueofLegends(Extension):
         if match_info.observations != '':
             embed.add_field(name='Insights', value=match_info.observations)
             
-
-       # Gestion de l'image 1
-
-        # embed = await match_info.resume_personnel('resume_perso', embed, difLP)
-
-        # Gestion de l'image 2
+        # Gestion de l'image 
 
         embed = await match_info.resume_general('resume', embed, difLP)
 
         # on charge les img
 
-        # resume = interactions.File('resume_perso.png')
-        # embed.set_image(url='attachment://resume_perso.png')
-
-        # embed = interactions.Embed(color=color)
         resume = interactions.File('resume.png')
         embed.set_image(url='attachment://resume.png')
 
@@ -720,10 +713,8 @@ class LeagueofLegends(Extension):
 
         if embed != {}:
             await ctx.send(embeds=embed, files=resume)
-
-            # await ctx.send(embeds=embed2, files=resume2)
             os.remove('resume.png')
-            # os.remove('resume_perso.png')
+
 
     @interactions.extension_command(name="game_multi",
                                     description="Voir les statistiques d'une games",
@@ -769,7 +760,6 @@ class LeagueofLegends(Extension):
 
             if embed != {}:
                 await ctx.send(embeds=embed, files=resume)
-                # await ctx.send(embeds=embed2, files=resume2)
             else:
                 await ctx.send(f"La game {str(i)} n'a pas été comptabilisée")
 
@@ -797,29 +787,54 @@ class LeagueofLegends(Extension):
 
         if embed != {}:
             await channel_tracklol.send(embeds=embed, files=resume)
-            # await channel_tracklol.send(embeds=embed2, files=resume2)
 
             os.remove('resume.png')
-            # os.remove('resume_perso.png')
+
 
     async def update(self):
 
-        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord
+        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid
                             from tracker 
                             INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                             where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
         timeout = aiohttp.ClientTimeout(total=20)
         session = aiohttp.ClientSession(timeout=timeout)
 
-        for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id in data:
+        for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid in data:
 
-            id_last_game = await getId(summonername, session)
-
+            id_last_game = await getId_with_puuid(puuid, session)
+            
             if str(last_game) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
                 # update la bdd
 
                 requete_perso_bdd(f'UPDATE tracker SET id = :id, spec_send = :spec WHERE index = :index', {
                                   'id': id_last_game, 'index': summonername, 'spec': False})
+                
+                # Changement de pseudo ?
+                
+                me = await get_summoner_by_puuid(puuid, session)
+                
+                name_actuelle = me['name'].lower().replace(' ', '')
+                
+                if name_actuelle != summonername:
+                    requete_perso_bdd(f'''UPDATE tracker set index = :nouveau where index = :ancien;
+                                
+                                UPDATE suivi_s{saison} set index = :nouveau where index = :ancien;
+                                
+                                UPDATE suivi_s{saison-1} set index = :nouveau where index = :ancien;
+                            
+                                UPDATE suivi_24h set index = :nouveau where index = :ancien;
+                            
+                                UPDATE ranked_aram_s{saison} set index = :nouveau where index = :ancien;
+                                
+                                UPDATE ranked_aram_s{saison-1} set index = :nouveau where index = :ancien;
+                            
+                                UPDATE ranked_aram_24h set index = :nouveau where index = :ancien;
+                                
+                                UPDATE matchs set joueur = :nouveau where joueur = :ancien;''',
+                              {'ancien': summonername, 'nouveau': name_actuelle})
+                    
+                    summonername = name_actuelle
                 try:
 
                     # identification du channel
@@ -890,11 +905,12 @@ class LeagueofLegends(Extension):
         # TODO : enlever la colonne achievements quand s13
         try:
             if verif_module('league_ranked', int(ctx.guild.id)):
-                summonername = summonername.lower()
+                summonername = summonername.lower().replace(' ', '')
                 session = aiohttp.ClientSession()
+                me = await get_summoner_by_name(summonername, session)
                 requete_perso_bdd(f'''
                                   
-                                INSERT INTO tracker(index, id, discord, server_id) VALUES (:summonername, :id, :discord, :guilde);
+                                INSERT INTO tracker(index, id, discord, server_id, puuid) VALUES (:summonername, :id, :discord, :guilde, :puuid);
                                 
                                 INSERT INTO suivi_s{saison}(
                                 index, wins, losses, "LP", tier, rank, serie)
@@ -911,7 +927,7 @@ class LeagueofLegends(Extension):
                                 INSERT INTO ranked_aram_24h(
                                 index, wins, losses, lp, games, k, d, a, activation, rank)
                                 VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');''',
-                                  {'summonername': summonername.lower(), 'id': await getId(summonername, session), 'discord': int(ctx.author.id), 'guilde': int(ctx.guild.id)})
+                                  {'summonername': summonername.lower(), 'id': await getId_with_summonername(summonername, session), 'discord': int(ctx.author.id), 'guilde': int(ctx.guild.id), 'puuid' : me['puuid']})
 
                 await ctx.send(f"{summonername} a été ajouté avec succès au live-feed!")
                 await session.close()
@@ -928,45 +944,45 @@ class LeagueofLegends(Extension):
                                                     description="nom ingame",
                                                     type=interactions.OptionType.STRING,
                                                     required=True),
-                                        Option(name="tracker_fin_de_game",
-                                                    description="True : Activé / False : Désactivé",
+                                        Option(name="tracker_fin",
+                                                    description="Tracker qui affiche le recap de la game en fin de partie",
                                                     type=interactions.OptionType.BOOLEAN,
                                                     required=False),
-                                        Option(name="tracker_debut_de_game",
-                                                    description="True : Activé / False : Désactivé",
+                                        Option(name="tracker_debut",
+                                                    description="Tracker en début de partie",
                                                     type=interactions.OptionType.BOOLEAN,
                                                     required=False)])
     async def lolremove(self,
                         ctx: CommandContext,
                         summonername: str,
-                        tracker_fin_de_game: bool=None,
-                        tracker_debut_de_game: bool=None):
+                        tracker_fin: bool=None,
+                        tracker_debut: bool=None):
 
         summonername = summonername.lower()
 
-        if tracker_fin_de_game != None:
+        if tracker_fin != None:
             try:
                 requete_perso_bdd('UPDATE tracker SET activation = :activation WHERE index = :index', {
-                                'activation': tracker_fin_de_game, 'index': summonername})
-                if tracker_fin_de_game:
+                                'activation': tracker_fin, 'index': summonername})
+                if tracker_fin:
                     await ctx.send('Tracker fin de game activé !')
                 else:
                     await ctx.send('Tracker fin de game désactivé !')
             except KeyError:
                 await ctx.send('Joueur introuvable')
 
-        if tracker_debut_de_game != None:
+        if tracker_debut != None:
             try:
                 requete_perso_bdd('UPDATE tracker SET spec_tracker = :activation WHERE index = :index', {
-                                'activation': tracker_debut_de_game, 'index': summonername})
-                if tracker_debut_de_game:
+                                'activation': tracker_debut, 'index': summonername})
+                if tracker_debut:
                     await ctx.send('Tracker debut de game activé !')
                 else:
                     await ctx.send('Tracker debut de game désactivé !')
             except KeyError:
                 await ctx.send('Joueur introuvable')
         
-        if tracker_fin_de_game == None and tracker_debut_de_game == None:
+        if tracker_fin == None and tracker_debut == None:
             await ctx.send('Tu dois choisir une option !')
 
     @interactions.extension_command(name="lolrename",
