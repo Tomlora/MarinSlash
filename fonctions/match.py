@@ -576,8 +576,17 @@ class matchlol():
         self.index = index
         self.count = count
         self.params_me = {'api_key': api_key_lol}
-        self.identifiant_game = identifiant_game
+        
+        if identifiant_game != None:
+            self.identifiant_game = str(identifiant_game)
+            if self.identifiant_game.count('EUW') == 0:
+                self.identifiant_game = f'EUW1_{self.identifiant_game}'
+        else:
+            self.identifiant_game = identifiant_game
         self.me = me
+        
+
+
 
     async def get_data_riot(self):
         """Récupère les infos de base : 
@@ -604,6 +613,7 @@ class matchlol():
             self.last_match = self.my_matches[self.idgames]  # match n° idgames
         else:  # si identifiant_game est renseigné, on l'a déjà en entrée.
             self.last_match = self.identifiant_game
+
         # detail du match sélectionné
         self.match_detail_stats = await get_match_detail(self.session, self.last_match, self.params_me)
 
