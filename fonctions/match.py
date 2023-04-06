@@ -330,18 +330,17 @@ async def get_summoner_by_name(session: aiohttp.ClientSession, key):
         me = await session_summoner.json()  # informations sur le joueur
     return me
 
+async def get_summoner_by_puuid(puuid, session):
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}', params={'api_key': api_key_lol}) as session_summoner:
+        me = await session_summoner.json()
+    return me
+
 
 async def get_league_by_summoner(session: aiohttp.ClientSession, me):
     async with session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{me['id']}",
                            params={'api_key': api_key_lol}) as session_league:
         stats = await session_league.json()
     return stats
-
-
-async def get_summoner_by_puuid(session, puuid):
-    async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}', params={'api_key': api_key_lol}) as session_summoner:
-        me = await session_summoner.json()
-    return me
 
 
 async def get_list_matchs_with_me(session: aiohttp.ClientSession, me, params):
@@ -431,10 +430,7 @@ async def match_by_puuid_with_summonername(summonerName,
 
     return last_match, match_detail_stats, me
 
-async def get_summoner_by_puuid(puuid, session:aiohttp.ClientSession):
-    async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}?api_key={api_key_lol}') as summoner:
-        me = await summoner.json()
-        return me
+
    
 
 
@@ -494,8 +490,8 @@ async def getId_with_puuid(puuid : str, session : aiohttp.ClientSession):
         return str(data.loc[data['puuid'] == puuid]['id'].values[0])
     
     
-async def get_spectator_data(summonerName, session):
-    last_match, match_detail_stats, me = await match_by_puuid_with_summonername(summonerName, 0, session)
+async def get_spectator_data(puuid, session):
+    me = await get_summoner_by_puuid(puuid, session)
     id = me['id']
     data = await get_spectator(session, id )
     
