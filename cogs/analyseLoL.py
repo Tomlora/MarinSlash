@@ -16,6 +16,7 @@ import aiohttp
 import json
 from datetime import datetime
 from interactions.ext.paginator import Page, Paginator
+import seaborn as sns
 
 from fonctions.match import (match_by_puuid,
                              get_summoner_by_puuid,
@@ -828,6 +829,7 @@ class analyseLoL(Extension):
     choice_avg = Choice(name='avg', value='avg')
     choice_progression = Choice(name='progression', value='progression')
     choice_ecart = Choice(name='ecart', value='ecart')
+    choice_explain = Choice(name='explique ma victoire', value='explain')
 
     @interactions.extension_command(name="stats_lol",
                                     description="Historique de game",
@@ -842,6 +844,11 @@ class analyseLoL(Extension):
                                                                   choice_comptage, choice_winrate],
                                                               parameters_commun_stats_lol=parameters_commun_stats_lol,
                                                               description='stats sur les champions'),
+                                        option_stats_lol(name='kills',
+                                                              choices=[
+                                                                  choice_comptage],
+                                                              parameters_commun_stats_lol=parameters_commun_stats_lol,
+                                                              description='stats sur les dégats'),
                                         option_stats_lol(name='dommage',
                                                               choices=[
                                                                   choice_avg],
@@ -864,7 +871,7 @@ class analyseLoL(Extension):
                                                               description='stats sur les lp'),
                                         option_stats_lol(name='games',
                                                               choices=[
-                                                                  choice_comptage, choice_time_joue],
+                                                                  choice_comptage, choice_time_joue, choice_explain],
                                                               parameters_commun_stats_lol=parameters_nbgames,
                                                               description='stats sur les games')
                                     ])
@@ -884,6 +891,7 @@ class analyseLoL(Extension):
         dict_type = {
             'dommage': 'matchs.dmg, matchs.dmg_ad, matchs.dmg_ap, matchs.dmg_true',
             'tank': 'matchs.dmg_reduit, matchs.dmg_tank',
+            'kills' : 'matchs.kills, matchs.double, matchs.triple, matchs.quadra, matchs.penta',
             'champion': 'matchs.victoire',
             'kda': 'matchs.kills, matchs.assists, matchs.deaths',
             'type': f'matchs.{sub_command}',
@@ -930,7 +938,6 @@ class analyseLoL(Extension):
 
         title += f' ({calcul})'
 
-        # if calcul == 'count':
 
         if sub_command == 'items':
 
@@ -1052,6 +1059,84 @@ class analyseLoL(Extension):
             else:
                 await ctx.send('Non disponible')
                 pass
+            
+        elif sub_command == 'kills':
+            if calcul == 'count':
+                
+                df.drop('discord', axis=1, inplace=True)
+                
+                df = df.groupby('joueur').agg({'double' : ['sum', 'count'], 'triple' : 'sum', 'quadra' : 'sum', 'penta' : 'sum' })
+                df.columns = pd.Index([e[0] + "_" + e[1].upper() for e in df.columns.tolist()])
+                df.rename(columns={'double_SUM' : 'double', 'double_COUNT' : 'nbgames', 'triple_SUM' : 'triple', 'quadra_SUM' : 'quadra', 'penta_SUM' : 'penta'}, inplace=True)
+                
+                df.sort_values(['penta', 'quadra', 'triple', 'double'], ascending=[False, False, False, False], inplace=True)
+                
+                if joueur == None:
+                
+                    txt = f'{title} :'
+
+                    for joueur, data in df.iterrows():
+                        txt += f'\n**{joueur}** : **{data["penta"]}** penta, **{data["quadra"]}** quadra, **{data["triple"]}** triple, **{data["double"]}** double | **{data["nbgames"]}** games'
+                        
+                    await ctx.send(txt)
+                
+                else:
+                
+                    data = [
+                            go.Bar(
+                                x=df.index,
+                                y=df['double'],
+                                name='Double',
+                                orientation='v',
+                                text=df['double'],
+                                textposition='inside',
+                                insidetextanchor='middle',
+                                textfont=dict(color='white')
+                            ),
+                            go.Bar(
+                                x=df.index,
+                                y=df['triple'],
+                                name='Triple',
+                                orientation='v',
+                                text=df['triple'],
+                                textposition='inside',
+                                insidetextanchor='middle',
+                                textfont=dict(color='white')
+                            ),
+                            go.Bar(
+                                x=df.index,
+                                y=df['quadra'],
+                                name='Quadra',
+                                orientation='v',
+                                text=df['quadra'],
+                                textposition='inside',
+                                insidetextanchor='middle',
+                                textfont=dict(color='white')
+                            ),
+                            go.Bar(
+                                x=df.index,
+                                y=df['penta'],
+                                name='Penta',
+                                orientation='v',
+                                text=df['penta'],
+                                textposition='inside',
+                                insidetextanchor='middle',
+                                textfont=dict(color='white')
+                            )
+                        ]
+
+                    layout = go.Layout(
+                            title='Graphique',
+                            xaxis=dict(title='Valeurs'),
+                            yaxis=dict(showticklabels=False)
+                        )
+
+                    fig = go.Figure(data=data, layout=layout)
+                    
+                    embed, files = get_embed(fig, 'kills')
+                    
+                    await ctx.send(embeds=embed, files=files) 
+                    
 
         elif sub_command in ['dommage', 'tank', 'kda']:
             if calcul == 'avg':
@@ -1233,40 +1318,84 @@ class analyseLoL(Extension):
                 placeholder="Choix de la statistique",
                 min_values=1,
                 max_values=1
-            )
+                )
 
-            await ctx.send("Quel stat ?",
-                           components=select)
+                await ctx.send("Quel stat ?",
+                            components=select)
 
-            async def check(button_ctx):
-                if int(button_ctx.author.user.id) == int(ctx.author.user.id):
-                    return True
-                await ctx.send("I wasn't asking you!", ephemeral=True)
-                return False
+                async def check(button_ctx):
+                    if int(button_ctx.author.user.id) == int(ctx.author.user.id):
+                        return True
+                    await ctx.send("I wasn't asking you!", ephemeral=True)
+                    return False
 
-            while True:
-                try:
-                    button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
-                        components=select, check=check, timeout=30
-                    )
+                while True:
+                    try:
+                        button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+                            components=select, check=check, timeout=30
+                        )
 
-                    if button_ctx.data.values[0] == 'nbgames':
-                        fig = px.histogram(df, x=df.index, y='nbgames', title='Nombre de parties jouées', color=df.index, text_auto=True)
- 
+                        if button_ctx.data.values[0] == 'nbgames':
+                            fig = px.histogram(df, x=df.index, y='nbgames', title='Nombre de parties jouées', color=df.index, text_auto=True)
+    
 
-                    elif button_ctx.data.values[0] == 'time':
-                        fig = px.histogram(df, x=df.index, y='time', title='Temps de jeu', color=df.index)
- 
-                    fig.update_xaxes(categoryorder="total descending")
-                    fig.update_layout(showlegend=False)
-                    embed, file = get_embed(fig, button_ctx.data.values[0])
-                    # On envoie
+                        elif button_ctx.data.values[0] == 'time':
+                            fig = px.histogram(df, x=df.index, y='time', title='Temps de jeu', color=df.index)
+    
+                        fig.update_xaxes(categoryorder="total descending")
+                        fig.update_layout(showlegend=False)
+                        embed, file = get_embed(fig, button_ctx.data.values[0])
+                        # On envoie
 
-                    await ctx.edit(content=txt, embeds=embed, files=file)
+                        await ctx.edit(content=txt, embeds=embed, files=file)
+                    
+                    except asyncio.TimeoutError:
+                        # When it times out, edit the original message and remove the button(s)
+                        return await ctx.edit(components=[])   
                 
-                except asyncio.TimeoutError:
-                    # When it times out, edit the original message and remove the button(s)
-                    return await ctx.edit(components=[])   
+            elif calcul =='explain':
+                if joueur != None:
+                    df = lire_bdd_perso(
+                            f'''SELECT matchs.*, tracker.discord from matchs
+                            INNER JOIN tracker ON tracker.index = matchs.joueur
+                            where season = {season}
+                            and joueur = '{joueur}'
+                            ''', index_col='id').transpose()
+                else:
+                    df = lire_bdd_perso(
+                            f'''SELECT matchs.*, tracker.discord from matchs
+                            INNER JOIN tracker ON tracker.index = matchs.joueur
+                            where season = {season}
+                            ''', index_col='id').transpose()
+                    
+                df.drop(['joueur', 'season', 'discord', 'ecart_lp', 'mvp', 'note', 'snowball', 'team',
+           'item1', 'item2', 'item3', 'item4', 'item5', 'item6', 'mode', 'date', 'rank', 'tier', 'lp', 'id_participant'], axis=1, inplace=True)
+                
+                col_int = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'team_kills', 'team_deaths',
+           'dmg', 'dmg_ad', 'dmg_true', 'vision_score', 'cs', 'cs_jungle', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'gold',
+           'solokills', 'dmg_reduit', 'heal_total', 'heal_allies', 'serie_kills', 'cs_dix_min', 'jgl_dix_min', 'baron', 'drake', 'herald',
+           'cs_max_avantage', 'level_max_avantage', 'afk', 'dmg_tank', 'shield', 'allie_feeder', 'temps_vivant', 'dmg_tower', 'ecart_gold_team', 'victoire']
+                col_float = ['time', 'cs_min', 'vision_min', 'gold_min', 'dmg_min', 'vision_avantage', 'early_drake', 'temps_dead', 'kp', 'kda', 'damageratio', 'tankratio',
+             'early_baron', 'gold_share']
+                
+                df[col_int] = df[col_int].astype(int)
+                df[col_float] = df[col_float].astype(float)
+                
+                f, ax = plt.subplots(figsize=(11, 20))
+
+                heatmap = sns.heatmap(df.corr()[['victoire']].drop('victoire').sort_values(by='victoire', ascending=False), annot=True)
+                
+                heatmap.set_title(title, fontdict={'fontsize':18}, pad=16)
+                
+                heatmap.figure.savefig('corr.png')
+                
+                file = interactions.File('corr.png')
+                # On prépare l'embed
+                embed = interactions.Embed(color=interactions.Color.BLURPLE)
+                embed.set_image(url=f'attachment://corr.png')
+                
+                await ctx.send(embeds=embed, files=file)
+            
                 
                 
 
