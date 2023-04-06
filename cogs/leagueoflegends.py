@@ -757,7 +757,7 @@ class LeagueofLegends(Extension):
 
             sleep(5)
 
-    async def printLive(self, summonername, discord_server_id: chan_discord, me=None):
+    async def printLive(self, summonername, discord_server_id: chan_discord, me=None, identifiant_game=None):
 
         summonername = summonername.lower()
 
@@ -765,6 +765,7 @@ class LeagueofLegends(Extension):
                                                                            idgames=0,
                                                                            sauvegarder=True,
                                                                            guild_id=discord_server_id.server_id,
+                                                                           identifiant_game=identifiant_game,
                                                                            me=me)
 
         if mode_de_jeu in ['RANKED', 'FLEX']:
@@ -833,7 +834,7 @@ class LeagueofLegends(Extension):
 
                     # résumé de game
 
-                    await self.printLive(summonername, discord_server_id, me)
+                    await self.printLive(summonername, discord_server_id, me, identifiant_game=id_last_game)
 
                     # update rank
                     await self.updaterank(summonername, discord_server_id, session, me)
