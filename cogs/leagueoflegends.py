@@ -1017,7 +1017,7 @@ class LeagueofLegends(Extension):
             try:
                 requete_perso_bdd('UPDATE tracker SET challenges = :activation WHERE index = :index', {
                                 'activation': tracker_challenges, 'index': summonername})
-                if tracker_debut:
+                if tracker_challenges:
                     await ctx.send('Tracker challenges activé !')
                 else:
                     await ctx.send('Tracker challenges désactivé !')
@@ -1028,7 +1028,7 @@ class LeagueofLegends(Extension):
             try:
                 requete_perso_bdd('UPDATE tracker SET insights = :activation WHERE index = :index', {
                                 'activation': insights, 'index': summonername})
-                if tracker_debut:
+                if insights:
                     await ctx.send('Insights activé !')
                 else:
                     await ctx.send('Insights désactivé !')
