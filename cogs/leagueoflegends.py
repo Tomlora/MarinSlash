@@ -957,6 +957,26 @@ class LeagueofLegends(Extension):
         except:
             await ctx.send("Oops! Ce joueur n'existe pas.")
             
+    @interactions.extension_command(name='tracker_mes_parametres', description='Affiche les paramètres du tracker pour mes comptes')
+    async def tracker_mes_parametres(self,
+                                     ctx: CommandContext):
+        
+        
+        df = lire_bdd_perso(f'''SELECT index, activation, spec_tracker, challenges, insights, server_id FROM tracker WHERE discord = '{int(ctx.author.id)}' ''').transpose()
+        
+        await ctx.defer(ephemeral=True)
+        if df.empty:
+            await ctx.send("Tu n'as pas encore ajouté de compte", ephemeral=True)
+        else:
+            txt = f'{df.shape[0]} comptes :'
+            for joueur, data in df.iterrows():
+                guild = await interactions.get(client=self.bot,
+                                           obj=interactions.Guild,
+                                           object_id=data['server_id'])
+                txt += f'\n**{joueur}** ({guild.name}): tracking activé : **{data["activation"]}** | Spectateur tracker : **{data["spec_tracker"]}** | challenges : **{data["challenges"]}** | insights : **{data["insights"]}**'
+                        
+            await ctx.send(txt, ephemeral=True)        
+            
             
 
     @interactions.extension_command(name='tracker', description='Activation/Désactivation du tracker',
