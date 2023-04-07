@@ -58,6 +58,8 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
   <img width="550" height="1000" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese3.png?raw=true">
 </p>
 
+Ce recap est personnalisable, c'est-à-dire qu'il y a différents modules qui peuvent être affichés ou non, comme les insights (les bons/mauvais points d'une partie) ou les succès (des challenges crées par Riot Games).
+
 -------------
 
 ### Records
