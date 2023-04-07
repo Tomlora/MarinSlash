@@ -179,6 +179,7 @@ class challengeslol():
     async def embedding_discord(self, embed : Embed):
         
         txt = ''
+        txt_24h = '' # pour les defis qui ne sont maj que toutes les 24h
         if not self.data_new_value.empty:
             for joueur, data in self.data_new_value.head(5).iterrows():
                     txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu as gagné **{int(data["new_value"])}** points'
@@ -189,18 +190,21 @@ class challengeslol():
             
         if not self.data_new_percentile.empty:
             for joueur, data in self.data_new_percentile.head(5).iterrows():
-                txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais dans les **{data["new_percentile"]:.2f}%** top'
+                txt_24h += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais dans les **{data["new_percentile"]:.2f}%** top'
                 
         if not self.data_new_position.empty:
             for joueur, data in self.data_position.head(5).iterrows():
-                txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu as gagné **{int(data["new_position"])}** places'
+                txt_24h += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu as gagné **{int(data["new_position"])}** places'
             
         if not self.data_new_level.empty:
             for joueur, data in self.data_new_level.iterrows():
                 txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu es passé **{int(data["level"])}**'
         
         if txt != '':    
-            embed.add_field(name='Challenges', value=txt, inline=False)    
+            embed.add_field(name='Challenges', value=txt, inline=False)
+        
+        if txt_24h != '':
+            embed.add_field(name='Challenges (Classement)', value=txt_24h, inline=False)    
         return embed
         
         
