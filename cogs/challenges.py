@@ -2,7 +2,7 @@ import pandas as pd
 import ast
 import aiohttp
 import os
-from fonctions.gestion_bdd import (lire_bdd)
+from fonctions.gestion_bdd import (lire_bdd, lire_bdd_perso)
 
 
 from fonctions.gestion_challenge import (get_data_joueur_challenges,
@@ -42,7 +42,7 @@ class Challenges(Extension):
         if currentHour == heure_challenge:
 
             session = aiohttp.ClientSession()
-            liste_summonername = lire_bdd('tracker', 'dict')
+            liste_summonername = lire_bdd_perso('SELECT * from tracker where challenges = false', 'dict') # Ceux dont les challenges sont activés, sont maj à chaque game
 
 
             for summonername, data in liste_summonername.items():
