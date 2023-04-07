@@ -373,10 +373,7 @@ async def get_challenges_config(session):
         return data_challenges
 
 
-async def get_challenges_data_joueur(session, puuid):
-    async with session.get(f'https://{my_region}.api.riotgames.com/lol/challenges/v1/player-data/{puuid}?api_key={api_key_lol}') as challenge_joueur:
-        data_joueur = await challenge_joueur.json()
-        return data_joueur
+
     
 async def get_spectator(session, id):
     async with session.get(f'https://{my_region}.api.riotgames.com/lol/spectator/v4/active-games/by-summoner/{id}?api_key={api_key_lol}') as session_spectator:

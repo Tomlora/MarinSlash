@@ -12,6 +12,7 @@ from fonctions.params import Version, saison, heure_lolsuivi
 from fonctions.channels_discord import verif_module
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
+from fonctions.gestion_challenge import challengeslol
 
 
 
@@ -135,7 +136,8 @@ class LeagueofLegends(Extension):
                         sauvegarder: bool,
                         identifiant_game=None,
                         guild_id: int = 0,
-                        me=None):
+                        me=None,
+                        insights:bool=True):
 
         match_info = matchlol(summonerName,
                               idgames,
@@ -516,7 +518,10 @@ class LeagueofLegends(Extension):
         
         # badges
         
-        await match_info.calcul_badges()
+        if insights:
+            await match_info.calcul_badges()
+        else:
+            match_info.observations = ''
 
         # observations
 
@@ -757,7 +762,14 @@ class LeagueofLegends(Extension):
 
             sleep(5)
 
-    async def printLive(self, summonername, discord_server_id: chan_discord, me=None, identifiant_game=None):
+    async def printLive(self,
+                        summonername,
+                        discord_server_id: chan_discord,
+                        me=None,
+                        identifiant_game=None,
+                        tracker_challenges=False,
+                        session=None,
+                        insights=True):
 
         summonername = summonername.lower()
 
@@ -766,7 +778,17 @@ class LeagueofLegends(Extension):
                                                                            sauvegarder=True,
                                                                            guild_id=discord_server_id.server_id,
                                                                            identifiant_game=identifiant_game,
-                                                                           me=me)
+                                                                           me=me,
+                                                                           insights=insights)
+        
+        if tracker_challenges:
+            chal = challengeslol(summonername.replace(' ', ''), me['puuid'], session)
+            await chal.preparation_data()
+            await chal.comparaison()
+            
+            embed = await chal.embedding_discord(embed)
+            await chal.sauvegarde()
+        
 
         if mode_de_jeu in ['RANKED', 'FLEX']:
             tracklol = discord_server_id.tracklol
@@ -784,14 +806,14 @@ class LeagueofLegends(Extension):
 
     async def update(self):
 
-        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid
+        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges, tracker.insights
                             from tracker 
                             INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                             where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
         timeout = aiohttp.ClientTimeout(total=20)
         session = aiohttp.ClientSession(timeout=timeout)
 
-        for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid in data:
+        for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights in data:
 
             id_last_game = await getId_with_puuid(puuid, session)
             
@@ -834,7 +856,13 @@ class LeagueofLegends(Extension):
 
                     # résumé de game
 
-                    await self.printLive(summonername, discord_server_id, me, identifiant_game=id_last_game)
+                    await self.printLive(summonername,
+                                         discord_server_id,
+                                         me,
+                                         identifiant_game=id_last_game,
+                                         tracker_challenges=tracker_challenges,
+                                         session=session,
+                                         insights=insights)
 
                     # update rank
                     await self.updaterank(summonername, discord_server_id, session, me)
@@ -843,6 +871,7 @@ class LeagueofLegends(Extension):
                     requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {
                                   'id': last_game, 'index': summonername})
                     print(f"erreur TypeError {summonername}")  # joueur qui a posé pb
+                    print(sys.exc_info())  # erreur
                     continue
                 except:
                     print(f"erreur {summonername}")  # joueur qui a posé pb
@@ -943,12 +972,22 @@ class LeagueofLegends(Extension):
                                         Option(name="tracker_debut",
                                                     description="Tracker en début de partie",
                                                     type=interactions.OptionType.BOOLEAN,
+                                                    required=False),
+                                        Option(name="tracker_challenges",
+                                                    description="Tracker challenges",
+                                                    type=interactions.OptionType.BOOLEAN,
+                                                    required=False),
+                                        Option(name="insights",
+                                                    description="Insights dans le recap",
+                                                    type=interactions.OptionType.BOOLEAN,
                                                     required=False)])
     async def lolremove(self,
                         ctx: CommandContext,
                         summonername: str,
                         tracker_fin: bool=None,
-                        tracker_debut: bool=None):
+                        tracker_debut: bool=None,
+                        tracker_challenges: bool=None,
+                        insights: bool=None):
 
         summonername = summonername.lower()
 
@@ -973,8 +1012,30 @@ class LeagueofLegends(Extension):
                     await ctx.send('Tracker debut de game désactivé !')
             except KeyError:
                 await ctx.send('Joueur introuvable')
+                
+        if tracker_challenges != None:
+            try:
+                requete_perso_bdd('UPDATE tracker SET challenges = :activation WHERE index = :index', {
+                                'activation': tracker_challenges, 'index': summonername})
+                if tracker_debut:
+                    await ctx.send('Tracker challenges activé !')
+                else:
+                    await ctx.send('Tracker challenges désactivé !')
+            except KeyError:
+                await ctx.send('Joueur introuvable')
         
-        if tracker_fin == None and tracker_debut == None:
+        if insights != None:
+            try:
+                requete_perso_bdd('UPDATE tracker SET insights = :activation WHERE index = :index', {
+                                'activation': insights, 'index': summonername})
+                if tracker_debut:
+                    await ctx.send('Insights activé !')
+                else:
+                    await ctx.send('Insights désactivé !')
+            except KeyError:
+                await ctx.send('Joueur introuvable')
+        
+        if tracker_fin == None and tracker_debut == None and tracker_challenges == None and insights == None:
             await ctx.send('Tu dois choisir une option !')
 
 
