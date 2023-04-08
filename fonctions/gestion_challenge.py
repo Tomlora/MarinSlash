@@ -148,30 +148,35 @@ class challengeslol():
                                                         how='left',
                                                         on=['Joueur', 'challengeId'])
             
-            self.data_comparaison['new_value'] = self.data_comparaison['value'] - self.data_comparaison['value_precedente']
-            self.data_comparaison['new_percentile'] = self.data_comparaison['percentile'] - self.data_comparaison['percentile_precedent']
-            self.data_comparaison['new_level'] = (self.data_comparaison["level"] != self.data_comparaison["level_precedent"])
-            self.data_comparaison['new_position'] = self.data_comparaison["position_precedente"] - self.data_comparaison["position"]
+            self.data_comparaison['dif_value'] = self.data_comparaison['value'] - self.data_comparaison['value_precedente']
+            self.data_comparaison['dif_percentile'] = self.data_comparaison['percentile'] - self.data_comparaison['percentile_precedent']
+            self.data_comparaison['dif_level'] = (self.data_comparaison["level"] != self.data_comparaison["level_precedent"])
+            self.data_comparaison['dif_position'] = self.data_comparaison["position_precedente"] - self.data_comparaison["position"]
             
-            self.data_comparaison.sort_values('new_value', ascending=False, inplace=True)
+            self.data_comparaison.sort_values('dif_value', ascending=False, inplace=True)
             
-            self.data_new_value = self.data_comparaison[self.data_comparaison['new_value'] > 0]
+            self.data_new_value = self.data_comparaison[self.data_comparaison['dif_value'] > 0]
             self.data_new_value['evolution'] = (self.data_new_value['value'] - self.data_new_value['value_precedente']) / self.data_new_value['value_precedente'] * 100
-            self.data_new_percentile = self.data_comparaison[(self.data_comparaison['new_percentile'] > 0.01)]
-            self.data_new_level = self.data_comparaison[self.data_comparaison['new_level'] == True]
-            self.data_new_position = self.data_comparaison[self.data_comparaison['new_position'] != 0]
+            self.data_new_percentile = self.data_comparaison[(self.data_comparaison['dif_percentile'] > 0.01)]
+            self.data_new_level = self.data_comparaison[self.data_comparaison['dif_level'] == True]
+            self.data_new_position = self.data_comparaison[self.data_comparaison['dif_position'] != 0]
             self.data_evolution = self.data_new_value.sort_values('evolution', ascending=False)
             
+
+            
             # on ne retient pas les petites améliorations, ça n'a aucun sens
-            self.data_evolution = self.data_evolution[(self.data_evolution['evolution'] > 1) & (self.data_evolution['new_value'] > 2)]
+            self.data_evolution = self.data_evolution[(self.data_evolution['evolution'] > 1) & (self.data_evolution['dif_value'] > 2)]
             
             # on retire les categories de new_value et new_percentile
             
             self.data_new_value = self.data_new_value[~self.data_new_value['name'].isin(self.category)]
+            # si on veut éviter des doublons : 
+            # self.data_new_value = self.data_new_value[~self.data_new_value['name'].isin(self.data_evolution.head(5)['name'])]
+            
             self.data_new_percentile = self.data_new_percentile[~self.data_new_percentile['name'].isin(self.category)]
             
-            self.data_new_percentile.sort_values('new_percentile', ascending=False, inplace=True)
-            self.data_new_position.sort_values('new_position', ascending=False, inplace=True)
+            self.data_new_percentile.sort_values('dif_percentile', ascending=False, inplace=True)
+            self.data_new_position.sort_values('dif_position', ascending=False, inplace=True)
             
             
             
@@ -182,55 +187,58 @@ class challengeslol():
         chunk = 1
         chunk_size = 700
 
-        def check_chunk(exploits, chunk, chunk_size):
+        def check_chunk(texte, chunk, chunk_size):
             '''Détection pour passer à l'embed suivant'''
-            if len(exploits) >= chunk * chunk_size:
+            if len(texte) >= chunk * chunk_size:
                     # Detection pour passer à l'embed suivant
                 chunk += 1
-                exploits += '#'
-            return exploits, chunk
+                texte += '#'
+            return texte, chunk
         
         txt = ''
         txt_24h = '' # pour les defis qui ne sont maj que toutes les 24h
+        
         if not self.data_new_value.empty:
             for joueur, data in self.data_new_value.head(5).iterrows():
                 txt, chunk = check_chunk(txt, chunk, chunk_size)
-                txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu as gagné **{int(data["new_value"])}** points'
+                txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{int(data["value"])}** pts (+{int(data["dif_value"])}) '
         
         chunk = 1            
         if not self.data_evolution.empty:
             for joueur, data in self.data_evolution.head(5).iterrows():
-                txt, chunk = check_chunk(txt, chunk, chunk_size)
-                txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu as gagné **{int(data["new_value"])}** points, soit **+{data["evolution"]:.2f}%**'
+                if txt.count(data['name']) == 0: # on ne veut pas de doublons
+                    txt, chunk = check_chunk(txt, chunk, chunk_size)
+                    txt += f'\n:comet: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{int(data["value"])}** pts (+{int(data["dif_value"])} / **+{data["evolution"]:.2f}%**)'
         
         chunk = 1      
         if not self.data_new_percentile.empty:
             for joueur, data in self.data_new_percentile.head(5).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
-                txt_24h += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais dans les **{data["new_percentile"]:.2f}%** top'
+                txt_24h += f'\n:zap: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es désormais dans les **{data["percentile"]:.2f}%** (+{data["dif_percentile"]:.2f}%) top'
                 
         chunk = 1          
         if not self.data_new_position.empty:
-            for joueur, data in self.data_position.head(5).iterrows():
+            for joueur, data in self.data_new_position.head(5).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
-                txt_24h += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu as gagné **{int(data["new_position"])}** places'
+                txt_24h += f'\n:arrow_up: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es **{int(data["position"])}**ème (+{int(data["dif_position"])}) places'
                 
         chunk = 1      
         if not self.data_new_level.empty:
             for joueur, data in self.data_new_level.iterrows():
                 txt, chunk = check_chunk(txt, chunk, chunk_size)
-                txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu es passé **{(data["level"])}**'
+                txt += f'\n:up: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es passé **{(data["level"])}**'
         
-        if len(txt) <= chunk_size:
-            txt = txt.replace('#', '').replace(' #', '')
+        if len(txt) <= chunk_size: # si le texte est inférieur au chunk_size, on l'envoie directement
+            txt = txt.replace('#', '').replace(' #', '') # on supprime la balise qui nous servait de split
             
             if txt != '':    
                 embed.add_field(name='Challenges', value=txt, inline=False)
-        else:
+                
+        else: # si le texte est supérieur
 
             txt = txt.split('#')  # on split sur notre mot clé
 
-            for i in range(len(txt)):
+            for i in range(len(txt)): # pour chaque partie du texte, on l'envoie dans un embed différent
                 
                 field_name = f"Challenges {i + 1}"
                 field_value = txt[i]
@@ -239,15 +247,16 @@ class challengeslol():
                     embed.add_field(name=field_name,
                                     value=field_value, inline=False)
                 
-        if len(txt_24h) <= chunk_size:
-            txt_24h = txt_24h.replace('#', '').replace(' #', '')
+        if len(txt_24h) <= chunk_size: # si le texte est inférieur au chunk_size, on l'envoie directement
+            txt_24h = txt_24h.replace('#', '').replace(' #', '') # on supprime la balise qui nous servait de split
+            
             if txt_24h != '':
                 embed.add_field(name='Challenges (Classement)', value=txt_24h, inline=False)   
                 
-        else:
+        else: # si le texte est supérieur
             txt_24h = txt.split('#')  # on split sur notre mot clé
 
-            for i in range(len(txt_24h)):
+            for i in range(len(txt_24h)): # pour chaque partie du texte, on l'envoie dans un embed différent
                 
                 field_name = f"Challenges (Classement) {i + 1}"
                 field_value = txt_24h[i]
@@ -255,6 +264,7 @@ class challengeslol():
                 if not field_value in ['', ' ']:
                     embed.add_field(name=field_name,
                                     value=field_value, inline=False) 
+                    
         return embed
         
         
