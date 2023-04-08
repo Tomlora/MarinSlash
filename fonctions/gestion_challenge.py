@@ -215,7 +215,7 @@ class challengeslol():
             
             self.data_new_percentile.sort_values('dif_percentile', ascending=False, inplace=True)
             self.data_new_position.sort_values('dif_position', ascending=False, inplace=True)
-            self.data_new_level.sort_values('level_num', ascending=False, inplace=True)
+            self.data_new_level.sort_values('level_number', ascending=False, inplace=True)
             
             
             
@@ -252,9 +252,9 @@ class challengeslol():
                 dif_value = format_nombre(data['dif_value'])
                 next_palier = format_nombre(data['diff_vers_palier_suivant'])
                 if next_palier == str(0):
-                    txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) '
+                    txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) '
                 else:
-                    txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) :arrow_right: **{next_palier}** pts pour le palier suivant'
+                    txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) :arrow_right: **{next_palier}** pts pour le palier suivant'
         
         chunk = 1            
         if not self.data_evolution.empty:
