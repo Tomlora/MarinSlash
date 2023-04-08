@@ -164,7 +164,7 @@ class challengeslol():
             
             self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('.', '')
             
-            self.data_comparaison.data_comparaison['level_diminutif'] = self.data_comparaison.data_comparaison['level'].replace({'CHALLENGER': 'Chall',
+            self.data_comparaison['level_diminutif'] = self.data_comparaison['level'].replace({'CHALLENGER': 'Chall',
                                                                                    'GRANDMASTER': 'GM',
                                                                                    'MASTER': 'M',
                                                                                    'DIAMOND': 'D',
@@ -215,6 +215,7 @@ class challengeslol():
             
             self.data_new_percentile.sort_values('dif_percentile', ascending=False, inplace=True)
             self.data_new_position.sort_values('dif_position', ascending=False, inplace=True)
+            self.data_new_level.sort_values('level_num', ascending=False, inplace=True)
             
             
             
