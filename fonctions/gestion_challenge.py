@@ -224,7 +224,7 @@ class challengeslol():
             
             
     
-    async def embedding_discord(self, embed : Embed):
+    async def embedding_discord(self, embed : Embed) -> Embed:
         
         '''Création des embeds pour discord'''
         chunk = 1
@@ -273,7 +273,9 @@ class challengeslol():
         if not self.data_new_percentile.empty:
             for joueur, data in self.data_new_percentile.head(5).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
-                txt_24h += f'\n:zap: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{round(data["percentile"] * 100,2)}%** (+{round(data["dif_percentile"] * 100,2)}%) top'
+                percentile = data['percentile'] * 100
+                dif_percentile = data['dif_percentile'] * 100
+                txt_24h += f'\n:zap: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{percentile:.2f}%** (+{dif_percentile:.2f}%) top'
                 
       
         if not self.data_new_position.empty:
