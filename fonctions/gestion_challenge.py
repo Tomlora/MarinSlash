@@ -260,7 +260,7 @@ class challengeslol():
                 else:
                     txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) :arrow_right: **{next_palier}** pts pour level up'
         
-        chunk = 1            
+        
         if not self.data_evolution.empty:
             for joueur, data in self.data_evolution.head(5).iterrows():
                 if txt.count(data['name']) == 0: # on ne veut pas de doublons
@@ -275,7 +275,7 @@ class challengeslol():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
                 txt_24h += f'\n:zap: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{round(data["percentile"] * 100,2)}%** (+{round(data["dif_percentile"] * 100,2)}%) top'
                 
-        chunk = 1          
+      
         if not self.data_new_position.empty:
             for joueur, data in self.data_new_position.head(5).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
