@@ -178,33 +178,83 @@ class challengeslol():
     
     async def embedding_discord(self, embed : Embed):
         
+                    # nouveau système de records
+        chunk = 1
+        chunk_size = 700
+
+        def check_chunk(exploits, chunk, chunk_size):
+            '''Détection pour passer à l'embed suivant'''
+            if len(exploits) >= chunk * chunk_size:
+                    # Detection pour passer à l'embed suivant
+                chunk += 1
+                exploits += '#'
+            return exploits, chunk
+        
         txt = ''
         txt_24h = '' # pour les defis qui ne sont maj que toutes les 24h
         if not self.data_new_value.empty:
             for joueur, data in self.data_new_value.head(5).iterrows():
-                    txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu as gagné **{int(data["new_value"])}** points'
-                    
+                txt, chunk = check_chunk(txt, chunk, chunk_size)
+                txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu as gagné **{int(data["new_value"])}** points'
+        
+        chunk = 1            
         if not self.data_evolution.empty:
             for joueur, data in self.data_evolution.head(5).iterrows():
+                txt, chunk = check_chunk(txt, chunk, chunk_size)
                 txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu as gagné **{int(data["new_value"])}** points, soit **+{data["evolution"]:.2f}%**'
-            
+        
+        chunk = 1      
         if not self.data_new_percentile.empty:
             for joueur, data in self.data_new_percentile.head(5).iterrows():
+                txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
                 txt_24h += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais dans les **{data["new_percentile"]:.2f}%** top'
                 
+        chunk = 1          
         if not self.data_new_position.empty:
             for joueur, data in self.data_position.head(5).iterrows():
+                txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
                 txt_24h += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu as gagné **{int(data["new_position"])}** places'
-            
+                
+        chunk = 1      
         if not self.data_new_level.empty:
             for joueur, data in self.data_new_level.iterrows():
-                txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu es passé **{int(data["level"])}**'
+                txt, chunk = check_chunk(txt, chunk, chunk_size)
+                txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) : Tu es passé **{(data["level"])}**'
         
-        if txt != '':    
-            embed.add_field(name='Challenges', value=txt, inline=False)
-        
-        if txt_24h != '':
-            embed.add_field(name='Challenges (Classement)', value=txt_24h, inline=False)    
+        if len(txt) <= chunk_size:
+            txt = txt.replace('#', '').replace(' #', '')
+            
+            if txt != '':    
+                embed.add_field(name='Challenges', value=txt, inline=False)
+        else:
+
+            txt = txt.split('#')  # on split sur notre mot clé
+
+            for i in range(len(txt)):
+                
+                field_name = f"Challenges {i + 1}"
+                field_value = txt[i]
+                # parfois la découpe renvoie un espace vide.
+                if not field_value in ['', ' ']:
+                    embed.add_field(name=field_name,
+                                    value=field_value, inline=False)
+                
+        if len(txt_24h) <= chunk_size:
+            txt_24h = txt_24h.replace('#', '').replace(' #', '')
+            if txt_24h != '':
+                embed.add_field(name='Challenges (Classement)', value=txt_24h, inline=False)   
+                
+        else:
+            txt_24h = txt.split('#')  # on split sur notre mot clé
+
+            for i in range(len(txt_24h)):
+                
+                field_name = f"Challenges (Classement) {i + 1}"
+                field_value = txt_24h[i]
+                # parfois la découpe renvoie un espace vide.
+                if not field_value in ['', ' ']:
+                    embed.add_field(name=field_name,
+                                    value=field_value, inline=False) 
         return embed
         
         
