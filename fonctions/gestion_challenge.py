@@ -300,7 +300,7 @@ class challengeslol():
                 texte = texte.replace('#', '').replace(' #', '') # on supprime la balise qui nous servait de split
                 
                 if texte != '':    
-                    embed.add_field(name=titre, value=txt, inline=False)
+                    embed.add_field(name=titre, value=texte, inline=False)
                     
             else: # si le texte est supérieur
 
