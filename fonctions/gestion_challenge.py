@@ -4,6 +4,7 @@ import pandas as pd
 import aiohttp
 from fonctions.gestion_bdd import lire_bdd_perso, sauvegarde_bdd, requete_perso_bdd
 from interactions import Embed
+import humanize
 
 
 async def get_challenges_data_joueur(session, puuid):
@@ -111,6 +112,12 @@ class challengeslol():
         self.puuid = puuid
         self.session = session
         self.category = ['CRISTAL', 'IMAGINATION', 'EXPERTISE', 'VÉTÉRANCE', "TRAVAIL D'ÉQUIPE"]
+        self.langue = 'fr_FR'
+        
+        try:
+            humanize.i18n.activate(self.langue, path='./translations/')
+        except FileNotFoundError:
+            humanize.i18n.activate(self.langue)
         
     async def preparation_data(self):
         
@@ -195,20 +202,30 @@ class challengeslol():
                 texte += '#'
             return texte, chunk
         
+        def format_nombre(nombre):
+            if len(str(int(nombre))) <= 6 :
+                return humanize.intcomma(int(nombre))
+            else:
+                return humanize.intword(int(nombre))
+        
         txt = ''
         txt_24h = '' # pour les defis qui ne sont maj que toutes les 24h
         
         if not self.data_new_value.empty:
             for joueur, data in self.data_new_value.head(5).iterrows():
                 txt, chunk = check_chunk(txt, chunk, chunk_size)
-                txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{int(data["value"])}** pts (+{int(data["dif_value"])}) '
+                value = format_nombre(data['value'])
+                dif_value = format_nombre(data['dif_value'])
+                txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{value}** pts (+{dif_value}) '
         
         chunk = 1            
         if not self.data_evolution.empty:
             for joueur, data in self.data_evolution.head(5).iterrows():
                 if txt.count(data['name']) == 0: # on ne veut pas de doublons
                     txt, chunk = check_chunk(txt, chunk, chunk_size)
-                    txt += f'\n:comet: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{int(data["value"])}** pts (+{int(data["dif_value"])} / **+{data["evolution"]:.2f}%**)'
+                    value = format_nombre(data['value'])
+                    dif_value = format_nombre(data['dif_value'])
+                    txt += f'\n:comet: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{value}** pts (+{dif_value} / **+{data["evolution"]:.2f}%**)'
         
         chunk = 1      
         if not self.data_new_percentile.empty:
@@ -220,7 +237,9 @@ class challengeslol():
         if not self.data_new_position.empty:
             for joueur, data in self.data_new_position.head(5).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
-                txt_24h += f'\n:arrow_up: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es **{int(data["position"])}**ème (+{int(data["dif_position"])}) places'
+                value = format_nombre(data['position'])
+                dif_value = format_nombre(data['dif_position'])
+                txt_24h += f'\n:arrow_up: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es **{value}**ème (+{dif_value}) places'
                 
         chunk = 1      
         if not self.data_new_level.empty:
