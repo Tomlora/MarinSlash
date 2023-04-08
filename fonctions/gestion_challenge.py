@@ -136,7 +136,7 @@ class challengeslol():
         
         self.rank_total = self.data_total[self.summonerName]['level']
         self.points_total = self.data_total[self.summonerName]['current']
-        self.percentile_total = self.data_total[self.summonerName]['percentile']
+        self.percentile_total = self.data_total[self.summonerName]['percentile']*100
         
     async def sauvegarde(self):
         if isinstance(self.data_joueur, pd.DataFrame):
@@ -273,7 +273,7 @@ class challengeslol():
         if not self.data_new_percentile.empty:
             for joueur, data in self.data_new_percentile.head(5).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
-                txt_24h += f'\n:zap: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{data["percentile"]:.2f}%** (+{data["dif_percentile"]:.2f}%) top'
+                txt_24h += f'\n:zap: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{round(data["percentile"] * 100,2)}%** (+{round(data["dif_percentile"] * 100,2)}%) top'
                 
         chunk = 1          
         if not self.data_new_position.empty:
@@ -291,9 +291,9 @@ class challengeslol():
                 next_palier = format_nombre(data['diff_vers_palier_suivant'])
                 
                 if next_palier == str(0):
-                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Niveau : **{(data["level"])}**'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais **{(data["level"])}**'
                 else:
-                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Niveau : **{(data["level"])}** :arrow_right: **{next_palier}** pts pour level up'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais **{(data["level"])}** :arrow_right: **{next_palier}** pts pour level up'
                 
         
         
