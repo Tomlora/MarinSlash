@@ -115,7 +115,7 @@ class challengeslol():
         self.langue = 'fr_FR'
         
         try:
-            humanize.i18n.activate(self.langue, path='./translations/')
+            humanize.activate(self.langue, path='C:/Users/Kevin/PycharmProjects/bot_discord_aio/translations/')
         except FileNotFoundError:
             humanize.i18n.activate(self.langue)
         
@@ -203,10 +203,11 @@ class challengeslol():
             return texte, chunk
         
         def format_nombre(nombre):
+            '''Formate les nombres pour les rendre plus lisibles'''
             if len(str(int(nombre))) <= 6 :
-                return humanize.intcomma(int(nombre))
+                return humanize.intcomma(int(nombre)) # on met des espaces entre les milliers
             else:
-                return humanize.intword(int(nombre))
+                return humanize.intword(int(nombre)).replace('million', 'millions') # on transforme le nombre en mots
         
         txt = ''
         txt_24h = '' # pour les defis qui ne sont maj que toutes les 24h
