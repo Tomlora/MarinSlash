@@ -1312,9 +1312,9 @@ class matchlol():
                         'not_fan_of_wards' : f"\n{type_comment[type]} Placé **{values[0]}** wards",
                         'servant_of_darkness' : f"\n{type_comment[type]} Détruit **{values[0]}** wards",
                         'good_guy' : f"\n{type_comment[type]} Acheté **{values[0]}** pink",
-                        'no_dragons_taken' : f"\n{type_comment[type]} Aucun dragon",
-                        'no_rift_heralds_taken' : f"\n{type_comment[type]} Aucun herald",
-                        'no_objectives_taken' : f"\n{type_comment[type]} Aucun objectif",
+                        # 'no_dragons_taken' : f"\n{type_comment[type]} Aucun dragon",
+                        # 'no_rift_heralds_taken' : f"\n{type_comment[type]} Aucun herald",
+                        # 'no_objectives_taken' : f"\n{type_comment[type]} Aucun objectif",
                         'pick_up_artist' : f"\n{type_comment[type]} Sécurisé **{values[0]}** picks",
                         "wanderer" : f"\n{type_comment[type]} Roam énormément pour sécuriser kills et objectifs",
                         'survivor' : f"\n{type_comment[type]} Seulement  **{values[0]}** mort(s)",
@@ -1325,9 +1325,9 @@ class matchlol():
                         "goblin_hoarder" : f"\n{type_comment[type]} **{int(values[0])}** Gold par minute",
                         # "bringer_of_carnage" : f"\n{type_comment[type]} **{values[0]}** Kills",
                         "anti_kda_player" : f"\n{type_comment[type]} **{round(values[0],2)}** KDA",
-                        "what_powerspike" : f"\n{type_comment[type]} Pas atteint le niveau 11",
+                        # "what_powerspike" : f"\n{type_comment[type]} Pas atteint le niveau 11",
                         "not_fan_of_farming" : f"\n {type_comment[type]} **{int(values[0])}** farm par minute",
-                        "immortal" : f"\n {type_comment[type]} Immortel",
+                        # "immortal" : f"\n {type_comment[type]} Immortel",
                         "visionary" : f"\n {type_comment[type]} **{values[0]}** wards placés",
                         "no_control" : f"\n{type_comment[type]} Aucune pink",
                         "blood_thirsty" : f"\n{type_comment[type]} Tu as réussi **{values[0]}** ganks dans les 10 premières minutes.",
@@ -1335,7 +1335,7 @@ class matchlol():
                         "comeback_king" : f"\n {type_comment[type]} Tu as réussi à comeback après un début difficile",
                         "safety_first" : f"\n{type_comment[type]} Tu as placé assez de vision pour préparer les objectifs neutres",
                         'no_damage_to_turrets' : f"\n{type_comment[type]} Tu n'as pas tapé les tours",
-                        'mvp' : f"\n{type_comment[type]} Meilleur joueur"}
+                        'mvp' : f"\n{type_comment[type]} **Meilleur joueur**"}
             
             if self.thisQ != 'ARAM':
                 dict_insight['ready_to_rumble'] = f"\n{type_comment[type]} Proactif en early avec **{values[0]}** kills/assists avant 15 minutes"

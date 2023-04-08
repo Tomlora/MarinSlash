@@ -134,6 +134,10 @@ class challengeslol():
             
         self.data_total, self.data_category, self.data_joueur = await get_data_joueur_challenges(self.summonerName, self.session, self.puuid)
         
+        self.rank_total = self.data_total[self.summonerName]['level']
+        self.points_total = self.data_total[self.summonerName]['current']
+        self.percentile_total = self.data_total[self.summonerName]['percentile']
+        
     async def sauvegarde(self):
         if isinstance(self.data_joueur, pd.DataFrame):
             requete_perso_bdd(f'''DELETE FROM challenges_data where "Joueur" = '{self.summonerName}';
@@ -222,7 +226,7 @@ class challengeslol():
     
     async def embedding_discord(self, embed : Embed):
         
-                    # nouveau système de records
+        '''Création des embeds pour discord'''
         chunk = 1
         chunk_size = 700
 
@@ -246,7 +250,7 @@ class challengeslol():
         txt_level_up = ''
         
         if not self.data_new_value.empty:
-            for joueur, data in self.data_new_value.head(5).iterrows():
+            for joueur, data in self.data_new_value.head(8).iterrows():
                 txt, chunk = check_chunk(txt, chunk, chunk_size)
                 value = format_nombre(data['value'])
                 dif_value = format_nombre(data['dif_value'])
@@ -254,7 +258,7 @@ class challengeslol():
                 if next_palier == str(0):
                     txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) '
                 else:
-                    txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) :arrow_right: **{next_palier}** pts pour le palier suivant'
+                    txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) :arrow_right: **{next_palier}** pts pour level up'
         
         chunk = 1            
         if not self.data_evolution.empty:
@@ -289,7 +293,7 @@ class challengeslol():
                 if next_palier == str(0):
                     txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Niveau : **{(data["level"])}**'
                 else:
-                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Niveau : **{(data["level"])}** :arrow_right: **{next_palier}** pts pour le palier suivant'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Niveau : **{(data["level"])}** :arrow_right: **{next_palier}** pts pour level up'
                 
         
         
@@ -299,7 +303,9 @@ class challengeslol():
             if len(texte) <= chunk_size: # si le texte est inférieur au chunk_size, on l'envoie directement
                 texte = texte.replace('#', '').replace(' #', '') # on supprime la balise qui nous servait de split
                 
-                if texte != '':    
+                if texte != '':
+                    if titre == 'Challenges':
+                        titre += f' | {self.points_total} pts [{self.rank_total} ({self.percentile_total:.2f}%)]'    
                     embed.add_field(name=titre, value=texte, inline=False)
                     
             else: # si le texte est supérieur
@@ -307,8 +313,10 @@ class challengeslol():
                 texte = texte.split('#')  # on split sur notre mot clé
 
                 for i in range(len(texte)): # pour chaque partie du texte, on l'envoie dans un embed différent
-                    
-                    field_name = f"{titre} {i + 1}"
+                    if i == 0:
+                        field_name = f'{titre} | {self.points_total} pts [{self.rank_total} ({self.percentile_total:.2f}%)]'  
+                    else:
+                        field_name = f"{titre} {i + 1}"
                     field_value = texte[i]
                     # parfois la découpe renvoie un espace vide.
                     if not field_value in ['', ' ']:
