@@ -88,9 +88,9 @@ async def get_data_joueur_challenges(summonername: str, session, puuid=None):
 
     # on retient ce qu'il nous intéresse
     data_joueur_challenges[['Joueur', 'challengeId', 'name', 'value', 'percentile', 'level', 'level_number', 'state', 'position',
-                            'shortDescription', 'description', 'IRON', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER']]
+                            'shortDescription', 'description', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER']]
     data_joueur_challenges = data_joueur_challenges.reindex(columns=['Joueur', 'challengeId', 'name', 'value', 'percentile', 'level', 'level_number',
-                                                            'state',  'position', 'shortDescription', 'description', 'IRON', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'])
+                                                            'state',  'position', 'shortDescription', 'description', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'])
     return data_total_joueur, data_joueur_category, data_joueur_challenges
 
 
@@ -160,6 +160,27 @@ class challengeslol():
             self.data_comparaison['dif_level'] = (self.data_comparaison["level"] != self.data_comparaison["level_precedent"])
             self.data_comparaison['dif_position'] = self.data_comparaison["position_precedente"] - self.data_comparaison["position"]
             
+            # on supprime les caractères inutiles
+            
+            self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('.', '')
+            
+            # définir la fonction pour calculer la différence entre la valeur actuelle et la valeur à atteindre pour le palier suivant
+            def difference_vers_palier_suivant(row):
+                palier_actuel = row['level']
+                valeur_actuelle = row['value']
+                if palier_actuel == 'CHALLENGER':
+                    return 0
+                if palier_actuel == 'NONE':
+                    return 0
+                else:
+                    palier_suivant = self.data_comparaison.columns[self.data_comparaison.columns.get_loc(palier_actuel) + 1] # cherche le numéro de la colonne, passe à la suivante et renvoie la colonne spécifiée
+                    valeur_palier_suivant = row[palier_suivant]
+                    return valeur_palier_suivant - valeur_actuelle
+
+            # appliquer la fonction à chaque ligne du dataframe
+            self.data_comparaison['diff_vers_palier_suivant'] = self.data_comparaison.apply(difference_vers_palier_suivant, axis=1)
+            self.data_comparaison['diff_vers_palier_suivant'].fillna(0, inplace=True)
+            
             self.data_comparaison.sort_values('dif_value', ascending=False, inplace=True)
             
             self.data_new_value = self.data_comparaison[self.data_comparaison['dif_value'] > 0]
@@ -211,13 +232,18 @@ class challengeslol():
         
         txt = ''
         txt_24h = '' # pour les defis qui ne sont maj que toutes les 24h
+        txt_level_up = ''
         
         if not self.data_new_value.empty:
             for joueur, data in self.data_new_value.head(5).iterrows():
                 txt, chunk = check_chunk(txt, chunk, chunk_size)
                 value = format_nombre(data['value'])
                 dif_value = format_nombre(data['dif_value'])
-                txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{value}** pts (+{dif_value}) '
+                next_palier = format_nombre(data['diff_vers_palier_suivant'])
+                if next_palier == str(0):
+                    txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{value}** pts (+{dif_value}) '
+                else:
+                    txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{value}** pts (+{dif_value}) :arrow_right: **{next_palier}** pts pour le palier suivant'
         
         chunk = 1            
         if not self.data_evolution.empty:
@@ -245,45 +271,44 @@ class challengeslol():
         chunk = 1      
         if not self.data_new_level.empty:
             for joueur, data in self.data_new_level.iterrows():
-                txt, chunk = check_chunk(txt, chunk, chunk_size)
-                txt += f'\n:up: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es passé **{(data["level"])}**'
+                txt_level_up, chunk = check_chunk(txt_level_up, chunk, chunk_size)
+                next_palier = format_nombre(data['diff_vers_palier_suivant'])
+                
+                if next_palier == str(0):
+                    txt_level_up += f'\n:up: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es passé **{(data["level"])}**'
+                else:
+                    txt_level_up += f'\n:up: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es passé **{(data["level"])}** :arrow_right: **{next_palier}** pts pour le palier suivant'
+                
         
-        if len(txt) <= chunk_size: # si le texte est inférieur au chunk_size, on l'envoie directement
-            txt = txt.replace('#', '').replace(' #', '') # on supprime la balise qui nous servait de split
+        
+        def format_txt_embed(texte, chunk_size, titre, embed):
+            '''Formate le texte pour l'envoyer dans un embed'''     
+        
+            if len(texte) <= chunk_size: # si le texte est inférieur au chunk_size, on l'envoie directement
+                texte = texte.replace('#', '').replace(' #', '') # on supprime la balise qui nous servait de split
+                
+                if texte != '':    
+                    embed.add_field(name=titre, value=txt, inline=False)
+                    
+            else: # si le texte est supérieur
+
+                texte = texte.split('#')  # on split sur notre mot clé
+
+                for i in range(len(txt)): # pour chaque partie du texte, on l'envoie dans un embed différent
+                    
+                    field_name = f"{titre} {i + 1}"
+                    field_value = texte[i]
+                    # parfois la découpe renvoie un espace vide.
+                    if not field_value in ['', ' ']:
+                        embed.add_field(name=field_name,
+                                        value=field_value, inline=False)
             
-            if txt != '':    
-                embed.add_field(name='Challenges', value=txt, inline=False)
-                
-        else: # si le texte est supérieur
-
-            txt = txt.split('#')  # on split sur notre mot clé
-
-            for i in range(len(txt)): # pour chaque partie du texte, on l'envoie dans un embed différent
-                
-                field_name = f"Challenges {i + 1}"
-                field_value = txt[i]
-                # parfois la découpe renvoie un espace vide.
-                if not field_value in ['', ' ']:
-                    embed.add_field(name=field_name,
-                                    value=field_value, inline=False)
-                
-        if len(txt_24h) <= chunk_size: # si le texte est inférieur au chunk_size, on l'envoie directement
-            txt_24h = txt_24h.replace('#', '').replace(' #', '') # on supprime la balise qui nous servait de split
-            
-            if txt_24h != '':
-                embed.add_field(name='Challenges (Classement)', value=txt_24h, inline=False)   
-                
-        else: # si le texte est supérieur
-            txt_24h = txt.split('#')  # on split sur notre mot clé
-
-            for i in range(len(txt_24h)): # pour chaque partie du texte, on l'envoie dans un embed différent
-                
-                field_name = f"Challenges (Classement) {i + 1}"
-                field_value = txt_24h[i]
-                # parfois la découpe renvoie un espace vide.
-                if not field_value in ['', ' ']:
-                    embed.add_field(name=field_name,
-                                    value=field_value, inline=False) 
+            return embed
+        
+        embed = format_txt_embed(txt, chunk_size, 'Challenges', embed)
+        embed = format_txt_embed(txt_level_up, chunk_size, 'Challenges (Level)', embed)
+        embed = format_txt_embed(txt_24h, chunk_size, 'Challenges (Classement)', embed)
+        
                     
         return embed
         
