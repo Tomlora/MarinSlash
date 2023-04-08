@@ -164,6 +164,16 @@ class challengeslol():
             
             self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('.', '')
             
+            self.data_comparaison.data_comparaison['level_diminutif'] = self.data_comparaison.data_comparaison['level'].replace({'CHALLENGER': 'Chall',
+                                                                                   'GRANDMASTER': 'GM',
+                                                                                   'MASTER': 'M',
+                                                                                   'DIAMOND': 'D',
+                                                                                   'PLATINUM': 'P',
+                                                                                   'GOLD' : 'G',
+                                                                                   'SILVER' : 'S',
+                                                                                   'BRONZE' : 'B',
+                                                                                   'IRON' : 'I'})
+            
             # définir la fonction pour calculer la différence entre la valeur actuelle et la valeur à atteindre pour le palier suivant
             def difference_vers_palier_suivant(row):
                 palier_actuel = row['level']
@@ -241,9 +251,9 @@ class challengeslol():
                 dif_value = format_nombre(data['dif_value'])
                 next_palier = format_nombre(data['diff_vers_palier_suivant'])
                 if next_palier == str(0):
-                    txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{value}** pts (+{dif_value}) '
+                    txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) '
                 else:
-                    txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{value}** pts (+{dif_value}) :arrow_right: **{next_palier}** pts pour le palier suivant'
+                    txt += f'\n:sparkles: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) :arrow_right: **{next_palier}** pts pour le palier suivant'
         
         chunk = 1            
         if not self.data_evolution.empty:
@@ -252,21 +262,22 @@ class challengeslol():
                     txt, chunk = check_chunk(txt, chunk, chunk_size)
                     value = format_nombre(data['value'])
                     dif_value = format_nombre(data['dif_value'])
-                    txt += f'\n:comet: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu as **{value}** pts (+{dif_value} / **+{data["evolution"]:.2f}%**)'
+                    txt += f'\n:comet: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value} / **+{data["evolution"]:.2f}%**)'
         
         chunk = 1      
         if not self.data_new_percentile.empty:
             for joueur, data in self.data_new_percentile.head(5).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
-                txt_24h += f'\n:zap: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es désormais dans les **{data["percentile"]:.2f}%** (+{data["dif_percentile"]:.2f}%) top'
+                txt_24h += f'\n:zap: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{data["percentile"]:.2f}%** (+{data["dif_percentile"]:.2f}%) top'
                 
         chunk = 1          
         if not self.data_new_position.empty:
             for joueur, data in self.data_new_position.head(5).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
-                value = format_nombre(data['position'])
+                position = format_nombre(data['position'])
                 dif_value = format_nombre(data['dif_position'])
-                txt_24h += f'\n:arrow_up: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es **{value}**ème (+{dif_value}) places'
+                value = format_nombre(data['value'])
+                txt_24h += f'\n:arrow_up: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{position}**ème (+{dif_value}) places avec {value}'
                 
         chunk = 1      
         if not self.data_new_level.empty:
@@ -275,9 +286,9 @@ class challengeslol():
                 next_palier = format_nombre(data['diff_vers_palier_suivant'])
                 
                 if next_palier == str(0):
-                    txt_level_up += f'\n:up: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es passé **{(data["level"])}**'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Niveau : **{(data["level"])}**'
                 else:
-                    txt_level_up += f'\n:up: **{data["name"]}** [{data["level"]}] ({data["shortDescription"]}) : Tu es passé **{(data["level"])}** :arrow_right: **{next_palier}** pts pour le palier suivant'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Niveau : **{(data["level"])}** :arrow_right: **{next_palier}** pts pour le palier suivant'
                 
         
         
@@ -294,7 +305,7 @@ class challengeslol():
 
                 texte = texte.split('#')  # on split sur notre mot clé
 
-                for i in range(len(txt)): # pour chaque partie du texte, on l'envoie dans un embed différent
+                for i in range(len(texte)): # pour chaque partie du texte, on l'envoie dans un embed différent
                     
                     field_name = f"{titre} {i + 1}"
                     field_value = texte[i]
