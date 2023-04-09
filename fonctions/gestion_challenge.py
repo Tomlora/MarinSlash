@@ -153,6 +153,13 @@ class challengeslol():
                                                                                                                                 'level' : 'level_precedent',
                                                                                                                                 'position' : 'position_precedente'})
         
+        try:
+            self.points_total_before = lire_bdd_perso(f'''SELECT index, current FROM challenges_total where index = '{self.summonerName}' ''').loc['current', self.summonerName]
+        except:
+            self.points_total_before = 0
+            
+        self.dif_points_total = self.points_total - self.points_total_before    
+        
         if not self.df_old_data.empty:
         
             self.data_comparaison = self.data_joueur.merge(self.df_old_data[['Joueur', 'challengeId', 'value_precedente', 'percentile_precedent', 'level_precedent', 'position_precedente']],
@@ -168,16 +175,17 @@ class challengeslol():
             
             self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('.', '')
             
-            self.data_comparaison['level_diminutif'] = self.data_comparaison['level'].replace({'CHALLENGER': 'Chall',
+            self.data_comparaison['level_diminutif'] = self.data_comparaison['level'].replace({'CHALLENGER': 'CHAL',
                                                                                    'GRANDMASTER': 'GM',
-                                                                                   'MASTER': 'M',
-                                                                                   'DIAMOND': 'D',
-                                                                                   'PLATINUM': 'P',
-                                                                                   'GOLD' : 'G',
-                                                                                   'SILVER' : 'S',
-                                                                                   'BRONZE' : 'B',
-                                                                                   'IRON' : 'I'})
+                                                                                   'MASTER': 'MASTER',
+                                                                                   'DIAMOND': 'DIAM',
+                                                                                   'PLATINUM': 'PLAT',
+                                                                                   'GOLD' : 'GOLD',
+                                                                                   'SILVER' : 'SILVER',
+                                                                                   'BRONZE' : 'BRONZE',
+                                                                                   'IRON' : 'FER'})
             
+           
             # définir la fonction pour calculer la différence entre la valeur actuelle et la valeur à atteindre pour le palier suivant
             def difference_vers_palier_suivant(row):
                 palier_actuel = row['level']
@@ -256,9 +264,9 @@ class challengeslol():
                 dif_value = format_nombre(data['dif_value'])
                 next_palier = format_nombre(data['diff_vers_palier_suivant'])
                 if next_palier == str(0):
-                    txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) '
+                    txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** (+{dif_value}) '
                 else:
-                    txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value}) :arrow_right: **{next_palier}** pts pour level up'
+                    txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour level up'
         
         
         if not self.data_evolution.empty:
@@ -267,7 +275,7 @@ class challengeslol():
                     txt, chunk = check_chunk(txt, chunk, chunk_size)
                     value = format_nombre(data['value'])
                     dif_value = format_nombre(data['dif_value'])
-                    txt += f'\n:comet: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** pts (+{dif_value} / **+{data["evolution"]:.2f}%**)'
+                    txt += f'\n:comet: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** (+{dif_value} / **+{data["evolution"]:.2f}%**)'
         
         chunk = 1      
         if not self.data_new_percentile.empty:
@@ -307,7 +315,10 @@ class challengeslol():
                 
                 if texte != '':
                     if titre == 'Challenges':
-                        titre += f' | {self.points_total} pts [{self.rank_total} ({self.percentile_total:.2f}%)]'    
+                        if self.dif_points_total != 0:
+                            titre += f' | {self.points_total} pts (+{self.dif_points_total}) [{self.rank_total} ({self.percentile_total:.2f}%)]'
+                        else:
+                            titre += f' | {self.points_total} pts [{self.rank_total} ({self.percentile_total:.2f}%)]'    
                     embed.add_field(name=titre, value=texte, inline=False)
                     
             else: # si le texte est supérieur
@@ -316,7 +327,10 @@ class challengeslol():
 
                 for i in range(len(texte)): # pour chaque partie du texte, on l'envoie dans un embed différent
                     if i == 0:
-                        field_name = f'{titre} | {self.points_total} pts [{self.rank_total} ({self.percentile_total:.2f}%)]'  
+                        if self.dif_points_total != 0:
+                            field_name = f'{titre} | {self.points_total} pts  (+{self.dif_points_total}) [{self.rank_total} ({self.percentile_total:.2f}%)]' 
+                        else:
+                            field_name = f'{titre} | {self.points_total} pts [{self.rank_total} ({self.percentile_total:.2f}%)]'
                     else:
                         field_name = f"{titre} {i + 1}"
                     field_value = texte[i]
