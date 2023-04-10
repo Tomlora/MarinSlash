@@ -267,10 +267,13 @@ class challengeslol():
         
         def format_nombre(nombre):
             '''Formate les nombres pour les rendre plus lisibles'''
-            if len(str(int(nombre))) <= 6 :
-                return humanize.intcomma(int(nombre)) # on met des espaces entre les milliers
-            else:
-                return humanize.intword(int(nombre)).replace('million', 'millions') # on transforme le nombre en mots
+            try:
+                if len(str(int(nombre))) <= 6 :
+                    return humanize.intcomma(int(nombre)) # on met des espaces entre les milliers
+                else:
+                    return humanize.intword(int(nombre)).replace('million', 'millions') # on transforme le nombre en mots
+            except ValueError:
+                return 0
         
         txt = ''
         txt_24h = '' # pour les defis qui ne sont maj que toutes les 24h
