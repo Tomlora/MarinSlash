@@ -104,10 +104,14 @@ class Twitch(Extension):
     async def del_twitch(self, ctx: CommandContext, pseudo_twitch: str):
 
         await ctx.defer(ephemeral=False)
-        requete_perso_bdd('''DELETE FROM twitch WHERE index = :index;''', {
-                          'index': pseudo_twitch.lower()})
+        
+        nb_row = requete_perso_bdd('''DELETE FROM twitch WHERE index = :index;''', {
+                          'index': pseudo_twitch.lower()}, get_row_affected=True)
 
-        await ctx.send('Joueur supprimé du tracker Twitch')
+        if nb_row > 0:
+            await ctx.send('Joueur supprimé du tracker Twitch')
+        else:
+            await ctx.send('Joueur non trouvé dans le tracker Twitch')
 
 
 def setup(bot):

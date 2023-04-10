@@ -215,18 +215,29 @@ class Aram(Extension):
                      summonername: str,
                      nombre: int):
         if isOwner_slash(ctx):
+            
+            summonername = summonername.lower().replace(' ', '')
             if couleur == 'vert':
-                requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp + :nombre WHERE index = :summonername', {
-                                  'nombre': nombre, 'summonername': summonername.lower()})
-                msg = f'Les LP pour {summonername} ont été ajoutés.'
+                nb_row = requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp + :nombre WHERE index = :summonername', {
+                                  'nombre': nombre, 'summonername': summonername}, get_row_affected=True)
+                if nb_row > 0:
+                    msg = f'Les LP pour {summonername} ont été ajoutés. (+{nombre})'
+                else:
+                    msg = "Tu n'es pas dans la base de données."
             if couleur == 'rouge':
-                requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp - :nombre WHERE index = :summonername', {
-                                  'nombre': nombre, 'summonername': summonername.lower()})
-                msg = f'Les LP pour {summonername} ont été retirés.'
+                nb_row = requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp - :nombre WHERE index = :summonername', {
+                                  'nombre': nombre, 'summonername': summonername}, get_row_affected=True)
+                if nb_row > 0:
+                    msg = f'Les LP pour {summonername} ont été retirés. (-{nombre})'
+                else:
+                    msg = "Tu n'es pas dans la base de données."
         else:
-            requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp - 1 WHERE index = :summonername', {
-                              'summonername': summonername.lower()})
-            msg = 'Bien essayé ! Tu perds 1 lp.'
+            nb_row = requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp - 1 WHERE index = :summonername', {
+                              'summonername': summonername}, get_row_affected=True)
+            if nb_row > 0:
+                msg = 'Bien essayé ! Tu perds 1 lp.'
+            else:
+                msg = "Tu n'es pas dans la base de données."
 
         embed = interactions.Embed(description=msg,
                                    color=interactions.Color.BLURPLE)

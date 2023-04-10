@@ -240,17 +240,13 @@ class Divers(Extension):
         
 
 
-        df = lire_bdd_perso(f'SELECT * from remind where "user" = {int(ctx.author.id)} and "id" = {id_rappel}',
-                            index_col='id',
-                            ).transpose()
 
-        if len(df) >= 1:
 
-            requete_perso_bdd(f'''UPDATE remind SET repetition = 0
-                              WHERE "user" = {int(ctx.author.id)} AND "id" = {id_rappel}''')
+        nb_row = requete_perso_bdd(f'''UPDATE remind SET repetition = 0
+                              WHERE "user" = {int(ctx.author.id)} AND "id" = {id_rappel}''', get_row_affected=True)
             
+        if nb_row > 0:    
             await ctx.send(f'Le rappel **{id_rappel}** a été désactivé', ephemeral=True)
-
         else:
             await ctx.send('Pas de rappel identifié à ton nom', ephemeral=True)
 

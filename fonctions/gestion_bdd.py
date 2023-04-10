@@ -127,7 +127,8 @@ def get_data_bdd(request: text,
 
 
 def requete_perso_bdd(request: text,
-                      dict_params: dict = None):
+                      dict_params: dict = None,
+                      get_row_affected:bool = False):
     """
     request : requête sql au format text
 
@@ -139,11 +140,17 @@ def requete_perso_bdd(request: text,
     conn = engine.connect()
     sql = text(request)
     if dict_params == None:
-        conn.execute(sql)
+        cursor = conn.execute(sql)
     else:
-        conn.execute(sql, dict_params)
+        cursor = conn.execute(sql, dict_params)
+        
+    nb_row_affected = cursor.rowcount
+    
     conn.commit()
     conn.close()
+    
+    if get_row_affected:
+        return nb_row_affected
 
 
 def get_guild_data():

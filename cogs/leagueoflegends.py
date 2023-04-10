@@ -769,7 +769,8 @@ class LeagueofLegends(Extension):
                         identifiant_game=None,
                         tracker_challenges=False,
                         session=None,
-                        insights=True):
+                        insights=True,
+                        nbchallenges=0):
 
         summonername = summonername.lower()
 
@@ -782,14 +783,12 @@ class LeagueofLegends(Extension):
                                                                            insights=insights)
         
         if tracker_challenges:
-            chal = challengeslol(summonername.replace(' ', ''), me['puuid'], session)
+            chal = challengeslol(summonername.replace(' ', ''), me['puuid'], session, nb_challenges=nbchallenges)
             await chal.preparation_data()
             await chal.comparaison()
             
             embed = await chal.embedding_discord(embed)
-            await chal.sauvegarde()
-        
-
+            
         if mode_de_jeu in ['RANKED', 'FLEX']:
             tracklol = discord_server_id.tracklol
         else:
@@ -802,18 +801,21 @@ class LeagueofLegends(Extension):
         if embed != {}:
             await channel_tracklol.send(embeds=embed, files=resume)
             os.remove('resume.png')
+            
+            if tracker_challenges:
+                await chal.sauvegarde()
 
 
     async def update(self):
 
-        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges, tracker.insights
+        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges, tracker.insights, tracker.nb_challenges
                             from tracker 
                             INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                             where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
         timeout = aiohttp.ClientTimeout(total=20)
         session = aiohttp.ClientSession(timeout=timeout)
 
-        for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights in data:
+        for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights, nb_challenges in data:
 
             id_last_game = await getId_with_puuid(puuid, session)
             
@@ -862,7 +864,8 @@ class LeagueofLegends(Extension):
                                          identifiant_game=id_last_game,
                                          tracker_challenges=tracker_challenges,
                                          session=session,
-                                         insights=insights)
+                                         insights=insights,
+                                         nbchallenges=nb_challenges)
 
                     # update rank
                     await self.updaterank(summonername, discord_server_id, session, me)
@@ -962,7 +965,7 @@ class LeagueofLegends(Extension):
                                      ctx: CommandContext):
         
         
-        df = lire_bdd_perso(f'''SELECT index, activation, spec_tracker, challenges, insights, server_id FROM tracker WHERE discord = '{int(ctx.author.id)}' ''').transpose()
+        df = lire_bdd_perso(f'''SELECT index, activation, spec_tracker, challenges, insights, server_id, nb_challenges FROM tracker WHERE discord = '{int(ctx.author.id)}' ''').transpose()
         
         await ctx.defer(ephemeral=True)
         if df.empty:
@@ -973,7 +976,7 @@ class LeagueofLegends(Extension):
                 guild = await interactions.get(client=self.bot,
                                            obj=interactions.Guild,
                                            object_id=data['server_id'])
-                txt += f'\n**{joueur}** ({guild.name}): tracking activé : **{data["activation"]}** | Spectateur tracker : **{data["spec_tracker"]}** | challenges : **{data["challenges"]}** | insights : **{data["insights"]}**'
+                txt += f'\n**{joueur}** ({guild.name}): Tracking : **{data["activation"]}** | Spectateur tracker : **{data["spec_tracker"]}** | Challenges : **{data["challenges"]}** (Affiché : {data["nb_challenges"]}) | Insights : **{data["insights"]}**'
                         
             await ctx.send(txt, ephemeral=True)        
             
@@ -997,65 +1000,87 @@ class LeagueofLegends(Extension):
                                                     description="Tracker challenges",
                                                     type=interactions.OptionType.BOOLEAN,
                                                     required=False),
+                                        Option(name='nb_challenges',
+                                               description='Nombre de challenges à afficher dans le recap (entre 1 et 20)',
+                                               type=interactions.OptionType.INTEGER,
+                                               required=False,
+                                               min_value=1,
+                                               max_value=20),
                                         Option(name="insights",
                                                     description="Insights dans le recap",
                                                     type=interactions.OptionType.BOOLEAN,
                                                     required=False)])
-    async def lolremove(self,
+    async def tracker_config(self,
                         ctx: CommandContext,
                         summonername: str,
                         tracker_fin: bool=None,
                         tracker_debut: bool=None,
                         tracker_challenges: bool=None,
-                        insights: bool=None):
+                        insights: bool=None,
+                        nb_challenges:int=None):
 
-        summonername = summonername.lower()
+        summonername = summonername.lower().replace(' ', '')
 
         if tracker_fin != None:
-            try:
-                requete_perso_bdd('UPDATE tracker SET activation = :activation WHERE index = :index', {
-                                'activation': tracker_fin, 'index': summonername})
+
+            nb_row = requete_perso_bdd('UPDATE tracker SET activation = :activation WHERE index = :index', {
+                                'activation': tracker_fin, 'index': summonername}, get_row_affected=True)
+            if nb_row > 0:
                 if tracker_fin:
                     await ctx.send('Tracker fin de game activé !')
                 else:
                     await ctx.send('Tracker fin de game désactivé !')
-            except KeyError:
+            else:
                 await ctx.send('Joueur introuvable')
 
         if tracker_debut != None:
-            try:
-                requete_perso_bdd('UPDATE tracker SET spec_tracker = :activation WHERE index = :index', {
-                                'activation': tracker_debut, 'index': summonername})
+
+            nb_row = requete_perso_bdd('UPDATE tracker SET spec_tracker = :activation WHERE index = :index', {
+                                'activation': tracker_debut, 'index': summonername}, get_row_affected=True)
+            if nb_row > 0:
                 if tracker_debut:
                     await ctx.send('Tracker debut de game activé !')
                 else:
                     await ctx.send('Tracker debut de game désactivé !')
-            except KeyError:
+            else:
                 await ctx.send('Joueur introuvable')
                 
         if tracker_challenges != None:
-            try:
-                requete_perso_bdd('UPDATE tracker SET challenges = :activation WHERE index = :index', {
-                                'activation': tracker_challenges, 'index': summonername})
+
+            nb_row = requete_perso_bdd('UPDATE tracker SET challenges = :activation WHERE index = :index', {
+                                'activation': tracker_challenges, 'index': summonername}, get_row_affected=True)
+            if nb_row > 0:
                 if tracker_challenges:
                     await ctx.send('Tracker challenges activé !')
                 else:
                     await ctx.send('Tracker challenges désactivé !')
-            except KeyError:
+            else:
                 await ctx.send('Joueur introuvable')
         
         if insights != None:
-            try:
-                requete_perso_bdd('UPDATE tracker SET insights = :activation WHERE index = :index', {
-                                'activation': insights, 'index': summonername})
+
+            nb_row = requete_perso_bdd('UPDATE tracker SET insights = :activation WHERE index = :index', {
+                                'activation': insights, 'index': summonername}, get_row_affected=True)
+            if nb_row > 0:
                 if insights:
                     await ctx.send('Insights activé !')
                 else:
                     await ctx.send('Insights désactivé !')
-            except KeyError:
+            else:
+                await ctx.send('Joueur introuvable')
+                
+        if nb_challenges != None:
+
+            nb_row = requete_perso_bdd('UPDATE tracker SET nb_challenges = :activation WHERE index = :index', {
+                                'activation': nb_challenges, 'index': summonername}, get_row_affected=True)
+
+            if nb_row > 0:
+                await ctx.send(f'Nombre de challenges affichés : ** {nb_challenges} ** !')
+
+            else:
                 await ctx.send('Joueur introuvable')
         
-        if tracker_fin == None and tracker_debut == None and tracker_challenges == None and insights == None:
+        if tracker_fin == None and tracker_debut == None and tracker_challenges == None and insights == None and nb_challenges == None:
             await ctx.send('Tu dois choisir une option !')
 
 
@@ -1258,10 +1283,13 @@ class LeagueofLegends(Extension):
 
         params = {'rouge': rouge, 'vert': vert,
                   'bleu': bleu, 'index': summonername.lower()}
-        requete_perso_bdd(
-            f'UPDATE tracker SET "R" = :rouge, "G" = :vert, "B" = :bleu WHERE index = :index', params)
+        nb_row = requete_perso_bdd(
+            f'UPDATE tracker SET "R" = :rouge, "G" = :vert, "B" = :bleu WHERE index = :index', params, get_row_affected=True)
 
-        await ctx.send(f' La couleur du joueur {summonername} a été modifiée.')
+        if nb_row > 0:
+            await ctx.send(f' La couleur du joueur {summonername} a été modifiée.')
+        else:
+            await ctx.send(f" Le joueur {summonername} n'est pas dans la base de données.")
 
     @interactions.extension_command(name="abbedagge", description="Meilleur joueur de LoL")
     async def abbedagge(self, ctx):
@@ -1295,9 +1323,13 @@ class LeagueofLegends(Extension):
                    member: interactions.User):
 
         summonername = summonername.lower()
-        requete_perso_bdd('UPDATE tracker SET discord = :discord, server_id = :guild WHERE index = :summonername', {
-                          'discord': int(member.id), 'guild': int(ctx.guild.id), 'summonername': summonername})
-        await ctx.send(f'Le compte LoL {summonername} a été link avec <@{int(member.id)}>')
+        nb_row = requete_perso_bdd('UPDATE tracker SET discord = :discord, server_id = :guild WHERE index = :summonername', {
+                          'discord': int(member.id), 'guild': int(ctx.guild.id), 'summonername': summonername}, get_row_affected=True)
+        
+        if nb_row > 0:
+            await ctx.send(f'Le compte LoL {summonername} a été link avec <@{int(member.id)}>')
+        else:
+            await ctx.send(f"Le compte LoL {summonername} n'existe pas dans la base de donnée")
 
 
 def setup(bot):

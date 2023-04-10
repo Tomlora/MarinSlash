@@ -91,7 +91,18 @@ async def get_data_joueur_challenges(summonername: str, session, puuid=None):
                             'shortDescription', 'description', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER']]
     data_joueur_challenges = data_joueur_challenges.reindex(columns=['Joueur', 'challengeId', 'name', 'value', 'percentile', 'level', 'level_number',
                                                             'state',  'position', 'shortDescription', 'description', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'])
-    return data_total_joueur, data_joueur_category, data_joueur_challenges
+    data_challenge = data_joueur_challenges[['name', 'challengeId', 'state', 'shortDescription', 'description', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER']]
+    data_joueur_to_save = data_joueur_challenges.drop(['name', 'state', 'shortDescription', 'description', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'], axis=1)
+    
+    # on verifie que les challenges n'existent pas déjà dans la bdd, sinon on les ajoute
+    
+    data_actuel = lire_bdd_perso('''SELECT index, name from challenges''').transpose()
+    
+    data_challenge = data_challenge[~data_challenge['name'].isin(data_actuel['name'])]
+    
+    if not data_challenge.empty:
+        sauvegarde_bdd(data_challenge, 'challenges', 'append', index=False)
+    return data_total_joueur, data_joueur_category, data_joueur_challenges, data_joueur_to_save
 
 
 
@@ -100,7 +111,8 @@ class challengeslol():
     def __init__(self,
                  summonerName,
                  puuid=None,
-                 session=None):
+                 session:aiohttp.ClientSession=None,
+                 nb_challenges:int=8):
         """Class pour traiter les matchs
 
         Parameters
@@ -113,6 +125,7 @@ class challengeslol():
         self.session = session
         self.category = ['CRISTAL', 'IMAGINATION', 'EXPERTISE', 'VÉTÉRANCE', "TRAVAIL D'ÉQUIPE"]
         self.langue = 'fr_FR'
+        self.nb_challenges = nb_challenges
         
         try:
             humanize.activate(self.langue, path='C:/Users/Kevin/PycharmProjects/bot_discord_aio/translations/')
@@ -132,23 +145,26 @@ class challengeslol():
         else:
             self.session = self.session
             
-        self.data_total, self.data_category, self.data_joueur = await get_data_joueur_challenges(self.summonerName, self.session, self.puuid)
+        self.data_total, self.data_category, self.data_joueur, self.data_to_save = await get_data_joueur_challenges(self.summonerName, self.session, self.puuid)
         
         self.rank_total = self.data_total[self.summonerName]['level']
         self.points_total = self.data_total[self.summonerName]['current']
         self.percentile_total = self.data_total[self.summonerName]['percentile']*100
         
     async def sauvegarde(self):
-        if isinstance(self.data_joueur, pd.DataFrame):
+        if isinstance(self.data_to_save, pd.DataFrame):
             requete_perso_bdd(f'''DELETE FROM challenges_data where "Joueur" = '{self.summonerName}';
                               DELETE FROM challenges_category where "Joueur" = '{self.summonerName}';
                               DELETE FROM challenges_total where "index" = '{self.summonerName}' ''')
             sauvegarde_bdd(self.data_total, 'challenges_total', 'append')
             sauvegarde_bdd(self.data_category, 'challenges_category', 'append')
-            sauvegarde_bdd(self.data_joueur, 'challenges_data', 'append')
+            sauvegarde_bdd(self.data_to_save, 'challenges_data', 'append')
         
     async def comparaison(self):
-        self.df_old_data = lire_bdd_perso(f'''SELECT * from challenges_data where "Joueur" = '{self.summonerName}' ''').transpose().sort_index().rename(columns={'value' : 'value_precedente',
+       
+        self.df_old_data = lire_bdd_perso(f'''SELECT "Joueur", value, percentile, level, level_number, position, challenges.* from challenges_data
+                                          INNER JOIN challenges ON challenges_data."challengeId" = challenges."challengeId"
+                                          where "Joueur" = '{self.summonerName}' ''', index_col='index').transpose().sort_index().rename(columns={'value' : 'value_precedente',
                                                                                                                                 'percentile': 'percentile_precedent',
                                                                                                                                 'level' : 'level_precedent',
                                                                                                                                 'position' : 'position_precedente'})
@@ -234,6 +250,9 @@ class challengeslol():
     
     async def embedding_discord(self, embed : Embed) -> Embed:
         
+        if self.df_old_data.empty: # si on a pas les anciennes données, on ne peut pas comparer.
+            return embed
+        
         '''Création des embeds pour discord'''
         chunk = 1
         chunk_size = 700
@@ -258,7 +277,7 @@ class challengeslol():
         txt_level_up = ''
         
         if not self.data_new_value.empty:
-            for joueur, data in self.data_new_value.head(8).iterrows():
+            for joueur, data in self.data_new_value.head(self.nb_challenges).iterrows():
                 txt, chunk = check_chunk(txt, chunk, chunk_size)
                 value = format_nombre(data['value'])
                 dif_value = format_nombre(data['dif_value'])
@@ -290,20 +309,24 @@ class challengeslol():
             for joueur, data in self.data_new_position.head(5).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
                 position = format_nombre(data['position'])
-                dif_value = format_nombre(data['dif_position'])
                 value = format_nombre(data['value'])
-                txt_24h += f'\n:arrow_up: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{position}**ème (+{dif_value}) places avec {value}'
+                dif_value = format_nombre(data['dif_position'])
+                if data['dif_position'] > 0:
+                    txt_24h += f'\n:arrow_up: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{position}**ème (**+{dif_value}**) places avec **{value}**'
+                else:
+                    txt_24h += f'\n:arrow_down: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{position}**ème (**{dif_value}**) places avec **{value}**'
                 
         chunk = 1      
         if not self.data_new_level.empty:
             for joueur, data in self.data_new_level.iterrows():
                 txt_level_up, chunk = check_chunk(txt_level_up, chunk, chunk_size)
                 next_palier = format_nombre(data['diff_vers_palier_suivant'])
+                value = format_nombre(data['value'])
                 
                 if next_palier == str(0):
-                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais **{(data["level"])}**'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais **{(data["level"])}** avec **{value}**'
                 else:
-                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais **{(data["level"])}** :arrow_right: **{next_palier}** pts pour level up'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais **{(data["level"])}** avec **{value}** :arrow_right: **{next_palier}** pts pour level up'
                 
         
         

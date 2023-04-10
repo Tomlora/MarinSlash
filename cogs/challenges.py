@@ -22,7 +22,7 @@ from interactions.ext.wait_for import wait_for_component, setup as stp
 class Challenges(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        self.defis = lire_bdd('challenges_data').transpose(
+        self.defis = lire_bdd('challenges').transpose(
         ).sort_values(by="name", ascending=True)
 
         stp(self.bot)
@@ -101,7 +101,7 @@ class Challenges(Extension):
                                 summonername: str):
 
         session = aiohttp.ClientSession()
-        total_user, total_category, total_challenges = await get_data_joueur_challenges(summonername, session)
+        total_user, total_category, total_challenges, total_to_save = await get_data_joueur_challenges(summonername, session)
         
         total_user = total_user[summonername]
 
@@ -167,7 +167,9 @@ class Challenges(Extension):
         # tous les summonername sont en minuscule :
         summonername = summonername.lower().replace(' ', '')
         # charge la data
-        data = lire_bdd('challenges_data').transpose()
+        data = lire_bdd_perso(f'''SELECT "Joueur", value, percentile, level, level_number, position, challenges.* from challenges_data
+                                          INNER JOIN challenges ON challenges_data."challengeId" = challenges."challengeId"
+                                          where "Joueur" = '{summonername}' ''').transpose()
         # tri sur le joueur
         data = data[data['Joueur'] == summonername]
         # colonne position en float
@@ -190,7 +192,7 @@ class Challenges(Extension):
 
             os.remove('image.png')
         else:
-            await ctx.send(f"Pas de ranking pour {summonername} :(. Pas d'espace dans le pseudo")
+            await ctx.send(f"Pas de ranking pour {summonername} :(.")
 
 def setup(bot):
     Challenges(bot)
