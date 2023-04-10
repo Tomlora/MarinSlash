@@ -213,11 +213,17 @@ class challengeslol():
                 else:
                     palier_suivant = self.data_comparaison.columns[self.data_comparaison.columns.get_loc(palier_actuel) + 1] # cherche le numéro de la colonne, passe à la suivante et renvoie la colonne spécifiée
                     valeur_palier_suivant = row[palier_suivant]
-                    return valeur_palier_suivant - valeur_actuelle
+                    difference = valeur_palier_suivant - valeur_actuelle
+                    if difference > 0: # si la différence est négative, c'est qu'on a atteinnt le palier maximum
+                        return difference
+                    else:
+                        return 0
+
 
             # appliquer la fonction à chaque ligne du dataframe
             self.data_comparaison['diff_vers_palier_suivant'] = self.data_comparaison.apply(difference_vers_palier_suivant, axis=1)
             self.data_comparaison['diff_vers_palier_suivant'].fillna(0, inplace=True)
+            self.data_comparaison[['position_precedente', 'dif_value', 'dif_percentile', 'dif_position']] = self.data_comparaison[['position_precedente', 'dif_value', 'dif_percentile', 'dif_position']].fillna(0)
             
             self.data_comparaison.sort_values('dif_value', ascending=False, inplace=True)
             
