@@ -187,6 +187,13 @@ class challengeslol():
             self.data_comparaison['dif_level'] = (self.data_comparaison["level"] != self.data_comparaison["level_precedent"])
             self.data_comparaison['dif_position'] = self.data_comparaison["position_precedente"] - self.data_comparaison["position"]
             
+            # on supprime les challenges non-désirés
+            
+            df_exclusion = lire_bdd_perso(f'''SELECT id, "challengeId" from challenge_exclusion where index = '{self.summonerName}' ''', index_col='id').transpose()
+            
+            if not df_exclusion.empty:
+                self.data_comparaison = self.data_comparaison[~self.data_comparaison['challengeId'].isin(df_exclusion['challengeId'])]
+            
             # on supprime les caractères inutiles
             
             self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('.', '')
@@ -261,7 +268,7 @@ class challengeslol():
         
         '''Création des embeds pour discord'''
         chunk = 1
-        chunk_size = 700
+        chunk_size = 850
 
         def check_chunk(texte, chunk, chunk_size):
             '''Détection pour passer à l'embed suivant'''
@@ -284,6 +291,7 @@ class challengeslol():
         txt = ''
         txt_24h = '' # pour les defis qui ne sont maj que toutes les 24h
         txt_level_up = ''
+        txt_evolution = ''
         
         if not self.data_new_value.empty:
             for joueur, data in self.data_new_value.head(self.nb_challenges).iterrows():
@@ -299,11 +307,11 @@ class challengeslol():
         
         if not self.data_evolution.empty:
             for joueur, data in self.data_evolution.head(5).iterrows():
-                if txt.count(data['name']) == 0: # on ne veut pas de doublons
-                    txt, chunk = check_chunk(txt, chunk, chunk_size)
+                if txt_evolution.count(data['name']) == 0: # on ne veut pas de doublons
+                    txt_evolution, chunk = check_chunk(txt_evolution, chunk, chunk_size)
                     value = format_nombre(data['value'])
                     dif_value = format_nombre(data['dif_value'])
-                    txt += f'\n:comet: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** (+{dif_value} / **+{data["evolution"]:.2f}%**)'
+                    txt_evolution += f'\n:comet: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** (+{dif_value} / **+{data["evolution"]:.2f}%**)'
         
         chunk = 1      
         if not self.data_new_percentile.empty:
@@ -315,15 +323,15 @@ class challengeslol():
                 
       
         if not self.data_new_position.empty:
-            for joueur, data in self.data_new_position.head(5).iterrows():
+            for joueur, data in self.data_new_position.head(self.nb_challenges).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
                 position = format_nombre(data['position'])
                 value = format_nombre(data['value'])
                 dif_value = format_nombre(data['dif_position'])
                 if data['dif_position'] > 0:
-                    txt_24h += f'\n:arrow_up: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{position}**ème (**+{dif_value}**) places avec **{value}**'
+                    txt_24h += f'\n:arrow_up: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{position}**ème (**+{dif_value}**) avec **{value}**'
                 else:
-                    txt_24h += f'\n:arrow_down: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{position}**ème (**{dif_value}**) places avec **{value}**'
+                    txt_24h += f'\n:arrow_down: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{position}**ème (**{dif_value}**) avec **{value}**'
                 
         chunk = 1      
         if not self.data_new_level.empty:
@@ -348,9 +356,9 @@ class challengeslol():
                 if texte != '':
                     if titre == 'Challenges':
                         if self.dif_points_total != 0:
-                            titre += f' | {self.points_total} pts (+{self.dif_points_total}) [{self.rank_total} ({self.percentile_total:.2f}%)]'
+                            titre += f' | {self.points_total} pts (+{self.dif_points_total}) [{self.rank_total} ({self.percentile_total:.2f}%)]' 
                         else:
-                            titre += f' | {self.points_total} pts [{self.rank_total} ({self.percentile_total:.2f}%)]'    
+                            titre += f' | {self.points_total} pts [{self.rank_total} ({self.percentile_total:.2f}%)]' 
                     embed.add_field(name=titre, value=texte, inline=False)
                     
             else: # si le texte est supérieur
@@ -358,11 +366,13 @@ class challengeslol():
                 texte = texte.split('#')  # on split sur notre mot clé
 
                 for i in range(len(texte)): # pour chaque partie du texte, on l'envoie dans un embed différent
-                    if i == 0:
+                    if i == 0 and titre == 'Challenges':
                         if self.dif_points_total != 0:
                             field_name = f'{titre} | {self.points_total} pts  (+{self.dif_points_total}) [{self.rank_total} ({self.percentile_total:.2f}%)]' 
                         else:
                             field_name = f'{titre} | {self.points_total} pts [{self.rank_total} ({self.percentile_total:.2f}%)]'
+                    elif i == 0:
+                        field_name = titre
                     else:
                         field_name = f"{titre} {i + 1}"
                     field_value = texte[i]
@@ -374,6 +384,7 @@ class challengeslol():
             return embed
         
         embed = format_txt_embed(txt, chunk_size, 'Challenges', embed)
+        embed = format_txt_embed(txt_evolution, chunk_size, 'Challenges (Meilleurs progrès)', embed)
         embed = format_txt_embed(txt_level_up, chunk_size, 'Challenges (Level)', embed)
         embed = format_txt_embed(txt_24h, chunk_size, 'Challenges (Classement)', embed)
         

@@ -978,7 +978,24 @@ class LeagueofLegends(Extension):
                                            object_id=data['server_id'])
                 txt += f'\n**{joueur}** ({guild.name}): Tracking : **{data["activation"]}** | Spectateur tracker : **{data["spec_tracker"]}** | Challenges : **{data["challenges"]}** (Affiché : {data["nb_challenges"]}) | Insights : **{data["insights"]}**'
                         
-            await ctx.send(txt, ephemeral=True)        
+            await ctx.send(txt, ephemeral=True) 
+            
+        # Y a-t-il des challenges exclus ?
+
+        df_exclusion = lire_bdd_perso(f'''SELECT challenge_exclusion.*, challenges.name from challenge_exclusion
+                            INNER join tracker on challenge_exclusion.index = tracker.index
+                            INNER join challenges on challenge_exclusion."challengeId" = challenges."challengeId"
+                            WHERE tracker.discord = '{int(ctx.author.id)}' ''', index_col='id').transpose()
+
+        if df_exclusion.empty:
+            await ctx.send("Tu n'as aucun challenge exclu", ephemeral=True)
+        else:
+            df_exclusion.sort_values('index', inplace=True)
+            txt_exclusion = ''
+            for row, data in df_exclusion.iterrows():
+                txt_exclusion += f'\n- {data["index"]} : **{data["name"]}** '
+                
+            await ctx.send(f'Challenges exclus : {txt_exclusion}', ephemeral=True)       
             
             
 

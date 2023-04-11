@@ -2,7 +2,7 @@ import pandas as pd
 import ast
 import aiohttp
 import os
-from fonctions.gestion_bdd import (lire_bdd, lire_bdd_perso)
+from fonctions.gestion_bdd import (lire_bdd, lire_bdd_perso, requete_perso_bdd)
 
 
 from fonctions.gestion_challenge import (get_data_joueur_challenges,
@@ -17,6 +17,16 @@ import interactions
 from interactions import Option, Extension, CommandContext
 from interactions.ext.tasks import create_task, IntervalTrigger
 from interactions.ext.wait_for import wait_for_component, setup as stp
+
+
+def option_challenges(name, params, description='type de recherche'):
+    option = Option(
+        name=name,
+        description=description,
+        type=interactions.OptionType.SUB_COMMAND,
+        options=params)
+
+    return option
 
 
 class Challenges(Extension):
@@ -193,6 +203,78 @@ class Challenges(Extension):
             os.remove('image.png')
         else:
             await ctx.send(f"Pas de ranking pour {summonername} :(.")
+            
+    @interactions.extension_command(name="tracker_challenges", description="Modifier la liste des challenges",
+                                    options=[
+                                        option_challenges(
+                                            name='exclure',
+                                            params=[
+                                                Option(name="summonername",
+                                                       description="Nom du joueur",
+                                                       type=interactions.OptionType.STRING,
+                                                       required=True),
+                                                Option(name="nom_challenge",
+                                                       description="Nom du challenge à exclure",
+                                                       type=interactions.OptionType.STRING,
+                                                       required=True)],
+                                            description='Exclure un challenge du tracker'),
+                                        option_challenges(
+                                            name='inclure',
+                                            params=[
+                                                Option(name="summonername",
+                                                       description="Nom du joueur",
+                                                       type=interactions.OptionType.STRING,
+                                                       required=True),
+                                                Option(name="nom_challenge",
+                                                       description="Nom du challenge à réinclure",
+                                                       type=interactions.OptionType.STRING,
+                                                       required=True)],
+                                            description='Réinclure un challenge au tracker')
+                                    ])
+    async def exclure_challenges(self, ctx: CommandContext, sub_command:str, summonername, nom_challenge:str):
+        
+        # traitement des variables : 
+        
+        summonername = summonername.lower().replace(' ', '')
+        nom_challenge = nom_challenge.lower()
+        
+        await ctx.defer(ephemeral=True)
+        
+        df = lire_bdd('challenges').transpose()
+        df['name'] = df['name'].str.lower()
+        df.set_index('name', inplace=True)
+        
+        df.loc[nom_challenge, 'challengeId']
+        
+        if sub_command == 'exclure':
+        
+            nb_row = requete_perso_bdd('''INSERT INTO public.challenge_exclusion("challengeId", index) VALUES (:challengeid, :summonername);''',
+                            dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
+                                        'summonername':summonername},
+                            get_row_affected=True)
+            
+            if nb_row > 0:
+                await ctx.send(f'Le challenge {nom_challenge} a été exclu du tracking', ephemeral=True)
+            else:
+                await ctx.send("Ce joueur ou le challenge n'existe pas", ephemeral=True)
+        
+        elif sub_command == 'inclure':
+                
+            nb_row = requete_perso_bdd('''DELETE FROM public.challenge_exclusion WHERE "challengeId" = :challengeid AND index = :summonername;''',
+                            dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
+                                        'summonername':summonername},
+                            get_row_affected=True)
+            
+            if nb_row > 0:
+                await ctx.send(f'Le challenge {nom_challenge} a été réinclus au tracking', ephemeral=True)
+            else:
+                await ctx.send("Ce joueur n'existe pas ou ce challenge n'était pas exclu", ephemeral=True)
+    
+
+        
+
+            
+        
 
 def setup(bot):
     Challenges(bot)
