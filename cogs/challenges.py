@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 import datetime
 import dataframe_image as dfi
 import interactions
-from interactions import Option, Extension, CommandContext
+from interactions import Option, Extension, CommandContext, Choice
 from interactions.ext.tasks import create_task, IntervalTrigger
 from interactions.ext.wait_for import wait_for_component, setup as stp
 
@@ -87,17 +87,55 @@ class Challenges(Extension):
         await ctx.send(embeds=em)
 
     @interactions.extension_command(name="challenges_classement",
-                                    description="Classement des points de challenge")
-    async def challenges_classement(self, ctx: CommandContext):
+                                    description="Classement des points de challenge",
+                                    options=[
+                                        Option(name='top',
+                                               description='Afficher le top X',
+                                               type=interactions.OptionType.INTEGER,
+                                               required=False,
+                                               min_value=5,
+                                               max_value=100),
+                                        Option(name='view',
+                                               description='Vue du classement',
+                                               type=interactions.OptionType.STRING,
+                                               required=False,
+                                               choices=[
+                                                   Choice(name='general', value='general'),
+                                                   Choice(name='serveur', value='serveur')
+                                               ])
+                                    ])
+    async def challenges_classement(self,
+                                    ctx: CommandContext,
+                                    top:int = None,
+                                    view:str = 'general'):
 
-        bdd_user_total = lire_bdd('challenges_total').transpose()
-
+        if view == 'general':
+            bdd_user_total = lire_bdd('challenges_total').transpose()
+        
+        else:
+            bdd_user_total = lire_bdd_perso(f'''SELECT challenges_total.* from challenges_total
+                        INNER join tracker on challenges_total.index = tracker.index
+                        where tracker.server_id = {int(ctx.guild_id)} ''').transpose()
+        
+        await ctx.defer(ephemeral=False)
+        
+        bdd_user_total.sort_values(by='current', ascending=False, inplace=True)
+        
+        if top != None:
+            bdd_user_total = bdd_user_total.head(top)
+        
         fig = px.pie(bdd_user_total, values="current",
                      names=bdd_user_total.index, title="Points de défis")
         fig.update_traces(textinfo='label+value')
         fig.update_layout(showlegend=False)
+        
+        fig.write_image(f'plot.png')
+        file = interactions.File(f'plot.png')
+        # On prépare l'embed
+        embed = interactions.Embed(color=interactions.Color.BLURPLE)
+        embed.set_image(url=f'attachment://plot.png')
         fig.write_image('plot.png')
-        await ctx.send(files=interactions.File('plot.png'))
+        await ctx.send(embeds=embed, files=file)
         os.remove('plot.png')
 
     @interactions.extension_command(name="challenges_profil", description="Profil du compte",
