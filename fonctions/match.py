@@ -240,13 +240,20 @@ def trouver_records_multiples(df, category, methode='max', identifiant = 'joueur
 
     return joueur, champion, record, url_game
 
-def range_value(i, liste, min: bool = False):
+def range_value(i, liste, min: bool = False, return_top: bool = False):
     if i == np.argmax(liste[:5]) or i-5 == np.argmax(liste[5:]):
         fill = (0, 128, 0)
+        top = 'max'
     elif (min == True) and (i == np.argmin(liste[:5]) or i-5 == np.argmin(liste[5:])):
         fill = (220, 20, 60)
+        top = 'min'
     else:
         fill = (0, 0, 0)
+        top = None
+        
+    if return_top:
+        return fill, top 
+    
     return fill
 
 
@@ -742,9 +749,7 @@ class matchlol():
 
         self.thisItems = [self.item[f'item{i}'] for i in range(6)]
         
-        self.allitems = {}
-        for joueur in range(0,10):
-            self.allitems[joueur] = [self.match_detail['info']['participants'][joueur][f'item{i}'] for i in range(6)]
+
             
 
         # item6 = ward. Pas utile
@@ -810,14 +815,30 @@ class matchlol():
         self.thisBaronPerso = self.match_detail_challenges['teamBaronKills']
         self.thisElderPerso = self.match_detail_challenges['teamElderDragonKills']
         # thisHeraldPerso = match_detail_challenges['teamRiftHeraldKills']
-
+        self.allitems = {}
+        
         if self.thisId <= 4:
             self.team = 0
             self.n_moba = 1
+        # le sort_values permet de mettre les slots vides à la fin    
+            for joueur in range(0,10):
+                liste_items = [self.match_detail['info']['participants'][joueur][f'item{i}'] for i in range(6)]
+                liste_items.sort(reverse=True)
+                self.allitems[joueur] = liste_items
         else:
             self.team = 1
             self.n_moba = 0
+            for joueur in range(0,10):
+                joueur_id = joueur
+                if joueur >= 5:
+                    joueur_id -= 5
+                else:
+                    joueur_id += 5
+                liste_items = [self.match_detail['info']['participants'][joueur][f'item{i}'] for i in range(6)]
+                liste_items.sort(reverse=True)
+                self.allitems[joueur_id] = liste_items 
 
+                
         self.team_stats = self.match_detail['info']['teams'][self.team]['objectives']
 
         self.thisBaronTeam = self.team_stats['baron']['kills']
@@ -1468,27 +1489,22 @@ class matchlol():
         y_metric = 400
 
       
-
-        try:
-            font = ImageFont.truetype("DejaVuSans.ttf", 50)  # Ubuntu 18.04
-        except OSError:
+        def charger_font(size):
             try:
-                font = ImageFont.truetype("arial.ttf", 50)  # Windows
+                font = ImageFont.truetype("DejaVuSans.ttf", size)  # Ubuntu 18.04
             except OSError:
-                font = ImageFont.truetype(
-                    "AppleSDGothicNeo.ttc", 50
-                )  # MacOS
+                try:
+                    font = ImageFont.truetype("arial.ttf", size)  # Windows
+                except OSError:
+                    font = ImageFont.truetype(
+                        "AppleSDGothicNeo.ttc", size
+                    )  # MacOS
+            
+            return font
+        
+        font = charger_font(50)
+        font_little = charger_font(40)        
 
-        try:
-            font_little = ImageFont.truetype(
-                "DejaVuSans.ttf", 40)  # Ubuntu 18.04
-        except OSError:
-            try:
-                font_little = ImageFont.truetype("arial.ttf", 40)  # Windows
-            except OSError:
-                font_little = ImageFont.truetype(
-                    "AppleSDGothicNeo.ttc", 40
-                )  # MacOS
 
         im = Image.new("RGBA", (lineX, lineY * 13 + 190),
                        (255, 255, 255))  # Ligne blanche
@@ -2086,38 +2102,24 @@ class matchlol():
         
 
       
+        def charger_font(size):
+            try:
+                font = ImageFont.truetype("DejaVuSans.ttf", size)  # Ubuntu 18.04
+            except OSError:
+                try:
+                    font = ImageFont.truetype("arial.ttf", size)  # Windows
+                except OSError:
+                    font = ImageFont.truetype(
+                        "AppleSDGothicNeo.ttc", size
+                    )  # MacOS
+                    
+            return font
 
-        try:
-            font = ImageFont.truetype("DejaVuSans.ttf", 50)  # Ubuntu 18.04
-        except OSError:
-            try:
-                font = ImageFont.truetype("arial.ttf", 50)  # Windows
-            except OSError:
-                font = ImageFont.truetype(
-                    "AppleSDGothicNeo.ttc", 50
-                )  # MacOS
+        font = charger_font(50)
+        font_little = charger_font(40)
+        font_very_little = charger_font(30)
+        font_very_very_little = charger_font(25)
 
-        try:
-            font_little = ImageFont.truetype(
-                "DejaVuSans.ttf", 40)  # Ubuntu 18.04
-        except OSError:
-            try:
-                font_little = ImageFont.truetype("arial.ttf", 40)  # Windows
-            except OSError:
-                font_little = ImageFont.truetype(
-                    "AppleSDGothicNeo.ttc", 40
-                )  # MacOS
-                
-        try:
-            font_very_little = ImageFont.truetype(
-                "DejaVuSans.ttf", 30)  # Ubuntu 18.04
-        except OSError:
-            try:
-                font_very_little = ImageFont.truetype("arial.ttf", 30)  # Windows
-            except OSError:
-                font_very_little = ImageFont.truetype(
-                    "AppleSDGothicNeo.ttc", 30
-                )  # MacOS
 
         im = Image.new("RGBA", (lineX, lineY * 13 + 190),
                        (255, 255, 255))  # Ligne blanche
@@ -2337,7 +2339,7 @@ class matchlol():
             draw.rectangle((236, 220, 236, 2000), fill=(0, 0, 255, 128), outline=None)
 
             # Coller l'image transparente sur l'image originale
-            im.paste(square, (i-115, 190), square)
+            im.paste(square, (i-115, 265), square)
 
         
             
@@ -2375,13 +2377,21 @@ class matchlol():
             im.paste(im=await get_image("champion", self.thisChampNameListe[i], self.session, 100, 100),
                  box=(236*n+70, y_avatar))
             
-            if len(self.thisPseudoListe[i]) > 8:
+            if len(self.thisPseudoListe[i])  > 14:
+                font_text = font_very_very_little
+                ecart_pseudo = 20
+            elif len(self.thisPseudoListe[i]) > 8:
                 font_text = font_very_little
+                ecart_pseudo = 20
+            elif len(self.thisPseudoListe[i]) < 5:
+                font_text = font_little
+                ecart_pseudo = 80
             else:
                 font_text = font_little
+                ecart_pseudo = 50
                 
             pseudo = self.thisPseudoListe[i]
-            d.text((236*n+50, y_pseudo),
+            d.text((236*n+ecart_pseudo, y_pseudo),
                    pseudo, font=font_text, fill=(0, 0, 0))
             
             # rank
@@ -2424,54 +2434,90 @@ class matchlol():
                     fill=color_scoring.get(scoring, (0,0,0)))
                 
 
-                
+            fill = range_value(i, self.thisKDAListe, True)    
             d.text((236*n +90, y_kda_raccourci),
-                       str(round(self.thisKDAListe[i],1)), font=font_little, fill=(0, 0, 0))
+                       str(round(self.thisKDAListe[i],1)), font=font_little, fill=fill)
             
-            d.text((236*n +45, y_kda),
-                       f'{self.thisKillsListe[i]}/{self.thisDeathsListe[i]}/{self.thisAssistsListe[i]}', font=font_little, fill=(0, 0, 0))
+            kda = f'{self.thisKillsListe[i]}/{self.thisDeathsListe[i]}/{self.thisAssistsListe[i]}'
             
-
+            if len(kda) == 5:
+                ecart_kda = 60
+            if len(kda) == 6:
+                ecart_kda = 55
+            elif len(kda) >= 7:
+                ecart_kda = 50
+            else:
+                ecart_kda = 70
+            d.text((236*n + ecart_kda, y_kda),
+                       kda, font=font_little, fill=fill)
+            
+            fill, top_kp = range_value(i, self.thisKPListe, True, True)
             d.text((236*n +70, y_KP),
-                       str(self.thisKPListe[i]) + "%", font=font, fill=(0, 0, 0))
+                       str(self.thisKPListe[i]) + "%", font=font, fill=fill)
+            
+            fill = range_value(i, self.thisDamageListe, True)
             
             d.text((236*n+30, y_dmg),
                    f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font_little, fill=fill)
             
+            fill = range_value(i, np.array(self.thisMinionListe) +
+                               np.array(self.thisJungleMonsterKilledListe))
             d.text((236*n+70, y_cs), str(
                     self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill)
             
+            fill = range_value(i, np.array(self.thisDamageTakenListe) +
+                               np.array(self.thisDamageSelfMitigatedListe))
             d.text((236*n+30, y_tank),
                    f'{int(self.thisDamageTakenListe[i]/1000)}k / {int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font_little, fill=fill)
             
-            d.text((236*n+70, y_vision), str(
-                    self.thisVisionListe[i]), font=font, fill=fill)
+            if self.thisQ != 'ARAM':
+                fill, top_vision = range_value(i, self.thisVisionListe, True, True)
+                d.text((236*n+70, y_vision), str(
+                        self.thisVisionListe[i]), font=font, fill=fill)
             
             
             
             
             
-            if i <= 5:
+            if i <= 4:
                 color = 'blue'
                 drawProgressBar(236*n+45, y_tank+70, 120, 15, (self.thisDamageTakenListe[i] + self.thisDamageSelfMitigatedListe[i])/(np.sum(self.thisDamageTakenListe[:5]) + np.sum(self.thisDamageSelfMitigatedListe[:5])), fg=color)
-                drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[:5]), fg=color)
+                
+                if self.thisQ != 'ARAM':
+                    if top_vision=='max':
+                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[:5]), fg='green')
+                    elif top_vision=='min':
+                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[:5]), fg='#8B0000')
+                    else:
+                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[:5]), fg=color)
             else:
                 color = 'red'
                 drawProgressBar(236*n+45, y_tank+70, 120, 15, (self.thisDamageTakenListe[i] + self.thisDamageSelfMitigatedListe[i])/(np.sum(self.thisDamageTakenListe[5:]) + np.sum(self.thisDamageSelfMitigatedListe[5:])), fg=color)
-                drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[5:]), fg=color)
-            drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg=color)
+                if self.thisQ != 'ARAM':
+                    if top_vision == 'max':
+                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[5:]), fg='green')
+                    elif top_vision == 'min':
+                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[5:]), fg='#8B0000')
+                    else:
+                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[5:]), fg=color)
+            if top_kp == 'max': 
+                drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg='green')
+            elif top_kp == 'min':
+                drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg='#8B0000')
+            else:
+                drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg=color)
             drawProgressBar(236*n+45, y_dmg+70, 120, 15, self.thisDamageRatioListe[i], fg=color)
             
 
-            
+        fill = (0,0,0)    
             
         d.text((x_center, y_kda-30), 'KDA', font=font, fill=fill)
         d.text((x_center, y_score), 'MVP', font=font, fill=fill)             
-        d.text((x_center, y_KP), 'KP', font=font, fill=fill)
-        d.text((x_center, y_cs), 'CS', font=font, fill=fill)
-        d.text((x_center, y_dmg), 'DMG', font=font, fill=fill)
-        d.text((x_center, y_tank), 'TANK', font=font, fill=fill)
-        d.text((x_center, y_vision+20), 'VS', font=font, fill=fill)
+        d.text((x_center+5, y_KP+20), 'KP', font=font, fill=fill)
+        d.text((x_center+5, y_cs), 'CS', font=font, fill=fill)
+        d.text((x_center-15, y_dmg+20), 'DMG', font=font, fill=fill)
+        d.text((x_center-15, y_tank+20), 'TANK', font=font, fill=fill)
+        d.text((x_center+5, y_vision+20), 'VS', font=font, fill=fill)
         
         
         if self.thisQ != "ARAM":
