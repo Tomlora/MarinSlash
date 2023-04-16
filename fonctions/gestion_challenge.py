@@ -189,7 +189,8 @@ class challengeslol():
             
             # on supprime les challenges non-désirés
             
-            df_exclusion = lire_bdd_perso(f'''SELECT id, "challengeId" from challenge_exclusion where index = '{self.summonerName}' ''', index_col='id').transpose()
+            df_exclusion = lire_bdd_perso(f'''SELECT id, "challengeId" from challenge_exclusion where index = '{self.summonerName}' ''',
+                                          index_col='id').transpose()
             
             if not df_exclusion.empty:
                 self.data_comparaison = self.data_comparaison[~self.data_comparaison['challengeId'].isin(df_exclusion['challengeId'])]
@@ -197,6 +198,11 @@ class challengeslol():
             # on supprime les caractères inutiles
             
             self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('.', '')
+            self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('compétences', 'spells')
+            self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('sbires', 'cs')
+            self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('champion', 'champ')
+            self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('boucliers', 'shield')
+            self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('jungle', 'jgl')
             
             self.data_comparaison['level_diminutif'] = self.data_comparaison['level'].replace({'CHALLENGER': 'CHAL',
                                                                                    'GRANDMASTER': 'GM',
@@ -299,10 +305,17 @@ class challengeslol():
                 value = format_nombre(data['value'])
                 dif_value = format_nombre(data['dif_value'])
                 next_palier = format_nombre(data['diff_vers_palier_suivant'])
+                position = format_nombre(data['position'])
                 if next_palier == str(0):
-                    txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** (+{dif_value}) '
+                    if position == str(0):
+                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{value}** (+{dif_value}) '
+                    else:
+                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]} | **{position}**ème] : \n> **{value}** (+{dif_value}) '
                 else:
-                    txt += f'\n:sparkles: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour level up'
+                    if position == str(0):
+                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour level up'
+                    else:
+                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]} | **{position}**ème] : \n> **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour level up'
         
         
         if not self.data_evolution.empty:
@@ -311,7 +324,7 @@ class challengeslol():
                     txt_evolution, chunk = check_chunk(txt_evolution, chunk, chunk_size)
                     value = format_nombre(data['value'])
                     dif_value = format_nombre(data['dif_value'])
-                    txt_evolution += f'\n:comet: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{value}** (+{dif_value} / **+{data["evolution"]:.2f}%**)'
+                    txt_evolution += f'\n:comet: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{value}** (+{dif_value} / **+{data["evolution"]:.2f}%**)'
         
         chunk = 1      
         if not self.data_new_percentile.empty:
@@ -319,7 +332,7 @@ class challengeslol():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
                 percentile = data['percentile'] * 100
                 dif_percentile = data['dif_percentile'] * 100
-                txt_24h += f'\n:zap: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{percentile:.2f}%** (+{dif_percentile:.2f}%) top'
+                txt_24h += f'\n:zap: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{percentile:.2f}%** (+{dif_percentile:.2f}%) top'
                 
       
         if not self.data_new_position.empty:
@@ -329,9 +342,9 @@ class challengeslol():
                 value = format_nombre(data['value'])
                 dif_value = format_nombre(data['dif_position'])
                 if data['dif_position'] > 0:
-                    txt_24h += f'\n:arrow_up: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{position}**ème (**+{dif_value}**) avec **{value}**'
+                    txt_24h += f'\n:arrow_up: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{position}**ème (**+{dif_value}**) avec **{value}**'
                 else:
-                    txt_24h += f'\n:arrow_down: **{data["name"]}** [{data["level_diminutif"]}] ({data["shortDescription"]}) : **{position}**ème (**{dif_value}**) avec **{value}**'
+                    txt_24h += f'\n:arrow_down: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{position}**ème (**{dif_value}**) avec **{value}**'
                 
         chunk = 1      
         if not self.data_new_level.empty:
@@ -341,9 +354,9 @@ class challengeslol():
                 value = format_nombre(data['value'])
                 
                 if next_palier == str(0):
-                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais **{(data["level"])}** avec **{value}**'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : \n> Tu es désormais **{(data["level"])}** avec **{value}**'
                 else:
-                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : Tu es désormais **{(data["level"])}** avec **{value}** :arrow_right: **{next_palier}** pts pour level up'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : \n> Tu es désormais **{(data["level"])}** avec **{value}** :arrow_right: **{next_palier}** pts pour level up'
                 
         
         

@@ -5,7 +5,7 @@ import pandas as pd
 import datetime
 import warnings
 import interactions
-from interactions import Option, Extension, CommandContext
+from interactions import Option, Extension, CommandContext, Choice
 from interactions.ext.tasks import IntervalTrigger, create_task
 from interactions.ext.wait_for import wait_for_component, setup as stp
 from fonctions.params import Version, saison, heure_lolsuivi
@@ -137,7 +137,8 @@ class LeagueofLegends(Extension):
                         identifiant_game=None,
                         guild_id: int = 0,
                         me=None,
-                        insights:bool=True):
+                        insights:bool=True,
+                        affichage=1):
 
         match_info = matchlol(summonerName,
                               idgames,
@@ -626,7 +627,12 @@ class LeagueofLegends(Extension):
             
         # Gestion de l'image 
 
-        embed = await match_info.resume_general('resume', embed, difLP)
+        if affichage == 1:
+            embed = await match_info.resume_general('resume', embed, difLP)
+        
+        elif affichage ==2:
+            embed = await match_info.test('resume', embed, difLP)
+            
 
         # on charge les img
 
@@ -692,6 +698,12 @@ class LeagueofLegends(Extension):
                                                     description="sauvegarder la game",
                                                     type=interactions.OptionType.BOOLEAN,
                                                     required=False),
+                                        Option(name="affichage",
+                                                    description="Mode d'affichage",
+                                                    type=interactions.OptionType.INTEGER,
+                                                    required=False,
+                                                    choices=[Choice(name="Affichage classique", value=1),
+                                                             Choice(name="Affichage beta", value=2)]),
                                         Option(name='identifiant_game',
                                                     description="A ne pas utiliser",
                                                     type=interactions.OptionType.STRING,
@@ -701,7 +713,8 @@ class LeagueofLegends(Extension):
                    summonername: str,
                    numerogame: int,
                    sauvegarder: bool = True,
-                   identifiant_game=None):
+                   identifiant_game=None,
+                   affichage=1):
 
         await ctx.defer(ephemeral=False)
 
@@ -712,7 +725,8 @@ class LeagueofLegends(Extension):
                                                                            idgames=numerogame,
                                                                            sauvegarder=sauvegarder,
                                                                            identifiant_game=identifiant_game,
-                                                                           guild_id=int(ctx.guild_id))
+                                                                           guild_id=int(ctx.guild_id),
+                                                                           affichage=affichage)
 
         if embed != {}:
             await ctx.send(embeds=embed, files=resume)
@@ -770,7 +784,8 @@ class LeagueofLegends(Extension):
                         tracker_challenges=False,
                         session=None,
                         insights=True,
-                        nbchallenges=0):
+                        nbchallenges=0,
+                        affichage=1):
 
         summonername = summonername.lower()
 
@@ -780,7 +795,8 @@ class LeagueofLegends(Extension):
                                                                            guild_id=discord_server_id.server_id,
                                                                            identifiant_game=identifiant_game,
                                                                            me=me,
-                                                                           insights=insights)
+                                                                           insights=insights,
+                                                                           affichage=affichage)
         
         if tracker_challenges:
             chal = challengeslol(summonername.replace(' ', ''), me['puuid'], session, nb_challenges=nbchallenges)
@@ -808,14 +824,14 @@ class LeagueofLegends(Extension):
 
     async def update(self):
 
-        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges, tracker.insights, tracker.nb_challenges
+        data = get_data_bdd(f'''SELECT tracker.index, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges, tracker.insights, tracker.nb_challenges, tracker.affichage
                             from tracker 
                             INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                             where tracker.activation = true and channels_module.league_ranked = true''').fetchall()
         timeout = aiohttp.ClientTimeout(total=20)
         session = aiohttp.ClientSession(timeout=timeout)
 
-        for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights, nb_challenges in data:
+        for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage in data:
 
             id_last_game = await getId_with_puuid(puuid, session)
             
@@ -865,7 +881,8 @@ class LeagueofLegends(Extension):
                                          tracker_challenges=tracker_challenges,
                                          session=session,
                                          insights=insights,
-                                         nbchallenges=nb_challenges)
+                                         nbchallenges=nb_challenges,
+                                         affichage=affichage)
 
                     # update rank
                     await self.updaterank(summonername, discord_server_id, session, me)
@@ -965,7 +982,7 @@ class LeagueofLegends(Extension):
                                      ctx: CommandContext):
         
         
-        df = lire_bdd_perso(f'''SELECT index, activation, spec_tracker, challenges, insights, server_id, nb_challenges FROM tracker WHERE discord = '{int(ctx.author.id)}' ''').transpose()
+        df = lire_bdd_perso(f'''SELECT index, activation, spec_tracker, challenges, insights, server_id, nb_challenges, affichage FROM tracker WHERE discord = '{int(ctx.author.id)}' ''').transpose()
         
         await ctx.defer(ephemeral=True)
         if df.empty:
@@ -976,7 +993,11 @@ class LeagueofLegends(Extension):
                 guild = await interactions.get(client=self.bot,
                                            obj=interactions.Guild,
                                            object_id=data['server_id'])
-                txt += f'\n**{joueur}** ({guild.name}): Tracking : **{data["activation"]}** | Spectateur tracker : **{data["spec_tracker"]}** | Challenges : **{data["challenges"]}** (Affiché : {data["nb_challenges"]}) | Insights : **{data["insights"]}**'
+                if data['affichage'] == 1:
+                    affichage = 'mode classique'
+                elif data['affichage'] == 2:
+                    affichage = 'mode beta'
+                txt += f'\n**{joueur}** ({guild.name}): Tracking : **{data["activation"]}** ({affichage})  | Spectateur tracker : **{data["spec_tracker"]}** | Challenges : **{data["challenges"]}** (Affiché : {data["nb_challenges"]}) | Insights : **{data["insights"]}**'
                         
             await ctx.send(txt, ephemeral=True) 
             
@@ -1017,6 +1038,12 @@ class LeagueofLegends(Extension):
                                                     description="Tracker challenges",
                                                     type=interactions.OptionType.BOOLEAN,
                                                     required=False),
+                                        Option(name="affichage",
+                                                    description="Affichage du tracker",
+                                                    type=interactions.OptionType.INTEGER,
+                                                    required=False,
+                                                    choices=[Choice(name="Mode classique", value=1),
+                                                             Choice(name="Mode beta", value=2)]),
                                         Option(name='nb_challenges',
                                                description='Nombre de challenges à afficher dans le recap (entre 1 et 20)',
                                                type=interactions.OptionType.INTEGER,
@@ -1034,7 +1061,8 @@ class LeagueofLegends(Extension):
                         tracker_debut: bool=None,
                         tracker_challenges: bool=None,
                         insights: bool=None,
-                        nb_challenges:int=None):
+                        nb_challenges:int=None,
+                        affichage:int=None):
 
         summonername = summonername.lower().replace(' ', '')
 
@@ -1085,6 +1113,15 @@ class LeagueofLegends(Extension):
                     await ctx.send('Insights désactivé !')
             else:
                 await ctx.send('Joueur introuvable')
+
+        if affichage != None:
+
+            nb_row = requete_perso_bdd('UPDATE tracker SET affichage = :activation WHERE index = :index', {
+                                'activation': affichage, 'index': summonername}, get_row_affected=True)
+            if nb_row > 0:
+                await ctx.send('Affichage modifié')
+            else:
+                await ctx.send('Joueur introuvable')
                 
         if nb_challenges != None:
 
@@ -1097,7 +1134,7 @@ class LeagueofLegends(Extension):
             else:
                 await ctx.send('Joueur introuvable')
         
-        if tracker_fin == None and tracker_debut == None and tracker_challenges == None and insights == None and nb_challenges == None:
+        if tracker_fin == None and tracker_debut == None and tracker_challenges == None and insights == None and nb_challenges == None and affichage == None:
             await ctx.send('Tu dois choisir une option !')
 
 
@@ -1257,6 +1294,7 @@ class LeagueofLegends(Extension):
             await self.update_24h()
             
 
+            
     @interactions.extension_command(name="force_update24h",
                                     description="Réservé à Tomlora")
     async def force_update(self, ctx: CommandContext):

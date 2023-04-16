@@ -111,11 +111,13 @@ class Challenges(Extension):
 
         if view == 'general':
             bdd_user_total = lire_bdd('challenges_total').transpose()
+            title = 'Classement général des points de défis'
         
         else:
             bdd_user_total = lire_bdd_perso(f'''SELECT challenges_total.* from challenges_total
                         INNER join tracker on challenges_total.index = tracker.index
                         where tracker.server_id = {int(ctx.guild_id)} ''').transpose()
+            title = f'Classement des points de défis du serveur {ctx.guild.name}'
         
         await ctx.defer(ephemeral=False)
         
@@ -123,9 +125,10 @@ class Challenges(Extension):
         
         if top != None:
             bdd_user_total = bdd_user_total.head(top)
+            title = f'{title} - Top {top}'
         
         fig = px.pie(bdd_user_total, values="current",
-                     names=bdd_user_total.index, title="Points de défis")
+                     names=bdd_user_total.index, title=title)
         fig.update_traces(textinfo='label+value')
         fig.update_layout(showlegend=False)
         
