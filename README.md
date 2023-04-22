@@ -54,8 +54,15 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
 - Affiche une notation / 10 de sa partie. Le joueur peut voir comment le score est calculé en affichant les corrélations entre les variables et le score final.
 - Le score final est prédit sur la base du calcul d'op.gg, à partir d'une régression linéaire
 
+Il existe deux formats de présentation :
  <p align="center">
+ Format ligne : 
+ <br>
   <img width="550" height="1000" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese3.png?raw=true">
+ <br>
+ Format Colonne <b>(En beta)</b> : 
+ <br>
+ <img width="900" height="600" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese5.png?raw=true">
 </p>
 
 Ce recap est personnalisable, c'est-à-dire qu'il y a différents modules qui peuvent être affichés ou non, comme les insights (les bons/mauvais points d'une partie) ou les succès (des challenges crées par Riot Games).
