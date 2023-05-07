@@ -1228,6 +1228,11 @@ class matchlol():
 
     async def save_data(self):
         """Sauvegarde l'ensemble des données dans la base de données"""
+        
+        if self.thisDeaths >= 1:
+            self.kda_save = self.thisKDA
+        else:
+            self.kda_save = round((int(self.thisKills) + int(self.thisAssists)) / (int(self.thisDeaths) + 1), 2)
 
         requete_perso_bdd(f'''INSERT INTO public.matchs(
         match_id, joueur, role, champion, kills, assists, deaths, double, triple, quadra, penta,
@@ -1296,7 +1301,7 @@ class matchlol():
                            'item5': self.thisItems[4],
                            'item6': self.thisItems[5],
                            'kp': self.thisKP,
-                           'kda': self.thisKDA,
+                           'kda': self.kda_save,
                            'mode': self.thisQ,
                            'season': self.season,
                            'date': int(self.timestamp),
