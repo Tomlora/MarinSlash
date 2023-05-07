@@ -1199,7 +1199,7 @@ class matchlol():
         try:
 
 
-            for i in range(self.thisStats):
+            for i in range(len(self.thisStats)):
                 if str(self.thisStats[i]['queueType']) == stats_mode:
                     self.i = i
                     break
