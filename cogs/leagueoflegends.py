@@ -657,7 +657,12 @@ class LeagueofLegends(Extension):
         stats = await get_league_by_summoner(session, me)
 
         if len(stats) > 0:
-            i = 0 if stats[0]['queueType'] == 'RANKED_SOLO_5x5' else 1
+            # i = 0 if stats[0]['queueType'] == 'RANKED_SOLO_5x5' else 1
+            
+            for j in range(len(stats)):
+                if stats[j]['queueType'] == 'RANKED_SOLO_5x5':
+                    i = j
+                    break
 
             rank_old = f"{suivirank[key]['tier']} {suivirank[key]['rank']}"
             rank = f"{stats[i]['tier']} {stats[i]['rank']}"
