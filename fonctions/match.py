@@ -257,12 +257,12 @@ def range_value(i, liste, min: bool = False, return_top: bool = False):
     return fill
 
 
-async def get_image(type, name, session: aiohttp.ClientSession, resize_x=80, resize_y=80):
+async def get_image(type, name, session: aiohttp.ClientSession, resize_x=80, resize_y=80, profil_version='13.6.1'):
     url_mapping = {
-        "champion": f"https://ddragon.leagueoflegends.com/cdn/13.6.1/img/champion/{name}.png",
+        "champion": f"https://ddragon.leagueoflegends.com/cdn/{profil_version}/img/champion/{name}.png",
         "tier": f"./img/{name}.png",
-        "avatar": f"https://ddragon.leagueoflegends.com/cdn/13.6.1/img/profileicon/{name}.png",
-        "items": f'https://ddragon.leagueoflegends.com/cdn/13.6.1/img/item/{name}.png',
+        "avatar": f"https://ddragon.leagueoflegends.com/cdn/{profil_version}/img/profileicon/{name}.png",
+        "items": f'https://ddragon.leagueoflegends.com/cdn/{profil_version}/img/item/{name}.png',
         "monsters": f'./img/monsters/{name}.png',
         "epee": f'./img/epee/{name}.png',
         "gold": f'./img/money.png',
@@ -1197,10 +1197,12 @@ class matchlol():
             stats_mode = "RANKED_SOLO_5x5"
         
         try:
-            if str(self.thisStats[0]['queueType']) == stats_mode:
-                self.i = 0
-            else:
-                self.i = 1
+
+
+            for i in range(3):
+                if str(self.thisStats[i]['queueType']) == stats_mode:
+                    self.i = i
+                    break
 
             self.thisWinrate = int(self.thisStats[self.i]['wins']) / (
                 int(self.thisStats[self.i]['wins']) + int(self.thisStats[self.i]['losses']))
@@ -1516,10 +1518,10 @@ class matchlol():
         fill = (0, 0, 0)
         d.text((x_name, y_name), self.summonerName, font=font, fill=fill)
 
-        im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100),
+        im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
                  box=(x_name-240, y_name-20))
 
-        im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100),
+        im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100, self.version['n']['profileicon']),
                  box=(x_name-120, y_name-20))
 
         d.text((x_name+700, y_name-20),
@@ -2083,6 +2085,7 @@ class matchlol():
         y_pseudo = y_avatar + 100
         y_rank = y_pseudo + 50
 
+        x_kill_total = 1000
         
         x_center = 236 * 5 + 70
         
@@ -2090,6 +2093,9 @@ class matchlol():
         y_score = y_ecart_gold + 50
         y_items = y_score + 80
         y_kda = y_items + 200
+        
+        if self.thisQ == 'ARAM': # Vu qu'il n'y a pas de VS, on augmente
+            y_kda += 50
         y_kda_raccourci = y_kda-50
         
         y_KP = y_kda+100
@@ -2099,7 +2105,7 @@ class matchlol():
         y_vision = y_tank + 100
         x_metric = 120
         
-        
+
 
       
         def charger_font(size):
@@ -2117,6 +2123,7 @@ class matchlol():
 
         font = charger_font(50)
         font_little = charger_font(40)
+        font_dmg = charger_font(35)
         font_very_little = charger_font(30)
         font_very_very_little = charger_font(25)
 
@@ -2125,16 +2132,16 @@ class matchlol():
                        (255, 255, 255))  # Ligne blanche
         d = ImageDraw.Draw(im)
         
-        line = Image.new("RGB", (lineX, 190), (230, 230, 230))  # Ligne grise
+        line = Image.new("RGB", (lineX, 300), (230, 230, 230))  # Ligne grise
         im.paste(line, (0, 0))
 
         fill = (0, 0, 0)
         d.text((x_name, y_name), self.summonerName, font=font, fill=fill)
 
-        im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100),
+        im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
                  box=(x_name-240, y_name-20))
 
-        im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100),
+        im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100, self.version['n']['profileicon']),
                  box=(x_name-120, y_name-20))
 
         d.text((x_name+700, y_name-20),
@@ -2332,14 +2339,20 @@ class matchlol():
         def draw_light_blue_line(i:int):
             
             # Créer une nouvelle image transparente
-            square = Image.new("RGBA", (236, 50), (0, 0, 255, 128))
+            square = Image.new("RGBA", (236, 25), (0, 0, 255, 128))
 
             # Dessiner un carré bleu sur l'image transparente
             draw = ImageDraw.Draw(square)
-            draw.rectangle((236, 220, 236, 2000), fill=(0, 0, 255, 128), outline=None)
+            draw.rectangle((236, 220, 236, 1000), fill=(0, 0, 255, 128), outline=None)
 
             # Coller l'image transparente sur l'image originale
-            im.paste(square, (i-115, 265), square)
+            im.paste(square, (i-115, 295), square)
+            
+        def draw_black_line() -> None:
+            im.paste(Image.new("RGB", (lineX, 3),
+                     (0, 0, 0)), (0, 180))
+            
+        draw_black_line()
 
         
             
@@ -2358,7 +2371,18 @@ class matchlol():
             draw.rectangle((x+(h/2), y, x+w+(h/2), y+h),fill=fg)
 
 
-        
+        img_blue_epee = await get_image('epee', 'blue', self.session)
+        img_red_epee = await get_image('epee', 'red', self.session)
+
+        im.paste(img_blue_epee, (x_kill_total, 10 + 190),
+                 img_blue_epee.convert('RGBA'))
+        d.text((x_kill_total + 100, 23 + 190), str(self.thisTeamKills),
+               font=font, fill=(0, 0, 0))
+
+        im.paste(img_red_epee, (x_kill_total + 300, 10 + 190),
+                 img_red_epee.convert('RGBA'))
+        d.text((x_kill_total + 300 + 100, 23 + 190),
+               str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
             
                         
         for i in range(0,10,1):
@@ -2374,15 +2398,15 @@ class matchlol():
             if i >= 5:
                 n += 1
                     
-            im.paste(im=await get_image("champion", self.thisChampNameListe[i], self.session, 100, 100),
+            im.paste(im=await get_image("champion", self.thisChampNameListe[i], self.session, 100, 100, self.version['n']['profileicon']),
                  box=(236*n+70, y_avatar))
             
             if len(self.thisPseudoListe[i])  > 14:
                 font_text = font_very_very_little
                 ecart_pseudo = 20
             elif len(self.thisPseudoListe[i]) > 8:
-                font_text = font_very_little
-                ecart_pseudo = 20
+                font_text = font_very_very_little
+                ecart_pseudo = 30
             elif len(self.thisPseudoListe[i]) < 5:
                 font_text = font_little
                 ecart_pseudo = 80
@@ -2427,16 +2451,28 @@ class matchlol():
                         
             color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (67,89,232), 10 : (220,20,60)}
 
-                
-            d.text((236*n+100, y_score),
+            if scoring == 10:
+                ecart_scoring = 90
+            else:
+                ecart_scoring =  100   
+                 
+            d.text((236*n+ecart_scoring, y_score),
                     str(scoring),
                     font=font,
                     fill=color_scoring.get(scoring, (0,0,0)))
                 
-
+            kda_abrege = str(round(self.thisKDAListe[i],1))
+            
+            if len(kda_abrege) == 3:
+                ecart_kda_abrege = 90
+            elif len(kda_abrege) >= 4:
+                ecart_kda_abrege = 70
+            else:
+                ecart_kda_abrege = 110
+                
             fill = range_value(i, self.thisKDAListe, True)    
-            d.text((236*n +90, y_kda_raccourci),
-                       str(round(self.thisKDAListe[i],1)), font=font_little, fill=fill)
+            d.text((236*n +ecart_kda_abrege, y_kda_raccourci),
+                       kda_abrege, font=font_little, fill=fill)
             
             kda = f'{self.thisKillsListe[i]}/{self.thisDeathsListe[i]}/{self.thisAssistsListe[i]}'
             
@@ -2445,7 +2481,7 @@ class matchlol():
             if len(kda) == 6:
                 ecart_kda = 55
             elif len(kda) >= 7:
-                ecart_kda = 50
+                ecart_kda = 40
             else:
                 ecart_kda = 70
             d.text((236*n + ecart_kda, y_kda),
@@ -2457,26 +2493,47 @@ class matchlol():
             
             fill = range_value(i, self.thisDamageListe, True)
             
+            if int(self.thisDamageRatioListe[i]*100) < 10:
+                font_dmg_i = font_little
+            else:
+                font_dmg_i = font_dmg
+
+            
             d.text((236*n+30, y_dmg),
-                   f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font_little, fill=fill)
+                   f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font_dmg_i, fill=fill)
             
             fill = range_value(i, np.array(self.thisMinionListe) +
                                np.array(self.thisJungleMonsterKilledListe))
-            d.text((236*n+70, y_cs), str(
-                    self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill)
+            
+            total_cs = self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]
+            
+            if total_cs < 100:
+                decalage_cs = 85
+            else:
+                decalage_cs = 70
+            d.text((236*n+decalage_cs, y_cs), str(
+                    total_cs), font=font, fill=fill)
             
             fill = range_value(i, np.array(self.thisDamageTakenListe) +
                                np.array(self.thisDamageSelfMitigatedListe))
+            
+            if int(self.thisDamageSelfMitigatedListe[i]/1000) >= 100:
+                font_tank = font_dmg
+            else:
+                font_tank = font_little
+                
             d.text((236*n+30, y_tank),
-                   f'{int(self.thisDamageTakenListe[i]/1000)}k / {int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font_little, fill=fill)
+                   f'{int(self.thisDamageTakenListe[i]/1000)}k / {int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font_tank, fill=fill)
             
             if self.thisQ != 'ARAM':
                 fill, top_vision = range_value(i, self.thisVisionListe, True, True)
-                d.text((236*n+70, y_vision), str(
+                
+                if self.thisVisionListe[i] < 10:
+                    decalage_vision = 85
+                else:
+                    decalage_vision = 70
+                d.text((236*n+decalage_vision, y_vision), str(
                         self.thisVisionListe[i]), font=font, fill=fill)
-            
-            
-            
             
             
             if i <= 4:
@@ -2509,7 +2566,8 @@ class matchlol():
             drawProgressBar(236*n+45, y_dmg+70, 120, 15, self.thisDamageRatioListe[i], fg=color)
             
 
-        fill = (0,0,0)    
+        fill = (0,0,0)
+    
             
         d.text((x_center, y_kda-30), 'KDA', font=font, fill=fill)
         d.text((x_center, y_score), 'MVP', font=font, fill=fill)             
@@ -2517,10 +2575,10 @@ class matchlol():
         d.text((x_center+5, y_cs), 'CS', font=font, fill=fill)
         d.text((x_center-15, y_dmg+20), 'DMG', font=font, fill=fill)
         d.text((x_center-15, y_tank+20), 'TANK', font=font, fill=fill)
-        d.text((x_center+5, y_vision+20), 'VS', font=font, fill=fill)
         
-        
+    
         if self.thisQ != "ARAM":
+            d.text((x_center+5, y_vision+20), 'VS', font=font, fill=fill)
             n_ecart = 0
             for ecart in [self.ecart_top_gold_affiche, self.ecart_jgl_gold_affiche, self.ecart_mid_gold_affiche, self.ecart_adc_gold_affiche, self.ecart_supp_gold_affiche]:
                 if ecart > 0:
@@ -2547,11 +2605,11 @@ class matchlol():
             for nb, item in enumerate(items):
                 if item != 0:
                     if nb < 3:
-                        im.paste(await get_image("items", item, self.session, 50,50),
+                        im.paste(await get_image("items", item, self.session, 50,50, self.version['n']['profileicon']),
                                 box=(236*joueur+40+nb*50, y_items))
                     else:
                         nb = nb - 3
-                        im.paste(await get_image("items", item, self.session, 50,50),
+                        im.paste(await get_image("items", item, self.session, 50,50, self.version['n']['profileicon']),
                                 box=(236*joueur+40+nb*50, y_items+60))
                         
                     
