@@ -380,9 +380,6 @@ async def get_challenges_config(session):
     async with session.get(f'https://{my_region}.api.riotgames.com/lol/challenges/v1/challenges/config?api_key={api_key_lol}') as challenge_config:
         data_challenges = await challenge_config.json()
         return data_challenges
-
-
-
     
 async def get_spectator(session, id):
     async with session.get(f'https://{my_region}.api.riotgames.com/lol/spectator/v4/active-games/by-summoner/{id}?api_key={api_key_lol}') as session_spectator:
@@ -1214,6 +1211,16 @@ class matchlol():
             self.thisLoose = str(self.thisStats[self.i]['losses'])
             self.thisWinStreak = str(self.thisStats[self.i]['hotStreak'])
         except IndexError:  # on va avoir une index error si le joueur est en placement, car Riot ne fournit pas dans son api les données de placement
+            self.thisWinrate = '0'
+            self.thisWinrateStat = '0'
+            self.thisRank = 'En placement'
+            self.thisTier = " "
+            self.thisLP = '0'
+            self.thisVictory = '0'
+            self.thisLoose = '0'
+            self.thisWinStreak = '0'
+        
+        except AttributeError:
             self.thisWinrate = '0'
             self.thisWinrateStat = '0'
             self.thisRank = 'En placement'
