@@ -9,7 +9,7 @@ from fonctions.match import trouver_records, get_champ_list, get_version, trouve
 from aiohttp import ClientSession
 import plotly.express as px
 import asyncio
-from fonctions.channels_discord import get_embed
+from fonctions.channels_discord import get_embed, mention
 
 def option_stats_records(name, params, description='type de recherche'):
     option = Option(
@@ -989,6 +989,155 @@ class Recordslol(Extension):
             embed, file = get_embed(fig, 'stats')
             
             await ctx.send(embeds=embed, files=file)
+            
+
+    @interactions.extension_command(name="records_palmares",
+                                    description="Classement pour un record donné",
+                                    options=[
+                                        Option(
+                                            name='stat',
+                                            description='Nom du record (voir records) ou écrire champion pour le nombre de champions joués',
+                                            type=interactions.OptionType.STRING,
+                                            required=True
+                                        ),
+                                        Option(
+                                            name="saison",
+                                            description="saison lol ?",
+                                            type=interactions.OptionType.INTEGER,
+                                            required=False,
+                                            min_value=12,
+                                            max_value=saison),
+                                        Option(
+                                            name='mode',
+                                            description='quel mode de jeu ?',
+                                            type=interactions.OptionType.STRING,
+                                            required=False,
+                                            choices=[
+                                                Choice(name='ranked',
+                                                       value='RANKED'),
+                                                Choice(name='aram',
+                                                       value='ARAM'),
+                                                Choice(name='flex',
+                                                       value='FLEX')
+                                            ]
+                                        ),
+                                        Option(
+                                            name='champion',
+                                            description='focus sur un champion ?',
+                                            type=interactions.OptionType.STRING,
+                                            required=False
+                                        ),
+                                        Option(
+                                            name='joueur',
+                                            description='focus sur un joueur ?',
+                                            type=interactions.OptionType.STRING,
+                                            required=False
+                                        ),
+                                        Option(
+                                            name="compte_discord",
+                                            description='focus sur un compte discord ?',
+                                            type=interactions.OptionType.USER,
+                                            required=False
+                                        ),
+                                        Option(
+                                            name='view',
+                                            description='Global ou serveur ?',
+                                            type=interactions.OptionType.STRING,
+                                            required=False,
+                                            choices=[
+                                                Choice(name='global', value='global'),
+                                                Choice(name='serveur', value='serveur')
+                                            ]
+                                        )
+                                    ])
+    async def palmares(self,
+                        ctx: CommandContext,
+                        stat : str,
+                        saison: int = saison,
+                        mode: str = 'RANKED',
+                        champion: str = None,
+                        joueur:str = None,
+                        compte_discord: interactions.User = None,
+                        view : str = 'global'):
+
+
+            # on récupère les champions
+
+
+        stat = stat.lower()
+        # data
+        if view == 'global':
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
+                                     INNER JOIN tracker on tracker.index = matchs.joueur
+                                     where season = {saison}
+                                     and mode = '{mode}'
+                                     and time >= {self.time_mini[mode]}''',
+                                     index_col='id').transpose()
+
+        elif view == 'serveur':
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs, tracker
+                                         INNER JOIN tracker on tracker.index = matchs.joueur
+                                         where season = {saison}
+                                         and mode = '{mode}'
+                                         and server_id = '{int(ctx.guild_id)}'
+                                         and time >= {self.time_mini[mode]}''',
+                                         index_col='id').transpose()
+            
+        if champion != None:
+            fichier = fichier[fichier['champion'] == champion]
+            
+        if joueur != None:
+            fichier = fichier[fichier['joueur'] == joueur.lower()]
+            
+        if compte_discord != None:
+            fichier = fichier[fichier['discord'] == str(compte_discord.id)]
+            
+            
+            
+        if stat == 'champion':
+            fichier = fichier[['discord', 'champion', 'match_id']]
+            nb_row = fichier.shape[0] 
+            fichier = fichier.groupby(['champion', 'discord']).count().sort_values(by='match_id', ascending=False).reset_index()
+            nb_champion = len(fichier['champion'].unique())
+            fichier = fichier.head(10)   
+            
+            txt = ''
+                
+                
+                
+            for row, data in fichier.iterrows():
+                    txt += f'**{data["match_id"]}** - {mention(data["discord"], "membre")} ({data["champion"]})\n'
+                
+            embed = interactions.Embed(title=f'Palmarès {stat} ({mode}) S{saison}', description=txt)
+            embed.set_footer(text=f"{nb_row} matchs analysés | {nb_champion} champions différents")
+            
+            await ctx.send(embeds=embed)
+            
+        else:
+            
+            try:
+                fichier = fichier[['match_id', 'id_participant', 'discord', 'champion', stat]]
+                
+                nb_row = fichier.shape[0]
+                
+                fichier.sort_values(by=stat, ascending=False, inplace=True)
+                fichier = fichier.head(10)
+                
+                txt = ''
+                
+                
+                
+                for row, data in fichier.iterrows():
+                    txt += f'**{data[stat]}** - {mention(data["discord"], "membre")} [{data["champion"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1})\n'
+                
+                embed = interactions.Embed(title=f'Palmarès {stat} ({mode}) S{saison}', description=txt)
+                embed.set_footer(text=f"{nb_row} matchs analysés")
+                
+                
+                await ctx.send(embeds=embed)
+                
+            except KeyError:
+                await ctx.send("Ce record n'existe pas. Merci de regarder les records pour voir les noms disponibles.")
             
 
 
