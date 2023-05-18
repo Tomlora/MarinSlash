@@ -753,8 +753,8 @@ class matchlol():
 
         # on transpose les items
 
-        with open('./obj/item.json', encoding='utf-8') as mon_fichier:
-            self.data = json.load(mon_fichier)
+        async with self.session.get(f"https://ddragon.leagueoflegends.com/cdn/{self.version['n']['item']}/data/fr_FR/item.json") as itemlist:
+            self.data = await itemlist.json()
 
         self.data_item = list()
 
@@ -1957,7 +1957,7 @@ class matchlol():
         n = 0
         for image in self.thisItems:
             if image != 0:
-                im.paste(await get_image("items", image, self.session),
+                im.paste(await get_image("items", image, self.session, profil_version=self.version['n']['item']),
                          box=(350 + n, 10 + 190))
                 n += 100
 
