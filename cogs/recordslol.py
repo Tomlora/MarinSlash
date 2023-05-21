@@ -1097,8 +1097,18 @@ class Recordslol(Extension):
         if stat == 'champion':
             fichier = fichier[['discord', 'champion', 'match_id']]
             nb_row = fichier.shape[0] 
+            # on prépare le df count game
+            count_game = fichier.groupby(['discord']).count().reset_index()
+            count_game = count_game[['discord', 'champion']].rename(columns={'champion': 'count'})
+            
+            # on prépare le fichier final
             fichier = fichier.groupby(['champion', 'discord']).count().sort_values(by='match_id', ascending=False).reset_index()
             nb_champion = len(fichier['champion'].unique())
+            fichier = fichier.merge(count_game, on='discord', how='left')
+            
+            fichier['proportion'] = np.int8((fichier['match_id'] / fichier['count'])*100)
+            
+            
             fichier = fichier.head(10)   
             
             txt = ''
@@ -1106,7 +1116,7 @@ class Recordslol(Extension):
                 
                 
             for row, data in fichier.iterrows():
-                    txt += f'**{data["match_id"]}** - {mention(data["discord"], "membre")} ({data["champion"]})\n'
+                    txt += f'**{data["match_id"]}** - {mention(data["discord"], "membre")} ({data["champion"]}) - **{data["proportion"]}% des games**\n'
                 
             embed = interactions.Embed(title=f'Palmarès {stat} ({mode}) S{saison}', description=txt)
             embed.set_footer(text=f"{nb_row} matchs analysés | {nb_champion} champions différents")
@@ -1116,7 +1126,7 @@ class Recordslol(Extension):
         else:
             
             try:
-                fichier = fichier[['match_id', 'id_participant', 'discord', 'champion', stat]]
+                fichier = fichier[['match_id', 'id_participant', 'discord', 'champion', stat, 'datetime']]
                 
                 nb_row = fichier.shape[0]
                 
@@ -1128,7 +1138,7 @@ class Recordslol(Extension):
                 
                 
                 for row, data in fichier.iterrows():
-                    txt += f'**{data[stat]}** - {mention(data["discord"], "membre")} [{data["champion"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1})\n'
+                    txt += f'**{data[stat]}** - {mention(data["discord"], "membre")} [{data["champion"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {data["datetime"].day}/{data["datetime"].month}\n'
                 
                 embed = interactions.Embed(title=f'Palmarès {stat} ({mode}) S{saison}', description=txt)
                 embed.set_footer(text=f"{nb_row} matchs analysés")
