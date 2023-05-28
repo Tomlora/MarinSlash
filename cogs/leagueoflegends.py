@@ -13,6 +13,9 @@ from fonctions.channels_discord import verif_module
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import challengeslol
+import asyncio
+from datetime import datetime, timedelta
+from dateutil import tz
 
 
 
@@ -35,7 +38,6 @@ from fonctions.match import (matchlol,
                              )
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 
-from time import sleep
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -495,7 +497,7 @@ class LeagueofLegends(Extension):
                 "\n ** :tired_face: Tu as eu un afk dans ton équipe :'( **"
 
         # Série de victoire
-        if match_info.thisWinStreak == "True" and match_info.thisQ == "RANKED" and match_info.thisTime > 20:
+        if match_info.thisWinStreak == "True" and match_info.thisQ == "RANKED" and match_info.thisTime >= 15:
             # si égal à 0, le joueur commence une série avec 3 wins
             if suivi[summonerName.lower().replace(" ", "")]["serie"] == 0:
                 suivi[summonerName.lower().replace(" ", "")]["serie"] = 3
@@ -507,7 +509,7 @@ class LeagueofLegends(Extension):
                 suivi[summonerName.lower().replace(" ", "")]["serie"], 0)
 
             exploits = exploits + \
-                f"\n ** :fire: Ce joueur est en série de victoire avec {serie_victoire} victoires**"
+                f"\n ** :fire: Série de victoire avec {serie_victoire} victoires**"
 
         elif match_info.thisWinStreak == "False" and match_info.thisQ == "RANKED":  # si pas de série en soloq
             suivi[summonerName.lower().replace(" ", "")]["serie"] = 0
@@ -779,7 +781,7 @@ class LeagueofLegends(Extension):
             else:
                 await ctx.send(f"La game {str(i)} n'a pas été comptabilisée")
 
-            sleep(5)
+            await asyncio.sleep(5)
 
     async def printLive(self,
                         summonername,
@@ -948,11 +950,12 @@ class LeagueofLegends(Extension):
     async def loladd(self,
                      ctx: CommandContext,
                      summonername):
+
         try:
             if verif_module('league_ranked', int(ctx.guild.id)):
                 summonername = summonername.lower().replace(' ', '')
                 session = aiohttp.ClientSession()
-                me = await get_summoner_by_name(summonername, session)
+                me = await get_summoner_by_name(session, summonername)
                 puuid = me['puuid']
                 requete_perso_bdd(f'''
                                   
@@ -981,6 +984,7 @@ class LeagueofLegends(Extension):
                 await ctx.send('Module désactivé pour ce serveur')
         except:
             await ctx.send("Oops! Ce joueur n'existe pas.")
+            
             
     @interactions.extension_command(name='tracker_mes_parametres', description='Affiche les paramètres du tracker pour mes comptes')
     async def tracker_mes_parametres(self,
@@ -1269,7 +1273,7 @@ class LeagueofLegends(Extension):
                                         "(" + str(diflosses) + ") | LP :  "
                                         + str(suivi[key]['LP']) + "(" + str(difLP) + ")    " + emote, inline=False)
 
-                    if difwins + diflosses > 0:  # si supérieur à 0, le joueur a joué
+                    if (difwins + diflosses > 0):  # si supérieur à 0, le joueur a joué
                             sql += f'''UPDATE suivi_24h
                             SET wins = {suivi[key]['wins']},
                             losses = {suivi[key]['losses']},
@@ -1309,6 +1313,7 @@ class LeagueofLegends(Extension):
         
         if isOwner_slash(ctx):
             await self.update_24h()
+            # await ctx.delete()
         
         else:
             await ctx.send("Tu n'as pas l'autorisation nécessaire")
@@ -1390,6 +1395,122 @@ class LeagueofLegends(Extension):
             await ctx.send(f'Le compte LoL {summonername} a été link avec <@{int(member.id)}>')
         else:
             await ctx.send(f"Le compte LoL {summonername} n'existe pas dans la base de donnée")
+            
+    @interactions.extension_command(name='recap_journalier',
+                                    description='Mon recap sur les 24 dernières heures',
+                                    options=[
+                                        Option(
+                                            name='summonername',
+                                            description='pseudo lol',
+                                            type=interactions.OptionType.STRING,
+                                            required=True),
+                                        Option(
+                                            name='mode',
+                                            description='mode de jeu',
+                                            type=interactions.OptionType.STRING,
+                                            required=False,
+                                            choices=[
+                                                Choice(name='Ranked',
+                                                       value='RANKED'),
+                                                Choice(name='Aram', value='ARAM')]
+                                        ),
+                                        Option(
+                                            name='observation',
+                                            description='Quelle vision ?',
+                                            type=interactions.OptionType.STRING,
+                                            required=False,
+                                            choices=[
+                                                Choice(name='24h', value='24h'),
+                                                Choice(name="Aujourd'hui", value='today')
+                                            ]
+                                        )])
+    async def my_recap(self,
+                   ctx: CommandContext,
+                   summonername:str,
+                   mode:str=None,
+                   observation:str='24h'):
+
+        summonername = summonername.lower()
+        
+        timezone=tz.gettz('Europe/Paris')
+
+        
+        if mode == None:
+            if observation == '24h':
+                df =lire_bdd_perso(f'''SELECT id, match_id, champion, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
+                                   where datetime >= :date
+                                   and joueur='{summonername}' ''' , 
+                        params={'date': datetime.now(timezone) - timedelta(days=1)},
+                        index_col='id').transpose()
+            elif observation == 'today':
+                df =lire_bdd_perso(f'''SELECT id, match_id, champion, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
+                                where EXTRACT(DAY FROM datetime) = :jour
+                                AND EXTRACT(MONTH FROM datetime) = :mois
+                                AND EXTRACT(YEAR FROM datetime) = :annee
+                                and joueur='{summonername}' ''' , 
+                                params={'jour': datetime.now(timezone).day,
+                                        'mois': datetime.now(timezone).month,
+                                        'annee' : datetime.now(timezone).year},
+                                index_col='id').transpose()
+        else:
+            if observation == '24h':
+                df =lire_bdd_perso(f'''SELECT id, match_id, champion, kills, deaths, assists, mode, victoire, ecart_lp, datetime from matchs
+                                   where datetime >= :date
+                                   and joueur='{summonername}'
+                                   and mode = '{mode}' ''' , 
+                        params={'date': datetime.now(timezone) - timedelta(days=1)},
+                        index_col='id').transpose()
+
+            elif observation == 'today':
+
+                df =lire_bdd_perso(f'''SELECT id, match_id, champion, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
+                                where EXTRACT(DAY FROM datetime) = :jour
+                                AND EXTRACT(MONTH FROM datetime) = :mois
+                                AND EXTRACT(YEAR FROM datetime) = :annee
+                                and joueur='{summonername}'
+                                and mode = '{mode}' ''' , 
+                                params={'jour': datetime.now(timezone).day,
+                                        'mois': datetime.now(timezone).month,
+                                        'annee' : datetime.now(timezone).year},
+                                index_col='id').transpose()            
+        
+        if df.shape[0] >= 1:
+            
+            # on convertit dans le bon fuseau horaire
+            df['datetime'] = pd.to_datetime(df['datetime'], utc=True).dt.tz_convert('Europe/Paris')
+
+
+            df['datetime'] = df['datetime'].dt.strftime('%d/%m %H:%M')
+
+            df['victoire'] = df['victoire'].map({True: 'Victoire', False: 'Défaite'})
+            
+            txt = ''
+            for index, match in df.iterrows():
+                txt += f'({match["datetime"]}) **{match["champion"]}** [{match["mode"]}] **{match["victoire"]}** | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%) | LP: **{match["ecart_lp"]}**\n'
+ 
+
+            total_kda = f'Total : **{df["kills"].sum()}**/**{df["deaths"].sum()}**/**{df["assists"].sum()}**  | Moyenne : **{df["kills"].mean():.2f}**/**{df["deaths"].mean():.2f}**/**{df["assists"].mean():.1f}** ({df["kp"].mean():.2f}%) '
+            total_lp = f'**{df["ecart_lp"].sum()}**'
+            
+            nb_victoire_total = df['victoire'].value_counts().get('Victoire', 0)
+            nb_defaite_total = df['victoire'].value_counts().get('Défaite', 0)
+            
+            total_victoire = f'Victoire : **{nb_victoire_total}** | Défaite : **{nb_defaite_total}** '
+            data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {
+                                'index': summonername.lower()}).fetchall()
+            color = rgb_to_discord(data[0][0], data[0][1], data[0][2]) 
+            embed = interactions.Embed(
+                title=f" Recap **{summonername.upper()} **", color=color)
+            
+            embed.add_field(name=f'Historique {observation.upper()}({df.shape[0]} parties)', value=txt) 
+            embed.add_field(name='KDA', value=total_kda)
+            embed.add_field(name='LP', value=f'{total_lp} ({total_victoire} , {nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%)')      
+            
+            await ctx.send(embeds=embed)          
+                
+                        
+        else:
+            await ctx.send('Pas de game enregistré sur les dernières 24h pour ce joueur')
 
 
 def setup(bot):
