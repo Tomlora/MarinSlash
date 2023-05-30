@@ -15,6 +15,7 @@ from fonctions.gestion_challenge import challengeslol
 import asyncio
 from datetime import datetime, timedelta
 from dateutil import tz
+from interactions.ext.paginator import Page, Paginator
 
 
 
@@ -1445,13 +1446,13 @@ class LeagueofLegends(Extension):
         
         if mode == None:
             if observation != 'today':
-                df =lire_bdd_perso(f'''SELECT id, match_id, champion, id_participant, mvp, time, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
+                df =lire_bdd_perso(f'''SELECT id, match_id, champion, id_participant, mvp, time, kills, deaths, assists, mode, kp, kda, victoire, ecart_lp, datetime from matchs
                                    where datetime >= :date
                                    and joueur='{summonername}' ''' , 
                         params={'date': datetime.now(timezone) - dict_timedelta.get(observation)},
                         index_col='id').transpose()
             else:
-                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
+                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, mode, kp, kda, victoire, ecart_lp, datetime from matchs
                                 where EXTRACT(DAY FROM datetime) = :jour
                                 AND EXTRACT(MONTH FROM datetime) = :mois
                                 AND EXTRACT(YEAR FROM datetime) = :annee
@@ -1462,7 +1463,7 @@ class LeagueofLegends(Extension):
                                 index_col='id').transpose()
         else:
             if observation != 'today':
-                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, mode, victoire, ecart_lp, datetime from matchs
+                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, mode, victoire, kda, ecart_lp, datetime from matchs
                                    where datetime >= :date
                                    and joueur='{summonername}'
                                    and mode = '{mode}' ''' , 
@@ -1471,7 +1472,7 @@ class LeagueofLegends(Extension):
 
             else:
 
-                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
+                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, mode, kp, victoire, kda, ecart_lp, datetime from matchs
                                 where EXTRACT(DAY FROM datetime) = :jour
                                 AND EXTRACT(MONTH FROM datetime) = :mois
                                 AND EXTRACT(YEAR FROM datetime) = :annee
@@ -1487,10 +1488,23 @@ class LeagueofLegends(Extension):
             # on convertit dans le bon fuseau horaire
             df['datetime'] = pd.to_datetime(df['datetime'], utc=True).dt.tz_convert('Europe/Paris')
 
+            df.sort_values(by='datetime', ascending=False, inplace=True)
 
             df['datetime'] = df['datetime'].dt.strftime('%d/%m %H:%M')
 
             df['victoire'] = df['victoire'].map({True: 'Victoire', False: 'Défaite'})
+            
+            # Total
+            total_kda = f'Total : **{df["kills"].sum()}**/**{df["deaths"].sum()}**/**{df["assists"].sum()}**  | Moyenne : **{df["kills"].mean():.2f}**/**{df["deaths"].mean():.2f}**/**{df["assists"].mean():.1f}** (**{df["kda"].mean():.2f}**) | KP : **{df["kp"].mean():.2f}**% '
+            total_lp = f'**{df["ecart_lp"].sum()}**'
+            
+            duree_moyenne = df['time'].mean()
+            mvp_moyenne = df['mvp'].mean()
+            
+            nb_victoire_total = df['victoire'].value_counts().get('Victoire', 0)
+            nb_defaite_total = df['victoire'].value_counts().get('Défaite', 0)
+            
+            total_victoire = f'Victoire : **{nb_victoire_total}** | Défaite : **{nb_defaite_total}** '
             
             # On prépare l'embed
             data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {
@@ -1505,10 +1519,24 @@ class LeagueofLegends(Extension):
             txt = ''
             n = 1
             count = 0
+            part = 1
+            embeds = []
             # On affiche les résultats des matchs
             for index, match in df.iterrows():
                 txt += f'({match["datetime"]}) [{match["champion"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}) [{match["mode"]}] **{match["victoire"]}** | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%) | LP: **{match["ecart_lp"]}**\n'
  
+ 
+                if embed.fields: # si il y a déjà des fields dans l'embed
+                    if len(txt) + sum(len(field.value) for field in embed.fields) > 4500: # si le texte devient trop long, on crée un nouvel embed
+                        # on ajoute ce recap dans le premier embed
+                        embed.add_field(name='KDA', value=total_kda)
+                        embed.add_field(name='LP', value=f'{total_lp} ({total_victoire} , {nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%)')
+                        embed.add_field(name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : {mvp_moyenne:.1f}')  
+                        embeds.append(embed)
+                        embed = interactions.Embed(
+                                    title=f" Recap **{summonername.upper()} ** {observation.upper()} Part {part}", color=color)
+                        part = part + 1
+                    
                 # Vérifier si l'index est un multiple de 8
                 if count % 4 == 0 and count != 0:
                     
@@ -1524,28 +1552,28 @@ class LeagueofLegends(Extension):
             if txt:
                 embed.add_field(name=f'Historique (suite)', value=txt)
                 
-            # Total
-            total_kda = f'Total : **{df["kills"].sum()}**/**{df["deaths"].sum()}**/**{df["assists"].sum()}**  | Moyenne : **{df["kills"].mean():.2f}**/**{df["deaths"].mean():.2f}**/**{df["assists"].mean():.1f}** ({df["kp"].mean():.2f}%) '
-            total_lp = f'**{df["ecart_lp"].sum()}**'
-            
-            duree_moyenne = df['time'].mean()
-            mvp_moyenne = df['mvp'].mean()
-            
-            nb_victoire_total = df['victoire'].value_counts().get('Victoire', 0)
-            nb_defaite_total = df['victoire'].value_counts().get('Défaite', 0)
-            
-            total_victoire = f'Victoire : **{nb_victoire_total}** | Défaite : **{nb_defaite_total}** '
+
             
 
             
             # on ajoute les champs dans l'embed
             # embed.add_field(name=f'Historique ({df.shape[0]} parties)', value=txt) 
-            embed.add_field(name='KDA', value=total_kda)
-            embed.add_field(name='LP', value=f'{total_lp} ({total_victoire} , {nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%)')
-            embed.add_field(name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : {mvp_moyenne:.1f}')      
+ 
             
             # On envoie l'embed
-            await ctx.send(embeds=embed)          
+            if len(embeds) == 0:  # si il n'y a qu'un seul embed, on l'envoie normalement
+                # on ajoute ces champs dans le premier embed
+                embed.add_field(name='KDA', value=total_kda)
+                embed.add_field(name='LP', value=f'{total_lp} ({total_victoire} , {nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%)')
+                embed.add_field(name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : {mvp_moyenne:.1f}')     
+                await ctx.send(embeds=embed)
+            else: # sinon on utilise le paginator
+                embeds.append(embed) # on ajoute le dernier embed
+                await Paginator(
+                    client=self.bot,
+                    ctx=ctx,
+                    pages=[Page(embed_selected.title, embed_selected) for embed_selected in embeds]
+                ).run()                          
                 
                         
         else:
