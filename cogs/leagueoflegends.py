@@ -2,7 +2,6 @@ import os
 import sys
 import aiohttp
 import pandas as pd
-import datetime
 import warnings
 import interactions
 from interactions import Option, Extension, CommandContext, Choice
@@ -1297,7 +1296,7 @@ class LeagueofLegends(Extension):
 
     async def lolsuivi(self):
 
-        currentHour = str(datetime.datetime.now().hour)
+        currentHour = str(datetime.now().hour)
 
         if currentHour == str(heure_lolsuivi):
             await self.update_24h()
@@ -1421,6 +1420,10 @@ class LeagueofLegends(Extension):
                                             required=False,
                                             choices=[
                                                 Choice(name='24h', value='24h'),
+                                                Choice(name='48h', value='48h'),
+                                                Choice(name='72h', value='72h'),
+                                                Choice(name='96h', value='96h'),
+                                                Choice(name='Semaine', value='Semaine'),
                                                 Choice(name="Aujourd'hui", value='today')
                                             ]
                                         )])
@@ -1430,20 +1433,25 @@ class LeagueofLegends(Extension):
                    mode:str=None,
                    observation:str='24h'):
 
+
         summonername = summonername.lower()
         
         timezone=tz.gettz('Europe/Paris')
+        
+        dict_timedelta = {'24h': timedelta(days=1), '48h' : timedelta(days=2), '72h' : timedelta(days=3), '96h' : timedelta(days=4), 'Semaine' : timedelta(days=7)}
 
+        await ctx.defer(ephemeral=False)
+        
         
         if mode == None:
-            if observation == '24h':
-                df =lire_bdd_perso(f'''SELECT id, match_id, champion, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
+            if observation != 'today':
+                df =lire_bdd_perso(f'''SELECT id, match_id, champion, id_participant, mvp, time, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
                                    where datetime >= :date
                                    and joueur='{summonername}' ''' , 
-                        params={'date': datetime.now(timezone) - timedelta(days=1)},
+                        params={'date': datetime.now(timezone) - dict_timedelta.get(observation)},
                         index_col='id').transpose()
-            elif observation == 'today':
-                df =lire_bdd_perso(f'''SELECT id, match_id, champion, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
+            else:
+                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
                                 where EXTRACT(DAY FROM datetime) = :jour
                                 AND EXTRACT(MONTH FROM datetime) = :mois
                                 AND EXTRACT(YEAR FROM datetime) = :annee
@@ -1453,17 +1461,17 @@ class LeagueofLegends(Extension):
                                         'annee' : datetime.now(timezone).year},
                                 index_col='id').transpose()
         else:
-            if observation == '24h':
-                df =lire_bdd_perso(f'''SELECT id, match_id, champion, kills, deaths, assists, mode, victoire, ecart_lp, datetime from matchs
+            if observation != 'today':
+                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, mode, victoire, ecart_lp, datetime from matchs
                                    where datetime >= :date
                                    and joueur='{summonername}'
                                    and mode = '{mode}' ''' , 
-                        params={'date': datetime.now(timezone) - timedelta(days=1)},
+                        params={'date': datetime.now(timezone) - dict_timedelta.get(observation)},
                         index_col='id').transpose()
 
-            elif observation == 'today':
+            else:
 
-                df =lire_bdd_perso(f'''SELECT id, match_id, champion, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
+                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, mode, kp, victoire, ecart_lp, datetime from matchs
                                 where EXTRACT(DAY FROM datetime) = :jour
                                 AND EXTRACT(MONTH FROM datetime) = :mois
                                 AND EXTRACT(YEAR FROM datetime) = :annee
@@ -1484,28 +1492,59 @@ class LeagueofLegends(Extension):
 
             df['victoire'] = df['victoire'].map({True: 'Victoire', False: 'Défaite'})
             
-            txt = ''
-            for index, match in df.iterrows():
-                txt += f'({match["datetime"]}) **{match["champion"]}** [{match["mode"]}] **{match["victoire"]}** | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%) | LP: **{match["ecart_lp"]}**\n'
- 
+            # On prépare l'embed
+            data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {
+                                'index': summonername.lower()}).fetchall()
+            color = rgb_to_discord(data[0][0], data[0][1], data[0][2]) 
+            
+            # On crée l'embed
+            embed = interactions.Embed(
+                title=f" Recap **{summonername.upper()} ** {observation.upper()}", color=color)
+            
 
+            txt = ''
+            n = 1
+            count = 0
+            # On affiche les résultats des matchs
+            for index, match in df.iterrows():
+                txt += f'({match["datetime"]}) [{match["champion"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}) [{match["mode"]}] **{match["victoire"]}** | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%) | LP: **{match["ecart_lp"]}**\n'
+ 
+                # Vérifier si l'index est un multiple de 8
+                if count % 4 == 0 and count != 0:
+                    
+                    if n == 1:
+                        embed.add_field(name=f'Historique ({df.shape[0]} parties)', value=txt)
+                    else:
+                        embed.add_field(name=f'Historique (suite)', value=txt)
+                    n = n+1 
+                    txt = ''
+                    
+                count = count + 1    
+            # Vérifier si la variable txt contient des données non ajoutées        
+            if txt:
+                embed.add_field(name=f'Historique (suite)', value=txt)
+                
+            # Total
             total_kda = f'Total : **{df["kills"].sum()}**/**{df["deaths"].sum()}**/**{df["assists"].sum()}**  | Moyenne : **{df["kills"].mean():.2f}**/**{df["deaths"].mean():.2f}**/**{df["assists"].mean():.1f}** ({df["kp"].mean():.2f}%) '
             total_lp = f'**{df["ecart_lp"].sum()}**'
+            
+            duree_moyenne = df['time'].mean()
+            mvp_moyenne = df['mvp'].mean()
             
             nb_victoire_total = df['victoire'].value_counts().get('Victoire', 0)
             nb_defaite_total = df['victoire'].value_counts().get('Défaite', 0)
             
             total_victoire = f'Victoire : **{nb_victoire_total}** | Défaite : **{nb_defaite_total}** '
-            data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {
-                                'index': summonername.lower()}).fetchall()
-            color = rgb_to_discord(data[0][0], data[0][1], data[0][2]) 
-            embed = interactions.Embed(
-                title=f" Recap **{summonername.upper()} **", color=color)
             
-            embed.add_field(name=f'Historique {observation.upper()}({df.shape[0]} parties)', value=txt) 
+
+            
+            # on ajoute les champs dans l'embed
+            # embed.add_field(name=f'Historique ({df.shape[0]} parties)', value=txt) 
             embed.add_field(name='KDA', value=total_kda)
-            embed.add_field(name='LP', value=f'{total_lp} ({total_victoire} , {nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%)')      
+            embed.add_field(name='LP', value=f'{total_lp} ({total_victoire} , {nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%)')
+            embed.add_field(name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : {mvp_moyenne:.1f}')      
             
+            # On envoie l'embed
             await ctx.send(embeds=embed)          
                 
                         
