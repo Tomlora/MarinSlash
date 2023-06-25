@@ -33,7 +33,7 @@ async def on_message_create(message: MessageCreate):
     ----------
     message : interactions.Message
     """
-     
+
     channel = message.message.channel     # get id channel
     # identification du channel
 
@@ -43,7 +43,7 @@ async def on_message_create(message: MessageCreate):
         guild = message.message.guild
         role = get(guild.roles, name="Muted")  # get the muted role
 
-        if role.id in message.member.roles:  # si l'user a le role mute, on supprime son msg
+        if role.id in message.message.author.roles:  # si l'user a le role mute, on supprime son msg
             await message.delete()
 
     # await bot.process_commands(
@@ -105,9 +105,9 @@ async def on_guild_member_add(member: MemberAdd):
     """
 
     # get le serveur discord
-    chan_discord_pm = chan_discord(int(member.member.guild_id))
+    chan_discord_pm = chan_discord(int(member.guild.id))
 
-    guild = await bot.fetch_guild(member.member.guild.id)
+    guild = await bot.fetch_guild(member.guild.id)
     # identifier le channel d'accueil
     
     channel = await bot.fetch_channel(chan_discord_pm.chan_accueil)
@@ -128,13 +128,12 @@ async def on_guild_member_remove(member: MemberRemove):
 
     Parameters
     ----------
-    member : interactions.Member
-    """
+    member : interactions.Member"""
 
     # get le serveur discord
-    chan_discord_pm = chan_discord(int(member.guild_id))
+    chan_discord_pm = chan_discord(int(member.guild.id))
     
-    guild = await bot.fetch_guild(member.member.guild.id)
+    guild = await bot.fetch_guild(member.guild.id)
     # identifier le channel d'accueil
     
     channel = await bot.fetch_channel(chan_discord_pm.chan_accueil)
@@ -151,7 +150,7 @@ async def on_guild_member_remove(member: MemberRemove):
 
 # @listen()
 # async def on_command_error(ctx: interactions.CommandContext, error: commands.errors):
-#     """Event qui se déclenche lorsque le bot rencontre une erreur.
+#     """Event qui se déclenche lorsque le bot rencontre une erreur. """"""
 
 #     Parameters
 #     ----------
