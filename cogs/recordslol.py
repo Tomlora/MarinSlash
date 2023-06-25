@@ -391,10 +391,14 @@ class Recordslol(Extension):
                 name="Indisponible", value="Aucun joueur n'a atteint le minimum requis : 10 games")
 
         embed3.set_footer(text=f'Version {Version} by Tomlora')
+        
+        embeds = [embed1, embed2, embed3]
 
         paginator = Paginator.create_from_embeds(
-            client=self.bot,
-            embeds=[embed1, embed2, embed3])
+            self.bot,
+            *embeds)
+        paginator.show_select_menu = True
+        await paginator.send(ctx)
 
 
     @slash_command(name="records_personnel_s12",
@@ -480,9 +484,14 @@ class Recordslol(Extension):
         embed2.set_footer(text=f'Version {Version} by Tomlora')
         embed3.set_footer(text=f'Version {Version} by Tomlora')
 
+        embeds = [embed1, embed2, embed3]
         paginator = Paginator.create_from_embeds(
             self.bot,
-            embeds=[embed1, embed2, embed3])
+            *embeds)
+        
+        paginator.show_select_menu = True
+        
+        await paginator.send(ctx)
 
     parameters_communs = [
         SlashCommandOption(

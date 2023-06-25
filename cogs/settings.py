@@ -54,9 +54,13 @@ class Settings(Extension):
                     embed2.add_field(
                         name=variable, value=f'<#{valeur}>', inline=True)
 
+            embeds = [embed1, embed2]
             paginator = Paginator.create_from_embeds(
-                client=self.bot,
-                embeds=[embed1, embed2])
+                self.bot,
+                *embeds)
+            
+            paginator.show_select_menu = True
+            await paginator.send(ctx)
 
         else:
             await ctx.send("Tu n'as pas l'autorisation.")

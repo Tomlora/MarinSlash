@@ -11,7 +11,6 @@ import cv2
 import numpy as np
 import os
 from aiohttp import ClientSession, ClientError
-from interactions.ext.paginators import Paginator
 from interactions import listen, slash_command
 
 import aiohttp

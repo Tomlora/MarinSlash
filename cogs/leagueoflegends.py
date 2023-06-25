@@ -1277,7 +1277,7 @@ class LeagueofLegends(Extension):
                     await channel_tracklol.send(embeds=embed)
                     await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
 
-    @Task.create(TimeTrigger(hour=3))
+    @Task.create(TimeTrigger(hour=4))
     async def lolsuivi(self):
 
         await self.update_24h()
@@ -1569,9 +1569,14 @@ class LeagueofLegends(Extension):
                 await ctx.send(embeds=embed)
             else: # sinon on utilise le paginator
                 embeds.append(embed) # on ajoute le dernier embed
-                paginator = Paginator(
-                    client=self.bot,
-                    embeds=embeds)
+                
+                
+                paginator = Paginator.create_from_embeds(
+                    self.bot,
+                    *embeds)
+                
+                paginator.show_select_menu = True
+                await paginator.send(ctx)
                        
                 
                         

@@ -155,7 +155,7 @@ class Aram(Extension):
         embed2.add_field(name='CHALLENGER', value="2000 < LP")
 
         embed3 = interactions.Embed(
-            title='Calcul points', description="MMR", color=interactions.Color.YELLOW)
+            title='Calcul points', description="MMR", color=interactions.Color.random())
 
         embed3.add_field(name="5 premières games", value=f"5 premières games \n" +
                          "V : **+50**  | D : **0**", inline=False)
@@ -176,10 +176,15 @@ class Aram(Extension):
             bonus_elo = bonus_elo + f"{key} : **-{value}** \n"
 
         embed3.add_field(name="Malus elo", value=bonus_elo, inline=False)
+        
+        embeds = [embed, embed2, embed3]
 
         paginator = Paginator.create_from_embeds(
-            client=self.bot,
-            embeds=[embed, embed2, embed3])
+            self.bot,
+            *embeds)
+        
+        paginator.show_select_menu = True
+        await paginator.send(ctx)
 
     @slash_command(name='carton',
                    description='Activation/Désactivation',
@@ -341,7 +346,8 @@ class Aram(Extension):
                     await channel_tracklol.send(embeds=embed)
                     await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
 
-    @Task.create(TimeTrigger(hour=4))
+
+    @Task.create(TimeTrigger(hour=5))
     async def lolsuivi_aram(self):
 
         currentHour = str(datetime.datetime.now().hour)
