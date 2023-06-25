@@ -73,6 +73,7 @@ class tft(Extension):
     async def stats_tft(self, summonername, session, idgames: int = 0, ):
         match_detail, id_match, puuid = await matchtft_by_puuid(summonername, idgames, session)
 
+        summonername = summonername.lower()
         # identifier le joueur via son puuid
 
         dic = {
@@ -111,7 +112,7 @@ class tft(Extension):
 
         for augment in augments:
             augment = augment.replace(
-                'TFT6_Augment_', '').replace('TFT7_Augment_', '').replace('TFT8_Augment_', '')
+                'TFT6_Augment_', '').replace('TFT7_Augment_', '').replace('TFT8_Augment_', '').replace('TFT9_Augment_', '')
             msg_augment = f'{msg_augment} | {augment}'
 
         # Classement
@@ -157,6 +158,8 @@ class tft(Extension):
 
         # Stats
 
+        suivi_profil = lire_bdd('suivitft', 'dict')
+        
         try:
             profil = await get_stats_ranked(session, summonername)
             profil = profil[0]
@@ -171,7 +174,6 @@ class tft(Extension):
             # Gain/Perte de LP
 
             try:
-                suivi_profil = lire_bdd('suivitft', 'dict')
                 lp_before_this_game = int(suivi_profil[summonername]['LP'])
                 difLP = lp - lp_before_this_game
             except:
@@ -189,8 +191,6 @@ class tft(Extension):
             rank = '0'
             lp = 0
             difLP = 0
-
-        summonername = summonername.lower()
 
         if ranked:
             if difLP > 0:
@@ -223,7 +223,11 @@ class tft(Extension):
         for i in range(1, 9):
             nbgames += suivi_profil[summonername]['top' + str(i)]
             somme_rank += suivi_profil[summonername]['top' + str(i)] * i
-        score_avg = round(somme_rank / nbgames, 1)  
+        
+        if nbgames != 0:    
+            score_avg = round(somme_rank / nbgames, 1)  
+        else:
+            score_avg = classement
 
         # Embed
 
@@ -243,7 +247,7 @@ class tft(Extension):
                             8: ':eight:'}
 
         embed = interactions.Embed(
-            title=f"** {summonername.upper()} ** vient de finir ** {emote_classement[classement]}ème ** sur tft (R : {last_round})", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
+            title=f"** {summonername.upper()} ** vient de finir ** {emote_classement[classement]}ème ** sur tft (R : {last_round}) ({thisQ})", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
 
         embed.add_field(name="Durée de la game :",
                         value=f'{thisTime} minutes')
@@ -271,7 +275,7 @@ class tft(Extension):
 
         # [0] est l'index
         for set in df_traits.iterrows():
-            name = set[1]['name'].replace('Set8_', '')
+            name = set[1]['name'].replace('Set9_', '')
             tier_current = set[1]['tier_current']
             tier_total = set[1]['tier_total']
             nb_units = set[1]['num_units']
@@ -293,7 +297,7 @@ class tft(Extension):
         inline = False
         for mob in df_mobs.iterrows():
             monster_name = mob[1]['character_id'].replace(
-                'tft8_', '').replace('TFT8_', '')
+                'tft9_', '').replace('TFT9_', '')
             monster_tier = mob[1]['tier']
             rarity = mob[1]['rarity']
             embed.add_field(name=f'{monster_name} ({dic_rarity[rarity]}:moneybag:)',
