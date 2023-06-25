@@ -7,6 +7,8 @@ from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso
 from fonctions.channels_discord import chan_discord
 from fonctions.params import Version
 import traceback
+from interactions.api.events import MessageCreate, GuildJoin, GuildLeft, MemberAdd, MemberRemove
+from interactions import listen
 
 
 # Duplicate table
@@ -23,25 +25,22 @@ id_bot = os.environ.get('bot_marin')
 bot = interactions.Client(token=token, intents=interactions.Intents.ALL)
 
 
-@bot.event
-async def on_message_create(message: interactions.Message):
+@listen()
+async def on_message_create(message: MessageCreate):
     """Event qui se déclenche à l'envoi d'un msg
 
     Parameters
     ----------
     message : interactions.Message
     """
-
-    channel = message.channel_id  # get id channel
+     
+    channel = message.message.channel     # get id channel
     # identification du channel
-    channel = await interactions.get(client=bot,
-                                     obj=interactions.Channel,
-                                     object_id=channel)
 
     # si le msg n'est pas en dm et qu'il n'est pas le bot
-    if (channel.type != interactions.ChannelType.DM) and (int(message.author.id) != int(id_bot)):
+    if (channel.type != interactions.ChannelType.DM) and (int(message.message.author.id) != int(id_bot)):
 
-        guild = await message.get_guild()
+        guild = message.message.guild
         role = get(guild.roles, name="Muted")  # get the muted role
 
         if role.id in message.member.roles:  # si l'user a le role mute, on supprime son msg
@@ -51,8 +50,8 @@ async def on_message_create(message: interactions.Message):
     #     message)  # Overriding the default provided on_message forbids any extra commands from running. To fix this, add a bot.process_commands(message) line at the end of your on_message.
 
 
-@bot.event
-async def on_guild_create(guild: interactions.Guild):
+@listen()
+async def on_guild_create(guild: GuildJoin):
     """Event qui se déclenche lorsque le bot rejoint un serveur, ou redétecte un serveur indisponible.
 
     Parameters
@@ -61,10 +60,11 @@ async def on_guild_create(guild: interactions.Guild):
     """
 
     # on_guild_create peut marcher si le serveur n'est pas disponible, on va donc check si on l'a dans la bdd ou pas.
-    if lire_bdd_perso(f'''SELECT server_id from channels_discord where server_id = {int(guild.id)}''', index_col='server_id').shape[1] != 1:
+    if lire_bdd_perso(f'''SELECT server_id from channels_discord where server_id = {int(guild.guild_id)}''', index_col='server_id').shape[1] != 1:
         # si on l'a pas, on l'ajoute
         text_channel_list = []
-        for channel in await guild.get_all_channels():
+        
+        for channel in guild.guild.channels:
             text_channel_list.append(channel.id)
 
         requete_perso_bdd(f'''INSERT INTO channels_discord(
@@ -72,31 +72,31 @@ async def on_guild_create(guild: interactions.Guild):
                         VALUES (:server_id, :tom, :admin, :chan, :chan, :chan, :chan, :chan, :chan, :chan, :role_admin);
                         INSERT INTO channels_module(server_id)
                         VALUES (:server_id);''',
-                          {'server_id': int(guild.id),
-                           'chan': int(text_channel_list[0]),
+                          {'server_id': int(guild.guild_id),
+                           'chan': int(text_channel_list[0].id),
                            'tom': 298418038460514314,
-                           'admin': int(guild.owner_id),
+                           'admin': int(guild.guild.get_owner().id),
                            'role_admin': 0})
 
     else:  # si on l'a déjà, il vient de rejoindre à nouveau le serveur.
-        requete_perso_bdd(f'''UPDATE channels_module SET activation = :activation where server_id = :server_id''', {'server_id': int(guild.id),
+        requete_perso_bdd(f'''UPDATE channels_module SET activation = :activation where server_id = :server_id''', {'server_id': int(guild.guild_id),
                                                                                                                    'activation': 'true'})
 
 
-@bot.event
-async def on_guild_delete(guild: interactions.Guild):
+@listen()
+async def on_guild_delete(guild: GuildLeft):
     """Event qui se déclenche quand le bot quitte un serveur
 
     Parameters
     ----------
     guild : interactions.Guild
     """
-    requete_perso_bdd(f'''UPDATE channels_module SET activation = :activation where server_id = :server_id''', {'server_id': int(guild.id),
+    requete_perso_bdd(f'''UPDATE channels_module SET activation = :activation where server_id = :server_id''', {'server_id': int(guild.guild_id),
                                                                                                                 'activation': 'false'})
 
 
-@bot.event
-async def on_guild_member_add(member: interactions.Member):
+@listen()
+async def on_guild_member_add(member: MemberAdd):
     """Event qui se déclenche quand un membre rejoint un serveur
 
     Parameters
@@ -105,28 +105,25 @@ async def on_guild_member_add(member: interactions.Member):
     """
 
     # get le serveur discord
-    chan_discord_pm = chan_discord(int(member.guild_id))
+    chan_discord_pm = chan_discord(int(member.member.guild_id))
 
-    # identifier le serveur
-    guild = await interactions.get(client=bot,
-                                   obj=interactions.Guild,
-                                   object_id=member.guild_id)
+    guild = await bot.fetch_guild(member.member.guild.id)
     # identifier le channel d'accueil
-    channel = await interactions.get(client=bot,
-                                     obj=interactions.Channel,
-                                     object_id=chan_discord_pm.chan_accueil)
+    
+    channel = await bot.fetch_channel(chan_discord_pm.chan_accueil)
     # msg de bienvenue
+
     embed = interactions.Embed(title=f'Bienvenue chez les {guild.name}',
-                               description=f'Hello {member.name}, tu es notre {guild.member_count}ème membre !',
-                               color=interactions.Color.BLURPLE)
-    embed.set_thumbnail(url=member.avatar_url)
+                               description=f'Hello {member.member.nickname}, tu es notre {guild.member_count}ème membre !',
+                               color=interactions.Color.random())
+    embed.set_thumbnail(url=member.member.avatar.as_url())
     embed.set_footer(text=f'Version {Version} by Tomlora')
 
     await channel.send(embeds=embed)
 
 
-@bot.event
-async def on_guild_member_remove(member: interactions.Member):
+@listen()
+async def on_guild_member_remove(member: MemberRemove):
     """Event qui se déclenche quand un membre quitte un serveur
 
     Parameters
@@ -137,73 +134,56 @@ async def on_guild_member_remove(member: interactions.Member):
     # get le serveur discord
     chan_discord_pm = chan_discord(int(member.guild_id))
     
-    # identifier le serveur
-    guild = await interactions.get(client=bot,
-                                   obj=interactions.Guild,
-                                   object_id=member.guild_id)
-    
+    guild = await bot.fetch_guild(member.member.guild.id)
     # identifier le channel d'accueil
-    channel = await interactions.get(client=bot,
-                                     obj=interactions.Channel,
-                                     object_id=chan_discord_pm.chan_accueil)
+    
+    channel = await bot.fetch_channel(chan_discord_pm.chan_accueil)
+    
     # msg de départ
     embed = interactions.Embed(title=f'Départ des {guild.name}',
-                               description=f'Au revoir {member.name}, nous sommes encore {guild.member_count} membres !',
-                               color=interactions.Color.BLURPLE)
-    embed.set_thumbnail(url=member.avatar_url)
+                               description=f'Au revoir {member.member.nickname}, nous sommes encore {guild.member_count} membres !',
+                               color=interactions.Color.random())
+    embed.set_thumbnail(url=member.member.avatar.as_url())
     embed.set_footer(text=f'Version {Version} by Tomlora')
 
     await channel.send(embeds=embed)
 
 
-@bot.event
-async def on_command_error(ctx: interactions.CommandContext, error: commands.errors):
-    """Event qui se déclenche lorsque le bot rencontre une erreur.
+# @listen()
+# async def on_command_error(ctx: interactions.CommandContext, error: commands.errors):
+#     """Event qui se déclenche lorsque le bot rencontre une erreur.
 
-    Parameters
-    ----------
-    ctx : interactions.CommandContext
-    error : commands.errors
-    """
+#     Parameters
+#     ----------
+#     ctx : interactions.CommandContext
+#     error : commands.errors
+#     """
 
-    if isinstance(error, commands.CommandNotFound):
-        await ctx.send("Cette commande n'existe pas")
-    elif isinstance(error, commands.MissingPermissions):
-        await ctx.send("Tu n'as pas les permissions nécessaires")
-    elif isinstance(error, commands.PrivateMessageOnly):
-        await ctx.send("Cette commande n'est activée qu'en message privé")
-    elif isinstance(error, commands.CommandOnCooldown):
-        await ctx.send(f' {error}')
-    elif isinstance(error, HTTPError):
-        print('httperror')
-        await ctx.send('Trop de requêtes')
-    else:
-        traceback.print_exception(type(error), error, error.__traceback__)
-        embed = interactions.Embed(title='Erreur', description=f'Description: \n `{error}`',
-                                   color=interactions.Color.RED)
-        await ctx.send(embeds=embed)
-
-
-# -------------------------------- Modération
-
-# # delete msg
-# @bot.command(name='clear', description='clear msg')
-# @isOwner2()
-# async def clear(ctx, number_of_messages: int):
-#     messages = await ctx.channel.history(
-#         limit=number_of_messages + 1).flatten()  # permet de récupérer l'historique. Flatten permet de créer une liste unique
-
-#     for each_message in messages:
-#         await each_message.delete()
+#     if isinstance(error, commands.CommandNotFound):
+#         await ctx.send("Cette commande n'existe pas")
+#     elif isinstance(error, commands.MissingPermissions):
+#         await ctx.send("Tu n'as pas les permissions nécessaires")
+#     elif isinstance(error, commands.PrivateMessageOnly):
+#         await ctx.send("Cette commande n'est activée qu'en message privé")
+#     elif isinstance(error, commands.CommandOnCooldown):
+#         await ctx.send(f' {error}')
+#     elif isinstance(error, HTTPError):
+#         print('httperror')
+#         await ctx.send('Trop de requêtes')
+#     else:
+#         traceback.print_exception(type(error), error, error.__traceback__)
+#         embed = interactions.Embed(title='Erreur', description=f'Description: \n `{error}`',
+#                                    color=interactions.Color.RED)
+#         await ctx.send(embeds=embed)
 
 
 # Fix pour intégrer des img locales dans les embed
-bot.load('interactions.ext.files')
+# bot.load_extension('interactions.ext.files')
 
 for filename in os.listdir('./cogs'):
     if filename.endswith('.py'):
         # bot.load_extension(f'cogs.{filename[:-3]}')
-        bot.load(f'cogs.{filename[:-3]}')
+        bot.load_extension(f'cogs.{filename[:-3]}')
 
 # bot.run(discord_token)
 bot.start()

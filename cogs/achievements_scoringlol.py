@@ -6,7 +6,7 @@ from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
 from fonctions.params import saison
 import pickle
 import interactions
-from interactions import Choice, Option, Extension, CommandContext
+from interactions import Extension, SlashCommandOption, SlashCommandChoice, SlashContext, slash_command
 import numpy as np
 
 
@@ -14,33 +14,33 @@ class Achievements_scoringlol(Extension):
     def __init__(self, bot) -> None:
         self.bot: interactions.Client = bot
 
-    mode_de_jeu = [Choice(name='ranked', value='ranked'),
-                   Choice(name='aram', value='aram')]
+    mode_de_jeu = [SlashCommandChoice(name='ranked', value='ranked'),
+                   SlashCommandChoice(name='aram', value='aram')]
 
-    @interactions.extension_command(
+    @slash_command(
         name="couronne_s12",
         description="Voir les couronnes acquis par les joueurs (Réservé s12)",
         options=[
-            Option(
+            SlashCommandOption(
                 name='mode',
                 description='mode de jeu',
                 type=interactions.OptionType.STRING,
                 required=True,
                 choices=mode_de_jeu),
-            Option(
+            SlashCommandOption(
                 name='records',
                 description='afficher le cumul des records',
                 type=interactions.OptionType.STRING,
                 choices=[
-                    Choice(name='ranked', value='ranked'),
-                    Choice(name='aram', value='aram'),
-                    Choice(name='tout', value='all'),
-                    Choice(name='aucun', value='none')],
+                    SlashCommandChoice(name='ranked', value='ranked'),
+                    SlashCommandChoice(name='aram', value='aram'),
+                    SlashCommandChoice(name='tout', value='all'),
+                    SlashCommandChoice(name='aucun', value='none')],
                 required=False),
         ],
     )
     async def achievements_s12(self,
-                           ctx: CommandContext,
+                           ctx: SlashContext,
                            mode: str,
                            records: str = 'none'):
         
@@ -133,17 +133,17 @@ class Achievements_scoringlol(Extension):
             await ctx.send('Informations : Les records de la page 3 ne sont pas comptabilisés', files=interactions.File('plot.png'))
             os.remove('plot.png')
 
-    @interactions.extension_command(name="couronnes_regles",
+    @slash_command(name="couronnes_regles",
                                     description="Conditions pour débloquer des couronnes",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name='mode',
                                             description='mode de jeu',
                                             type=interactions.OptionType.STRING,
                                             required=True,
                                             choices=mode_de_jeu)])
     async def achievements_regles(self,
-                                  ctx: CommandContext,
+                                  ctx: SlashContext,
                                   mode: str):
 
         if mode == 'aram':
@@ -186,37 +186,37 @@ class Achievements_scoringlol(Extension):
 
         await ctx.send(embeds=embed)
 
-    @interactions.extension_command(name="couronnes",
+    @slash_command(name="couronnes",
                                     description="Voir le nombre de records et mvp détenu par les joueurs",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name="mode",
                                             description="Quel mode de jeu ?",
                                             type=interactions.OptionType.STRING,
                                             required=True, choices=[
-                                                Choice(name='ranked',
+                                                SlashCommandChoice(name='ranked',
                                                        value='RANKED'),
-                                                Choice(name='aram', value='ARAM'),
-                                                Choice(name='normal', value='NORMAL'),
-                                                Choice(name='flex', value='FLEX')]),
-                                        Option(
+                                                SlashCommandChoice(name='aram', value='ARAM'),
+                                                SlashCommandChoice(name='normal', value='NORMAL'),
+                                                SlashCommandChoice(name='flex', value='FLEX')]),
+                                        SlashCommandOption(
                                             name='saison',
                                             description='saison league of legends',
                                             type=interactions.OptionType.INTEGER,
                                             required=False),
-                                        Option(
+                                        SlashCommandOption(
                                             name='tri',
                                             description='manière de trier',
                                             type=interactions.OptionType.STRING,
                                             required=False,
                                             choices=[
-                                                Choice(name='couronne', value='per game'),
-                                                Choice(name='mvp', value='mvp')
+                                                SlashCommandChoice(name='couronne', value='per game'),
+                                                SlashCommandChoice(name='mvp', value='mvp')
                                             ]
                                         )
                                     ])
     async def achievements2(self,
-                            ctx: CommandContext,
+                            ctx: SlashContext,
                             mode: str,
                             saison: int = saison,
                             tri:str = 'per game'):

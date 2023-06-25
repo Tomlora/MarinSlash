@@ -3,17 +3,17 @@ from fonctions.permissions import *
 from discord.utils import get
 import datetime
 from fonctions.mute import DatabaseHandler
-from interactions import Option, Extension, CommandContext, Choice
+from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, Task, IntervalTrigger
 import interactions
-from interactions.ext.wait_for import wait_for, wait_for_component, setup as stp
-from interactions.ext.tasks import IntervalTrigger, create_task
 import datetime
 from fonctions.gestion_bdd import get_guild_data
 import cv2
 import numpy as np
 import os
 from aiohttp import ClientSession, ClientError
-from interactions.ext.paginator import Page, Paginator
+from interactions.ext.paginators import Paginator
+from interactions import listen, slash_command
+
 import aiohttp
 import asyncio
 import async_timeout
@@ -24,19 +24,17 @@ import async_timeout
 class Divers(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        stp(self.bot)
         self.database_handler = DatabaseHandler()
         self.api_key_openai = os.environ.get('openai')
 
-    @interactions.extension_listener
-    async def on_start(self):
+    @listen()
+    async def on_startup(self):
 
-        self.task1 = create_task(IntervalTrigger(60))(self.check_for_unmute)
-        self.task1.start()
+        self.check_for_unmute.start()
 
 
-    @interactions.extension_listener
-    async def createMutedRole(self, ctx: CommandContext):
+    @listen()
+    async def createMutedRole(self, ctx: SlashContext):
         mutedRole = await ctx.guild.create_role(name="Muted",
                                                 permissions=interactions.Permissions(
                                                     send_messages=False,
@@ -46,7 +44,7 @@ class Divers(Extension):
             await channel.set_permissions(mutedRole, send_messages=False, speak=False)
         return mutedRole
 
-    @interactions.extension_listener
+    @listen()
     async def getMutedRole(self, ctx):
         roles = ctx.guild.roles
         for role in roles:
@@ -55,14 +53,13 @@ class Divers(Extension):
 
         return await self.createMutedRole(ctx)
 
+    @Task.create(IntervalTrigger(minutes=1))
     async def check_for_unmute(self):
         # print("Checking en cours...")
         data = get_guild_data()
         for server_id in data.fetchall():
-
-            guild = await interactions.get(client=self.bot,
-                                           obj=interactions.Guild,
-                                           object_id=server_id[0])
+            
+            guild = await self.bot.fetch_guild(server_id[0])
 
             active_tempmute = self.database_handler.active_tempmute_to_revoke(
                 int(guild.id))
@@ -73,9 +70,9 @@ class Divers(Extension):
                     self.database_handler.revoke_tempmute(row["id"])
                     await member.remove_role(role=muted_role, guild_id=guild.id)
 
-    @interactions.extension_command(name="hello",
+    @slash_command(name="hello",
                                     description="Saluer le bot")
-    async def hello(self, ctx: CommandContext):
+    async def hello(self, ctx: SlashContext):
         buttons = [
             interactions.Button(
                 style=interactions.ButtonStyle.PRIMARY,
@@ -113,20 +110,20 @@ class Divers(Extension):
             # When it times out, edit the original message and remove the button(s)
             return await ctx.edit(components=[])
 
-    @interactions.extension_command(name="quiz",
+    @slash_command(name="quiz",
                                     description="Reponds au quizz")
-    async def quiz(self, ctx: CommandContext):
+    async def quiz(self, ctx: SlashContext):
         select = interactions.SelectMenu(
             options=[
-                interactions.SelectOption(
+                interactions.SelectSlashCommandOption(
                     label="Dawn", value="1", emoji=interactions.Emoji(name='😂')),
-                interactions.SelectOption(
+                interactions.SelectSlashCommandOption(
                     label="Exorblue", value="2", emoji=interactions.Emoji(name='😏')),
-                interactions.SelectOption(
+                interactions.SelectSlashCommandOption(
                     label="Tomlora", value="3", emoji=interactions.Emoji(name='💛')),
-                interactions.SelectOption(
+                interactions.SelectSlashCommandOption(
                     label="Ylarabka", value="4", emoji=interactions.Emoji(name='🦊')),
-                interactions.SelectOption(
+                interactions.SelectSlashCommandOption(
                     label="Djingo le egay", value="5", emoji=interactions.Emoji(name='💚'))
             ],
             custom_id='quizz_selected',
@@ -156,27 +153,27 @@ class Divers(Extension):
             # When it times out, edit the original message and remove the button(s)
             return await ctx.edit(components=[])
 
-    @interactions.extension_command(name="ping", description="Latence du bot")
-    async def ping(self, ctx: CommandContext):
+    @slash_command(name="ping", description="Latence du bot")
+    async def ping(self, ctx: SlashContext):
         await ctx.send(
             f"pong \n Latence : `{round(float(self.bot.latency), 3)}` ms")
 
-    @interactions.extension_command(name='spank',
+    @slash_command(name='spank',
                                     description='spank un membre',
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name='member',
                                             description='membre discord',
                                             type=interactions.OptionType.USER,
                                             required=True),
-                                        Option(
+                                        SlashCommandOption(
                                             name='reason',
                                             description='motif du spank',
                                             type=interactions.OptionType.STRING,
                                             required=False
                                         )])
     async def spank_slash(self,
-                          ctx: CommandContext,
+                          ctx: SlashContext,
                           member: interactions.Member,
                           reason="Aucune raison n'a été renseignée"):
         if isOwner_slash(ctx):
@@ -208,7 +205,7 @@ class Divers(Extension):
 
             await ctx.send(embeds=embed)
 
-    @interactions.extension_listener
+    @listen()
     async def get_muted_role(self, guild: interactions.Guild) -> interactions.Role:
 
         role = get(guild.roles, name="Muted")
@@ -219,20 +216,20 @@ class Divers(Extension):
             role = await guild.create_role(name="Muted", permissions=permissions)
             return role
 
-    @interactions.extension_command(name="mute",
+    @slash_command(name="mute",
                                     description="mute someone for x secondes",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name="member",
                                             description="membre du discord",
                                             type=interactions.OptionType.USER,
                                             required=True),
-                                        Option(
+                                        SlashCommandOption(
                                             name="seconds",
                                             description="Temps de mute en secondes",
                                             type=interactions.OptionType.INTEGER,
                                             required=True),
-                                        Option(
+                                        SlashCommandOption(
                                             name="reason",
                                             description="reason",
                                             type=interactions.OptionType.STRING,
@@ -240,7 +237,7 @@ class Divers(Extension):
                                         )
                                     ])
     async def mute_time(self,
-                        ctx: CommandContext,
+                        ctx: SlashContext,
                         member: interactions.Member,
                         seconds: int,
                         reason: str = "Aucune raison n'a été renseignée"):
@@ -260,7 +257,7 @@ class Divers(Extension):
 
             await ctx.send(embeds=embed)
 
-    @interactions.extension_command(name='my_cool_modal')
+    @slash_command(name='my_cool_modal')
     async def my_cool_modal(self, ctx):
         modal = interactions.Modal(
             title="Application Form",
@@ -274,22 +271,22 @@ class Divers(Extension):
         )
         await ctx.popup(modal)
 
-    @interactions.extension_modal('mod_app_form')
-    async def modal_response(self,
-                             ctx,
-                             response: str):
-        await ctx.send(f'Tu as répondu {response}')
+    # @interactions.extension_modal('mod_app_form')
+    # async def modal_response(self,
+    #                          ctx,
+    #                          response: str):
+    #     await ctx.send(f'Tu as répondu {response}')
 
-    @interactions.extension_command(name='remove_background',
+    @slash_command(name='remove_background',
                                     description="supprime le background d'une image",
-                                    options=[Option(
+                                    options=[SlashCommandOption(
                                         name='image',
                                         description='image au format png ou jpg',
                                         type=interactions.OptionType.ATTACHMENT,
                                         required=True
                                     )])
     async def remove_background(self,
-                                ctx: CommandContext,
+                                ctx: SlashContext,
                                 image: interactions.Attachment):
 
         if not image.filename.endswith('.png') and not image.filename.endswith('.jpg'):
@@ -345,20 +342,20 @@ class Divers(Extension):
         os.remove('image.png')
         
 
-    @interactions.extension_command(name="hug",
+    @slash_command(name="hug",
                                     description="Faire un calin",
                                     options=[
-                                        Option(name="membre",
+                                        SlashCommandOption(name="membre",
                                                     description="Nom du joueur",
                                                     type=interactions.OptionType.USER, required=True),
-                                        Option(name="intensite",
+                                        SlashCommandOption(name="intensite",
                                                     description="Intensité",
                                                     type=interactions.OptionType.INTEGER,
                                                     required=True,
                                                     min_value=0,
                                                     max_value=10)])
     async def hug(self,
-                   ctx: CommandContext,
+                   ctx: SlashContext,
                    membre: interactions.User,
                    intensite: int):
         if intensite <= 0:
@@ -374,98 +371,23 @@ class Divers(Extension):
             
         await ctx.send(msg)
         
-    @interactions.extension_command(name='dictionnaire',
-                                    description="Definition d'un mot",
-                                    options=[
-                                        Option(name='mot',
-                                               description='mot à chercher',
-                                               type=interactions.OptionType.STRING,
-                                               required=True)
-                                    ])
-    async def dictionnaire(self,
-                           ctx: CommandContext,
-                           mot : str):
-        
-        await ctx.defer(ephemeral=False)
-        
-        url = "https://api.urbandictionary.com/v0/define"
+    
 
-        params = {"term": str(mot).lower()}
-
-        headers = {"content-type": "application/json"}
-        
-        try:
-            async with ClientSession() as session:
-                    async with session.get(url, headers=headers, params=params) as response:
-                        data = await response.json()
-
-        except ClientError:
-            await ctx.send(
-                ("Aucun mot n'a été trouvé.")
-            )
-            return
-        
-        if data.get("error") != 404:
-            if not data.get("list"):
-                return await ctx.send(("No Urban Dictionary entries were found."))
-            
-            # on crée la liste d'embed pour paginator
-            embeds = []
-            
-            for ud in data['list']:
-                
-                # embed
-                embed = interactions.Embed()
-                
-                # titre
-                title_capitalize = ud['word'].capitalize()
-                if len(title_capitalize) > 256:
-                    title_capitalize = title_capitalize[:253]
-                embed.title = title_capitalize
-                
-                #url
-                embed.url = ud['permalink']
-                
-                #définition
-                description = ud['definition']
-                exemple = ud['example']
-                if len(description) > 2048:
-                    description = description[:2045]
-                embed.description= description + f'\n\n **Exemple**: {exemple}'
-                
-                # author
-                embed.set_author(name=ud['author'])
-                
-                # pied de page
-                embed.set_footer(text='Source : Urban Dictionary - by Tomlora')
-                
-                # on ajoute à la liste d'embed
-                embeds.append(Page(embed.title, embed))  
-                
-            
-            if embeds is not None and len(embeds) > 0:
-                await Paginator(
-                            client=self.bot,
-                            ctx=ctx,
-                            pages=embeds
-                        ).run()      
-
-
-    @interactions.extension_command(name="ask_gpt3",
+    @slash_command(name="ask_gpt3",
                                     description="Pose une question à une IA",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name="question",
                                             description="Question",
                                             type=interactions.OptionType.STRING,
                                             required=True),
-                                        Option(name='private',
+                                        SlashCommandOption(name='private',
                                                description='Réponse publique ou privée',
                                                type=interactions.OptionType.BOOLEAN,
                                                required=False),
                                     ])
     async def ask_gpt3(self,
-                        ctx: CommandContext,
+                        ctx: SlashContext,
                         question : str,
                         private:bool=False):
         

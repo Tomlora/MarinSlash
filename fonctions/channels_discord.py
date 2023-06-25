@@ -74,7 +74,7 @@ def verif_module(module: str, guild_id: int) -> bool:
 
 def get_embed(fig,
               name,
-              color = interactions.Color.BLURPLE):
+              color = interactions.Color.random()):
     """Prépare l'image à insérer avec l'embed
 
     Parameters
@@ -124,7 +124,7 @@ def mention(id_discord:int, type:str) -> str:
     return dict_mention[type]
 
 
-async def convertion_temps(ctx : interactions.CommandContext, time) -> int:
+async def convertion_temps(ctx : interactions.SlashContext, time) -> int:
     """Convertit un format XhXmXs en secondes
 
     Parameters

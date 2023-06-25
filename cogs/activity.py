@@ -1,7 +1,7 @@
 from fonctions.date import heure_actuelle
 from fonctions.gestion_bdd import get_guild_data
 import interactions
-from interactions import Extension
+from interactions import Extension, listen
 
 # Activity au lancement du bot
 
@@ -9,29 +9,25 @@ from interactions import Extension
 class activity(Extension):
     def __init__(self, bot: interactions.Client):
         self.bot = bot
-        
-    @interactions.extension_listener
-    async def on_start(self):
+
+    @listen()
+    async def on_startup(self):
         currentHour, currentMinute = heure_actuelle()
         print(f'Connecté au serveur ({currentHour}:{currentMinute})')
 
-        await self.bot.change_presence(interactions.ClientPresence(status=interactions.StatusType.ONLINE,
-                                                                   activities=[interactions.PresenceActivity(name='My Dress Up Darling',
-                                                                                                             type=interactions.PresenceActivityType.WATCHING)]))
+        await self.bot.change_presence(interactions.Status.ONLINE, activity=interactions.Activity(name='My Dress Up Darling', type=interactions.ActivityType.WATCHING))
 
-    @interactions.extension_listener
+    @listen()
     async def on_ready(self):
 
         data = get_guild_data()
 
         for server_id in data.fetchall():
 
-            guild = await interactions.get(client=self.bot,
-                                           obj=interactions.Guild,
-                                           object_id=server_id[0])
+            guild = await self.bot.fetch_guild(server_id[0])
 
             text_channel_list = []
-            for channel in await guild.get_all_channels():
+            for channel in guild.channels:
                 text_channel_list.append(channel.id)
 
             print(

@@ -1,5 +1,5 @@
 import interactions
-from interactions import Choice, Option, Extension, CommandContext
+from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command
 import aiohttp
 from datetime import datetime
 from fonctions.profil_sw import Rune, Artefact, comparaison
@@ -61,36 +61,36 @@ class SW(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
 
-    @interactions.extension_command(name="analyse_sw",
+    @slash_command(name="analyse_sw",
                                     description="Summoners Wars",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name='scoring',
                                             description='Quel type de scoring ?',
                                             type=interactions.OptionType.STRING,
                                             required=False,
                                             choices=[
-                                                Choice(name='general',
+                                                SlashCommandChoice(name='general',
                                                        value='general'),
-                                                Choice(name='artefact',
+                                                SlashCommandChoice(name='artefact',
                                                        value='artefact'),
-                                                Choice(name='speed',
+                                                SlashCommandChoice(name='speed',
                                                        value='speed')
                                             ]
                                         ),
-                                        Option(
+                                        SlashCommandOption(
                                             name="id_msg",
                                             description="Quel mode de jeu ?",
                                             type=interactions.OptionType.STRING,  # int pas assez grand pour discord
                                             required=False),
-                                        Option(
+                                        SlashCommandOption(
                                             name='fichier_json',
                                             description='Fichier json',
                                             type=interactions.OptionType.ATTACHMENT,
                                             required=False
                                         )])
     async def analyse_sw(self,
-                         ctx: CommandContext,
+                         ctx: SlashContext,
                          scoring: str = 'general',
                          id_msg: str = None,
                          fichier_json: interactions.Attachment = None):
@@ -103,7 +103,7 @@ class SW(Extension):
                 id_msg = int(id_msg)
                 await ctx.defer(ephemeral=False)
 
-                message = await interactions.get(self.bot, interactions.Message, object_id=id_msg, parent_id=ctx.channel_id)
+                message = ctx.message
 
                 file: interactions.Attachment = message.attachments[0]
 
@@ -218,22 +218,22 @@ class SW(Extension):
         else:
             await ctx.send('Désactivé sur ce serveur')
 
-    @interactions.extension_command(name="sw_gvo",
+    @slash_command(name="sw_gvo",
                                     description="prepare la gvo",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name='guilde_rouge',
                                             description="nom de la guilde rouge (pas d'espace !)",
                                             type=interactions.OptionType.STRING,
                                             required=True),
-                                        Option(
+                                        SlashCommandOption(
                                             name='guilde_jaune',
                                             description="nom de la guilde jaune (pas d'espace !)",
                                             type=interactions.OptionType.STRING,
                                             required=True)
                                         ])
     async def test_channel(self,
-                           ctx: CommandContext,
+                           ctx: SlashContext,
                            guilde_rouge: str,
                            guilde_jaune: str):
         if isOwner_or_mod_slash(ctx):
@@ -275,36 +275,36 @@ class SW(Extension):
         else:
             await ctx.send("Tu n'as pas les droits")
 
-    @interactions.extension_command(name="score_guilde",
+    @slash_command(name="score_guilde",
                                     description="Moyenne de la guilde",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name='guilde',
                                             description='Nom de la guilde',
                                             type=interactions.OptionType.STRING,
                                             required=True,
                                         ),
-                                        Option(
+                                        SlashCommandOption(
                                             name="methode",
                                             description="Methode de calcul",
                                             type=interactions.OptionType.STRING,  # int pas assez grand pour discord
                                             required=False,
                                             choices=[
-                                                Choice(name='moyenne',
+                                                SlashCommandChoice(name='moyenne',
                                                        value='avg')
                                             ]),
-                                        Option(name='calcul',
+                                        SlashCommandOption(name='calcul',
                                                description='quel scoring ?',
                                                type=interactions.OptionType.STRING,
                                                required=False,
                                                choices=[
-                                                   Choice(name='general', value='score_general'),
-                                                   Choice(name='artefact', value='scoring_arte'),
-                                                   Choice(name='speed', value='score_spd')
+                                                   SlashCommandChoice(name='general', value='score_general'),
+                                                   SlashCommandChoice(name='artefact', value='scoring_arte'),
+                                                   SlashCommandChoice(name='speed', value='score_spd')
                                                ])
                                     ])
     async def score_guilde(self,
-                           ctx: CommandContext,
+                           ctx: SlashContext,
                            guilde: str,
                            methode: str='avg',
                            calcul='score_general'):

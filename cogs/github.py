@@ -1,8 +1,7 @@
 import interactions
-from interactions import Option, Extension, CommandContext
+from interactions import SlashCommandOption, Extension, SlashContext, slash_command
 from bs4 import BeautifulSoup
 import pandas as pd
-from interactions.ext.wait_for import wait_for_component, setup as stp
 import asyncio
 import aiohttp
 
@@ -10,17 +9,16 @@ import aiohttp
 class Github(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        stp(self.bot)
 
-    @interactions.extension_command(name="github",
+    @slash_command(name="github",
                                     description="GitHub",
                                     options=[
-                                        Option(name="pseudo",
+                                        SlashCommandOption(name="pseudo",
                                                     description="Pseudo Github",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
     async def github(self,
-                     ctx: CommandContext,
+                     ctx: SlashContext,
                      pseudo: str):
         session = aiohttp.ClientSession()
 
@@ -45,7 +43,7 @@ class Github(Extension):
 
                     # catégorie . Le string i est obligatoire pour discord
                     select = interactions.SelectMenu(
-                        options=[interactions.SelectOption(label=df['name'][i], value=str(i),
+                        options=[interactions.SelectSlashCommandOption(label=df['name'][i], value=str(i),
                                                            description=str(df['description'][i])[:100]) for i in range(0, len(data_user_repos))],
                         custom_id="github_selection",
                         placeholder="Choisis le dossier")

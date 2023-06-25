@@ -1,8 +1,7 @@
 
 from fonctions.patch import PatchNote
 import interactions
-from interactions import Extension
-from interactions.ext.tasks import IntervalTrigger, create_task
+from interactions import Extension, listen, Task, IntervalTrigger
 from fonctions.gestion_bdd import (get_data_bdd,
                                    requete_perso_bdd,
                                    get_guild_data)
@@ -13,11 +12,11 @@ class Patchlol(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
 
-    @interactions.extension_listener
-    async def on_start(self):
-        self.task1 = create_task(IntervalTrigger(60*10))(self.update_patch)
-        self.task1.start()
+    @listen()
+    async def on_startup(self):
+        self.update_patch.start()
 
+    @Task.create(IntervalTrigger(minutes=10))
     async def update_patch(self):
 
         patch_actuel = PatchNote()
@@ -40,7 +39,7 @@ class Patchlol(Extension):
             # Embed
 
             embed = interactions.Embed(
-                title=f"Le patch {patch_actuel.version_patch} est disponible ! ", color=interactions.Color.BLURPLE)
+                title=f"Le patch {patch_actuel.version_patch} est disponible ! ", color=interactions.Color.random())
             embed.set_image(url=patch_actuel.overview_image)
 
             embed.add_field(
@@ -52,14 +51,12 @@ class Patchlol(Extension):
 
             for server_id in data.fetchall():
 
-                guild = await interactions.get(client=self.bot,
-                                               obj=interactions.Guild,
-                                               object_id=server_id[0])
+                
+                guild = await self.bot.fetch_guild(server_id[0])
                 
                 discord_server_id = chan_discord(int(guild.id))
-                channel = await interactions.get(client=self.bot,
-                                                 obj=interactions.Channel,
-                                                 object_id=discord_server_id.lol)
+                
+                channel = await self.bot.fetch_channel(discord_server_id.lol)
 
                 await channel.send(embeds=embed)
 

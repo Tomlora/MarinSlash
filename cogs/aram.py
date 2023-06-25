@@ -6,13 +6,13 @@ from fonctions.gestion_bdd import (lire_bdd,
 import datetime
 from fonctions.channels_discord import chan_discord
 import interactions
-from interactions import Choice, Option, Extension, CommandContext
+from interactions import listen, Task, TimeTrigger
+from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command
 from fonctions.permissions import isOwner_slash
-from interactions.ext.tasks import IntervalTrigger, create_task
 from fonctions.params import Version, saison, heure_aram
 from fonctions.permissions import isOwner_slash
 from fonctions.match import label_tier
-from interactions.ext.paginator import Page, Paginator
+from interactions.ext.paginators import Paginator
 
 
 dict_points = {41: [11, -19],
@@ -51,16 +51,16 @@ class Aram(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
 
-    @interactions.extension_listener
-    async def on_start(self):
-        self.task1 = create_task(IntervalTrigger(60*60))(self.lolsuivi_aram)
-        self.task1.start()
+    @listen()
+    async def on_startup(self):
+        self.lolsuivi_aram.start()
 
-    @interactions.extension_command(name="classement_aram",
-                                    description="classement en aram")
-    async def ladder_aram(self, ctx: CommandContext):
+    @slash_command(name="classement_aram",
+                   description="classement en aram")
+    async def ladder_aram(self, ctx: SlashContext):
 
-        suivi_aram = lire_bdd_perso(f'''SELECT * from ranked_aram_s{saison} where games != 0''', format='dict')
+        suivi_aram = lire_bdd_perso(
+            f'''SELECT * from ranked_aram_s{saison} where games != 0''', format='dict')
 
         await ctx.defer(ephemeral=False)
 
@@ -70,10 +70,9 @@ class Aram(Extension):
         df.sort_values('lp', ascending=False, inplace=True)
 
         embed = interactions.Embed(
-            title="Suivi LOL", description='ARAM', color=interactions.Color.BLURPLE)
+            title="Suivi LOL", description='ARAM', color=interactions.Color.random())
 
         for key in df['index']:
-            
 
             wr = round((suivi_aram[key]['wins'] /
                        suivi_aram[key]['games'])*100, 2)
@@ -98,21 +97,21 @@ class Aram(Extension):
 
         await ctx.send(embeds=embed)
 
-    @interactions.extension_command(name='ranked_aram',
-                                    description='Activation/Désactivation',
-                                    options=[
-                                        Option(
-                                            name='summonername',
-                                            description="nom ingame",
-                                            type=interactions.OptionType.STRING,
-                                            required=True),
-                                        Option(
-                                            name="activation",
-                                            description="True : Activé / False : Désactivé",
-                                            type=interactions.OptionType.BOOLEAN,
-                                            required=True)])
+    @slash_command(name='ranked_aram',
+                   description='Activation/Désactivation',
+                   options=[
+                       SlashCommandOption(
+                           name='summonername',
+                           description="nom ingame",
+                           type=interactions.OptionType.STRING,
+                           required=True),
+                       SlashCommandOption(
+                           name="activation",
+                           description="True : Activé / False : Désactivé",
+                           type=interactions.OptionType.BOOLEAN,
+                           required=True)])
     async def update_activation(self,
-                                ctx: CommandContext,
+                                ctx: SlashContext,
                                 summonername: str,
                                 activation: bool):
 
@@ -128,9 +127,9 @@ class Aram(Extension):
         except KeyError:
             await ctx.send('Joueur introuvable')
 
-    @interactions.extension_command(name="help_aram",
-                                    description='Help ranked aram')
-    async def help_aram(self, ctx: CommandContext):
+    @slash_command(name="help_aram",
+                   description='Help ranked aram')
+    async def help_aram(self, ctx: SlashContext):
 
         texte_general = " La ranked aram commence automatiquement après la première game. Pour désactiver, il est possible d'utiliser **/ranked_aram.** après la première partie \n" + \
                         "Le suivi est possible en tapant **/classement_aram**"
@@ -138,12 +137,12 @@ class Aram(Extension):
         await ctx.defer(ephemeral=False)
 
         embed = interactions.Embed(
-            title='Help Aram', description='Règle', color=interactions.Color.BLURPLE)
+            title='Help Aram', description='Règle', color=interactions.Color.random())
 
         embed.add_field(name='Déroulement général', value=texte_general)
 
         embed2 = interactions.Embed(
-            title='Palier', description="Rang", color=interactions.Color.BLURPLE)
+            title='Palier', description="Rang", color=interactions.Color.random())
 
         embed2.add_field(name='IRON', value="LP < 100")
         embed2.add_field(name='BRONZE', value="100 < LP < 200")
@@ -177,73 +176,67 @@ class Aram(Extension):
             bonus_elo = bonus_elo + f"{key} : **-{value}** \n"
 
         embed3.add_field(name="Malus elo", value=bonus_elo, inline=False)
-        
-        await Paginator(
-            client=self.bot,
-            ctx=ctx,
-            pages=[
-                Page(embed.title, embed),
-                Page(embed2.title, embed2),
-                Page(embed3.title, embed3)
-            ]
-        ).run()
 
-    @interactions.extension_command(name='carton',
-                                    description='Activation/Désactivation',
-                                    options=[
-                                        Option(
-                                            name='couleur',
-                                            description="vert = + / rouge = -",
-                                            type=interactions.OptionType.STRING,
-                                            required=True, choices=[
-                                                Choice(name='vert',
-                                                       value='vert'),
-                                                Choice(name='rouge', value='rouge')]),
-                                        Option(
-                                            name="summonername",
-                                            description="nom ingame",
-                                            type=interactions.OptionType.STRING,
-                                            required=True),
-                                        Option(
-                                            name='nombre',
-                                            description='nombre de lp',
-                                            type=interactions.OptionType.INTEGER,
-                                            required=True)])
+        paginator = Paginator.create_from_embeds(
+            client=self.bot,
+            embeds=[embed, embed2, embed3])
+
+    @slash_command(name='carton',
+                   description='Activation/Désactivation',
+                   options=[
+                       SlashCommandOption(
+                           name='couleur',
+                           description="vert = + / rouge = -",
+                           type=interactions.OptionType.STRING,
+                           required=True, choices=[
+                               SlashCommandChoice(name='vert',
+                                                  value='vert'),
+                               SlashCommandChoice(name='rouge', value='rouge')]),
+                       SlashCommandOption(
+                           name="summonername",
+                           description="nom ingame",
+                           type=interactions.OptionType.STRING,
+                           required=True),
+                       SlashCommandOption(
+                           name='nombre',
+                           description='nombre de lp',
+                           type=interactions.OptionType.INTEGER,
+                           required=True)])
     async def carton(self,
-                     ctx: CommandContext,
+                     ctx: SlashContext,
                      couleur: str,
                      summonername: str,
                      nombre: int):
         if isOwner_slash(ctx):
-            
+
             summonername = summonername.lower().replace(' ', '')
             if couleur == 'vert':
                 nb_row = requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp + :nombre WHERE index = :summonername', {
-                                  'nombre': nombre, 'summonername': summonername}, get_row_affected=True)
+                    'nombre': nombre, 'summonername': summonername}, get_row_affected=True)
                 if nb_row > 0:
                     msg = f'Les LP pour {summonername} ont été ajoutés. (+{nombre})'
                 else:
                     msg = "Tu n'es pas dans la base de données."
             if couleur == 'rouge':
                 nb_row = requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp - :nombre WHERE index = :summonername', {
-                                  'nombre': nombre, 'summonername': summonername}, get_row_affected=True)
+                    'nombre': nombre, 'summonername': summonername}, get_row_affected=True)
                 if nb_row > 0:
                     msg = f'Les LP pour {summonername} ont été retirés. (-{nombre})'
                 else:
                     msg = "Tu n'es pas dans la base de données."
         else:
             nb_row = requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp - 1 WHERE index = :summonername', {
-                              'summonername': summonername}, get_row_affected=True)
+                'summonername': summonername}, get_row_affected=True)
             if nb_row > 0:
                 msg = 'Bien essayé ! Tu perds 1 lp.'
             else:
                 msg = "Tu n'es pas dans la base de données."
 
         embed = interactions.Embed(description=msg,
-                                   color=interactions.Color.BLURPLE)
+                                   color=interactions.Color.random())
 
         await ctx.send(embeds=embed)
-        
+
     async def update_aram24h(self):
         data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
@@ -251,9 +244,7 @@ class Aram(Extension):
 
         for server_id in data:
 
-            guild = await interactions.get(client=self.bot,
-                                               obj=interactions.Guild,
-                                               object_id=server_id[0])
+            guild = await self.bot.fetch_guild(server_id[0])
 
             chan_discord_id = chan_discord(int(guild.id))
 
@@ -272,27 +263,26 @@ class Aram(Extension):
 
                 df_24h = df_24h.transpose().reset_index()
 
-
                 # Pour l'ordre de passage
                 df['tier_pts'] = df['rank'].apply(label_tier)
 
                 sql = ''
                 df.sort_values(by=['tier_pts', 'lp'], ascending=[
-                                   False, False], inplace=True)
+                    False, False], inplace=True)
 
                 suivi = df.set_index('index').transpose().to_dict()
                 suivi_24h = df_24h.set_index('index').transpose().to_dict()
                 joueur = suivi.keys()
 
                 embed = interactions.Embed(
-                        title="Suivi ARAM LOL", description='Periode : 24h', color=interactions.Color.BLURPLE)
+                    title="Suivi ARAM LOL", description='Periode : 24h', color=interactions.Color.random())
                 totalwin = 0
                 totaldef = 0
                 totalgames = 0
 
                 for key in joueur:
 
-                        # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
+                    # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
                     wins = int(suivi_24h[key]['wins'])
                     losses = int(suivi_24h[key]['losses'])
                     nbgames = wins + losses
@@ -329,21 +319,19 @@ class Aram(Extension):
                             emote = ":arrow_right:"
 
                     embed.add_field(name=str(key) + " ( " + tier + " )",
-                                        value=f"V : {suivi[key]['wins']} ({difwins}) | " +
-                                        f"D : {suivi[key]['losses']} ({diflosses}) | " +
-                                        f"LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)
+                                    value=f"V : {suivi[key]['wins']} ({difwins}) | " +
+                                    f"D : {suivi[key]['losses']} ({diflosses}) | " +
+                                    f"LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)
 
                     if difwins + diflosses > 0:  # si supérieur à 0, le joueur a joué
-                            sql += f'''UPDATE ranked_aram_24h
+                        sql += f'''UPDATE ranked_aram_24h
                             SET wins = {suivi[key]['wins']},
                             losses = {suivi[key]['losses']},
                             lp = {suivi[key]['lp']},
                             rank = '{tier}'
                             where index = '{key}';'''
 
-                channel_tracklol = await interactions.get(client=self.bot,
-                                                              obj=interactions.Channel,
-                                                              object_id=chan_discord_id.lol_others)
+                channel_tracklol = await self.bot.fetch_channel(chan_discord_id.lol_others)
 
                 if sql != '':
                     requete_perso_bdd(sql)
@@ -353,23 +341,22 @@ class Aram(Extension):
                     await channel_tracklol.send(embeds=embed)
                     await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
 
+    @Task.create(TimeTrigger(hour=4))
     async def lolsuivi_aram(self):
 
         currentHour = str(datetime.datetime.now().hour)
 
         if currentHour == str(heure_aram):
             await self.update_aram24h()
-            
-    @interactions.extension_command(name="force_update_aram24h",
-                                    description="Réservé à Tomlora")            
-    async def force_update_aram(self, ctx: CommandContext):
-        
+
+    @slash_command(name="force_update_aram24h",
+                   description="Réservé à Tomlora")
+    async def force_update_aram(self, ctx: SlashContext):
+
         if isOwner_slash(ctx):
             await self.update_aram24h()
         else:
             await ctx.send("Tu n'as pas l'autorisation nécessaire.")
-
-
 
 
 def setup(bot):

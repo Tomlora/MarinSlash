@@ -1,17 +1,17 @@
 from fonctions.permissions import isOwner_slash
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
-from interactions import Option, Extension, CommandContext, Choice
+from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, slash_command
 import interactions
-from interactions.ext.paginator import Page, Paginator
+from interactions.ext.paginators import Paginator
 
 
 class Settings(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
 
-    @interactions.extension_command(name="settings",
-                                    description="settings")
-    async def settings(self, ctx: CommandContext):
+    @slash_command(name="settings",
+                   description="settings")
+    async def settings(self, ctx: SlashContext):
         if isOwner_slash(ctx):
            # on récupère les infos
             await ctx.defer(ephemeral=False)
@@ -54,42 +54,37 @@ class Settings(Extension):
                     embed2.add_field(
                         name=variable, value=f'<#{valeur}>', inline=True)
 
-            await Paginator(
+            paginator = Paginator.create_from_embeds(
                 client=self.bot,
-                ctx=ctx,
-                pages=[
-                    Page(embed1.title, embed1),
-                    Page(embed2.title, embed2),
-                ]
-            ).run()
+                embeds=[embed1, embed2])
 
         else:
             await ctx.send("Tu n'as pas l'autorisation.")
 
-    @interactions.extension_command(name="modifier_modules",
-                                    description="modifier les modules du serveur",
-                                    options=[
-                                        Option(name="parametres",
-                                                    description="parametres",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=True,
-                                                    choices=[
-                                                        Choice(
-                                                            name='lol', value='lol'),
-                                                        Choice(
-                                                            name='twitter', value='twitter'),
-                                                        Choice(
-                                                            name='twitch', value='twitch'),
-                                                        Choice(
-                                                            name='tft', value='tft'),
-                                                        Choice(name='sw', value='sw')]),
-                                        Option(name='activation',
-                                               description='que faire ?',
-                                               type=interactions.OptionType.BOOLEAN,
-                                               required=True)
-                                    ]
-                                    )
-    async def modifier_modules(self, ctx: CommandContext, parametres, activation):
+    @slash_command(name="modifier_modules",
+                   description="modifier les modules du serveur",
+                   options=[
+                       SlashCommandOption(name="parametres",
+                                          description="parametres",
+                                          type=interactions.OptionType.STRING,
+                                          required=True,
+                                          choices=[
+                                              SlashCommandChoice(
+                                                  name='lol', value='lol'),
+                                              SlashCommandChoice(
+                                                  name='twitter', value='twitter'),
+                                              SlashCommandChoice(
+                                                  name='twitch', value='twitch'),
+                                              SlashCommandChoice(
+                                                  name='tft', value='tft'),
+                                              SlashCommandChoice(name='sw', value='sw')]),
+                       SlashCommandOption(name='activation',
+                                          description='que faire ?',
+                                          type=interactions.OptionType.BOOLEAN,
+                                          required=True)
+                   ]
+                   )
+    async def modifier_modules(self, ctx: SlashContext, parametres, activation):
 
         if isOwner_slash(ctx):
             dict_params = {'lol': ['league_ranked, league_aram'],
@@ -109,87 +104,105 @@ class Settings(Extension):
         else:
             await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
 
-    @interactions.extension_command(name="modifier_settings",
-                                    description="modifier les parametres du serveur",
-                                    options=[
-                                        Option(name="channel",
-                                                    description="changer le channel d'un module",
-                                                    type=interactions.OptionType.SUB_COMMAND,
-                                                    options=[
-                                                        Option(name='parametres',
-                                                               description='quel module à modifier ?',
-                                                               type=interactions.OptionType.STRING,
-                                                               required=True,
-                                                                choices=[
-                                                                    Choice(
-                                                                        name='message_prive', value='chan_pm'),
-                                                                    Choice(
-                                                                        name='tracking_lol_ranked', value='chan_tracklol'),
-                                                                    Choice(
-                                                                        name='twitch', value='chan_twitch'),
-                                                                    Choice(
-                                                                        name='lol_actu', value='chan_lol'),
-                                                                    Choice(
-                                                                        name='accueil', value='chan_accueil'),
-                                                                    Choice(
-                                                                        name='tft', value='chan_tft'),
-                                                                    Choice(
-                                                                        name='tracking_lol_autre', value='chan_lol_others')
-                                                                ]),
-                                                        Option(name='channel',
-                                                               description='channel',
-                                                               type=interactions.OptionType.CHANNEL,
-                                                               required=True)]),
+    @slash_command(name="modifier_settings",
+                   description="modifier les parametres du serveur")
+    async def modifier_settings(self, ctx: SlashContext):
+        pass
 
-                                        Option(name='admin',
-                                               description="qui est l'admin ?",
-                                               type=interactions.OptionType.SUB_COMMAND,
-                                               options=[
-                                                   Option(name='parametres',
-                                                          description='quel role ?',
-                                                          type=interactions.OptionType.STRING,
-                                                          choices=[
-                                                              Choice(name='admin', value='id_owner2')]),
-                                                   Option(name='proprietaire',
-                                                          description='proprietaire du discord',
-                                                          type=interactions.OptionType.USER)
-                                               ]),
-                                        Option(name='role_staff', # TODO : séparer admin / modo
-                                               description='Modifier le role staff',
-                                               type=interactions.OptionType.SUB_COMMAND,
-                                               options=[
-                                                   Option(name='parametres',
-                                                          description='quel partie du staff ?',
-                                                          type=interactions.OptionType.STRING,
-                                                          choices=[
-                                                              Choice(name='admin', value='role_admin')
-                                                          ]),
-                                                   Option(name='role',
-                                                          description='quel role pour le staff ?',
-                                                          type=interactions.OptionType.ROLE)
-                                               ])])
-    async def modifier_channel(self,
-                               ctx: CommandContext,
-                               sub_command: str,
-                               parametres,
-                               channel: interactions.Channel = None,
-                               proprietaire: interactions.User = None,
-                               role : interactions.Role = None):
+    @modifier_settings.subcommand('channel',
+                                  options=[
+                                      SlashCommandOption(name='parametres',
+                                                         description='quel module à modifier ?',
+                                                         type=interactions.OptionType.STRING,
+                                                         required=True,
+                                                         choices=[
+                                                              SlashCommandChoice(
+                                                                  name='message_prive', value='chan_pm'),
+                                                              SlashCommandChoice(
+                                                                  name='tracking_lol_ranked', value='chan_tracklol'),
+                                                              SlashCommandChoice(
+                                                                  name='twitch', value='chan_twitch'),
+                                                              SlashCommandChoice(
+                                                                  name='lol_actu', value='chan_lol'),
+                                                              SlashCommandChoice(
+                                                                  name='accueil', value='chan_accueil'),
+                                                              SlashCommandChoice(
+                                                                  name='tft', value='chan_tft'),
+                                                              SlashCommandChoice(
+                                                                  name='tracking_lol_autre', value='chan_lol_others')
+                                                         ]),
+                                      SlashCommandOption(name='channel',
+                                                         description='channel',
+                                                         type=interactions.OptionType.CHANNEL,
+                                                         required=True)])
+    async def modify_channel(self, ctx: SlashContext, channel: interactions.BaseChannel, parametres):
         if isOwner_slash(ctx):
-            if sub_command == 'channel':
-                requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :channel_id WHERE server_id = :server_id', {'channel_id': int(channel.id),
-                                                                                                                           'server_id': int(ctx.guild.id)})
-            elif sub_command == 'admin':
-                requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :joueur_id WHERE server_id = :server_id', {'joueur_id': int(proprietaire.id),
-                                                                                                                          'server_id': int(ctx.guild.id)})
-            elif sub_command == 'role_staff':
-                requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :role_id WHERE server_id = :server_id', {'role_id': int(role.id),
-                                                                                                                          'server_id': int(ctx.guild.id)})
-                
-
+            requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :channel_id WHERE server_id = :server_id', {'channel_id': int(channel.id),
+                                                                                                                       'server_id': int(ctx.guild.id)})
             await ctx.send('Modification effectuée avec succès.')
         else:
             await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
+
+    @modifier_settings.subcommand('admin',
+                                  options=[
+                                      SlashCommandOption(name='parametres',
+                                                         description='quel role ?',
+                                                         type=interactions.OptionType.STRING,
+                                                         choices=[
+                                                             SlashCommandChoice(name='admin', value='id_owner2')]),
+                                      SlashCommandOption(name='proprietaire',
+                                                         description='proprietaire du discord',
+                                                         type=interactions.OptionType.USER)
+                                  ])
+    async def modify_admin(self, ctx: SlashContext, parametres, proprietaire: interactions.User):
+        if isOwner_slash(ctx):
+            requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :joueur_id WHERE server_id = :server_id', {'joueur_id': int(proprietaire.id),
+                                                                                                                      'server_id': int(ctx.guild.id)})
+            await ctx.send('Modification effectuée avec succès.')
+        else:
+            await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
+
+    @modifier_settings.subcommand('role_staff',
+                                  options=[
+                                      SlashCommandOption(name='parametres',
+                                                         description='quel partie du staff ?',
+                                                         type=interactions.OptionType.STRING,
+                                                         choices=[
+                                                             SlashCommandChoice(
+                                                                 name='admin', value='role_admin')
+                                                         ]),
+                                      SlashCommandOption(name='role',
+                                                         description='quel role pour le staff ?',
+                                                         type=interactions.OptionType.ROLE)
+                                  ])
+    async def modifier_staff(self, ctx: SlashContext, parametres, role: interactions.Role):
+        if isOwner_slash(ctx):
+            requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :role_id WHERE server_id = :server_id', {'role_id': int(role.id),
+                                                                                                                    'server_id': int(ctx.guild.id)})
+            await ctx.send('Modification effectuée avec succès.')
+        else:
+            await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
+    # async def modifier_channel(self,
+    #                            ctx: SlashContext,
+    #                            sub_command: str,
+    #                            parametres,
+    #                            channel: interactions.Channel = None,
+    #                            proprietaire: interactions.User = None,
+    #                            role : interactions.Role = None):
+    #     if isOwner_slash(ctx):
+    #         if sub_command == 'channel':
+    #             requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :channel_id WHERE server_id = :server_id', {'channel_id': int(channel.id),
+    #                                                                                                                        'server_id': int(ctx.guild.id)})
+    #         elif sub_command == 'admin':
+    #             requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :joueur_id WHERE server_id = :server_id', {'joueur_id': int(proprietaire.id),
+    #                                                                                                                       'server_id': int(ctx.guild.id)})
+    #         elif sub_command == 'role_staff':
+    #             requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :role_id WHERE server_id = :server_id', {'role_id': int(role.id),
+    #                                                                                                                       'server_id': int(ctx.guild.id)})
+
+    #         await ctx.send('Modification effectuée avec succès.')
+    #     else:
+    #         await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
 
 
 def setup(bot):

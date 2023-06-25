@@ -1,5 +1,5 @@
 import interactions
-from interactions import Choice, Option, Extension, CommandContext
+from interactions import SlashCommandOption, SlashCommandChoice, Extension, SlashContext, slash_command
 import pandas as pd
 from fonctions.params import Version
 import aiohttp
@@ -53,34 +53,38 @@ class Anilist(Extension):
             else:
                 return extracted_data
 
-    @interactions.extension_command(
+    @slash_command(
         name="anime_season",
         description="Calendrier des sorties",
         options=[
-            Option(
+            SlashCommandOption(
                     name='nb_anime',
                     description="Combien d'animés ?",
                     type=interactions.OptionType.INTEGER,
                     required=False),
-            Option(name='year',
-                   description='Quelle année ?',
-                   type=interactions.OptionType.INTEGER,
-                   required=False,
-                   min_value=1998,
-                   max_value=2030),
-            Option(name='season',
-                   description='Quelle saison ?',
-                   type=interactions.OptionType.STRING,
-                   required=False,
-                   choices=[
-                       Choice(name='hiver', value='WINTER'),
-                       Choice(name='printemps', value='SPRING'),
-                       Choice(name='ete', value='SUMMER'),
-                       Choice(name='automne', value='FALL')
-                   ])
+            SlashCommandOption(name='year',
+                               description='Quelle année ?',
+                               type=interactions.OptionType.INTEGER,
+                               required=False,
+                               min_value=1998,
+                               max_value=2030),
+            SlashCommandOption(name='season',
+                               description='Quelle saison ?',
+                               type=interactions.OptionType.STRING,
+                               required=False,
+                               choices=[
+                                   SlashCommandChoice(
+                                       name='hiver', value='WINTER'),
+                                   SlashCommandChoice(
+                                       name='printemps', value='SPRING'),
+                                   SlashCommandChoice(
+                                       name='ete', value='SUMMER'),
+                                   SlashCommandChoice(
+                                       name='automne', value='FALL')
+                               ])
         ])
     async def anime_season(self,
-                           ctx: CommandContext,
+                           ctx: SlashContext,
                            nb_anime: int = 10,
                            year=2022,
                            season: str = 'SUMMER'):
@@ -241,15 +245,15 @@ class Anilist(Extension):
 
         return anime_ID
 
-    @interactions.extension_command(name="anime", description="Cherche un anime",
-                                    options=[Option(
-                                        name='anime',
-                                        description="nom de l'animé",
-                                        type=interactions.OptionType.STRING,
-                                        required=True
-                                    )])
+    @slash_command(name="anime", description="Cherche un anime",
+                   options=[SlashCommandOption(
+                       name='anime',
+                       description="nom de l'animé",
+                       type=interactions.OptionType.STRING,
+                       required=True
+                   )])
     async def anime(self,
-                    ctx: CommandContext,
+                    ctx: SlashContext,
                     anime):
         self.id = anime
 

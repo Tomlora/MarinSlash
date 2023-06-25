@@ -2,10 +2,8 @@ from fonctions.permissions import *
 from discord.utils import get
 import datetime
 from fonctions.mute import DatabaseHandler
-from interactions import Option, Extension, CommandContext, Choice
+from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, slash_command, listen, Task, IntervalTrigger
 import interactions
-from interactions.ext.wait_for import wait_for, wait_for_component, setup as stp
-from interactions.ext.tasks import IntervalTrigger, create_task
 import datetime
 from fonctions.gestion_bdd import get_guild_data, requete_perso_bdd, lire_bdd_perso
 from fonctions.channels_discord import mention
@@ -17,37 +15,35 @@ reminders = {}
 class Divers(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        stp(self.bot)
         self.database_handler = DatabaseHandler()
 
-    @interactions.extension_listener
-    async def on_start(self):
+    @listen()
+    async def on_startup(self):
 
-        self.task1 = create_task(IntervalTrigger(60))(self.remind_call)
-        self.task1.start()
+        self.remind_call.start()
 
-    # @interactions.extension_command(name='remindme_ponctuel',
+    # @slash_command(name='remindme_ponctuel',
     #                                 description="Rappel ponctuel",
     #                                 options=[
-    #                                     Option(
+    #                                     SlashCommandOption(
     #                                         name='msg',
     #                                         description='msg dans le rappel',
     #                                         type=interactions.OptionType.STRING,
     #                                         required=True
     #                                     ),
-    #                                     Option(
+    #                                     SlashCommandOption(
     #                                         name='time',
     #                                         description="Duree (Format h/m/s). Par exemple, 1h20 s'écrit 1h20m",
     #                                         type=interactions.OptionType.STRING,
     #                                         required=True),
-    #                                     Option(
+    #                                     SlashCommandOption(
     #                                         name='public',
     #                                         description='public ou private ?',
     #                                         type=interactions.OptionType.BOOLEAN,
     #                                         required=False
     #                                     )])
     # async def remindme_ponctuel(self,
-    #                             ctx: CommandContext,
+    #                             ctx: SlashContext,
     #                             msg: str,
     #                             time: str,
     #                             public: bool = False):
@@ -72,16 +68,16 @@ class Divers(Extension):
     #         await ctx.author.send(msg)
     #     reminders[ctx.author.id].pop(0)
 
-    # @interactions.extension_command(name='remindme_delete_ponctuel',
+    # @slash_command(name='remindme_delete_ponctuel',
     #                                 description="Supprimer un rappel ponctuel",
-    #                                 options=[Option(
+    #                                 options=[SlashCommandOption(
     #                                     name='numero_rappel',
     #                                     description='numero du rappel obtenu avec remind_list',
     #                                     type=interactions.OptionType.INTEGER,
     #                                     required=True
     #                                 )])
     # async def remindme_delete(self,
-    #                          ctx: CommandContext,
+    #                          ctx: SlashContext,
     #                          numero_rappel: int):
     #     if ctx.author.id not in reminders:
     #         await ctx.send("Vous n'avez pas de rappels enregistrés.", ephemeral=True)
@@ -89,9 +85,9 @@ class Divers(Extension):
     #         reminders[ctx.author.id].pop(numero_rappel)
     #         await ctx.send('Fait !')
 
-    # @interactions.extension_command(name='remindme_list_ponctuel',
+    # @slash_command(name='remindme_list_ponctuel',
     #                                 description="Liste des rappels ponctuels")
-    # async def list_reminders(self, ctx: CommandContext):
+    # async def list_reminders(self, ctx: SlashContext):
     #     if ctx.author.id not in reminders:
     #         await ctx.send("Vous n'avez pas de rappels enregistrés.", ephemeral=True)
     #     else:
@@ -106,66 +102,67 @@ class Divers(Extension):
     #         else:
     #             await ctx.send('Tous les rappels ont été executés.', ephemeral=True)
 
-    @interactions.extension_command(name='remindme',
+    @slash_command(name='remindme',
                                     description="Rappel à répéter",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name='msg',
                                             description='msg dans le rappel',
                                             type=interactions.OptionType.STRING,
                                             required=True
                                         ),
-                                        Option(
+                                        SlashCommandOption(
                                             name='heure',
                                             description="Heure",
                                             type=interactions.OptionType.INTEGER,
                                             required=True),
-                                        Option(
+                                        SlashCommandOption(
                                             name='minute',
                                             description='Minute',
                                             type=interactions.OptionType.INTEGER,
                                             required=True
                                         ),
-                                        Option(name='repetition',
+                                        SlashCommandOption(name='repetition',
                                                description='Combien de fois ? (1 à 365)',
                                                type=interactions.OptionType.INTEGER,
                                                min_value=1,
                                                max_value=365,
                                                required=True),
-                                        Option(name='jour',
+                                        SlashCommandOption(name='jour',
                                                description='quel jour ?',
                                                type=interactions.OptionType.STRING,
                                                required=False,
                                                choices=[
-                                                   Choice(name='Lundi', value='1'),
-                                                   Choice(name='Mardi', value='2'),
-                                                   Choice(name='Mercredi', value='3'),
-                                                   Choice(name='Jeudi', value='4'),
-                                                   Choice(name='Vendredi', value='5'),
-                                                   Choice(name='Samedi', value='6'),
-                                                   Choice(name='Dimanche', value='7'),
-                                                   Choice(name='Tous', value='0')
+                                                   SlashCommandChoice(name='Lundi', value='1'),
+                                                   SlashCommandChoice(name='Mardi', value='2'),
+                                                   SlashCommandChoice(name='Mercredi', value='3'),
+                                                   SlashCommandChoice(name='Jeudi', value='4'),
+                                                   SlashCommandChoice(name='Vendredi', value='5'),
+                                                   SlashCommandChoice(name='Samedi', value='6'),
+                                                   SlashCommandChoice(name='Dimanche', value='7'),
+                                                   SlashCommandChoice(name='Tous', value='0')
                                                ]),
-                                        Option(
+                                        SlashCommandOption(
                                             name='channel',
                                             description='dans quel channel écrire le msg ? (si public)',
                                             type=interactions.OptionType.CHANNEL,
                                             required=False),
-                                        Option(
+                                        SlashCommandOption(
                                             name='public',
                                             description='rappel public ou en mp ?',
                                             type=interactions.OptionType.BOOLEAN,
                                             required=False)
                                     ])
     async def remindme_quotidien(self,
-                                 ctx: CommandContext,
+                                 ctx: SlashContext,
                                  msg: str,
                                  heure: int,
                                  minute: int,
                                  repetition: int,
                                  jour:str = '0',
-                                 channel: interactions.Channel = None,
+                                 channel: interactions.BaseChannel = None,
                                  public: bool = False):
+
 
         user_id = int(ctx.author.id)
         guild_id = int(ctx.guild_id)
@@ -190,10 +187,10 @@ class Divers(Extension):
 
         await ctx.send(f'Rappel enregistré pour {heure}:{minute}', ephemeral=True)
 
-    @interactions.extension_command(name='remindme_list',
+    @slash_command(name='remindme_list',
                                     description="Rappel à répéter")
     async def remindme_quotidien_list(self,
-                                      ctx: CommandContext):
+                                      ctx: SlashContext):
 
         await ctx.defer(ephemeral=True)
 
@@ -205,12 +202,11 @@ class Divers(Extension):
             msg = 'Rappels actifs : \n'
 
             for id_rappel, infos_rappel in df.iterrows():
-                channel = await interactions.get(self.bot,
-                                                 interactions.Channel,
-                                                 object_id=infos_rappel['channel'])
-                guild = await interactions.get(self.bot,
-                                               interactions.Guild,
-                                               object_id=infos_rappel['guild'])
+
+                channel = await self.bot.fetch_channel(infos_rappel['channel'])
+                
+                guild = await self.bot.fetch_guild(infos_rappel['guild'])
+
                 
                 dict_day = {1 : 'Lundi', 2: 'Mardi', 3: 'Mercredi', 4: 'Jeudi', 5: 'Vendredi', 6 : 'Samedi', 7 : 'Dimanche', 0 : 'Tous les jours'}
 
@@ -224,16 +220,16 @@ class Divers(Extension):
         else:
             await ctx.send('Pas de rappel actif', ephemeral=True)
             
-    @interactions.extension_command(name='remindme_delete',
+    @slash_command(name='remindme_delete',
                                     description="Rappel quotidien à supprimer",
                                     options=[
-                                        Option(name='id_rappel',
+                                        SlashCommandOption(name='id_rappel',
                                                description='numero du rappel',
                                                type=interactions.OptionType.INTEGER,
                                                required=True)
                                     ])
     async def remindme_quotidien_delete(self,
-                                      ctx: CommandContext,
+                                      ctx: SlashContext,
                                       id_rappel : int):
 
         await ctx.defer(ephemeral=True)
@@ -250,6 +246,7 @@ class Divers(Extension):
         else:
             await ctx.send('Pas de rappel identifié à ton nom', ephemeral=True)
 
+    @Task.create(IntervalTrigger(minutes=1))
     async def remind_call(self):
         heure, minute = heure_actuelle()
         jour = datetime.datetime.now().isoweekday()
@@ -266,15 +263,13 @@ class Divers(Extension):
 
             for id_rappel, infos_rappel in df.iterrows():
                 # on cherche l'user qui a le rappel
-                user = await interactions.get(self.bot,
-                                              interactions.User,
-                                              object_id=infos_rappel['user'])
+
+                user = await self.bot.fetch_user(infos_rappel['user'])
 
                 if infos_rappel['public']:
                     # on cherche le channel à envoyer le rappel
-                    channel = await interactions.get(self.bot,
-                                                     interactions.Channel,
-                                                     object_id=infos_rappel['channel'])
+
+                    channel = await self.bot.fetch_channel(infos_rappel['channel'])
 
                     await channel.send(f'__Rappel__ {mention(user.id, "membre")} : {infos_rappel["msg"]} ')
                 else:

@@ -250,7 +250,7 @@ class challengeslol():
 
             
             # on ne retient pas les petites améliorations, ça n'a aucun sens
-            self.data_evolution = self.data_evolution[(self.data_evolution['evolution'] > 1) & (self.data_evolution['dif_value'] > 2)]
+            self.data_evolution = self.data_evolution[(self.data_evolution['evolution'] > 2) & (self.data_evolution['dif_value'] > 2)]
             
             # on retire les categories de new_value et new_percentile
             

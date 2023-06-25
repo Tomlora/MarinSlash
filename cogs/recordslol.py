@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
 import interactions
-from interactions import Choice, Option, Extension, CommandContext
-from interactions.ext.paginator import Page, Paginator
+from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command
+from interactions.ext.paginators import Paginator
 from fonctions.params import Version, saison
 from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples
 from aiohttp import ClientSession
@@ -12,7 +12,7 @@ import asyncio
 from fonctions.channels_discord import get_embed, mention
 
 def option_stats_records(name, params, description='type de recherche'):
-    option = Option(
+    option = SlashCommandOption(
         name=name,
         description=description,
         type=interactions.OptionType.SUB_COMMAND,
@@ -191,13 +191,13 @@ emote_v2 = {
     "ecart_gold_team" : ":euro:"
 }
 
-choice_pantheon = [Choice(name="KDA", value="KDA"),
-                   Choice(name='KDA moyenne', value='KDA moyenne'),
-                   Choice(name='vision', value='VISION'),
-                   Choice(name='vision moyenne', value='VISION moyenne'),
-                   Choice(name='CS', value='CS'),
-                   Choice(name='Solokills', value='SOLOKILLS'),
-                   Choice(name='games', value='GAMES')]
+choice_pantheon = [SlashCommandChoice(name="KDA", value="KDA"),
+                   SlashCommandChoice(name='KDA moyenne', value='KDA moyenne'),
+                   SlashCommandChoice(name='vision', value='VISION'),
+                   SlashCommandChoice(name='vision moyenne', value='VISION moyenne'),
+                   SlashCommandChoice(name='CS', value='CS'),
+                   SlashCommandChoice(name='Solokills', value='SOLOKILLS'),
+                   SlashCommandChoice(name='games', value='GAMES')]
 
 
 class Recordslol(Extension):
@@ -205,20 +205,20 @@ class Recordslol(Extension):
         self.bot: interactions.Client = bot
         self.time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20} # minutes minimum pour compter dans les records
 
-    @interactions.extension_command(name="records_list_s12",
+    @slash_command(name="records_list_s12",
                                     description="Voir les records détenues par les joueurs (réservé s12)",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name="mode",
                                             description="Quel mode de jeu ?",
                                             type=interactions.OptionType.STRING,
                                             required=True, choices=[
-                                                Choice(name='ranked',
+                                                SlashCommandChoice(name='ranked',
                                                        value='ranked'),
-                                                Choice(name='aram', value='aram')])
+                                                SlashCommandChoice(name='aram', value='aram')])
                                     ])
     async def records_list_s12(self,
-                           ctx: CommandContext,
+                           ctx: SlashContext,
                            mode: str = 'ranked'):
 
         await ctx.defer(ephemeral=False)
@@ -233,7 +233,7 @@ class Recordslol(Extension):
         response = ""
 
         embed1 = interactions.Embed(
-            title=f"Records {mode} S12 (Page 1/3) :bar_chart:", color=interactions.Color.BLURPLE)
+            title=f"Records {mode} S12 (Page 1/3) :bar_chart:", color=interactions.Color.random())
 
         for key, value in fichier1.iterrows():
             valeur = ""
@@ -258,7 +258,7 @@ class Recordslol(Extension):
         embed1.set_footer(text=f'Version {Version} by Tomlora')
 
         embed2 = interactions.Embed(
-            title=f"Records {mode} S12 (Page 2/3) :bar_chart:", color=interactions.Color.BLURPLE)
+            title=f"Records {mode} S12 (Page 2/3) :bar_chart:", color=interactions.Color.random())
 
         for key, value in fichier2.iterrows():
             valeur2 = ""
@@ -392,26 +392,21 @@ class Recordslol(Extension):
 
         embed3.set_footer(text=f'Version {Version} by Tomlora')
 
-        await Paginator(
+        paginator = Paginator.create_from_embeds(
             client=self.bot,
-            ctx=ctx,
-            pages=[
-                Page(embed1.title, embed1),
-                Page(embed2.title, embed2),
-                Page(embed3.title, embed3)
-            ]
-        ).run()
+            embeds=[embed1, embed2, embed3])
 
-    @interactions.extension_command(name="records_personnel_s12",
+
+    @slash_command(name="records_personnel_s12",
                                     description="Record personnel (réservé s12)",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name="joueur",
                                             description="Pseudo LoL",
                                             type=interactions.OptionType.STRING,
                                             required=True)])
     async def records_personnel_s12(self,
-                                ctx: CommandContext,
+                                ctx: SlashContext,
                                 joueur: str):
 
         joueur = joueur.lower()
@@ -424,11 +419,11 @@ class Recordslol(Extension):
         df_part2 = df.iloc[18:]
 
         embed1 = interactions.Embed(
-            title=f"Records personnels {joueur} (1/3)", color=interactions.Color.BLURPLE)
+            title=f"Records personnels {joueur} (1/3)", color=interactions.Color.random())
         embed2 = interactions.Embed(
-            title=f"Records personnels {joueur} (2/3)", color=interactions.Color.BLURPLE)
+            title=f"Records personnels {joueur} (2/3)", color=interactions.Color.random())
         embed3 = interactions.Embed(
-            title=f"Records personnels ARAM {joueur} (3/3)", color=interactions.Color.BLURPLE)
+            title=f"Records personnels ARAM {joueur} (3/3)", color=interactions.Color.random())
 
         for key, valeur in df_part1.iteritems():
             # format
@@ -485,101 +480,93 @@ class Recordslol(Extension):
         embed2.set_footer(text=f'Version {Version} by Tomlora')
         embed3.set_footer(text=f'Version {Version} by Tomlora')
 
-        await Paginator(
-            client=self.bot,
-            ctx=ctx,
-            pages=[
-                Page(embed1.title, embed1),
-                Page(embed2.title, embed2),
-                Page(embed3.title, embed3)
-            ]
-        ).run()
+        paginator = Paginator.create_from_embeds(
+            self.bot,
+            embeds=[embed1, embed2, embed3])
 
     parameters_communs = [
-        Option(
+        SlashCommandOption(
             name="mode",
             description="Quel mode de jeu ?",
             type=interactions.OptionType.STRING,
             required=True, choices=[
-                Choice(name='ranked',
+                SlashCommandChoice(name='ranked',
                        value='RANKED'),
-                Choice(name='aram', value='ARAM'),
-                Choice(name='flex', value='FLEX')]),
-        Option(
+                SlashCommandChoice(name='aram', value='ARAM'),
+                SlashCommandChoice(name='flex', value='FLEX')]),
+        SlashCommandOption(
             name='saison',
             description='saison league of legends',
             type=interactions.OptionType.INTEGER,
             required=False,
             min_value=12,
             max_value=saison),
-        Option(
+        SlashCommandOption(
             name='champion',
             description='champion',
             type=interactions.OptionType.STRING,
             required=False),
-        Option(
+        SlashCommandOption(
             name='view',
             description='global ou serveur ?',
             type=interactions.OptionType.STRING,
             required=False,
             choices=[
-                Choice(name='global', value='global'),
-                Choice(name='serveur', value='serveur')
+                SlashCommandChoice(name='global', value='global'),
+                SlashCommandChoice(name='serveur', value='serveur')
             ]
         )]
 
     parameters_personnel = [
-        Option(
+        SlashCommandOption(
             name="mode",
             description="Quel mode de jeu ?",
             type=interactions.OptionType.STRING,
             required=True, choices=[
-                Choice(name='ranked',
+                SlashCommandChoice(name='ranked',
                        value='RANKED'),
-                Choice(name='aram', value='ARAM'),
-                Choice(name='flex', value='FLEX')]),
-        Option(
+                SlashCommandChoice(name='aram', value='ARAM'),
+                SlashCommandChoice(name='flex', value='FLEX')]),
+        SlashCommandOption(
             name="joueur",
             description="Compte LoL (pas nécessaire si compte discord renseigné)",
             type=interactions.OptionType.STRING,
             required=False),
-        Option(
+        SlashCommandOption(
             name="compte_discord",
             description='compte discord (pas nécessaire si compte lol renseigné)',
             type=interactions.OptionType.USER,
             required=False
         ),
-        Option(
+        SlashCommandOption(
             name='saison',
             description='saison league of legends',
             type=interactions.OptionType.INTEGER,
             required=False,
             min_value=12,
             max_value=saison),
-        Option(
+        SlashCommandOption(
             name='champion',
             description='champion',
             type=interactions.OptionType.STRING,
             required=False)]
 
-    @interactions.extension_command(name="records_list",
-                                    description="Voir les records détenues par les joueurs",
-                                    options=[
-                                        option_stats_records(name='general',
-                                                                  params=parameters_communs, description='Records tout confondu'),
-                                        option_stats_records(
-                                            name='personnel', params=parameters_personnel, description='Record sur un joueur')
-                                    ])
-    async def records_list_v2(self,
-                              ctx: CommandContext,
-                              sub_command: str,
-                              saison: int = saison,
-                              mode: str = 'ranked',
-                              joueur= None,
-                              compte_discord : interactions.User = None,
-                              champion : str =None,
-                              view='global'):
-
+    @slash_command(name="records_list",
+                                    description="Voir les records détenues par les joueurs")
+    async def records_list_v2(self, ctx:SlashContext):
+        pass
+    
+    @records_list_v2.subcommand('general',
+                                sub_cmd_description='Records tout confondus',
+                                options=parameters_communs)
+    async def records_list_general(self, ctx:SlashContext,
+                                   saison:int=saison,
+                                   mode:str = 'ranked',
+                                   joueur=None,
+                                   compte_discord:interactions.User=None,
+                                   champion:str=None,
+                                   view='global'):
+        
         await ctx.defer(ephemeral=False)
         
         methode_pseudo = 'discord'
@@ -596,54 +583,15 @@ class Recordslol(Extension):
                                      and server_id = {int(ctx.guild_id)}
                                      and time >= {self.time_mini[mode]}''', index_col='id').transpose()
             
-
         if champion != None:
             
             champion = champion.capitalize()
 
-            fichier = fichier[fichier['champion'] == champion]
-
-        if sub_command == 'personnel':
-
+            fichier = fichier[fichier['champion'] == champion] 
             
-            if joueur != None:
-            
-                joueur = joueur.lower()
-                
-                id_joueur = lire_bdd_perso('''SELECT tracker.index, tracker.discord from tracker''',
-                                            format='dict', index_col='index')
-
-                fichier = fichier[fichier['discord'] == id_joueur[joueur]['discord']]
-                
-              
-            elif compte_discord != None:
-                
-                id_discord = str(compte_discord.id)
-                               
-                joueur = compte_discord.username
-                
-                fichier = fichier[fichier['discord'] == id_discord]
-                
-            
-            elif joueur == None and compte_discord == None:
-                
-                fichier = fichier[fichier['discord'] == str(ctx.author.id)]
-                
-                joueur = ctx.author.name
-                
-            methode_pseudo = 'joueur'
-
-            if champion == None:
-
-                title = f'Records personnels {joueur} {mode} S{saison}'
-            else:
-                title = f'Records personnels {joueur} {mode} S{saison} ({champion})'
-
-        else:
-
-            if champion == None:
+        if champion == None:
                 title = f'Records {mode} S{saison}'
-            else:
+        else:
                 title = f'Records {mode} S{saison} ({champion})'
 
         fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills'] 
@@ -689,7 +637,7 @@ class Recordslol(Extension):
                 return embed
         
         embed1 = interactions.Embed(
-            title=title + " Kills", color=interactions.Color.BLURPLE)    
+            title=title + " Kills", color=interactions.Color.random())    
 
         for column in fichier_kills:
             
@@ -697,28 +645,28 @@ class Recordslol(Extension):
           
 
         embed2 = interactions.Embed(
-            title=title + " DMG", color=interactions.Color.BLURPLE)
+            title=title + " DMG", color=interactions.Color.random())
 
         for column in fichier_dmg:
             
             embed2 = creation_embed(fichier, column, methode_pseudo, embed2)
 
         embed5 = interactions.Embed(
-            title=title + " Farming", color=interactions.Color.BLURPLE)
+            title=title + " Farming", color=interactions.Color.random())
 
         for column in fichier_farming:
             
             embed5 = creation_embed(fichier, column, methode_pseudo, embed5)
 
         embed6 = interactions.Embed(
-            title=title + " Tank/Heal", color=interactions.Color.BLURPLE)
+            title=title + " Tank/Heal", color=interactions.Color.random())
 
         for column in fichier_tank_heal:
             
             embed6 = creation_embed(fichier, column, methode_pseudo, embed6)
 
         embed7 = interactions.Embed(
-            title=title + " Divers", color=interactions.Color.BLURPLE)
+            title=title + " Divers", color=interactions.Color.random())
 
         for column in fichier_divers:
             
@@ -728,7 +676,7 @@ class Recordslol(Extension):
         if mode != 'ARAM':
             
             embed3 = interactions.Embed(
-            title=title + " Vision", color=interactions.Color.BLURPLE)
+            title=title + " Vision", color=interactions.Color.random())
 
             for column in fichier_vision:
                 
@@ -736,7 +684,7 @@ class Recordslol(Extension):
 
                 
             embed4 = interactions.Embed(
-                title=title + " Objectif", color=interactions.Color.BLURPLE)
+                title=title + " Objectif", color=interactions.Color.random())
             
             for column in fichier_objectif:
                 methode = 'max'
@@ -754,74 +702,254 @@ class Recordslol(Extension):
         if mode != 'ARAM':
             embed3.set_footer(text=f'Version {Version} by Tomlora')
             embed4.set_footer(text=f'Version {Version} by Tomlora')
-            pages=[
-                Page(embed1.title, embed1),
-                Page(embed2.title, embed2),
-                Page(embed3.title, embed3),
-                Page(embed4.title, embed4),
-                Page(embed5.title, embed5),
-                Page(embed6.title, embed6),
-                Page(embed7.title, embed7)
-            ]
-        else:
-            pages=[
-                Page(embed1.title, embed1),
-                Page(embed2.title, embed2),
-                Page(embed5.title, embed5),
-                Page(embed6.title, embed6),
-                Page(embed7.title, embed7)
-            ]
-            
-        await Paginator(
-            client=self.bot,
-            ctx=ctx,
-            pages=pages,
-            timeout=180
-        ).run()
+            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7]
 
-    @interactions.extension_command(name="records_count",
+        else:
+            pages=[embed1, embed2, embed5, embed6, embed7]
+            
+        paginator = Paginator.create_from_embeds(
+            self.bot,
+            *pages
+        )
+        paginator.show_select_menu = True
+        
+        await paginator.send(ctx)   
+            
+        
+    @records_list_v2.subcommand('personnel',
+                                sub_cmd_description='Records personnels sur un joueur',
+                                options=parameters_personnel)
+    async def records_list_personnel(self,
+                              ctx: SlashContext,
+                              saison: int = saison,
+                              mode: str = 'ranked',
+                              joueur= None,
+                              compte_discord : interactions.User = None,
+                              champion : str =None,
+                              view='global'):
+
+        await ctx.defer(ephemeral=False)
+        
+        methode_pseudo = 'discord'
+        
+        if view == 'global':
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
+                                     INNER JOIN tracker on tracker.index = matchs.joueur
+                                     where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]}''', index_col='id').transpose()
+        elif view == 'serveur':
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
+                                     INNER JOIN tracker on tracker.index = matchs.joueur
+                                     where season = {saison}
+                                     and mode = '{mode}'
+                                     and server_id = {int(ctx.guild_id)}
+                                     and time >= {self.time_mini[mode]}''', index_col='id').transpose()
+            
+
+        if champion != None:
+            
+            champion = champion.capitalize()
+
+            fichier = fichier[fichier['champion'] == champion]
+
+            
+        if joueur != None:
+            
+            joueur = joueur.lower()
+                
+            id_joueur = lire_bdd_perso('''SELECT tracker.index, tracker.discord from tracker''',
+                                            format='dict', index_col='index')
+
+            fichier = fichier[fichier['discord'] == id_joueur[joueur]['discord']]
+                
+              
+        elif compte_discord != None:
+                
+            id_discord = str(compte_discord.id)
+                               
+            joueur = compte_discord.username
+                
+            fichier = fichier[fichier['discord'] == id_discord]
+                
+            
+        elif joueur == None and compte_discord == None:
+                
+            fichier = fichier[fichier['discord'] == str(ctx.author.id)]
+                
+            joueur = ctx.author.name
+                
+        methode_pseudo = 'joueur'
+
+        if champion == None:
+
+                title = f'Records personnels {joueur} {mode} S{saison}'
+        else:
+                title = f'Records personnels {joueur} {mode} S{saison} ({champion})'
+
+        
+        fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills'] 
+        fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min']
+        fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
+        fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
+        fichier_tank_heal = ['dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
+        fichier_objectif = ['baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower']
+        fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'couronne', 'snowball']
+
+        # on rajoute quelques éléments sur d'autres pages...
+
+        
+        if mode == 'RANKED':
+            fichier_divers.remove('snowball')
+
+        if mode == 'ARAM':  # on vire les records qui ne doivent pas être comptés en aram
+
+            fichier_farming.remove('cs_jungle')
+            fichier_farming.remove('jgl_dix_min')
+
+
+        def format_value(joueur, champion, url, short=False):
+            text = ''
+            for j, c, u in zip(joueur, champion, url):
+                if short:
+                    text += f'**__ {j} __ {c} ** \n'
+                else:
+                    text += f'**__{j}__** [{c}]({u}) \n'
+            return text
+        
+        def creation_embed(fichier, column, methode_pseudo, embed, methode='max'):
+                joueur, champion, record, url = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo)
+            
+                value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"** {joueur[0]} ** [{champion[0]}]({url[0]})\n"
+                
+                embed.add_field(
+                    name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                    value=f"Records : __ {record} __ \n {value_text}",
+                    inline=True
+                )
+                
+                return embed
+        
+        embed1 = interactions.Embed(
+            title=title + " Kills", color=interactions.Color.random())    
+
+        for column in fichier_kills:
+            
+            embed1 = creation_embed(fichier, column, methode_pseudo, embed1)
+          
+
+        embed2 = interactions.Embed(
+            title=title + " DMG", color=interactions.Color.random())
+
+        for column in fichier_dmg:
+            
+            embed2 = creation_embed(fichier, column, methode_pseudo, embed2)
+
+        embed5 = interactions.Embed(
+            title=title + " Farming", color=interactions.Color.random())
+
+        for column in fichier_farming:
+            
+            embed5 = creation_embed(fichier, column, methode_pseudo, embed5)
+
+        embed6 = interactions.Embed(
+            title=title + " Tank/Heal", color=interactions.Color.random())
+
+        for column in fichier_tank_heal:
+            
+            embed6 = creation_embed(fichier, column, methode_pseudo, embed6)
+
+        embed7 = interactions.Embed(
+            title=title + " Divers", color=interactions.Color.random())
+
+        for column in fichier_divers:
+            
+            embed7 = creation_embed(fichier, column, methode_pseudo, embed7)
+
+
+        if mode != 'ARAM':
+            
+            embed3 = interactions.Embed(
+            title=title + " Vision", color=interactions.Color.random())
+
+            for column in fichier_vision:
+                
+                embed3 = creation_embed(fichier, column, methode_pseudo, embed3)
+
+                
+            embed4 = interactions.Embed(
+                title=title + " Objectif", color=interactions.Color.random())
+            
+            for column in fichier_objectif:
+                methode = 'max'
+                if column in ['early_drake', 'early_baron']:
+                    methode = 'min'
+                
+                embed4 = creation_embed(fichier, column, methode_pseudo, embed4, methode)
+
+        embed1.set_footer(text=f'Version {Version} by Tomlora')
+        embed2.set_footer(text=f'Version {Version} by Tomlora')
+        embed5.set_footer(text=f'Version {Version} by Tomlora')
+        embed6.set_footer(text=f'Version {Version} by Tomlora')
+        embed7.set_footer(text=f'Version {Version} by Tomlora')
+
+        if mode != 'ARAM':
+            embed3.set_footer(text=f'Version {Version} by Tomlora')
+            embed4.set_footer(text=f'Version {Version} by Tomlora')
+            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7]
+
+        else:
+            pages=[embed1, embed2, embed5, embed6, embed7]
+            
+        paginator = Paginator.create_from_embeds(
+            self.bot,
+            *pages,
+        )
+        
+        paginator.show_select_menu = True
+        await paginator.send(ctx)
+
+    @slash_command(name="records_count",
                                     description="Compte le nombre de records",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name="saison",
                                             description="saison lol ?",
                                             type=interactions.OptionType.INTEGER,
                                             required=False,
                                             min_value=12,
                                             max_value=saison),
-                                        Option(
+                                        SlashCommandOption(
                                             name='mode',
                                             description='quel mode de jeu ?',
                                             type=interactions.OptionType.STRING,
                                             required=False,
                                             choices=[
-                                                Choice(name='ranked',
+                                                SlashCommandChoice(name='ranked',
                                                        value='RANKED'),
-                                                Choice(name='aram',
+                                                SlashCommandChoice(name='aram',
                                                        value='ARAM'),
-                                                Choice(name='flex',
+                                                SlashCommandChoice(name='flex',
                                                        value='FLEX')
                                             ]
                                         ),
-                                        Option(
+                                        SlashCommandOption(
                                             name='champion',
                                             description='focus sur un champion ?',
                                             type=interactions.OptionType.STRING,
                                             required=False
                                         ),
-                                        Option(
+                                        SlashCommandOption(
                                             name='view',
                                             description='Global ou serveur ?',
                                             type=interactions.OptionType.STRING,
                                             required=False,
                                             choices=[
-                                                Choice(name='global', value='global'),
-                                                Choice(name='serveur', value='serveur')
+                                                SlashCommandChoice(name='global', value='global'),
+                                                SlashCommandChoice(name='serveur', value='serveur')
                                             ]
                                         )
                                     ])
     async def records_count(self,
-                            ctx: CommandContext,
+                            ctx: SlashContext,
                             saison: int = saison,
                             mode: str = 'RANKED',
                             champion: str = None,
@@ -905,9 +1033,9 @@ class Recordslol(Extension):
 
             select = interactions.SelectMenu(
                 options=[
-                    interactions.SelectOption(
+                    interactions.SelectSlashCommandOption(
                         label="general", value="general", emoji=interactions.Emoji(name='1️⃣')),
-                    interactions.SelectOption(
+                    interactions.SelectSlashCommandOption(
                         label="par champion", value="par champion", emoji=interactions.Emoji(name='2️⃣')),
                 ],
                 custom_id='selection',
@@ -991,74 +1119,83 @@ class Recordslol(Extension):
             await ctx.send(embeds=embed, files=file)
             
 
-    @interactions.extension_command(name="records_palmares",
+    @slash_command(name="records_palmares",
                                     description="Classement pour un record donné",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name='stat',
                                             description='Nom du record (voir records) ou écrire champion pour le nombre de champions joués',
                                             type=interactions.OptionType.STRING,
                                             required=True
                                         ),
-                                        Option(
+                                        SlashCommandOption(
                                             name="saison",
                                             description="saison lol ?",
                                             type=interactions.OptionType.INTEGER,
                                             required=False,
                                             min_value=12,
                                             max_value=saison),
-                                        Option(
+                                        SlashCommandOption(
                                             name='mode',
                                             description='quel mode de jeu ?',
                                             type=interactions.OptionType.STRING,
                                             required=False,
                                             choices=[
-                                                Choice(name='ranked',
+                                                SlashCommandChoice(name='ranked',
                                                        value='RANKED'),
-                                                Choice(name='aram',
+                                                SlashCommandChoice(name='aram',
                                                        value='ARAM'),
-                                                Choice(name='flex',
+                                                SlashCommandChoice(name='flex',
                                                        value='FLEX')
                                             ]
                                         ),
-                                        Option(
+                                        SlashCommandOption(
                                             name='champion',
                                             description='focus sur un champion ?',
                                             type=interactions.OptionType.STRING,
                                             required=False
                                         ),
-                                        Option(
+                                        SlashCommandOption(
                                             name='joueur',
                                             description='focus sur un joueur ?',
                                             type=interactions.OptionType.STRING,
                                             required=False
                                         ),
-                                        Option(
+                                        SlashCommandOption(
                                             name="compte_discord",
                                             description='focus sur un compte discord ?',
                                             type=interactions.OptionType.USER,
                                             required=False
                                         ),
-                                        Option(
+                                        SlashCommandOption(
                                             name='view',
                                             description='Global ou serveur ?',
                                             type=interactions.OptionType.STRING,
                                             required=False,
                                             choices=[
-                                                Choice(name='global', value='global'),
-                                                Choice(name='serveur', value='serveur')
+                                                SlashCommandChoice(name='global', value='global'),
+                                                SlashCommandChoice(name='serveur', value='serveur')
                                             ]
+                                        ),
+                                        SlashCommandOption(
+                                            name='top',
+                                            description='top à afficher',
+                                            type=interactions.OptionType.INTEGER,
+                                            required=False,
+                                            min_value=10,
+                                            max_value=25
                                         )
                                     ])
     async def palmares(self,
-                        ctx: CommandContext,
+                        ctx: SlashContext,
                         stat : str,
                         saison: int = saison,
                         mode: str = 'RANKED',
                         champion: str = None,
                         joueur:str = None,
                         compte_discord: interactions.User = None,
-                        view : str = 'global'):
+                        view : str = 'global',
+                        top : int = 10):
 
 
             # on récupère les champions
@@ -1109,7 +1246,7 @@ class Recordslol(Extension):
             fichier['proportion'] = np.int8((fichier['match_id'] / fichier['count'])*100)
             
             
-            fichier = fichier.head(10)   
+            fichier = fichier.head(top)   
             
             txt = ''
                 
@@ -1131,7 +1268,7 @@ class Recordslol(Extension):
                 nb_row = fichier.shape[0]
                 
                 fichier.sort_values(by=stat, ascending=False, inplace=True)
-                fichier = fichier.head(10)
+                fichier = fichier.head(top)
                 
                 txt = ''
                 

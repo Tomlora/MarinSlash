@@ -2,8 +2,7 @@ import aiohttp
 import os
 from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
 import interactions
-from interactions import Option, Extension, CommandContext
-from interactions.ext.tasks import create_task, IntervalTrigger
+from interactions import SlashContext, SlashCommandOption, Extension, slash_command, listen, Task, IntervalTrigger
 
 from fonctions.channels_discord import chan_discord
 
@@ -23,19 +22,19 @@ class Twitch(Extension):
             "grant_type": 'client_credentials'
         }
 
-    @interactions.extension_listener
-    async def on_start(self):
-        self.task1 = create_task(IntervalTrigger(60*4))(self.Twitch_verif)
-        self.task1.start()
+    @listen()
+    async def on_startup(self):
+        self.Twitch_verif.start()
+        
+        
 
     # return the stream Id is streaming else returns -1
     async def TwitchLive(self, pseudo_twitch: str, statut_twitch: bool, session):
         # TODO : Faire par serveur discord
         discord_server_id = chan_discord(494217748046544906)
 
-        channel_lol = await interactions.get(client=self.bot,
-                                             obj=interactions.Channel,
-                                             object_id=discord_server_id.twitch)
+         
+        channel_lol = await self.bot.fetch_channel(discord_server_id.twitch)
 
         async with session.post(self.URL, params=self.body) as user_twitch:
             r = await user_twitch.json()
@@ -67,6 +66,7 @@ class Twitch(Extension):
             requete_perso_bdd('''UPDATE twitch SET is_live = False WHERE index = :joueur ''', {
                               'joueur': pseudo_twitch.lower()})
 
+    @Task.create(IntervalTrigger(minutes=5))
     async def Twitch_verif(self):
 
         session = aiohttp.ClientSession()
@@ -79,14 +79,14 @@ class Twitch(Extension):
 
         await session.close()
 
-    @interactions.extension_command(name="addtwitch",
+    @slash_command(name="addtwitch",
                                     description="Ajoute un compte au tracker twitch",
                                     options=[
-                                        Option(name="pseudo_twitch",
+                                        SlashCommandOption(name="pseudo_twitch",
                                                     description="Pseudo du compte Twitch",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
-    async def add_twitch(self, ctx: CommandContext, pseudo_twitch: str):
+    async def add_twitch(self, ctx: SlashContext, pseudo_twitch: str):
 
         await ctx.defer(ephemeral=False)
 
@@ -94,14 +94,14 @@ class Twitch(Extension):
 	                    VALUES (:index, :is_live);''', {'index': pseudo_twitch.lower(), 'is_live': False})
         await ctx.send('Joueur ajouté au tracker Twitch')
 
-    @interactions.extension_command(name="deltwitch",
+    @slash_command(name="deltwitch",
                                     description="Supprime un compte du tracker twitch",
                                     options=[
-                                        Option(name="pseudo_twitch",
+                                        SlashCommandOption(name="pseudo_twitch",
                                                     description="Pseudo du compte Twitch",
                                                     type=interactions.OptionType.STRING,
                                                     required=True)])
-    async def del_twitch(self, ctx: CommandContext, pseudo_twitch: str):
+    async def del_twitch(self, ctx: SlashContext, pseudo_twitch: str):
 
         await ctx.defer(ephemeral=False)
         

@@ -3,24 +3,19 @@ import ast
 import aiohttp
 import os
 from fonctions.gestion_bdd import (lire_bdd, lire_bdd_perso, requete_perso_bdd)
-
-
 from fonctions.gestion_challenge import (get_data_joueur_challenges,
                                          challengeslol)
-from fonctions.params import heure_challenge
 import time
 import plotly.express as px
 import plotly.graph_objects as go
 import datetime
 import dataframe_image as dfi
 import interactions
-from interactions import Option, Extension, CommandContext, Choice
-from interactions.ext.tasks import create_task, IntervalTrigger
-from interactions.ext.wait_for import wait_for_component, setup as stp
+from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, listen, Task, TimeTrigger
 
 
 def option_challenges(name, params, description='type de recherche'):
-    option = Option(
+    option = SlashCommandOption(
         name=name,
         description=description,
         type=interactions.OptionType.SUB_COMMAND,
@@ -35,43 +30,40 @@ class Challenges(Extension):
         self.defis = lire_bdd('challenges').transpose(
         ).sort_values(by="name", ascending=True)
 
-        stp(self.bot)
+    @listen()
+    async def on_startup(self):
 
-    @interactions.extension_listener
-    async def on_start(self):
+        self.challenges_maj.start()
 
-        self.task1 = create_task(IntervalTrigger(60*60))(self.challenges_maj)
-        self.task1.start()
-
+    @Task.create(TimeTrigger(hour=6, minute=0))
     async def challenges_maj(self):
         '''Chaque jour, à 6h, on actualise les challenges.
         Cette requête est obligatoirement à faire une fois par jour, sur un créneau creux pour éviter de surcharger les requêtes Riot'''
 
-        currentHour = datetime.datetime.now().hour
 
-        if currentHour == heure_challenge:
+        session = aiohttp.ClientSession()
+            # Ceux dont les challenges sont activés, sont maj à chaque game
+        liste_summonername = lire_bdd_perso(
+                'SELECT * from tracker where challenges = false', 'dict')
 
-            session = aiohttp.ClientSession()
-            liste_summonername = lire_bdd_perso('SELECT * from tracker where challenges = false', 'dict') # Ceux dont les challenges sont activés, sont maj à chaque game
+        for summonername, data in liste_summonername.items():
 
+            try:
+                challenges = challengeslol(
+                        summonername, data['puuid'], session)
+                await challenges.preparation_data()
+                await challenges.sauvegarde()
 
-            for summonername, data in liste_summonername.items():
+                time.sleep(10)
+            except KeyError:
+                pass
 
-                try:
-                    challenges = challengeslol(summonername, data['puuid'], session)
-                    await challenges.preparation_data()
-                    await challenges.sauvegarde()
+        await session.close()
+        print('Les challenges ont été mis à jour.')
 
-                    time.sleep(10)
-                except KeyError:
-                    pass
-
-            await session.close()
-            print('Les challenges ont été mis à jour.')
-
-    @interactions.extension_command(name="challenges_help",
-                                    description="Explication des challenges")
-    async def challenges_help(self, ctx: CommandContext):
+    @slash_command(name="challenges_help",
+                   description="Explication des challenges")
+    async def challenges_help(self, ctx: SlashContext):
 
         nombre_de_defis = len(self.defis['name'].unique())
 
@@ -86,74 +78,76 @@ class Challenges(Extension):
 
         await ctx.send(embeds=em)
 
-    @interactions.extension_command(name="challenges_classement",
-                                    description="Classement des points de challenge",
-                                    options=[
-                                        Option(name='top',
-                                               description='Afficher le top X',
-                                               type=interactions.OptionType.INTEGER,
-                                               required=False,
-                                               min_value=5,
-                                               max_value=100),
-                                        Option(name='view',
-                                               description='Vue du classement',
-                                               type=interactions.OptionType.STRING,
-                                               required=False,
-                                               choices=[
-                                                   Choice(name='general', value='general'),
-                                                   Choice(name='serveur', value='serveur')
-                                               ])
-                                    ])
+    @slash_command(name="challenges_classement",
+                   description="Classement des points de challenge",
+                   options=[
+                       SlashCommandOption(name='top',
+                                          description='Afficher le top X',
+                                          type=interactions.OptionType.INTEGER,
+                                          required=False,
+                                          min_value=5,
+                                          max_value=100),
+                       SlashCommandOption(name='view',
+                                          description='Vue du classement',
+                                          type=interactions.OptionType.STRING,
+                                          required=False,
+                                          choices=[
+                                              SlashCommandChoice(
+                                                  name='general', value='general'),
+                                              SlashCommandChoice(
+                                                  name='serveur', value='serveur')
+                                          ])
+                   ])
     async def challenges_classement(self,
-                                    ctx: CommandContext,
-                                    top:int = None,
-                                    view:str = 'general'):
+                                    ctx: SlashContext,
+                                    top: int = None,
+                                    view: str = 'general'):
 
         if view == 'general':
             bdd_user_total = lire_bdd('challenges_total').transpose()
             title = 'Classement général des points de défis'
-        
+
         else:
             bdd_user_total = lire_bdd_perso(f'''SELECT challenges_total.* from challenges_total
                         INNER join tracker on challenges_total.index = tracker.index
                         where tracker.server_id = {int(ctx.guild_id)} ''').transpose()
             title = f'Classement des points de défis du serveur {ctx.guild.name}'
-        
+
         await ctx.defer(ephemeral=False)
-        
+
         bdd_user_total.sort_values(by='current', ascending=False, inplace=True)
-        
+
         if top != None:
             bdd_user_total = bdd_user_total.head(top)
             title = f'{title} - Top {top}'
-        
+
         fig = px.pie(bdd_user_total, values="current",
                      names=bdd_user_total.index, title=title)
         fig.update_traces(textinfo='label+value')
         fig.update_layout(showlegend=False)
-        
+
         fig.write_image(f'plot.png')
         file = interactions.File(f'plot.png')
         # On prépare l'embed
-        embed = interactions.Embed(color=interactions.Color.BLURPLE)
+        embed = interactions.Embed(color=interactions.Color.random())
         embed.set_image(url=f'attachment://plot.png')
         fig.write_image('plot.png')
         await ctx.send(embeds=embed, files=file)
         os.remove('plot.png')
 
-    @interactions.extension_command(name="challenges_profil", description="Profil du compte",
-                                    options=[
-                                        Option(name="summonername",
-                                                    description="Nom du joueur",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=True)])
+    @slash_command(name="challenges_profil", description="Profil du compte",
+                   options=[
+                       SlashCommandOption(name="summonername",
+                                          description="Nom du joueur",
+                                          type=interactions.OptionType.STRING,
+                                          required=True)])
     async def challenges_profil(self,
-                                ctx: CommandContext,
+                                ctx: SlashContext,
                                 summonername: str):
 
         session = aiohttp.ClientSession()
         total_user, total_category, total_challenges, total_to_save = await get_data_joueur_challenges(summonername, session)
-        
+
         total_user = total_user[summonername]
 
         def stats(categorie):
@@ -205,14 +199,13 @@ class Challenges(Extension):
         await session.close()
         os.remove('plot.png')
 
-
-    @interactions.extension_command(name="challenges_best", description="Meilleur classement pour les defis",
-                                    options=[Option(name="summonername",
-                                                    description="Nom du joueur",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=True)])
+    @slash_command(name="challenges_best", description="Meilleur classement pour les defis",
+                   options=[SlashCommandOption(name="summonername",
+                                               description="Nom du joueur",
+                                               type=interactions.OptionType.STRING,
+                                               required=True)])
     async def challenges_best(self,
-                              ctx: CommandContext,
+                              ctx: SlashContext,
                               summonername: str):
 
         # tous les summonername sont en minuscule :
@@ -244,78 +237,73 @@ class Challenges(Extension):
             os.remove('image.png')
         else:
             await ctx.send(f"Pas de ranking pour {summonername} :(.")
-            
-    @interactions.extension_command(name="tracker_challenges", description="Modifier la liste des challenges",
-                                    options=[
-                                        option_challenges(
-                                            name='exclure',
-                                            params=[
-                                                Option(name="summonername",
-                                                       description="Nom du joueur",
-                                                       type=interactions.OptionType.STRING,
-                                                       required=True),
-                                                Option(name="nom_challenge",
-                                                       description="Nom du challenge à exclure",
-                                                       type=interactions.OptionType.STRING,
-                                                       required=True)],
-                                            description='Exclure un challenge du tracker'),
-                                        option_challenges(
-                                            name='inclure',
-                                            params=[
-                                                Option(name="summonername",
-                                                       description="Nom du joueur",
-                                                       type=interactions.OptionType.STRING,
-                                                       required=True),
-                                                Option(name="nom_challenge",
-                                                       description="Nom du challenge à réinclure",
-                                                       type=interactions.OptionType.STRING,
-                                                       required=True)],
-                                            description='Réinclure un challenge au tracker')
-                                    ])
-    async def exclure_challenges(self, ctx: CommandContext, sub_command:str, summonername, nom_challenge:str):
-        
-        # traitement des variables : 
-        
-        summonername = summonername.lower().replace(' ', '')
-        nom_challenge = nom_challenge.lower()
-        
-        await ctx.defer(ephemeral=True)
-        
-        df = lire_bdd('challenges').transpose()
-        df['name'] = df['name'].str.lower()
-        df.set_index('name', inplace=True)
-        
-        df.loc[nom_challenge, 'challengeId']
-        
-        if sub_command == 'exclure':
-        
-            nb_row = requete_perso_bdd('''INSERT INTO public.challenge_exclusion("challengeId", index) VALUES (:challengeid, :summonername);''',
-                            dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
-                                        'summonername':summonername},
-                            get_row_affected=True)
-            
-            if nb_row > 0:
-                await ctx.send(f'Le challenge {nom_challenge} a été exclu du tracking', ephemeral=True)
-            else:
-                await ctx.send("Ce joueur ou le challenge n'existe pas", ephemeral=True)
-        
-        elif sub_command == 'inclure':
-                
-            nb_row = requete_perso_bdd('''DELETE FROM public.challenge_exclusion WHERE "challengeId" = :challengeid AND index = :summonername;''',
-                            dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
-                                        'summonername':summonername},
-                            get_row_affected=True)
-            
-            if nb_row > 0:
-                await ctx.send(f'Le challenge {nom_challenge} a été réinclus au tracking', ephemeral=True)
-            else:
-                await ctx.send("Ce joueur n'existe pas ou ce challenge n'était pas exclu", ephemeral=True)
-    
 
-        
+    # @slash_command(name="tracker_challenges", description="Modifier la liste des challenges",
+    #                                 options=[
+    #                                     option_challenges(
+    #                                         name='exclure',
+    #                                         params=[
+    #                                             SlashCommandOption(name="summonername",
+    #                                                    description="Nom du joueur",
+    #                                                    type=interactions.OptionType.STRING,
+    #                                                    required=True),
+    #                                             SlashCommandOption(name="nom_challenge",
+    #                                                    description="Nom du challenge à exclure",
+    #                                                    type=interactions.OptionType.STRING,
+    #                                                    required=True)],
+    #                                         description='Exclure un challenge du tracker'),
+    #                                     option_challenges(
+    #                                         name='inclure',
+    #                                         params=[
+    #                                             SlashCommandOption(name="summonername",
+    #                                                    description="Nom du joueur",
+    #                                                    type=interactions.OptionType.STRING,
+    #                                                    required=True),
+    #                                             SlashCommandOption(name="nom_challenge",
+    #                                                    description="Nom du challenge à réinclure",
+    #                                                    type=interactions.OptionType.STRING,
+    #                                                    required=True)],
+    #                                         description='Réinclure un challenge au tracker')
+    #                                 ])
+    # async def exclure_challenges(self, ctx: SlashContext, sub_command:str, summonername, nom_challenge:str):
 
-            
-        
+    #     # traitement des variables :
+
+    #     summonername = summonername.lower().replace(' ', '')
+    #     nom_challenge = nom_challenge.lower()
+
+    #     await ctx.defer(ephemeral=True)
+
+    #     df = lire_bdd('challenges').transpose()
+    #     df['name'] = df['name'].str.lower()
+    #     df.set_index('name', inplace=True)
+
+    #     df.loc[nom_challenge, 'challengeId']
+
+    #     if sub_command == 'exclure':
+
+    #         nb_row = requete_perso_bdd('''INSERT INTO public.challenge_exclusion("challengeId", index) VALUES (:challengeid, :summonername);''',
+    #                         dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
+    #                                     'summonername':summonername},
+    #                         get_row_affected=True)
+
+    #         if nb_row > 0:
+    #             await ctx.send(f'Le challenge {nom_challenge} a été exclu du tracking', ephemeral=True)
+    #         else:
+    #             await ctx.send("Ce joueur ou le challenge n'existe pas", ephemeral=True)
+
+    #     elif sub_command == 'inclure':
+
+    #         nb_row = requete_perso_bdd('''DELETE FROM public.challenge_exclusion WHERE "challengeId" = :challengeid AND index = :summonername;''',
+    #                         dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
+    #                                     'summonername':summonername},
+    #                         get_row_affected=True)
+
+    #         if nb_row > 0:
+    #             await ctx.send(f'Le challenge {nom_challenge} a été réinclus au tracking', ephemeral=True)
+    #         else:
+    #             await ctx.send("Ce joueur n'existe pas ou ce challenge n'était pas exclu", ephemeral=True)
+
 
 def setup(bot):
     Challenges(bot)

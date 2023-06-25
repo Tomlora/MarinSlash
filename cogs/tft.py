@@ -2,8 +2,7 @@ import os
 import pandas as pd
 import warnings
 import interactions
-from interactions import Option, Extension, CommandContext
-from interactions.ext.tasks import create_task, IntervalTrigger
+from interactions import SlashCommandOption, Extension, SlashContext, slash_command, listen, Task,IntervalTrigger
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 import sys
 from fonctions.params import Version
@@ -67,10 +66,9 @@ class tft(Extension):
 
     # ----------------------------- test
 
-    @interactions.extension_listener
-    async def on_start(self):
-        self.task1 = create_task(IntervalTrigger(60*5))(self.updatetft)
-        self.task1.start()
+    @listen()
+    async def on_startup(self):
+        self.updatetft.start()
 
     async def stats_tft(self, summonername, session, idgames: int = 0, ):
         match_detail, id_match, puuid = await matchtft_by_puuid(summonername, idgames, session)
@@ -232,7 +230,6 @@ class tft(Extension):
         data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {
                             'index': summonername})
         data = data.fetchall()
-        color = rgb_to_discord(data[0][0], data[0][1], data[0][2])
         
         
 
@@ -246,7 +243,7 @@ class tft(Extension):
                             8: ':eight:'}
 
         embed = interactions.Embed(
-            title=f"** {summonername.upper()} ** vient de finir ** {emote_classement[classement]}ème ** sur tft (R : {last_round})", color=color)
+            title=f"** {summonername.upper()} ** vient de finir ** {emote_classement[classement]}ème ** sur tft (R : {last_round})", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
 
         embed.add_field(name="Durée de la game :",
                         value=f'{thisTime} minutes')
@@ -312,21 +309,21 @@ class tft(Extension):
 
         return embed
 
-    @interactions.extension_command(name="gametft",
+    @slash_command(name="gametft",
                                     description="Recap tft",
                                     options=[
-                                        Option(name="summonername",
+                                        SlashCommandOption(name="summonername",
                                                     description="Nom du joueur",
                                                     type=interactions.OptionType.STRING,
                                                     required=True),
-                                        Option(name="idgames",
+                                        SlashCommandOption(name="idgames",
                                                     description="numero de la game",
                                                     type=interactions.OptionType.INTEGER,
                                                     required=False,
                                                     min_value=0,
                                                     max_value=10)])
     async def gametft(self,
-                      ctx: CommandContext,
+                      ctx: SlashContext,
                       summonername,
                       idgames: int = 0):
 
@@ -344,13 +341,12 @@ class tft(Extension):
 
         embed = await self.stats_tft(summonername, session, idgames=0)
 
-        channel = await interactions.get(client=self.bot,
-                                         obj=interactions.Channel,
-                                         object_id=discord_server_id.tft)
+        channel = await self.bot.fetch_channel(discord_server_id.tft)
 
         if embed != {}:
             await channel.send(embeds=embed)
 
+    @Task.create(IntervalTrigger(minutes=5))
     async def updatetft(self):
 
         session = aiohttp.ClientSession()
@@ -374,16 +370,16 @@ class tft(Extension):
 
         await session.close()
 
-    @interactions.extension_command(name="tftadd",
+    @slash_command(name="tftadd",
                                     description="Ajoute le joueur au suivi",
                                     options=[
-                                        Option(
+                                        SlashCommandOption(
                                             name="summonername",
                                             description="Nom du joueur",
                                             type=interactions.OptionType.STRING,
                                             required=True)])
     async def tftadd(self,
-                     ctx: CommandContext,
+                     ctx: SlashContext,
                      summonername):
         # TODO : à simplifier
         # TODO : refaire tftremove
@@ -411,7 +407,7 @@ class tft(Extension):
         # except:
         # await ctx.send("Oops! There is no summoner with that name!")
 
-    @interactions.extension_command(name='tftlist',
+    @slash_command(name='tftlist',
                                     description='Affiche la liste des joueurs suivis')
     async def tftlist(self, ctx):
 
@@ -423,7 +419,7 @@ class tft(Extension):
 
         response = response[:-2]
         embed = interactions.Embed(
-            title="Live feed list", description=response, colour=interactions.Color.BLURPLE)
+            title="Live feed list", description=response, colour=interactions.Color.random())
 
         await ctx.send(embeds=embed)
 
