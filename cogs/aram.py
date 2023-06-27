@@ -55,7 +55,7 @@ class Aram(Extension):
     async def on_startup(self):
         self.lolsuivi_aram.start()
         
-    @slash_command(name='aram',
+    @slash_command(name='lol_aram',
                    description='Commandes Aram')
     async def aram(self, ctx: SlashContext):  
         pass  

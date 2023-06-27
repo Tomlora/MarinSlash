@@ -149,16 +149,6 @@ parameters_nbgames = [
   ]
 
 
-# def option_stats_lol(choices: list,
-#                      parameters_commun_stats_lol):
-#     option = SlashCommandOption(
-#                 name='calcul',
-#                 description='quel type de calcul ?',
-#                 type=interactions.OptionType.STRING,
-#                 required=True,
-#                 choices=choices + parameters_commun_stats_lol)
-#     return option
-
 
 def get_data_matchs(columns, season, server_id, view):
     
@@ -266,8 +256,14 @@ class analyseLoL(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
 
-    @slash_command(name="analyse_durant_la_game",
-                                    description="Permet d'afficher des statistiques durant la game",
+
+    @slash_command(name='lol_analyse', description='analyse lol')
+    async def analyse_lol(self, ctx: SlashContext):
+        pass
+    
+    
+    @analyse_lol.subcommand("en_cours_de_game",
+                                    sub_cmd_description="Permet d'afficher des statistiques durant la game",
                                     options=[
                                         SlashCommandOption(
                                             name="summonername",
@@ -599,8 +595,8 @@ class analyseLoL(Extension):
         for graph in liste_delete:
             os.remove(graph)
 
-    @slash_command(name="analyse_fin_de_game",
-                                    description="Voir des stats de fin de game",
+    @analyse_lol.subcommand("fin_de_game",
+                                    sub_cmd_description="Voir des stats de fin de game",
                                     options=[
                                         SlashCommandOption(
                                             name="summonername",
@@ -823,7 +819,7 @@ class analyseLoL(Extension):
     choice_ecart = SlashCommandChoice(name='ecart', value='ecart')
     choice_explain = SlashCommandChoice(name='explique ma victoire', value='explain')
 
-    @slash_command(name="stats_lol",
+    @slash_command(name="lol_stats",
                                     description="Historique de game")
     async def stats_lol(self, ctx:SlashContext):
         pass 

@@ -205,7 +205,7 @@ class Recordslol(Extension):
         self.bot: interactions.Client = bot
         self.time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20} # minutes minimum pour compter dans les records
 
-    @slash_command(name='records_lol', description='records League of Legends')
+    @slash_command(name='lol_records', description='records League of Legends')
     async def records_lol(self, ctx: SlashContext):
         pass
     
