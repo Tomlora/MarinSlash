@@ -186,7 +186,7 @@ class Divers(Extension):
             else:
                 description = f"{member.name} a été spank par {ctx.author.name} pour {reason}"
             embed = interactions.Embed(description=description,
-                                       color=interactions.Color.RED)
+                                       color=interactions.Color.random())
             print("Une personne a été spank")
 
             await ctx.send(embeds=embed)
@@ -199,7 +199,7 @@ class Divers(Extension):
             description = f"Bien essayé. {ctx.author.name} s'est prank lui-même"
 
             embed = interactions.Embed(description=description,
-                                       color=interactions.Color.RED)
+                                       color=interactions.Color.random())
             print("Une personne s'est spank elle-même")
 
             await ctx.send(embeds=embed)
@@ -252,7 +252,7 @@ class Divers(Extension):
             else:
                 description = f"{member.mention} a été muté pour {seconds} secondes ! 🎙"
             embed = interactions.Embed(description=description,
-                                       color=interactions.Color.RED)
+                                       color=interactions.Color.random())
 
             await ctx.send(embeds=embed)
 

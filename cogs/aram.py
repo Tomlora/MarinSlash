@@ -54,9 +54,16 @@ class Aram(Extension):
     @listen()
     async def on_startup(self):
         self.lolsuivi_aram.start()
+        
+    @slash_command(name='aram',
+                   description='Commandes Aram')
+    async def aram(self, ctx: SlashContext):  
+        pass  
 
-    @slash_command(name="classement_aram",
-                   description="classement en aram")
+
+
+    @aram.subcommand("classement",
+                   sub_cmd_description="classement en aram")
     async def ladder_aram(self, ctx: SlashContext):
 
         suivi_aram = lire_bdd_perso(
@@ -97,8 +104,8 @@ class Aram(Extension):
 
         await ctx.send(embeds=embed)
 
-    @slash_command(name='ranked_aram',
-                   description='Activation/Désactivation',
+    @aram.subcommand('ranked_aram',
+                   sub_cmd_description='Activation/Désactivation',
                    options=[
                        SlashCommandOption(
                            name='summonername',
@@ -127,8 +134,8 @@ class Aram(Extension):
         except KeyError:
             await ctx.send('Joueur introuvable')
 
-    @slash_command(name="help_aram",
-                   description='Help ranked aram')
+    @aram.subcommand("help",
+                   sub_cmd_description='Help ranked aram')
     async def help_aram(self, ctx: SlashContext):
 
         texte_general = " La ranked aram commence automatiquement après la première game. Pour désactiver, il est possible d'utiliser **/ranked_aram.** après la première partie \n" + \
@@ -350,10 +357,7 @@ class Aram(Extension):
     @Task.create(TimeTrigger(hour=5))
     async def lolsuivi_aram(self):
 
-        currentHour = str(datetime.datetime.now().hour)
-
-        if currentHour == str(heure_aram):
-            await self.update_aram24h()
+        await self.update_aram24h()
 
     @slash_command(name="force_update_aram24h",
                    description="Réservé à Tomlora")

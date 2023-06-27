@@ -926,8 +926,13 @@ class LeagueofLegends(Extension):
          # update la bdd
         await session.close()
 
-    @slash_command(name="lol_add",
-                                    description="Ajoute le joueur au suivi",
+    @slash_command(name='lol_compte', description='Gère ton compte League of Legends')
+    async def lol_compte(self, ctx: SlashContext):
+        pass
+    
+
+    @lol_compte.subcommand("add",
+                                    sub_cmd_description="Ajoute le joueur au suivi",
                                     options=[
                                         SlashCommandOption(name="summonername",
                                                     description="Nom du joueur",
@@ -972,7 +977,8 @@ class LeagueofLegends(Extension):
             await ctx.send("Oops! Ce joueur n'existe pas.")
             
             
-    @slash_command(name='lol_settings', description='Affiche les paramètres du tracker pour mes comptes')
+    @lol_compte.subcommand('mes_parametres',
+                   sub_cmd_description='Affiche les paramètres du tracker pour mes comptes')
     async def tracker_mes_parametres(self,
                                      ctx: SlashContext):
         
@@ -1014,7 +1020,8 @@ class LeagueofLegends(Extension):
             
             
 
-    @slash_command(name='lol_modifier_settings', description='Activation/Désactivation du tracker',
+    @lol_compte.subcommand('modifier_parametres',
+                           sub_cmd_description='Activation/Désactivation du tracker',
                                     options=[
                                         SlashCommandOption(name='summonername',
                                                     description="nom ingame",
@@ -1297,8 +1304,8 @@ class LeagueofLegends(Extension):
             await ctx.send("Tu n'as pas l'autorisation nécessaire")
             
 
-    @slash_command(name="lol_color",
-                                    description="Modifier la couleur du recap",
+    @lol_compte.subcommand("color",
+                                    sub_cmd_description="Modifier la couleur du recap",
                                     options=[SlashCommandOption(name="summonername",
                                                     description="Nom du joueur",
                                                     type=interactions.OptionType.STRING,
@@ -1348,8 +1355,8 @@ class LeagueofLegends(Extension):
     async def upset(self, ctx):
         await ctx.send('https://clips.twitch.tv/CuriousBenevolentMageHotPokket-8M0TX_zTaGW7P2g7')
 
-    @slash_command(name='lol_discord',
-                                    description='Relie un compte discord et un compte league of legends',
+    @lol_compte.subcommand('discord',
+                                    sub_cmd_description='Relie un compte discord et un compte league of legends',
                                     options=[
                                         SlashCommandOption(
                                             name='summonername',

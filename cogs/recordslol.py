@@ -205,8 +205,12 @@ class Recordslol(Extension):
         self.bot: interactions.Client = bot
         self.time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20} # minutes minimum pour compter dans les records
 
-    @slash_command(name="records_list_s12",
-                                    description="Voir les records détenues par les joueurs (réservé s12)",
+    @slash_command(name='records_lol', description='records League of Legends')
+    async def records_lol(self, ctx: SlashContext):
+        pass
+    
+    @records_lol.subcommand("s12",
+                                    sub_cmd_description="Voir les records détenues par les joueurs (réservé s12)",
                                     options=[
                                         SlashCommandOption(
                                             name="mode",
@@ -401,8 +405,8 @@ class Recordslol(Extension):
         await paginator.send(ctx)
 
 
-    @slash_command(name="records_personnel_s12",
-                                    description="Record personnel (réservé s12)",
+    @records_lol.subcommand("personnel_s12",
+                                    sub_cmd_description="Record personnel (réservé s12)",
                                     options=[
                                         SlashCommandOption(
                                             name="joueur",
@@ -560,12 +564,8 @@ class Recordslol(Extension):
             type=interactions.OptionType.STRING,
             required=False)]
 
-    @slash_command(name="records_list",
-                                    description="Voir les records détenues par les joueurs")
-    async def records_list_v2(self, ctx:SlashContext):
-        pass
     
-    @records_list_v2.subcommand('general',
+    @records_lol.subcommand('general',
                                 sub_cmd_description='Records tout confondus',
                                 options=parameters_communs)
     async def records_list_general(self, ctx:SlashContext,
@@ -725,7 +725,7 @@ class Recordslol(Extension):
         await paginator.send(ctx)   
             
         
-    @records_list_v2.subcommand('personnel',
+    @records_lol.subcommand('personnel',
                                 sub_cmd_description='Records personnels sur un joueur',
                                 options=parameters_personnel)
     async def records_list_personnel(self,
@@ -916,8 +916,8 @@ class Recordslol(Extension):
         paginator.show_select_menu = True
         await paginator.send(ctx)
 
-    @slash_command(name="records_count",
-                                    description="Compte le nombre de records",
+    @records_lol.subcommand("count",
+                                    sub_cmd_description="Compte le nombre de records",
                                     options=[
                                         SlashCommandOption(
                                             name="saison",
@@ -1128,8 +1128,8 @@ class Recordslol(Extension):
             await ctx.send(embeds=embed, files=file)
             
 
-    @slash_command(name="records_palmares",
-                                    description="Classement pour un record donné",
+    @records_lol.subcommand("palmares",
+                                    sub_cmd_description="Classement pour un record donné",
                                     options=[
                                         SlashCommandOption(
                                             name='stat',
