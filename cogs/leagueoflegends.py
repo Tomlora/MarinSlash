@@ -676,9 +676,9 @@ class LeagueofLegends(Extension):
                     # Role discord    
                     if tier_old != tier:
                         member = await self.bot.fetch_member(discord_id, discord_server_id.server_id)
-                        
-                        ancien_role = await identifier_role_by_name(tier_old)
-                        nouveau_role = await identifier_role_by_name(tier)
+                        guild = await self.bot.fetch_guild(discord_server_id.server_id)
+                        ancien_role = await identifier_role_by_name(guild, tier_old)
+                        nouveau_role = await identifier_role_by_name(guild, tier)
                         
                         if ancien_role in member.roles:
                             await member.remove_role(ancien_role)
