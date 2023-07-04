@@ -6,7 +6,7 @@ import warnings
 import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, listen, slash_command, Task, IntervalTrigger, TimeTrigger
 from fonctions.params import Version, saison
-from fonctions.channels_discord import verif_module
+from fonctions.channels_discord import verif_module, identifier_role_by_name
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import challengeslol
@@ -14,7 +14,6 @@ import asyncio
 from datetime import datetime, timedelta
 from dateutil import tz
 from interactions.ext.paginators import Paginator
-
 
 
 from fonctions.gestion_bdd import (lire_bdd,
@@ -89,7 +88,6 @@ def records_check2(fichier,
                 if float(record_perso) > float(result_category_match):
                     embed += f"\n ** :military_medal: Record personnel - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_perso})"
 
-
             if float(record_perso) == float(result_category_match) and not category in category_exclusion_egalite:
                 embed += f"\n ** :medal: Egalisation record personnel - {emote_v2.get(category, ':star:')}__{category}__ **"
 
@@ -118,7 +116,6 @@ def records_check2(fichier,
 class LeagueofLegends(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        
 
     @listen()
     async def on_startup(self):
@@ -132,7 +129,7 @@ class LeagueofLegends(Extension):
                         identifiant_game=None,
                         guild_id: int = 0,
                         me=None,
-                        insights:bool=True,
+                        insights: bool = True,
                         affichage=1):
 
         match_info = matchlol(summonerName,
@@ -149,8 +146,8 @@ class LeagueofLegends(Extension):
                          where season = {match_info.season}
                          and mode = '{match_info.thisQ}'
                          and server_id = {guild_id}''',
-                         index_col='id'
-                         ).transpose()
+                                 index_col='id'
+                                 ).transpose()
 
         fichier_joueur = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                         INNER JOIN tracker on tracker.index = matchs.joueur
@@ -168,21 +165,19 @@ class LeagueofLegends(Extension):
                                         and champion = '{match_info.thisChampName}'
                                         and server_id = {guild_id}''',
                                           index_col='id',
-                                        ).transpose()
+                                          ).transpose()
 
         if sauvegarder and match_info.thisTime >= 10.0:
             await match_info.save_data()
 
         if match_info.thisQId == 900:  # urf
-            return {}, 'URF', 0, 
+            return {}, 'URF', 0,
 
         if match_info.thisQId == 840:
             return {}, 'Bot', 0,   # bot game
 
         if match_info.thisTime <= 3.0:
-            return {}, 'Remake', 0, 
-
-        
+            return {}, 'Remake', 0,
 
         exploits = ''
 
@@ -216,7 +211,8 @@ class LeagueofLegends(Extension):
         # on ne prend que les ranked > 20 min ou aram > 10 min
         if (match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
 
-            records = lire_bdd_perso(f'''SELECT index, "Score", "Champion", "Joueur", url from records where saison= {match_info.season} and mode= '{match_info.thisQ.lower()}' ''')
+            records = lire_bdd_perso(
+                f'''SELECT index, "Score", "Champion", "Joueur", url from records where saison= {match_info.season} and mode= '{match_info.thisQ.lower()}' ''')
             records = records.to_dict()
 
             # pour le nouveau système de records
@@ -256,9 +252,9 @@ class LeagueofLegends(Extension):
                              'allie_feeder': match_info.thisAllieFeeder,
                              'temps_vivant': match_info.thisTimeSpendAlive,
                              'dmg_tower': match_info.thisDamageTurrets,
-                             'gold_share' : match_info.gold_share,
-                             'ecart_gold_team' : match_info.ecart_gold_team,
-                             'kills+assists' : match_info.thisKills + match_info.thisAssists}
+                             'gold_share': match_info.gold_share,
+                             'ecart_gold_team': match_info.ecart_gold_team,
+                             'kills+assists': match_info.thisKills + match_info.thisAssists}
 
             param_records_only_ranked = {'vision_score': match_info.thisVision,
                                          'vision_wards': match_info.thisWards,
@@ -334,8 +330,6 @@ class LeagueofLegends(Extension):
 
                     exploits += records_check2(fichier, fichier_joueur,
                                                fichier_champion, parameter, value, methode)
-
-
 
         # on le fait après sinon ça flingue les records
         match_info.thisDamageTurrets = "{:,}".format(
@@ -471,7 +465,6 @@ class LeagueofLegends(Extension):
             couronnes_embed +=\
                 f"\n ** :crown: :shield: Shield : {match_info.thisTotalShielded} **"
             points += 1
-            
 
         if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20) or\
                 (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
@@ -511,9 +504,9 @@ class LeagueofLegends(Extension):
             serie_victoire = 0
 
         sauvegarde_bdd(suivi, f'suivi_s{saison}')  # achievements + suivi
-        
+
         # badges
-        
+
         if insights:
             await match_info.calcul_badges()
         else:
@@ -524,17 +517,17 @@ class LeagueofLegends(Extension):
         # ici, ça va de 1 à 10.. contrairement à Rito qui va de 1 à 9
         embed.add_field(
             name="Game", value=f"[Graph]({match_info.url_game}) | [OPGG](https://euw.op.gg/summoners/euw/{summonerName}) ", inline=True)
-    
+
         embed.add_field(
             name='Champ', value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)", inline=True)
-        
+
         # on va chercher les stats du joueur:
-        
+
         if match_info.thisQ == 'ARAM':
             time = 10
         else:
             time = 15
-        
+
         stats_joueur = lire_bdd_perso(f'''SELECT joueur, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
                     (count(victoire) filter (where victoire = True)) as victoire,
                     avg(kp) as kp,
@@ -546,21 +539,25 @@ class LeagueofLegends(Extension):
                     and mode = '{match_info.thisQ}'
                     and time > {time}
                     GROUP BY joueur''', index_col='joueur').transpose()
-        
 
         if not stats_joueur.empty:
 
-            k = round(stats_joueur.loc[match_info.summonerName.lower(), 'kills'],1)
-            d = round(stats_joueur.loc[match_info.summonerName.lower(), 'deaths'],1)
-            a = round(stats_joueur.loc[match_info.summonerName.lower(), 'assists'],1)
+            k = round(
+                stats_joueur.loc[match_info.summonerName.lower(), 'kills'], 1)
+            d = round(
+                stats_joueur.loc[match_info.summonerName.lower(), 'deaths'], 1)
+            a = round(
+                stats_joueur.loc[match_info.summonerName.lower(), 'assists'], 1)
             kp = int(stats_joueur.loc[match_info.summonerName.lower(), 'kp'])
-            mvp = round(stats_joueur.loc[match_info.summonerName.lower(), 'mvp'],1)
-            ratio_victoire = int((stats_joueur.loc[match_info.summonerName.lower(), 'victoire'] / stats_joueur.loc[match_info.summonerName.lower(), 'nb_games'])*100)
-            nb_games = int(stats_joueur.loc[match_info.summonerName.lower(), 'nb_games'])
+            mvp = round(
+                stats_joueur.loc[match_info.summonerName.lower(), 'mvp'], 1)
+            ratio_victoire = int((stats_joueur.loc[match_info.summonerName.lower(
+            ), 'victoire'] / stats_joueur.loc[match_info.summonerName.lower(), 'nb_games'])*100)
+            nb_games = int(
+                stats_joueur.loc[match_info.summonerName.lower(), 'nb_games'])
             embed.add_field(
                 name=f"{nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=True)
-            
-        
+
         # on découpe le texte embed
         chunk_size = 1024
         max_len = 4000
@@ -616,18 +613,17 @@ class LeagueofLegends(Extension):
 
         if points >= 1:
             embed.add_field(name='Couronnes', value=couronnes_embed)
-            
+
         if match_info.observations != '':
             embed.add_field(name='Insights', value=match_info.observations)
-            
-        # Gestion de l'image 
+
+        # Gestion de l'image
 
         if affichage == 1:
             embed = await match_info.resume_general('resume', embed, difLP)
-        
-        elif affichage ==2:
+
+        elif affichage == 2:
             embed = await match_info.test('resume', embed, difLP)
-            
 
         # on charge les img
 
@@ -642,7 +638,7 @@ class LeagueofLegends(Extension):
                 text=f'Version {Version} by Tomlora - Match {str(match_info.last_match)}')
         return embed, match_info.thisQ, resume
 
-    async def updaterank(self, key, discord_server_id, session: aiohttp.ClientSession, me=None):
+    async def updaterank(self, key, discord_server_id : chan_discord, session: aiohttp.ClientSession, me=None, discord_id=None):
 
         suivirank = lire_bdd(f'suivi_s{saison}', 'dict')
 
@@ -653,14 +649,18 @@ class LeagueofLegends(Extension):
 
         if len(stats) > 0:
             # i = 0 if stats[0]['queueType'] == 'RANKED_SOLO_5x5' else 1
-            
+
             for j in range(len(stats)):
                 if stats[j]['queueType'] == 'RANKED_SOLO_5x5':
                     i = j
                     break
-
+            
+                
+            tier_old = suivirank[key]['tier'].upper()
+            tier = stats[i]['tier'].upper()
             rank_old = f"{suivirank[key]['tier']} {suivirank[key]['rank']}"
             rank = f"{stats[i]['tier']} {stats[i]['rank']}"
+            
             if rank_old != rank:
 
                 try:
@@ -671,6 +671,20 @@ class LeagueofLegends(Extension):
                     elif dict_rankid[rank_old] < dict_rankid[rank]:
                         await channel_tracklol.send(f' Le joueur **{key}** a été promu du rank **{rank_old}** à **{rank}**')
                         await channel_tracklol.send(files=interactions.File('./img/stonks.jpg'))
+                        
+                        
+                    # Role discord    
+                    if tier_old != tier:
+                        member = await self.bot.fetch_member(discord_id, discord_server_id.server_id)
+                        
+                        ancien_role = await identifier_role_by_name(tier_old)
+                        nouveau_role = await identifier_role_by_name(tier)
+                        
+                        if ancien_role in member.roles:
+                            await member.remove_role(ancien_role)
+                        
+                        if not nouveau_role in member.roles:
+                            await member.add_role(nouveau_role)
 
                 except:
                     print('Channel impossible')
@@ -681,31 +695,31 @@ class LeagueofLegends(Extension):
                                                                                                                    'joueur': key})
 
     @slash_command(name="game",
-                                    description="Voir les statistiques d'une games",
-                                    options=[
-                                        SlashCommandOption(name="summonername",
-                                                    description="Nom du joueur",
-                                                    type=interactions.OptionType.STRING, required=True),
-                                        SlashCommandOption(name="numerogame",
-                                                    description="Numero de la game, de 0 à 100",
-                                                    type=interactions.OptionType.INTEGER,
-                                                    required=True,
-                                                    min_value=0,
-                                                    max_value=100),
-                                        SlashCommandOption(name="sauvegarder",
-                                                    description="sauvegarder la game",
-                                                    type=interactions.OptionType.BOOLEAN,
-                                                    required=False),
-                                        SlashCommandOption(name="affichage",
-                                                    description="Mode d'affichage",
-                                                    type=interactions.OptionType.INTEGER,
-                                                    required=False,
-                                                    choices=[SlashCommandChoice(name="Affichage classique", value=1),
-                                                             SlashCommandChoice(name="Affichage beta", value=2)]),
-                                        SlashCommandOption(name='identifiant_game',
-                                                    description="A ne pas utiliser",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=False)])
+                   description="Voir les statistiques d'une games",
+                   options=[
+                       SlashCommandOption(name="summonername",
+                                          description="Nom du joueur",
+                                          type=interactions.OptionType.STRING, required=True),
+                       SlashCommandOption(name="numerogame",
+                                          description="Numero de la game, de 0 à 100",
+                                          type=interactions.OptionType.INTEGER,
+                                          required=True,
+                                          min_value=0,
+                                          max_value=100),
+                       SlashCommandOption(name="sauvegarder",
+                                          description="sauvegarder la game",
+                                          type=interactions.OptionType.BOOLEAN,
+                                          required=False),
+                       SlashCommandOption(name="affichage",
+                                          description="Mode d'affichage",
+                                          type=interactions.OptionType.INTEGER,
+                                          required=False,
+                                          choices=[SlashCommandChoice(name="Affichage classique", value=1),
+                                                   SlashCommandChoice(name="Affichage beta", value=2)]),
+                       SlashCommandOption(name='identifiant_game',
+                                          description="A ne pas utiliser",
+                                          type=interactions.OptionType.STRING,
+                                          required=False)])
     async def game(self,
                    ctx: SlashContext,
                    summonername: str,
@@ -717,38 +731,37 @@ class LeagueofLegends(Extension):
         await ctx.defer(ephemeral=False)
 
         summonername = summonername.lower()
-        
 
-        embed, mode_de_jeu, resume= await self.printInfo(summonerName=summonername.lower(),
-                                                                           idgames=numerogame,
-                                                                           sauvegarder=sauvegarder,
-                                                                           identifiant_game=identifiant_game,
-                                                                           guild_id=int(ctx.guild_id),
-                                                                           affichage=affichage)
+        embed, mode_de_jeu, resume = await self.printInfo(summonerName=summonername.lower(),
+                                                          idgames=numerogame,
+                                                          sauvegarder=sauvegarder,
+                                                          identifiant_game=identifiant_game,
+                                                          guild_id=int(
+                                                              ctx.guild_id),
+                                                          affichage=affichage)
 
         if embed != {}:
             await ctx.send(embeds=embed, files=resume)
             os.remove('resume.png')
 
-
     @slash_command(name="game_multi",
-                                    description="Voir les statistiques d'une games",
-                                    options=[SlashCommandOption(name="summonername",
-                                                    description="Nom du joueur",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=True),
-                                             SlashCommandOption(name="debut",
-                                                    description="Numero de la game, de 0 à 100 (Game la plus recente)",
-                                                    type=interactions.OptionType.INTEGER,
-                                                    required=True),
-                                             SlashCommandOption(name="fin",
-                                                    description="Numero de la game, de 0 à 100 (Game la moins recente)",
-                                                    type=interactions.OptionType.INTEGER,
-                                                    required=True),
-                                             SlashCommandOption(name='sauvegarder',
-                                                    description='Sauvegarder les games',
-                                                    type=interactions.OptionType.BOOLEAN,
-                                                    required=False)])
+                   description="Voir les statistiques d'une games",
+                   options=[SlashCommandOption(name="summonername",
+                                               description="Nom du joueur",
+                                               type=interactions.OptionType.STRING,
+                                               required=True),
+                            SlashCommandOption(name="debut",
+                                               description="Numero de la game, de 0 à 100 (Game la plus recente)",
+                                               type=interactions.OptionType.INTEGER,
+                                               required=True),
+                            SlashCommandOption(name="fin",
+                                               description="Numero de la game, de 0 à 100 (Game la moins recente)",
+                                               type=interactions.OptionType.INTEGER,
+                                               required=True),
+                            SlashCommandOption(name='sauvegarder',
+                                               description='Sauvegarder les games',
+                                               type=interactions.OptionType.BOOLEAN,
+                                               required=False)])
     async def game_multi(self,
                          ctx: SlashContext,
                          summonername: str,
@@ -762,10 +775,10 @@ class LeagueofLegends(Extension):
 
             summonername = summonername.lower()
 
-            embed, mode_de_jeu, resume= await self.printInfo(summonerName=summonername.lower(),
-                                                                               idgames=i,
-                                                                               sauvegarder=sauvegarder,
-                                                                               guild_id=int(ctx.guild_id))
+            embed, mode_de_jeu, resume = await self.printInfo(summonerName=summonername.lower(),
+                                                              idgames=i,
+                                                              sauvegarder=sauvegarder,
+                                                              guild_id=int(ctx.guild_id))
 
             if embed != {}:
                 await ctx.send(embeds=embed, files=resume)
@@ -787,22 +800,23 @@ class LeagueofLegends(Extension):
 
         summonername = summonername.lower()
 
-        embed, mode_de_jeu, resume= await self.printInfo(summonerName=summonername,
-                                                                           idgames=0,
-                                                                           sauvegarder=True,
-                                                                           guild_id=discord_server_id.server_id,
-                                                                           identifiant_game=identifiant_game,
-                                                                           me=me,
-                                                                           insights=insights,
-                                                                           affichage=affichage)
-        
+        embed, mode_de_jeu, resume = await self.printInfo(summonerName=summonername,
+                                                          idgames=0,
+                                                          sauvegarder=True,
+                                                          guild_id=discord_server_id.server_id,
+                                                          identifiant_game=identifiant_game,
+                                                          me=me,
+                                                          insights=insights,
+                                                          affichage=affichage)
+
         if tracker_challenges:
-            chal = challengeslol(summonername.replace(' ', ''), me['puuid'], session, nb_challenges=nbchallenges)
+            chal = challengeslol(summonername.replace(
+                ' ', ''), me['puuid'], session, nb_challenges=nbchallenges)
             await chal.preparation_data()
             await chal.comparaison()
-            
+
             embed = await chal.embedding_discord(embed)
-            
+
         if mode_de_jeu in ['RANKED', 'FLEX']:
             tracklol = discord_server_id.tracklol
         else:
@@ -813,7 +827,7 @@ class LeagueofLegends(Extension):
         if embed != {}:
             await channel_tracklol.send(embeds=embed, files=resume)
             os.remove('resume.png')
-            
+
             if tracker_challenges:
                 await chal.sauvegarde()
 
@@ -829,19 +843,18 @@ class LeagueofLegends(Extension):
         for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage in data:
 
             id_last_game = await getId_with_puuid(puuid, session)
-            
-            if str(last_game) != id_last_game:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
+
+            # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = pseudo // value = numéro de la game
+            if str(last_game) != id_last_game:
                 # update la bdd
 
                 requete_perso_bdd(f'UPDATE tracker SET id = :id, spec_send = :spec WHERE index = :index', {
                                   'id': id_last_game, 'index': summonername, 'spec': False})
-                
-                
-                
+
                 me = await get_summoner_by_puuid(puuid, session)
-                
+
                 name_actuelle = me['name'].lower().replace(' ', '')
-                
+
                 # Changement de pseudo ?
                 if name_actuelle != summonername:
                     requete_perso_bdd(f'''UPDATE tracker set index = :nouveau where index = :ancien;
@@ -859,8 +872,8 @@ class LeagueofLegends(Extension):
                                 UPDATE ranked_aram_24h set index = :nouveau where index = :ancien;
                                 
                                 UPDATE matchs set joueur = :nouveau where joueur = :ancien;''',
-                              {'ancien': summonername, 'nouveau': name_actuelle})
-                    
+                                      {'ancien': summonername, 'nouveau': name_actuelle})
+
                     summonername = name_actuelle
                 try:
 
@@ -880,45 +893,50 @@ class LeagueofLegends(Extension):
                                          affichage=affichage)
 
                     # update rank
-                    await self.updaterank(summonername, discord_server_id, session, me)
+                    await self.updaterank(summonername, discord_server_id, session, me, discord_id)
                 except TypeError:
                     # on recommence dans 1 minute
                     requete_perso_bdd(f'UPDATE tracker SET id = :id WHERE index = :index', {
-                                  'id': last_game, 'index': summonername})
-                    print(f"erreur TypeError {summonername}")  # joueur qui a posé pb
+                        'id': last_game, 'index': summonername})
+                    # joueur qui a posé pb
+                    print(f"erreur TypeError {summonername}")
                     print(sys.exc_info())  # erreur
                     continue
                 except:
                     print(f"erreur {summonername}")  # joueur qui a posé pb
                     print(sys.exc_info())  # erreur
                     continue
-                
+
             if tracker_bool and not tracker_send:
                 try:
                     url, gamemode, id_game, champ_joueur, icon = await get_spectator_data(puuid, session)
-                    
+
                     url_opgg = f'https://www.op.gg/summoners/euw/{summonername}/ingame'
-                    
+
                     league_of_graph = f'https://porofessor.gg/fr/live/euw/{summonername}'
-                    
+
                     if url != None:
-                        
+
                         member = await self.bot.fetch_member(discord_id, server_id)
-                        
+
                         if id_last_game != str(id_game):
-                            embed = interactions.Embed(title=f'{summonername.upper()} : Analyse de la game prête !')
-                            
+                            embed = interactions.Embed(
+                                title=f'{summonername.upper()} : Analyse de la game prête !')
+
                             embed.add_field(name='Mode de jeu', value=gamemode)
-                            
-                            embed.add_field(name='OPGG', value=f"[General]({url_opgg}) | [Detail]({url}) ")
-                            embed.add_field(name='League of Graph', value=f"[{summonername.upper()}]({league_of_graph})")
-                            embed.add_field(name='Lolalytics', value=f'[{champ_joueur.capitalize()}](https://lolalytics.com/lol/{champ_joueur}/build/)')
+
+                            embed.add_field(
+                                name='OPGG', value=f"[General]({url_opgg}) | [Detail]({url}) ")
+                            embed.add_field(
+                                name='League of Graph', value=f"[{summonername.upper()}]({league_of_graph})")
+                            embed.add_field(
+                                name='Lolalytics', value=f'[{champ_joueur.capitalize()}](https://lolalytics.com/lol/{champ_joueur}/build/)')
                             embed.set_thumbnail(url=icon)
-                            
+
                             await member.send(embeds=embed)
-                        
+
                             requete_perso_bdd(f'UPDATE tracker SET spec_send = :spec WHERE index = :index', {
-                                        'spec': True, 'index': summonername})
+                                'spec': True, 'index': summonername})
                 except TypeError:
                     continue
                 except:
@@ -929,15 +947,14 @@ class LeagueofLegends(Extension):
     @slash_command(name='lol_compte', description='Gère ton compte League of Legends')
     async def lol_compte(self, ctx: SlashContext):
         pass
-    
 
     @lol_compte.subcommand("add",
-                                    sub_cmd_description="Ajoute le joueur au suivi",
-                                    options=[
-                                        SlashCommandOption(name="summonername",
-                                                    description="Nom du joueur",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=True)])
+                           sub_cmd_description="Ajoute le joueur au suivi",
+                           options=[
+                               SlashCommandOption(name="summonername",
+                                                  description="Nom du joueur",
+                                                  type=interactions.OptionType.STRING,
+                                                  required=True)])
     async def loladd(self,
                      ctx: SlashContext,
                      summonername):
@@ -967,7 +984,7 @@ class LeagueofLegends(Extension):
                                 INSERT INTO ranked_aram_24h(
                                 index, wins, losses, lp, games, k, d, a, activation, rank)
                                 VALUES (:summonername, 0, 0, 0, 0, 0, 0, 0, True, 'IRON');''',
-                                  {'summonername': summonername.lower(), 'id': await getId_with_puuid(puuid, session), 'discord': int(ctx.author.id), 'guilde': int(ctx.guild.id), 'puuid' : puuid})
+                                  {'summonername': summonername.lower(), 'id': await getId_with_puuid(puuid, session), 'discord': int(ctx.author.id), 'guilde': int(ctx.guild.id), 'puuid': puuid})
 
                 await ctx.send(f"{summonername} a été ajouté avec succès au live-feed!")
                 await session.close()
@@ -975,16 +992,15 @@ class LeagueofLegends(Extension):
                 await ctx.send('Module désactivé pour ce serveur')
         except:
             await ctx.send("Oops! Ce joueur n'existe pas.")
-            
-            
+
     @lol_compte.subcommand('mes_parametres',
-                   sub_cmd_description='Affiche les paramètres du tracker pour mes comptes')
+                           sub_cmd_description='Affiche les paramètres du tracker pour mes comptes')
     async def tracker_mes_parametres(self,
                                      ctx: SlashContext):
-        
-        
-        df = lire_bdd_perso(f'''SELECT index, activation, spec_tracker, challenges, insights, server_id, nb_challenges, affichage FROM tracker WHERE discord = '{int(ctx.author.id)}' ''').transpose()
-        
+
+        df = lire_bdd_perso(
+            f'''SELECT index, activation, spec_tracker, challenges, insights, server_id, nb_challenges, affichage FROM tracker WHERE discord = '{int(ctx.author.id)}' ''').transpose()
+
         await ctx.defer(ephemeral=True)
         if df.empty:
             await ctx.send("Tu n'as pas encore ajouté de compte", ephemeral=True)
@@ -992,15 +1008,15 @@ class LeagueofLegends(Extension):
             txt = f'{df.shape[0]} comptes :'
             for joueur, data in df.iterrows():
                 guild = await self.bot.fetch_guild(data['server_id'])
-                
+
                 if data['affichage'] == 1:
                     affichage = 'mode classique'
                 elif data['affichage'] == 2:
                     affichage = 'mode beta'
                 txt += f'\n**{joueur}** ({guild.name}): Tracking : **{data["activation"]}** ({affichage})  | Spectateur tracker : **{data["spec_tracker"]}** | Challenges : **{data["challenges"]}** (Affiché : {data["nb_challenges"]}) | Insights : **{data["insights"]}**'
-                        
-            await ctx.send(txt, ephemeral=True) 
-            
+
+            await ctx.send(txt, ephemeral=True)
+
         # Y a-t-il des challenges exclus ?
 
         df_exclusion = lire_bdd_perso(f'''SELECT challenge_exclusion.*, challenges.name from challenge_exclusion
@@ -1015,62 +1031,60 @@ class LeagueofLegends(Extension):
             txt_exclusion = ''
             for row, data in df_exclusion.iterrows():
                 txt_exclusion += f'\n- {data["index"]} : **{data["name"]}** '
-                
-            await ctx.send(f'Challenges exclus : {txt_exclusion}', ephemeral=True)       
-            
-            
+
+            await ctx.send(f'Challenges exclus : {txt_exclusion}', ephemeral=True)
 
     @lol_compte.subcommand('modifier_parametres',
                            sub_cmd_description='Activation/Désactivation du tracker',
-                                    options=[
-                                        SlashCommandOption(name='summonername',
-                                                    description="nom ingame",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=True),
-                                        SlashCommandOption(name="tracker_fin",
-                                                    description="Tracker qui affiche le recap de la game en fin de partie",
-                                                    type=interactions.OptionType.BOOLEAN,
-                                                    required=False),
-                                        SlashCommandOption(name="tracker_debut",
-                                                    description="Tracker en début de partie",
-                                                    type=interactions.OptionType.BOOLEAN,
-                                                    required=False),
-                                        SlashCommandOption(name="tracker_challenges",
-                                                    description="Tracker challenges",
-                                                    type=interactions.OptionType.BOOLEAN,
-                                                    required=False),
-                                        SlashCommandOption(name="affichage",
-                                                    description="Affichage du tracker",
-                                                    type=interactions.OptionType.INTEGER,
-                                                    required=False,
-                                                    choices=[SlashCommandChoice(name="Mode classique", value=1),
-                                                             SlashCommandChoice(name="Mode beta", value=2)]),
-                                        SlashCommandOption(name='nb_challenges',
-                                               description='Nombre de challenges à afficher dans le recap (entre 1 et 20)',
-                                               type=interactions.OptionType.INTEGER,
-                                               required=False,
-                                               min_value=1,
-                                               max_value=20),
-                                        SlashCommandOption(name="insights",
-                                                    description="Insights dans le recap",
-                                                    type=interactions.OptionType.BOOLEAN,
-                                                    required=False)])
+                           options=[
+                               SlashCommandOption(name='summonername',
+                                                  description="nom ingame",
+                                                  type=interactions.OptionType.STRING,
+                                                  required=True),
+                               SlashCommandOption(name="tracker_fin",
+                                                  description="Tracker qui affiche le recap de la game en fin de partie",
+                                                  type=interactions.OptionType.BOOLEAN,
+                                                  required=False),
+                               SlashCommandOption(name="tracker_debut",
+                                                  description="Tracker en début de partie",
+                                                  type=interactions.OptionType.BOOLEAN,
+                                                  required=False),
+                               SlashCommandOption(name="tracker_challenges",
+                                                  description="Tracker challenges",
+                                                  type=interactions.OptionType.BOOLEAN,
+                                                  required=False),
+                               SlashCommandOption(name="affichage",
+                                                  description="Affichage du tracker",
+                                                  type=interactions.OptionType.INTEGER,
+                                                  required=False,
+                                                  choices=[SlashCommandChoice(name="Mode classique", value=1),
+                                                           SlashCommandChoice(name="Mode beta", value=2)]),
+                               SlashCommandOption(name='nb_challenges',
+                                                  description='Nombre de challenges à afficher dans le recap (entre 1 et 20)',
+                                                  type=interactions.OptionType.INTEGER,
+                                                  required=False,
+                                                  min_value=1,
+                                                  max_value=20),
+                               SlashCommandOption(name="insights",
+                                                  description="Insights dans le recap",
+                                                  type=interactions.OptionType.BOOLEAN,
+                                                  required=False)])
     async def tracker_config(self,
-                        ctx: SlashContext,
-                        summonername: str,
-                        tracker_fin: bool=None,
-                        tracker_debut: bool=None,
-                        tracker_challenges: bool=None,
-                        insights: bool=None,
-                        nb_challenges:int=None,
-                        affichage:int=None):
+                             ctx: SlashContext,
+                             summonername: str,
+                             tracker_fin: bool = None,
+                             tracker_debut: bool = None,
+                             tracker_challenges: bool = None,
+                             insights: bool = None,
+                             nb_challenges: int = None,
+                             affichage: int = None):
 
         summonername = summonername.lower().replace(' ', '')
 
         if tracker_fin != None:
 
             nb_row = requete_perso_bdd('UPDATE tracker SET activation = :activation WHERE index = :index', {
-                                'activation': tracker_fin, 'index': summonername}, get_row_affected=True)
+                'activation': tracker_fin, 'index': summonername}, get_row_affected=True)
             if nb_row > 0:
                 if tracker_fin:
                     await ctx.send('Tracker fin de game activé !')
@@ -1082,7 +1096,7 @@ class LeagueofLegends(Extension):
         if tracker_debut != None:
 
             nb_row = requete_perso_bdd('UPDATE tracker SET spec_tracker = :activation WHERE index = :index', {
-                                'activation': tracker_debut, 'index': summonername}, get_row_affected=True)
+                'activation': tracker_debut, 'index': summonername}, get_row_affected=True)
             if nb_row > 0:
                 if tracker_debut:
                     await ctx.send('Tracker debut de game activé !')
@@ -1090,11 +1104,11 @@ class LeagueofLegends(Extension):
                     await ctx.send('Tracker debut de game désactivé !')
             else:
                 await ctx.send('Joueur introuvable')
-                
+
         if tracker_challenges != None:
 
             nb_row = requete_perso_bdd('UPDATE tracker SET challenges = :activation WHERE index = :index', {
-                                'activation': tracker_challenges, 'index': summonername}, get_row_affected=True)
+                'activation': tracker_challenges, 'index': summonername}, get_row_affected=True)
             if nb_row > 0:
                 if tracker_challenges:
                     await ctx.send('Tracker challenges activé !')
@@ -1102,11 +1116,11 @@ class LeagueofLegends(Extension):
                     await ctx.send('Tracker challenges désactivé !')
             else:
                 await ctx.send('Joueur introuvable')
-        
+
         if insights != None:
 
             nb_row = requete_perso_bdd('UPDATE tracker SET insights = :activation WHERE index = :index', {
-                                'activation': insights, 'index': summonername}, get_row_affected=True)
+                'activation': insights, 'index': summonername}, get_row_affected=True)
             if nb_row > 0:
                 if insights:
                     await ctx.send('Insights activé !')
@@ -1118,49 +1132,68 @@ class LeagueofLegends(Extension):
         if affichage != None:
 
             nb_row = requete_perso_bdd('UPDATE tracker SET affichage = :activation WHERE index = :index', {
-                                'activation': affichage, 'index': summonername}, get_row_affected=True)
+                'activation': affichage, 'index': summonername}, get_row_affected=True)
             if nb_row > 0:
                 await ctx.send('Affichage modifié')
             else:
                 await ctx.send('Joueur introuvable')
-                
+
         if nb_challenges != None:
 
             nb_row = requete_perso_bdd('UPDATE tracker SET nb_challenges = :activation WHERE index = :index', {
-                                'activation': nb_challenges, 'index': summonername}, get_row_affected=True)
+                'activation': nb_challenges, 'index': summonername}, get_row_affected=True)
 
             if nb_row > 0:
                 await ctx.send(f'Nombre de challenges affichés : ** {nb_challenges} ** !')
 
             else:
                 await ctx.send('Joueur introuvable')
-        
+
         if tracker_fin == None and tracker_debut == None and tracker_challenges == None and insights == None and nb_challenges == None and affichage == None:
             await ctx.send('Tu dois choisir une option !')
 
-
     @slash_command(name='lol_list',
-                                    description='Affiche la liste des joueurs suivis')
-    async def lollist(self, ctx: SlashContext):
+                   description='Affiche la liste des joueurs suivis',
+                   options=[SlashCommandOption(name='serveur_only',
+                                      description='General ou serveur ?',
+                                      type=interactions.OptionType.BOOLEAN,
+                                      required=False)])
+    async def lollist(self,
+                      ctx: SlashContext,
+                      serveur_only: bool = False):
 
-        data = get_data_bdd(f'''SELECT index from tracker 
-                    where server_id = :server_id''', {'server_id': int(ctx.guild.id)}).fetchall()
+        if serveur_only:
+            df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_s{saison} as suivi
+                                        INNER join tracker ON tracker.index = suivi.index 
+                                        where suivi.tier != 'Non-classe' and tracker.server_id = {int(ctx.guild.id)} ''')
 
-        response = ""
+        else:
+            df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_s{saison} as suivi
+                                        INNER join tracker ON tracker.index = suivi.index 
+                                        where suivi.tier != 'Non-classe' ''')
+        df = df.transpose().reset_index()
 
-        for key in data:
-            response += key[0].upper() + ", "
+        # Pour l'ordre de passage
+        df['tier_pts'] = df['tier'].apply(label_tier)
+        df['rank_pts'] = df['rank'].apply(label_rank)
 
-        response = response[:-2]
+        df['winrate'] = round(df['wins'].astype(int) / (df['wins'].astype(int) + df['losses'].astype(int)) * 100, 1)
+        
+        
+        df.sort_values(by=['tier_pts', 'rank_pts', 'LP'],
+                                    ascending=[False, False, False],
+                                    inplace=True)
+
+        response = ''
+        
+        for lig, data in df.iterrows():
+            response += f'''{data['index']} : {data['tier']} {data['rank']} | {data['LP']} LP | {data['winrate']}% WR\n'''
+
         embed = interactions.Embed(
             title="Live feed list", description=response, color=interactions.Color.random())
 
         await ctx.send(embeds=embed)
-        
 
-
-        
-        
     async def update_24h(self):
         data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
@@ -1186,15 +1219,13 @@ class LeagueofLegends(Extension):
                 df = df.transpose().reset_index()
                 df_24h = df_24h.transpose().reset_index()
 
-
-
-                    # Pour l'ordre de passage
+                # Pour l'ordre de passage
                 df['tier_pts'] = df['tier'].apply(label_tier)
                 df['rank_pts'] = df['rank'].apply(label_rank)
 
                 df.sort_values(by=['tier_pts', 'rank_pts', 'LP'],
-                                   ascending=[False, False, False],
-                                   inplace=True)
+                               ascending=[False, False, False],
+                               inplace=True)
 
                 sql = ''
 
@@ -1204,7 +1235,7 @@ class LeagueofLegends(Extension):
                 joueur = suivi.keys()
 
                 embed = interactions.Embed(
-                        title="Suivi LOL", description='Periode : 24h', color=interactions.Color.random())
+                    title="Suivi LOL", description='Periode : 24h', color=interactions.Color.random())
                 totalwin = 0
                 totaldef = 0
                 totalgames = 0
@@ -1220,7 +1251,7 @@ class LeagueofLegends(Extension):
                     rank_old = str(suivi_24h[key]['rank'])
                     classement_old = tier_old + " " + rank_old
 
-                        # on veut les stats soloq
+                    # on veut les stats soloq
 
                     tier = str(suivi[key]['tier'])
                     rank = str(suivi[key]['rank'])
@@ -1237,13 +1268,15 @@ class LeagueofLegends(Extension):
 
                     if dict_rankid[classement_old] > dict_rankid[classement_new]:  # 19-18
                         if not classement_old in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
-                            difLP = 100 + LP - int(suivi[key]['LP']) # il n'y a pas -100 lp pour ce type de démote
+                            # il n'y a pas -100 lp pour ce type de démote
+                            difLP = 100 + LP - int(suivi[key]['LP'])
                         difLP = "Démote / -" + str(difLP)
                         emote = ":arrow_down:"
 
                     elif dict_rankid[classement_old] < dict_rankid[classement_new]:
                         if not classement_old in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
-                            difLP = 100 - LP + int(suivi[key]['LP']) # il n'y a pas +100 lp pour ce type de démote
+                            # il n'y a pas +100 lp pour ce type de démote
+                            difLP = 100 - LP + int(suivi[key]['LP'])
                         difLP = "Promotion / +" + str(difLP)
                         emote = ":arrow_up:"
 
@@ -1256,22 +1289,21 @@ class LeagueofLegends(Extension):
                             emote = ":arrow_right:"
 
                     embed.add_field(name=str(key) + " ( " + tier + " " + rank + " )",
-                                        value="V : " +
-                                        str(suivi[key]['wins']) +
-                                        "(" + str(difwins) + ") | D : "
+                                    value="V : " +
+                                    str(suivi[key]['wins']) +
+                                    "(" + str(difwins) + ") | D : "
                                         + str(suivi[key]['losses']) +
-                                        "(" + str(diflosses) + ") | LP :  "
+                                    "(" + str(diflosses) + ") | LP :  "
                                         + str(suivi[key]['LP']) + "(" + str(difLP) + ")    " + emote, inline=False)
 
                     if (difwins + diflosses > 0):  # si supérieur à 0, le joueur a joué
-                            sql += f'''UPDATE suivi_24h
+                        sql += f'''UPDATE suivi_24h
                             SET wins = {suivi[key]['wins']},
                             losses = {suivi[key]['losses']},
                             "LP" = {suivi[key]['LP']},
                             tier = '{suivi[key]['tier']}',
                             rank = '{suivi[key]['rank']}'
                             where index = '{key}';'''
-
 
                 channel_tracklol = await self.bot.fetch_channel(chan_discord_id.tracklol)
 
@@ -1288,49 +1320,47 @@ class LeagueofLegends(Extension):
     async def lolsuivi(self):
 
         await self.update_24h()
-                
+
     @slash_command(name="force_update24h",
-                                    description="Réservé à Tomlora")
+                   description="Réservé à Tomlora")
     async def force_update(self, ctx: SlashContext):
 
-
         await ctx.defer(ephemeral=False)
-        
+
         if isOwner_slash(ctx):
             await self.update_24h()
             # await ctx.delete()
-        
+
         else:
             await ctx.send("Tu n'as pas l'autorisation nécessaire")
-            
 
     @lol_compte.subcommand("color",
-                                    sub_cmd_description="Modifier la couleur du recap",
-                                    options=[SlashCommandOption(name="summonername",
-                                                    description="Nom du joueur",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=True),
-                                             SlashCommandOption(name="rouge",
-                                                    description="R",
-                                                    type=interactions.OptionType.INTEGER,
-                                                    required=True),
-                                             SlashCommandOption(name="vert",
-                                                    description="G",
-                                                    type=interactions.OptionType.INTEGER,
-                                                    required=True),
-                                             SlashCommandOption(name="bleu",
-                                                    description="B",
-                                                    type=interactions.OptionType.INTEGER,
-                                                    required=True)])
+                           sub_cmd_description="Modifier la couleur du recap",
+                           options=[SlashCommandOption(name="summonername",
+                                                       description="Nom du joueur",
+                                                       type=interactions.OptionType.STRING,
+                                                       required=True),
+                                    SlashCommandOption(name="rouge",
+                                                       description="R",
+                                                       type=interactions.OptionType.INTEGER,
+                                                       required=True),
+                                    SlashCommandOption(name="vert",
+                                                       description="G",
+                                                       type=interactions.OptionType.INTEGER,
+                                                       required=True),
+                                    SlashCommandOption(name="bleu",
+                                                       description="B",
+                                                       type=interactions.OptionType.INTEGER,
+                                                       required=True)])
     async def lolcolor(self,
-                          ctx: SlashContext,
-                          summonername: str,
-                          rouge: int,
-                          vert: int,
-                          bleu: int):
+                       ctx: SlashContext,
+                       summonername: str,
+                       rouge: int,
+                       vert: int,
+                       bleu: int):
 
         await ctx.defer(ephemeral=False)
-        
+
         interactions.Role.color
 
         params = {'rouge': rouge, 'vert': vert,
@@ -1356,19 +1386,19 @@ class LeagueofLegends(Extension):
         await ctx.send('https://clips.twitch.tv/CuriousBenevolentMageHotPokket-8M0TX_zTaGW7P2g7')
 
     @lol_compte.subcommand('discord',
-                                    sub_cmd_description='Relie un compte discord et un compte league of legends',
-                                    options=[
-                                        SlashCommandOption(
-                                            name='summonername',
-                                            description='pseudo lol',
-                                            type=interactions.OptionType.STRING,
-                                            required=True),
-                                        SlashCommandOption(
-                                            name='member',
-                                            description='compte discord',
-                                            type=interactions.OptionType.USER,
-                                            required=True
-                                        )])
+                           sub_cmd_description='Relie un compte discord et un compte league of legends',
+                           options=[
+                               SlashCommandOption(
+                                   name='summonername',
+                                   description='pseudo lol',
+                                   type=interactions.OptionType.STRING,
+                                   required=True),
+                               SlashCommandOption(
+                                   name='member',
+                                   description='compte discord',
+                                   type=interactions.OptionType.USER,
+                                   required=True
+                               )])
     async def link(self,
                    ctx: SlashContext,
                    summonername,
@@ -1376,148 +1406,159 @@ class LeagueofLegends(Extension):
 
         summonername = summonername.lower()
         nb_row = requete_perso_bdd('UPDATE tracker SET discord = :discord, server_id = :guild WHERE index = :summonername', {
-                          'discord': int(member.id), 'guild': int(ctx.guild.id), 'summonername': summonername}, get_row_affected=True)
+            'discord': int(member.id), 'guild': int(ctx.guild.id), 'summonername': summonername}, get_row_affected=True)
+
         
         if nb_row > 0:
             await ctx.send(f'Le compte LoL {summonername} a été link avec <@{int(member.id)}>')
         else:
             await ctx.send(f"Le compte LoL {summonername} n'existe pas dans la base de donnée")
-            
-    @slash_command(name='recap_journalier',
-                                    description='Mon recap sur les 24 dernières heures',
-                                    options=[
-                                        SlashCommandOption(
-                                            name='summonername',
-                                            description='pseudo lol',
-                                            type=interactions.OptionType.STRING,
-                                            required=True),
-                                        SlashCommandOption(
-                                            name='mode',
-                                            description='mode de jeu',
-                                            type=interactions.OptionType.STRING,
-                                            required=False,
-                                            choices=[
-                                                SlashCommandChoice(name='Ranked',
-                                                       value='RANKED'),
-                                                SlashCommandChoice(name='Aram', value='ARAM')]
-                                        ),
-                                        SlashCommandOption(
-                                            name='observation',
-                                            description='Quelle vision ?',
-                                            type=interactions.OptionType.STRING,
-                                            required=False,
-                                            choices=[
-                                                SlashCommandChoice(name='24h', value='24h'),
-                                                SlashCommandChoice(name='48h', value='48h'),
-                                                SlashCommandChoice(name='72h', value='72h'),
-                                                SlashCommandChoice(name='96h', value='96h'),
-                                                SlashCommandChoice(name='Semaine', value='Semaine'),
-                                                SlashCommandChoice(name='Mois', value='Mois'),
-                                                SlashCommandChoice(name="Aujourd'hui", value='today')
-                                            ]
-                                        )])
-    async def my_recap(self,
-                   ctx: SlashContext,
-                   summonername:str,
-                   mode:str=None,
-                   observation:str='24h'):
 
+    @slash_command(name='recap_journalier',
+                   description='Mon recap sur les 24 dernières heures',
+                   options=[
+                       SlashCommandOption(
+                           name='summonername',
+                           description='pseudo lol',
+                           type=interactions.OptionType.STRING,
+                           required=True),
+                       SlashCommandOption(
+                           name='mode',
+                           description='mode de jeu',
+                           type=interactions.OptionType.STRING,
+                           required=False,
+                           choices=[
+                               SlashCommandChoice(name='Ranked',
+                                                  value='RANKED'),
+                               SlashCommandChoice(name='Aram', value='ARAM')]
+                       ),
+                       SlashCommandOption(
+                           name='observation',
+                           description='Quelle vision ?',
+                           type=interactions.OptionType.STRING,
+                           required=False,
+                           choices=[
+                               SlashCommandChoice(
+                                   name='24h', value='24h'),
+                               SlashCommandChoice(
+                                   name='48h', value='48h'),
+                               SlashCommandChoice(
+                                   name='72h', value='72h'),
+                               SlashCommandChoice(
+                                   name='96h', value='96h'),
+                               SlashCommandChoice(
+                                   name='Semaine', value='Semaine'),
+                               SlashCommandChoice(
+                                   name='Mois', value='Mois'),
+                               SlashCommandChoice(
+                                   name="Aujourd'hui", value='today')
+                           ]
+                       )])
+    async def my_recap(self,
+                       ctx: SlashContext,
+                       summonername: str,
+                       mode: str = None,
+                       observation: str = '24h'):
 
         summonername = summonername.lower()
-        
-        timezone=tz.gettz('Europe/Paris')
-        
+
+        timezone = tz.gettz('Europe/Paris')
+
         dict_timedelta = {'24h': timedelta(days=1),
-                          '48h' : timedelta(days=2), 
-                          '72h' : timedelta(days=3),
-                          '96h' : timedelta(days=4),
-                          'Semaine' : timedelta(days=7),
-                          'Mois' : timedelta(days=30)}
+                          '48h': timedelta(days=2),
+                          '72h': timedelta(days=3),
+                          '96h': timedelta(days=4),
+                          'Semaine': timedelta(days=7),
+                          'Mois': timedelta(days=30)}
 
         await ctx.defer(ephemeral=False)
-        
-        
+
         if mode == None:
             if observation != 'today':
-                df =lire_bdd_perso(f'''SELECT id, match_id, champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, datetime from matchs
+                df = lire_bdd_perso(f'''SELECT id, match_id, champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, datetime from matchs
                                    where datetime >= :date
-                                   and joueur='{summonername}' ''' , 
-                        params={'date': datetime.now(timezone) - dict_timedelta.get(observation)},
-                        index_col='id').transpose()
+                                   and joueur='{summonername}' ''',
+                                    params={'date': datetime.now(
+                                        timezone) - dict_timedelta.get(observation)},
+                                    index_col='id').transpose()
             else:
-                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, datetime from matchs
+                df = lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, datetime from matchs
                                 where EXTRACT(DAY FROM datetime) = :jour
                                 AND EXTRACT(MONTH FROM datetime) = :mois
                                 AND EXTRACT(YEAR FROM datetime) = :annee
-                                and joueur='{summonername}' ''' , 
-                                params={'jour': datetime.now(timezone).day,
-                                        'mois': datetime.now(timezone).month,
-                                        'annee' : datetime.now(timezone).year},
-                                index_col='id').transpose()
+                                and joueur='{summonername}' ''',
+                                    params={'jour': datetime.now(timezone).day,
+                                            'mois': datetime.now(timezone).month,
+                                            'annee': datetime.now(timezone).year},
+                                    index_col='id').transpose()
         else:
             if observation != 'today':
-                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, victoire, kda, ecart_lp, datetime from matchs
+                df = lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, victoire, kda, ecart_lp, datetime from matchs
                                    where datetime >= :date
                                    and joueur='{summonername}'
-                                   and mode = '{mode}' ''' , 
-                        params={'date': datetime.now(timezone) - dict_timedelta.get(observation)},
-                        index_col='id').transpose()
+                                   and mode = '{mode}' ''',
+                                    params={'date': datetime.now(
+                                        timezone) - dict_timedelta.get(observation)},
+                                    index_col='id').transpose()
 
             else:
 
-                df =lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, victoire, kda, ecart_lp, datetime from matchs
+                df = lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, victoire, kda, ecart_lp, datetime from matchs
                                 where EXTRACT(DAY FROM datetime) = :jour
                                 AND EXTRACT(MONTH FROM datetime) = :mois
                                 AND EXTRACT(YEAR FROM datetime) = :annee
                                 and joueur='{summonername}'
-                                and mode = '{mode}' ''' , 
-                                params={'jour': datetime.now(timezone).day,
-                                        'mois': datetime.now(timezone).month,
-                                        'annee' : datetime.now(timezone).year},
-                                index_col='id').transpose()            
-        
+                                and mode = '{mode}' ''',
+                                    params={'jour': datetime.now(timezone).day,
+                                            'mois': datetime.now(timezone).month,
+                                            'annee': datetime.now(timezone).year},
+                                    index_col='id').transpose()
+
         if df.shape[0] >= 1:
-            
+
             # on convertit dans le bon fuseau horaire
-            df['datetime'] = pd.to_datetime(df['datetime'], utc=True).dt.tz_convert('Europe/Paris')
+            df['datetime'] = pd.to_datetime(
+                df['datetime'], utc=True).dt.tz_convert('Europe/Paris')
 
             df.sort_values(by='datetime', ascending=False, inplace=True)
 
             df['datetime'] = df['datetime'].dt.strftime('%d/%m %H:%M')
 
-            df['victoire'] = df['victoire'].map({True: 'Victoire', False: 'Défaite'})
-            
+            df['victoire'] = df['victoire'].map(
+                {True: 'Victoire', False: 'Défaite'})
+
             # Total
             total_kda = f'Total : **{df["kills"].sum()}**/**{df["deaths"].sum()}**/**{df["assists"].sum()}**  | Moyenne : **{df["kills"].mean():.2f}**/**{df["deaths"].mean():.2f}**/**{df["assists"].mean():.1f}** (**{df["kda"].mean():.2f}**) | KP : **{df["kp"].mean():.2f}**% '
             total_lp = f'**{df["ecart_lp"].sum()}**'
-            
+
             total_quadra = df['quadra'].sum()
             total_penta = df['penta'].sum()
-            
+
             duree_moyenne = df['time'].mean()
             mvp_moyenne = df['mvp'].mean()
-            
-            nb_victoire_total = df['victoire'].value_counts().get('Victoire', 0)
+
+            nb_victoire_total = df['victoire'].value_counts().get(
+                'Victoire', 0)
             nb_defaite_total = df['victoire'].value_counts().get('Défaite', 0)
-            
+
             total_victoire = f'Victoire : **{nb_victoire_total}** | Défaite : **{nb_defaite_total}** '
-            
+
             # Champions jouées
-            
+
             txt_champ = ''
-            champion_counts = df['champion'].sort_values(ascending=False).value_counts()
+            champion_counts = df['champion'].sort_values(
+                ascending=False).value_counts()
             for champ, number in champion_counts.items():
                 txt_champ += f'{champ} : **{number}** | '
-            
+
             # On prépare l'embed
             data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index= :index', {
                                 'index': summonername.lower()}).fetchall()
-            # color = rgb_to_discord(data[0][0], data[0][1], data[0][2]) 
-            
+            # color = rgb_to_discord(data[0][0], data[0][1], data[0][2])
+
             # On crée l'embed
             embed = interactions.Embed(
                 title=f" Recap **{summonername.upper()} ** {observation.upper()}", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
-            
 
             txt = ''
             n = 1
@@ -1527,66 +1568,69 @@ class LeagueofLegends(Extension):
             # On affiche les résultats des matchs
             for index, match in df.iterrows():
                 txt += f'({match["datetime"]}) [{match["champion"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}) [{match["mode"]} | {match["tier"][:4]} {match["rank"]}] **{match["victoire"]}** | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%) | LP: **{match["ecart_lp"]}**\n'
- 
- 
-                if embed.fields: # si il y a déjà des fields dans l'embed
-                    if len(txt) + sum(len(field.value) for field in embed.fields) > 4500: # si le texte devient trop long, on crée un nouvel embed
+
+                if embed.fields:  # si il y a déjà des fields dans l'embed
+                    # si le texte devient trop long, on crée un nouvel embed
+                    if len(txt) + sum(len(field.value) for field in embed.fields) > 4500:
                         # on ajoute ce recap dans le premier embed
                         embed.add_field(name='KDA', value=total_kda)
                         embed.add_field(name='Champions', value=txt_champ)
-                        embed.add_field(name='LP', value=f'{total_lp} ({total_victoire} , {nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%)')
-                        embed.add_field(name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}**')
-                        
+                        embed.add_field(
+                            name='LP', value=f'{total_lp} ({total_victoire} , {nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%)')
+                        embed.add_field(
+                            name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}**')
+
                         if (total_quadra + total_penta) > 0:
-                            embed.add_field(name='Série', value=f'Quadra : **{total_quadra}** | Penta : **{total_penta}**')  
-                            
+                            embed.add_field(
+                                name='Série', value=f'Quadra : **{total_quadra}** | Penta : **{total_penta}**')
+
                         embeds.append(embed)
                         embed = interactions.Embed(
-                                    title=f" Recap **{summonername.upper()} ** {observation.upper()} Part {part}", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
+                            title=f" Recap **{summonername.upper()} ** {observation.upper()} Part {part}", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
                         part = part + 1
-                    
+
                 # Vérifier si l'index est un multiple de 8
                 if count % 4 == 0 and count != 0:
-                    
+
                     if n == 1:
-                        embed.add_field(name=f'Historique ({df.shape[0]} parties)', value=txt)
+                        embed.add_field(
+                            name=f'Historique ({df.shape[0]} parties)', value=txt)
                     else:
                         embed.add_field(name=f'Historique (suite)', value=txt)
-                    n = n+1 
+                    n = n+1
                     txt = ''
-                    
-                count = count + 1    
-            # Vérifier si la variable txt contient des données non ajoutées        
+
+                count = count + 1
+            # Vérifier si la variable txt contient des données non ajoutées
             if txt:
                 embed.add_field(name=f'Historique (suite)', value=txt)
-            
+
             # on ajoute les champs dans l'embed
-            # embed.add_field(name=f'Historique ({df.shape[0]} parties)', value=txt) 
- 
-            
+            # embed.add_field(name=f'Historique ({df.shape[0]} parties)', value=txt)
+
             # On envoie l'embed
             if len(embeds) == 0:  # si il n'y a qu'un seul embed, on l'envoie normalement
                 # on ajoute ces champs dans le premier embed
                 embed.add_field(name='KDA', value=total_kda)
                 embed.add_field(name='Champions', value=txt_champ)
-                embed.add_field(name='LP', value=f'{total_lp} ({total_victoire} , {nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%)')
-                embed.add_field(name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : {mvp_moyenne:.1f}') 
+                embed.add_field(
+                    name='LP', value=f'{total_lp} ({total_victoire} , {nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%)')
+                embed.add_field(
+                    name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : {mvp_moyenne:.1f}')
                 if (total_quadra + total_penta) > 0:
-                    embed.add_field(name='Série de kills', value=f'Quadra : **{total_quadra}** | Penta : **{total_penta}**')     
+                    embed.add_field(
+                        name='Série de kills', value=f'Quadra : **{total_quadra}** | Penta : **{total_penta}**')
                 await ctx.send(embeds=embed)
-            else: # sinon on utilise le paginator
-                embeds.append(embed) # on ajoute le dernier embed
-                
-                
+            else:  # sinon on utilise le paginator
+                embeds.append(embed)  # on ajoute le dernier embed
+
                 paginator = Paginator.create_from_embeds(
                     self.bot,
                     *embeds)
-                
+
                 paginator.show_select_menu = True
                 await paginator.send(ctx)
-                       
-                
-                        
+
         else:
             await ctx.send('Pas de game enregistré sur les dernières 24h pour ce joueur')
 
