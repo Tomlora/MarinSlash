@@ -2,6 +2,7 @@ from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd, get_data_bd
 from time import time
 import interactions
 import re
+from discord.utils import get
 
 
 class chan_discord():
@@ -154,3 +155,11 @@ async def convertion_temps(ctx : interactions.SlashContext, time) -> int:
     seconds = amount * time_conversions[unit]
     
     return seconds
+
+
+async def identifier_role_by_name(guild : interactions.Guild, name:str) -> interactions.Role:
+    role = get(guild.roles, name=name)
+        
+    role = await guild.fetch_role(role)
+    
+    return role
