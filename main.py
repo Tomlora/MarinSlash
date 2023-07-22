@@ -40,11 +40,12 @@ async def on_message_create(message: MessageCreate):
     # si le msg n'est pas en dm et qu'il n'est pas le bot
     if (channel.type != interactions.ChannelType.DM) and (int(message.message.author.id) != int(id_bot)):
 
-        guild = message.message.guild
+        guild : interactions.Guild = message.message.guild
         role = get(guild.roles, name="Muted")  # get the muted role
+        role = await guild.fetch_role(role)
 
         if role.id in message.message.author.roles:  # si l'user a le role mute, on supprime son msg
-            await message.delete()
+            await message.message.delete()
 
     # await bot.process_commands(
     #     message)  # Overriding the default provided on_message forbids any extra commands from running. To fix this, add a bot.process_commands(message) line at the end of your on_message.

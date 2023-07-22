@@ -4,19 +4,13 @@ import warnings
 from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd
 from fonctions.params import saison
 from fonctions.channels_discord import mention
-import json
 import numpy as np
 import sys
 from PIL import Image, ImageDraw, ImageFont
-import plotly.graph_objects as go
-from plotly.graph_objs import Layout
-import plotly.express as px
 from io import BytesIO
 import aiohttp
 import asyncio
 import pickle
-import plotly.io as pio
-import io
 
 # TODO : rajouter temps en vie
 
@@ -37,10 +31,11 @@ def label_tier(x):
                         'SILVER': 2,
                         'GOLD': 3,
                         'PLATINUM': 4,
-                        'DIAMOND': 5,
-                        'MASTER': 6,
-                        'GRANDMASTER': 7,
-                        'CHALLENGER': 8}
+                        'EMERALD': 5,
+                        'DIAMOND': 6,
+                        'MASTER': 7,
+                        'GRANDMASTER': 8,
+                        'CHALLENGER': 9}
     return dict_chg_tier.get(x,0)
 
 def label_rank(x):
@@ -76,23 +71,28 @@ dict_rankid = {"Non-classe 0": 0,
                "PLATINUM III": 14,
                "PLATINUM II": 15,
                "PLATINUM I": 16,
-               "DIAMOND IV": 17,
-               "DIAMOND III": 18,
-               "DIAMOND II": 19,
-               "DIAMOND I": 20,
-               'MASTER I': 21,
-               'GRANDMASTER I': 22,
-               'CHALLENGER I': 23}
+               "EMERALD IV": 17,
+               "EMERALD III": 18,
+               "EMERALD II": 19,
+               "EMERALD I": 20,
+               "DIAMOND IV": 21,
+               "DIAMOND III": 22,
+               "DIAMOND II": 23,
+               "DIAMOND I": 24,
+               'MASTER I': 25,
+               'GRANDMASTER I': 26,
+               'CHALLENGER I': 27}
 
 elo_lp = {'IRON': 0,
           'BRONZE': 1,
           'SILVER': 2,
           'GOLD': 3,
           'PLATINUM': 4,
-          'DIAMOND': 5,
-          'MASTER': 6,
-          'GRANDMASTER': 7,
-          'CHALLENGER': 8,
+           'EMERALD' : 5,
+          'DIAMOND': 6,
+          'MASTER': 7,
+          'GRANDMASTER': 8,
+          'CHALLENGER': 9,
           'FIRST_GAME': 0}
 
 dict_points = {41: [11, -19],
@@ -119,7 +119,10 @@ dict_points = {41: [11, -19],
 dict_id_q = {420 : 'RANKED',
              400 : 'NORMAL',
              440 : 'FLEX',
-             450 : 'ARAM'}
+             450 : 'ARAM',
+             1700 : 'ARENA 2v2',
+             1701 : 'ARENA 2v2',
+             1704 : 'ARENA 2v2'}
 
 
 def trouver_records(df, category, methode='max', identifiant='joueur'):
@@ -245,6 +248,22 @@ def range_value(i, liste, min: bool = False, return_top: bool = False):
         fill = (0, 128, 0)
         top = 'max'
     elif (min == True) and (i == np.argmin(liste[:5]) or i-5 == np.argmin(liste[5:])):
+        fill = (220, 20, 60)
+        top = 'min'
+    else:
+        fill = (0, 0, 0)
+        top = None
+        
+    if return_top:
+        return fill, top 
+    
+    return fill
+
+def range_value_arena(i, liste, min: bool = False, return_top: bool = False):
+    if i == np.argmax(liste):
+        fill = (0, 128, 0)
+        top = 'max'
+    elif (min == True) and i == np.argmin(liste):
         fill = (220, 20, 60)
         top = 'min'
     else:
@@ -410,6 +429,16 @@ def dict_data(thisId: int, match_detail, info):
 
     return liste
 
+def dict_data_arena(thisId: int, match_detail, info):
+    
+
+    liste = [match_detail['info']['participants'][i][info] for i in range(0, 8)]
+    # else:
+    #     liste = [match_detail['info']['participants'][i][info]
+    #                  for i in range(0, 10)]
+
+
+    return liste
 
 async def match_by_puuid_with_summonername(summonerName,
                          idgames: int,
@@ -627,31 +656,40 @@ class matchlol():
         self.version = await get_version(self.session)
         # get champion list
         self.current_champ_list = await get_champ_list(self.session, self.version)
+        
+        self.match_detail = pd.DataFrame(self.match_detail_stats)
+        
+        self.thisQId = self.match_detail['info']['queueId']
+        self.thisQ = dict_id_q.get(self.thisQId, 'OTHER')
+        
+       
+        if self.thisQ == 'ARENA 2v2':
+            self.nb_joueur = 8
+        else:
+            self.nb_joueur = 10
 
     async def prepare_data(self):
         """Récupère les données de la game"""
-
-        # Detail de chaque champion...
-
+    
         self.champ_dict = {}
         for key in self.current_champ_list['data']:
             row = self.current_champ_list['data'][key]
             self.champ_dict[row['key']] = row['id']
 
-        self.match_detail = pd.DataFrame(self.match_detail_stats)
+        # Detail de chaque champion...
 
         self.dic = {(self.match_detail['info']['participants'][i]['summonerName']).lower(
-        ).replace(" ", ""): i for i in range(10)}
+        ).replace(" ", ""): i for i in range(self.nb_joueur)}
 
         # stats
         try:
             self.thisId = self.dic[
                 self.summonerName.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
         except KeyError: # changement de pseudo ? On va faire avec le puuid
-            self.dic = {(self.match_detail['metadata']['participants'][i]) : i for i in range(10)}
+            self.dic = {(self.match_detail['metadata']['participants'][i]) : i for i in range(self.nb_joueur)}
             self.thisId = self.dic[self.me['puuid']]
 
-        self.thisQId = self.match_detail['info']['queueId']
+
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
         self.match_detail_challenges = self.match_detail_participants['challenges']
         self.thisPosition = self.match_detail_participants['teamPosition']
@@ -666,7 +704,7 @@ class matchlol():
 
         self.timestamp = str(self.match_detail['info']['gameCreation'])[
             :-3]  # traduire avec datetime.date.fromtimestamp()
-        self.thisQ = ' '
+        # self.thisQ = ' '
         self.thisChamp = self.match_detail_participants['championId']
         self.thisDouble = self.match_detail_participants['doubleKills']
         self.thisTriple = self.match_detail_participants['tripleKills']
@@ -818,14 +856,14 @@ class matchlol():
             self.team = 0
             self.n_moba = 1
         # le sort_values permet de mettre les slots vides à la fin    
-            for joueur in range(0,10):
+            for joueur in range(0,self.nb_joueur):
                 liste_items = [self.match_detail['info']['participants'][joueur][f'item{i}'] for i in range(6)]
                 liste_items.sort(reverse=True)
                 self.allitems[joueur] = liste_items
         else:
             self.team = 1
             self.n_moba = 0
-            for joueur in range(0,10):
+            for joueur in range(0,self.nb_joueur):
                 joueur_id = joueur
                 if joueur >= 5:
                     joueur_id -= 5
@@ -901,7 +939,7 @@ class matchlol():
         except:
             self.participation_tower = 0
         
-        self.thisQ = dict_id_q.get(self.thisQId, 'OTHER')
+        
 
         if str(self.thisWinId) == 'True':
             self.thisWin = "GAGNER"
@@ -975,10 +1013,10 @@ class matchlol():
 
         self.thisChampTeam1 = [self.thisChampNameListe[i] for i in range(5)]
         self.thisChampTeam2 = [self.thisChampNameListe[i]
-                               for i in range(5, 10)]
+                               for i in range(5, self.nb_joueur)]
 
         self.thisGold_team1 = sum(self.thisGoldListe[:5])
-        self.thisGold_team2 = sum(self.thisGoldListe[5:10])
+        self.thisGold_team2 = sum(self.thisGoldListe[5:self.nb_joueur])
         
         self.gold_share = round((self.thisGoldNoFormat / self.thisGold_team1) * 100,2)
         self.ecart_gold_team = self.thisGold_team1 - self.thisGold_team2
@@ -986,7 +1024,7 @@ class matchlol():
         self.thisVisionListe = dict_data(
             self.thisId, self.match_detail, 'visionScore')
         
-        self.thisVisionPerMinListe = [round((self.thisVisionListe[i] / self.thisTime), 1) for i in range(10)]
+        self.thisVisionPerMinListe = [round((self.thisVisionListe[i] / self.thisTime), 1) for i in range(self.nb_joueur)]
 
         self.thisJungleMonsterKilledListe = dict_data(
             self.thisId, self.match_detail, 'neutralMinionsKilled')
@@ -995,7 +1033,7 @@ class matchlol():
 
         self.thisKDAListe = dict_data(self.thisId, self.match_detail, "kda")
         
-        self.thisMinionPerMinListe = [round((self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]) / self.thisTime, 1) for i in range(10)]
+        self.thisMinionPerMinListe = [round((self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]) / self.thisTime, 1) for i in range(self.nb_joueur)]
 
         self.thisLevelListe = dict_data(
             self.thisId, self.match_detail, "champLevel")
@@ -1052,7 +1090,7 @@ class matchlol():
         
             self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (temp_team_kills if i < 5
                                                                                                  else temp_team_kills_op), 2) * 100)
-                                for i in range(10)]
+                                for i in range(self.nb_joueur)]
 
         elif self.team == 1:
 
@@ -1103,7 +1141,7 @@ class matchlol():
         
             self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (temp_team_kills if i < 5
                                                                                                  else temp_team_kills_op), 2) * 100)
-                                for i in range(10)]
+                                for i in range(self.nb_joueur)]
 
         self.adversaire_direct = {"TOP": self.ecart_top_gold, "JUNGLE": self.ecart_jgl_gold,
                                   "MID": self.ecart_mid_gold, "ADC": self.ecart_adc_gold, "SUPPORT": self.ecart_supp_gold}
@@ -1206,6 +1244,364 @@ class matchlol():
             self.thisWinrateStat = str(int(self.thisWinrate * 100))
             self.thisRank = str(self.thisStats[self.i]['rank'])
             self.thisTier = str(self.thisStats[self.i]['tier'])
+            self.thisLP = str(self.thisStats[self.i]['leaguePoints'])
+            self.thisVictory = str(self.thisStats[self.i]['wins'])
+            self.thisLoose = str(self.thisStats[self.i]['losses'])
+            self.thisWinStreak = str(self.thisStats[self.i]['hotStreak'])
+        except IndexError:  # on va avoir une index error si le joueur est en placement, car Riot ne fournit pas dans son api les données de placement
+            self.thisWinrate = '0'
+            self.thisWinrateStat = '0'
+            self.thisRank = 'En placement'
+            self.thisTier = " "
+            self.thisLP = '0'
+            self.thisVictory = '0'
+            self.thisLoose = '0'
+            self.thisWinStreak = '0'
+        
+        except AttributeError:
+            self.thisWinrate = '0'
+            self.thisWinrateStat = '0'
+            self.thisRank = 'En placement'
+            self.thisTier = " "
+            self.thisLP = '0'
+            self.thisVictory = '0'
+            self.thisLoose = '0'
+            self.thisWinStreak = '0'
+            
+        self.url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(self.last_match)[5:]}#participant{int(self.thisId)+1}'
+        
+
+    async def prepare_data_arena(self):
+        """Récupère les données de la game"""
+    
+        self.champ_dict = {}
+        for key in self.current_champ_list['data']:
+            row = self.current_champ_list['data'][key]
+            self.champ_dict[row['key']] = row['id']
+
+        # Detail de chaque champion...
+
+        self.dic = {(self.match_detail['info']['participants'][i]['summonerName']).lower(
+        ).replace(" ", ""): i for i in range(self.nb_joueur)}
+
+        # stats
+        try:
+            self.thisId = self.dic[
+                self.summonerName.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
+        except KeyError: # changement de pseudo ? On va faire avec le puuid
+            self.dic = {(self.match_detail['metadata']['participants'][i]) : i for i in range(self.nb_joueur)}
+            self.thisId = self.dic[self.me['puuid']]
+
+
+        self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
+        self.season = 13  # TODO a modifier quand changement de saison
+
+
+        self.timestamp = str(self.match_detail['info']['gameCreation'])[
+            :-3]  # traduire avec datetime.date.fromtimestamp()
+        # self.thisQ = ' '
+        self.thisChamp = self.match_detail_participants['championId']
+        self.thisDouble = self.match_detail_participants['doubleKills']
+        self.thisTriple = self.match_detail_participants['tripleKills']
+        self.thisQuadra = self.match_detail_participants['quadraKills']
+        self.thisPenta = self.match_detail_participants['pentaKills']
+        self.thisChampName = self.champ_dict[str(self.thisChamp)]
+        self.thisKills = self.match_detail_participants['kills']
+        self.thisDeaths = self.match_detail_participants['deaths']
+        self.thisAssists = self.match_detail_participants['assists']
+        self.thisWinId = self.match_detail_participants['win']
+        self.thisTimeLiving = fix_temps(round(
+            (int(self.match_detail_participants['longestTimeSpentLiving']) / 60), 2))
+        self.thisWin = ' '
+        self.thisTime = fix_temps(round(
+            (int(self.match_detail['info']['gameDuration']) / 60), 2))
+        self.thisDamage = self.match_detail_participants['totalDamageDealtToChampions']
+        self.thisDamageNoFormat = self.match_detail_participants['totalDamageDealtToChampions']
+        self.thisDamageAP = self.match_detail_participants['magicDamageDealtToChampions']
+        self.thisDamageAPNoFormat = self.match_detail_participants['magicDamageDealtToChampions']
+        self.thisDamageAD = self.match_detail_participants['physicalDamageDealtToChampions']
+        self.thisDamageADNoFormat = self.match_detail_participants['physicalDamageDealtToChampions']
+        self.thisDamageTrue = self.match_detail_participants['trueDamageDealtToChampions']
+        self.thisDamageTrueNoFormat = self.match_detail_participants['trueDamageDealtToChampions']
+        
+        self.thisDoubleListe = dict_data_arena(
+            self.thisId, self.match_detail, 'doubleKills')
+        self.thisTripleListe = dict_data_arena(
+            self.thisId, self.match_detail, 'tripleKills')
+        self.thisQuadraListe = dict_data_arena(
+            self.thisId, self.match_detail, 'quadraKills')
+        self.thisPentaListe = dict_data_arena(
+            self.thisId, self.match_detail, 'pentaKills')
+
+        self.thisTimeSpendDead = fix_temps(round(
+            float(self.match_detail_participants['totalTimeSpentDead'])/60, 2))
+
+        self.thisTimeSpendAlive = fix_temps(round(
+            self.thisTime - self.thisTimeSpendDead, 2))
+
+        self.thisDamageTaken = int(
+            self.match_detail_participants['totalDamageTaken'])
+        self.thisDamageTakenNoFormat = int(
+            self.match_detail_participants['totalDamageTaken'])
+        self.thisDamageTakenAD = int(
+            self.match_detail_participants['physicalDamageTaken'])
+        self.thisDamageTakenADNoFormat = int(
+            self.match_detail_participants['physicalDamageTaken'])
+        self.thisDamageTakenAP = int(
+            self.match_detail_participants['magicDamageTaken'])
+        self.thisDamageTakenAPNoFormat = int(
+            self.match_detail_participants['magicDamageTaken'])
+        self.thisDamageTakenTrue = int(
+            self.match_detail_participants['trueDamageTaken'])
+        self.thisDamageTakenTrueNoFormat = int(
+            self.match_detail_participants['trueDamageTaken'])
+
+        self.thisVision = self.match_detail_participants['visionScore']
+        self.thisJungleMonsterKilled = self.match_detail_participants['neutralMinionsKilled']
+        self.thisMinion = self.match_detail_participants['totalMinionsKilled'] + \
+            self.thisJungleMonsterKilled
+        self.thisPink = self.match_detail_participants['visionWardsBoughtInGame']
+        self.thisWards = self.match_detail_participants['wardsPlaced']
+        self.thisWardsKilled = self.match_detail_participants['wardsKilled']
+        self.thisGold = int(self.match_detail_participants['goldEarned'])
+        self.thisGoldNoFormat = int(
+            self.match_detail_participants['goldEarned'])
+        
+        self.spell1 = self.match_detail_participants['summoner1Id']
+        self.spell2 = self.match_detail_participants['summoner2Id']
+
+        try:
+            self.thisPing = self.match_detail_participants['basicPings']
+        except:
+            self.thisPing = 0
+            
+        self.item = self.match_detail_participants
+
+        self.thisItems = [self.item[f'item{i}'] for i in range(6)]
+        
+
+            
+
+        # item6 = ward. Pas utile
+
+        # on transpose les items
+
+        async with self.session.get(f"https://ddragon.leagueoflegends.com/cdn/{self.version['n']['item']}/data/fr_FR/item.json") as itemlist:
+            self.data = await itemlist.json()
+
+        self.data_item = list()
+
+        for item in self.thisItems:
+            if item != 0:  # si = 0, il n'y a pas d'items
+                self.data_item.append(self.data['data'][str(item)]['name'])
+
+        self.data_item = (' | '.join(self.data_item))
+
+
+        self.thisDamagePerMinute = round(
+            int(self.match_detail_participants['totalDamageDealtToChampions']) / self.thisTime, 0)
+
+        async with self.session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{self.me['id']}",
+                                    params=self.params_me) as session4:
+            self.thisStats = await session4.json()  # detail du match sélectionné
+        self.thisWinrateStat = ' '
+        self.thisWinrate = ' '
+        self.thisRank = ' '
+        self.thisLP = ' '
+
+        if int(self.thisDeaths) >= 1:
+            self.thisKDA = float(round((self.thisKills + self.thisAssists) / self.thisDeaths, 2))
+        else:
+            self.thisKDA =  float(round((self.thisKills + self.thisAssists) / (self.thisDeaths + 1), 2))
+            
+        # total kills
+
+        self.thisKillsListe = dict_data_arena(
+            self.thisId, self.match_detail, 'kills')
+        # deaths
+
+        self.thisDeathsListe = dict_data_arena(
+            self.thisId, self.match_detail, 'deaths')
+        
+
+        # assists
+
+        self.thisAssistsListe = dict_data_arena(
+            self.thisId, self.match_detail, 'assists')
+         
+        self.thisKDAListe = [float(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (self.thisDeathsListe[i]), 2)) if self.thisDeathsListe[i] >= 1 
+                             else float(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (self.thisDeathsListe[i] + 1), 2)) for i in range(self.nb_joueur)]
+
+        # Page record 2
+
+
+        self.thisKillingSprees = self.match_detail_participants['killingSprees']
+        self.thisDamageSelfMitigated = self.match_detail_participants['damageSelfMitigated']
+        self.thisDamageTurrets = self.match_detail_participants['damageDealtToTurrets']
+        self.thisDamageObjectives = self.match_detail_participants['damageDealtToObjectives']
+        self.thisGoldEarned = self.match_detail_participants['goldEarned']
+        self.thisKillsSeries = self.match_detail_participants['largestKillingSpree']
+        self.thisTotalHealed = self.match_detail_participants['totalHeal']
+        self.thisTotalShielded = self.match_detail_participants['totalDamageShieldedOnTeammates']
+        self.thisTotalOnTeammates = self.match_detail_participants['totalHealsOnTeammates']
+        self.thisTurretsKillsPerso = self.match_detail_participants['turretKills']
+        self.thisTurretsLost = self.match_detail_participants['turretsLost']
+
+        # thisHeraldPerso = match_detail_challenges['teamRiftHeraldKills']
+        self.allitems = {}
+        
+ 
+        for joueur in range(0,self.nb_joueur):
+            liste_items = [self.match_detail['info']['participants'][joueur][f'item{i}'] for i in range(6)]
+            liste_items.sort(reverse=True)
+            self.allitems[joueur] = liste_items
+
+
+        self.thisWin = self.match_detail_participants['placement']
+        
+        self.thisPosition = dict_data_arena(
+            self.thisId, self.match_detail, 'placement')
+
+
+
+        self.thisDamageListe = dict_data_arena(
+            self.thisId, self.match_detail, 'totalDamageDealtToChampions')
+        self.thisDamageTakenListe = dict_data_arena(
+            self.thisId, self.match_detail, 'totalDamageTaken')
+        self.thisDamageSelfMitigatedListe = dict_data_arena(
+            self.thisId, self.match_detail, 'damageSelfMitigated')
+
+
+        # pseudo
+
+        self.thisPseudoListe = dict_data_arena(
+            self.thisId, self.match_detail, 'summonerName')
+
+        # champ id
+
+        self.thisChampListe = dict_data_arena(
+            self.thisId, self.match_detail, 'championId')
+
+        # champ
+
+        self.thisChampNameListe = [
+            self.champ_dict[str(champ)] for champ in self.thisChampListe]
+
+
+
+        self.thisTeamKills = 0
+        self.thisTeamKillsOp = 0
+        
+        for i, kill in enumerate(self.thisKillsListe):
+            if i < 5:
+                self.thisTeamKills += kill
+            else:
+                self.thisTeamKillsOp += kill
+
+
+
+        # Alliés feeder
+        self.thisAllieFeeder = np.array(self.thisDeathsListe)
+        self.thisAllieFeeder = float(self.thisAllieFeeder[0:5].max())
+
+
+
+
+        self.thisChampTeam1 = [self.thisChampNameListe[i] for i in range(5)]
+        self.thisChampTeam2 = [self.thisChampNameListe[i]
+                               for i in range(5, self.nb_joueur)]
+        
+        # Augment
+        
+        self.augment1 = dict_data_arena(
+        self.thisId, self.match_detail, 'playerAugment1')
+
+        self.augment2 = dict_data_arena(
+        self.thisId, self.match_detail, 'playerAugment2')
+
+        self.augment3 = dict_data_arena(
+        self.thisId, self.match_detail, 'playerAugment3')
+        
+        self.augment4 = dict_data_arena(
+        self.thisId, self.match_detail, 'playerAugment4')
+
+
+        # mise en forme
+        
+        variables_format = [
+                     self.thisDamage,
+                     self.thisDamageAD,
+                     self.thisDamageAP,
+                     self.thisDamageTrue,
+                     self.thisDamageTaken,
+                     self.thisDamageTakenAD,
+                     self.thisDamageTakenAP,
+                     self.thisDamageTakenTrue,
+                     ]
+
+        for var in variables_format:
+            var = "{:,}".format(var).replace(',', ' ').replace('.', ',')
+
+
+        self.thisDamageSelfMitigatedFormat = "{:,}".format(
+            self.thisDamageSelfMitigated).replace(',', ' ').replace('.', ',')
+        self.thisTimeLiving = str(self.thisTimeLiving).replace(".", "m")
+        self.thisTotalOnTeammatesFormat = "{:,}".format(
+            self.thisTotalOnTeammates).replace(',', ' ').replace('.', ',')
+        
+        # self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (temp_team_kills if i < 5
+        #                                                                                          else temp_team_kills_op), 2) * 100)
+        #                         for i in range(self.nb_joueur)]
+
+
+        try:
+            self.thisKP = int(
+                round((self.thisKills + self.thisAssists) / (self.thisTeamKills), 2) * 100)
+        except:
+            self.thisKP = 0
+            
+        self.thisDamageRatio = []
+        self.thisDamageRatio = [round(self.thisDamageListe[i]/(np.sum(self.thisDamageListe)),2) for i in range(self.nb_joueur)]
+
+
+        
+        # # stats mobalytics
+        
+
+        # self.data_mobalytics, self.data_mobalytics_complete = await get_mobalytics(self.summonerName, self.session, int(self.last_match[5:]))
+
+            
+             
+        # self.avgtier_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['tier']
+        # self.avgrank_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['division']
+        
+        # self.avgtier_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['tier']
+        # self.avgrank_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['division']
+        
+        # if self.thisId >= 5:
+        #     dict_id = {5 : 0, 6 : 1, 7: 2, 8: 3, 9 : 4 }
+            
+        #     id_mobalytics = dict_id[self.thisId]
+        # else:
+        #     id_mobalytics = self.thisId
+        
+        # self.mvp = int(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[id_mobalytics]]['mvpScore'].values[0])
+        
+        # self.badges = self.data_mobalytics_complete['data']['lol']['player']['match']['subject']['badges']
+       
+        try:
+
+
+            for i in range(len(self.thisStats)):
+                if str(self.thisStats[i]['queueType']) == 'CHERRY':
+                    self.i = i
+                    break
+
+            self.thisWinrate = int(self.thisStats[self.i]['wins']) / (
+                int(self.thisStats[self.i]['wins']) + int(self.thisStats[self.i]['losses']))
+            self.thisWinrateStat = str(int(self.thisWinrate * 100))
+            # self.thisRank = str(self.thisStats[self.i]['rank'])
+            # self.thisTier = str(self.thisStats[self.i]['tier'])
             self.thisLP = str(self.thisStats[self.i]['leaguePoints'])
             self.thisVictory = str(self.thisStats[self.i]['wins'])
             self.thisLoose = str(self.thisStats[self.i]['losses'])
@@ -1539,9 +1935,14 @@ class matchlol():
         d.text((x_name+700, y_name-20),
                f"Niveau {self.level_summoner}", font=font_little, fill=fill)
         
+        last_season = self.season - 1
+        
+        if last_season == 13: # pour split la saison en 2
+            last_season = '13_old'
+            
         try: # Rank last season
             if self.thisQ != 'ARAM':
-                data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{self.season-1} where index = '{self.summonerName}' ''')
+                data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{last_season} where index = '{self.summonerName}' ''')
                 self.tier_last_season = data_last_season.mappings().all()[0]['tier']
             else:
                 data_last_season = get_data_bdd(f'''SELECT index, rank from ranked_aram_s{self.season-1} where index = '{self.summonerName}' ''')
@@ -1649,7 +2050,8 @@ class matchlol():
                     ('SILVER', 300),
                     ('GOLD', 500),
                     ('PLATINUM', 800),
-                    ('DIAMOND', 1200),
+                    ('EMERALD', 1100),
+                    ('DIAMOND', 1400),
                     ('MASTER', 1600),
                     ('GRANDMASTER', 2000),
                     ('CHALLENGER', float('inf'))
@@ -1768,13 +2170,16 @@ class matchlol():
         im.paste(money, (10, 720 + 190), money.convert('RGBA'))
         d.text((83, 720 + 190), f'{self.thisGold_team2}', font=font, fill=(0, 0, 0))
         
-        self.img_ally_avg = await get_image('tier', self.avgtier_ally.upper(), self.session, 100, 100)
+        try:
+            self.img_ally_avg = await get_image('tier', self.avgtier_ally.upper(), self.session, 100, 100)
+            
+            im.paste(self.img_ally_avg, (x_name+200, 120-20 + 190), self.img_ally_avg.convert('RGBA'))
+            
+            d.text((x_name+300, 120 + 190), str(
+                        self.avgrank_ally), font=font, fill=(0, 0, 0))
         
-        im.paste(self.img_ally_avg, (x_name+200, 120-20 + 190), self.img_ally_avg.convert('RGBA'))
-        
-        d.text((x_name+300, 120 + 190), str(
-                    self.avgrank_ally), font=font, fill=(0, 0, 0))
-        
+        except FileNotFoundError:
+            self.img_ally_avg = 'UNRANKED'
         try:
             self.img_enemy_avg = await get_image('tier', self.avgtier_enemy.upper(), self.session, 100, 100)
         
@@ -1819,9 +2224,9 @@ class matchlol():
         # array_scoring = np.sort(array_scoring)
 
 
-        for i in range(0, 10):
+        for i in range(0, self.nb_joueur):
             im.paste(
-                im=await get_image("champion", self.thisChampNameListe[i], self.session),
+                im=await get_image("champion", self.thisChampNameListe[i], self.session, profil_version=self.version['n']['champion']),
                 box=(10, initial_y-13),
             )
            
@@ -2397,7 +2802,7 @@ class matchlol():
                str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
             
                         
-        for i in range(0,10,1):
+        for i in range(0,self.nb_joueur,1):
             
             
             if self.thisQ != "ARAM":
@@ -2410,7 +2815,7 @@ class matchlol():
             if i >= 5:
                 n += 1
                     
-            im.paste(im=await get_image("champion", self.thisChampNameListe[i], self.session, 100, 100, self.version['n']['profileicon']),
+            im.paste(im=await get_image("champion", self.thisChampNameListe[i], self.session, 100, 100, self.version['n']['champion']),
                  box=(236*n+70, y_avatar))
             
             if len(self.thisPseudoListe[i])  > 14:
@@ -2688,6 +3093,439 @@ class matchlol():
 
             except KeyError:
                 pass
+
+        im.save(f'{name_img}.png')
+
+        await self.session.close()
+        
+        return embed
+    
+    async def test_arena(self,
+                             name_img,
+                             embed,
+                             difLP):
+
+        '''Resume global de la game
+
+        Parameters
+        -----------
+        name_img : nom de l'image enregistré'''
+        
+
+        model = pickle.load(open('model/scoring_ridge.pkl', 'rb'))
+        
+        # def scoring(i):
+        #     """Calcule la performance d'un joueur
+        #     """
+            
+        #     score = model.predict(pd.DataFrame([[self.thisKillsListe[i],
+        #                                          self.thisAssistsListe[i],
+        #                                          self.thisDeathsListe[i],
+        #                                          self.thisDoubleListe[i],
+        #                                          self.thisTripleListe[i],
+        #                                          self.thisQuadraListe[i],
+        #                                          self.thisPentaListe[i],
+        #                                          self.thisDamageListe[i],
+        #                                          self.thisVisionListe[i],
+        #                                          self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i],
+        #                                          self.thisMinionPerMinListe[i],
+        #                                          self.thisVisionPerMinListe[i],
+        #                                          self.thisKPListe[i],
+        #                                          self.thisKDAListe[i],
+        #                                          self.thisDamageTakenListe[i]]]))
+
+        #     return str(round(score[0],1))
+            
+        # Gestion de l'image 2
+        lineX = 2600
+        lineY = 100
+
+        x_name = 350
+
+        lineX = 2600
+        lineY = 100
+
+        x_name = 290
+        y = 120
+        y_name = y - 60
+        x_rank = 1750
+        x_objectif = 1700
+
+        y_avatar = 320
+        y_pseudo = y_avatar + 100
+        y_rank = y_pseudo + 50
+
+        x_kill_total = 1000
+        
+        ecart = 290
+        
+        x_center = 236 * 5 + 70
+        
+        y_ecart_gold = y_rank+60
+        y_score = y_ecart_gold + 50
+        y_items = y_score + 80
+        y_kda = y_items + 200
+        
+        y_kda_raccourci = y_kda-50
+        
+        y_KP = y_kda+100
+        y_cs = y_KP + 120
+        y_dmg = y_cs + 80
+        y_tank = y_dmg + 100
+        y_vision = y_tank + 100
+        x_metric = 120
+        
+        
+
+
+      
+        def charger_font(size):
+            try:
+                font = ImageFont.truetype("DejaVuSans.ttf", size)  # Ubuntu 18.04
+            except OSError:
+                try:
+                    font = ImageFont.truetype("arial.ttf", size)  # Windows
+                except OSError:
+                    font = ImageFont.truetype(
+                        "AppleSDGothicNeo.ttc", size
+                    )  # MacOS
+                    
+            return font
+
+        font = charger_font(50)
+        font_little = charger_font(40)
+        font_dmg = charger_font(35)
+        font_very_little = charger_font(30)
+        font_very_very_little = charger_font(25)
+
+
+        im = Image.new("RGBA", (lineX, lineY * 13 + 190),
+                       (255, 255, 255))  # Ligne blanche
+        d = ImageDraw.Draw(im)
+        
+        line = Image.new("RGB", (lineX, 300), (230, 230, 230))  # Ligne grise
+        im.paste(line, (0, 0))
+
+        fill = (0, 0, 0)
+        d.text((x_name, y_name), self.summonerName, font=font, fill=fill)
+
+        im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
+                 box=(x_name-240, y_name-20))
+
+        im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100, self.version['n']['profileicon']),
+                 box=(x_name-120, y_name-20))
+
+        d.text((x_name+700, y_name-20),
+               f"Niveau {self.level_summoner}", font=font_little, fill=fill)
+        
+        # try: # Rank last season
+
+        #     data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{self.season-1} where index = '{self.summonerName}' ''')
+        #     self.tier_last_season = data_last_season.mappings().all()[0]['tier']
+
+            
+        #     img_tier_last_season = await get_image("tier", self.tier_last_season, self.session, 100, 100)
+            
+        #     im.paste(img_tier_last_season,(x_name+950, y_name-50), img_tier_last_season.convert('RGBA'))
+        # except: # si pas d'info, on ne fait rien
+        #     pass  
+
+
+        # if self.thisTier != ' ':  # on vérifie que le joueur a des stats en soloq, sinon il n'y a rien à afficher
+                
+        #     requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
+        #                                                                                                                 'match_id': self.last_match,
+        #                                                                                                                 'joueur': self.summonerName.lower()})
+        #     img_rank = await get_image('tier', self.thisTier, self.session, 220, 220)
+
+        #     im.paste(img_rank, (x_rank, y-140), img_rank.convert('RGBA'))
+
+        #     d.text((x_rank+220, y-110),
+        #                f'{self.thisTier} {self.thisRank}', font=font, fill=fill)
+        #     d.text((x_rank+220, y-45),
+        #                f'{self.thisLP} LP ({difLP})', font=font_little, fill=fill)
+
+
+        # d.text((x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L     {self.thisWinrateStat}% ', font=font_little, fill=fill)
+        
+        d.text((x_rank+220, y-50), f'{self.thisVictory}W {self.thisLoose}L     {self.thisWinrateStat}% ', font=font_little, fill=fill)
+
+
+            
+        
+        line = Image.new("RGB", (lineX, lineY), (230, 230, 230))  # Ligne grise
+        
+
+        
+        def draw_black_line_verticale(i:int):
+            draw = ImageDraw.Draw(im)
+            draw.line((i, ecart, i, 2000), fill=(0, 0, 0), width=5)
+            
+        def draw_line(i:int, color):
+            
+            # Créer une nouvelle image transparente
+            square = Image.new("RGBA", (295, 25), color)
+
+            # Dessiner un carré bleu sur l'image transparente
+            draw = ImageDraw.Draw(square)
+            draw.rectangle((ecart, 220, ecart, 1000), fill=color, outline=None)
+
+            # Coller l'image transparente sur l'image originale
+            im.paste(square, (i, 295), square)
+
+            
+        def draw_black_line() -> None:
+            im.paste(Image.new("RGB", (lineX, 3),
+                     (0, 0, 0)), (0, 180))
+            
+        draw_black_line()
+
+        
+            
+        def drawProgressBar(x, y, w, h, progress, bg="black", fg="blue"):
+            
+            draw = ImageDraw.Draw(im)
+            # draw background
+            draw.ellipse((x+w, y, x+h+w, y+h), fill=bg)
+            draw.ellipse((x, y, x+h, y+h), fill=bg)
+            draw.rectangle((x+(h/2), y, x+w+(h/2), y+h), fill=bg)
+
+            # draw progress bar
+            w *= progress
+            draw.ellipse((x+w, y, x+h+w, y+h),fill=fg)
+            draw.ellipse((x, y, x+h, y+h),fill=fg)
+            draw.rectangle((x+(h/2), y, x+w+(h/2), y+h),fill=fg)
+
+
+        # img_blue_epee = await get_image('epee', 'blue', self.session)
+        # img_red_epee = await get_image('epee', 'red', self.session)
+
+        # im.paste(img_blue_epee, (x_kill_total, 10 + 190),
+        #          img_blue_epee.convert('RGBA'))
+        # d.text((x_kill_total + 100, 23 + 190), str(self.thisTeamKills),
+        #        font=font, fill=(0, 0, 0))
+
+        # im.paste(img_red_epee, (x_kill_total + 300, 10 + 190),
+        #          img_red_epee.convert('RGBA'))
+        # d.text((x_kill_total + 300 + 100, 23 + 190),
+        #        str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
+            
+                        
+        for i in range(0,self.nb_joueur,1):
+            
+            color_position = {1 : (0,0,255,128),
+                           2 : (0,255,0,128),
+                           3 : (255,0,0,128),
+                           4 : (128,0,128,128)}
+
+            n_color = i
+            
+            if i >= 4:
+                n_color = i+1
+            
+
+            draw_line((n_color)*ecart, color_position[self.thisPosition[i]])
+            
+
+                    
+            draw_black_line_verticale((i+1)*ecart)    
+            n = i
+            
+            if i >= 4:
+                n += 1
+                    
+            im.paste(im=await get_image("champion", self.thisChampNameListe[i], self.session, 100, 100, self.version['n']['champion']),
+                 box=(ecart*n+95, y_avatar))
+            
+            if len(self.thisPseudoListe[i])  > 14:
+                font_text = font_very_very_little
+                ecart_pseudo = 60
+            elif len(self.thisPseudoListe[i]) > 8:
+                font_text = font_very_very_little
+                ecart_pseudo = 55
+            elif len(self.thisPseudoListe[i]) < 5:
+                font_text = font_little
+                ecart_pseudo = 100
+            else:
+                font_text = font_little
+                ecart_pseudo = 75
+                
+            pseudo = self.thisPseudoListe[i]
+            d.text((ecart*n+ecart_pseudo, y_pseudo),
+                   pseudo, font=font_text, fill=(0, 0, 0))
+            
+            # rank
+            
+            # try:
+            #     rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['tier']
+            #     tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['division']
+            # except IndexError:
+            #     try:
+            #         data_mobalytics_copy = self.data_mobalytics.copy()
+            #         data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
+            #         rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['tier']
+            #         tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['division']
+            #     except IndexError:
+            #         rank_joueur = ''
+            #         tier_joueur = ''
+            
+            # if rank_joueur != '':
+            #     img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 60, 60)
+
+            #     im.paste(img_rank_joueur, (236*n +70, y_rank), img_rank_joueur.convert('RGBA'))
+                
+            #     d.text((236*n +150, y_rank), str(
+            #             tier_joueur), font=font, fill=(0, 0, 0))
+            
+            
+                
+
+                        
+            color_scoring = {1 : (0,128,0),
+                             2 : (89,148,207),
+                             3 : (67,89,232),
+                             4 : (220,20,60)}
+
+                 
+            d.text((ecart*n+118, y_score-30),
+                    str(self.thisPosition[i]),
+                    font=font,
+                    fill=color_scoring.get(self.thisPosition[i], (0,0,0)))
+                
+            kda_abrege = str(round(self.thisKDAListe[i],1))
+            
+            if len(kda_abrege) == 3:
+                ecart_kda_abrege = 110
+            elif len(kda_abrege) >= 4:
+                ecart_kda_abrege = 95
+            else:
+                ecart_kda_abrege = 135
+                
+            fill = range_value_arena(i, self.thisKDAListe, True)    
+            d.text((ecart*n +ecart_kda_abrege, y_kda_raccourci),
+                       kda_abrege, font=font_little, fill=fill)
+            
+            kda = f'{self.thisKillsListe[i]}/{self.thisDeathsListe[i]}/{self.thisAssistsListe[i]}'
+            
+            if len(kda) == 5:
+                ecart_kda = 75
+            if len(kda) == 6:
+                ecart_kda = 70
+            elif len(kda) >= 7:
+                ecart_kda = 55
+            else:
+                ecart_kda = 85
+            d.text((ecart*n + ecart_kda, y_kda),
+                       kda, font=font_little, fill=fill)
+            
+            # fill, top_kp = range_value(i, self.thisKPListe, True, True)
+            # d.text((236*n +70, y_KP),
+            #            str(self.thisKPListe[i]) + "%", font=font, fill=fill)
+            
+            fill = range_value_arena(i, self.thisDamageListe, True)
+            
+            
+            
+            d.text((ecart*n+50, y_dmg),
+                   f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatio[i]*100)}%)', font=font_dmg, fill=fill)
+            
+            color = 'blue'
+            
+            drawProgressBar(ecart*n+60, y_dmg+70, 120, 15, (self.thisDamageListe[i]/(np.sum(self.thisDamageListe))), fg=color)
+            
+            
+            fill = range_value_arena(i, np.array(self.thisDamageTakenListe) +
+                               np.array(self.thisDamageSelfMitigatedListe))
+            
+            if int(self.thisDamageSelfMitigatedListe[i]/1000) >= 100:
+                font_tank = font_dmg
+            else:
+                font_tank = font_little
+                
+            d.text((ecart*n+50, y_tank),
+                   f'{int(self.thisDamageTakenListe[i]/1000)}k / {int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font_tank, fill=fill)
+            
+
+                       
+
+            
+            drawProgressBar(ecart*n+60, y_tank+70, 120, 15, (self.thisDamageTakenListe[i] + self.thisDamageSelfMitigatedListe[i])/(np.sum(self.thisDamageTakenListe) + np.sum(self.thisDamageSelfMitigatedListe)), fg=color)
+
+            # if top_kp == 'max': 
+            #     drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg='green')
+            # elif top_kp == 'min':
+            #     drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg='#8B0000')
+            # else:
+            #     drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg=color)
+            # drawProgressBar(236*n+45, y_dmg+70, 120, 15, self.thisDamageRatioListe[i], fg=color)
+            
+
+        fill = (0,0,0)
+    
+            
+        d.text((x_center, y_kda-30), 'KDA', font=font, fill=fill)
+        # d.text((x_center, y_score), 'MVP', font=font, fill=fill)             
+        # d.text((x_center+5, y_KP+20), 'KP', font=font, fill=fill)
+        # d.text((x_center+5, y_cs), 'CS', font=font, fill=fill)
+        d.text((x_center-15, y_dmg+20), 'DMG', font=font, fill=fill)
+        d.text((x_center-15, y_tank+20), 'TANK', font=font, fill=fill)
+                            
+        # match
+        d.text((10, 20 + 190), self.thisQ, font=font, fill=(0, 0, 0))
+
+
+                
+
+        for joueur, items in self.allitems.items():
+            if joueur > 3:
+                joueur += 1
+            for nb, item in enumerate(items):
+                if item != 0:
+                    if nb < 3:
+                        im.paste(await get_image("items", item, self.session, 50,50, self.version['n']['profileicon']),
+                                box=(ecart*joueur+60+nb*50, y_items))
+                    else:
+                        nb = nb - 3
+                        im.paste(await get_image("items", item, self.session, 50,50, self.version['n']['profileicon']),
+                                box=(ecart*joueur+60+nb*50, y_items+60))
+                                
+        # # Stat du jour
+        # if self.thisQ == 'ARAM':
+        #     suivi_24h = lire_bdd('ranked_aram_24h', 'dict')
+        # else:
+        #     suivi_24h = lire_bdd('suivi_24h', 'dict')
+
+        # if self.thisQ != 'ARAM' and self.thisQ != 'FLEX':
+        #     try:
+        #         difwin = int(self.thisVictory) - \
+        #             int(suivi_24h[self.summonerName.lower()]["wins"])
+        #         diflos = int(self.thisLoose) - \
+        #             int(suivi_24h[self.summonerName.lower()]["losses"])
+
+        #         if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
+        #             d.text((x_metric + 650, y_name+50),
+        #                    f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
+        #             d.text((x_metric + 1120, y_name+50),
+        #                    f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
+
+        #     except KeyError:
+        #         pass
+
+        # elif self.thisQ == 'ARAM' and activation:
+        #     try:
+        #         difwin = wins - \
+        #             int(suivi_24h[self.summonerName.lower()]["wins"])
+        #         diflos = losses - \
+        #             int(suivi_24h[self.summonerName.lower()]["losses"])
+
+        #         if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
+        #             d.text((x_metric + 650, y_name+50),
+        #                    f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
+        #             d.text((x_metric + 1120, y_name+50),
+        #                    f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
+
+            # except KeyError:
+            #     pass
 
         im.save(f'{name_img}.png')
 

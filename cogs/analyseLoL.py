@@ -832,6 +832,13 @@ class analyseLoL(Extension):
                                 type=interactions.OptionType.STRING,
                                 required=True,
                                 choices=[choice_comptage, choice_winrate]),
+                                   SlashCommandOption(
+                                       name='nb_parties',
+                                       description='Combien de parties minimum ?',
+                                       type=interactions.OptionType.INTEGER,
+                                       min_value=1,
+                                       required=False
+                                   )
                                    ] + parameters_commun_stats_lol)
     async def stats_lol_items(self,
                              ctx: SlashContext,
@@ -840,6 +847,7 @@ class analyseLoL(Extension):
                              joueur: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
+                             nb_parties: int = 1,
                              top: int = 20,
                              view: str = 'global'
                              ):
@@ -882,6 +890,12 @@ class analyseLoL(Extension):
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
+
+        occurences = df['champion'].value_counts()
+        
+        mask = df['champion'].isin(occurences.index[occurences >= nb_parties])
+        
+        df = df[mask]
 
         title += f' ({calcul})'
         
@@ -986,6 +1000,13 @@ class analyseLoL(Extension):
                                 type=interactions.OptionType.STRING,
                                 required=True,
                                 choices=[choice_comptage, choice_winrate]),
+                                   SlashCommandOption(
+                                       name='nb_parties',
+                                       description='Combien de parties minimum ?',
+                                       required=False,
+                                       type=interactions.OptionType.INTEGER,
+                                       min_value=1
+                                   )
                                    ] + parameters_commun_stats_lol)
     async def stats_lol_champions(self,
                              ctx: SlashContext,
@@ -994,6 +1015,7 @@ class analyseLoL(Extension):
                              joueur: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
+                             nb_parties: int = 1,
                              top: int = 20,
                              view: str = 'global'
                              ):
@@ -1019,6 +1041,12 @@ class analyseLoL(Extension):
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
+            
+        occurences = df['champion'].value_counts()
+        
+        mask = df['champion'].isin(occurences.index[occurences >= nb_parties])
+        
+        df = df[mask]
 
         title += f' ({calcul})'
         
@@ -1058,6 +1086,13 @@ class analyseLoL(Extension):
                                 type=interactions.OptionType.STRING,
                                 required=True,
                                 choices=[choice_comptage]),
+                                   SlashCommandOption(
+                                        name='nb_parties',
+                                        description='Combien de parties minimum ?',
+                                        type=interactions.OptionType.INTEGER,
+                                        required=False,
+                                        min_value=1
+                                   )
                                    ] + parameters_commun_stats_lol)
     async def stats_lol_kills(self,
                              ctx: SlashContext,
@@ -1066,6 +1101,7 @@ class analyseLoL(Extension):
                              joueur: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
+                             nb_parties: int = 1,
                              top: int = 20,
                              view: str = 'global'
                              ):
@@ -1092,6 +1128,12 @@ class analyseLoL(Extension):
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
+            
+        occurences = df['champion'].value_counts()
+        
+        mask = df['champion'].isin(occurences.index[occurences >= nb_parties])
+        
+        df = df[mask]
 
         title += f' ({calcul})'
         
@@ -1187,7 +1229,21 @@ class analyseLoL(Extension):
                                 type=interactions.OptionType.STRING,
                                 required=True,
                                 choices=[choice_avg]),
-                                   ] + parameters_commun_stats_lol)
+                              SlashCommandOption(
+                                  name='group_par_champion',
+                                  description='montrer un total global ou par champion ?',
+                                  type=interactions.OptionType.BOOLEAN,
+                                  required=False
+                              ),
+                              SlashCommandOption(
+                                  name='nb_parties',
+                                  description='combien de parties minimum ?',
+                                  type=interactions.OptionType.INTEGER,
+                                  required=False,
+                                  min_value=1
+                              )
+                                   ] + parameters_commun_stats_lol,)
+                          
     async def stats_lol_dmg(self,
                              ctx: SlashContext,
                              type:str,
@@ -1196,7 +1252,8 @@ class analyseLoL(Extension):
                              joueur: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
-                             top: int = 20,
+                             group_par_champion: bool = False,
+                             nb_parties: int = 1,
                              view: str = 'global'
                              ):
 
@@ -1204,7 +1261,7 @@ class analyseLoL(Extension):
         await ctx.defer(ephemeral=False)
         
         dict_type = {
-            'dmg': 'matchs.dmg, matchs.dmg_ad, matchs.dmg_ap, matchs.dmg_true',
+            'dmg': 'matchs.dmg, matchs.dmg_ad, matchs.dmg_ap, matchs.dmg_true, matchs.dmg_min',
             'tank': 'matchs.dmg_reduit, matchs.dmg_tank',
             'kda': 'matchs.kills, matchs.assists, matchs.deaths',
         }
@@ -1231,12 +1288,18 @@ class analyseLoL(Extension):
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
+            
+        occurences = df['champion'].value_counts()
+        
+        mask = df['champion'].isin(occurences.index[occurences >= nb_parties])
+        
+        df = df[mask]
 
         title += f' ({calcul})'
         
         if calcul == 'avg':
 
-                dict_stats = {'dmg': {'dmg': 'total', 'dmg_ad': 'ad', 'dmg_ap': 'ap', 'dmg_true': 'true'},
+                dict_stats = {'dmg': {'dmg': 'total', 'dmg_ad': 'ad', 'dmg_ap': 'ap', 'dmg_true': 'true', 'dmg_min' : 'dmg_min'},
                               'tank': {'dmg_tank': 'tank', 'dmg_reduit': 'reduit'},
                               'kda': {'kills': 'K', 'deaths': 'D', 'assists': 'A'}}
 
@@ -1245,18 +1308,25 @@ class analyseLoL(Extension):
                 fig = go.Figure()
                 fig.update_layout(title=title)
                 
-
-                for column, name in dict_stats_choose.items():
-
-                    fig.add_trace(go.Histogram(x=df['joueur'], y=df[column], histfunc='avg', name=name,
-                                               texttemplate="%{y:.0f}")).update_xaxes(categoryorder='total descending')
-
-                fig.add_trace(go.Histogram(x=df['joueur'], y=df[column], histfunc='count', name='games',
-                                               texttemplate="%{y:.0f}")).update_xaxes(categoryorder='total descending')
+                nb_games = df.shape[0]
+                
+                if group_par_champion:
+                    dict_stat = {'dmg' : 'dmg', 'tank' : 'dmg_tank', 'kda' : 'kills'}
+                    df = df.groupby('champion', as_index=False).mean().sort_values(by=dict_stat[type], ascending=False).head(10)
+                    fig.add_trace(go.Histogram(x=df['champion'], y=df[dict_stat[type]], name=dict_stat[type], histfunc='avg',
+                                                   texttemplate="%{y:.0f}")).update_xaxes(categoryorder='total descending')
+                
+                else:
+                    for column, name in dict_stats_choose.items():
+                        
+                            fig.add_trace(go.Histogram(x=df['joueur'], y=df[column], histfunc='avg', name=name,
+                                                    texttemplate="%{y:.0f}")).update_xaxes(categoryorder='total descending')
 
                 fig.update_yaxes(visible=False)
 
                 embed, files = get_embed(fig, 'stats')
+                
+                embed.set_footer(text=f'Calculé sur {nb_games} matchs')
 
                 await ctx.send(embeds=embed, files=files)
                 

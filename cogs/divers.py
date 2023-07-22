@@ -34,6 +34,7 @@ class Divers(Extension):
 
     @listen()
     async def createMutedRole(self, ctx: SlashContext):
+        
         mutedRole = await ctx.guild.create_role(name="Muted",
                                                 permissions=interactions.Permissions(
                                                     send_messages=False,
@@ -204,16 +205,7 @@ class Divers(Extension):
 
             await ctx.send(embeds=embed)
 
-    @listen()
-    async def get_muted_role(self, guild: interactions.Guild) -> interactions.Role:
 
-        role = get(guild.roles, name="Muted")
-        if role is not None:
-            return role
-        else:
-            permissions = interactions.Permissions(send_messages=False)
-            role = await guild.create_role(name="Muted", permissions=permissions)
-            return role
 
     @slash_command(name="mute",
                                     description="mute someone for x secondes",

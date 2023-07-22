@@ -20,8 +20,8 @@ class roles(Extension):
                        'BRONZE' : '#a37f69',
                        'SILVER' : '#c0c0c0',
                        'GOLD' : '#ffca00',
-                       'PLATINUM' : '#34c064',
-                       'EMERALD' : '#45d3c3',
+                       'PLATINUM' : '#45d3c3',
+                       'EMERALD' : '#34c064',
                        'DIAMOND' : '#398aeb',
                        'MASTER' : '#ba67da',
                        'GRANDMASTER' : '#e64758',
@@ -45,6 +45,7 @@ class roles(Extension):
                                                                 permissions=None,
                                                                 mentionable=True,
                                                                 reason="Ranks LoL")
+
                     for channel in server.channels:
                         try:
                             await channel.set_permission(role_in_ranked, view_channel=False, send_messages=False, speak=False)
@@ -53,7 +54,8 @@ class roles(Extension):
 
 
 
-    @slash_command(name='lol_attribuer_role', description='attribuer un role',
+    @slash_command(name='lol_attribuer_role',
+                   description='Attribuer les roles LoL aux membres du serveur en fonction de leur rang',
                    default_member_permissions=interactions.Permissions.MANAGE_GUILD)
     async def attribuer_role(self, ctx:SlashContext):     
         
@@ -63,12 +65,21 @@ class roles(Extension):
         
         for discord_id, data in df.iterrows():
             member = await ctx.guild.fetch_member(discord_id)
-            old_role = await identifier_role_by_name(ctx.guild, 'BRONZE')
-            await member.remove_role(old_role)
+            
+            for role in member.roles:
+                if role.name in ['NON-CLASSE', 'FER', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER']:
+                    old_role = await identifier_role_by_name(ctx.guild, role.name)
+                    await member.remove_role(old_role)
+            
             role = await identifier_role_by_name(ctx.guild, data['tier'].upper())
             
             await member.add_role(role)
-            await ctx.send(f'Le role {role.name} a été attribué à {member.global_name} | {member.nickname}')
+            
+            name = member.global_name 
+            
+            if name == None:
+                name = member.nickname
+            await ctx.send(f'Le role {role.name} a été attribué à {name}')
         
         
 

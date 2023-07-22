@@ -40,10 +40,11 @@ elo_lp = {'IRON': 0,
           'SILVER': 2,
           'GOLD': 3,
           'PLATINUM': 4,
-          'DIAMOND': 5,
-          'MASTER': 6,
-          'GRANDMASTER': 7,
-          'CHALLENGER': 8,
+          'EMERALD' : 5,
+          'DIAMOND': 6,
+          'MASTER': 7,
+          'GRANDMASTER': 8,
+          'CHALLENGER': 9,
           'FIRST_GAME': 0}
 
 
@@ -156,8 +157,9 @@ class Aram(Extension):
         embed2.add_field(name='SILVER', value="200 < LP < 300")
         embed2.add_field(name='GOLD', value="300 < LP < 500")
         embed2.add_field(name='PLATINUM', value="500 < LP < 800")
-        embed2.add_field(name='DIAMOND', value="800 < LP < 1200")
-        embed2.add_field(name='MASTER', value="1200 < LP < 1600")
+        embed2.add_field(name='EMERALD', value='800 < LP < 1100')
+        embed2.add_field(name='DIAMOND', value="1100 < LP < 1400")
+        embed2.add_field(name='MASTER', value="1400 < LP < 1600")
         embed2.add_field(name='GRANDMASTER', value="1600 < LP < 2000")
         embed2.add_field(name='CHALLENGER', value="2000 < LP")
 
@@ -315,11 +317,11 @@ class Aram(Extension):
                     # evolution
 
                     if elo_lp[tier_old] > elo_lp[tier]:  # 19-18
-                        difLP = "Démote / -" + str(difLP)
+                        difLP = f"Démote (x{elo_lp[tier_old] - elo_lp[tier]}) / -{str(difLP)} "
                         emote = ":arrow_down:"
 
                     elif elo_lp[tier_old] < elo_lp[tier]:
-                        difLP = "Promotion / +" + str(difLP)
+                        difLP = f"Promotion (x{elo_lp[tier] - elo_lp[tier_old]}) / +{str(difLP)} "
                         emote = ":arrow_up:"
 
                     elif elo_lp[tier_old] == elo_lp[tier]:
@@ -330,10 +332,11 @@ class Aram(Extension):
                         elif difLP == 0:
                             emote = ":arrow_right:"
 
-                    embed.add_field(name=str(key) + " ( " + tier + " )",
-                                    value=f"V : {suivi[key]['wins']} ({difwins}) | " +
-                                    f"D : {suivi[key]['losses']} ({diflosses}) | " +
-                                    f"LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)
+                    if nbgames != 0:
+                        embed.add_field(name=str(key) + " ( " + tier + " )",
+                                        value=f"V : {suivi[key]['wins']} ({difwins}) | " +
+                                        f"D : {suivi[key]['losses']} ({diflosses}) | " +
+                                        f"LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)
 
                     if difwins + diflosses > 0:  # si supérieur à 0, le joueur a joué
                         sql += f'''UPDATE ranked_aram_24h

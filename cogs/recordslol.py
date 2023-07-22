@@ -1039,25 +1039,28 @@ class Recordslol(Extension):
 
             counts_general = pd.Series(liste_joueurs_general).value_counts()
             counts_champion = pd.Series(liste_joueurs_champion).value_counts()
-
-            select = interactions.SelectMenu(
-                options=[
-                    interactions.SelectSlashCommandOption(
-                        label="general", value="general", emoji=interactions.Emoji(name='1️⃣')),
-                    interactions.SelectSlashCommandOption(
-                        label="par champion", value="par champion", emoji=interactions.Emoji(name='2️⃣')),
+            
+            options=[
+                    interactions.StringSelectOption(
+                        label="general", value="general", emoji=interactions.PartialEmoji(name='1️⃣')),
+                    interactions.StringSelectOption(
+                        label="par champion", value="par champion", emoji=interactions.PartialEmoji(name='2️⃣')),
                 ],
+
+            select = interactions.StringSelectMenu(
+                *options,
                 custom_id='selection',
                 placeholder="Choix des records",
                 min_values=1,
                 max_values=1
             )
 
-            await ctx.send("Quel type de record ?",
+            message = await ctx.send("Quel type de record ?",
                            components=select)
 
-            async def check(button_ctx):
-                if int(button_ctx.author.user.id) == int(ctx.author.user.id):
+            async def check(button_ctx : interactions.api.events.internal.Component):
+                
+                if int(button_ctx.ctx.author_id) == int(ctx.author.user.id):
                     return True
                 await ctx.send("I wasn't asking you!", ephemeral=True)
                 return False
@@ -1068,15 +1071,15 @@ class Recordslol(Extension):
                         components=select, check=check, timeout=30
                     )
 
-                    if button_ctx.data.values[0] == 'general':
+                    if button_ctx.ctx.values[0] == 'general':
                         fig = px.histogram(counts_general,
                                            counts_general.index,
                                            counts_general.values,
                                            text_auto=True,
                                            color=counts_general.index,
                                            title=f'General ({mode})')
-
-                    elif button_ctx.data.values[0] == 'par champion':
+                    
+                    elif button_ctx.ctx.values[0] == 'par champion':
                         fig = px.histogram(counts_champion,
                                            counts_champion.index,
                                            counts_champion.values,
@@ -1088,7 +1091,7 @@ class Recordslol(Extension):
                     embed, file = get_embed(fig, 'stats')
                     # On envoie
 
-                    await ctx.edit(embeds=embed, files=file)
+                    await message.edit(embeds=embed, files=file)
 
                 except asyncio.TimeoutError:
                     # When it times out, edit the original message and remove the button(s)

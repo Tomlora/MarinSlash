@@ -138,7 +138,14 @@ class LeagueofLegends(Extension):
                               me=me)  # class
 
         await match_info.get_data_riot()
-        await match_info.prepare_data()
+
+        
+        if match_info.thisQId != 1700:  # urf
+            await match_info.prepare_data()
+        
+        else:
+            await match_info.prepare_data_arena()
+        
 
         # pour nouveau système de record
         fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
@@ -166,8 +173,10 @@ class LeagueofLegends(Extension):
                                         and server_id = {guild_id}''',
                                           index_col='id',
                                           ).transpose()
+        
+        
 
-        if sauvegarder and match_info.thisTime >= 10.0:
+        if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ != 'ARENA 2v2' :
             await match_info.save_data()
 
         if match_info.thisQId == 900:  # urf
@@ -178,6 +187,8 @@ class LeagueofLegends(Extension):
 
         if match_info.thisTime <= 3.0:
             return {}, 'Remake', 0,
+        
+
 
         exploits = ''
 
@@ -344,6 +355,7 @@ class LeagueofLegends(Extension):
         color = rgb_to_discord(data[0][0], data[0][1], data[0][2])
 
         # constructing the message
+        
 
         if match_info.thisQ == "OTHER":
             embed = interactions.Embed(
@@ -351,6 +363,9 @@ class LeagueofLegends(Extension):
         elif match_info.thisQ == "ARAM":
             embed = interactions.Embed(
                 title=f"** {summonerName.upper()} ** vient de ** {match_info.thisWin} ** une ARAM ", color=color)
+        elif match_info.thisQ == 'ARENA 2v2':
+            embed = interactions.Embed(
+                title=f"** {summonerName.upper()} ** vient de terminer ** {match_info.thisWin}ème ** en ARENA ", color=color)
         else:
             embed = interactions.Embed(
                 title=f"** {summonerName.upper()} ** vient de ** {match_info.thisWin} ** une {match_info.thisQ} game ({match_info.thisPosition})", color=color)
@@ -421,96 +436,97 @@ class LeagueofLegends(Extension):
                 points += 1
 
         # pour tous les modes
-        if float(match_info.thisKDA) >= settings['KDA']['score']:
-            couronnes_embed +=\
-                f"\n ** :crown: :star: Bon KDA : {match_info.thisKDA} **"
-            points += 1
+        if match_info.thisQ != 'ARENA 2v2':
+            if float(match_info.thisKDA) >= settings['KDA']['score']:
+                couronnes_embed +=\
+                    f"\n ** :crown: :star: Bon KDA : {match_info.thisKDA} **"
+                points += 1
 
-        if int(match_info.thisKP) >= settings['KP']['score']:
-            couronnes_embed +=\
-                f"\n ** :crown: :dagger: Participation à beaucoup de kills : {match_info.thisKP} % **"
-            points += 1
+            if int(match_info.thisKP) >= settings['KP']['score']:
+                couronnes_embed +=\
+                    f"\n ** :crown: :dagger: Participation à beaucoup de kills : {match_info.thisKP} % **"
+                points += 1
 
-        if int(match_info.thisPenta) >= settings['Pentakill']['score']:
-            couronnes_embed +=\
-                f"\n ** :crown: :five: Pentakill ** {match_info.thisPenta} fois"
-            points += (1 * int(match_info.thisPenta))
+            if int(match_info.thisPenta) >= settings['Pentakill']['score']:
+                couronnes_embed +=\
+                    f"\n ** :crown: :five: Pentakill ** {match_info.thisPenta} fois"
+                points += (1 * int(match_info.thisPenta))
 
-        if int(match_info.thisQuadra) >= settings['Quadrakill']['score']:
-            couronnes_embed +=\
-                f"\n ** :crown: :four: Quadrakill ** {match_info.thisQuadra} fois"
-            points += (1 * int(match_info.thisQuadra))
+            if int(match_info.thisQuadra) >= settings['Quadrakill']['score']:
+                couronnes_embed +=\
+                    f"\n ** :crown: :four: Quadrakill ** {match_info.thisQuadra} fois"
+                points += (1 * int(match_info.thisQuadra))
 
-        if int(match_info.thisMinionPerMin) >= settings['CS/min']['score']:
-            couronnes_embed +=\
-                f"\n ** :crown: :ghost: {match_info.thisMinionPerMin} CS / min **"
-            points += 1
+            if int(match_info.thisMinionPerMin) >= settings['CS/min']['score']:
+                couronnes_embed +=\
+                    f"\n ** :crown: :ghost: {match_info.thisMinionPerMin} CS / min **"
+                points += 1
 
-        if int(match_info.thisDamageRatio) >= settings['%_dmg_équipe']['score']:
-            couronnes_embed +=\
-                f"\n ** :crown: :dart: Beaucoup de dmg avec {match_info.thisDamageRatio}% **"
-            points += 1
+            if int(match_info.thisDamageRatio) >= settings['%_dmg_équipe']['score']:
+                couronnes_embed +=\
+                    f"\n ** :crown: :dart: Beaucoup de dmg avec {match_info.thisDamageRatio}% **"
+                points += 1
 
-        if int(match_info.thisDamageTakenRatio) >= settings['%_dmg_tank']['score']:
-            couronnes_embed +=\
-                f"\n ** :crown: :shield: Bon tanking : {match_info.thisDamageTakenRatio}% **"
-            points += 1
+            if int(match_info.thisDamageTakenRatio) >= settings['%_dmg_tank']['score']:
+                couronnes_embed +=\
+                    f"\n ** :crown: :shield: Bon tanking : {match_info.thisDamageTakenRatio}% **"
+                points += 1
 
-        if int(match_info.thisTotalOnTeammates) >= settings['Total_Heals_sur_alliés']['score']:
-            couronnes_embed +=\
-                f"\n ** :crown: :heart: Heal plus de {match_info.thisTotalOnTeammatesFormat} sur ses alliés **"
-            points += 1
+            if int(match_info.thisTotalOnTeammates) >= settings['Total_Heals_sur_alliés']['score']:
+                couronnes_embed +=\
+                    f"\n ** :crown: :heart: Heal plus de {match_info.thisTotalOnTeammatesFormat} sur ses alliés **"
+                points += 1
 
-        if (int(match_info.thisTotalShielded) >= settings['Shield']['score']):
-            couronnes_embed +=\
-                f"\n ** :crown: :shield: Shield : {match_info.thisTotalShielded} **"
-            points += 1
+            if (int(match_info.thisTotalShielded) >= settings['Shield']['score']):
+                couronnes_embed +=\
+                    f"\n ** :crown: :shield: Shield : {match_info.thisTotalShielded} **"
+                points += 1
 
-        if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20) or\
-                (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
-            # Le record de couronne n'est disponible qu'en ranked / aram
-            exploits += records_check2(
-                fichier, fichier_joueur, fichier_champion, 'couronne', points, exploits)
+            if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20) or\
+                    (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
+                # Le record de couronne n'est disponible qu'en ranked / aram
+                exploits += records_check2(
+                    fichier, fichier_joueur, fichier_champion, 'couronne', points, exploits)
 
-        if (match_info.thisQ in ['RANKED', 'NORMAL', 'FLEX'] and match_info.thisTime > 20) or\
-                (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
-            # on ajoute les couronnes pour les modes ranked, normal, aram
-            await match_info.add_couronnes(points)
+            if (match_info.thisQ in ['RANKED', 'NORMAL', 'FLEX'] and match_info.thisTime > 20) or\
+                    (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
+                # on ajoute les couronnes pour les modes ranked, normal, aram
+                await match_info.add_couronnes(points)
 
-        # Présence d'afk
-        if match_info.AFKTeam >= 1:
-            exploits = exploits + \
-                "\n ** :tired_face: Tu as eu un afk dans ton équipe :'( **"
+            # Présence d'afk
+            if match_info.AFKTeam >= 1:
+                exploits = exploits + \
+                    "\n ** :tired_face: Tu as eu un afk dans ton équipe :'( **"
 
         # Série de victoire
-        if match_info.thisWinStreak == "True" and match_info.thisQ == "RANKED" and match_info.thisTime >= 15:
-            # si égal à 0, le joueur commence une série avec 3 wins
-            if suivi[summonerName.lower().replace(" ", "")]["serie"] == 0:
-                suivi[summonerName.lower().replace(" ", "")]["serie"] = 3
-            else:  # si pas égal à 0, la série a déjà commencé
-                suivi[summonerName.lower().replace(
-                    " ", "")]["serie"] = suivi[summonerName.lower().replace(" ", "")]["serie"] + 1
+            if match_info.thisWinStreak == "True" and match_info.thisQ == "RANKED" and match_info.thisTime >= 15:
+                # si égal à 0, le joueur commence une série avec 3 wins
+                if suivi[summonerName.lower().replace(" ", "")]["serie"] == 0:
+                    suivi[summonerName.lower().replace(" ", "")]["serie"] = 3
+                else:  # si pas égal à 0, la série a déjà commencé
+                    suivi[summonerName.lower().replace(
+                        " ", "")]["serie"] = suivi[summonerName.lower().replace(" ", "")]["serie"] + 1
 
-            serie_victoire = round(
-                suivi[summonerName.lower().replace(" ", "")]["serie"], 0)
+                serie_victoire = round(
+                    suivi[summonerName.lower().replace(" ", "")]["serie"], 0)
 
-            exploits = exploits + \
-                f"\n ** :fire: Série de victoire avec {serie_victoire} victoires**"
+                exploits = exploits + \
+                    f"\n ** :fire: Série de victoire avec {serie_victoire} victoires**"
 
-        elif match_info.thisWinStreak == "False" and match_info.thisQ == "RANKED":  # si pas de série en soloq
-            suivi[summonerName.lower().replace(" ", "")]["serie"] = 0
-            serie_victoire = 0
-        else:
-            serie_victoire = 0
+            elif match_info.thisWinStreak == "False" and match_info.thisQ == "RANKED":  # si pas de série en soloq
+                suivi[summonerName.lower().replace(" ", "")]["serie"] = 0
+                serie_victoire = 0
+            else:
+                serie_victoire = 0
 
-        sauvegarde_bdd(suivi, f'suivi_s{saison}')  # achievements + suivi
+            sauvegarde_bdd(suivi, f'suivi_s{saison}')  # achievements + suivi
 
         # badges
 
-        if insights:
-            await match_info.calcul_badges()
-        else:
-            match_info.observations = ''
+            if insights:
+                await match_info.calcul_badges()
+            else:
+                match_info.observations = ''
 
         # observations
 
@@ -611,19 +627,23 @@ class LeagueofLegends(Extension):
                     embed.add_field(name=field_name,
                                     value=field_value, inline=False)
 
-        if points >= 1:
-            embed.add_field(name='Couronnes', value=couronnes_embed)
+        if match_info.thisQ != 'ARENA 2v2':
+            if points >= 1:
+                embed.add_field(name='Couronnes', value=couronnes_embed)
 
-        if match_info.observations != '':
-            embed.add_field(name='Insights', value=match_info.observations)
+            if match_info.observations != '':
+                embed.add_field(name='Insights', value=match_info.observations)
 
-        # Gestion de l'image
+            # Gestion de l'image
 
-        if affichage == 1:
-            embed = await match_info.resume_general('resume', embed, difLP)
+            if affichage == 1:
+                embed = await match_info.resume_general('resume', embed, difLP)
 
-        elif affichage == 2:
-            embed = await match_info.test('resume', embed, difLP)
+            elif affichage == 2:
+                embed = await match_info.test('resume', embed, difLP)
+        
+        else:
+            embed = await match_info.test_arena('resume', embed, difLP)
 
         # on charge les img
 
@@ -819,6 +839,9 @@ class LeagueofLegends(Extension):
 
         if mode_de_jeu in ['RANKED', 'FLEX']:
             tracklol = discord_server_id.tracklol
+        
+        elif mode_de_jeu == 'ARENA 2v2':
+            tracklol = discord_server_id.tft
         else:
             tracklol = discord_server_id.lol_others
 
@@ -1267,17 +1290,27 @@ class LeagueofLegends(Extension):
                     # evolution
 
                     if dict_rankid[classement_old] > dict_rankid[classement_new]:  # 19-18
-                        if not classement_old in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
+                        difrank = dict_rankid[classement_old] - dict_rankid[classement_new]
+                        # si la personne vient de commencer ces classés, il n'a pas une multiple promotion
+                        if classement_old == "Non-classe 0":
+                            difrank = 0
+                        if not classement_old in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']: 
                             # il n'y a pas -100 lp pour ce type de démote
-                            difLP = 100 + LP - int(suivi[key]['LP'])
-                        difLP = "Démote / -" + str(difLP)
+                            difLP = (100 * difrank) + LP - int(suivi[key]['LP'])
+                        difLP = f"Démote (x{difrank}) / -{str(difLP)}  "
                         emote = ":arrow_down:"
 
                     elif dict_rankid[classement_old] < dict_rankid[classement_new]:
                         if not classement_old in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
                             # il n'y a pas +100 lp pour ce type de démote
-                            difLP = 100 - LP + int(suivi[key]['LP'])
-                        difLP = "Promotion / +" + str(difLP)
+                            
+                            difrank = dict_rankid[classement_new] - dict_rankid[classement_old]
+                            
+                            # si la personne vient de commencer ces classés, il n'a pas une multiple promotion
+                            if classement_old == "Non-classe 0":
+                                difrank = 0
+                            difLP = (100 * difrank) - LP + int(suivi[key]['LP'])
+                        difLP = f"Promotion (x{difrank}) / +{str(difLP)} "
                         emote = ":arrow_up:"
 
                     elif dict_rankid[classement_old] == dict_rankid[classement_new]:
@@ -1601,6 +1634,7 @@ class LeagueofLegends(Extension):
                     txt = ''
 
                 count = count + 1
+                
             # Vérifier si la variable txt contient des données non ajoutées
             if txt:
                 embed.add_field(name=f'Historique (suite)', value=txt)
