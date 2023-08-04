@@ -24,7 +24,8 @@ class Settings(Extension):
             # on prépare l'embed 1 avec les modules
 
             embed1 = interactions.Embed(title=f'Settings pour {ctx.guild.name} (Modules)',
-                                        thumbnail=interactions.EmbedImageStruct(url=ctx.guild.icon_url))
+                                        thumbnail=interactions.EmbedAttachment(url=ctx.guild.icon.as_url()))
+            
 
             for variable, valeur in data.items():
                 if not variable == 'activation':  # on ne veut pas cette variable dans notre embed
@@ -33,7 +34,7 @@ class Settings(Extension):
             # embed 2 avec les identifiants channels
 
             embed2 = interactions.Embed(title=f'Settings pour {ctx.guild.name} (Channels)',
-                                        thumbnail=interactions.EmbedImageStruct(url=ctx.guild.icon_url))
+                                        thumbnail=interactions.EmbedAttachment(url=ctx.guild.icon.as_url()))
 
             data2 = get_data_bdd(
                 'SELECT * from channels_discord WHERE server_id = :server_id ', {'server_id': int(ctx.guild_id)})
