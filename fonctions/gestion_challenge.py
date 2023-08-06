@@ -3,6 +3,7 @@ from fonctions.match import get_summoner_by_name, my_region, get_challenges_conf
 import pandas as pd
 import aiohttp
 from fonctions.gestion_bdd import lire_bdd_perso, sauvegarde_bdd, requete_perso_bdd
+from fonctions.match import emote_rank_discord
 from interactions import Embed
 import humanize
 
@@ -204,15 +205,15 @@ class challengeslol():
             self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('boucliers', 'shield')
             self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('jungle', 'jgl')
             
-            self.data_comparaison['level_diminutif'] = self.data_comparaison['level'].replace({'CHALLENGER': 'CHAL',
-                                                                                   'GRANDMASTER': 'GM',
-                                                                                   'MASTER': 'MASTER',
-                                                                                   'DIAMOND': 'DIAM',
-                                                                                   'PLATINUM': 'PLAT',
-                                                                                   'GOLD' : 'GOLD',
-                                                                                   'SILVER' : 'SILVER',
-                                                                                   'BRONZE' : 'BRONZE',
-                                                                                   'IRON' : 'FER'})
+            # self.data_comparaison['level_diminutif'] = self.data_comparaison['level'].replace({'CHALLENGER': 'CHAL',
+            #                                                                        'GRANDMASTER': 'GM',
+            #                                                                        'MASTER': 'MASTER',
+            #                                                                        'DIAMOND': 'DIAM',
+            #                                                                        'PLATINUM': 'PLAT',
+            #                                                                        'GOLD' : 'GOLD',
+            #                                                                        'SILVER' : 'SILVER',
+            #                                                                        'BRONZE' : 'BRONZE',
+            #                                                                        'IRON' : 'FER'})
             
            
             # définir la fonction pour calculer la différence entre la valeur actuelle et la valeur à atteindre pour le palier suivant
@@ -308,14 +309,14 @@ class challengeslol():
                 position = format_nombre(data['position'])
                 if next_palier == str(0):
                     if position == str(0):
-                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{value}** (+{dif_value}) '
+                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]}] : \n> **{value}** (+{dif_value}) '
                     else:
-                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]} | **{position}**ème] : \n> **{value}** (+{dif_value}) '
+                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]} | **{position}**ème] : \n> **{value}** (+{dif_value}) '
                 else:
                     if position == str(0):
-                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour level up'
+                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]}] : \n> **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour level up'
                     else:
-                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]} | **{position}**ème] : \n> **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour level up'
+                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]} | **{position}**ème] : \n> **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour level up'
         
         
         if not self.data_evolution.empty:
@@ -324,7 +325,7 @@ class challengeslol():
                     txt_evolution, chunk = check_chunk(txt_evolution, chunk, chunk_size)
                     value = format_nombre(data['value'])
                     dif_value = format_nombre(data['dif_value'])
-                    txt_evolution += f'\n:comet: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{value}** (+{dif_value} / **+{data["evolution"]:.2f}%**)'
+                    txt_evolution += f'\n:comet: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]}] : \n> **{value}** (+{dif_value} / **+{data["evolution"]:.2f}%**)'
         
         chunk = 1      
         if not self.data_new_percentile.empty:
@@ -332,7 +333,7 @@ class challengeslol():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
                 percentile = data['percentile'] * 100
                 dif_percentile = data['dif_percentile'] * 100
-                txt_24h += f'\n:zap: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{percentile:.2f}%** (+{dif_percentile:.2f}%) top'
+                txt_24h += f'\n:zap: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]}] : \n> **{percentile:.2f}%** (+{dif_percentile:.2f}%) top'
                 
       
         if not self.data_new_position.empty:
@@ -342,9 +343,9 @@ class challengeslol():
                 value = format_nombre(data['value'])
                 dif_value = format_nombre(data['dif_position'])
                 if data['dif_position'] > 0:
-                    txt_24h += f'\n:arrow_up: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{position}**ème (**+{dif_value}**) avec **{value}**'
+                    txt_24h += f'\n:arrow_up: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]}] : \n> **{position}**ème (**+{dif_value}**) avec **{value}**'
                 else:
-                    txt_24h += f'\n:arrow_down: **{data["name"]}** ({data["shortDescription"]}) [{data["level_diminutif"]}] : \n> **{position}**ème (**{dif_value}**) avec **{value}**'
+                    txt_24h += f'\n:arrow_down: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]}] : \n> **{position}**ème (**{dif_value}**) avec **{value}**'
                 
         chunk = 1      
         if not self.data_new_level.empty:
@@ -354,9 +355,9 @@ class challengeslol():
                 value = format_nombre(data['value'])
                 
                 if next_palier == str(0):
-                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : \n> Tu es désormais **{(data["level"])}** avec **{value}**'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : \n> Tu es désormais **{(emote_rank_discord[data["level"]])}** avec **{value}**'
                 else:
-                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : \n> Tu es désormais **{(data["level"])}** avec **{value}** :arrow_right: **{next_palier}** pts pour level up'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : \n> Tu es désormais **{(emote_rank_discord[data["level"]])}** avec **{value}** :arrow_right: **{next_palier}** pts pour level up'
                 
         
         
@@ -369,9 +370,9 @@ class challengeslol():
                 if texte != '':
                     if titre == 'Challenges':
                         if self.dif_points_total != 0:
-                            titre += f' | {self.points_total} pts (+{self.dif_points_total}) [{self.rank_total} ({self.percentile_total:.2f}%)]' 
+                            titre += f' | {self.points_total} pts (+{self.dif_points_total}) [{emote_rank_discord[self.rank_total]} ({self.percentile_total:.2f}%)]' 
                         else:
-                            titre += f' | {self.points_total} pts [{self.rank_total} ({self.percentile_total:.2f}%)]' 
+                            titre += f' | {self.points_total} pts [{emote_rank_discord[self.rank_total]} ({self.percentile_total:.2f}%)]' 
                     embed.add_field(name=titre, value=texte, inline=False)
                     
             else: # si le texte est supérieur
@@ -381,9 +382,9 @@ class challengeslol():
                 for i in range(len(texte)): # pour chaque partie du texte, on l'envoie dans un embed différent
                     if i == 0 and titre == 'Challenges':
                         if self.dif_points_total != 0:
-                            field_name = f'{titre} | {self.points_total} pts  (+{self.dif_points_total}) [{self.rank_total} ({self.percentile_total:.2f}%)]' 
+                            field_name = f'{titre} | {self.points_total} pts  (+{self.dif_points_total}) [{emote_rank_discord[self.rank_total]} ({self.percentile_total:.2f}%)]' 
                         else:
-                            field_name = f'{titre} | {self.points_total} pts [{self.rank_total} ({self.percentile_total:.2f}%)]'
+                            field_name = f'{titre} | {self.points_total} pts [{emote_rank_discord[self.rank_total]} ({self.percentile_total:.2f}%)]'
                     elif i == 0:
                         field_name = titre
                     else:
