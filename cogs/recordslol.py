@@ -639,8 +639,10 @@ class Recordslol(Extension):
         
         def creation_embed(fichier, column, methode_pseudo, embed, methode='max'):
                 joueur, champion, record, url = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo)
-            
-                value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"** {joueur[0]} ** [{champion[0]}]({url[0]})\n"
+                # on montre l'image du champ uniquement quand le record appartient à une seule personne sinon on dépasse la limite de caractères
+                
+                value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"**{joueur[0]}** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]})\n"
+                # value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"**{joueur[0]}** [{champion[0]}]({url[0]})\n"
                 
                 embed.add_field(
                     name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
@@ -821,13 +823,13 @@ class Recordslol(Extension):
                 if short:
                     text += f'**__ {j} __ {c} ** \n'
                 else:
-                    text += f'**__{j}__** [{c}]({u}) \n'
+                    text += f'**__{j}__** {emote_champ_discord.get(c.capitalize(), "inconnu")} [G]({u}) \n'
             return text
         
         def creation_embed(fichier, column, methode_pseudo, embed, methode='max'):
                 joueur, champion, record, url = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo)
             
-                value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"** {joueur[0]} ** [{champion[0]}]({url[0]})\n"
+                value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"** {joueur[0]} ** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]})\n"
                 
                 embed.add_field(
                     name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
@@ -1265,7 +1267,8 @@ class Recordslol(Extension):
                 
                 
             for row, data in fichier.iterrows():
-                    txt += f'**{data["match_id"]}** - {mention(data["discord"], "membre")} ({data["champion"]}) - **{data["proportion"]}% des games**\n'
+                champion = data['champion']
+                txt += f'**{data["match_id"]}** - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion.capitalize(), "inconnu")} - **{data["proportion"]}% des games**\n'
                 
             embed = interactions.Embed(title=f'Palmarès {stat} ({mode}) S{saison}', description=txt)
             embed.set_footer(text=f"{nb_row} matchs analysés | {nb_champion} champions différents")
