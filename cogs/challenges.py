@@ -1,5 +1,4 @@
 import pandas as pd
-import ast
 import aiohttp
 import os
 from fonctions.gestion_bdd import (lire_bdd, lire_bdd_perso, requete_perso_bdd)
@@ -8,20 +7,9 @@ from fonctions.gestion_challenge import (get_data_joueur_challenges,
 import time
 import plotly.express as px
 import plotly.graph_objects as go
-import datetime
 import dataframe_image as dfi
 import interactions
 from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, listen, Task, TimeTrigger
-
-
-def option_challenges(name, params, description='type de recherche'):
-    option = SlashCommandOption(
-        name=name,
-        description=description,
-        type=interactions.OptionType.SUB_COMMAND,
-        options=params)
-
-    return option
 
 
 class Challenges(Extension):
@@ -60,9 +48,13 @@ class Challenges(Extension):
 
         await session.close()
         print('Les challenges ont été mis à jour.')
+        
+    @slash_command(name='lol_challenges', description='Challenges League of Legends')
+    async def lol_challenges(self, ctx: SlashContext):
+        pass
 
-    @slash_command(name="challenges_help",
-                   description="Explication des challenges")
+    @lol_challenges.subcommand("help",
+                   sub_cmd_description="Explication des challenges")
     async def challenges_help(self, ctx: SlashContext):
 
         nombre_de_defis = len(self.defis['name'].unique())
@@ -78,8 +70,8 @@ class Challenges(Extension):
 
         await ctx.send(embeds=em)
 
-    @slash_command(name="challenges_classement",
-                   description="Classement des points de challenge",
+    @lol_challenges.subcommand("classement",
+                   sub_cmd_description="Classement des points de challenge",
                    options=[
                        SlashCommandOption(name='top',
                                           description='Afficher le top X',
@@ -135,7 +127,8 @@ class Challenges(Extension):
         await ctx.send(embeds=embed, files=file)
         os.remove('plot.png')
 
-    @slash_command(name="challenges_profil", description="Profil du compte",
+    @lol_challenges.subcommand("profil",
+                               sub_cmd_description="Profil du compte",
                    options=[
                        SlashCommandOption(name="summonername",
                                           description="Nom du joueur",
@@ -199,7 +192,8 @@ class Challenges(Extension):
         await session.close()
         os.remove('plot.png')
 
-    @slash_command(name="challenges_best", description="Meilleur classement pour les defis",
+    @lol_challenges.subcommand("best",
+                               sub_cmd_description="Meilleur classement pour les defis",
                    options=[SlashCommandOption(name="summonername",
                                                description="Nom du joueur",
                                                type=interactions.OptionType.STRING,
@@ -238,71 +232,66 @@ class Challenges(Extension):
         else:
             await ctx.send(f"Pas de ranking pour {summonername} :(.")
 
-    # @slash_command(name="tracker_challenges", description="Modifier la liste des challenges",
-    #                                 options=[
-    #                                     option_challenges(
-    #                                         name='exclure',
-    #                                         params=[
-    #                                             SlashCommandOption(name="summonername",
-    #                                                    description="Nom du joueur",
-    #                                                    type=interactions.OptionType.STRING,
-    #                                                    required=True),
-    #                                             SlashCommandOption(name="nom_challenge",
-    #                                                    description="Nom du challenge à exclure",
-    #                                                    type=interactions.OptionType.STRING,
-    #                                                    required=True)],
-    #                                         description='Exclure un challenge du tracker'),
-    #                                     option_challenges(
-    #                                         name='inclure',
-    #                                         params=[
-    #                                             SlashCommandOption(name="summonername",
-    #                                                    description="Nom du joueur",
-    #                                                    type=interactions.OptionType.STRING,
-    #                                                    required=True),
-    #                                             SlashCommandOption(name="nom_challenge",
-    #                                                    description="Nom du challenge à réinclure",
-    #                                                    type=interactions.OptionType.STRING,
-    #                                                    required=True)],
-    #                                         description='Réinclure un challenge au tracker')
-    #                                 ])
-    # async def exclure_challenges(self, ctx: SlashContext, sub_command:str, summonername, nom_challenge:str):
+    @lol_challenges.subcommand("modifier_tracker",
+                               sub_cmd_description="Modifier la liste des challenges à ajouter / exclure",
+                                    options=[
+                                            SlashCommandOption(name="summonername",
+                                                       description="Nom du joueur",
+                                                       type=interactions.OptionType.STRING,
+                                                       required=True),
+                                            SlashCommandOption(name="nom_challenge",
+                                                       description="Nom du challenge à exclure",
+                                                       type=interactions.OptionType.STRING,
+                                                       required=True),
+                                            SlashCommandOption(name='action',
+                                                               description='Action à mener',
+                                                               type=interactions.OptionType.STRING,
+                                                               required=True,
+                                                               choices=[
+                                                                   SlashCommandChoice(name='inclure', value='inclure'),
+                                                                   SlashCommandChoice(name='exclure', value='exclure')
+                                                                   ]
+                                                               )
+                                            ]
+                                    )
+    async def modifier_challenges(self, ctx: SlashContext, summonername, nom_challenge:str, action:str):
 
-    #     # traitement des variables :
+        # traitement des variables :
 
-    #     summonername = summonername.lower().replace(' ', '')
-    #     nom_challenge = nom_challenge.lower()
+        summonername = summonername.lower().replace(' ', '')
+        nom_challenge = nom_challenge.lower()
 
-    #     await ctx.defer(ephemeral=True)
+        await ctx.defer(ephemeral=True)
 
-    #     df = lire_bdd('challenges').transpose()
-    #     df['name'] = df['name'].str.lower()
-    #     df.set_index('name', inplace=True)
+        df = lire_bdd('challenges').transpose()
+        df['name'] = df['name'].str.lower()
+        df.set_index('name', inplace=True)
 
-    #     df.loc[nom_challenge, 'challengeId']
+        df.loc[nom_challenge, 'challengeId']
 
-    #     if sub_command == 'exclure':
+        if action == 'exclure':
 
-    #         nb_row = requete_perso_bdd('''INSERT INTO public.challenge_exclusion("challengeId", index) VALUES (:challengeid, :summonername);''',
-    #                         dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
-    #                                     'summonername':summonername},
-    #                         get_row_affected=True)
+            nb_row = requete_perso_bdd('''INSERT INTO public.challenge_exclusion("challengeId", index) VALUES (:challengeid, :summonername);''',
+                            dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
+                                        'summonername':summonername},
+                            get_row_affected=True)
 
-    #         if nb_row > 0:
-    #             await ctx.send(f'Le challenge {nom_challenge} a été exclu du tracking', ephemeral=True)
-    #         else:
-    #             await ctx.send("Ce joueur ou le challenge n'existe pas", ephemeral=True)
+            if nb_row > 0:
+                await ctx.send(f'Le challenge {nom_challenge} a été exclu du tracking', ephemeral=True)
+            else:
+                await ctx.send("Ce joueur ou le challenge n'existe pas", ephemeral=True)
 
-    #     elif sub_command == 'inclure':
+        elif action == 'inclure':
 
-    #         nb_row = requete_perso_bdd('''DELETE FROM public.challenge_exclusion WHERE "challengeId" = :challengeid AND index = :summonername;''',
-    #                         dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
-    #                                     'summonername':summonername},
-    #                         get_row_affected=True)
+            nb_row = requete_perso_bdd('''DELETE FROM public.challenge_exclusion WHERE "challengeId" = :challengeid AND index = :summonername;''',
+                            dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
+                                        'summonername':summonername},
+                            get_row_affected=True)
 
-    #         if nb_row > 0:
-    #             await ctx.send(f'Le challenge {nom_challenge} a été réinclus au tracking', ephemeral=True)
-    #         else:
-    #             await ctx.send("Ce joueur n'existe pas ou ce challenge n'était pas exclu", ephemeral=True)
+            if nb_row > 0:
+                await ctx.send(f'Le challenge {nom_challenge} a été réinclus au tracking', ephemeral=True)
+            else:
+                await ctx.send("Ce joueur n'existe pas ou ce challenge n'était pas exclu", ephemeral=True)
 
 
 def setup(bot):

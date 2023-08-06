@@ -11,7 +11,7 @@ from interactions import SlashCommandChoice, SlashCommandOption, Extension, Slas
 from fonctions.permissions import isOwner_slash
 from fonctions.params import Version, saison, heure_aram
 from fonctions.permissions import isOwner_slash
-from fonctions.match import label_tier
+from fonctions.match import label_tier, emote_rank_discord
 from interactions.ext.paginators import Paginator
 
 
@@ -333,7 +333,7 @@ class Aram(Extension):
                             emote = ":arrow_right:"
 
                     if nbgames != 0:
-                        embed.add_field(name=str(key) + " ( " + tier + " )",
+                        embed.add_field(name=str(key) + " ( " + emote_rank_discord[tier] + " )",
                                         value=f"V : {suivi[key]['wins']} ({difwins}) | " +
                                         f"D : {suivi[key]['losses']} ({diflosses}) | " +
                                         f"LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)

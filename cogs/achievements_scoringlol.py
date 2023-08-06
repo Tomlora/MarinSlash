@@ -1,10 +1,8 @@
 import pandas as pd
-import pickle
 import os
 import plotly.express as px
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
 from fonctions.params import saison
-import pickle
 import interactions
 from interactions import Extension, SlashCommandOption, SlashCommandChoice, SlashContext, slash_command
 import numpy as np
@@ -203,6 +201,8 @@ class Achievements_scoringlol(Extension):
                                             name='saison',
                                             description='saison league of legends',
                                             type=interactions.OptionType.INTEGER,
+                                            min_value=12,
+                                            max_value=saison,
                                             required=False),
                                         SlashCommandOption(
                                             name='tri',
@@ -241,9 +241,12 @@ class Achievements_scoringlol(Extension):
 
         df['per game'] = df['couronne'] / df['joueur']
         
+        
         df.sort_values(tri, ascending=False, inplace=True)
 
         result = f'Couronnes : Mode **{mode}** et 5 games minimum : \n'
+        
+        
 
         for joueur, stats in df.iterrows():
             

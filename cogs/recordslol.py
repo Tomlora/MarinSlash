@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
 import interactions
-from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command
+from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, AutocompleteContext
 from interactions.ext.paginators import Paginator
 from fonctions.params import Version, saison
 from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples
@@ -188,7 +188,8 @@ emote_v2 = {
     "temps_vivant" : ":hourglass:",
     "dmg_tower" : ":tokyo_tower:",
     "gold_share" : ":dollar:",
-    "ecart_gold_team" : ":euro:"
+    "ecart_gold_team" : ":euro:",
+    "temps_avant_premiere_mort" : ":timer:",
 }
 
 choice_pantheon = [SlashCommandChoice(name="KDA", value="KDA"),
@@ -204,6 +205,15 @@ class Recordslol(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
         self.time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20} # minutes minimum pour compter dans les records
+        
+        self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills'] 
+        self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min']
+        self.fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
+        self.fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
+        self.fichier_tank_heal = ['dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
+        self.fichier_objectif = ['baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower']
+        self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'couronne', 'snowball']
+
 
     @slash_command(name='lol_records', description='records League of Legends')
     async def records_lol(self, ctx: SlashContext):
@@ -603,13 +613,8 @@ class Recordslol(Extension):
         else:
                 title = f'Records {mode} S{saison} ({champion})'
 
-        fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills'] 
-        fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min']
-        fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
-        fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
-        fichier_tank_heal = ['dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
-        fichier_objectif = ['baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower']
-        fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'couronne', 'snowball']
+        fichier_farming = self.fichier_farming.copy()
+        fichier_divers = self.fichier_divers.copy()
 
         # on rajoute quelques éléments sur d'autres pages...
 
@@ -648,7 +653,7 @@ class Recordslol(Extension):
         embed1 = interactions.Embed(
             title=title + " Kills", color=interactions.Color.random())    
 
-        for column in fichier_kills:
+        for column in self.fichier_kills:
             
             embed1 = creation_embed(fichier, column, methode_pseudo, embed1)
           
@@ -656,7 +661,7 @@ class Recordslol(Extension):
         embed2 = interactions.Embed(
             title=title + " DMG", color=interactions.Color.random())
 
-        for column in fichier_dmg:
+        for column in self.fichier_dmg:
             
             embed2 = creation_embed(fichier, column, methode_pseudo, embed2)
 
@@ -670,7 +675,7 @@ class Recordslol(Extension):
         embed6 = interactions.Embed(
             title=title + " Tank/Heal", color=interactions.Color.random())
 
-        for column in fichier_tank_heal:
+        for column in self.fichier_tank_heal:
             
             embed6 = creation_embed(fichier, column, methode_pseudo, embed6)
 
@@ -687,7 +692,7 @@ class Recordslol(Extension):
             embed3 = interactions.Embed(
             title=title + " Vision", color=interactions.Color.random())
 
-            for column in fichier_vision:
+            for column in self.fichier_vision:
                 
                 embed3 = creation_embed(fichier, column, methode_pseudo, embed3)
 
@@ -695,7 +700,7 @@ class Recordslol(Extension):
             embed4 = interactions.Embed(
                 title=title + " Objectif", color=interactions.Color.random())
             
-            for column in fichier_objectif:
+            for column in self.fichier_objectif:
                 methode = 'max'
                 if column in ['early_drake', 'early_baron']:
                     methode = 'min'
@@ -795,13 +800,8 @@ class Recordslol(Extension):
                 title = f'Records personnels {joueur} {mode} S{saison} ({champion})'
 
         
-        fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills'] 
-        fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min']
-        fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
-        fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
-        fichier_tank_heal = ['dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
-        fichier_objectif = ['baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower']
-        fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'couronne', 'snowball']
+        fichier_farming = self.fichier_farming.copy()
+        fichier_divers = self.fichier_divers.copy()
 
         # on rajoute quelques éléments sur d'autres pages...
 
@@ -840,7 +840,7 @@ class Recordslol(Extension):
         embed1 = interactions.Embed(
             title=title + " Kills", color=interactions.Color.random())    
 
-        for column in fichier_kills:
+        for column in self.fichier_kills:
             
             embed1 = creation_embed(fichier, column, methode_pseudo, embed1)
           
@@ -848,7 +848,7 @@ class Recordslol(Extension):
         embed2 = interactions.Embed(
             title=title + " DMG", color=interactions.Color.random())
 
-        for column in fichier_dmg:
+        for column in self.fichier_dmg:
             
             embed2 = creation_embed(fichier, column, methode_pseudo, embed2)
 
@@ -862,7 +862,7 @@ class Recordslol(Extension):
         embed6 = interactions.Embed(
             title=title + " Tank/Heal", color=interactions.Color.random())
 
-        for column in fichier_tank_heal:
+        for column in self.fichier_tank_heal:
             
             embed6 = creation_embed(fichier, column, methode_pseudo, embed6)
 
@@ -879,7 +879,7 @@ class Recordslol(Extension):
             embed3 = interactions.Embed(
             title=title + " Vision", color=interactions.Color.random())
 
-            for column in fichier_vision:
+            for column in self.fichier_vision:
                 
                 embed3 = creation_embed(fichier, column, methode_pseudo, embed3)
 
@@ -887,7 +887,7 @@ class Recordslol(Extension):
             embed4 = interactions.Embed(
                 title=title + " Objectif", color=interactions.Color.random())
             
-            for column in fichier_objectif:
+            for column in self.fichier_objectif:
                 methode = 'max'
                 if column in ['early_drake', 'early_baron']:
                     methode = 'min'
@@ -994,7 +994,7 @@ class Recordslol(Extension):
         'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage',
         'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
         'baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower',
-        'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'couronne', 'kills+assists']
+        'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'couronne', 'kills+assists', 'temps_avant_premiere_mort']
 
 
         if mode == 'ARAM':
@@ -1095,7 +1095,7 @@ class Recordslol(Extension):
 
                 except asyncio.TimeoutError:
                     # When it times out, edit the original message and remove the button(s)
-                    return await ctx.edit(components=[])
+                    return await message.edit(components=[])
 
         elif champion != None:  # si un champion en particulier
             fichier = fichier[fichier['champion'] == champion]
@@ -1138,7 +1138,7 @@ class Recordslol(Extension):
                                             name='stat',
                                             description='Nom du record (voir records) ou écrire champion pour le nombre de champions joués',
                                             type=interactions.OptionType.STRING,
-                                            required=True
+                                            required=True,
                                         ),
                                         SlashCommandOption(
                                             name="saison",
@@ -1297,8 +1297,73 @@ class Recordslol(Extension):
                 
             except KeyError:
                 await ctx.send("Ce record n'existe pas. Merci de regarder les records pour voir les noms disponibles.")
-            
+                
+                
+    # @palmares.autocomplete('stat')
+    # async def palmares_autocomplete(self, ctx: AutocompleteContext):
+    #     string_option_input = ctx.input_text
+        
+    #     await ctx.send(
+    #         choices=[
+    #             {'name' : f'kda', f'value' : f'kda'},
+    #             {'name' : f'kp', f'value' : f'kp'},
+    #             {'name' : f'cs', f'value' : f'cs'},
+    #             {'name' : f'cs_min', f'value' : f'cs_min'},
+    #             {'name' : f'kills', f'value' : f'kills'},
+    #             {'name' : f'deaths', f'value' : f'deaths'},
+    #             {'name' : f'assists', f'value' : f'assists'},
+    #             {'name' : f'double', f'value' : f'double'},
+    #             {'name' : f'triple', f'value' : f'triple'},
+    #             {'name' : f'quadra', f'value' : f'quadra'},
+    #             {'name' : f'penta', f'value' : f'penta'},
+    #             {'name' : f'team_kills', f'value' : f'team_kills'},
+    #             {'name' : f'team_deaths', f'value' : f'team_deaths'},
+    #             {'name' : f'time', f'value' : f'time'},
+    #             {'name' : f'dmg', f'value' : f'dmg'},
+    #             {'name' : f'dmg_ad', f'value' : f'dmg_ad'},
+    #             {'name' : f'dmg_ap', f'value' : f'dmg_ap'},
+    #             {'name' : f'dmg_true', f'value' : f'dmg_true'},
+    #             {'name' : f'gold', f'value' : f'gold'},
+    #             {'name' : f'gold_min', f'value' : f'gold_min'},
+    #             {'name' : f'dmg_min', f'value' : f'dmg_min'},
+    #             {'name' : f'solokills', f'value' : f'solokills'},
+    #             {'name' : f'dmg_reduit', f'value' : f'dmg_reduit'},
+    #             {'name' : f'heal_total', f'value' : f'heal_total'},
+    #             {'name' : f'heal_allies', f'value' : f'heal_allies'},
+    #             {'name' : f'serie_kills', f'value' : f'serie_kills'},
+    #             {'name' : f'cs_dix_min', f'value' : f'cs_dix_min'},
+    #             {'name' : f'cs_max_avantage', f'value' : f'cs_max_avantage'},
+    #             {'name' : f'temps_dead', f'value' : f'temps_dead'},
+    #             {'name' : f'damageratio', f'value' : f'damageratio'},
+    #             {'name' : f'tankratio', f'value' : f'tankratio'},
+    #             {'name' : f'dmg_tank', f'value' : f'dmg_tank'},
+    #             {'name' : f'shield', f'value' : f'shield'},
+    #             {'name' : f'allie_feeder', f'value' : f'allie_feeder'},
+    #             {'name' : f'temps_vivant', f'value' : f'temps_vivant'},
+    #             {'name' : f'dmg_tower', f'value' : f'dmg_tower'},
+    #             {'name' : f'gold_share', f'value' : f'gold_share'},
+    #             {'name' : f'ecart_gold_team', f'value' : f'ecart_gold_team'},
+    #             {'name' : f'kills+assists', f'value' : f'kills+assists'},
+    #             {'name' : f'vision_score', f'value' : f'vision_score'},
+    #             {'name' : f'vision_wards', f'value' : f'vision_wards'},
+    #             {'name' : f'vision_wards_killed', f'value' : f'vision_wards_killed'},
+    #             {'name' : f'vision_pink', f'value' : f'vision_pink'},
+    #             {'name' : f'vision_min', f'value' : f'vision_min'},
+    #             {'name' : f'level_max_avantage', f'value' : f'level_max_avantage'},
+    #             {'name' : f'vision_avantage', f'value' : f'vision_avantage'},
+    #             {'name' : f'early_drake', f'value' : f'early_drake'},
+    #             {'name' : f'early_baron', f'value' : f'early_baron'},
+    #             {'name' : f'jgl_dix_min', f'value' : f'jgl_dix_min'},
+    #             {'name' : f'baron', f'value' : f'baron'},
+    #             {'name' : f'drake', f'value' : f'drake'},
+    #             {'name' : f'herald', f'value' : f'herald'},
+    #             {'name' : f'cs_jungle', f'value' : f'cs_jungle'},
+    #             {'name' : f'snowball', f'value' : f'snowball'},
+                #   {'name' : 'temps_avant_premiere_mort', 'value' : 'temps_avant_premiere_mort'},
+    #             {'name' : f'champion', 'value' : f'champion'},
 
-
+    #         ]
+    #     )
+              
 def setup(bot):
     Recordslol(bot)

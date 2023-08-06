@@ -13,9 +13,8 @@ import asyncio
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import aiohttp
-import json
 from datetime import datetime
-import seaborn as sns
+
 
 from fonctions.match import (match_by_puuid_with_summonername,
                              get_summoner_by_puuid,
@@ -46,12 +45,25 @@ parameters_commun_stats_lol = [
         name='season',
         description='saison lol',
         type=interactions.OptionType.INTEGER,
+        min_value=12,
+        max_value=saison,
         required=False),
     SlashCommandOption(
         name='joueur',
         description='se focaliser sur un joueur ? Incompatible avec grouper par personne',
         type=interactions.OptionType.STRING,
         required=False),
+    SlashCommandOption(
+        name='role',
+        description='Role LoL. Remplir ce role retire les stats aram',
+        type=interactions.OptionType.STRING,
+        required=False,
+        choices=[
+            SlashCommandChoice(name='top', value='TOP'),
+            SlashCommandChoice(name='jungle', value='JUNGLE'),
+            SlashCommandChoice(name='mid', value='MID'),
+            SlashCommandChoice(name='adc', value='ADC'),
+            SlashCommandChoice(name='support', value='SUPPORT')]),
     SlashCommandOption(
         name='champion',
         description='se focaliser sur un champion ?',
@@ -154,12 +166,12 @@ def get_data_matchs(columns, season, server_id, view):
     
     if view == 'global':
             df = lire_bdd_perso(
-        f'''SELECT matchs.id, matchs.joueur, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
+        f'''SELECT matchs.id, matchs.joueur, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
         INNER JOIN tracker ON tracker.index = matchs.joueur
         where season = {season}''', index_col='id').transpose()
     else:
         df = lire_bdd_perso(
-            f'''SELECT matchs.id, matchs.joueur, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
+            f'''SELECT matchs.id, matchs.joueur, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
             INNER JOIN tracker ON tracker.index = matchs.joueur
             where season = {season}
             AND server_id = {server_id}''', index_col='id').transpose()
@@ -845,6 +857,7 @@ class analyseLoL(Extension):
                              calcul: str,
                              season: int = saison,
                              joueur: str = None,
+                             role: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
                              nb_parties: int = 1,
@@ -880,16 +893,20 @@ class analyseLoL(Extension):
         if joueur != None:
             joueur = joueur.lower()
             df = df[df['joueur'] == joueur]
-            title += f' pour {joueur}'
-            
+            title += f' pour {joueur}'            
 
         if champion != None:
+            champion = champion.capitalize()
             df = df[df['champion'] == champion]
             title += f' sur {champion}'
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
+
+        if role != None:
+            df = df[df['role'] == role]
+            title += f' ({role})'
 
         occurences = df['champion'].value_counts()
         
@@ -1013,6 +1030,7 @@ class analyseLoL(Extension):
                              calcul: str,
                              season: int = saison,
                              joueur: str = None,
+                             role: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
                              nb_parties: int = 1,
@@ -1035,12 +1053,17 @@ class analyseLoL(Extension):
             
 
         if champion != None:
+            champion = champion.capitalize()
             df = df[df['champion'] == champion]
             title += f' sur {champion}'
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
+            
+        if role != None:
+            df = df[df['role'] == role]
+            title += f' ({role})'
             
         occurences = df['champion'].value_counts()
         
@@ -1099,6 +1122,7 @@ class analyseLoL(Extension):
                              calcul: str,
                              season: int = saison,
                              joueur: str = None,
+                             role: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
                              nb_parties: int = 1,
@@ -1122,12 +1146,17 @@ class analyseLoL(Extension):
             
 
         if champion != None:
+            champion = champion.capitalize()
             df = df[df['champion'] == champion]
             title += f' sur {champion}'
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
+
+        if role != None:
+            df = df[df['role'] == role]
+            title += f' ({role})'
             
         occurences = df['champion'].value_counts()
         
@@ -1250,6 +1279,7 @@ class analyseLoL(Extension):
                              calcul: str,
                              season: int = saison,
                              joueur: str = None,
+                             role: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
                              group_par_champion: bool = False,
@@ -1282,12 +1312,17 @@ class analyseLoL(Extension):
             
 
         if champion != None:
+            champion = champion.capitalize()
             df = df[df['champion'] == champion]
             title += f' sur {champion}'
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
+            
+        if role != None:
+            df = df[df['role'] == role]
+            title += f' ({role})'
             
         occurences = df['champion'].value_counts()
         
@@ -1344,6 +1379,7 @@ class analyseLoL(Extension):
                              calcul: str,
                              season: int = saison,
                              joueur: str = None,
+                             role: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
                              top: int = 20,
@@ -1366,12 +1402,17 @@ class analyseLoL(Extension):
             
 
         if champion != None:
+            champion = champion.capitalize()
             df = df[df['champion'] == champion]
             title += f' sur {champion}'
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
+            
+        if role != None:
+            df = df[df['role'] == role]
+            title += f' ({role})'
 
         title += f' ({calcul})'
 
@@ -1503,6 +1544,7 @@ class analyseLoL(Extension):
                              calcul: str,
                              season: int = saison,
                              joueur: str = None,
+                             role: str = None,
                              champion: str = None,
                              mode_de_jeu: str = None,
                              grouper:str = 'joueur',
@@ -1528,12 +1570,17 @@ class analyseLoL(Extension):
             
 
         if champion != None:
+            champion = champion.capitalize()
             df = df[df['champion'] == champion]
             title += f' sur {champion}'
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
+            
+        if role != None:
+            df = df[df['role'] == role]
+            title += f' ({role})'
 
         title += f' ({calcul})'
         

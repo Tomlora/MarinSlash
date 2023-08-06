@@ -29,15 +29,20 @@ class activity(Extension):
         for server_id in liste_guilde:
             guild = await self.bot.fetch_guild(server_id[0])
 
-            text_channel_list = [channel.id for channel in guild.channels]
+            text_channel_list = []
+            for channel in guild.channels:
+                text_channel_list.append(channel.id)
+
             print(
                 f' Serveurs connectés => Name : {guild.name} | Id : {guild.id} | Chan1 : {text_channel_list[0]}')
-
+            
             role = get(guild.roles, name="Muted")
 
-            if role is None:
+            if role is not None:
+                return role
+            else:
                 role = await guild.create_role(name="Muted", permissions=interactions.Permissions.VIEW_CHANNEL)
-            return role
+                return role
 
 
 def setup(bot):
