@@ -64,9 +64,10 @@ async def on_guild_create(guild: GuildJoin):
     if lire_bdd_perso(f'''SELECT server_id from channels_discord where server_id = {int(guild.guild_id)}''', index_col='server_id').shape[1] != 1:
         # si on l'a pas, on l'ajoute
         text_channel_list = []
-        
-        for channel in guild.guild.channels:
-            text_channel_list.append(channel.id)
+            
+        text_channel_list = [channel.id for channel in guild.guild.channels]
+
+
 
         requete_perso_bdd(f'''INSERT INTO channels_discord(
                         server_id, id_owner, id_owner2, chan_pm, chan_tracklol, chan_accueil, chan_twitch, chan_lol, chan_tft, chan_lol_others, role_admin)
@@ -74,7 +75,7 @@ async def on_guild_create(guild: GuildJoin):
                         INSERT INTO channels_module(server_id)
                         VALUES (:server_id);''',
                           {'server_id': int(guild.guild_id),
-                           'chan': int(text_channel_list[0].id),
+                           'chan': int(text_channel_list[0]),
                            'tom': 298418038460514314,
                            'admin': int(guild.guild.get_owner().id),
                            'role_admin': 0})
