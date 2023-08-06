@@ -7,7 +7,7 @@ import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, listen, slash_command, Task, IntervalTrigger, TimeTrigger
 from fonctions.params import Version, saison
 from fonctions.channels_discord import verif_module, identifier_role_by_name
-from fonctions.match import emote_rank_discord
+from fonctions.match import emote_rank_discord, emote_champ_discord
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import challengeslol
@@ -69,7 +69,7 @@ def records_check2(fichier,
             or methode != 'max'
             and float(record) > float(result_category_match)
         ):
-            embed += f"\n ** :boom: Record - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} ({champion}))"
+            embed += f"\n ** :boom: Record - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} ({emote_champ_discord.get(champion.capitalize(), 'inconnu')}))"
         if (
             float(record) == float(result_category_match)
             and category not in category_exclusion_egalite
@@ -107,7 +107,7 @@ def records_check2(fichier,
             or methode != 'max'
             and float(record_champion) > float(result_category_match)
         ):
-            embed += f"\n ** :rocket: Record sur {champion_champion} - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_champion} par {joueur_champion})"
+            embed += f"\n ** :rocket: Record sur {emote_champ_discord.get(champion_champion.capitalize(), 'inconnu')} - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_champion} par {joueur_champion})"
 
     return embed
 
@@ -1625,7 +1625,7 @@ class LeagueofLegends(Extension):
             champion_counts = df['champion'].sort_values(
                 ascending=False).value_counts()
             txt_champ = ''.join(
-                f'{champ} : **{number}** | '
+                f'{emote_champ_discord.get(champ.capitalize(), "inconnu")} : **{number}** | '
                 for champ, number in champion_counts.items()
             )
             # On prépare l'embed
@@ -1645,7 +1645,6 @@ class LeagueofLegends(Extension):
             part = 1
             embeds = []
             
-            
             emote_status_match = {'Victoire' : '<:valide:838833884442919002>', 'Défaite' : '<:invalide:838833882924843019>'}
             
            
@@ -1654,7 +1653,8 @@ class LeagueofLegends(Extension):
             
             for index, match in df.iterrows():
                 rank_img = emote_rank_discord[match["tier"]]
-                txt += f'({match["datetime"]}) [{match["champion"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}) [{match["mode"]} | {rank_img} {match["rank"]}] {emote_status_match[match["victoire"]]} | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%)\n'
+                champ_img = emote_champ_discord.get(match["champion"].capitalize(), 'inconnu')
+                txt += f'[{match["datetime"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] {emote_status_match[match["victoire"]]} | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%) | LP : **{match["ecart_lp"]}**\n'
 
                 if embed.fields and len(txt) + sum(len(field.value) for field in embed.fields) > 4500:
                     embed.add_field(name='KDA', value=total_kda)
@@ -1674,7 +1674,7 @@ class LeagueofLegends(Extension):
                     part = part + 1
 
                 # Vérifier si l'index est un multiple de 8
-                if count % 4 == 0 and count != 0:
+                if count % 3 == 0 and count != 0:
 
                     if n == 1:
                         embed.add_field(

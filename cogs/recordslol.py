@@ -5,7 +5,7 @@ import interactions
 from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, AutocompleteContext
 from interactions.ext.paginators import Paginator
 from fonctions.params import Version, saison
-from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples
+from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples, emote_champ_discord
 from aiohttp import ClientSession
 import plotly.express as px
 import asyncio
@@ -1287,7 +1287,8 @@ class Recordslol(Extension):
                 
                 
                 for row, data in fichier.iterrows():
-                    txt += f'**{data[stat]}** - {mention(data["discord"], "membre")} [{data["champion"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {data["datetime"].day}/{data["datetime"].month}\n'
+                    champion = data['champion']
+                    txt += f'[{data[stat]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month}\n'
                 
                 embed = interactions.Embed(title=f'Palmarès {stat} ({mode}) S{saison}', description=txt)
                 embed.set_footer(text=f"{nb_row} matchs analysés")
