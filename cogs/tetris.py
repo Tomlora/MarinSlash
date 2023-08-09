@@ -8,9 +8,6 @@ from interactions.api.events import Component
 
 ###### Code par kennhh : https://github.com/kennhh/tetris-discord-bot ######
 
-# Fonctionnera lorsque start() acceptera des args
-
-
 
 class Tetris(Extension):
     def __init__(self, bot):
@@ -53,7 +50,7 @@ class Tetris(Extension):
             self.game.__init__()
 
 
-    @slash_command(name='tetris', description='start a game of tetris')
+    @slash_command(name='tetris', description='Joue au Tetris')
     async def start(self, ctx: SlashContext):
         tetrisbuttons = [
             ActionRow(

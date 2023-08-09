@@ -392,8 +392,11 @@ class challengeslol():
                     field_value = texte[i]
                     # parfois la découpe renvoie un espace vide.
                     if not field_value in ['', ' ']:
-                        embed.add_field(name=field_name,
+                        try:
+                            embed.add_field(name=field_name,
                                         value=field_value, inline=False)
+                        except ValueError:
+                            embed.add_field(name=field_name, value=field_value[:1000], inline=False)
             
             return embed
         

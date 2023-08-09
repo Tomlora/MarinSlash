@@ -15,6 +15,7 @@ import asyncio
 from datetime import datetime, timedelta
 from dateutil import tz
 from interactions.ext.paginators import Paginator
+import traceback
 
 
 from fonctions.gestion_bdd import (lire_bdd,
@@ -69,7 +70,7 @@ def records_check2(fichier,
             or methode != 'max'
             and float(record) > float(result_category_match)
         ):
-            embed += f"\n ** :boom: Record - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} ({emote_champ_discord.get(champion.capitalize(), 'inconnu')}))"
+            embed += f"\n ** :boom: Record - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} {emote_champ_discord.get(champion.capitalize(), 'inconnu')})"
         if (
             float(record) == float(result_category_match)
             and category not in category_exclusion_egalite
@@ -261,7 +262,8 @@ class LeagueofLegends(Extension):
                              'gold_share': match_info.gold_share,
                              'ecart_gold_team': match_info.ecart_gold_team,
                              'kills+assists': match_info.thisKills + match_info.thisAssists,
-                             'temps_avant_premiere_mort' : match_info.thisTimeLiving}
+                             'temps_avant_premiere_mort' : match_info.thisTimeLiving,
+                             'dmg/gold' : match_info.DamageGoldRatio}
 
             param_records_only_ranked = {'vision_score': match_info.thisVision,
                                          'vision_wards': match_info.thisWards,
@@ -930,11 +932,17 @@ class LeagueofLegends(Extension):
                     )
                     # joueur qui a posé pb
                     print(f"erreur TypeError {summonername}")
-                    print(sys.exc_info())  # erreur
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                    traceback_msg = ''.join(traceback_details)
+                    print(traceback_msg)
                     continue
                 except Exception:
                     print(f"erreur {summonername}")  # joueur qui a posé pb
-                    print(sys.exc_info())  # erreur
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                    traceback_msg = ''.join(traceback_details)
+                    print(traceback_msg)
                     continue
 
             if tracker_bool and not tracker_send:

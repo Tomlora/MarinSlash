@@ -43,11 +43,11 @@ class Memory(Extension):
 
     @slash_command(
             name='memory_game',
-            description='start a memory game',
+            description='Joue au memory game',
             options=[
                 SlashCommandOption(
                     name='hidden_game',
-                    description='hidden numbers (off by default)',
+                    description='Cache les nombres (off par default)',
                     type=OptionType.BOOLEAN,
                     required=False
                 )
@@ -101,8 +101,8 @@ class Memory(Extension):
                                 Button(style = ButtonStyle.GRAY, label = f'{i}', custom_id = f'{i}', disabled=True)
                             )
                     actionrowbuttons = interactions.spread_to_rows(*buttons)
-                    embed = interactions.Embed(description=f'uh oh, you inputted {custom_id} instead of {sequence[current_index]}\n'
-                                                        f'the correct sequence was {sequence} which is {len(sequence)} number(s) long')
+                    embed = interactions.Embed(description=f'uh oh, Tu as validé {custom_id} au lieu de {sequence[current_index]}\n'
+                                                        f'La suite correcte était {sequence} ce qui correspond à {len(sequence)} 3 nombres')
                     await ctx.edit_origin(embed=embed.to_dict(), components=actionrowbuttons)
                     
 

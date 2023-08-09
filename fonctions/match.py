@@ -6,6 +6,7 @@ from fonctions.params import saison
 from fonctions.channels_discord import mention
 import numpy as np
 import sys
+import traceback
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import aiohttp
@@ -106,6 +107,7 @@ emote_rank_discord = {'IRON': '<:IRON:1137558843048595466>',
                         'GRANDMASTER': '<:GRANDMASTER:1137559295806939258>',
                         'CHALLENGER': '<:CHALLENGER:1137558737050161152>',
                         ' ': ':crossed_swords:',
+                        'NONE' : ':beginner:',
                         'Non-classe' : ':crossed_swords:'}
 
 
@@ -154,7 +156,7 @@ emote_champ_discord = {'Aatrox': '<:Aatrox:1137708589901946900>',
                        'Illaoi' : '<:Illaoi:1137719422149210132>',
                        'Irelia' : '<:Irelia:1137719424258945064>',
                        'Ivern' : '<:Ivern:1137719425676619857>',
-                       'Janna' : '<:Janna:1137556495706370068>',
+                       'Janna' : '<:Janna:1137719427824095302>',
                        'JarvanIV' : '<:JarvanIV:1137719816178896928>',
                        'Jax' : '<:Jax:1137719818284445757>',
                        'Jayce' : '<:Jayce:1137720220342026300>',
@@ -665,7 +667,10 @@ async def getId_with_summonername(summonerName : str, session : aiohttp.ClientSe
     except Exception:
         print('erreur getId')
         data = lire_bdd('tracker', 'dict')
-        print(sys.exc_info())
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        traceback_msg = ''.join(traceback_details)
+        print(traceback_msg)
         return str(data[summonerName]['id'])
 
 async def getId_with_puuid(puuid : str, session : aiohttp.ClientSession):
@@ -674,6 +679,9 @@ async def getId_with_puuid(puuid : str, session : aiohttp.ClientSession):
         return str(match_detail_stats['info']['gameId'])
     except KeyError as e:
         print(f'error keyerror : {e}')
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        traceback_msg = ''.join(traceback_details)
         data = lire_bdd('tracker').transpose()
         return str(data.loc[data['puuid'] == puuid]['id'].values[0])
     except asyncio.exceptions.TimeoutError:
@@ -1353,6 +1361,8 @@ class matchlol():
             self.thisId, self.match_detail, "teamDamagePercentage")
         self.thisDamageTakenRatioListe = dict_data(
             self.thisId, self.match_detail, "damageTakenOnTeamPercentage")
+        
+        self.DamageGoldRatio = round((self.thisDamageNoFormat/self.thisGoldNoFormat)*100,2)
 
         # stats mobalytics
 
@@ -1448,8 +1458,8 @@ class matchlol():
         self.thisDeaths = self.match_detail_participants['deaths']
         self.thisAssists = self.match_detail_participants['assists']
         self.thisWinId = self.match_detail_participants['win']
-        self.thisTimeLiving = fix_temps(round(
-            (int(self.match_detail_participants['longestTimeSpentLiving']) / 60), 2))
+        self.thisTimeLiving = round(fix_temps(round(
+            (int(self.match_detail_participants['longestTimeSpentLiving']) / 60), 2)),2)
         self.thisWin = ' '
         self.thisTime = fix_temps(round(
             (int(self.match_detail['info']['gameDuration']) / 60), 2))
@@ -1687,6 +1697,8 @@ class matchlol():
             self.thisDamageSelfMitigated).replace(',', ' ').replace('.', ',')
         self.thisTotalOnTeammatesFormat = "{:,}".format(
             self.thisTotalOnTeammates).replace(',', ' ').replace('.', ',')
+        
+        self.DamageGoldRatio = round((self.thisDamageNoFormat/self.thisGoldNoFormat)*100,2)
 
         # self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (temp_team_kills if i < 5
         #                                                                                          else temp_team_kills_op), 2) * 100)
@@ -1705,6 +1717,9 @@ class matchlol():
             self.thisShieldRatio = [round(self.thisShieldListe[i]/(np.sum(self.thisShieldListe)),2) for i in range(self.nb_joueur)]
         except ValueError:
             self.thisShieldRatio = [0 for i in range(self.nb_joueur)]
+            
+
+        
 
 
 
@@ -1777,13 +1792,13 @@ class matchlol():
         gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
         baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
         item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
-        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort)
+        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold")
         VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
         :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
         :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
         :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
         :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
-        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death);''',
+        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold);''',
             {
                 'match_id': self.last_match,
                 'joueur': self.summonerName.lower(),
@@ -1861,6 +1876,7 @@ class matchlol():
                 'ecart_gold_team': self.ecart_gold_team,
                 'ka': self.thisKills + self.thisAssists,
                 'time_first_death': self.thisTimeLiving,
+                'dmgsurgold' : self.DamageGoldRatio
             },
         )
 
