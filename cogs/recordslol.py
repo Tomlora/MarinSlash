@@ -215,6 +215,7 @@ class Recordslol(Extension):
         self.fichier_objectif = ['baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower']
         self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'couronne', 'snowball']
 
+        self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers
 
     @slash_command(name='lol_records', description='records League of Legends')
     async def records_lol(self, ctx: SlashContext):
@@ -761,6 +762,13 @@ class Recordslol(Extension):
                                      and server_id = {int(ctx.guild_id)}
                                      and time >= {self.time_mini[mode]}''', index_col='id').transpose()
             
+        fichier['early_drake'] = fichier['early_drake'].replace({0 : 999})    
+        fichier['early_baron'] = fichier['early_baron'].replace({0 : 999}) 
+        for column in self.liste_complete:
+            
+            fichier[f'{column}_rank_max'] = fichier[column].rank(method='min', ascending=False).astype(int)
+            fichier[f'{column}_rank_min'] = fichier[column].rank(method='min', ascending=True).astype(int)
+            
 
         if champion != None:
             
@@ -828,13 +836,13 @@ class Recordslol(Extension):
             return text
         
         def creation_embed(fichier, column, methode_pseudo, embed, methode='max'):
-                joueur, champion, record, url = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo)
+                joueur, champion, record, url, rank = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo, rank=True)
             
                 value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"** {joueur[0]} ** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]})\n"
                 
                 embed.add_field(
                     name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                    value=f"Records : __ {record} __ \n {value_text}",
+                    value=f"Records : __{record}__ (#{rank}) \n {value_text}",
                     inline=True
                 )
                 
@@ -981,9 +989,9 @@ class Recordslol(Extension):
 
         # data
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs, tracker where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]}''', index_col='id').transpose()
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]}''', index_col='id').transpose()
         elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs, tracker
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
@@ -1071,7 +1079,7 @@ class Recordslol(Extension):
             while True:
                 try:
                     button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
-                        components=select, check=check, timeout=30
+                        components=select, check=check, timeout=120
                     )
 
                     if button_ctx.ctx.values[0] == 'general':
@@ -1254,7 +1262,9 @@ class Recordslol(Extension):
             count_game = count_game[['discord', 'champion']].rename(columns={'champion': 'count'})
             
             # on prépare le fichier final
-            fichier = fichier.groupby(['champion', 'discord']).count().sort_values(by='match_id', ascending=False).reset_index()
+            
+               
+            fichier = fichier.groupby(['champion', 'discord']).count().sort_values(by='match_id', ascending=ascending).reset_index()
             nb_champion = len(fichier['champion'].unique())
             fichier = fichier.merge(count_game, on='discord', how='left')
             
@@ -1283,7 +1293,14 @@ class Recordslol(Extension):
                 
                 nb_row = fichier.shape[0]
                 
-                fichier.sort_values(by=stat, ascending=False, inplace=True)
+                                
+                if stat in ['early_baron', 'early_drake']:
+                    ascending=True
+                    fichier = fichier[fichier[stat] != 0]
+                else:
+                    ascending=False
+                    
+                fichier.sort_values(by=stat, ascending=ascending, inplace=True)
                 fichier = fichier.head(top)
                 
                 txt = ''

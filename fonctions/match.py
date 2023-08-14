@@ -355,7 +355,7 @@ def trouver_records(df, category, methode='max', identifiant='joueur'):
 
     return joueur, champion, record, url_game
 
-def trouver_records_multiples(df, category, methode='max', identifiant = 'joueur'):
+def trouver_records_multiples(df, category, methode='max', identifiant = 'joueur', rank:bool=False):
     """
         Trouve les lignes avec le record associé
 
@@ -391,13 +391,19 @@ def trouver_records_multiples(df, category, methode='max', identifiant = 'joueur
 
             col = df[category]
             record = col.min(skipna=True)
-
+            
         # Sélectionnez toutes les lignes avec la même valeur minimale
         max_min_rows : pd.DataFrame = df.loc[df[category] == record]
+        
+        if rank:
+            rank_value = max_min_rows[f'{category}_rank_{methode}'].values[0]
 
         # si le df est vide, pas de record
-        if max_min_rows.empty:
+        if max_min_rows.empty and not rank:
             return ['inconnu'], ['inconnu'], 0, ['#']
+        
+        elif max_min_rows.empty and rank:
+            return ['inconnu'], ['inconnu'], 0, ['#'], 0
 
         joueur = []
         champion = []
@@ -417,11 +423,21 @@ def trouver_records_multiples(df, category, methode='max', identifiant = 'joueur
                 champion.append(data['champion'])
 
                 url_game.append(f'https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}')
+                
+                
 
     except Exception:
-        return ['inconnu'], ['inconnu'], 0, ['#']
+        if rank:
+            return ['inconnu'], ['inconnu'], 0, ['#'], 0
+        else:
+            return ['inconnu'], ['inconnu'], 0, ['#']
 
-    return joueur, champion, record, url_game
+    if rank:
+        return joueur, champion, record, url_game, rank_value
+    else:
+        return joueur, champion, record, url_game
+
+
 
 def range_value(i, liste, min: bool = False, return_top: bool = False):
     if i == np.argmax(liste[:5]) or i-5 == np.argmax(liste[5:]):
@@ -678,10 +694,11 @@ async def getId_with_puuid(puuid : str, session : aiohttp.ClientSession):
         last_match, match_detail_stats = await match_by_puuid_with_puuid(puuid, 0, session)
         return str(match_detail_stats['info']['gameId'])
     except KeyError as e:
-        print(f'error keyerror : {e}')
+        print(f'error keyerror : {puuid}')
         exc_type, exc_value, exc_traceback = sys.exc_info()
         traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
         traceback_msg = ''.join(traceback_details)
+        print(traceback_msg)
         data = lire_bdd('tracker').transpose()
         return str(data.loc[data['puuid'] == puuid]['id'].values[0])
     except asyncio.exceptions.TimeoutError:

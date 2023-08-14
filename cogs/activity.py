@@ -23,11 +23,14 @@ class activity(Extension):
     @listen()
     async def on_ready(self):
 
-        data = get_guild_data()
-        liste_guilde = data.fetchall()
 
-        for server_id in liste_guilde:
-            guild = await self.bot.fetch_guild(server_id[0])
+        liste_guild = self.bot.guilds
+        
+        print(f'Serveurs connectés : {len(liste_guild)}')
+        
+        for server in liste_guild:
+            
+            guild = await self.bot.fetch_guild(server)
 
             text_channel_list = [channel.id for channel in guild.channels]
             print(

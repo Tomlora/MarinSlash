@@ -672,51 +672,52 @@ class LeagueofLegends(Extension):
         stats = await get_league_by_summoner(session, me)
 
         if len(stats) > 0:
-            # i = 0 if stats[0]['queueType'] == 'RANKED_SOLO_5x5' else 1
-
+   
             for j in range(len(stats)):
                 if stats[j]['queueType'] == 'RANKED_SOLO_5x5':
                     i = j
                     break
 
+            try:
+                tier_old = suivirank[key]['tier'].upper()
+                tier = stats[i]['tier'].upper()
+                rank_old = f"{suivirank[key]['tier']} {suivirank[key]['rank']}"
+                rank = f"{stats[i]['tier']} {stats[i]['rank']}"
 
-            tier_old = suivirank[key]['tier'].upper()
-            tier = stats[i]['tier'].upper()
-            rank_old = f"{suivirank[key]['tier']} {suivirank[key]['rank']}"
-            rank = f"{stats[i]['tier']} {stats[i]['rank']}"
+                if rank_old != rank:
 
-            if rank_old != rank:
-
-                try:
-                    channel_tracklol = await self.bot.fetch_channel(discord_server_id.tracklol)
-                    if dict_rankid[rank_old] > dict_rankid[rank]:  # 19 > 18
-                        await channel_tracklol.send(f'{emote_rank_discord[tier]} Le joueur **{key}** a démote du rank **{rank_old}** à **{rank}**')
-                        await channel_tracklol.send(files=interactions.File('./img/notstonks.jpg'))
-                    elif dict_rankid[rank_old] < dict_rankid[rank]:
-                        await channel_tracklol.send(f'{emote_rank_discord[tier]}Le joueur **{key}** a été promu du rank **{rank_old}** à **{rank}**')
-                        await channel_tracklol.send(files=interactions.File('./img/stonks.jpg'))
+                    try:
+                        channel_tracklol = await self.bot.fetch_channel(discord_server_id.tracklol)
+                        if dict_rankid[rank_old] > dict_rankid[rank]:  # 19 > 18
+                            await channel_tracklol.send(f'{emote_rank_discord[tier]} Le joueur **{key}** a démote du rank **{rank_old}** à **{rank}**')
+                            await channel_tracklol.send(files=interactions.File('./img/notstonks.jpg'))
+                        elif dict_rankid[rank_old] < dict_rankid[rank]:
+                            await channel_tracklol.send(f'{emote_rank_discord[tier]}Le joueur **{key}** a été promu du rank **{rank_old}** à **{rank}**')
+                            await channel_tracklol.send(files=interactions.File('./img/stonks.jpg'))
 
 
-                    # Role discord
-                    if tier_old != tier:
-                        member = await self.bot.fetch_member(discord_id, discord_server_id.server_id)
-                        guild = await self.bot.fetch_guild(discord_server_id.server_id)
-                        ancien_role = await identifier_role_by_name(guild, tier_old)
-                        nouveau_role = await identifier_role_by_name(guild, tier)
+                        # Role discord
+                        if tier_old != tier:
+                            member = await self.bot.fetch_member(discord_id, discord_server_id.server_id)
+                            guild = await self.bot.fetch_guild(discord_server_id.server_id)
+                            ancien_role = await identifier_role_by_name(guild, tier_old)
+                            nouveau_role = await identifier_role_by_name(guild, tier)
 
-                        if ancien_role in member.roles:
-                            await member.remove_role(ancien_role)
+                            if ancien_role in member.roles:
+                                await member.remove_role(ancien_role)
 
-                        if nouveau_role not in member.roles:
-                            await member.add_role(nouveau_role)
+                            if nouveau_role not in member.roles:
+                                await member.add_role(nouveau_role)
 
-                except Exception:
-                    print('Channel impossible')
-                    print(sys.exc_info())
+                    except Exception:
+                        print('Channel impossible')
+                        print(sys.exc_info())
 
-                requete_perso_bdd(f'UPDATE suivi_s{saison} SET tier = :tier, rank = :rank where index = :joueur', {'tier': stats[i]['tier'],
-                                                                                                                   'rank': stats[i]['rank'],
-                                                                                                                   'joueur': key})
+                    requete_perso_bdd(f'UPDATE suivi_s{saison} SET tier = :tier, rank = :rank where index = :joueur', {'tier': stats[i]['tier'],
+                                                                                                                    'rank': stats[i]['rank'],
+                                                                                                                    'joueur': key})
+            except UnboundLocalError:
+                pass
 
     @slash_command(name="game",
                    description="Voir les statistiques d'une games",
