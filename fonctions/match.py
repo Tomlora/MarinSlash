@@ -898,6 +898,12 @@ class matchlol():
         self.thisWin = ' '
         self.thisTime = fix_temps(round(
             (int(self.match_detail['info']['gameDuration']) / 60), 2))
+        
+        # si le joueur n'est pas mort, le temps est à 0
+        if self.thisTimeLiving == 0:
+            self.thisTimeLiving = self.thisTime
+            
+            
         self.thisDamage = self.match_detail_participants['totalDamageDealtToChampions']
         self.thisDamageNoFormat = self.match_detail_participants['totalDamageDealtToChampions']
         self.thisDamageAP = self.match_detail_participants['magicDamageDealtToChampions']
@@ -1353,8 +1359,13 @@ class matchlol():
             var = "{:,}".format(var).replace(',', ' ').replace('.', ',')
 
         if self.ecart_gold != "Indisponible":  # si nombre
+            self.ecart_gold_noformat = self.ecart_gold
             self.ecart_gold = "{:,}".format(
                 self.ecart_gold).replace(',', ' ').replace('.', ',')
+            self.ecart_gold_permin = round((self.ecart_gold_noformat / self.thisTime), 2)
+        else:
+            self.ecart_gold_noformat = 0
+            self.ecart_gold_permin = 0
 
         self.thisDamageSelfMitigatedFormat = "{:,}".format(
             self.thisDamageSelfMitigated).replace(',', ' ').replace('.', ',')
@@ -1477,9 +1488,16 @@ class matchlol():
         self.thisWinId = self.match_detail_participants['win']
         self.thisTimeLiving = round(fix_temps(round(
             (int(self.match_detail_participants['longestTimeSpentLiving']) / 60), 2)),2)
+        
+
         self.thisWin = ' '
         self.thisTime = fix_temps(round(
             (int(self.match_detail['info']['gameDuration']) / 60), 2))
+        
+        # si le joueur n'est pas mort, le temps est à 0
+        if self.thisTimeLiving == 0:
+            self.thisTimeLiving = self.thisTime
+            
         self.thisDamage = self.match_detail_participants['totalDamageDealtToChampions']
         self.thisDamageNoFormat = self.match_detail_participants['totalDamageDealtToChampions']
         self.thisDamageAP = self.match_detail_participants['magicDamageDealtToChampions']
@@ -1737,7 +1755,8 @@ class matchlol():
             
 
         
-
+        self.ecart_gold_noformat = 0
+        self.ecart_gold_permin = 0
 
 
         # # stats mobalytics
@@ -1809,13 +1828,13 @@ class matchlol():
         gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
         baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
         item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
-        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold")
+        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min)
         VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
         :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
         :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
         :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
         :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
-        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold);''',
+        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min);''',
             {
                 'match_id': self.last_match,
                 'joueur': self.summonerName.lower(),
@@ -1893,7 +1912,9 @@ class matchlol():
                 'ecart_gold_team': self.ecart_gold_team,
                 'ka': self.thisKills + self.thisAssists,
                 'time_first_death': self.thisTimeLiving,
-                'dmgsurgold' : self.DamageGoldRatio
+                'dmgsurgold' : self.DamageGoldRatio,
+                'ecart_gold_individuel' : self.ecart_gold_noformat,
+                'ecart_gold_min' : self.ecart_gold_permin,
             },
         )
 
@@ -1913,7 +1934,7 @@ class matchlol():
             dict_insight = {
                         # 'never_slacking' : f'\n{type_comment[type]} **{values[0]}** cs en mid game',
                         'teamfight_god' : f'\n{type_comment[type]} Gagné **{values[0]}** sur **{values[1]}** teamfights',
-                        'lane_tyrant' : f"\n{type_comment[type]} **{values[0]}** gold d'avance à 15 minutes",
+                        'lane_tyrant' : f"\n{type_comment[type]} **{values[0]}** gold d'avance à 15 min",
                         'stomp' : f"\n{type_comment[type]} **{values[0]}** gold d'avance",
                         'how_could_you' : f"\n{type_comment[type]} **{values[0]}** wards placés",
                         'not_fan_of_wards' : f"\n{type_comment[type]} Placé **{values[0]}** wards",
@@ -1923,25 +1944,25 @@ class matchlol():
                         # 'no_rift_heralds_taken' : f"\n{type_comment[type]} Aucun herald",
                         # 'no_objectives_taken' : f"\n{type_comment[type]} Aucun objectif",
                         'pick_up_artist' : f"\n{type_comment[type]} Sécurisé **{values[0]}** picks",
-                        "wanderer" : f"\n{type_comment[type]} Roam énormément pour sécuriser kills et objectifs",
+                        "wanderer" : f"\n{type_comment[type]} Roam pour sécuriser kills et objectifs",
                         'survivor' : f"\n{type_comment[type]} Seulement  **{values[0]}** mort(s)",
                         'elite_skirmisher' : f"\n{type_comment[type]} Gagné **{values[0]}** escarmouches sur **{values[1]}**",
                         # 'on_fire' : f"\n{type_comment[type]} **{round(values[0],2)}** KDA",
-                        "wrecking_ball" : f"\n{type_comment[type]} **{values[0]}** Dégats aux structures",
-                        "ouch_you_hurt" : f"\n{type_comment[type]} **{values[0]}** Dommages infligés",
-                        "goblin_hoarder" : f"\n{type_comment[type]} **{int(values[0])}** Gold par minute",
+                        "wrecking_ball" : f"\n{type_comment[type]} **{values[0]}** DMG aux structures",
+                        "ouch_you_hurt" : f"\n{type_comment[type]} **{values[0]}** DMG infligés",
+                        "goblin_hoarder" : f"\n{type_comment[type]} **{int(values[0])}** Gold / min",
                         # "bringer_of_carnage" : f"\n{type_comment[type]} **{values[0]}** Kills",
                         "anti_kda_player" : f"\n{type_comment[type]} **{round(values[0],2)}** KDA",
                         # "what_powerspike" : f"\n{type_comment[type]} Pas atteint le niveau 11",
-                        "not_fan_of_farming" : f"\n {type_comment[type]} **{int(values[0])}** farm par minute",
+                        "not_fan_of_farming" : f"\n {type_comment[type]} **{int(values[0])}** farm / min",
                         # "immortal" : f"\n {type_comment[type]} Immortel",
                         "visionary" : f"\n {type_comment[type]} **{values[0]}** wards placés",
-                        "no_control" : f"\n{type_comment[type]} Aucune pink",
+                        "no_control" : f"\n{type_comment[type]} 0 pink",
                         "blood_thirsty" : f"\n{type_comment[type]} Tu as réussi **{values[0]}** ganks dans les 10 premières minutes.",
                         "superior_jungler" : f"\n{type_comment[type]} Tu as réussi plus de ganks que ton adversaire avec **{values[0]}**",
                         "comeback_king" : f"\n {type_comment[type]} Tu as réussi à comeback après un début difficile",
                         "safety_first" : f"\n{type_comment[type]} Tu as placé assez de vision pour préparer les objectifs neutres",
-                        'no_damage_to_turrets' : f"\n{type_comment[type]} Tu n'as pas tapé les tours",
+                        'no_damage_to_turrets' : f"\n{type_comment[type]} **0** DMG sur les tours",
                         'mvp' : f"\n{type_comment[type]} **Meilleur joueur**"}
             
             if self.thisQ != 'ARAM':

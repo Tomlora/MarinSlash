@@ -291,7 +291,7 @@ class challengeslol():
                 if len(str(int(nombre))) <= 6 :
                     return humanize.intcomma(int(nombre)) # on met des espaces entre les milliers
                 else:
-                    return humanize.intword(int(nombre)).replace('million', 'millions') # on transforme le nombre en mots
+                    return humanize.intword(int(nombre)).replace('million', 'M') # on transforme le nombre en mots
             except ValueError:
                 return 0
         
@@ -314,9 +314,9 @@ class challengeslol():
                         txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]} | **{position}**ème] : \n> **{value}** (+{dif_value}) '
                 else:
                     if position == str(0):
-                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]}] : \n> **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour level up'
+                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]}] : \n> **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour :up:'
                     else:
-                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]} | **{position}**ème] : \n> **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour level up'
+                        txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]} | **{position}**ème] : \n> **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour :up:'
         
         
         if not self.data_evolution.empty:
@@ -357,7 +357,7 @@ class challengeslol():
                 if next_palier == str(0):
                     txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : \n> Tu es désormais **{(emote_rank_discord[data["level"]])}** avec **{value}**'
                 else:
-                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : \n> Tu es désormais **{(emote_rank_discord[data["level"]])}** avec **{value}** :arrow_right: **{next_palier}** pts pour level up'
+                    txt_level_up += f'\n:up: **{data["name"]}** ({data["shortDescription"]}) : \n> Tu es désormais **{(emote_rank_discord[data["level"]])}** avec **{value}** :arrow_right: **{next_palier}** pts pour :up:'
                 
         
         

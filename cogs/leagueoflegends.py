@@ -721,6 +721,7 @@ class LeagueofLegends(Extension):
 
     @slash_command(name="game",
                    description="Voir les statistiques d'une games",
+                   default_member_permissions=interactions.Permissions.MANAGE_GUILD,
                    options=[
                        SlashCommandOption(name="summonername",
                                           description="Nom du joueur",
@@ -749,7 +750,7 @@ class LeagueofLegends(Extension):
                    ctx: SlashContext,
                    summonername: str,
                    numerogame: int,
-                   sauvegarder: bool = True,
+                   sauvegarder: bool = False,
                    identifiant_game=None,
                    affichage=1):
 
@@ -1232,7 +1233,7 @@ class LeagueofLegends(Extension):
                                     inplace=True)
 
         response = ''.join(
-            f'''{data['index']} : {data['tier']} {data['rank']} | {data['LP']} LP | {data['winrate']}% WR\n'''
+            f'''{data['index']} : {emote_rank_discord[data['tier']]} {data['rank']} | {data['LP']} LP | {data['winrate']}% WR\n'''
             for lig, data in df.iterrows()
         )
         embed = interactions.Embed(
@@ -1556,7 +1557,7 @@ class LeagueofLegends(Extension):
         if mode is None:
             df = (
                 lire_bdd_perso(
-                    f'''SELECT id, match_id, champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, datetime from matchs
+                    f'''SELECT id, match_id, champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, datetime from matchs
                                    where datetime >= :date
                                    and joueur='{summonername}' ''',
                     params={
@@ -1567,7 +1568,7 @@ class LeagueofLegends(Extension):
                 ).transpose()
                 if observation != 'today'
                 else lire_bdd_perso(
-                    f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, datetime from matchs
+                    f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, datetime from matchs
                                 where EXTRACT(DAY FROM datetime) = :jour
                                 AND EXTRACT(MONTH FROM datetime) = :mois
                                 AND EXTRACT(YEAR FROM datetime) = :annee
@@ -1581,7 +1582,7 @@ class LeagueofLegends(Extension):
                 ).transpose()
             )
         elif observation != 'today':
-            df = lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, victoire, kda, ecart_lp, datetime from matchs
+            df = lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, victoire, kda, ecart_lp, ecart_gold, datetime from matchs
                                    where datetime >= :date
                                    and joueur='{summonername}'
                                    and mode = '{mode}' ''',
@@ -1591,7 +1592,7 @@ class LeagueofLegends(Extension):
 
         else:
 
-            df = lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, victoire, kda, ecart_lp, datetime from matchs
+            df = lire_bdd_perso(f'''SELECT id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, victoire, kda, ecart_lp, ecart_gold, datetime from matchs
                                 where EXTRACT(DAY FROM datetime) = :jour
                                 AND EXTRACT(MONTH FROM datetime) = :mois
                                 AND EXTRACT(YEAR FROM datetime) = :annee
@@ -1619,12 +1620,15 @@ class LeagueofLegends(Extension):
             total_kda = f'Total : **{df["kills"].sum()}**/**{df["deaths"].sum()}**/**{df["assists"].sum()}**  | Moyenne : **{df["kills"].mean():.2f}**/**{df["deaths"].mean():.2f}**/**{df["assists"].mean():.1f}** (**{df["kda"].mean():.2f}**) | KP : **{df["kp"].mean():.2f}**% '
             total_lp = f'**{df["ecart_lp"].sum()}**'
 
+            # Serie de kills
             total_quadra = df['quadra'].sum()
             total_penta = df['penta'].sum()
 
+            # Moyenne
             duree_moyenne = df['time'].mean()
             mvp_moyenne = df['mvp'].mean()
 
+            # Victoire
             nb_victoire_total = df['victoire'].value_counts().get(
                 'Victoire', 0)
             nb_defaite_total = df['victoire'].value_counts().get('Défaite', 0)
@@ -1663,9 +1667,9 @@ class LeagueofLegends(Extension):
             for index, match in df.iterrows():
                 rank_img = emote_rank_discord[match["tier"]]
                 champ_img = emote_champ_discord.get(match["champion"].capitalize(), 'inconnu')
-                txt += f'[{match["datetime"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] {emote_status_match[match["victoire"]]} | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%) | LP : **{match["ecart_lp"]}**\n'
+                txt += f'[{match["datetime"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] {emote_status_match[match["victoire"]]} | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%) | LP : **{match["ecart_lp"]}** | G : {match["ecart_gold"]} \n'
 
-                if embed.fields and len(txt) + sum(len(field.value) for field in embed.fields) > 4500:
+                if embed.fields and len(txt) + sum(len(field.value) for field in embed.fields) > 4000:
                     embed.add_field(name='KDA', value=total_kda)
                     embed.add_field(name='Champions', value=txt_champ)
                     embed.add_field(

@@ -267,7 +267,11 @@ class Challenges(Extension):
         df['name'] = df['name'].str.lower()
         df.set_index('name', inplace=True)
 
-        df.loc[nom_challenge, 'challengeId']
+        try:
+            df.loc[nom_challenge, 'challengeId']
+        except:
+            await ctx.send("Ce challenge n'existe pas", ephemeral=True)
+            return None
 
         if action == 'exclure':
 
