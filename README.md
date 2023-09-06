@@ -74,6 +74,12 @@ Ce recap est personnalisable, c'est-à-dire qu'il y a différents modules qui pe
 - Les records des joueurs trackés sont enregistrés. Il peut donc retrouver ses différents records et sur quel champion il l'a obtenu par rapport aux autres joueurs du tracker
 - Il peut également voir ses propres records personnels, sans les comparer aux autres.
 
+<p align="center">
+ <br>
+  <img width="500" height="600" src="https://github.com/Tomlora/MarinSlash/blob/main/records.png?raw=true">
+ <br>
+ </p>
+
 ### Achievements
 
 - Lorsqu'un joueur fait une bonne performance, il peut gagner une couronne. (Par exemple, s'il ne meurt pas de la partie ou s'il participe à plus de 70% des kills de son équipe)
