@@ -56,10 +56,14 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
 
 Il existe deux formats de présentation :
  <p align="center">
- Format ligne : 
+ Format ligne (Abrégé) : 
  <br>
   <img width="550" height="1000" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese3.png?raw=true">
  <br>
+  Format ligne (toutes options activées) :
+  <br>
+  <img width="550" height="1100" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese7.png?raw=true">
+  <br>
  Format Colonne <b>(En beta)</b> : 
  <br>
  <img width="900" height="600" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese5.png?raw=true">
