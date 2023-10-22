@@ -19,9 +19,10 @@ class Fantasy(Extension):
     async def fantasy_add(self, ctx: SlashContext):
 
         await ctx.defer(ephemeral=True)
+        
 
         author_id = int(ctx.author.id)
-        pseudo = ctx.author.name
+        pseudo = ctx.author.nick
 
         requete_perso_bdd(f'''INSERT INTO fantasy_players (id_discord, pseudo) VALUES (:author_id, :pseudo)''',
                           dict_params={'author_id': author_id,
@@ -61,18 +62,18 @@ class Fantasy(Extension):
             numero_button += 1  # pour éviter le 0. Le match commence à 1
 
             button1 = interactions.Button(
-                custom_id=f'button_{numero_button}',
-                style=interactions.ButtonStyle.BLUE,
+                custom_id=equipe1,
+                style=interactions.ButtonStyle.SUCCESS,
                 label=equipe1,
             )
 
             button2 = interactions.Button(
-                custom_id=f'button_{numero_button+100}',
+                custom_id=equipe2,
                 style=interactions.ButtonStyle.RED,
                 label=equipe2
             )
 
-            return interactions.ActionRow(components=[button1, button2])
+            return [button1, button2]
 
         # possibilité de faire deux listes avec les équipes bleus + red, et faire -> for equipe_bleu, equipe_red in zip(liste_bleu, liste_red)
 
@@ -84,32 +85,42 @@ class Fantasy(Extension):
 
         msg = await ctx.send(embeds=embed1, components=liste_components)
 
-        async def check(button_ctx):
-            if int(button_ctx.author.user.id) == int(ctx.author.user.id):
+
+        async def check(button_ctx : interactions.api.events.internal.Component):
+            if int(button_ctx.ctx.author.id) == int(ctx.author.user.id):
                 return True
             await ctx.send("I wasn't asking you!", ephemeral=True)
             return False
 
         while True:
             try:
-                button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+                button_ctx: interactions.api.events.internal.Component  = await self.bot.wait_for_component(
                     components=liste_components, check=check, timeout=300
                 )
+                
+                try:
+                    numero_button = liste_bleu.index(button_ctx.ctx.custom_id) + 1
+                except:
+                    numero_button = liste_rouge.index(button_ctx.ctx.custom_id) + 1
+
 
                 df_bet = lire_bdd_perso(f'''SELECT * FROM fantasy_bet
                                 WHERE id_discord = {author_id}
                                 AND semaine = {semaine}
-                                AND nb_match = '{button_ctx.custom_id[-1]}' ''', index_col='id_discord').transpose()
+                                AND nb_match = '{numero_button}' ''', index_col='id_discord').transpose()
 
+                # numero du match
+
+                    
                 if df_bet.empty:
                     requete_perso_bdd('''INSERT INTO fantasy_bet (id_discord, semaine, nb_match, vainqueur, competition)
                                         VALUES (:author_id, :semaine, :nb_match, :vainqueur, :competition) ''',
                                       dict_params={'author_id': author_id,
                                                    'semaine': semaine,
-                                                   'nb_match': button_ctx.custom_id[-1],
-                                                   'vainqueur': button_ctx.ctx.label,
+                                                   'nb_match': numero_button,
+                                                   'vainqueur': button_ctx.ctx.custom_id,
                                                    'competition': competition})
-                    await ctx.send(f'Enregistré pour {button_ctx.ctx.label}', ephemeral=True)
+                    await ctx.send(f'Enregistré pour {button_ctx.ctx.custom_id}', ephemeral=True)
                 else:
                     await ctx.send('Tu as déjà parié sur ce match', ephemeral=True)
 

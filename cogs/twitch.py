@@ -29,11 +29,10 @@ class Twitch(Extension):
         
 
     # return the stream Id is streaming else returns -1
-    async def TwitchLive(self, pseudo_twitch: str, statut_twitch: bool, session):
-        # TODO : Faire par serveur discord
-        discord_server_id = chan_discord(494217748046544906)
+    async def TwitchLive(self, pseudo_twitch: str, statut_twitch: bool, server_id : int, session):
 
-         
+        discord_server_id = chan_discord(server_id)
+
         channel_lol = await self.bot.fetch_channel(discord_server_id.twitch)
 
         async with session.post(self.URL, params=self.body) as user_twitch:
@@ -52,30 +51,35 @@ class Twitch(Extension):
 
         async with session.get('https://api.twitch.tv/helix/search/channels?query=' + pseudo_twitch, headers=headers) as stream:
             stream_data = await stream.json()
+            
+        for i, data_joueur in enumerate(stream_data['data']):
+            if pseudo_twitch == data_joueur['broadcaster_login']:
+                i_joueur = i
 
-        if stream_data['data'][0]['is_live'] == True:  # si le joueur est en live
+        if stream_data['data'][i_joueur]['is_live'] == True:  # si le joueur est en live
             # on récupère le jeu streamé
-            jeu = stream_data['data'][0]['game_name']
+            jeu = stream_data['data'][i_joueur]['game_name']
             if statut_twitch == False:  # on vérifier si on a déjà fait l'annonce
                 requete_perso_bdd('''UPDATE twitch SET is_live = True WHERE index = :joueur ''', {
                                   'joueur': pseudo_twitch.lower()})
                 await channel_lol.send(
                     f'{pseudo_twitch} est en ligne sur {jeu}! https://www.twitch.tv/{pseudo_twitch}')
+                
         # si le joueur a fini son stream
-        elif stream_data['data'][0]['is_live'] == False and statut_twitch == True:
+        elif stream_data['data'][i_joueur]['is_live'] == False and statut_twitch == True:
             requete_perso_bdd('''UPDATE twitch SET is_live = False WHERE index = :joueur ''', {
                               'joueur': pseudo_twitch.lower()})
 
-    @Task.create(IntervalTrigger(minutes=5))
+    @Task.create(IntervalTrigger(minutes=2))
     async def Twitch_verif(self):
 
         session = aiohttp.ClientSession()
 
         data_joueur = get_data_bdd(
-            "SELECT index, is_live from twitch").mappings().all()
+            "SELECT index, is_live, server_id from twitch").mappings().all()
 
         for joueur in data_joueur:
-            await self.TwitchLive(joueur['index'], joueur['is_live'], session)
+            await self.TwitchLive(joueur['index'], joueur['is_live'], joueur['server_id'], session)
 
         await session.close()
 
@@ -90,8 +94,10 @@ class Twitch(Extension):
 
         await ctx.defer(ephemeral=False)
 
-        requete_perso_bdd('''INSERT INTO twitch(index, is_live)
-	                    VALUES (:index, :is_live);''', {'index': pseudo_twitch.lower(), 'is_live': False})
+        requete_perso_bdd('''INSERT INTO twitch(index, is_live, server_id)
+	                    VALUES (:index, :is_live, :server_id);''', {'index': pseudo_twitch.lower(),
+                                                                 'is_live': False,
+                                                                 'server_id' : int(ctx.guild.id)})
         await ctx.send('Joueur ajouté au tracker Twitch')
 
     @slash_command(name="deltwitch",

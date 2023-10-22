@@ -12,6 +12,8 @@ import numpy as np
 import os
 from aiohttp import ClientSession, ClientError
 from interactions import listen, slash_command
+from fonctions.gestion_bdd import requete_perso_bdd
+from fonctions.permissions import isOwner_slash
 
 import aiohttp
 import asyncio
@@ -78,22 +80,23 @@ class Divers(Extension):
                 style=interactions.ButtonStyle.PRIMARY,
                 label="Marin",
                 custom_id="Marin",
-                emoji=interactions.Emoji(name="😂")
+                emoji=interactions.PartialEmoji(name="😂")
             ),
             interactions.Button(
                 style=interactions.ButtonStyle.SUCCESS,
                 label="Tomlora",
-                custom_id="non",
-                emoji=interactions.Emoji(name="👑")
+                custom_id="Oui",
+                emoji=interactions.PartialEmoji(name="👑")
             )
         ]
 
         await ctx.send("Qui est le meilleur joueur ici ?",
                        components=buttons)
 
-        async def check(button_ctx):
+        async def check(button_ctx : interactions.api.events.internal.Component):
             # return m.author_id == ctx.author.id and m.origin_message.id == fait_choix.id
-            if int(button_ctx.author.user.id) == int(ctx.author.user.id):
+        
+            if int(button_ctx.ctx.author.user.id) == int(ctx.author.user.id):
                 return True
             await ctx.send("I wasn't asking you!", ephemeral=True)
             return False
@@ -101,10 +104,11 @@ class Divers(Extension):
         try:
             # Like before, this wait_for listens for a certain event, but is made specifically for components.
             # Although, this returns a new Context, independent of the original context.
-            button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+            button_ctx: interactions.api.events.internal.Component = await self.bot.wait_for_component(
                 components=buttons, check=check, timeout=30
             )
-            await button_ctx.send(button_ctx.data.custom_id)
+            
+            await button_ctx.ctx.send(button_ctx.ctx.custom_id)
             # With this new Context, you're able to send a new response.
         except asyncio.TimeoutError:
             # When it times out, edit the original message and remove the button(s)
@@ -116,15 +120,15 @@ class Divers(Extension):
         select = interactions.SelectMenu(
             options=[
                 interactions.SelectSlashCommandOption(
-                    label="Dawn", value="1", emoji=interactions.Emoji(name='😂')),
+                    label="Dawn", value="1", emoji=interactions.PartialEmoji(name='😂')),
                 interactions.SelectSlashCommandOption(
-                    label="Exorblue", value="2", emoji=interactions.Emoji(name='😏')),
+                    label="Exorblue", value="2", emoji=interactions.PartialEmoji(name='😏')),
                 interactions.SelectSlashCommandOption(
-                    label="Tomlora", value="3", emoji=interactions.Emoji(name='💛')),
+                    label="Tomlora", value="3", emoji=interactions.PartialEmoji(name='💛')),
                 interactions.SelectSlashCommandOption(
-                    label="Ylarabka", value="4", emoji=interactions.Emoji(name='🦊')),
+                    label="Ylarabka", value="4", emoji=interactions.PartialEmoji(name='🦊')),
                 interactions.SelectSlashCommandOption(
-                    label="Djingo le egay", value="5", emoji=interactions.Emoji(name='💚'))
+                    label="Djingo le egay", value="5", emoji=interactions.PartialEmoji(name='💚'))
             ],
             custom_id='quizz_selected',
             placeholder="Choisis un emoji...",
@@ -134,20 +138,21 @@ class Divers(Extension):
         await ctx.send("Qui est le meilleur joueur ici ?",
                        components=select)
 
-        async def check(button_ctx):
+        async def check(button_ctx : interactions.api.events.internal.Component ):
             if int(button_ctx.author.user.id) == int(ctx.author.user.id):
                 return True
             await ctx.send("I wasn't asking you!", ephemeral=True)
             return False
 
         try:
-            button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+            button_ctx: interactions.api.events.internal.Component  = await self.bot.wait_for_component(
                 components=select, check=check, timeout=30
             )
-            if button_ctx.data.values[0] == "3":
-                await button_ctx.send("Bonne réponse ! 🦊")
+            
+            if button_ctx.ctx.values[0] == "3":
+                await button_ctx.ctx.send("Bonne réponse ! 🦊")
             else:
-                await button_ctx.send("Mauvaise réponse... 😒")
+                await button_ctx.ctx.send("Mauvaise réponse... 😒")
             # With this new Context, you're able to send a new response.
         except asyncio.TimeoutError:
             # When it times out, edit the original message and remove the button(s)
@@ -174,7 +179,7 @@ class Divers(Extension):
                                         )])
     async def spank_slash(self,
                           ctx: SlashContext,
-                          member: interactions.Member,
+                          member: interactions.User,
                           reason="Aucune raison n'a été renseignée"):
         if isOwner_slash(ctx):
 
@@ -183,9 +188,9 @@ class Divers(Extension):
                                                datetime.datetime.utcnow() + datetime.timedelta(seconds=60))
             await member.add_role(role=muted_role, guild_id=ctx.guild_id)
             if reason == "Aucune raison n'a été renseignée":
-                description = f"{member.name} a été spank par {ctx.author.name}"
+                description = f"{member.mention} a été spank par {ctx.author.nickname}"
             else:
-                description = f"{member.name} a été spank par {ctx.author.name} pour {reason}"
+                description = f"{member.mention} a été spank par {ctx.author.nickname} pour {reason}"
             embed = interactions.Embed(description=description,
                                        color=interactions.Color.random())
             print("Une personne a été spank")
@@ -197,7 +202,7 @@ class Divers(Extension):
             self.database_handler.add_tempmute(int(id), int(ctx.guild_id),
                                                datetime.datetime.utcnow() + datetime.timedelta(seconds=60))
             await ctx.author.add_role(role=muted_role, guild_id=ctx.guild_id)
-            description = f"Bien essayé. {ctx.author.name} s'est prank lui-même"
+            description = f"Bien essayé. {ctx.author.nickname} s'est prank lui-même"
 
             embed = interactions.Embed(description=description,
                                        color=interactions.Color.random())
@@ -233,7 +238,7 @@ class Divers(Extension):
                         seconds: int,
                         reason: str = "Aucune raison n'a été renseignée"):
 
-        if await ctx.has_permissions(interactions.Permissions.MUTE_MEMBERS):
+        if await ctx.author.has_permission(interactions.Permissions.MUTE_MEMBERS):
             muted_role = await self.get_muted_role(ctx.guild)
             self.database_handler.add_tempmute(int(member.id), int(ctx.guild_id),
                                                datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds))
@@ -420,6 +425,44 @@ class Divers(Extension):
         except asyncio.TimeoutError as e:
             await ctx.send('Erreur : Délai dépassé. Merci de reposer la question')
             await clientSession.close()
+            
+    @slash_command(name="ban_list",
+                                    description="Gère la ban list",
+                                    options=[
+                                        SlashCommandOption(
+                                            name="utilisateur",
+                                            description="membre discord",
+                                            type=interactions.OptionType.USER,
+                                            required=True),
+                                        SlashCommandOption(name='action',
+                                               description='true = banned',
+                                               type=interactions.OptionType.BOOLEAN,
+                                               required=True),
+                                    ])
+    async def modifier_banlist(self,
+                        ctx: SlashContext,
+                        utilisateur : interactions.User,
+                        action:bool):
+        
+
+        if int(ctx.author.id) == 298418038460514314 or ctx.author.has_permission(interactions.Permissions.ADMINISTRATOR):
+            discord_id = int(utilisateur.id)
+            row_affected = requete_perso_bdd('UPDATE tracker SET banned = :action where discord = :discord_id',
+                                             dict_params={'action' : action, 'discord_id' : str(discord_id)},
+                                             get_row_affected=True) 
+            
+            if row_affected > 0:
+                await ctx.send(f'Modification effectuée pour {utilisateur.mention}')
+                if action:
+                    await utilisateur.send('Tu as été banni des fonctionnalités de Marin.')
+                else:
+                    await utilisateur.send('Tu as été débanni des fonctionnalités de Marin.')
+            else:
+                await ctx.send('Pas de compte associé')
+            
+        else:
+            await ctx.send("Tu n'as pas l'autorisation")           
+            
         
                     
 

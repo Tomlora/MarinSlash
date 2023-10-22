@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import warnings
-from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd
+from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd, lire_bdd_perso
 from fonctions.params import saison
 from fonctions.channels_discord import mention
 import numpy as np
@@ -26,17 +26,15 @@ def fix_temps(duree):
     return minutes + secondes
 
 def label_tier(x):
-    dict_chg_tier = {'Non-classe': 0,
-                        'IRON': 1,
-                        'BRONZE': 1,
-                        'SILVER': 2,
-                        'GOLD': 3,
-                        'PLATINUM': 4,
-                        'EMERALD': 5,
-                        'DIAMOND': 6,
-                        'MASTER': 7,
-                        'GRANDMASTER': 8,
-                        'CHALLENGER': 9}
+    dict_chg_tier = lire_bdd_perso('SELECT * from data_rank', index_col='nom')\
+                                                                                    .T\
+                                                                                        .to_dict()['tier']
+                                                                                        
+    for key, value in dict_chg_tier.items():
+        try:
+            dict_chg_tier[key] = int(value)    
+        except:
+            continue   
     return dict_chg_tier.get(x,0)
 
 def label_rank(x):
@@ -55,34 +53,9 @@ label_ward = {'YELLOW TRINKET': 1,
                 'BLUE_TRINKET': 5}
 
 
-dict_rankid = {"Non-classe 0": 0,
-               "BRONZE IV": 1,
-               "BRONZE III": 2,
-               "BRONZE II": 3,
-               "BRONZE I": 4,
-               "SILVER IV": 5,
-               "SILVER III": 6,
-               "SILVER II": 7,
-               "SILVER I": 8,
-               "GOLD IV": 9,
-               "GOLD III": 10,
-               "GOLD II": 11,
-               "GOLD I": 12,
-               "PLATINUM IV": 13,
-               "PLATINUM III": 14,
-               "PLATINUM II": 15,
-               "PLATINUM I": 16,
-               "EMERALD IV": 17,
-               "EMERALD III": 18,
-               "EMERALD II": 19,
-               "EMERALD I": 20,
-               "DIAMOND IV": 21,
-               "DIAMOND III": 22,
-               "DIAMOND II": 23,
-               "DIAMOND I": 24,
-               'MASTER I': 25,
-               'GRANDMASTER I': 26,
-               'CHALLENGER I': 27}
+dict_rankid = lire_bdd_perso('SELECT * from data_rank_soloq', index_col='rank')\
+                                                                                    .T\
+                                                                                        .to_dict()['id']
 
 elo_lp = {'IRON': 0,
           'BRONZE': 1,
@@ -96,185 +69,17 @@ elo_lp = {'IRON': 0,
           'CHALLENGER': 9,
           'FIRST_GAME': 0}
 
-emote_rank_discord = {'IRON': '<:IRON:1137558843048595466>',
-                      'BRONZE': '<:BRONZE:1137558721858379868>',
-                        'SILVER': '<:SILVER:1137558792289124494>',
-                        'GOLD': '<:GOLD:1137558815525568564>',
-                        'PLATINUM': '<:PLATINUM:1137558904650338304>',
-                        'EMERALD': '<:EMERALD:1137556495706370068>',
-                        'DIAMOND': '<:DIAMOND:1137558749507227708>',
-                        'MASTER': '<:MASTER:1137558853144285226>',
-                        'GRANDMASTER': '<:GRANDMASTER:1137559295806939258>',
-                        'CHALLENGER': '<:CHALLENGER:1137558737050161152>',
-                        ' ': ':crossed_swords:',
-                        'NONE' : ':beginner:',
-                        'Non-classe' : ':crossed_swords:'}
+
+emote_rank_discord = lire_bdd_perso('SELECT * from data_rank', index_col='nom')\
+                                                                                    .T\
+                                                                                        .to_dict()\
+                                                                                            ['icon_identifiant']
 
 
-emote_champ_discord = {'Aatrox': '<:Aatrox:1137708589901946900>',
-                       'Ahri' : '<:Ahri:1137708591088943124>',
-                       'Akali' : '<:Akali:1137708593114787912>',
-                       'Akshan' : '<:Akshan:1137708594138206259>',
-                       'Alistar' : '<:Alistar:1137708596428279828>',
-                       'Amumu' : '<:Amumu:1137708597883707503>',
-                       'Anivia' : '<:Anivia:1137708599536275527>',
-                       'Annie' : '<:Annie:1137708601310453770>',
-                       'Aphelios' : '<:Aphelios:1137708602342260736>',
-                       'Ashe' : '<:Ashe:1137708677101535233>',
-                       'Aurelion Sol' : '<:AurelionSol:1137708604405850164>',
-                       'Azir' : '<:Azir:1137708793443143741>',
-                       'Bard' : '<:Bard:1137718335124029500>',
-                       'Belveth' : '<:Belveth:1137718337292488734>',
-                       'Blitzcrank' : '<:Blitzcrank:1137718338726932542>',
-                       'Brand' : '<:Brand:1137718339951661097>',
-                       'Braum' : '<:Braum:1137718341734240276>',
-                       'Caitlyn' : '<:Caitlyn:1137718348768088074>',
-                       'Camille' : '<:Camille:1137718349749571584>',
-                       'Cassiopeia' : '<:Cassiopeia:1137718351058190396>',
-                       'Chogath' : '<:ChoGath:1137718353100812378>',
-                       'Corki' : '<:Corki:1137718354648498186>',
-                       'Darius' : '<:Darius:1137718753426145401>',
-                       'Diana' : '<:Diana:1137718755644940368>',
-                       'Draven' : '<:Draven:1137718864654897183>',
-                       'Drmundo' : '<:DrMundo:1137718867007909948>',
-                       'Ekko' : '<:Ekko:1137718868488491088>',
-                       'Elise' : '<:Elise:1137718869797113918>',
-                       'Evelynn' : '<:Evelynn:1137718872095600693>',
-                       'Ezreal' : '<:Ezreal:1137718873429381180>',
-                       'Fiddlesticks' : '<:Fiddlesticks:1137718876679962734>',
-                       'Fiora' : '<:Fiora:1137718878206689300>',
-                       'Fizz' : '<:Fizz:1137718880576479343>',
-                       'Galio' : '<:Galio:1137718882438754314>',
-                       'Gangplank' : '<:Gangplank:1137719275654750278>',
-                       'Garen' : '<:Garen:1137719276682346659>',
-                       'Gnar' : '<:Gnar:1137719412506509355>',
-                       'Gragas' : '<:Gragas:1137719414817554495>',
-                       'Graves' : '<:Graves:1137719415979384922>',
-                       'Gwen' : '<:Gwen:1137719417262837760>',
-                       'Hecarim' : '<:Hecarim:1137719419171262549>',
-                       'Heimerdinger' : '<:Heimerdinger:1137719420731531304>',
-                       'Illaoi' : '<:Illaoi:1137719422149210132>',
-                       'Irelia' : '<:Irelia:1137719424258945064>',
-                       'Ivern' : '<:Ivern:1137719425676619857>',
-                       'Janna' : '<:Janna:1137719427824095302>',
-                       'JarvanIV' : '<:JarvanIV:1137719816178896928>',
-                       'Jax' : '<:Jax:1137719818284445757>',
-                       'Jayce' : '<:Jayce:1137720220342026300>',
-                       'Jhin' : '<:Jhin:1137720222049124363>',
-                       'Jinx' : '<:Jinx:1137720223273865226>',
-                       'Kaisa' : '<:Kaisa:1137720224486010891>',
-                       'Kalista' : '<:Kalista:1137720226008531007>',
-                       'Karma' : '<:Karma:1137720227627532308>',
-                       'Karthus' : '<:Karthus:1137720228957139005>',
-                       'Kassadin' : '<:Kassadin:1137720230718738433>',
-                       'Katarina' : '<:Katarina:1137720300474208306>',
-                       'Kayle' : '<:Kayle:1137720233268887572>',
-                       'Kayn' : '<:Kayn:1137720723696271420>',
-                       'Kennen' : '<:Kennen:1137720725818593401>',
-                       'Khazix' : '<:Khazix:1137720899299196999>',
-                       'Kindred' : '<:Kindred:1137720900272271421>',
-                       'Kled' : '<:Kled:1137720902340051005>',
-                       'Kogmaw' : '<:KogMaw:1137720903527047248>',
-                       'Ksante' : '<:KSante:1137720905284468747>',
-                       'Leblanc' : '<:Leblanc:1137720906949599342>',
-                       'Leesin' : '<:LeeSin:1137720908144971796>',
-                       'Leona' : '<:Leona:1137720910082756669>',
-                       'Lillia' : '<:Lillia:1137720911424921660>',
-                       'Lissandra' : '<:Lissandra:1137720942555041803>',
-                       'Lucian' : '<:Lucian:1137721484832415834>',
-                       'Lulu' : '<:Lulu:1137721485910351933>',
-                       'Lux' : '<:Lux:1137721617024290856>',
-                       'Malphite' : '<:Malphite:1137721618609741844>',
-                       'Malzahar' : '<:Malzahar:1137721626843160597>',
-                       'Maokai' : '<:Maokai:1137721630395748432>',
-                       'Masteryi' : '<:MasterYi:1137721631729516564>',
-                       'Milio' : '<:Milio:1137721634237726751>',
-                       'Missfortune' : '<:MissFortune:1137721635319845004>',
-                       'Monkeyking' : '<:MonkeyKing:1137721637463150632>',
-                       'Mordekaiser' : '<:Mordekaiser:1137721638465581166>',
-                       'Morgana' : '<:Morgana:1137721641477087254>',
-                       'Naafiri' : '<:Naafiri:1137730642512199680>',
-                       'Nami' : '<:Nami:1137722073523966072>',
-                       'Nasus' : '<:Nasus:1137722074715127808>',
-                       'Nautilus' : '<:Nautilus:1137722189597134859>',
-                       'Neeko' : '<:Neeko:1137722192042393660>',
-                       'Nidalee' : '<:Nidalee:1137722193233592341>',
-                       'Nilah' : '<:Nilah:1137722194332504064>',
-                       'Nocturne' : '<:Nocturne:1137722196194770974>',
-                       'Nunu' : '<:Nunu:1137722197264310384>',
-                       'Olaf' : '<:Olaf:1137722198459699200>',
-                       'Orianna' : '<:Orianna:1137722199558602762>',
-                       'Ornn' : '<:Ornn:1137722201429245952>',
-                       'Pantheon' : '<:Pantheon:1137722256110399538>',
-                       'Poppy' : '<:Poppy:1137722257435803658>',
-                       'Pyke' : '<:Pyke:1137722259595857930>',
-                       'Qiyana' : '<:Qiyana:1137722717320269894>',
-                       'Quinn' : '<:Quinn:1137722718540791818>',
-                       'Rakan' : '<:Rakan:1137722720759578807>',
-                       'Rammus' : '<:Rammus:1137722724555436042>',
-                       'Reksai' : '<:RekSai:1137722733371854868>',
-                       'Rell' : '<:Rell:1137722734445600819>',
-                       'Renata' : '<:Renata:1137722736270114836>',
-                       'Renekton' : '<:Renekton:1137722737633275915>',
-                       'Rengar' : '<:Rengar:1137722739029979257>',
-                       'Riven' : '<:Riven:1137722740875468910>',
-                       'Rumble' : '<:Rumble:1137723120782946404>',
-                       'Ryze' : '<:Ryze:1137723122167054346>',
-                       'Samira' : '<:Samira:1137723221639184487>',
-                       'Sejuani' : '<:Sejuani:1137723222817779882>',
-                       'Senna' : '<:Senna:1137723224923324516>',
-                       'Seraphine' : '<:Seraphine:1137723226424868995>',
-                       'Sett' : '<:Sett:1137723228241014877>',
-                       'Shaco' : '<:Shaco:1137723228882735175>',
-                       'Shen' : '<:Shen:1137723230166188124>',
-                       'Shyvana' : '<:Shyvana:1137723231235739689>',
-                       'Singed' : '<:Singed:1137723233479708683>',
-                       'Sion' : '<:Sion:1137723264878268487>',
-                       'Sivir' : '<:Sivir:1137723298826948748>',
-                       'Skarner' : '<:Skarner:1137723300798271488>',
-                       'Sona' : '<:Sona:1137723667594358824>',
-                       'Soraka' : '<:Soraka:1137723669616009246>',
-                       'Swain' : '<:Swain:1137723670769434666>',
-                       'Sylas' : '<:Sylas:1137723672459751435>',
-                       'Syndra' : '<:Syndra:1137723674624000010>',
-                       'Tahmkench' : '<:TahmKench:1137723675836158053>',
-                       'Taliyah' : '<:Taliyah:1137723677081874513>',
-                       'Talon' : '<:Talon:1137723678952530031>',
-                       'Taric' : '<:Taric:1137723680265347102>',
-                       'Teemo' : '<:Teemo:1137723681620115496>',
-                       'Thresh' : '<:Thresh:1137723719725359184>',
-                       'Tristana' : '<:Tristana:1137723720937508924>',
-                       'Trundle' : '<:Trundle:1137724088056549378>',
-                       'Tryndamere' : '<:Tryndamere:1137724090778652682>',
-                       'Twistedfate' : '<:TwistedFate:1137724091890143282>',
-                       'Twitch' : '<:Twitch:1137724093026803712>',
-                       'Udyr' : '<:Udyr:1137724095056855070>',
-                       'Urgot' : '<:Urgot:1137724096281587774>',
-                       'Varus' : '<:Varus:1137724097627951224>',
-                       'Vayne' : '<:Vayne:1137724098999492680>',
-                       'Veigar' : '<:Veigar:1137724100677226496>',
-                       'Velkoz' : '<:Velkoz:1137724145698865183>',
-                       'Vex' : '<:Vex:1137724146835533935>',
-                       'Vi' : '<:Vi:1137724149008171008>',
-                       'Viego' : '<:Viego:1137724829282353223>',
-                       'Viktor' : '<:Viktor:1137724830452551772>',
-                       'Vladimir' : '<:Vladimir:1137724832499372032>',
-                       'Volibear' : '<:Volibear:1137724833581510748>',
-                       'Warwick' : '<:Warwick:1137724835422806067>',
-                       'Xayah' : '<:Xayah:1137724836563664968>',
-                       'Xerath' : '<:Xerath:1137724837545127978>',
-                       'Xinzhao' : '<:XinZhao:1137724839101223052>',
-                       'Yasuo' : '<:Yasuo:1137724840837660744>',
-                       'Yone' : '<:Yone:1137724869358915717>',
-                       'Yorick' : '<:Yorick:1137724870709477386>',
-                       'Yuumi' : '<:Yuumi:1137724872408187040>',
-                       'Zac' : '<:Zac:1137724898391891978>',
-                       'Zed' : '<:Zed:1137724899570503771>',
-                       'Zeri' : '<:Zeri:1137724901424386129>',
-                       'Ziggs' : '<:Ziggs:1137724902745587733>',
-                       'Zilean' : '<:Zilean:1137724907514495029>',
-                       'Zoe' : '<:Zoe:1137724909066408038>',
-                       'Zyra' : '<:Zyra:1137724911226466395>'}
+emote_champ_discord = lire_bdd_perso('SELECT * from data_champion', index_col='nom')\
+                                                                                    .T\
+                                                                                        .to_dict()\
+                                                                                            ['icon_identifiant']
 
 dict_points = {41: [11, -19],
                42: [12, -18],
@@ -297,13 +102,9 @@ dict_points = {41: [11, -19],
                59: [29, -11]}
 
 
-dict_id_q = {420 : 'RANKED',
-             400 : 'NORMAL',
-             440 : 'FLEX',
-             450 : 'ARAM',
-             1700 : 'ARENA 2v2',
-             1701 : 'ARENA 2v2',
-             1704 : 'ARENA 2v2'}
+dict_id_q = lire_bdd_perso('SELECT * from data_queue', index_col='identifiant')\
+                                                                                    .T\
+                                                                                        .to_dict()['mode']
 
 
 def trouver_records(df, category, methode='max', identifiant='joueur'):
@@ -719,12 +520,9 @@ async def get_spectator_data(puuid, session):
     if data is None:
         return None, None, None, None, None
 
-
-
     thisQ = dict_id_q.get(data['gameQueueConfigId'], 'OTHER')
 
     summonerName = summonerName.lower()
-
 
     id_game = data['gameId']
 
@@ -880,8 +678,7 @@ class matchlol():
         elif (str(self.thisPosition) == "UTILITY"):
             self.thisPosition = "SUPPORT"
 
-        self.timestamp = str(self.match_detail['info']['gameCreation'])[
-            :-3]  # traduire avec datetime.date.fromtimestamp()
+        self.timestamp = str(self.match_detail['info']['gameCreation'])[:-3]  # traduire avec datetime.date.fromtimestamp()
         # self.thisQ = ' '
         self.thisChamp = self.match_detail_participants['championId']
         self.thisDouble = self.match_detail_participants['doubleKills']
@@ -967,9 +764,6 @@ class matchlol():
         self.item = self.match_detail_participants
 
         self.thisItems = [self.item[f'item{i}'] for i in range(6)]
-
-
-
 
         # item6 = ward. Pas utile
 
@@ -1222,7 +1016,7 @@ class matchlol():
         self.thisLevelListe = dict_data(
             self.thisId, self.match_detail, "champLevel")
 
-        def ecart_role(ally):
+        def ecart_role_cs(ally):
             return (self.thisMinionListe[ally] + self.thisJungleMonsterKilledListe[ally]) - (
                 self.thisMinionListe[ally+5] + self.thisJungleMonsterKilledListe[ally+5])
 
@@ -1256,11 +1050,11 @@ class matchlol():
             self.ecart_supp_vision = self.thisVisionListe[4] - \
                     self.thisVisionListe[9]
 
-            self.ecart_top_cs = ecart_role(0)
-            self.ecart_jgl_cs = ecart_role(1)
-            self.ecart_mid_cs = ecart_role(2)
-            self.ecart_adc_cs = ecart_role(3)
-            self.ecart_supp_cs = ecart_role(4)
+            self.ecart_top_cs = ecart_role_cs(0)
+            self.ecart_jgl_cs = ecart_role_cs(1)
+            self.ecart_mid_cs = ecart_role_cs(2)
+            self.ecart_adc_cs = ecart_role_cs(3)
+            self.ecart_supp_cs = ecart_role_cs(4)
 
             # on crée des variables temporaires pour le kpliste, car si une team ne fait pas de kills, on va diviser par 0, ce qui n'est pas possible
             temp_team_kills = self.thisTeamKills
@@ -1307,11 +1101,11 @@ class matchlol():
             self.ecart_supp_vision = self.thisVisionListe[4] - \
                     self.thisVisionListe[9]
 
-            self.ecart_top_cs = ecart_role(0)
-            self.ecart_jgl_cs = ecart_role(1)
-            self.ecart_mid_cs = ecart_role(2)
-            self.ecart_adc_cs = ecart_role(3)
-            self.ecart_supp_cs = ecart_role(4)
+            self.ecart_top_cs = ecart_role_cs(0)
+            self.ecart_jgl_cs = ecart_role_cs(1)
+            self.ecart_mid_cs = ecart_role_cs(2)
+            self.ecart_adc_cs = ecart_role_cs(3)
+            self.ecart_supp_cs = ecart_role_cs(4)
 
             # on crée des variables temporaires pour le kpliste, car si une team ne fait pas de kills, on va diviser par 0, ce qui n'est pas possible
             temp_team_kills = self.thisTeamKills
@@ -2175,7 +1969,7 @@ class matchlol():
 
         else:  # si c'est l'aram, le traitement est différent
 
-            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank from ranked_aram_s{saison} WHERE index = :index',
+            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank, serie from ranked_aram_s{saison} WHERE index = :index',
                                      {'index': self.summonerName.lower()}).mappings().all()
 
             wins_actual = data_aram[0]['wins']
@@ -2187,6 +1981,7 @@ class matchlol():
             a_actual = data_aram[0]['a']
             activation = data_aram[0]['activation']
             rank_actual = data_aram[0]['rank']
+            serie_wins = data_aram[0]['serie']
 
             if activation:
 
@@ -2220,6 +2015,13 @@ class matchlol():
                             points = dict_points[int(wr)][1]
 
                 lp = lp_actual + points
+                
+                # TODO : serie de wins
+                
+                if self.thisWinBool:
+                    serie_wins = serie_wins + 1
+                else:
+                    serie_wins = 0
 
                 # rank
 
@@ -2277,7 +2079,8 @@ class matchlol():
                                     k = :k,
                                     d = :d,
                                     a = :a,
-                                    rank = :rank
+                                    rank = :rank,
+                                    serie = :serie
                                   WHERE index = :index;
                                   UPDATE matchs
                                   SET tier = :rank,
@@ -2294,7 +2097,8 @@ class matchlol():
                                    'a': a,
                                    'rank': rank,
                                    'index': self.summonerName.lower(),
-                                   'match_id': self.last_match})  
+                                   'match_id': self.last_match,
+                                   'serie' : serie_wins})  
 
                 requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
                                                                                                                         'match_id': self.last_match,
@@ -2569,16 +2373,16 @@ class matchlol():
 
         # Stat du jour
         if self.thisQ == 'ARAM':
-            suivi_24h = lire_bdd('ranked_aram_24h', 'dict')
+            suivi_24h = lire_bdd(f'ranked_aram_S{saison}', 'dict')
         else:
-            suivi_24h = lire_bdd('suivi_24h', 'dict')
+            suivi_24h = lire_bdd(f'suivi_S{saison}', 'dict')
 
         if self.thisQ not in ['ARAM', 'FLEX']:
             try:
                 difwin = int(self.thisVictory) - \
-                        int(suivi_24h[self.summonerName.lower()]["wins"])
+                        int(suivi_24h[self.summonerName.lower()]["wins_jour"])
                 diflos = int(self.thisLoose) - \
-                        int(suivi_24h[self.summonerName.lower()]["losses"])
+                        int(suivi_24h[self.summonerName.lower()]["losses_jour"])
 
                 if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
                     d.text((x_metric + 650, y_name+50),
@@ -2592,9 +2396,9 @@ class matchlol():
         elif self.thisQ == 'ARAM' and activation:
             try:
                 difwin = wins - \
-                        int(suivi_24h[self.summonerName.lower()]["wins"])
+                        int(suivi_24h[self.summonerName.lower()]["wins_jour"])
                 diflos = losses - \
-                        int(suivi_24h[self.summonerName.lower()]["losses"])
+                        int(suivi_24h[self.summonerName.lower()]["losses_jour"])
 
                 if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
                     d.text((x_metric + 650, y_name+50),
@@ -2774,7 +2578,7 @@ class matchlol():
 
         else:  # si c'est l'aram, le traitement est différent
 
-            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank from ranked_aram_s{saison} WHERE index = :index',
+            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank, serie from ranked_aram_s{saison} WHERE index = :index',
                                      {'index': self.summonerName.lower()}).mappings().all()
 
             wins_actual = data_aram[0]['wins']
@@ -2786,6 +2590,7 @@ class matchlol():
             a_actual = data_aram[0]['a']
             activation = data_aram[0]['activation']
             rank_actual = data_aram[0]['rank']
+            serie_wins = data_aram[0]['serie']
 
             if activation:
 
@@ -2819,6 +2624,11 @@ class matchlol():
                             points = dict_points[int(wr)][1]
 
                 lp = lp_actual + points
+                
+                if self.thisWinBool:
+                    serie_wins = serie_wins + 1
+                else:
+                    serie_wins = 0
 
                 # rank
 
@@ -2875,7 +2685,8 @@ class matchlol():
                                     k = :k,
                                     d = :d,
                                     a = :a,
-                                    rank = :rank
+                                    rank = :rank,
+                                    serie = :serie
                                   WHERE index = :index;
                                   UPDATE matchs
                                   SET tier = :rank,
@@ -2892,7 +2703,8 @@ class matchlol():
                                    'a': a,
                                    'rank': rank,
                                    'index': self.summonerName.lower(),
-                                   'match_id': self.last_match})  
+                                   'match_id': self.last_match,
+                                   'serie' : serie_wins})  
 
                 requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
                                                                                                                         'match_id': self.last_match,
@@ -3201,16 +3013,16 @@ class matchlol():
 
         # Stat du jour
         if self.thisQ == 'ARAM':
-            suivi_24h = lire_bdd('ranked_aram_24h', 'dict')
+            suivi_24h = lire_bdd(f'ranked_aram_S{saison}', 'dict')
         else:
-            suivi_24h = lire_bdd('suivi_24h', 'dict')
+            suivi_24h = lire_bdd(f'suivi_S{saison}', 'dict')
 
         if self.thisQ not in ['ARAM', 'FLEX']:
             try:
                 difwin = int(self.thisVictory) - \
-                        int(suivi_24h[self.summonerName.lower()]["wins"])
+                        int(suivi_24h[self.summonerName.lower()]["wins_jour"])
                 diflos = int(self.thisLoose) - \
-                        int(suivi_24h[self.summonerName.lower()]["losses"])
+                        int(suivi_24h[self.summonerName.lower()]["losses_jour"])
 
                 if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
                     d.text((x_metric + 650, y_name+50),
@@ -3224,9 +3036,9 @@ class matchlol():
         elif self.thisQ == 'ARAM' and activation:
             try:
                 difwin = wins - \
-                        int(suivi_24h[self.summonerName.lower()]["wins"])
+                        int(suivi_24h[self.summonerName.lower()]["wins_jour"])
                 diflos = losses - \
-                        int(suivi_24h[self.summonerName.lower()]["losses"])
+                        int(suivi_24h[self.summonerName.lower()]["losses_jour"])
 
                 if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
                     d.text((x_metric + 650, y_name+50),

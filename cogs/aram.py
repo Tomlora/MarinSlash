@@ -124,16 +124,23 @@ class Aram(Extension):
                                 activation: bool):
 
         summonername = summonername.lower()
+        
+        discord_id = int(ctx.author.id)
+        df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''')
 
-        try:
-            requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET activation = :activation WHERE index = :index', {
-                              'activation': activation, 'index': summonername})
-            if activation:
-                await ctx.send('Ranked activé !')
-            else:
-                await ctx.send('Ranked désactivé !')
-        except KeyError:
-            await ctx.send('Joueur introuvable')
+        if df_banned.empty:
+            try:
+                requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET activation = :activation WHERE index = :index', {
+                                'activation': activation, 'index': summonername})
+                if activation:
+                    await ctx.send('Ranked activé !')
+                else:
+                    await ctx.send('Ranked désactivé !')
+            except KeyError:
+                await ctx.send('Joueur introuvable')
+                
+        else:
+            await ctx.send("Tu n'es pas autorisé à utiliser cette commande")
 
     @aram.subcommand("help",
                    sub_cmd_description='Help ranked aram')
@@ -254,7 +261,7 @@ class Aram(Extension):
     async def update_aram24h(self):
         data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
-                    where channels_module.league_aram = true''').fetchall()
+                    where channels_module.league_aram = true and tracker.banned = false''').fetchall()
 
         for server_id in data:
 
@@ -264,18 +271,15 @@ class Aram(Extension):
 
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
-            df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, tracker.server_id from ranked_aram_s{saison} as suivi 
+            df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, suivi.wins_jour, suivi.losses_jour, suivi.lp_jour, suivi.rank_jour, tracker.server_id from ranked_aram_s{saison} as suivi 
                                         INNER join tracker ON tracker.index = suivi.index 
-                                        where tracker.server_id = {int(guild.id)} ''')
-            df_24h = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, tracker.server_id from ranked_aram_24h as suivi
-                                        INNER join tracker ON tracker.index = suivi.index 
-                                        where tracker.server_id = {int(guild.id)} ''')
+                                        where tracker.server_id = {int(guild.id)} and tracker.banned = false ''')
 
             if df.shape[1] > 0:  # s'il y a des données
 
                 df = df.transpose().reset_index()
 
-                df_24h = df_24h.transpose().reset_index()
+
 
                 # Pour l'ordre de passage
                 df['tier_pts'] = df['rank'].apply(label_tier)
@@ -285,7 +289,6 @@ class Aram(Extension):
                     False, False], inplace=True)
 
                 suivi = df.set_index('index').transpose().to_dict()
-                suivi_24h = df_24h.set_index('index').transpose().to_dict()
                 joueur = suivi.keys()
 
                 embed = interactions.Embed(
@@ -297,11 +300,11 @@ class Aram(Extension):
                 for key in joueur:
 
                     # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
-                    wins = int(suivi_24h[key]['wins'])
-                    losses = int(suivi_24h[key]['losses'])
+                    wins = int(suivi[key]['wins_jour'])
+                    losses = int(suivi[key]['losses_jour'])
                     nbgames = wins + losses
-                    LP = int(suivi_24h[key]['lp'])
-                    tier_old = str(suivi_24h[key]['rank'])
+                    LP = int(suivi[key]['lp_jour'])
+                    tier_old = str(suivi[key]['rank_jour'])
 
                     # on veut les stats soloq
 
@@ -339,11 +342,11 @@ class Aram(Extension):
                                         f"LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)
 
                     if difwins + diflosses > 0:  # si supérieur à 0, le joueur a joué
-                        sql += f'''UPDATE ranked_aram_24h
-                            SET wins = {suivi[key]['wins']},
-                            losses = {suivi[key]['losses']},
-                            lp = {suivi[key]['lp']},
-                            rank = '{tier}'
+                        sql += f'''UPDATE ranked_aram_S{saison}
+                            SET wins_jour = {suivi[key]['wins']},
+                            losses_jour = {suivi[key]['losses']},
+                            lp_jour = {suivi[key]['lp']},
+                            rank_jour = '{tier}'
                             where index = '{key}';'''
 
                 channel_tracklol = await self.bot.fetch_channel(chan_discord_id.lol_others)

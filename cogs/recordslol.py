@@ -595,14 +595,18 @@ class Recordslol(Extension):
         if view == 'global':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
-                                     where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]}''', index_col='id').transpose()
+                                     where season = {saison}
+                                     and mode = '{mode}'
+                                     and time >= {self.time_mini[mode]}
+                                     and tracker.banned = false ''', index_col='id').transpose()
         elif view == 'serveur':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = {int(ctx.guild_id)}
-                                     and time >= {self.time_mini[mode]}''', index_col='id').transpose()
+                                     and time >= {self.time_mini[mode]}
+                                     and tracker.banned = false ''', index_col='id').transpose()
             
         if champion != None:
             
@@ -753,14 +757,15 @@ class Recordslol(Extension):
         if view == 'global':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
-                                     where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]}''', index_col='id').transpose()
+                                     where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]} and tracker.banned = false''', index_col='id').transpose()
         elif view == 'serveur':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = {int(ctx.guild_id)}
-                                     and time >= {self.time_mini[mode]}''', index_col='id').transpose()
+                                     and time >= {self.time_mini[mode]}
+                                     and tracker.banned = false''', index_col='id').transpose()
             
         fichier['early_drake'] = fichier['early_drake'].replace({0 : 999})    
         fichier['early_baron'] = fichier['early_baron'].replace({0 : 999}) 
@@ -781,19 +786,22 @@ class Recordslol(Extension):
             
             joueur = joueur.lower()
                 
-            id_joueur = lire_bdd_perso('''SELECT tracker.index, tracker.discord from tracker''',
+            id_joueur = lire_bdd_perso('''SELECT tracker.index, tracker.discord from tracker where tracker.banned = false''',
                                             format='dict', index_col='index')
-
-            fichier = fichier[fichier['discord'] == id_joueur[joueur]['discord']]
-                
+            try:
+                fichier = fichier[fichier['discord'] == id_joueur[joueur]['discord']]
+            except KeyError:
+                return await ctx.send('Joueur introuvable ou tu es banni')    
               
         elif compte_discord != None:
                 
             id_discord = str(compte_discord.id)
                                
             joueur = compte_discord.username
-                
-            fichier = fichier[fichier['discord'] == id_discord]
+            try:    
+                fichier = fichier[fichier['discord'] == id_discord]
+            except KeyError:
+                return await ctx.send('Joueur introuvable ou tu es banni')    
                 
             
         elif joueur == None and compte_discord == None:
@@ -989,14 +997,15 @@ class Recordslol(Extension):
 
         # data
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]}''', index_col='id').transpose()
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]} and tracker.banned = false''', index_col='id').transpose()
         elif view == 'serveur':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.index = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = '{int(ctx.guild_id)}'
-                                     and time >= {self.time_mini[mode]}''', index_col='id').transpose()
+                                     and time >= {self.time_mini[mode]}
+                                     and tracker.banned = false''', index_col='id').transpose()
 
         # liste records
 
@@ -1078,7 +1087,7 @@ class Recordslol(Extension):
 
             while True:
                 try:
-                    button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+                    button_ctx: interactions.api.events.internal.Component  = await self.bot.wait_for_component(
                         components=select, check=check, timeout=120
                     )
 
@@ -1089,7 +1098,7 @@ class Recordslol(Extension):
                                            text_auto=True,
                                            color=counts_general.index,
                                            title=f'General ({mode})')
-                    
+
                     elif button_ctx.ctx.values[0] == 'par champion':
                         fig = px.histogram(counts_champion,
                                            counts_champion.index,
@@ -1231,7 +1240,8 @@ class Recordslol(Extension):
                                      INNER JOIN tracker on tracker.index = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
-                                     and time >= {self.time_mini[mode]}''',
+                                     and time >= {self.time_mini[mode]}
+                                     and tracker.banned = false''',
                                      index_col='id').transpose()
 
         elif view == 'serveur':
@@ -1240,7 +1250,8 @@ class Recordslol(Extension):
                                          where season = {saison}
                                          and mode = '{mode}'
                                          and server_id = '{int(ctx.guild_id)}'
-                                         and time >= {self.time_mini[mode]}''',
+                                         and time >= {self.time_mini[mode]}
+                                         and tracker.banned = false''',
                                          index_col='id').transpose()
             
         if champion != None:

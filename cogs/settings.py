@@ -10,64 +10,63 @@ class Settings(Extension):
         self.bot: interactions.Client = bot
 
     @slash_command(name="settings",
-                   description="settings")
+                   description="settings",
+                   default_member_permissions=interactions.Permissions.MANAGE_GUILD)
     async def settings(self, ctx: SlashContext):
-        if isOwner_slash(ctx):
            # on récupère les infos
-            await ctx.defer(ephemeral=False)
+        await ctx.defer(ephemeral=False)
 
-            data = get_data_bdd(
+        data = get_data_bdd(
                 'SELECT * from channels_module WHERE server_id = :server_id ', {'server_id': int(ctx.guild_id)})
            # on transforme
-            data = data.mappings().all()[0]
+        data = data.mappings().all()[0]
 
             # on prépare l'embed 1 avec les modules
 
-            embed1 = interactions.Embed(title=f'Settings pour {ctx.guild.name} (Modules)',
+        embed1 = interactions.Embed(title=f'Settings pour {ctx.guild.name} (Modules)',
                                         thumbnail=interactions.EmbedAttachment(url=ctx.guild.icon.as_url()))
             
 
-            for variable, valeur in data.items():
-                if not variable == 'activation':  # on ne veut pas cette variable dans notre embed
-                    embed1.add_field(name=variable, value=valeur, inline=True)
+        for variable, valeur in data.items():
+            if not variable == 'activation':  # on ne veut pas cette variable dans notre embed
+                embed1.add_field(name=variable, value=valeur, inline=True)
 
             # embed 2 avec les identifiants channels
 
-            embed2 = interactions.Embed(title=f'Settings pour {ctx.guild.name} (Channels)',
+        embed2 = interactions.Embed(title=f'Settings pour {ctx.guild.name} (Channels)',
                                         thumbnail=interactions.EmbedAttachment(url=ctx.guild.icon.as_url()))
 
-            data2 = get_data_bdd(
+        data2 = get_data_bdd(
                 'SELECT * from channels_discord WHERE server_id = :server_id ', {'server_id': int(ctx.guild_id)})
 
             # on transforme
-            data2 = data2.mappings().all()[0]
+        data2 = data2.mappings().all()[0]
 
-            for variable, valeur in data2.items():
-                if variable == 'server_id':  # en fonction de la variable, discord ne mentionne pas de la même manière. Pour un serveur id, classique
-                    embed2.add_field(name=variable, value=valeur, inline=True)
-                elif variable in ['id_owner', 'id_owner2']:  # pour un membre, c'est @
-                    embed2.add_field(
+        for variable, valeur in data2.items():
+            if variable == 'server_id':  # en fonction de la variable, discord ne mentionne pas de la même manière. Pour un serveur id, classique
+                embed2.add_field(name=variable, value=valeur, inline=True)
+            elif variable in ['id_owner', 'id_owner2']:  # pour un membre, c'est @
+                embed2.add_field(
                         name=variable, value=f'<@{valeur}>', inline=True)
-                elif variable == 'role_admin':  # pour un role, c'est @&
-                    embed2.add_field(
+            elif variable == 'role_admin':  # pour un role, c'est @&
+                embed2.add_field(
                         name=variable, value=f'<@&{valeur}>', inline=True)
-                else:  # pour un channel, c'est #
-                    embed2.add_field(
+            else:  # pour un channel, c'est #
+                embed2.add_field(
                         name=variable, value=f'<#{valeur}>', inline=True)
 
-            embeds = [embed1, embed2]
-            paginator = Paginator.create_from_embeds(
+        embeds = [embed1, embed2]
+        paginator = Paginator.create_from_embeds(
                 self.bot,
                 *embeds)
             
-            paginator.show_select_menu = True
-            await paginator.send(ctx)
+        paginator.show_select_menu = True
+        await paginator.send(ctx)
 
-        else:
-            await ctx.send("Tu n'as pas l'autorisation.")
 
     @slash_command(name="modifier_modules",
                    description="modifier les modules du serveur",
+                   default_member_permissions=interactions.Permissions.MANAGE_GUILD,
                    options=[
                        SlashCommandOption(name="parametres",
                                           description="parametres",
@@ -91,26 +90,26 @@ class Settings(Extension):
                    )
     async def modifier_modules(self, ctx: SlashContext, parametres, activation):
 
-        if isOwner_slash(ctx):
-            dict_params = {'lol': ['league_ranked, league_aram'],
+
+        dict_params = {'lol': ['league_ranked, league_aram'],
                            'twitter': ['twitter'],
                            'twitch': ['twitch'],
                            'tft': ['league_tft'],
                            'sw': ['summoners_war']}
 
-            params = dict_params[parametres]
+        params = dict_params[parametres]
 
-            for parametre in params:
-                requete_perso_bdd(f'UPDATE channels_module SET {parametre} = {activation} where server_id = :server_id', {
+        for parametre in params:
+            requete_perso_bdd(f'UPDATE channels_module SET {parametre} = {activation} where server_id = :server_id', {
                                   'server_id': int(ctx.guild_id)})
 
-            await ctx.send(
-                f'Les paramètres pour {parametres} ont été modifiés avec succès pour ce serveur.')
-        else:
-            await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
+        await ctx.send(
+            f'Les paramètres pour {parametres} ont été modifiés avec succès pour ce serveur.')
+
 
     @slash_command(name="modifier_settings",
-                   description="modifier les parametres du serveur")
+                   description="modifier les parametres du serveur",
+                   default_member_permissions=interactions.Permissions.MANAGE_GUILD)
     async def modifier_settings(self, ctx: SlashContext):
         pass
 
@@ -141,12 +140,12 @@ class Settings(Extension):
                                                          type=interactions.OptionType.CHANNEL,
                                                          required=True)])
     async def modify_channel(self, ctx: SlashContext, channel: interactions.BaseChannel, parametres):
-        if isOwner_slash(ctx):
-            requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :channel_id WHERE server_id = :server_id', {'channel_id': int(channel.id),
+
+        requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :channel_id WHERE server_id = :server_id', {'channel_id': int(channel.id),
                                                                                                                        'server_id': int(ctx.guild.id)})
-            await ctx.send('Modification effectuée avec succès.')
-        else:
-            await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
+        await ctx.send('Modification effectuée avec succès.')
+
+
 
     @modifier_settings.subcommand('admin',
                                   options=[
@@ -160,12 +159,11 @@ class Settings(Extension):
                                                          type=interactions.OptionType.USER)
                                   ])
     async def modify_admin(self, ctx: SlashContext, parametres, proprietaire: interactions.User):
-        if isOwner_slash(ctx):
-            requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :joueur_id WHERE server_id = :server_id', {'joueur_id': int(proprietaire.id),
+
+        requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :joueur_id WHERE server_id = :server_id', {'joueur_id': int(proprietaire.id),
                                                                                                                       'server_id': int(ctx.guild.id)})
-            await ctx.send('Modification effectuée avec succès.')
-        else:
-            await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
+        await ctx.send('Modification effectuée avec succès.')
+
 
     @modifier_settings.subcommand('role_staff',
                                   options=[
@@ -181,33 +179,12 @@ class Settings(Extension):
                                                          type=interactions.OptionType.ROLE)
                                   ])
     async def modifier_staff(self, ctx: SlashContext, parametres, role: interactions.Role):
-        if isOwner_slash(ctx):
-            requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :role_id WHERE server_id = :server_id', {'role_id': int(role.id),
-                                                                                                                    'server_id': int(ctx.guild.id)})
-            await ctx.send('Modification effectuée avec succès.')
-        else:
-            await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
-    # async def modifier_channel(self,
-    #                            ctx: SlashContext,
-    #                            sub_command: str,
-    #                            parametres,
-    #                            channel: interactions.Channel = None,
-    #                            proprietaire: interactions.User = None,
-    #                            role : interactions.Role = None):
-    #     if isOwner_slash(ctx):
-    #         if sub_command == 'channel':
-    #             requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :channel_id WHERE server_id = :server_id', {'channel_id': int(channel.id),
-    #                                                                                                                        'server_id': int(ctx.guild.id)})
-    #         elif sub_command == 'admin':
-    #             requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :joueur_id WHERE server_id = :server_id', {'joueur_id': int(proprietaire.id),
-    #                                                                                                                       'server_id': int(ctx.guild.id)})
-    #         elif sub_command == 'role_staff':
-    #             requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :role_id WHERE server_id = :server_id', {'role_id': int(role.id),
-    #                                                                                                                       'server_id': int(ctx.guild.id)})
 
-    #         await ctx.send('Modification effectuée avec succès.')
-    #     else:
-    #         await ctx.send("Tu n'es pas autorisé à utiliser cette commande.")
+        requete_perso_bdd(f'UPDATE channels_discord SET {parametres} = :role_id WHERE server_id = :server_id', {'role_id': int(role.id),
+                                                                                                                    'server_id': int(ctx.guild.id)})
+        await ctx.send('Modification effectuée avec succès.')
+
+
 
 
 def setup(bot):

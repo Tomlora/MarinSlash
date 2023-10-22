@@ -574,7 +574,7 @@ class analyseLoL(Extension):
 
             df_timeline = df_timeline[df_timeline['joueur'] == summonername]
 
-            img = io.imread('https://map.riftkit.net/img/rift/normal.jpg')
+            img = io.imread('./img/map.jpg')
 
             # 3750 taille optimale et 4 en diviseur
             x_pos = 468.75
