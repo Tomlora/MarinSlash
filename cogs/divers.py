@@ -19,9 +19,6 @@ import aiohttp
 import asyncio
 import async_timeout
 
-
-
-
 class Divers(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot

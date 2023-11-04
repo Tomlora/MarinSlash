@@ -105,7 +105,7 @@ class Aram(Extension):
 
         await ctx.send(embeds=embed)
 
-    @aram.subcommand('ranked_aram',
+    @aram.subcommand('tracker_aram',
                    sub_cmd_description='Activation/Désactivation',
                    options=[
                        SlashCommandOption(
@@ -320,7 +320,7 @@ class Aram(Extension):
                     # evolution
 
                     if elo_lp[tier_old] > elo_lp[tier]:  # 19-18
-                        difLP = f"Démote (x{elo_lp[tier_old] - elo_lp[tier]}) / -{str(difLP)} "
+                        difLP = f"Démote (x{elo_lp[tier_old] - elo_lp[tier]}) / {str(difLP)} "
                         emote = ":arrow_down:"
 
                     elif elo_lp[tier_old] < elo_lp[tier]:

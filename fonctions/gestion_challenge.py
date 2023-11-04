@@ -165,13 +165,17 @@ class challengeslol():
        
         self.df_old_data = lire_bdd_perso(f'''SELECT "Joueur", value, percentile, level, level_number, position, challenges.* from challenges_data
                                           INNER JOIN challenges ON challenges_data."challengeId" = challenges."challengeId"
-                                          where "Joueur" = '{self.summonerName}' ''', index_col='index').transpose().sort_index().rename(columns={'value' : 'value_precedente',
-                                                                                                                                'percentile': 'percentile_precedent',
-                                                                                                                                'level' : 'level_precedent',
-                                                                                                                                'position' : 'position_precedente'})
+                                          where "Joueur" = '{self.summonerName}' ''', index_col='index')\
+                                              .transpose()\
+                                                  .sort_index()\
+                                                      .rename(columns={'value' : 'value_precedente',
+                                                                        'percentile': 'percentile_precedent',
+                                                                        'level' : 'level_precedent',
+                                                                        'position' : 'position_precedente'})
         
         try:
-            self.points_total_before = lire_bdd_perso(f'''SELECT index, current FROM challenges_total where index = '{self.summonerName}' ''').loc['current', self.summonerName]
+            self.points_total_before = lire_bdd_perso(f'''SELECT index, current FROM challenges_total where index = '{self.summonerName}' ''')\
+                .loc['current', self.summonerName]
         except:
             self.points_total_before = 0
             
@@ -204,17 +208,7 @@ class challengeslol():
             self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('champion', 'champ')
             self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('boucliers', 'shield')
             self.data_comparaison['shortDescription'] = self.data_comparaison['shortDescription'].str.replace('jungle', 'jgl')
-            
-            # self.data_comparaison['level_diminutif'] = self.data_comparaison['level'].replace({'CHALLENGER': 'CHAL',
-            #                                                                        'GRANDMASTER': 'GM',
-            #                                                                        'MASTER': 'MASTER',
-            #                                                                        'DIAMOND': 'DIAM',
-            #                                                                        'PLATINUM': 'PLAT',
-            #                                                                        'GOLD' : 'GOLD',
-            #                                                                        'SILVER' : 'SILVER',
-            #                                                                        'BRONZE' : 'BRONZE',
-            #                                                                        'IRON' : 'FER'})
-            
+
            
             # définir la fonction pour calculer la différence entre la valeur actuelle et la valeur à atteindre pour le palier suivant
             def difference_vers_palier_suivant(row):

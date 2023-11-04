@@ -16,7 +16,7 @@ class Patchlol(Extension):
     async def on_startup(self):
         self.update_patch.start()
 
-    @Task.create(IntervalTrigger(minutes=10))
+    @Task.create(IntervalTrigger(minutes=30))
     async def update_patch(self):
 
         patch_actuel = PatchNote()

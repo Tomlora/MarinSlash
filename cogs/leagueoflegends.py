@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from dateutil import tz
 from interactions.ext.paginators import Paginator
 import traceback
+import numpy as np
 
 
 from fonctions.gestion_bdd import (lire_bdd,
@@ -182,6 +183,10 @@ class LeagueofLegends(Extension):
         if match_info.thisQId == 900:  # urf
             return {}, 'URF', 0,
 
+
+        if match_info.thisQId == 1300:  # urf
+            return {}, 'NexusBlitz', 0,
+        
         if match_info.thisQId == 840:
             return {}, 'Bot', 0,   # bot game
 
@@ -368,133 +373,6 @@ class LeagueofLegends(Extension):
             embed = interactions.Embed(
                 title=f"** {summonerName.upper()} ** vient de ** {match_info.thisWin} ** une {match_info.thisQ} game ({match_info.thisPosition})", color=color)
 
-        # annonce
-        points = 0
-
-        if match_info.thisQ == 'ARAM':
-            # couronnes pour aram
-            settings = lire_bdd_perso(
-                f'SELECT index, score_aram as score from achievements_settings')
-        else:  # couronnes si autre mode de jeu
-            settings = lire_bdd_perso(
-                f'SELECT index, score as score from achievements_settings')
-
-        settings = settings.to_dict()
-
-        # Couronnes
-
-        couronnes_embed = ''
-
-        # pour only ranked/normal game
-        if match_info.thisQ in ['RANKED', 'NORMAL', 'FLEX']:
-            if int(match_info.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
-                couronnes_embed +=\
-                        f"\n ** :crown: :wave: {match_info.thisLevelAdvantage} niveaux d'avance sur ton adversaire durant la game**"
-                points += 1
-
-            if (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(support)']['score'] and str(match_info.thisPosition) == "SUPPORT") or (float(match_info.thisVisionAdvantage) >= settings['Avantage_vision(autres)']['score'] and str(match_info.thisPosition) != "SUPPORT"):
-                couronnes_embed +=\
-                        f"\n ** :crown: :eye: Avantage de vision sur son adversaire avec {match_info.thisVisionAdvantage}% **"
-                points += 1
-
-            if (float(match_info.thisDragonTeam) >= settings['Dragon']['score']):
-                couronnes_embed += f"\n ** :crown: :dragon: Âme du dragon **"
-                points += 1
-
-            if (int(match_info.thisDanceHerald) >= 1):
-                couronnes_embed += f"\n ** :crown: :dancer: Danse avec l'Herald **"
-                points += 1
-
-            if (int(match_info.thisPerfectGame) >= 1):
-                couronnes_embed += f"\n :crown: :crown: :sunny: Perfect Game"
-                points += 2
-
-            if int(match_info.thisDeaths) == int(settings['Ne_pas_mourir']['score']):
-                couronnes_embed += "\n ** :crown: :heart: N'est pas mort de la game ** \n ** :crown: :star: PERFECT KDA **"
-                points += 2
-
-            if float(match_info.thisVisionPerMin) >= settings['Vision/min(support)']['score'] and str(match_info.thisPosition) == "SUPPORT":
-                couronnes_embed +=\
-                        f"\n ** :crown: :eye: Gros score de vision avec {match_info.thisVisionPerMin} / min **"
-                points += 1
-
-            if int(match_info.thisVisionPerMin) >= settings['Vision/min(autres)']['score'] and str(match_info.thisPosition) != "SUPPORT":
-                couronnes_embed +=\
-                        f"\n ** :crown: :eye: Gros score de vision avec {match_info.thisVisionPerMin} / min **"
-                points += 1
-
-            if int(match_info.thisSoloKills) >= settings['Solokills']['score']:
-                couronnes_embed +=\
-                        f"\n ** :crown: :muscle: {match_info.thisSoloKills} solokills **"
-                points += 1
-
-            if int(match_info.thisCSAdvantageOnLane) >= settings['CSAvantage']['score']:
-                couronnes_embed +=\
-                        f"\n ** :crown: :ghost: {match_info.thisCSAdvantageOnLane} CS d'avance sur ton adversaire durant la game**"
-                points += 1
-
-        # pour tous les modes
-        if match_info.thisQ != 'ARENA 2v2':
-            if float(match_info.thisKDA) >= settings['KDA']['score']:
-                couronnes_embed +=\
-                        f"\n ** :crown: :star: Bon KDA : {match_info.thisKDA} **"
-                points += 1
-
-            if int(match_info.thisKP) >= settings['KP']['score']:
-                couronnes_embed +=\
-                        f"\n ** :crown: :dagger: Participation à beaucoup de kills : {match_info.thisKP} % **"
-                points += 1
-
-            if int(match_info.thisPenta) >= settings['Pentakill']['score']:
-                couronnes_embed +=\
-                        f"\n ** :crown: :five: Pentakill ** {match_info.thisPenta} fois"
-                points += (1 * int(match_info.thisPenta))
-
-            if int(match_info.thisQuadra) >= settings['Quadrakill']['score']:
-                couronnes_embed +=\
-                        f"\n ** :crown: :four: Quadrakill ** {match_info.thisQuadra} fois"
-                points += (1 * int(match_info.thisQuadra))
-
-            if int(match_info.thisMinionPerMin) >= settings['CS/min']['score']:
-                couronnes_embed +=\
-                        f"\n ** :crown: :ghost: {match_info.thisMinionPerMin} CS / min **"
-                points += 1
-
-            if int(match_info.thisDamageRatio) >= settings['%_dmg_équipe']['score']:
-                couronnes_embed +=\
-                        f"\n ** :crown: :dart: Beaucoup de dmg avec {match_info.thisDamageRatio}% **"
-                points += 1
-
-            if int(match_info.thisDamageTakenRatio) >= settings['%_dmg_tank']['score']:
-                couronnes_embed +=\
-                        f"\n ** :crown: :shield: Bon tanking : {match_info.thisDamageTakenRatio}% **"
-                points += 1
-
-            if int(match_info.thisTotalOnTeammates) >= settings['Total_Heals_sur_alliés']['score']:
-                couronnes_embed +=\
-                        f"\n ** :crown: :heart: Heal plus de {match_info.thisTotalOnTeammatesFormat} sur ses alliés **"
-                points += 1
-
-            if (int(match_info.thisTotalShielded) >= settings['Shield']['score']):
-                couronnes_embed +=\
-                        f"\n ** :crown: :shield: Shield : {match_info.thisTotalShielded} **"
-                points += 1
-
-            if (match_info.thisQ == 'RANKED' and match_info.thisTime > 20) or\
-                        (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
-                # Le record de couronne n'est disponible qu'en ranked / aram
-                exploits += records_check2(
-                    fichier, fichier_joueur, fichier_champion, 'couronne', points, exploits)
-
-            if (match_info.thisQ in ['RANKED', 'NORMAL', 'FLEX'] and match_info.thisTime > 20) or\
-                        (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
-                # on ajoute les couronnes pour les modes ranked, normal, aram
-                await match_info.add_couronnes(points)
-
-            # Présence d'afk
-            if match_info.AFKTeam >= 1:
-                exploits = exploits + \
-                        "\n ** :tired_face: Tu as eu un afk dans ton équipe :'( **"
 
         # Série de victoire
             if match_info.thisWinStreak == "True" and match_info.thisQ == "RANKED" and match_info.thisTime >= 15:
@@ -521,10 +399,10 @@ class LeagueofLegends(Extension):
 
         # badges
 
-            if insights:
-                await match_info.calcul_badges()
-            else:
-                match_info.observations = ''
+        if insights:
+            await match_info.calcul_badges()
+        else:
+            match_info.observations = ''
 
         # observations
 
@@ -627,11 +505,13 @@ class LeagueofLegends(Extension):
                                     value=field_value, inline=False)
 
         if match_info.thisQ != 'ARENA 2v2':
-            if points >= 1:
-                embed.add_field(name='Couronnes', value=couronnes_embed)
 
+            
             if match_info.observations != '':
                 embed.add_field(name='Insights', value=match_info.observations)
+            
+            if match_info.observations2 != '':
+                embed.add_field(name='Insights 2', value=match_info.observations2)
 
             # Gestion de l'image
 
@@ -759,7 +639,7 @@ class LeagueofLegends(Extension):
         summonername = summonername.lower()
         
         discord_id = int(ctx.author.id)
-        df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''')
+        df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col='discord')
 
         if df_banned.empty:
             embed, mode_de_jeu, resume = await self.printInfo(summonerName=summonername.lower(),
@@ -804,7 +684,7 @@ class LeagueofLegends(Extension):
         await ctx.defer(ephemeral=False)
 
         discord_id = int(ctx.author.id)
-        df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''')
+        df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col='discord')
         
         if df_banned.empty:
             for i in range(fin, debut, -1):
@@ -1754,6 +1634,212 @@ class LeagueofLegends(Extension):
 
         else:
             await ctx.send('Pas de game enregistré sur les dernières 24h pour ce joueur')
+            
+
+    @lol_compte.subcommand("recap_annuel",
+                           sub_cmd_description="Recap annuel",
+                           options=[SlashCommandOption(name="summonername",
+                                                       description="Nom du joueur",
+                                                       type=interactions.OptionType.STRING,
+                                                       required=True),
+                                    SlashCommandOption(name='saison',
+                                                       description='saison lol',
+                                                       type=interactions.OptionType.INTEGER,
+                                                       min_value=12,
+                                                       max_value=saison,
+                                                       required=True),
+                                    SlashCommandOption(name='nb_champ_max',
+                                                       description='Nombre de champions maximum',
+                                                       type=interactions.OptionType.INTEGER,
+                                                       min_value=1,
+                                                       max_value=24,
+                                                       required=True)])
+    async def recap_annuel(self,
+                       ctx: SlashContext,
+                       summonername: str, # à supprimer
+                       saison : int,
+                       nb_champ_max : int):
+        
+        summonername = summonername.lower()
+        
+        if not isOwner_slash(ctx):
+            return await ctx.send("Tu n'es pas autorisé à utiliser cette commande")
+        
+        await ctx.defer()
+        
+        df = lire_bdd_perso(f'''SELECT matchs.*, tracker.discord from matchs
+                    INNER JOIN tracker on matchs.joueur = tracker.index 
+                    WHERE tracker.activation = true and season = {saison}''',
+                    index_col = 'match_id').T
+        
+        for mode in ['RANKED', 'ARAM']:
+        
+            df_ranked = df[df['mode'] == mode] 
+            
+            
+
+            df_ranked = df_ranked[df_ranked['joueur'] == summonername] # TODO : A supprimer
+            
+            for compte in df_ranked['joueur'].unique():
+
+                def creation_agregat(df, compte):
+                
+                    discord_id = df.loc[df['joueur'] == compte, 'discord'].unique()[0]
+                    df_filter = df[df['discord'] == discord_id]
+                    
+                    def feature_engineering(df):
+                        df['afk'] = df['afk'].astype(int)
+                        return df
+                    
+                    df_filter = feature_engineering(df_filter)
+                    
+                    liste_champ = {'kills' : ['sum', 'mean'],
+                                    'assists' : ['sum', 'mean'],
+                                    'deaths' : ['sum', 'mean'],
+                                    'double' : ['sum'],
+                                    'triple' : ['sum'],
+                                    'quadra' : ['sum'],
+                                    'penta' : ['sum'],
+                                    'time' : ['sum', 'mean'],
+                                    'victoire' : ['sum', 'count'],
+                                    'ecart_gold_min' : ['mean'],
+                                    'cs' : ['sum'],
+                                    'cs_min' : ['mean'],
+                                    'vision_avantage' : ['mean'],
+                                    'vision_min' : ['mean'],
+                                    'solokills' : ['sum', 'mean'],
+                                    'serie_kills' : ['max'],
+                                    'drake' : ['sum'],
+                                    'baron' : ['sum'],
+                                    'afk' : ['sum'],
+                                    'temps_dead' : ['sum', 'mean'], # Sur time, tu as passé X minutes morts
+                                    'kp' : ['mean'],
+                                    'kda' : ['sum', 'mean'],
+                                    'ecart_lp' : ['sum'],
+                                    'temps_avant_premiere_mort' : ['mean'],
+                                    'couronne' : ['sum', 'mean'],
+                                    'team' : ['sum'], # nombre de redside. A comparer avec le nombre de game
+                                    'team_kills' : ['sum', 'mean'],
+                                    'team_deaths' : ['sum', 'mean'],
+                                    'champion' : ['count'] # nombre de games
+                                    }
+
+
+                    df_grp = df_filter.groupby(['joueur', 'role']).agg(liste_champ)
+                            
+                    df_grp_champ = df_filter.groupby(['joueur', 'champion']).agg(liste_champ)
+                    
+                    
+                    df_mois = df_filter.copy()
+                    
+                    df_mois['MOIS'] = df_filter['datetime'].dt.month
+                    
+                    df_grp_mois = df_mois.groupby(['joueur', 'MOIS']).agg(liste_champ)
+                    
+                    df_rank = df_filter.groupby(['joueur', 'tier']).agg(liste_champ)
+                    
+                    
+                    df_grp.columns = pd.Index([e[0] + "_" + e[1].upper() for e in df_grp.columns.tolist()])
+                    df_grp_champ.columns = pd.Index([e[0] + "_" + e[1].upper() for e in df_grp_champ.columns.tolist()])
+                    df_grp_mois.columns = pd.Index([e[0] + "_" + e[1].upper() for e in df_grp_mois.columns.tolist()])
+                    df_rank.columns = pd.Index([e[0] + "_" + e[1].upper() for e in df_rank.columns.tolist()])
+                    
+                    def feature_winrate(df):
+                        df['winrate'] = ((df['victoire_SUM'] / df['victoire_COUNT']) * 100).astype(int)
+                        
+                        df['redside'] = ((df['team_SUM'] / df['champion_COUNT']) * 100).astype(int)
+                        
+                        df.drop(columns=['victoire_SUM'], inplace=True)
+                        
+                        df.rename(columns={'champion_COUNT' : 'nb_games'}, inplace=True)
+                        
+                        df.sort_values('nb_games', inplace=True, ascending=False)
+                        
+                        return df
+                    
+                    df_grp = feature_winrate(df_grp)
+                    df_grp_champ = feature_winrate(df_grp_champ)
+                    df_grp_mois = feature_winrate(df_grp_mois)
+                    df_rank = feature_winrate(df_rank)
+                
+                    return df_grp, df_grp_champ, df_grp_mois, discord_id, df_rank
+
+                df_grp, df_grp_champ, df_mois, discord_id, df_rank = creation_agregat(df_ranked, compte)
+                    
+                df_grp_champ = df_grp_champ.head(nb_champ_max)
+                    
+                # on cherche l'user
+                user = self.bot.get_user(discord_id)
+                    
+                msg_grp = ''
+                nb_games = df_grp['nb_games'].sum()
+                embed_grp = interactions.Embed(title='Recap par poste')
+                    
+                for index, stat in df_grp.iterrows():
+                    
+                    kda = (stat['kills_SUM'] + stat['assists_SUM']) / stat['deaths_SUM']
+                    kda = np.round(kda, 1)
+                    msg_grp = (f"- Kills : **{stat['kills_SUM']}** (Moy : **{np.round(stat['kills_MEAN'],1)}**) | Morts : **{stat['deaths_SUM']}** (Moy : **{np.round(stat['deaths_MEAN'],1)}**) | "+
+                        f"Assists : **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**) \n"+
+                        f"- KP moyen : **{int(stat['kp_MEAN'])}**% | KDA : **{kda}** | CS : **{stat['cs_SUM']}** (Moy cs/min) : **{np.round(stat['cs_min_MEAN'],1)}** \n"+
+                        f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}** \n"+
+                        f"- Tu as joué **{int(stat['time_SUM'])}**m ({stat['time_SUM'] // 60 // 24}j) et **{int(stat['temps_dead_SUM'])}** min en étant mort, soit **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**%\n"+
+                        f"- Redside : **{stat['redside']}**% | Solokills : **{stat['solokills_SUM']}** | Ecart gold/min : **{np.round(stat['ecart_gold_min_MEAN'],1)}** \n")
+                        
+                    if mode != 'ARAM':
+                        msg_grp += f"- Vision_min : **{np.round(stat['vision_min_MEAN'],1)}** | Vision_avantage : **{np.round(stat['vision_avantage_MEAN'],1)}**%"
+                    
+                    embed_grp.add_field(name=f"{index[1]} - **{stat['nb_games']}** P (**{stat['winrate']}**% victoire | {stat['ecart_lp_SUM']} LP) | {stat['afk_SUM']} afk", value=msg_grp)
+                        
+                msg_champ = ''
+                embed_champ = interactions.Embed(title=f'Recap par champion ({nb_champ_max} champions les plus joués)')
+                    
+                for index, stat in df_grp_champ.iterrows():
+                    
+                    kda = (stat['kills_SUM'] + stat['assists_SUM']) / stat['deaths_SUM']
+                    kda = np.round(kda, 1)
+                    msg_champ = (f"- Kills : **{stat['kills_SUM']}** (Moy : **{np.round(stat['kills_MEAN'],1)}**) | Morts : **{stat['deaths_SUM']}** (Moy : **{np.round(stat['deaths_MEAN'],1)}**) | "+
+                        f"Assists : **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**) \n"+
+                        f"- KP moyen : **{int(stat['kp_MEAN'])}**% | KDA : **{kda}** | CS : **{stat['cs_SUM']}** (Moy CS/min) : **{np.round(stat['cs_min_MEAN'],1)}** \n"+
+                        f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}** \n"+
+                        f"- Tu as joué **{int(stat['time_SUM'])}**m ({stat['time_SUM'] // 60 // 24}j) et **{int(stat['temps_dead_SUM'])}** min en étant mort, soit **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**%\n"+
+                        f"- Redside : **{stat['redside']}**% | Solokills : **{stat['solokills_SUM']}** | Ecart gold/min : **{np.round(stat['ecart_gold_min_MEAN'],1)}**  \n")
+                        
+                    if mode != 'ARAM':
+                        msg_champ += f"- Vision_min : **{np.round(stat['vision_min_MEAN'],1)}** | Vision_avantage : **{np.round(stat['vision_avantage_MEAN'],1)}**%"
+
+              
+                    embed_champ.add_field(name=f"{emote_champ_discord[index[1].capitalize()]} - **{stat['nb_games']}** P (**{stat['winrate']}**% victoire | {stat['ecart_lp_SUM']} LP) | {stat['afk_SUM']} afk", value=msg_champ)
+                        
+                msg_rank = ''
+                embed_rank = interactions.Embed(title=f'Recap Rank')
+                    
+                for index, stat in df_rank.iterrows():
+                    kda = (stat['kills_SUM'] + stat['assists_SUM']) / stat['deaths_SUM']
+                    kda = np.round(kda, 1)
+                    
+                    msg_rank = (f"- Kills : **{stat['kills_SUM']}** (Moy : **{np.round(stat['kills_MEAN'],1)}**) | Morts : **{stat['deaths_SUM']}** (Moy : **{np.round(stat['deaths_MEAN'],1)}**) | "+
+                        f"Assists : **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**) \n"+
+                        f"- KP moyen : **{int(stat['kp_MEAN'])}**% | KDA : **{kda}** | CS : **{stat['cs_SUM']}** (Moy CS/min) : **{np.round(stat['cs_min_MEAN'],1)}** \n"+
+                        f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}** \n"+
+                        f"- Tu as joué **{int(stat['time_SUM'])}**m ({stat['time_SUM'] // 60 // 24}j) et **{int(stat['temps_dead_SUM'])}** min en étant mort, soit **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**%\n"+
+                        f"- Redside : **{stat['redside']}**% | Solokills : **{stat['solokills_SUM']}** | Ecart gold/min : **{np.round(stat['ecart_gold_min_MEAN'],1)}**  \n")
+                        
+                    if mode != 'ARAM':
+                        msg_rank += f"- Vision_min : **{np.round(stat['vision_min_MEAN'],1)}** | Vision_avantage : **{np.round(stat['vision_avantage_MEAN'],1)}%**"
+                    
+                    embed_rank.add_field(name=f"{emote_rank_discord[index[1].upper()]} - **{stat['nb_games']}** P (**{stat['winrate']}**% victoire | {stat['ecart_lp_SUM']} LP) | {stat['afk_SUM']} afk", value=msg_rank)
+                                                
+                        
+
+                embed_list = [embed_grp, embed_champ, embed_rank]       
+                    
+                await user.send(content=f'**Recap S{saison}** ({compte.upper()}) ({mode}) - {nb_games} parties enregistrées', embeds=embed_list)
+                await user.send(content='---------------------------------------')
+                
+                # Essayer de rajouter les records personnels du joueur
+                    
+                await ctx.send(f'Fait pour {compte} {mode}')
 
 
 def setup(bot):

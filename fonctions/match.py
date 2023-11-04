@@ -1720,10 +1720,21 @@ class matchlol():
                                                                                                                        'joueur': self.summonerName.lower()})
         
     async def calcul_badges(self):
+        # TODO : Faire une table qui récapitule si un badge a été obtenu par un joueur dans une game spécifique
+        if self.thisQ == 'ARAM':
+            # couronnes pour aram
+            settings = lire_bdd_perso(
+                f'SELECT index, score_aram as score from achievements_settings')
+        else:  # couronnes si autre mode de jeu
+            settings = lire_bdd_perso(
+                f'SELECT index, score as score from achievements_settings')
+
+        settings = settings.to_dict()
         
         def insight_text(slug, values, type):
                   
             type_comment = {'Positive' : ':green_circle:', 'Negative' : ':red_circle:', '': ':first_place:'}
+
 
             dict_insight = {
                         # 'never_slacking' : f'\n{type_comment[type]} **{values[0]}** cs en mid game',
@@ -1753,7 +1764,7 @@ class matchlol():
                         "visionary" : f"\n {type_comment[type]} **{values[0]}** wards placés",
                         "no_control" : f"\n{type_comment[type]} 0 pink",
                         "blood_thirsty" : f"\n{type_comment[type]} Tu as réussi **{values[0]}** ganks dans les 10 premières minutes.",
-                        "superior_jungler" : f"\n{type_comment[type]} Tu as réussi plus de ganks que ton adversaire avec **{values[0]}**",
+                        "superior_jungler" : f"\n{type_comment[type]} Tu as réussi plus de ganks avec **{values[0]}**",
                         "comeback_king" : f"\n {type_comment[type]} Tu as réussi à comeback après un début difficile",
                         "safety_first" : f"\n{type_comment[type]} Tu as placé assez de vision pour préparer les objectifs neutres",
                         'no_damage_to_turrets' : f"\n{type_comment[type]} **0** DMG sur les tours",
@@ -1770,44 +1781,174 @@ class matchlol():
 
 
         self.observations = ''
+        txt_sql = ''
+                 
+        def add_sql(txt_sql, name, values, last_match, summonerName):
+            if len(values) != 3:
+                values.append(0)
+                values.append(0)
+                
+            if (values[0] == 0):
+                txt_sql += f'''UPDATE public.data_badges SET {name} = True WHERE match_id = '{last_match}' and joueur = '{summonerName}';'''
+            elif (values[0] != 0 and values[1] == 0):
+                txt_sql += f'''UPDATE public.data_badges SET {name} = True, {name}_value = {values[0]} WHERE match_id = '{last_match}' and joueur = '{summonerName}';'''
+            else:
+                txt_sql += f'''UPDATE public.data_badges SET {name} = True, {name}_value1 = {values[0]}, {name}_value2 = {values[1]} WHERE match_id = '{last_match}' and joueur = '{summonerName}';'''
+            
+            return txt_sql
+        
         try:
             for insight in self.badges:
                 self.observations += insight_text(insight['slug'], insight['values'], insight['type'])
+                if insight['slug'] in ['teamfight_god',
+                                'lane_tyrant',
+                                'stomp',
+                                'how_could_you',
+                                'not_fan_of_wards',
+                                'servant_of_darkness',
+                                'good_guy',
+                                'pick_up_artist',
+                                'wanderer',
+                                'survivor',
+                                'elite_skirmisher',
+                                'wrecking_ball',
+                                'ouch_you_hurt',
+                                'goblin_hoarder',
+                                'anti_kda_player',
+                                'not_fan_of_farming',
+                                'visionary',
+                                'no_control',
+                                'blood_thirsty',
+                                'superior_jungler',
+                                'comeback_king',
+                                'safety_first',
+                                'no_damage_to_turrets',
+                                'mvp']:
+                    txt_sql += add_sql(txt_sql, insight['slug'], insight['values'], self.last_match, self.summonerName.lower())
         except TypeError as e: # si pas de badges
             pass
             
         # Autres : 
         
         if self.thisDouble >= 3:
-            self.observations += f"\n:green_circle: **{self.thisDouble}** doublé"
+            self.observations += f"\n:green_circle: :two: **{self.thisDouble}** doublé"
+            txt_sql += add_sql(txt_sql, 'double', [self.thisDouble], self.last_match, self.summonerName.lower())
             
         if self.thisTriple >= 2:
-            self.observations += f"\n:green_circle: **{self.thisTriple}** triplé"
-        
+            self.observations += f"\n:green_circle: :three: **{self.thisTriple}** triplé"
+            txt_sql += add_sql(txt_sql, 'triple', [self.thisTriple], self.last_match, self.summonerName.lower())
+            
         if self.thisQuadra >= 2:
-            self.observations += f"\n:green_circle: **{self.thisQuadra}** quadra"
+            self.observations += f"\n:green_circle: :four: **{self.thisQuadra}** quadra"
+            txt_sql += add_sql(txt_sql, 'quadra', [self.thisQuadra], self.last_match, self.summonerName.lower())
+            
+        if self.thisPenta >= 1:
+            self.observations += f"\n:green_circle: :five: **{self.thisPenta}** penta"
+            txt_sql += add_sql(txt_sql, 'penta', [self.thisPenta], self.last_match, self.summonerName.lower())
             
         if self.thisTotalHealed >= 5000:
             self.observations += f"\n:green_circle: **{self.thisTotalHealed}** HP soignés"
+            txt_sql += add_sql(txt_sql, 'heal', [self.thisTotalHealed], self.last_match, self.summonerName.lower())
             
         if self.thisTotalShielded >= 3000:
-            self.observations += f"\n:green_circle: **{self.thisTotalShielded} ** boucliers"
+            self.observations += f"\n:green_circle: :shield: **{self.thisTotalShielded} ** boucliers"
+            txt_sql += add_sql(txt_sql, 'shield', [self.thisTotalShielded], self.last_match, self.summonerName.lower())
             
         if self.thisVisionAdvantage >= 60 and self.thisQ != 'ARAM':
-            self.observations += f"\n:green_circle: **{self.thisVisionAdvantage}**% AV vision"
+            self.observations += f"\n:green_circle: :eye: **{self.thisVisionAdvantage}**% AV vision"
+            txt_sql += add_sql(txt_sql, 'vision_avantage', [self.thisVisionAdvantage], self.last_match, self.summonerName.lower())
         
         elif self.thisVisionAdvantage <= -50 and self.thisQ != 'ARAM':
-            self.observations += f"\n:red_circle: **{self.thisVisionAdvantage}**% AV vision"
+            self.observations += f"\n:red_circle: :eye: **{self.thisVisionAdvantage}**% AV vision"
+            txt_sql += add_sql(txt_sql, 'vision_avantage', [self.thisVisionAdvantage], self.last_match, self.summonerName.lower())
             
         if self.thisSoloKills >= 1:
-            self.observations += f"\n:green_circle: **{self.thisSoloKills}** solokills"
+            self.observations += f"\n:green_circle: :karate_uniform: **{self.thisSoloKills}** solokills"
+            txt_sql += add_sql(txt_sql, 'solokills', [self.thisSoloKills], self.last_match, self.summonerName.lower())
             
         if self.thisMinionPerMin >= 7:
-            self.observations += f'\n:green_circle: **{self.thisMinionPerMin}** cs/min'
-            
-            
+            self.observations += f'\n:green_circle: :ghost: **{self.thisMinionPerMin}** cs/min'
+            txt_sql += add_sql(txt_sql, 'minion_min', [self.thisMinionPerMin], self.last_match, self.summonerName.lower())
+ 
+
+        # pour only ranked/normal game
+        if self.thisQ in ['RANKED', 'NORMAL', 'FLEX']:
+            if int(self.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
+                self.observations +=\
+                        f"\n **:green_circle: :wave: {self.thisLevelAdvantage} niveaux d'avance sur ton adversaire**"
+                txt_sql += add_sql(txt_sql, 'level_avantage', [self.thisLevelAdvantage], self.last_match, self.summonerName.lower())
 
 
+            if (float(self.thisDragonTeam) >= settings['Dragon']['score']):
+                self.observations += f"\n **:green_circle: :dragon: Âme du dragon **"
+                txt_sql += add_sql(txt_sql, 'dragon', [self.thisDragonTeam], self.last_match, self.summonerName.lower())
+
+            if (int(self.thisDanceHerald) >= 1):
+                self.observations += f"\n **:green_circle: :dancer: Danse avec l'Herald **"
+                txt_sql += add_sql(txt_sql, 'herald_dance', [0], self.last_match, self.summonerName.lower())
+
+            if (int(self.thisPerfectGame) >= 1):
+                self.observations += f"\n:green_circle: :sunny: Perfect Game"
+                txt_sql += add_sql(txt_sql, 'perfect_game', [0], self.last_match, self.summonerName.lower())
+
+
+            if int(self.thisDeaths) == int(settings['Ne_pas_mourir']['score']):
+                self.observations += "\n **:green_circle: :heart: N'est pas mort de la game ** \n ** :crown: :star: PERFECT KDA **"
+                txt_sql += add_sql(txt_sql, 'ne_pas_mourir', [0], self.last_match, self.summonerName.lower())
+
+
+            if float(self.thisVisionPerMin) >= settings['Vision/min(support)']['score'] and str(self.thisPosition) == "SUPPORT":
+                self.observations +=\
+                        f"\n **:green_circle: :eye: {self.thisVisionPerMin} Vision / min **"
+                txt_sql += add_sql(txt_sql, 'vision_min', [self.thisVisionPerMin], self.last_match, self.summonerName.lower())
+
+
+            if int(self.thisVisionPerMin) >= settings['Vision/min(autres)']['score'] and str(self.thisPosition) != "SUPPORT":
+                self.observations +=\
+                        f"\n **:green_circle: :eye: {self.thisVisionPerMin} Vision / min **"
+                txt_sql += add_sql(txt_sql, 'vision_min', [self.thisVisionPerMin], self.last_match, self.summonerName.lower())
+
+
+            if int(self.thisCSAdvantageOnLane) >= settings['CSAvantage']['score']:
+                self.observations +=\
+                        f"\n **:green_circle: :ghost: {self.thisCSAdvantageOnLane} CS d'avance sur ton adversaire**"
+                txt_sql += add_sql(txt_sql, 'cs_avantage', [self.thisCSAdvantageOnLane], self.last_match, self.summonerName.lower())
+                        
+                        
+
+
+        # pour tous les modes
+        if self.thisQ != 'ARENA 2v2':
+
+            if int(self.thisKP) >= settings['KP']['score']:
+                self.observations +=\
+                        f"\n **:green_circle: :dagger: {self.thisKP}% KP **"
+                txt_sql += add_sql(txt_sql, 'kp', [self.thisKP], self.last_match, self.summonerName.lower())
+
+
+            if int(self.thisDamageRatio) >= settings['%_dmg_équipe']['score']:
+                self.observations +=\
+                        f"\n **:green_circle: :dart: {self.thisDamageRatio}% DMG de ton équipe **"
+                txt_sql += add_sql(txt_sql, 'damage_ratio', [self.thisDamageRatio], self.last_match, self.summonerName.lower())
+
+
+            if int(self.thisDamageTakenRatio) >= settings['%_dmg_tank']['score']:
+                self.observations +=\
+                        f"\n **:green_circle: :shield: {self.thisDamageTakenRatio}% Tanking de ton équipe **"
+                txt_sql += add_sql(txt_sql, 'tank_ratio', [self.thisDamageTakenRatio], self.last_match, self.summonerName.lower())
+                        
+        if len(self.observations) > 1000:
+            self.observations2 = self.observations[1000:]
+            self.observations = self.observations[:1000]
+        else:
+            self.observations2 = ''
+
+        requete_perso_bdd(f'''INSERT INTO public.data_badges(
+	                match_id, joueur)
+	                VALUES ('{self.last_match}', '{self.summonerName.lower()}');''')
+        
+        if txt_sql != '':
+            requete_perso_bdd(txt_sql)
     async def resume_general(self,
                              name_img,
                              embed,

@@ -5,9 +5,6 @@ import re
 from discord.utils import get
 
 
-
-
-
 class chan_discord():
 
     def __init__(self,

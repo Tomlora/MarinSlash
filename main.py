@@ -34,7 +34,14 @@ async def on_message_create(message: MessageCreate):
     message : interactions.Message
     """
 
+    # Variables
     channel = message.message.channel     # get id channel
+    author = message.message.author.nick
+    author_global = message.message.author.global_name
+    if author == None:
+        author = author_global
+
+    content = message.message.content
     # identification du channel
 
     # si le msg n'est pas en dm et qu'il n'est pas le bot
@@ -46,6 +53,19 @@ async def on_message_create(message: MessageCreate):
 
         if role.id in message.message.author.roles:  # si l'user a le role mute, on supprime son msg
             await message.message.delete()
+            
+            
+    # Detection twitter
+    
+    async def correction_twitter(content, mot_cle, remplaçant):
+        if mot_cle in content  and int(message.message.author.id) != 450338774329720852:
+            await message.message.delete()
+            text_modifier = content.replace(mot_cle, remplaçant)
+            await channel.send(f'{text_modifier} ({author})')
+    
+    if not 'vxtwitter' in content:
+        await correction_twitter(content, 'x.com', 'vxtwitter.com')
+        await correction_twitter(content, 'twitter.com', 'vxtwitter.com')        
 
     # await bot.process_commands(
     #     message)  # Overriding the default provided on_message forbids any extra commands from running. To fix this, add a bot.process_commands(message) line at the end of your on_message.
@@ -114,9 +134,14 @@ async def on_guild_member_add(member: MemberAdd):
     
     channel = await bot.fetch_channel(chan_discord_pm.chan_accueil)
     # msg de bienvenue
+    
+    author = member.member.nickname
+    author_global = member.member.global_name
+    if author == None:
+        author = author_global
 
     embed = interactions.Embed(title=f'Bienvenue chez les {guild.name}',
-                               description=f'Hello {member.member.nickname}, tu es notre {guild.member_count}ème membre !',
+                               description=f'Hello {author}, tu es notre {guild.member_count}ème membre !',
                                color=interactions.Color.random())
     embed.set_thumbnail(url=member.member.avatar.as_url())
     embed.set_footer(text=f'Version {Version} by Tomlora')
@@ -140,9 +165,14 @@ async def on_guild_member_remove(member: MemberRemove):
     
     channel = await bot.fetch_channel(chan_discord_pm.chan_accueil)
     
+    author = member.member.nickname
+    author_global = member.member.global_name
+    if author == None:
+        author = author_global
+    
     # msg de départ
     embed = interactions.Embed(title=f'Départ des {guild.name}',
-                               description=f'Au revoir {member.member.nickname}, nous sommes encore {guild.member_count} membres !',
+                               description=f'Au revoir {author}, nous sommes encore {guild.member_count} membres !',
                                color=interactions.Color.random())
     embed.set_thumbnail(url=member.member.avatar.as_url())
     embed.set_footer(text=f'Version {Version} by Tomlora')
@@ -150,32 +180,7 @@ async def on_guild_member_remove(member: MemberRemove):
     await channel.send(embeds=embed)
 
 
-# @listen()
-# async def on_command_error(ctx: interactions.CommandContext, error: commands.errors):
-#     """Event qui se déclenche lorsque le bot rencontre une erreur. """"""
 
-#     Parameters
-#     ----------
-#     ctx : interactions.CommandContext
-#     error : commands.errors
-#     """
-
-#     if isinstance(error, commands.CommandNotFound):
-#         await ctx.send("Cette commande n'existe pas")
-#     elif isinstance(error, commands.MissingPermissions):
-#         await ctx.send("Tu n'as pas les permissions nécessaires")
-#     elif isinstance(error, commands.PrivateMessageOnly):
-#         await ctx.send("Cette commande n'est activée qu'en message privé")
-#     elif isinstance(error, commands.CommandOnCooldown):
-#         await ctx.send(f' {error}')
-#     elif isinstance(error, HTTPError):
-#         print('httperror')
-#         await ctx.send('Trop de requêtes')
-#     else:
-#         traceback.print_exception(type(error), error, error.__traceback__)
-#         embed = interactions.Embed(title='Erreur', description=f'Description: \n `{error}`',
-#                                    color=interactions.Color.RED)
-#         await ctx.send(embeds=embed)
 
 
 # Fix pour intégrer des img locales dans les embed
@@ -183,7 +188,6 @@ async def on_guild_member_remove(member: MemberRemove):
 
 for filename in os.listdir('./cogs'):
     if filename.endswith('.py'):
-        # bot.load_extension(f'cogs.{filename[:-3]}')
         bot.load_extension(f'cogs.{filename[:-3]}')
 
 # bot.run(discord_token)

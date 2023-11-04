@@ -82,9 +82,14 @@ class Twitch(Extension):
             await self.TwitchLive(joueur['index'], joueur['is_live'], joueur['server_id'], session)
 
         await session.close()
+        
 
-    @slash_command(name="addtwitch",
-                                    description="Ajoute un compte au tracker twitch",
+    @slash_command(name='twitch', description='Gère ton compte Twitch')
+    async def twitch_compte(self, ctx: SlashContext):
+        pass
+
+    @twitch_compte.subcommand("add",
+                                    sub_cmd_description="Ajoute un compte au tracker twitch",
                                     options=[
                                         SlashCommandOption(name="pseudo_twitch",
                                                     description="Pseudo du compte Twitch",
@@ -100,8 +105,8 @@ class Twitch(Extension):
                                                                  'server_id' : int(ctx.guild.id)})
         await ctx.send('Joueur ajouté au tracker Twitch')
 
-    @slash_command(name="deltwitch",
-                                    description="Supprime un compte du tracker twitch",
+    @twitch_compte.subcommand("delete",
+                                    sub_cmd_description="Supprime un compte du tracker twitch",
                                     options=[
                                         SlashCommandOption(name="pseudo_twitch",
                                                     description="Pseudo du compte Twitch",
