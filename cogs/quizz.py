@@ -16,6 +16,13 @@ class Quizz(Extension):
 
         await ctx.defer(ephemeral=False)
         
+        discord_id = int(ctx.author.id)
+        
+        requete_perso_bdd('''INSERT INTO quizz(discord_id) VALUES (:joueur)
+                                                ON CONFLICT (discord_id)
+                                                DO NOTHING;''',
+                                                {'joueur' : discord_id})
+        
         quizz_selected = random.choice(['Top1', 'Top5', 'Joueur'])
         
         async def check(msg : interactions.api.events.MessageCreate):
@@ -71,12 +78,18 @@ class Quizz(Extension):
                         
                         if joueur.lower() == answer_content.lower():
                             await ctx.send(f"Bonne réponse !' C'est {joueur} avec **{result[stat_selected]}** le {date} ")
+                            requete_perso_bdd(f'''UPDATE public.quizz
+                                                SET count_top1="count_top1"+1, result_top1="result_top1"+1
+                                                WHERE discord_id = {discord_id};''')
                             break
                         else:
                             nb_essais -= 1
                             
                             if nb_essais==0:
                                 await ctx.send("Aie, tu as utilisé tous tes essais")
+                                requete_perso_bdd(f'''UPDATE public.quizz
+                                                SET count_top1="count_top1"+1
+                                                WHERE discord_id = {discord_id};''')
                                 break
                             else:
                                 await ctx.send(f'Mauvaise réponse... Tu as encore {nb_essais} essais')
@@ -84,6 +97,9 @@ class Quizz(Extension):
                     except asyncio.TimeoutError:
                         
                         await ctx.send('Fini !')
+                        requete_perso_bdd(f'''UPDATE public.quizz
+                                            SET count_top1="count_top1"+1
+                                            WHERE discord_id = {discord_id};''')
                         break
                     
             elif quizz_selected == 'Top5':  
@@ -115,12 +131,18 @@ class Quizz(Extension):
                             for player, score, date in zip(joueur, score, date):
                                 txt_result += f'**{player}** : {score} ({date}) | '
                             await ctx.send(f'Bonne réponse ! {txt_result}')
+                            requete_perso_bdd(f'''UPDATE public.quizz
+                                                SET count_top5="count_top5"+1, result_top1="result_top5"+1
+                                                WHERE discord_id = {discord_id};''')
                             break
                         else:
                             nb_essais -= 1
                             
                             if nb_essais==0:
                                 await ctx.send("Aie, tu as utilisé tous tes essais")
+                                requete_perso_bdd(f'''UPDATE public.quizz
+                                                SET count_top5="count_top5"+1
+                                                WHERE discord_id = {discord_id};''')
                                 break
                             else:
                                 elements_identiques = []
@@ -151,6 +173,9 @@ class Quizz(Extension):
                     except asyncio.TimeoutError:
                         
                         await ctx.send('Fini !')
+                        requete_perso_bdd(f'''UPDATE public.quizz
+                                                SET count_top5="count_top5"+1
+                                                WHERE discord_id = {discord_id};''')
                         break
                     
         elif quizz_selected in ['Joueur']:  
@@ -196,12 +221,18 @@ class Quizz(Extension):
                         
                     if joueur_selected.lower() == answer_content:
                         await ctx.send('Bonne réponse !')
+                        requete_perso_bdd(f'''UPDATE public.quizz
+                                                SET count_joueur="count_joueur"+1, result_joueur="result_joueur"+1
+                                                WHERE discord_id = {discord_id};''')
                         break
                     else:
                         nb_essais -= 1
                             
                         if nb_essais==0:
                             await ctx.send("Aie, tu as utilisé tous tes essais")
+                            requete_perso_bdd(f'''UPDATE public.quizz
+                                                SET count_joueur="count_joueur"+1
+                                                WHERE discord_id = {discord_id};''')
                             break
                         else:
                             await ctx.send(f'Mauvaise réponse... Tu as encore {nb_essais} essais')
@@ -210,6 +241,9 @@ class Quizz(Extension):
                 except asyncio.TimeoutError:
                         
                     await ctx.send('Fini !')
+                    requete_perso_bdd(f'''UPDATE public.quizz
+                                                SET count_joueur="count_joueur"+1
+                                                WHERE discord_id = {discord_id};''')
                     break
 
 
