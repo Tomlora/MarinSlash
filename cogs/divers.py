@@ -111,49 +111,49 @@ class Divers(Extension):
             # When it times out, edit the original message and remove the button(s)
             return await ctx.edit(components=[])
 
-    @slash_command(name="quiz",
-                                    description="Reponds au quizz")
-    async def quiz(self, ctx: SlashContext):
-        select = interactions.SelectMenu(
-            options=[
-                interactions.SelectSlashCommandOption(
-                    label="Dawn", value="1", emoji=interactions.PartialEmoji(name='😂')),
-                interactions.SelectSlashCommandOption(
-                    label="Exorblue", value="2", emoji=interactions.PartialEmoji(name='😏')),
-                interactions.SelectSlashCommandOption(
-                    label="Tomlora", value="3", emoji=interactions.PartialEmoji(name='💛')),
-                interactions.SelectSlashCommandOption(
-                    label="Ylarabka", value="4", emoji=interactions.PartialEmoji(name='🦊')),
-                interactions.SelectSlashCommandOption(
-                    label="Djingo le egay", value="5", emoji=interactions.PartialEmoji(name='💚'))
-            ],
-            custom_id='quizz_selected',
-            placeholder="Choisis un emoji...",
-            min_values=1,
-            max_values=1
-        )
-        await ctx.send("Qui est le meilleur joueur ici ?",
-                       components=select)
+    # @slash_command(name="quiz",
+    #                                 description="Reponds au quizz")
+    # async def quiz(self, ctx: SlashContext):
+    #     select = interactions.StringSelectMenu(
+    #         options=[
+    #             interactions.StringSelectOption(
+    #                 label="Dawn", value="1", emoji=interactions.PartialEmoji(name='😂')),
+    #             interactions.StringSelectOption(
+    #                 label="Exorblue", value="2", emoji=interactions.PartialEmoji(name='😏')),
+    #             interactions.StringSelectOption(
+    #                 label="Tomlora", value="3", emoji=interactions.PartialEmoji(name='💛')),
+    #             interactions.StringSelectOption(
+    #                 label="Ylarabka", value="4", emoji=interactions.PartialEmoji(name='🦊')),
+    #             interactions.StringSelectOption(
+    #                 label="Djingo le egay", value="5", emoji=interactions.PartialEmoji(name='💚'))
+    #         ],
+    #         custom_id='quizz_selected',
+    #         placeholder="Choisis un emoji...",
+    #         min_values=1,
+    #         max_values=1
+    #     )
+    #     await ctx.send("Qui est le meilleur joueur ici ?",
+    #                    components=select)
 
-        async def check(button_ctx : interactions.api.events.internal.Component ):
-            if int(button_ctx.author.user.id) == int(ctx.author.user.id):
-                return True
-            await ctx.send("I wasn't asking you!", ephemeral=True)
-            return False
+    #     async def check(button_ctx : interactions.api.events.internal.Component ):
+    #         if int(button_ctx.author.user.id) == int(ctx.author.user.id):
+    #             return True
+    #         await ctx.send("I wasn't asking you!", ephemeral=True)
+    #         return False
 
-        try:
-            button_ctx: interactions.api.events.internal.Component  = await self.bot.wait_for_component(
-                components=select, check=check, timeout=30
-            )
+    #     try:
+    #         button_ctx: interactions.api.events.internal.Component  = await self.bot.wait_for_component(
+    #             components=select, check=check, timeout=30
+    #         )
             
-            if button_ctx.ctx.values[0] == "3":
-                await button_ctx.ctx.send("Bonne réponse ! 🦊")
-            else:
-                await button_ctx.ctx.send("Mauvaise réponse... 😒")
-            # With this new Context, you're able to send a new response.
-        except asyncio.TimeoutError:
-            # When it times out, edit the original message and remove the button(s)
-            return await ctx.edit(components=[])
+    #         if button_ctx.ctx.values[0] == "3":
+    #             await button_ctx.ctx.send("Bonne réponse ! 🦊")
+    #         else:
+    #             await button_ctx.ctx.send("Mauvaise réponse... 😒")
+    #         # With this new Context, you're able to send a new response.
+    #     except asyncio.TimeoutError:
+    #         # When it times out, edit the original message and remove the button(s)
+    #         return await ctx.edit(components=[])
 
     @slash_command(name="ping", description="Latence du bot")
     async def ping(self, ctx: SlashContext):

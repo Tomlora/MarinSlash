@@ -11,7 +11,7 @@ class Quizz(Extension):
         self.bot: interactions.Client = bot
 
     @slash_command(name='quizz_lol',
-                   description='participer')
+                   description='Quizz lol')
     async def fantasy_add(self, ctx: SlashContext):
 
         await ctx.defer(ephemeral=False)
