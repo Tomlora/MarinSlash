@@ -16,24 +16,24 @@ class Quizz(Extension):
     async def indice(self, ctx : SlashContext, msg : interactions.Message, liste_indice):
         
         if len(liste_indice) >= 1:
-            await asyncio.sleep(10)
-            await msg.edit(content=f'**Indice 1 ** {msg.content} \n {liste_indice[0]}')
+            await asyncio.sleep(60)
+            await msg.edit(content=f'{msg.content} \n **Indice 1** {liste_indice[0]}')
         
         if len(liste_indice) >= 2:
-            await asyncio.sleep(10)
-            await msg.edit(content=f'** Indice 2 ** {msg.content} \n {liste_indice[1]}')
+            await asyncio.sleep(60)
+            await msg.edit(content=f'** Indice 2 ** {msg.content} \n **Indice 2** {liste_indice[1]}')
 
         if len(liste_indice) >= 3:
-            await asyncio.sleep(10)
-            await msg.edit(content=f'**Indice 3 ** {msg.content} \n {liste_indice[2]}')
+            await asyncio.sleep(60)
+            await msg.edit(content=f'**Indice 3 ** {msg.content} \n **Indice 3** {liste_indice[2]}')
             
         if len(liste_indice) >= 4:
-            await asyncio.sleep(10)
-            await msg.edit(content=f'** Indice 4 ** {msg.content} \n {liste_indice[3]}')
+            await asyncio.sleep(60)
+            await msg.edit(content=f'** Indice 4 ** {msg.content} \n **Indice 4** {liste_indice[3]}')
             
         if len(liste_indice) >= 5:
-            await asyncio.sleep(10)
-            await msg.edit(content=f'** Indice 5 ** {msg.content} \n {liste_indice[4]}')
+            await asyncio.sleep(120)
+            await msg.edit(content=f'** Indice 5 ** {msg.content} \n **Indice 5** {liste_indice[4]}')
     
     async def gestion_quizz(self, ctx : SlashContext, quizz_selected, championnat_selected, stat_selected, df_reponse):
         async def check(msg : interactions.api.events.MessageCreate):
