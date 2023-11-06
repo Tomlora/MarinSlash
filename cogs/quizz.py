@@ -18,25 +18,16 @@ class Quizz(Extension):
         
         await ctx.send('Pour répondre, le message doit être au format `?Réponse` ')
         
-        discord_id = int(ctx.author.id)
-        
-        def add_joueur(discord_id):
-        
-            requete_perso_bdd('''INSERT INTO quizz(discord_id) VALUES (:joueur)
-                                                    ON CONFLICT (discord_id)
-                                                    DO NOTHING;''',
-                                                    {'joueur' : discord_id})
-            
-        add_joueur(discord_id)
-        
+
         quizz_selected = random.choice(['Top1', 'Top5', 'Top4team', 'Joueur'])
         
         async def check(msg : interactions.api.events.MessageCreate):
-            if (int(msg.message.author.id) == int(ctx.author.id)) and msg.message.content.startswith('?'):
+            if msg.message.content.startswith('?'):
                 return True
             else:
                 return False
-        
+            
+
         if quizz_selected in ['Top1', 'Top5']:
                         
             def __sort_stats(df, stat, filter_league : list = None):
@@ -48,7 +39,7 @@ class Quizz(Extension):
                 if filter_league != None:
                     df_cs = df_cs[df_cs['league'].isin(filter_league)]
 
-                return df_cs[['league', 'playername', 'champion', 'teamname', 'date', stat]]
+                return df_cs[['league', 'playername', 'champion', 'position', 'teamname', 'date', stat]]
             
             
 
@@ -83,16 +74,22 @@ class Quizz(Extension):
                 while True:    
                     
                     try:
+                        
                         answer : interactions.api.events.MessageCreate = await self.bot.wait_for(interactions.api.events.MessageCreate,
                                                                                                  checks=check,
                                                                                                  timeout=600)
-                        
+                                               
                         answer_content = answer.message.content[1:]
                         answer_author = answer.message.author
+                        discord_id = int(answer_author.id)
+
                         
                         if answer_content.lower() == 'stop':
                             await ctx.send(f'Annulé. La réponse était {joueur}')
-                            requete_perso_bdd(f'''UPDATE public.quizz
+                            requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
+                                                    ON CONFLICT (discord_id)
+                                                    DO NOTHING;
+                                                    UPDATE public.quizz
                                             SET count_top1="count_top1"+1
                                             WHERE discord_id = {discord_id};''')
                             break
@@ -101,7 +98,10 @@ class Quizz(Extension):
                         
                         if joueur.lower() == answer_content.lower():
                             await ctx.send(f"Bonne réponse !' C'est {joueur} avec **{result[stat_selected]}** le {date} avec {equipe}")
-                            requete_perso_bdd(f'''UPDATE public.quizz
+                            requete_perso_bdd(f'''INSERT INTO quizz({discord_id}) VALUES (:joueur)
+                                                    ON CONFLICT (discord_id)
+                                                    DO NOTHING;
+                                                    UPDATE public.quizz
                                                 SET count_top1="count_top1"+1, result_top1="result_top1"+1
                                                 WHERE discord_id = {discord_id};''')
                             break
@@ -111,7 +111,10 @@ class Quizz(Extension):
                             match nb_essais:
                                 case 0:
                                     await ctx.send(f"Aie, tu as utilisé tous tes essais. La réponse était {joueur} avec **{result[stat_selected]}** le {date} avec {equipe}")
-                                    requete_perso_bdd(f'''UPDATE public.quizz
+                                    requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
+                                                    ON CONFLICT (discord_id)
+                                                    DO NOTHING;
+                                                    UPDATE public.quizz
                                                     SET count_top1="count_top1"+1
                                                     WHERE discord_id = {discord_id};''')
                                     break
@@ -129,9 +132,6 @@ class Quizz(Extension):
                     except asyncio.TimeoutError:
                         
                         await ctx.send('Fini !')
-                        requete_perso_bdd(f'''UPDATE public.quizz
-                                            SET count_top1="count_top1"+1
-                                            WHERE discord_id = {discord_id};''')
                         break
                     
             elif quizz_selected == 'Top5':  
@@ -154,15 +154,22 @@ class Quizz(Extension):
                                                                                                  checks=check,
                                                                                                  timeout=600)
                         
+
+
                         answer_content = answer.message.content[1:].lower().split(', ')
                         answer_author = answer.message.author
+                        discord_id = int(answer_author.id)
                         
                         print(joueur)
                         print(answer_content)
+
                         
                         if answer_content.lower() == 'stop':
                             await ctx.send(f'Annulé. La réponse était {joueur}')
-                            requete_perso_bdd(f'''UPDATE public.quizz
+                            requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
+                                                    ON CONFLICT (discord_id)
+                                                    DO NOTHING;
+                                                    UPDATE public.quizz
                                                 SET count_top5="count_top5"+1
                                                 WHERE discord_id = {discord_id};''')
                             break
@@ -173,7 +180,10 @@ class Quizz(Extension):
                             for player, score, date in zip(joueur, score, date):
                                 txt_result += f'**{player}** : {score} ({date}) | '
                             await ctx.send(f'Bonne réponse ! {txt_result}')
-                            requete_perso_bdd(f'''UPDATE public.quizz
+                            requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
+                                                    ON CONFLICT (discord_id)
+                                                    DO NOTHING;
+                                                    UPDATE public.quizz
                                                 SET count_top5="count_top5"+1, result_top1="result_top5"+1
                                                 WHERE discord_id = {discord_id};''')
                             break
@@ -182,7 +192,10 @@ class Quizz(Extension):
                             
                             if nb_essais==0:
                                 await ctx.send("Aie, tu as utilisé tous tes essais")
-                                requete_perso_bdd(f'''UPDATE public.quizz
+                                requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
+                                                    ON CONFLICT (discord_id)
+                                                    DO NOTHING;
+                                                    UPDATE public.quizz
                                                 SET count_top5="count_top5"+1
                                                 WHERE discord_id = {discord_id};''')
                                 break
@@ -221,16 +234,13 @@ class Quizz(Extension):
                     except asyncio.TimeoutError:
                         
                         await ctx.send('Fini !')
-                        requete_perso_bdd(f'''UPDATE public.quizz
-                                                SET count_top5="count_top5"+1
-                                                WHERE discord_id = {discord_id};''')
                         break
                     
         elif quizz_selected in ['Joueur']:  
             
             df_joueur = lire_bdd_perso('''SELECT index, league, date, playername, position, teamname from data_history_lol ''').T
             
-            df_joueur_filter = df_joueur[df_joueur['league'].isin(['LEC', 'LCS', 'LFL', 'LPL', 'LCK', 'Worlds'])]
+            df_joueur_filter = df_joueur[df_joueur['league'].isin(['LEC', 'LCS', 'LFL', 'LCK', 'Worlds'])]
 
             joueur_selected = random.choice(df_joueur_filter['playername'].unique().tolist())
             
@@ -263,23 +273,34 @@ class Quizz(Extension):
                     answer : interactions.api.events.MessageCreate = await self.bot.wait_for(interactions.api.events.MessageCreate,
                                                                                                  checks=check,
                                                                                                  timeout=600)
-                        
+
+
+                     
                     answer_content = answer.message.content.lower()[1:]
                     answer_author = answer.message.author
+                    discord_id = int(answer_author.id)
                         
                     print(joueur_selected)
                     print(answer_content)
+
+                    
                     
                     if answer_content == 'stop':
-                        await ctx.send('Annulé')
-                        requete_perso_bdd(f'''UPDATE public.quizz
+                        await ctx.send(f'Annulé. La réponse était {joueur_selected}')
+                        requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
+                                                    ON CONFLICT (discord_id)
+                                                    DO NOTHING;
+                                                    UPDATE public.quizz
                                                 SET count_joueur="count_joueur"+1
                                                 WHERE discord_id = {discord_id};''')
                         break
                         
                     if joueur_selected.lower() == answer_content:
                         await ctx.send('Bonne réponse !')
-                        requete_perso_bdd(f'''UPDATE public.quizz
+                        requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
+                                                    ON CONFLICT (discord_id)
+                                                    DO NOTHING;
+                                                    UPDATE public.quizz
                                                 SET count_joueur="count_joueur"+1, result_joueur="result_joueur"+1
                                                 WHERE discord_id = {discord_id};''')
                         break
@@ -289,7 +310,10 @@ class Quizz(Extension):
                         match nb_essais:    
                             case 0:
                                 await ctx.send(f"Aie, tu as utilisé tous tes essais. La réponse était {joueur_selected}")
-                                requete_perso_bdd(f'''UPDATE public.quizz
+                                requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
+                                                    ON CONFLICT (discord_id)
+                                                    DO NOTHING;
+                                                    UPDATE public.quizz
                                                     SET count_joueur="count_joueur"+1
                                                     WHERE discord_id = {discord_id};''')
                                 break
@@ -309,9 +333,6 @@ class Quizz(Extension):
                 except asyncio.TimeoutError:
                         
                     await ctx.send('Fini !')
-                    requete_perso_bdd(f'''UPDATE public.quizz
-                                                SET count_joueur="count_joueur"+1
-                                                WHERE discord_id = {discord_id};''')
                     break
 
 
@@ -329,8 +350,8 @@ class Quizz(Extension):
             
             
 
-            championnat_selected = random.choice(['LEC', 'LCS', 'LFL','LPL', 'LCK', 'MSI', 'Worlds'])
-            stat_selected = random.choice(['kills', 'gamelength', 'damagetochampions', 'visionscore'])
+            championnat_selected = random.choice(['LEC', 'LCS', 'LFL', 'LCK', 'MSI', 'Worlds'])
+            stat_selected = random.choice(['kills', 'gamelength'])
 
             df_stats = lire_bdd_perso(f'''SELECT index, league, date, position, teamname, "{stat_selected}" from data_history_lol
                                       WHERE league = '{championnat_selected}' ''').T            
@@ -359,9 +380,11 @@ class Quizz(Extension):
                     answer : interactions.api.events.MessageCreate = await self.bot.wait_for(interactions.api.events.MessageCreate,
                                                                                                  checks=check,
                                                                                                  timeout=600)
-                        
+
+                                        
                     answer_content = answer.message.content[1:].lower().split(', ')
                     answer_author = answer.message.author
+                    discord_id = int(answer_author.id)
                         
                     print(joueur)
                     print(answer_content)
@@ -379,7 +402,10 @@ class Quizz(Extension):
                         for player, score, date in zip(joueur, score, date):
                             txt_result += f'**{player}** : {score} ({date}) | '
                         await ctx.send(f'Bonne réponse ! {txt_result}')
-                        requete_perso_bdd(f'''UPDATE public.quizz
+                        requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
+                                                    ON CONFLICT (discord_id)
+                                                    DO NOTHING;
+                                                    UPDATE public.quizz
                                                 SET count_top6_team="count_top6_team"+1, result_top6_team="result_top6_team"+1
                                                 WHERE discord_id = {discord_id};''')
                         break
@@ -388,7 +414,10 @@ class Quizz(Extension):
                             
                         if nb_essais==0:
                             await ctx.send("Aie, tu as utilisé tous tes essais")
-                            requete_perso_bdd(f'''UPDATE public.quizz
+                            requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
+                                                    ON CONFLICT (discord_id)
+                                                    DO NOTHING;
+                                                    UPDATE public.quizz
                                                 SET count_top6_team="count_top6_team"+1
                                                 WHERE discord_id = {discord_id};''')
                             break
@@ -426,9 +455,7 @@ class Quizz(Extension):
                 except asyncio.TimeoutError:
                         
                     await ctx.send('Fini !')
-                    requete_perso_bdd(f'''UPDATE public.quizz
-                                                SET count_top6_team="count_top6_team"+1
-                                                WHERE discord_id = {discord_id};''')
+
                     break
 
 def setup(bot):
