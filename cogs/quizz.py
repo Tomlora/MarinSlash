@@ -21,19 +21,19 @@ class Quizz(Extension):
         
         if len(liste_indice) >= 2:
             await asyncio.sleep(60)
-            await msg.edit(content=f'** Indice 2 ** {msg.content} \n **Indice 2** {liste_indice[1]}')
+            await msg.edit(content=f'{msg.content} \n **Indice 2** {liste_indice[1]}')
 
         if len(liste_indice) >= 3:
             await asyncio.sleep(60)
-            await msg.edit(content=f'**Indice 3 ** {msg.content} \n **Indice 3** {liste_indice[2]}')
+            await msg.edit(content=f'{msg.content} \n **Indice 3** {liste_indice[2]}')
             
         if len(liste_indice) >= 4:
             await asyncio.sleep(60)
-            await msg.edit(content=f'** Indice 4 ** {msg.content} \n **Indice 4** {liste_indice[3]}')
+            await msg.edit(content=f'{msg.content} \n **Indice 4** {liste_indice[3]}')
             
         if len(liste_indice) >= 5:
             await asyncio.sleep(120)
-            await msg.edit(content=f'** Indice 5 ** {msg.content} \n **Indice 5** {liste_indice[4]}')
+            await msg.edit(content=f'{msg.content} \n **Indice 5** {liste_indice[4]}')
     
     async def gestion_quizz(self, ctx : SlashContext, quizz_selected, championnat_selected, stat_selected, df_reponse):
         async def check(msg : interactions.api.events.MessageCreate):
@@ -79,7 +79,7 @@ class Quizz(Extension):
                 
                 except asyncio.TimeoutError:
                         
-                    await ctx.send('Fini !')
+                    await ctx.send(f'Fini ! La réponse était {joueur}' )
                     break                    
 
         elif quizz_selected == 'Top5':
@@ -150,7 +150,7 @@ class Quizz(Extension):
                                     
                 except asyncio.TimeoutError:
                         
-                    await ctx.send('Fini !')
+                    await ctx.send(f'Fini ! La réponse était {joueur}' )
                     break
                 
         elif quizz_selected == 'Joueur':
@@ -182,7 +182,7 @@ class Quizz(Extension):
                 
                 except asyncio.TimeoutError:
                         
-                    await ctx.send('Fini !')
+                    await ctx.send(f'Fini ! La réponse était {df_reponse}')
                     break
                 
         elif quizz_selected == 'Top4team':
@@ -246,7 +246,7 @@ class Quizz(Extension):
                                 
                 except asyncio.TimeoutError:
                             
-                    await ctx.send('Fini !')
+                    await ctx.send(f'Fini ! La réponse était {joueur}')
                     break
                 
     @slash_command(name='quizz_lol',
@@ -322,11 +322,11 @@ class Quizz(Extension):
                 position = result['position'].tolist()
                 
                 
-                indice1 = f"Indice :  {', '.join(position)}"
+                indice1 = f"{', '.join(position)}"
                 indice2 = f'{joueur[0][0]} - {joueur[1][0]} - {joueur[2][0]} - {joueur[3][0]} - {joueur[4][0]}'
                 indice3 = f'{self.indice_a_trou(joueur[0])} - {self.indice_a_trou(joueur[1])} - {self.indice_a_trou(joueur[2])} - {self.indice_a_trou(joueur[3])} - {self.indice_a_trou(joueur[4])}'
                 
-                liste_indice = [indice1, indice2]
+                liste_indice = [indice1, indice2, indice3]
 
                 msg = await ctx.send(f'Le top 5 des joueurs avec le record de **{stat_selected}** en **{championnat_selected}** ? \n La réponse doit être au format : `?Joueur1, Joueur2, Joueur3, Joueur4, Joueur5` ')
                 
