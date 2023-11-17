@@ -360,10 +360,8 @@ class Quizz(Extension):
             indice1 = f'La réponse commence par {result[:1]}.'
 
             indice2 = f'La réponse finit par {result[1:]}'
-                                
-            indice3 = f'La réponse est en {len(result)} lettres.' 
             
-            indice4 = self.indice_a_trou(result)
+            indice3 = self.indice_a_trou(result)
             
             liste_indice = [indice1, indice2, indice3]
                 

@@ -374,33 +374,34 @@ class LeagueofLegends(Extension):
                 title=f"** {summonerName.upper()} ** vient de ** {match_info.thisWin} ** une {match_info.thisQ} game ({match_info.thisPosition})", color=color)
 
 
-        # Série de victoire
-            if match_info.thisWinStreak == "True" and match_info.thisQ == "RANKED" and match_info.thisTime >= 15:
-                # si égal à 0, le joueur commence une série avec 3 wins
-                if suivi[summonerName.lower().replace(" ", "")]["serie"] == 0:
-                    suivi[summonerName.lower().replace(" ", "")]["serie"] = 3
-                else:  # si pas égal à 0, la série a déjà commencé
-                    suivi[summonerName.lower().replace(
-                        " ", "")]["serie"] = suivi[summonerName.lower().replace(" ", "")]["serie"] + 1
+            if sauvegarder:
+            # Série de victoire
+                if match_info.thisWinStreak == "True" and match_info.thisQ == "RANKED" and match_info.thisTime >= 15:
+                    # si égal à 0, le joueur commence une série avec 3 wins
+                    if suivi[summonerName.lower().replace(" ", "")]["serie"] == 0:
+                        suivi[summonerName.lower().replace(" ", "")]["serie"] = 3
+                    else:  # si pas égal à 0, la série a déjà commencé
+                        suivi[summonerName.lower().replace(
+                            " ", "")]["serie"] = suivi[summonerName.lower().replace(" ", "")]["serie"] + 1
 
-                serie_victoire = round(
-                    suivi[summonerName.lower().replace(" ", "")]["serie"], 0)
+                    serie_victoire = round(
+                        suivi[summonerName.lower().replace(" ", "")]["serie"], 0)
 
-                exploits = exploits + \
-                        f"\n ** :fire: Série de victoire avec {serie_victoire} victoires**"
+                    exploits = exploits + \
+                            f"\n ** :fire: Série de victoire avec {serie_victoire} victoires**"
 
-            elif match_info.thisWinStreak == "False" and match_info.thisQ == "RANKED":  # si pas de série en soloq
-                suivi[summonerName.lower().replace(" ", "")]["serie"] = 0
-                serie_victoire = 0
-            else:
-                serie_victoire = 0
+                elif match_info.thisWinStreak == "False" and match_info.thisQ == "RANKED":  # si pas de série en soloq
+                    suivi[summonerName.lower().replace(" ", "")]["serie"] = 0
+                    serie_victoire = 0
+                else:
+                    serie_victoire = 0
 
             sauvegarde_bdd(suivi, f'suivi_s{saison}')  # achievements + suivi
 
         # badges
 
         if insights:
-            await match_info.calcul_badges()
+            await match_info.calcul_badges(sauvegarder)
         else:
             match_info.observations = ''
 

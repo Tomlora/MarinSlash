@@ -554,6 +554,19 @@ async def get_spectator_data(puuid, session):
     return url, thisQ, id_game, champ_joueur, icon  
 
 
+def charger_font(size):
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", size)  # Ubuntu 18.04
+    except OSError:
+        try:
+            font = ImageFont.truetype("arial.ttf", size)  # Windows
+        except OSError:
+            font = ImageFont.truetype(
+                        "AppleSDGothicNeo.ttc", size
+                    )  # MacOS
+
+    return font
+
 class matchlol():
 
     def __init__(self,
@@ -587,6 +600,7 @@ class matchlol():
         self.index = index
         self.count = count
         self.params_me = {'api_key': api_key_lol}
+        self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))
 
         if identifiant_game is None:
             self.identifiant_game = identifiant_game
@@ -596,8 +610,6 @@ class matchlol():
                 self.identifiant_game = f'EUW1_{self.identifiant_game}'
         self.me = me
         
-
-
 
     async def get_data_riot(self):
         """Récupère les infos de base : 
@@ -1010,8 +1022,11 @@ class matchlol():
             self.thisId, self.match_detail, 'totalMinionsKilled')
 
         self.thisKDAListe = dict_data(self.thisId, self.match_detail, "kda")
-
+        
+        self.thisDamagePerMinuteListe = [round((self.thisDamageListe[i]) / self.thisTime, 1) for i in range(self.nb_joueur)]
         self.thisMinionPerMinListe = [round((self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]) / self.thisTime, 1) for i in range(self.nb_joueur)]
+        self.thisTankPerMinListe = [round((self.thisDamageTakenListe[i]) / self.thisTime, 1) for i in range(self.nb_joueur)]
+
 
         self.thisLevelListe = dict_data(
             self.thisId, self.match_detail, "champLevel")
@@ -1188,27 +1203,34 @@ class matchlol():
 
         # stats mobalytics
 
+        try:
+            self.data_mobalytics, self.data_mobalytics_complete = await get_mobalytics(self.summonerName, self.session, int(self.last_match[5:]))
+            self.moba_ok = True
+        except:
+            self.moba_ok = False
 
-        self.data_mobalytics, self.data_mobalytics_complete = await get_mobalytics(self.summonerName, self.session, int(self.last_match[5:]))
 
+        if self.moba_ok:
+            self.avgtier_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['tier']
+            self.avgrank_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['division']
 
+            self.avgtier_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['tier']
+            self.avgrank_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['division']
 
-        self.avgtier_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['tier']
-        self.avgrank_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['division']
+            if self.thisId >= 5:
+                dict_id = {5 : 0, 6 : 1, 7: 2, 8: 3, 9 : 4 }
 
-        self.avgtier_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['tier']
-        self.avgrank_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['division']
+                id_mobalytics = dict_id[self.thisId]
+            else:
+                id_mobalytics = self.thisId
 
-        if self.thisId >= 5:
-            dict_id = {5 : 0, 6 : 1, 7: 2, 8: 3, 9 : 4 }
+            self.mvp = int(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[id_mobalytics]]['mvpScore'].values[0])
 
-            id_mobalytics = dict_id[self.thisId]
+            self.badges = self.data_mobalytics_complete['data']['lol']['player']['match']['subject']['badges']
+        
         else:
-            id_mobalytics = self.thisId
-
-        self.mvp = int(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[id_mobalytics]]['mvpScore'].values[0])
-
-        self.badges = self.data_mobalytics_complete['data']['lol']['player']['match']['subject']['badges']
+            self.mvp = 0
+            self.badges = ''
 
         stats_mode = "RANKED_FLEX_SR" if self.thisQ == 'FLEX' else "RANKED_SOLO_5x5"
         try:
@@ -1553,30 +1575,6 @@ class matchlol():
         self.ecart_gold_permin = 0
 
 
-        # # stats mobalytics
-
-
-        # self.data_mobalytics, self.data_mobalytics_complete = await get_mobalytics(self.summonerName, self.session, int(self.last_match[5:]))
-
-            
-             
-        # self.avgtier_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['tier']
-        # self.avgrank_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['division']
-
-        # self.avgtier_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['tier']
-        # self.avgrank_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['division']
-
-        # if self.thisId >= 5:
-        #     dict_id = {5 : 0, 6 : 1, 7: 2, 8: 3, 9 : 4 }
-            
-        #     id_mobalytics = dict_id[self.thisId]
-        # else:
-        #     id_mobalytics = self.thisId
-
-        # self.mvp = int(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[id_mobalytics]]['mvpScore'].values[0])
-
-        # self.badges = self.data_mobalytics_complete['data']['lol']['player']['match']['subject']['badges']
-
         try:
 
 
@@ -1718,8 +1716,28 @@ class matchlol():
         requete_perso_bdd('''UPDATE matchs SET couronne = :points WHERE match_id = :match_id AND joueur = :joueur''', {'points': points,
                                                                                                                        'match_id': self.last_match,
                                                                                                                        'joueur': self.summonerName.lower()})
-        
-    async def calcul_badges(self):
+
+    def calcul_scoring(self, i):
+            """Calcule la performance d'un joueur
+            """
+
+            score = self.model.predict(pd.DataFrame([[self.thisKillsListe[i],
+                                                 self.thisAssistsListe[i],
+                                                 self.thisDeathsListe[i],
+                                                 self.thisDoubleListe[i],
+                                                 self.thisTripleListe[i],
+                                                 self.thisQuadraListe[i],
+                                                 self.thisPentaListe[i],
+                                                 self.thisDamagePerMinuteListe[i],
+                                                 self.thisMinionPerMinListe[i],
+                                                 self.thisVisionPerMinListe[i],
+                                                 self.thisKPListe[i],
+                                                 self.thisKDAListe[i],
+                                                 self.thisTankPerMinListe[i]]]))
+            
+            return score  
+              
+    async def calcul_badges(self, sauvegarder):
         # TODO : Faire une table qui récapitule si un badge a été obtenu par un joueur dans une game spécifique
         if self.thisQ == 'ARAM':
             # couronnes pour aram
@@ -1947,8 +1965,10 @@ class matchlol():
 	                match_id, joueur)
 	                VALUES ('{self.last_match}', '{self.summonerName.lower()}');''')
         
-        if txt_sql != '':
+        if txt_sql != '' and sauvegarder:
             requete_perso_bdd(txt_sql)
+            
+            
     async def resume_general(self,
                              name_img,
                              embed,
@@ -1959,31 +1979,10 @@ class matchlol():
         Parameters
         -----------
         name_img : nom de l'image enregistré'''
-        
 
-        model = pickle.load(open('model/scoring_ridge.pkl', 'rb'))
 
-        # def scoring(i):
-        #     """Calcule la performance d'un joueur
-        #     """
 
-        #     score = model.predict(pd.DataFrame([[self.thisKillsListe[i],
-        #                                          self.thisAssistsListe[i],
-        #                                          self.thisDeathsListe[i],
-        #                                          self.thisDoubleListe[i],
-        #                                          self.thisTripleListe[i],
-        #                                          self.thisQuadraListe[i],
-        #                                          self.thisPentaListe[i],
-        #                                          self.thisDamageListe[i],
-        #                                          self.thisVisionListe[i],
-        #                                          self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i],
-        #                                          self.thisMinionPerMinListe[i],
-        #                                          self.thisVisionPerMinListe[i],
-        #                                          self.thisKPListe[i],
-        #                                          self.thisKDAListe[i],
-        #                                          self.thisDamageTakenListe[i]]]))
-
-        #     return str(round(score[0],1))
+ 
 
         # Gestion de l'image 2
         lineX = 2600
@@ -2022,20 +2021,6 @@ class matchlol():
 
         x_metric = 120
         y_metric = 400
-
-
-        def charger_font(size):
-            try:
-                font = ImageFont.truetype("DejaVuSans.ttf", size)  # Ubuntu 18.04
-            except OSError:
-                try:
-                    font = ImageFont.truetype("arial.ttf", size)  # Windows
-                except OSError:
-                    font = ImageFont.truetype(
-                        "AppleSDGothicNeo.ttc", size
-                    )  # MacOS
-
-            return font
 
         font = charger_font(50)
         font_little = charger_font(40)        
@@ -2293,26 +2278,27 @@ class matchlol():
         im.paste(money, (10, 720 + 190), money.convert('RGBA'))
         d.text((83, 720 + 190), f'{self.thisGold_team2}', font=font, fill=(0, 0, 0))
 
-        try:
-            self.img_ally_avg = await get_image('tier', self.avgtier_ally.upper(), self.session, 100, 100)
+        if self.moba_ok:
+            try:
+                self.img_ally_avg = await get_image('tier', self.avgtier_ally.upper(), self.session, 100, 100)
 
-            im.paste(self.img_ally_avg, (x_name+200, 120-20 + 190), self.img_ally_avg.convert('RGBA'))
+                im.paste(self.img_ally_avg, (x_name+200, 120-20 + 190), self.img_ally_avg.convert('RGBA'))
 
-            d.text((x_name+300, 120 + 190), str(
-                        self.avgrank_ally), font=font, fill=(0, 0, 0))
+                d.text((x_name+300, 120 + 190), str(
+                            self.avgrank_ally), font=font, fill=(0, 0, 0))
 
-        except FileNotFoundError:
-            self.img_ally_avg = 'UNRANKED'
-        try:
-            self.img_enemy_avg = await get_image('tier', self.avgtier_enemy.upper(), self.session, 100, 100)
+            except FileNotFoundError:
+                self.img_ally_avg = 'UNRANKED'
+            try:
+                self.img_enemy_avg = await get_image('tier', self.avgtier_enemy.upper(), self.session, 100, 100)
 
-            im.paste(self.img_enemy_avg, (x_name+200, 720-20 + 190), self.img_enemy_avg.convert('RGBA'))
+                im.paste(self.img_enemy_avg, (x_name+200, 720-20 + 190), self.img_enemy_avg.convert('RGBA'))
 
-        except FileNotFoundError:
-            self.img_enemy_avg = 'UNRANKED'
+            except FileNotFoundError:
+                self.img_enemy_avg = 'UNRANKED'
 
-        d.text((x_name+300, 720 + 190), str(
-                    self.avgrank_enemy), font=font, fill=(0, 0, 0))
+            d.text((x_name+300, 720 + 190), str(
+                        self.avgrank_enemy), font=font, fill=(0, 0, 0))
 
         for y in range(123 + 190, 724 + 190, 600):
             fill = (255, 255, 255) if y == 123 + 190 else (0, 0, 0)
@@ -2334,14 +2320,18 @@ class matchlol():
 
         # participants
         initial_y = 223 + 190
+        
+        if self.moba_ok == False:
 
-        # array_scoring = np.array([]) # qu'on va mettre du plus grand au plus petit
-        # liste = []  # en ordre en fonction des joueurs
-        # for i in range(0,10):
-        #     liste.append(scoring(i))
-        #     scoring = liste[i]
-        #     array_scoring = np.append(array_scoring, scoring)
-        # array_scoring = np.sort(array_scoring)
+            array_scoring = np.array([]) # qu'on va mettre du plus grand au plus petit
+            liste = []  # en ordre en fonction des joueurs
+            for i in range(0,10):
+                liste.append(self.calcul_scoring(i))
+                scoring_joueur = liste[i]
+                array_scoring = np.append(array_scoring, scoring_joueur)
+
+            array_scoring_trie = array_scoring.copy()
+            array_scoring_trie.sort()
 
 
         for i in range(self.nb_joueur):
@@ -2355,18 +2345,22 @@ class matchlol():
 
             # rank
 
-            try:
-                rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['tier']
-                tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['division']
-            except IndexError:
+            if self.moba_ok:
                 try:
-                    data_mobalytics_copy = self.data_mobalytics.copy()
-                    data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
-                    rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['tier']
-                    tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['division']
+                    rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['tier']
+                    tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['division']
                 except IndexError:
-                    rank_joueur = ''
-                    tier_joueur = ''
+                    try:
+                        data_mobalytics_copy = self.data_mobalytics.copy()
+                        data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
+                        rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['tier']
+                        tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['division']
+                    except IndexError:
+                        rank_joueur = ''
+                        tier_joueur = ''
+            else:
+                rank_joueur = ''
+                tier_joueur = ''
 
             if rank_joueur != '':
                 img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 100, 100)
@@ -2376,14 +2370,18 @@ class matchlol():
                 d.text((x_score-100, initial_y), str(
                         tier_joueur), font=font, fill=(0, 0, 0))
 
-            try:
-                scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['mvpScore'].values[0]
-            except IndexError:
+            if self.moba_ok:
                 try:
-                    scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['mvpScore'].values[0]
+                    scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['mvpScore'].values[0]
                 except IndexError:
-                    scoring = '?'    
+                    try:
+                        scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['mvpScore'].values[0]
+                    except IndexError:
+                        scoring = '?'    
 
+            else:
+                scoring = np.where(array_scoring_trie == liste[i])[0][0] + 1
+                
             color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (67,89,232), 10 : (220,20,60)}
 
 
@@ -2569,29 +2567,6 @@ class matchlol():
         name_img : nom de l'image enregistré'''
         
 
-        model = pickle.load(open('model/scoring_ridge.pkl', 'rb'))
-
-        # def scoring(i):
-        #     """Calcule la performance d'un joueur
-        #     """
-
-        #     score = model.predict(pd.DataFrame([[self.thisKillsListe[i],
-        #                                          self.thisAssistsListe[i],
-        #                                          self.thisDeathsListe[i],
-        #                                          self.thisDoubleListe[i],
-        #                                          self.thisTripleListe[i],
-        #                                          self.thisQuadraListe[i],
-        #                                          self.thisPentaListe[i],
-        #                                          self.thisDamageListe[i],
-        #                                          self.thisVisionListe[i],
-        #                                          self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i],
-        #                                          self.thisMinionPerMinListe[i],
-        #                                          self.thisVisionPerMinListe[i],
-        #                                          self.thisKPListe[i],
-        #                                          self.thisKDAListe[i],
-        #                                          self.thisDamageTakenListe[i]]]))
-
-        #     return str(round(score[0],1))
 
         # Gestion de l'image 2
         lineX = 2600
@@ -2632,21 +2607,6 @@ class matchlol():
         y_vision = y_tank + 100
         x_metric = 120
 
-
-
-
-        def charger_font(size):
-            try:
-                font = ImageFont.truetype("DejaVuSans.ttf", size)  # Ubuntu 18.04
-            except OSError:
-                try:
-                    font = ImageFont.truetype("arial.ttf", size)  # Windows
-                except OSError:
-                    font = ImageFont.truetype(
-                        "AppleSDGothicNeo.ttc", size
-                    )  # MacOS
-
-            return font
 
         font = charger_font(50)
         font_little = charger_font(40)
@@ -2908,7 +2868,18 @@ class matchlol():
         d.text((x_kill_total + 300 + 100, 23 + 190),
                str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
 
+        if self.moba_ok == False:
 
+            array_scoring = np.array([]) # qu'on va mettre du plus grand au plus petit
+            liste = []  # en ordre en fonction des joueurs
+            for i in range(0,10):
+                liste.append(self.calcul_scoring(i))
+                scoring_joueur = liste[i]
+                array_scoring = np.append(array_scoring, scoring_joueur)
+
+            array_scoring_trie = array_scoring.copy()
+            array_scoring_trie.sort()
+            
         for i in range(self.nb_joueur):
             
             
@@ -2943,35 +2914,39 @@ class matchlol():
 
             # rank
 
-            try:
-                rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['tier']
-                tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['division']
-            except IndexError:
+            if self.moba_ok:
                 try:
-                    data_mobalytics_copy = self.data_mobalytics.copy()
-                    data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
-                    rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['tier']
-                    tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['division']
+                    rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['tier']
+                    tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['division']
                 except IndexError:
-                    rank_joueur = ''
-                    tier_joueur = ''
+                    try:
+                        data_mobalytics_copy = self.data_mobalytics.copy()
+                        data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
+                        rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['tier']
+                        tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['division']
+                    except IndexError:
+                        rank_joueur = ''
+                        tier_joueur = ''
 
-            if rank_joueur != '':
-                img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 60, 60)
+                if rank_joueur != '':
+                    img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 60, 60)
 
-                im.paste(img_rank_joueur, (236*n +70, y_rank), img_rank_joueur.convert('RGBA'))
+                    im.paste(img_rank_joueur, (236*n +70, y_rank), img_rank_joueur.convert('RGBA'))
 
-                d.text((236*n +150, y_rank), str(
-                        tier_joueur), font=font, fill=(0, 0, 0))
+                    d.text((236*n +150, y_rank), str(
+                            tier_joueur), font=font, fill=(0, 0, 0))
 
-            try:
-                scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['mvpScore'].values[0]
-            except IndexError:
+            if self.moba_ok:
                 try:
-                    scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['mvpScore'].values[0]
+                    scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['mvpScore'].values[0]
                 except IndexError:
-                    scoring = '?'    
-
+                    try:
+                        scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['mvpScore'].values[0]
+                    except IndexError:
+                        scoring = '?'    
+            else:
+                scoring = np.where(array_scoring_trie == liste[i])[0][0] + 1
+                
             color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (67,89,232), 10 : (220,20,60)}
 
             ecart_scoring = 90 if scoring == 10 else 100
@@ -3268,19 +3243,6 @@ class matchlol():
         y_cs = y_KP + 50
         y_dmg = y_cs + 120
         y_tank = y_dmg + 120
-
-        def charger_font(size):
-            try:
-                font = ImageFont.truetype("DejaVuSans.ttf", size)  # Ubuntu 18.04
-            except OSError:
-                try:
-                    font = ImageFont.truetype("arial.ttf", size)  # Windows
-                except OSError:
-                    font = ImageFont.truetype(
-                        "AppleSDGothicNeo.ttc", size
-                    )  # MacOS
-                    
-            return font
 
         font = charger_font(50)
         font_little = charger_font(40)
