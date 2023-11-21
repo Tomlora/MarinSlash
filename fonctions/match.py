@@ -709,6 +709,13 @@ class matchlol():
         self.thisTime = fix_temps(round(
             (int(self.match_detail['info']['gameDuration']) / 60), 2))
         
+        try:
+            self.riot_id = self.match_detail_participants['riotIdGameName']
+            self.riot_tag = self.match_detail_participants['riotIdTagline']
+        except:
+            self.riot_id = ''
+            self.riot_tag = ''
+        
         # si le joueur n'est pas mort, le temps est à 0
         if self.thisTimeLiving == 0:
             self.thisTimeLiving = self.thisTime
@@ -1628,7 +1635,8 @@ class matchlol():
         :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
         :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
         :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
-        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min);''',
+        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min);
+        UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where index = :joueur''',
             {
                 'match_id': self.last_match,
                 'joueur': self.summonerName.lower(),
@@ -1709,6 +1717,8 @@ class matchlol():
                 'dmgsurgold' : self.DamageGoldRatio,
                 'ecart_gold_individuel' : self.ecart_gold_noformat,
                 'ecart_gold_min' : self.ecart_gold_permin,
+                'riot_id' : self.riot_id,
+                'riot_tagline' : self.riot_tag
             },
         )
 
@@ -1749,7 +1759,9 @@ class matchlol():
                 name_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'joueur'].values[0]
                 role_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'role'].values[0]
                 team_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'team_plug'].values[0]
-                self.observations_proplayers += f':stadium: **{name_joueur}** : {role_joueur} chez {team_joueur} \n'
+                if team_joueur == '':
+                    team_joueur = 'Aucune'
+                self.observations_proplayers += f':stadium: **{name_joueur}** ({joueur}) : {role_joueur} chez {team_joueur} \n'
                        
     async def calcul_badges(self, sauvegarder):
         # TODO : Faire une table qui récapitule si un badge a été obtenu par un joueur dans une game spécifique

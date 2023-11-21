@@ -415,7 +415,7 @@ class LeagueofLegends(Extension):
 
         # ici, ça va de 1 à 10.. contrairement à Rito qui va de 1 à 9
         embed.add_field(
-            name="Game", value=f"[Graph]({match_info.url_game}) | [OPGG](https://euw.op.gg/summoners/euw/{summonerName}) ", inline=True)
+            name="Game", value=f"[Graph]({match_info.url_game}) | [OPGG](https://euw.op.gg/summoners/euw/{match_info.riot_id.replace(' ', '')}-{match_info.riot_tag}) ", inline=True)
 
         embed.add_field(
             name='Champ', value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)", inline=True)
@@ -778,7 +778,7 @@ class LeagueofLegends(Extension):
     @Task.create(IntervalTrigger(minutes=1))
     async def update(self):
         data = get_data_bdd(
-            '''SELECT tracker.index, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges, tracker.insights, tracker.nb_challenges, tracker.affichage, tracker.banned
+            '''SELECT tracker.index, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges, tracker.insights, tracker.nb_challenges, tracker.affichage, tracker.banned, tracker.riot_id, tracker.riot_tagline
                             from tracker 
                             INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                             where tracker.activation = true and channels_module.league_ranked = true'''
@@ -786,7 +786,7 @@ class LeagueofLegends(Extension):
         timeout = aiohttp.ClientTimeout(total=20)
         session = aiohttp.ClientSession(timeout=timeout)
 
-        for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage, banned in data:
+        for summonername, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage, banned, riot_id, riot_tagline in data:
 
             id_last_game = await getId_with_puuid(puuid, session)
 
@@ -863,9 +863,9 @@ class LeagueofLegends(Extension):
                 try:
                     url, gamemode, id_game, champ_joueur, icon = await get_spectator_data(puuid, session)
 
-                    url_opgg = f'https://www.op.gg/summoners/euw/{summonername}/ingame'
+                    url_opgg = f'https://www.op.gg/summoners/euw/{riot_id.replace(" ", "")}-{riot_tagline}/ingame'
 
-                    league_of_graph = f'https://porofessor.gg/fr/live/euw/{summonername}'
+                    league_of_graph = f'https://porofessor.gg/fr/live/euw/{riot_id.replace(" ", "")}-{riot_tagline}'
 
                     if url != None:
 
