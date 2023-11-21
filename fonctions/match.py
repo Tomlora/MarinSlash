@@ -600,7 +600,8 @@ class matchlol():
         self.index = index
         self.count = count
         self.params_me = {'api_key': api_key_lol}
-        self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))
+        self.model = ''
+
 
         if identifiant_game is None:
             self.identifiant_game = identifiant_game
@@ -1208,6 +1209,7 @@ class matchlol():
             self.moba_ok = True
         except:
             self.moba_ok = False
+            self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))
 
 
         if self.moba_ok:
@@ -1736,7 +1738,19 @@ class matchlol():
                                                  self.thisTankPerMinListe[i]]]))
             
             return score  
-              
+        
+    async def detection_joueurs_pro(self):
+        df_data_pro = lire_bdd_perso('''SELECT data_acc_proplayers.*, data_proplayers.home, data_proplayers.role, data_proplayers.team_plug from data_acc_proplayers
+                                LEFT JOIN data_proplayers ON data_acc_proplayers.joueur = data_proplayers.plug''', index_col=None).T
+        
+        self.observations_proplayers = ''
+        for joueur in self.thisPseudoListe:
+            if joueur in df_data_pro['compte'].tolist():
+                name_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'joueur'].values[0]
+                role_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'role'].values[0]
+                team_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'team_plug'].values[0]
+                self.observations_proplayers += f':stadium: **{name_joueur}** : {role_joueur} chez {team_joueur} \n'
+                       
     async def calcul_badges(self, sauvegarder):
         # TODO : Faire une table qui récapitule si un badge a été obtenu par un joueur dans une game spécifique
         if self.thisQ == 'ARAM':
@@ -1748,6 +1762,8 @@ class matchlol():
                 f'SELECT index, score as score from achievements_settings')
 
         settings = settings.to_dict()
+        
+
         
         def insight_text(slug, values, type):
                   
@@ -2332,6 +2348,8 @@ class matchlol():
 
             array_scoring_trie = array_scoring.copy()
             array_scoring_trie.sort()
+            
+            self.model = ''
 
 
         for i in range(self.nb_joueur):
@@ -2879,6 +2897,8 @@ class matchlol():
 
             array_scoring_trie = array_scoring.copy()
             array_scoring_trie.sort()
+            
+            self.model = ''
             
         for i in range(self.nb_joueur):
             

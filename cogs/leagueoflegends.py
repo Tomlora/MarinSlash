@@ -398,12 +398,18 @@ class LeagueofLegends(Extension):
 
             sauvegarde_bdd(suivi, f'suivi_s{saison}')  # achievements + suivi
 
+
+        # joueur pro
+        
+
         # badges
 
         if insights:
             await match_info.calcul_badges(sauvegarder)
         else:
             match_info.observations = ''
+            
+        
 
         # observations
 
@@ -504,6 +510,12 @@ class LeagueofLegends(Extension):
                 if not field_value in ['', ' ']:
                     embed.add_field(name=field_name,
                                     value=field_value, inline=False)
+         
+        # Detection joueurs pro 
+        await match_info.detection_joueurs_pro()    
+                
+        if match_info.observations_proplayers != '':
+            embed.add_field(name='Joueurs Pro', value=match_info.observations_proplayers)
 
         if match_info.thisQ != 'ARENA 2v2':
 
