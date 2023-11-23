@@ -71,6 +71,14 @@ Il existe deux formats de présentation :
 
 Ce recap est personnalisable, c'est-à-dire qu'il y a différents modules qui peuvent être affichés ou non, comme les insights (les bons/mauvais points d'une partie) ou les succès (des challenges crées par Riot Games).
 
+#### Detections de joueurs pro 
+
+<p align="center">
+ <br>
+  <img width="400" height="160" src="https://raw.githubusercontent.com/Tomlora/MarinSlash/main/detection_pros.png">
+ <br>
+ </p>
+
 -------------
 
 ### Records
