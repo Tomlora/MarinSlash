@@ -880,23 +880,25 @@ class LeagueofLegends(Extension):
                 puuid = me['puuid']
                 info_account = await get_summonerinfo_by_puuid(puuid, session)
                 requete_perso_bdd(f'''
-                                  
-                                INSERT INTO tracker(index, id, discord, server_id, puuid, riot_id, riot_tag, id_account) VALUES (:riot_id, :id, :discord, :guilde, :puuid, :riot_id, :riot_tagline, :id_league);
-                                
-                                INSERT INTO suivi_s{saison}(
-                                index, wins, losses, "LP", tier, rank, serie, wins_jour, losses_jour, "LP_jour", tier_jour, rank_jour, riot_id, riot_tagline)
-                                VALUES (:riot_id, 0, 0, 0, 'Non-classe', 0, 0, 0, 0, 0, 'Non-classe', 0, :riot_id, :riot_tag);
-                                                       
-                                INSERT INTO ranked_aram_s{saison}(
-                                index, wins, losses, lp, games, k, d, a, activation, rank, serie, wins_jour, losses_jour, lp_jour, rank_jour, riot_id, riot_tagline)
-                                VALUES (:riot_id, 0, 0, 0, 0, 0, 0, 0, True, 'IRON', 0, 0, 0, 0, 'IRON', :riot_id, :riot_tag); ''',
-                                  {'id': await getId_with_puuid(puuid, session),
+                                INSERT INTO tracker(index, id, discord, server_id, puuid, riot_id, riot_tag, id_account) VALUES (:riot_id, :id, :discord, :guilde, :puuid, :riot_id, :riot_tagline, :id_league); 
+                                ''',
+                                  {'riot_id' : riot_id,
+                                    'id': await getId_with_puuid(puuid, session),
                                    'discord': int(ctx.author.id),
                                    'guilde': int(ctx.guild.id),
                                    'puuid': puuid,
                                    'riot_id' : riot_id,
                                    'riot_tag' : riot_tag,
-                                   'id_account' : info_account['id']})
+                                   'id_league' : info_account['id']})
+                
+                requete_perso_bdd(f'''
+                                INSERT INTO suivi_s{saison}(
+                                index, wins, losses, "LP", tier, rank, serie, wins_jour, losses_jour, "LP_jour", tier_jour, rank_jour)
+                                VALUES ( (SELECT id_compte from tracker where riot_id = '{riot_id}' ), 0, 0, 0, 'Non-classe', 0, 0, 0, 0, 0, 'Non-classe', 0);
+                                                       
+                                INSERT INTO ranked_aram_s{saison}(
+                                index, wins, losses, lp, games, k, d, a, activation, rank, serie, wins_jour, losses_jour, lp_jour, rank_jour)
+                                VALUES ( (SELECT id_compte from tracker where riot_id = '{riot_id}'), 0, 0, 0, 0, 0, 0, 0, True, 'IRON', 0, 0, 0, 0, 'IRON'); ''')
 
                 await ctx.send(f"{riot_id} #{riot_tag} a été ajouté avec succès au live-feed!")
                 await session.close()
