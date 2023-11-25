@@ -191,8 +191,7 @@ Détermine dans un tracker si une personne a lancé son stream twitch, et sur qu
 ## Projet 5 : Twitter
 
 Suit les tweets de certains journalistes pour avoir l'information rapidement selon des mots clés.
-
-
+**En pause** depuis que l'API est payante
 
 
 
