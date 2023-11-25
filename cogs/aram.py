@@ -68,7 +68,11 @@ class Aram(Extension):
     async def ladder_aram(self, ctx: SlashContext):
 
         suivi_aram = lire_bdd_perso(
-            f'''SELECT * from ranked_aram_s{saison} where games != 0''', format='dict')
+            f'''SELECT ranked_aram_s.*, tracker.id_compte, tracker.riot_id from ranked_aram_s{saison}
+            INNER JOIN tracker on tracker.id_compte = ranked_aram_s{saison}.index
+            where games != 0''',
+            index_col='id_compte',
+            format='dict')
 
         await ctx.defer(ephemeral=False)
 
@@ -80,7 +84,7 @@ class Aram(Extension):
         embed = interactions.Embed(
             title="Suivi LOL", description='ARAM', color=interactions.Color.random())
 
-        for key in df['index']:
+        for key in df['id_compte']:
 
             wr = round((suivi_aram[key]['wins'] /
                        suivi_aram[key]['games'])*100, 2)
@@ -95,7 +99,7 @@ class Aram(Extension):
                                 str(suivi_aram[key]['losses']) + " | WR :  "
                                 + str(wr) + "% | KDA : " + str(kda), inline=False)
             else:
-                embed.add_field(name=str(f"{key} ({suivi_aram[key]['lp']} LP) [{suivi_aram[key]['rank']}] [Désactivé]"),
+                embed.add_field(name=str(f"{suivi_aram[key]['riot_id']} ({suivi_aram[key]['lp']} LP) [{suivi_aram[key]['rank']}] [Désactivé]"),
                                 value="V : " +
                                 str(suivi_aram[key]['wins']) + " | D : " +
                                 str(suivi_aram[key]['losses']) + " | WR :  "
@@ -202,62 +206,6 @@ class Aram(Extension):
         paginator.show_select_menu = True
         await paginator.send(ctx)
 
-    @slash_command(name='carton',
-                   description='Activation/Désactivation',
-                   options=[
-                       SlashCommandOption(
-                           name='couleur',
-                           description="vert = + / rouge = -",
-                           type=interactions.OptionType.STRING,
-                           required=True, choices=[
-                               SlashCommandChoice(name='vert',
-                                                  value='vert'),
-                               SlashCommandChoice(name='rouge', value='rouge')]),
-                       SlashCommandOption(
-                           name="summonername",
-                           description="nom ingame",
-                           type=interactions.OptionType.STRING,
-                           required=True),
-                       SlashCommandOption(
-                           name='nombre',
-                           description='nombre de lp',
-                           type=interactions.OptionType.INTEGER,
-                           required=True)])
-    async def carton(self,
-                     ctx: SlashContext,
-                     couleur: str,
-                     summonername: str,
-                     nombre: int):
-        if isOwner_slash(ctx):
-
-            summonername = summonername.lower().replace(' ', '')
-            if couleur == 'vert':
-                nb_row = requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp + :nombre WHERE index = :summonername', {
-                    'nombre': nombre, 'summonername': summonername}, get_row_affected=True)
-                if nb_row > 0:
-                    msg = f'Les LP pour {summonername} ont été ajoutés. (+{nombre})'
-                else:
-                    msg = "Tu n'es pas dans la base de données."
-            if couleur == 'rouge':
-                nb_row = requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp - :nombre WHERE index = :summonername', {
-                    'nombre': nombre, 'summonername': summonername}, get_row_affected=True)
-                if nb_row > 0:
-                    msg = f'Les LP pour {summonername} ont été retirés. (-{nombre})'
-                else:
-                    msg = "Tu n'es pas dans la base de données."
-        else:
-            nb_row = requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET lp = lp - 1 WHERE index = :summonername', {
-                'summonername': summonername}, get_row_affected=True)
-            if nb_row > 0:
-                msg = 'Bien essayé ! Tu perds 1 lp.'
-            else:
-                msg = "Tu n'es pas dans la base de données."
-
-        embed = interactions.Embed(description=msg,
-                                   color=interactions.Color.random())
-
-        await ctx.send(embeds=embed)
-
     async def update_aram24h(self):
         data = get_data_bdd(f'''SELECT DISTINCT tracker.server_id from tracker 
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
@@ -271,8 +219,8 @@ class Aram(Extension):
 
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
-            df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, suivi.wins_jour, suivi.losses_jour, suivi.lp_jour, suivi.rank_jour, tracker.server_id from ranked_aram_s{saison} as suivi 
-                                        INNER join tracker ON tracker.index = suivi.index 
+            df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, suivi.wins_jour, suivi.losses_jour, suivi.lp_jour, suivi.rank_jour, tracker.server_id, tracker.id_compte, tracker.riot_id, tracker.riot_tagline from ranked_aram_s{saison} as suivi 
+                                        INNER join tracker ON tracker.id_compte = suivi.index 
                                         where tracker.server_id = {int(guild.id)} and tracker.banned = false ''')
 
             if df.shape[1] > 0:  # s'il y a des données
@@ -288,7 +236,7 @@ class Aram(Extension):
                 df.sort_values(by=['tier_pts', 'lp'], ascending=[
                     False, False], inplace=True)
 
-                suivi = df.set_index('index').transpose().to_dict()
+                suivi = df.set_index('id_compte').transpose().to_dict()
                 joueur = suivi.keys()
 
                 embed = interactions.Embed(
@@ -336,7 +284,7 @@ class Aram(Extension):
                             emote = ":arrow_right:"
 
                     if nbgames != 0:
-                        embed.add_field(name=str(key) + " ( " + emote_rank_discord[tier] + " )",
+                        embed.add_field(name=suivi[key]['riot_id'] + " ( " + emote_rank_discord[tier] + " )",
                                         value=f"V : {suivi[key]['wins']} ({difwins}) | " +
                                         f"D : {suivi[key]['losses']} ({diflosses}) | " +
                                         f"LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)

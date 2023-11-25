@@ -281,7 +281,7 @@ class Recordslol(Extension):
             description='saison league of legends',
             type=interactions.OptionType.INTEGER,
             required=False,
-            min_value=12,
+            min_value=13,
             max_value=saison),
         SlashCommandOption(
             name='champion',
@@ -306,21 +306,21 @@ class Recordslol(Extension):
         methode_pseudo = 'discord'
         
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
-                                     INNER JOIN tracker on tracker.index = matchs.joueur
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
+                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
                                      and tracker.banned = false ''', index_col='id').transpose()
         elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
-                                     INNER JOIN tracker on tracker.index = matchs.joueur
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
+                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = {int(ctx.guild_id)}
                                      and time >= {self.time_mini[mode]}
                                      and tracker.banned = false ''', index_col='id').transpose()
-            
+
         if champion != None:
             
             champion = champion.capitalize()
@@ -468,12 +468,12 @@ class Recordslol(Extension):
         methode_pseudo = 'discord'
         
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
-                                     INNER JOIN tracker on tracker.index = matchs.joueur
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
+                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]} and tracker.banned = false''', index_col='id').transpose()
         elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
-                                     INNER JOIN tracker on tracker.index = matchs.joueur
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
+                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = {int(ctx.guild_id)}
@@ -482,10 +482,14 @@ class Recordslol(Extension):
             
         fichier['early_drake'] = fichier['early_drake'].replace({0 : 999})    
         fichier['early_baron'] = fichier['early_baron'].replace({0 : 999}) 
+        
         for column in self.liste_complete:
             
-            fichier[f'{column}_rank_max'] = fichier[column].rank(method='min', ascending=False).astype(int)
-            fichier[f'{column}_rank_min'] = fichier[column].rank(method='min', ascending=True).astype(int)
+            try:
+                fichier[f'{column}_rank_max'] = fichier[column].rank(method='min', ascending=False).astype(int)
+                fichier[f'{column}_rank_min'] = fichier[column].rank(method='min', ascending=True).astype(int)
+            except:
+                print('erreur', column)
             
 
         if champion != None:
@@ -497,10 +501,10 @@ class Recordslol(Extension):
             
         if joueur != None:
             
-            joueur = joueur.lower()
+            joueur = joueur.lower().replace(' ', '')
                 
-            id_joueur = lire_bdd_perso('''SELECT tracker.index, tracker.discord from tracker where tracker.banned = false''',
-                                            format='dict', index_col='index')
+            id_joueur = lire_bdd_perso('''SELECT tracker.riot_id, tracker.discord from tracker where tracker.banned = false''',
+                                            format='dict', index_col='riot_id')
             try:
                 fichier = fichier[fichier['discord'] == id_joueur[joueur]['discord']]
             except KeyError:
@@ -523,7 +527,7 @@ class Recordslol(Extension):
                 
             joueur = ctx.author.name
                 
-        methode_pseudo = 'joueur'
+        methode_pseudo = 'riot_id'
 
         if champion == None:
 
@@ -713,7 +717,7 @@ class Recordslol(Extension):
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]} and tracker.banned = false''', index_col='id').transpose()
         elif view == 'serveur':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
-                                     INNER JOIN tracker on tracker.index = matchs.joueur
+                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = '{int(ctx.guild_id)}'
@@ -1044,72 +1048,6 @@ class Recordslol(Extension):
             except KeyError:
                 await ctx.send("Ce record n'existe pas. Merci de regarder les records pour voir les noms disponibles.")
                 
-                
-    # @palmares.autocomplete('stat')
-    # async def palmares_autocomplete(self, ctx: AutocompleteContext):
-    #     string_option_input = ctx.input_text
-        
-    #     await ctx.send(
-    #         choices=[
-    #             {'name' : f'kda', f'value' : f'kda'},
-    #             {'name' : f'kp', f'value' : f'kp'},
-    #             {'name' : f'cs', f'value' : f'cs'},
-    #             {'name' : f'cs_min', f'value' : f'cs_min'},
-    #             {'name' : f'kills', f'value' : f'kills'},
-    #             {'name' : f'deaths', f'value' : f'deaths'},
-    #             {'name' : f'assists', f'value' : f'assists'},
-    #             {'name' : f'double', f'value' : f'double'},
-    #             {'name' : f'triple', f'value' : f'triple'},
-    #             {'name' : f'quadra', f'value' : f'quadra'},
-    #             {'name' : f'penta', f'value' : f'penta'},
-    #             {'name' : f'team_kills', f'value' : f'team_kills'},
-    #             {'name' : f'team_deaths', f'value' : f'team_deaths'},
-    #             {'name' : f'time', f'value' : f'time'},
-    #             {'name' : f'dmg', f'value' : f'dmg'},
-    #             {'name' : f'dmg_ad', f'value' : f'dmg_ad'},
-    #             {'name' : f'dmg_ap', f'value' : f'dmg_ap'},
-    #             {'name' : f'dmg_true', f'value' : f'dmg_true'},
-    #             {'name' : f'gold', f'value' : f'gold'},
-    #             {'name' : f'gold_min', f'value' : f'gold_min'},
-    #             {'name' : f'dmg_min', f'value' : f'dmg_min'},
-    #             {'name' : f'solokills', f'value' : f'solokills'},
-    #             {'name' : f'dmg_reduit', f'value' : f'dmg_reduit'},
-    #             {'name' : f'heal_total', f'value' : f'heal_total'},
-    #             {'name' : f'heal_allies', f'value' : f'heal_allies'},
-    #             {'name' : f'serie_kills', f'value' : f'serie_kills'},
-    #             {'name' : f'cs_dix_min', f'value' : f'cs_dix_min'},
-    #             {'name' : f'cs_max_avantage', f'value' : f'cs_max_avantage'},
-    #             {'name' : f'temps_dead', f'value' : f'temps_dead'},
-    #             {'name' : f'damageratio', f'value' : f'damageratio'},
-    #             {'name' : f'tankratio', f'value' : f'tankratio'},
-    #             {'name' : f'dmg_tank', f'value' : f'dmg_tank'},
-    #             {'name' : f'shield', f'value' : f'shield'},
-    #             {'name' : f'allie_feeder', f'value' : f'allie_feeder'},
-    #             {'name' : f'temps_vivant', f'value' : f'temps_vivant'},
-    #             {'name' : f'dmg_tower', f'value' : f'dmg_tower'},
-    #             {'name' : f'gold_share', f'value' : f'gold_share'},
-    #             {'name' : f'ecart_gold_team', f'value' : f'ecart_gold_team'},
-    #             {'name' : f'kills+assists', f'value' : f'kills+assists'},
-    #             {'name' : f'vision_score', f'value' : f'vision_score'},
-    #             {'name' : f'vision_wards', f'value' : f'vision_wards'},
-    #             {'name' : f'vision_wards_killed', f'value' : f'vision_wards_killed'},
-    #             {'name' : f'vision_pink', f'value' : f'vision_pink'},
-    #             {'name' : f'vision_min', f'value' : f'vision_min'},
-    #             {'name' : f'level_max_avantage', f'value' : f'level_max_avantage'},
-    #             {'name' : f'vision_avantage', f'value' : f'vision_avantage'},
-    #             {'name' : f'early_drake', f'value' : f'early_drake'},
-    #             {'name' : f'early_baron', f'value' : f'early_baron'},
-    #             {'name' : f'jgl_dix_min', f'value' : f'jgl_dix_min'},
-    #             {'name' : f'baron', f'value' : f'baron'},
-    #             {'name' : f'drake', f'value' : f'drake'},
-    #             {'name' : f'herald', f'value' : f'herald'},
-    #             {'name' : f'cs_jungle', f'value' : f'cs_jungle'},
-    #             {'name' : f'snowball', f'value' : f'snowball'},
-                #   {'name' : 'temps_avant_premiere_mort', 'value' : 'temps_avant_premiere_mort'},
-    #             {'name' : f'champion', 'value' : f'champion'},
 
-    #         ]
-    #     )
-              
 def setup(bot):
     Recordslol(bot)

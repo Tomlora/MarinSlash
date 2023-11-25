@@ -36,22 +36,20 @@ async def get_data_challenges(session):
     return data_challenges
 
 
-async def get_data_joueur_challenges(summonername: str, session, puuid=None):
+async def get_data_joueur_challenges(id_compte: int, session, puuid=None):
     
-    if puuid == None:
-        me = await get_summoner_by_name(session, summonername)
-        puuid = me['puuid']
+
     data_joueur = await get_challenges_data_joueur(session, puuid)
     data_total_joueur = dict()
 
-    data_total_joueur[summonername] = data_joueur['totalPoints']  # dict
+    data_total_joueur[id_compte] = data_joueur['totalPoints']  # dict
 
     data_joueur_category = pd.DataFrame(data_joueur['categoryPoints'])
 
     data_joueur_challenges = pd.DataFrame(data_joueur['challenges'])
     # on ajoute le joueur
-    data_joueur_category.insert(0, "Joueur", summonername)
-    data_joueur_challenges.insert(0, "Joueur", summonername)
+    data_joueur_category.insert(0, "Joueur", id_compte)
+    data_joueur_challenges.insert(0, "Joueur", id_compte)
 
     if data_joueur_challenges.empty:  # si le dataset est vide, on fait rien.
         return 0, 0, 0
@@ -110,7 +108,7 @@ async def get_data_joueur_challenges(summonername: str, session, puuid=None):
 class challengeslol():
 
     def __init__(self,
-                 summonerName,
+                 id_compte,
                  puuid=None,
                  session:aiohttp.ClientSession=None,
                  nb_challenges:int=8):
@@ -121,7 +119,7 @@ class challengeslol():
         summonerName : `str`
             nom d'un joueur lol
         """
-        self.summonerName = summonerName.lower().replace(' ', '')
+        self.id_compte = id_compte
         self.puuid = puuid
         self.session = session
         self.category = ['CRISTAL', 'IMAGINATION', 'EXPERTISE', 'VÉTÉRANCE', "TRAVAIL D'ÉQUIPE"]
@@ -135,28 +133,25 @@ class challengeslol():
         
     async def preparation_data(self):
         
-        if self.puuid == None:
-            me = await get_summoner_by_name(self.session, self.summonerName)
-            self.puuid = me['puuid']
-        else:
-            self.puuid = self.puuid
+
+        self.puuid = self.puuid
         
         if self.session == None:
             self.session = aiohttp.ClientSession()
         else:
             self.session = self.session
             
-        self.data_total, self.data_category, self.data_joueur, self.data_to_save = await get_data_joueur_challenges(self.summonerName, self.session, self.puuid)
+        self.data_total, self.data_category, self.data_joueur, self.data_to_save = await get_data_joueur_challenges(self.id_compte, self.session, self.puuid)
         
-        self.rank_total = self.data_total[self.summonerName]['level']
-        self.points_total = self.data_total[self.summonerName]['current']
-        self.percentile_total = self.data_total[self.summonerName]['percentile']*100
+        self.rank_total = self.data_total[self.id_compte]['level']
+        self.points_total = self.data_total[self.id_compte]['current']
+        self.percentile_total = self.data_total[self.id_compte]['percentile']*100
         
     async def sauvegarde(self):
         if isinstance(self.data_to_save, pd.DataFrame):
-            requete_perso_bdd(f'''DELETE FROM challenges_data where "Joueur" = '{self.summonerName}';
-                              DELETE FROM challenges_category where "Joueur" = '{self.summonerName}';
-                              DELETE FROM challenges_total where "index" = '{self.summonerName}' ''')
+            requete_perso_bdd(f'''DELETE FROM challenges_data where "Joueur" = {self.id_compte};
+                              DELETE FROM challenges_category where "Joueur" = {self.id_compte};
+                              DELETE FROM challenges_total where "index" = {self.id_compte} ''')
             sauvegarde_bdd(self.data_total, 'challenges_total', 'append')
             sauvegarde_bdd(self.data_category, 'challenges_category', 'append')
             sauvegarde_bdd(self.data_to_save, 'challenges_data', 'append')
@@ -165,7 +160,7 @@ class challengeslol():
        
         self.df_old_data = lire_bdd_perso(f'''SELECT "Joueur", value, percentile, level, level_number, position, challenges.* from challenges_data
                                           INNER JOIN challenges ON challenges_data."challengeId" = challenges."challengeId"
-                                          where "Joueur" = '{self.summonerName}' ''', index_col='index')\
+                                          where "Joueur" = {self.id_compte} ''', index_col='index')\
                                               .transpose()\
                                                   .sort_index()\
                                                       .rename(columns={'value' : 'value_precedente',
@@ -174,7 +169,7 @@ class challengeslol():
                                                                         'position' : 'position_precedente'})
         
         try:
-            self.points_total_before = lire_bdd_perso(f'''SELECT index, current FROM challenges_total where index = '{self.summonerName}' ''')\
+            self.points_total_before = lire_bdd_perso(f'''SELECT index, current FROM challenges_total where index = {self.id_compte} ''')\
                 .loc['current', self.summonerName]
         except:
             self.points_total_before = 0
@@ -194,7 +189,7 @@ class challengeslol():
             
             # on supprime les challenges non-désirés
             
-            df_exclusion = lire_bdd_perso(f'''SELECT id, "challengeId" from challenge_exclusion where index = '{self.summonerName}' ''',
+            df_exclusion = lire_bdd_perso(f'''SELECT id, "challengeId" from challenge_exclusion where index = {self.id_compte} ''',
                                           index_col='id').transpose()
             
             if not df_exclusion.empty:

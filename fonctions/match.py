@@ -107,7 +107,7 @@ dict_id_q = lire_bdd_perso('SELECT * from data_queue', index_col='identifiant')\
                                                                                         .to_dict()['mode']
 
 
-def trouver_records(df, category, methode='max', identifiant='joueur'):
+def trouver_records(df, category, methode='max', identifiant='riot_id'):
     """
     Trouve la ligne avec le record associé
 
@@ -142,8 +142,8 @@ def trouver_records(df, category, methode='max', identifiant='joueur'):
             col = df[category].idxmin(skipna=True)
         lig = df.loc[col]
 
-        if identifiant == 'joueur':
-            joueur = lig['joueur']
+        if identifiant == 'riot_id':
+            joueur = lig['riot_id']
         elif identifiant == 'discord':
             joueur = mention(lig['discord'], 'membre')
 
@@ -156,7 +156,7 @@ def trouver_records(df, category, methode='max', identifiant='joueur'):
 
     return joueur, champion, record, url_game
 
-def trouver_records_multiples(df, category, methode='max', identifiant = 'joueur', rank:bool=False):
+def trouver_records_multiples(df, category, methode='max', identifiant = 'riot_id', rank:bool=False):
     """
         Trouve les lignes avec le record associé
 
@@ -214,10 +214,10 @@ def trouver_records_multiples(df, category, methode='max', identifiant = 'joueur
         for lig, data in max_min_rows.iterrows():
 
 
-            if data['joueur'] not in joueur and mention(data['discord'], 'membre') not in joueur: # on affiche qu'une game du joueur. Pas besoin de toutes...
+            if data['riot_id'] not in joueur and mention(data['discord'], 'membre') not in joueur: # on affiche qu'une game du joueur. Pas besoin de toutes...
 
-                if identifiant == 'joueur':
-                    joueur.append(data['joueur'])
+                if identifiant == 'riot_id':
+                    joueur.append(data['riot_id'])
                 elif identifiant == 'discord':
                     joueur.append(mention(data['discord'], 'membre'))
 
@@ -344,21 +344,37 @@ async def get_champ_list(session: aiohttp.ClientSession, version):
     return current_champ_list
 
 
+async def get_summoner_by_riot_id(session : aiohttp.ClientSession, riot_id, riot_tag):
+    async with session.get(f'https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{riot_id}/{riot_tag}', params={'api_key': api_key_lol}) as session_summoner:
+        me = await session_summoner.json()  # informations sur le joueur
+    return me
+
+async def get_summoner_by_puuid(puuid, session):
+    async with session.get(f'https://europe.api.riotgames.com/riot/account/v1/accounts/by-puuid/{puuid}', params={'api_key': api_key_lol}) as session_summoner:
+        me = await session_summoner.json()  # informations sur le joueur
+    return me    
+
+
 async def get_summoner_by_name(session: aiohttp.ClientSession, key):
     async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{key}', params={'api_key': api_key_lol}) as session_summoner:
         me = await session_summoner.json()  # informations sur le joueur
     return me
 
-async def get_summoner_by_puuid(puuid, session):
+async def get_summonerinfo_by_puuid(puuid, session):
     async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}', params={'api_key': api_key_lol}) as session_summoner:
         me = await session_summoner.json()
     return me
 
 
 async def get_league_by_summoner(session: aiohttp.ClientSession, me):
-    async with session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{me['id']}",
-                           params={'api_key': api_key_lol}) as session_league:
-        stats = await session_league.json()
+    if isinstance(me, str):
+        async with session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{me}",
+                                params={'api_key': api_key_lol}) as session_league:
+                stats = await session_league.json()
+    else:
+        async with session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{me['id']}",
+                            params={'api_key': api_key_lol}) as session_league:
+            stats = await session_league.json()
     return stats
 
 
@@ -570,7 +586,9 @@ def charger_font(size):
 class matchlol():
 
     def __init__(self,
-                 summonerName,
+                 id_compte,
+                 riot_id,
+                 riot_tag,
                  idgames: int,
                  queue: int = 0,
                  index: int = 0,
@@ -594,7 +612,9 @@ class matchlol():
         identifiant_game : _type_, optional
             id d'une game. Ignore tous les paramètres précédents exceptés summonername si renseigné, by default None
         """
-        self.summonerName = summonerName
+        self.id_compte = id_compte
+        self.riot_id = riot_id
+        self.riot_tag = riot_tag
         self.idgames = idgames
         self.queue = queue
         self.index = index
@@ -629,8 +649,9 @@ class matchlol():
                 'queue': self.queue, 'start': self.index, 'count': self.count, 'api_key': api_key_lol}
 
         if self.me is None:
-            self.me = await get_summoner_by_name(self.session, self.summonerName)
-
+            self.me = await get_summoner_by_riot_id(self.session, self.riot_id, self.riot_tag)
+            
+        self.info_account = await get_summonerinfo_by_puuid(self.me['puuid'], self.session)
         # on recherche l'id de la game.
         if self.identifiant_game is None:
             self.my_matches = await get_list_matchs_with_me(self.session, self.me, self.params_my_match)
@@ -641,8 +662,8 @@ class matchlol():
         # detail du match sélectionné
         self.match_detail_stats = await get_match_detail(self.session, self.last_match, self.params_me)
 
-        self.avatar = self.me['profileIconId']
-        self.level_summoner = self.me['summonerLevel']
+        self.avatar = self.info_account['profileIconId']
+        self.level_summoner = self.info_account['summonerLevel']
 
         # on a besoin de la version du jeu pour obtenir les champions
         self.version = await get_version(self.session)
@@ -667,13 +688,13 @@ class matchlol():
 
         # Detail de chaque champion...
 
-        self.dic = {(self.match_detail['info']['participants'][i]['summonerName']).lower(
+        self.dic = {(self.match_detail['info']['participants'][i]['riotIdGameName']).lower(
         ).replace(" ", ""): i for i in range(self.nb_joueur)}
 
         # stats
         try:
             self.thisId = self.dic[
-                self.summonerName.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
+                self.riot_id.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
         except KeyError: # changement de pseudo ? On va faire avec le puuid
             self.dic = {(self.match_detail['metadata']['participants'][i]) : i for i in range(self.nb_joueur)}
             self.thisId = self.dic[self.me['puuid']]
@@ -691,6 +712,7 @@ class matchlol():
         elif (str(self.thisPosition) == "UTILITY"):
             self.thisPosition = "SUPPORT"
 
+        self.summonerName = self.match_detail_participants['summonerName'].lower().replace(' ', '')
         self.timestamp = str(self.match_detail['info']['gameCreation'])[:-3]  # traduire avec datetime.date.fromtimestamp()
         # self.thisQ = ' '
         self.thisChamp = self.match_detail_participants['championId']
@@ -708,14 +730,7 @@ class matchlol():
         self.thisWin = ' '
         self.thisTime = fix_temps(round(
             (int(self.match_detail['info']['gameDuration']) / 60), 2))
-        
-        try:
-            self.riot_id = self.match_detail_participants['riotIdGameName']
-            self.riot_tag = self.match_detail_participants['riotIdTagline']
-        except:
-            self.riot_id = ''
-            self.riot_tag = ''
-        
+                
         # si le joueur n'est pas mort, le temps est à 0
         if self.thisTimeLiving == 0:
             self.thisTimeLiving = self.thisTime
@@ -806,7 +821,7 @@ class matchlol():
         self.thisDamagePerMinute = round(
             int(self.match_detail_participants['totalDamageDealtToChampions']) / self.thisTime, 0)
 
-        async with self.session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{self.me['id']}",
+        async with self.session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{self.info_account['id']}",
                                     params=self.params_me) as session4:
             self.thisStats = await session4.json()  # detail du match sélectionné
         self.thisWinrateStat = ' '
@@ -965,6 +980,12 @@ class matchlol():
 
         self.thisPseudoListe = dict_data(
             self.thisId, self.match_detail, 'summonerName')
+        
+        self.thisRiotIdListe = dict_data(
+            self.thisId, self.match_detail, 'riotIdGameName')
+        
+        self.thisRiotTagListe = dict_data(
+            self.thisId, self.match_detail, 'riotIdTagline')
 
         # champ id
 
@@ -1288,12 +1309,13 @@ class matchlol():
         # stats
         try:
             self.thisId = self.dic[
-                self.summonerName.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
+                self.riot_id.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
+            
         except KeyError: # changement de pseudo ? On va faire avec le puuid
             self.dic = {(self.match_detail['metadata']['participants'][i]) : i for i in range(self.nb_joueur)}
             self.thisId = self.dic[self.me['puuid']]
 
-
+        self.summonerName = self.match_detail_participants['summonerName'].lower().replace(' ', '')
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
         self.season = 13  # TODO a modifier quand changement de saison
 
@@ -1487,6 +1509,12 @@ class matchlol():
         self.thisPseudoListe = dict_data_arena(
             self.thisId, self.match_detail, 'summonerName')
 
+        self.thisRiotIdListe = dict_data(
+            self.thisId, self.match_detail, 'riotIdGameName')
+        
+        self.thisRiotTagListe = dict_data(
+            self.thisId, self.match_detail, 'riotIdTagline')
+
         # champ id
 
         self.thisChampListe = dict_data_arena(
@@ -1496,7 +1524,6 @@ class matchlol():
 
         self.thisChampNameListe = [
             self.champ_dict[str(champ)] for champ in self.thisChampListe]
-
 
 
         self.thisTeamKills = 0
@@ -1509,12 +1536,9 @@ class matchlol():
                 self.thisTeamKillsOp += kill
 
 
-
         # Alliés feeder
         self.thisAllieFeeder = np.array(self.thisDeathsListe)
         self.thisAllieFeeder = float(self.thisAllieFeeder[:5].max())
-
-
 
 
         self.thisChampTeam1 = [self.thisChampNameListe[i] for i in range(5)]
@@ -1636,10 +1660,10 @@ class matchlol():
         :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
         :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
         :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min);
-        UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where index = :joueur''',
+        UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur''',
             {
                 'match_id': self.last_match,
-                'joueur': self.summonerName.lower(),
+                'joueur': self.id_compte,
                 'role': self.thisPosition,
                 'champion': self.thisChampName,
                 'kills': self.thisKills,
@@ -1717,7 +1741,7 @@ class matchlol():
                 'dmgsurgold' : self.DamageGoldRatio,
                 'ecart_gold_individuel' : self.ecart_gold_noformat,
                 'ecart_gold_min' : self.ecart_gold_permin,
-                'riot_id' : self.riot_id,
+                'riot_id' : self.riot_id.lower(),
                 'riot_tagline' : self.riot_tag
             },
         )
@@ -1727,7 +1751,7 @@ class matchlol():
 
         requete_perso_bdd('''UPDATE matchs SET couronne = :points WHERE match_id = :match_id AND joueur = :joueur''', {'points': points,
                                                                                                                        'match_id': self.last_match,
-                                                                                                                       'joueur': self.summonerName.lower()})
+                                                                                                                       'joueur': self.id_compte})
 
     def calcul_scoring(self, i):
             """Calcule la performance d'un joueur
@@ -1829,17 +1853,17 @@ class matchlol():
         self.observations = ''
         txt_sql = ''
                  
-        def add_sql(txt_sql, name, values, last_match, summonerName):
+        def add_sql(txt_sql, name, values, last_match, id_compte):
             if len(values) != 3:
                 values.append(0)
                 values.append(0)
                 
             if (values[0] == 0):
-                txt_sql += f'''UPDATE public.data_badges SET {name} = True WHERE match_id = '{last_match}' and joueur = '{summonerName}';'''
+                txt_sql += f'''UPDATE public.data_badges SET {name} = True WHERE match_id = '{last_match}' and joueur = '{id_compte}';'''
             elif (values[0] != 0 and values[1] == 0):
-                txt_sql += f'''UPDATE public.data_badges SET {name} = True, {name}_value = {values[0]} WHERE match_id = '{last_match}' and joueur = '{summonerName}';'''
+                txt_sql += f'''UPDATE public.data_badges SET {name} = True, {name}_value = {values[0]} WHERE match_id = '{last_match}' and joueur = '{id_compte}';'''
             else:
-                txt_sql += f'''UPDATE public.data_badges SET {name} = True, {name}_value1 = {values[0]}, {name}_value2 = {values[1]} WHERE match_id = '{last_match}' and joueur = '{summonerName}';'''
+                txt_sql += f'''UPDATE public.data_badges SET {name} = True, {name}_value1 = {values[0]}, {name}_value2 = {values[1]} WHERE match_id = '{last_match}' and joueur = '{id_compte}';'''
             
             return txt_sql
         
@@ -1870,7 +1894,7 @@ class matchlol():
                                 'safety_first',
                                 'no_damage_to_turrets',
                                 'mvp']:
-                    txt_sql += add_sql(txt_sql, insight['slug'], insight['values'], self.last_match, self.summonerName.lower())
+                    txt_sql += add_sql(txt_sql, insight['slug'], insight['values'], self.last_match, self.id_compte)
         except TypeError as e: # si pas de badges
             pass
             
@@ -1878,43 +1902,43 @@ class matchlol():
         
         if self.thisDouble >= 3:
             self.observations += f"\n:green_circle: :two: **{self.thisDouble}** doublé"
-            txt_sql += add_sql(txt_sql, 'double', [self.thisDouble], self.last_match, self.summonerName.lower())
+            txt_sql += add_sql(txt_sql, 'double', [self.thisDouble], self.last_match, self.id_compte)
             
         if self.thisTriple >= 2:
             self.observations += f"\n:green_circle: :three: **{self.thisTriple}** triplé"
-            txt_sql += add_sql(txt_sql, 'triple', [self.thisTriple], self.last_match, self.summonerName.lower())
+            txt_sql += add_sql(txt_sql, 'triple', [self.thisTriple], self.last_match, self.id_compte)
             
         if self.thisQuadra >= 2:
             self.observations += f"\n:green_circle: :four: **{self.thisQuadra}** quadra"
-            txt_sql += add_sql(txt_sql, 'quadra', [self.thisQuadra], self.last_match, self.summonerName.lower())
+            txt_sql += add_sql(txt_sql, 'quadra', [self.thisQuadra], self.last_match, self.id_compte)
             
         if self.thisPenta >= 1:
             self.observations += f"\n:green_circle: :five: **{self.thisPenta}** penta"
-            txt_sql += add_sql(txt_sql, 'penta', [self.thisPenta], self.last_match, self.summonerName.lower())
+            txt_sql += add_sql(txt_sql, 'penta', [self.thisPenta], self.last_match, self.id_compte)
             
         if self.thisTotalHealed >= 5000:
             self.observations += f"\n:green_circle: **{self.thisTotalHealed}** HP soignés"
-            txt_sql += add_sql(txt_sql, 'heal', [self.thisTotalHealed], self.last_match, self.summonerName.lower())
+            txt_sql += add_sql(txt_sql, 'heal', [self.thisTotalHealed], self.last_match, self.id_compte)
             
         if self.thisTotalShielded >= 3000:
             self.observations += f"\n:green_circle: :shield: **{self.thisTotalShielded} ** boucliers"
-            txt_sql += add_sql(txt_sql, 'shield', [self.thisTotalShielded], self.last_match, self.summonerName.lower())
+            txt_sql += add_sql(txt_sql, 'shield', [self.thisTotalShielded], self.last_match, self.id_compte)
             
         if self.thisVisionAdvantage >= 60 and self.thisQ != 'ARAM':
             self.observations += f"\n:green_circle: :eye: **{self.thisVisionAdvantage}**% AV vision"
-            txt_sql += add_sql(txt_sql, 'vision_avantage', [self.thisVisionAdvantage], self.last_match, self.summonerName.lower())
+            txt_sql += add_sql(txt_sql, 'vision_avantage', [self.thisVisionAdvantage], self.last_match, self.id_compte)
         
         elif self.thisVisionAdvantage <= -50 and self.thisQ != 'ARAM':
             self.observations += f"\n:red_circle: :eye: **{self.thisVisionAdvantage}**% AV vision"
-            txt_sql += add_sql(txt_sql, 'vision_avantage', [self.thisVisionAdvantage], self.last_match, self.summonerName.lower())
+            txt_sql += add_sql(txt_sql, 'vision_avantage', [self.thisVisionAdvantage], self.last_match, self.id_compte)
             
         if self.thisSoloKills >= 1:
             self.observations += f"\n:green_circle: :karate_uniform: **{self.thisSoloKills}** solokills"
-            txt_sql += add_sql(txt_sql, 'solokills', [self.thisSoloKills], self.last_match, self.summonerName.lower())
+            txt_sql += add_sql(txt_sql, 'solokills', [self.thisSoloKills], self.last_match, self.id_compte)
             
         if self.thisMinionPerMin >= 7:
             self.observations += f'\n:green_circle: :ghost: **{self.thisMinionPerMin}** cs/min'
-            txt_sql += add_sql(txt_sql, 'minion_min', [self.thisMinionPerMin], self.last_match, self.summonerName.lower())
+            txt_sql += add_sql(txt_sql, 'minion_min', [self.thisMinionPerMin], self.last_match, self.id_compte)
  
 
         # pour only ranked/normal game
@@ -1922,43 +1946,43 @@ class matchlol():
             if int(self.thisLevelAdvantage) >= settings['Ecart_Level']['score']:
                 self.observations +=\
                         f"\n **:green_circle: :wave: {self.thisLevelAdvantage} niveaux d'avance sur ton adversaire**"
-                txt_sql += add_sql(txt_sql, 'level_avantage', [self.thisLevelAdvantage], self.last_match, self.summonerName.lower())
+                txt_sql += add_sql(txt_sql, 'level_avantage', [self.thisLevelAdvantage], self.last_match, self.id_compte)
 
 
             if (float(self.thisDragonTeam) >= settings['Dragon']['score']):
                 self.observations += f"\n **:green_circle: :dragon: Âme du dragon **"
-                txt_sql += add_sql(txt_sql, 'dragon', [self.thisDragonTeam], self.last_match, self.summonerName.lower())
+                txt_sql += add_sql(txt_sql, 'dragon', [self.thisDragonTeam], self.last_match, self.id_compte)
 
             if (int(self.thisDanceHerald) >= 1):
                 self.observations += f"\n **:green_circle: :dancer: Danse avec l'Herald **"
-                txt_sql += add_sql(txt_sql, 'herald_dance', [0], self.last_match, self.summonerName.lower())
+                txt_sql += add_sql(txt_sql, 'herald_dance', [0], self.last_match, self.id_compte)
 
             if (int(self.thisPerfectGame) >= 1):
                 self.observations += f"\n:green_circle: :sunny: Perfect Game"
-                txt_sql += add_sql(txt_sql, 'perfect_game', [0], self.last_match, self.summonerName.lower())
+                txt_sql += add_sql(txt_sql, 'perfect_game', [0], self.last_match, self.id_compte)
 
 
             if int(self.thisDeaths) == int(settings['Ne_pas_mourir']['score']):
                 self.observations += "\n **:green_circle: :heart: N'est pas mort de la game ** \n ** :crown: :star: PERFECT KDA **"
-                txt_sql += add_sql(txt_sql, 'ne_pas_mourir', [0], self.last_match, self.summonerName.lower())
+                txt_sql += add_sql(txt_sql, 'ne_pas_mourir', [0], self.last_match, self.id_compte)
 
 
             if float(self.thisVisionPerMin) >= settings['Vision/min(support)']['score'] and str(self.thisPosition) == "SUPPORT":
                 self.observations +=\
                         f"\n **:green_circle: :eye: {self.thisVisionPerMin} Vision / min **"
-                txt_sql += add_sql(txt_sql, 'vision_min', [self.thisVisionPerMin], self.last_match, self.summonerName.lower())
+                txt_sql += add_sql(txt_sql, 'vision_min', [self.thisVisionPerMin], self.last_match, self.id_compte)
 
 
             if int(self.thisVisionPerMin) >= settings['Vision/min(autres)']['score'] and str(self.thisPosition) != "SUPPORT":
                 self.observations +=\
                         f"\n **:green_circle: :eye: {self.thisVisionPerMin} Vision / min **"
-                txt_sql += add_sql(txt_sql, 'vision_min', [self.thisVisionPerMin], self.last_match, self.summonerName.lower())
+                txt_sql += add_sql(txt_sql, 'vision_min', [self.thisVisionPerMin], self.last_match, self.id_compte)
 
 
             if int(self.thisCSAdvantageOnLane) >= settings['CSAvantage']['score']:
                 self.observations +=\
                         f"\n **:green_circle: :ghost: {self.thisCSAdvantageOnLane} CS d'avance sur ton adversaire**"
-                txt_sql += add_sql(txt_sql, 'cs_avantage', [self.thisCSAdvantageOnLane], self.last_match, self.summonerName.lower())
+                txt_sql += add_sql(txt_sql, 'cs_avantage', [self.thisCSAdvantageOnLane], self.last_match, self.id_compte)
                         
                         
 
@@ -1969,19 +1993,19 @@ class matchlol():
             if int(self.thisKP) >= settings['KP']['score']:
                 self.observations +=\
                         f"\n **:green_circle: :dagger: {self.thisKP}% KP **"
-                txt_sql += add_sql(txt_sql, 'kp', [self.thisKP], self.last_match, self.summonerName.lower())
+                txt_sql += add_sql(txt_sql, 'kp', [self.thisKP], self.last_match,self.id_compte)
 
 
             if int(self.thisDamageRatio) >= settings['%_dmg_équipe']['score']:
                 self.observations +=\
                         f"\n **:green_circle: :dart: {self.thisDamageRatio}% DMG de ton équipe **"
-                txt_sql += add_sql(txt_sql, 'damage_ratio', [self.thisDamageRatio], self.last_match, self.summonerName.lower())
+                txt_sql += add_sql(txt_sql, 'damage_ratio', [self.thisDamageRatio], self.last_match, self.id_compte)
 
 
             if int(self.thisDamageTakenRatio) >= settings['%_dmg_tank']['score']:
                 self.observations +=\
                         f"\n **:green_circle: :shield: {self.thisDamageTakenRatio}% Tanking de ton équipe **"
-                txt_sql += add_sql(txt_sql, 'tank_ratio', [self.thisDamageTakenRatio], self.last_match, self.summonerName.lower())
+                txt_sql += add_sql(txt_sql, 'tank_ratio', [self.thisDamageTakenRatio], self.last_match, self.id_compte)
                         
         if len(self.observations) > 1000:
             self.observations2 = self.observations[1000:]
@@ -1991,7 +2015,7 @@ class matchlol():
 
         requete_perso_bdd(f'''INSERT INTO public.data_badges(
 	                match_id, joueur)
-	                VALUES ('{self.last_match}', '{self.summonerName.lower()}');''')
+	                VALUES ('{self.last_match}', '{self.id_compte}');''')
         
         if txt_sql != '' and sauvegarder:
             requete_perso_bdd(txt_sql)
@@ -2062,7 +2086,7 @@ class matchlol():
         im.paste(line, (0, 0))
 
         fill = (0, 0, 0)
-        d.text((x_name, y_name), self.summonerName, font=font, fill=fill)
+        d.text((x_name, y_name), self.riot_id, font=font, fill=fill)
 
         im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
                  box=(x_name-240, y_name-20))
@@ -2080,10 +2104,10 @@ class matchlol():
 
         try:
             if self.thisQ != 'ARAM':
-                data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{last_season} where index = '{self.summonerName}' ''')
+                data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{last_season} where index = {self.id_compte} ''')
                 self.tier_last_season = data_last_season.mappings().all()[0]['tier']
             else:
-                data_last_season = get_data_bdd(f'''SELECT index, rank from ranked_aram_s{self.season-1} where index = '{self.summonerName}' ''')
+                data_last_season = get_data_bdd(f'''SELECT index, rank from ranked_aram_s{self.season-1} where index = {self.id_compte} ''')
                 self.tier_last_season = data_last_season.mappings().all()[0]['rank']
 
             img_tier_last_season = await get_image("tier", self.tier_last_season, self.session, 100, 100)
@@ -2095,9 +2119,9 @@ class matchlol():
         if self.thisQ != "ARAM":  # si ce n'est pas le mode aram, on prend la soloq normal
             if self.thisTier != ' ':  # on vérifie que le joueur a des stats en soloq, sinon il n'y a rien à afficher
 
-                requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
+                requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :id_compte''', {'ecart_lp': difLP,
                                                                                                                         'match_id': self.last_match,
-                                                                                                                        'joueur': self.summonerName.lower()})
+                                                                                                                        'id_compte': self.id_compte})
                 img_rank = await get_image('tier', self.thisTier, self.session, 220, 220)
 
                 im.paste(img_rank, (x_rank, y-140), img_rank.convert('RGBA'))
@@ -2123,8 +2147,11 @@ class matchlol():
 
         else:  # si c'est l'aram, le traitement est différent
 
-            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank, serie from ranked_aram_s{saison} WHERE index = :index',
-                                     {'index': self.summonerName.lower()}).mappings().all()
+            data_aram = get_data_bdd(f''' SELECT index,wins, losses, lp, games, k, d, a, activation, rank, serie
+                                     from ranked_aram_s{saison}
+                                     INNER JOIN tracker on tracker.id_compte = ranked_aram_s{saison}.index
+                                     WHERE tracker.id_compte = :id_compte ''',
+                                     {'id_compte': self.id_compte}).mappings().all()
 
             wins_actual = data_aram[0]['wins']
             losses_actual = data_aram[0]['losses']
@@ -2250,13 +2277,13 @@ class matchlol():
                                    'd': deaths,
                                    'a': a,
                                    'rank': rank,
-                                   'index': self.summonerName.lower(),
+                                   'index': self.id_compte,
                                    'match_id': self.last_match,
                                    'serie' : serie_wins})  
 
                 requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
                                                                                                                         'match_id': self.last_match,
-                                                                                                                        'joueur': self.summonerName.lower()})     
+                                                                                                                        'joueur': self.id_compte})     
 
         line = Image.new("RGB", (lineX, lineY), (230, 230, 230))  # Ligne grise
 
@@ -2371,7 +2398,7 @@ class matchlol():
             )
 
             d.text((x_name, initial_y),
-                   self.thisPseudoListe[i], font=font, fill=(0, 0, 0))
+                   self.thisRiotIdListe[i], font=font, fill=(0, 0, 0))
 
             # rank
 
@@ -2547,36 +2574,32 @@ class matchlol():
             suivi_24h = lire_bdd(f'suivi_S{saison}', 'dict')
 
         if self.thisQ not in ['ARAM', 'FLEX']:
-            try:
-                difwin = int(self.thisVictory) - \
-                        int(suivi_24h[self.summonerName.lower()]["wins_jour"])
-                diflos = int(self.thisLoose) - \
-                        int(suivi_24h[self.summonerName.lower()]["losses_jour"])
 
-                if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
-                    d.text((x_metric + 650, y_name+50),
+            difwin = int(self.thisVictory) - \
+                        int(suivi_24h[self.id_compte]["wins_jour"])
+            diflos = int(self.thisLoose) - \
+                        int(suivi_24h[self.id_compte]["losses_jour"])
+
+            if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
+                d.text((x_metric + 650, y_name+50),
                            f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
-                    d.text((x_metric + 1120, y_name+50),
+                d.text((x_metric + 1120, y_name+50),
                            f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
 
-            except KeyError:
-                pass
 
         elif self.thisQ == 'ARAM' and activation:
-            try:
-                difwin = wins - \
-                        int(suivi_24h[self.summonerName.lower()]["wins_jour"])
-                diflos = losses - \
-                        int(suivi_24h[self.summonerName.lower()]["losses_jour"])
 
-                if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
-                    d.text((x_metric + 650, y_name+50),
+            difwin = wins - \
+                        int(suivi_24h[self.id_compte]["wins_jour"])
+            diflos = losses - \
+                        int(suivi_24h[self.id_compte]["losses_jour"])
+
+            if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
+                d.text((x_metric + 650, y_name+50),
                            f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
-                    d.text((x_metric + 1120, y_name+50),
+                d.text((x_metric + 1120, y_name+50),
                            f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
 
-            except KeyError:
-                pass
 
         im.save(f'{name_img}.png')
 
@@ -2653,7 +2676,7 @@ class matchlol():
         im.paste(line, (0, 0))
 
         fill = (0, 0, 0)
-        d.text((x_name, y_name), self.summonerName, font=font, fill=fill)
+        d.text((x_name, y_name), self.riot_id, font=font, fill=fill)
 
         im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
                  box=(x_name-240, y_name-20))
@@ -2666,10 +2689,10 @@ class matchlol():
 
         try:
             if self.thisQ != 'ARAM':
-                data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{self.season-1} where index = '{self.summonerName}' ''')
+                data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{self.season-1} where index = {self.id_compte} ''')
                 self.tier_last_season = data_last_season.mappings().all()[0]['tier']
             else:
-                data_last_season = get_data_bdd(f'''SELECT index, rank from ranked_aram_s{self.season-1} where index = '{self.summonerName}' ''')
+                data_last_season = get_data_bdd(f'''SELECT index, rank from ranked_aram_s{self.season-1} where index = {self.id_compte} ''')
                 self.tier_last_season = data_last_season.mappings().all()[0]['rank']
 
             img_tier_last_season = await get_image("tier", self.tier_last_season, self.session, 100, 100)
@@ -2683,7 +2706,7 @@ class matchlol():
 
                 requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
                                                                                                                         'match_id': self.last_match,
-                                                                                                                        'joueur': self.summonerName.lower()})
+                                                                                                                        'joueur': self.id_compte})
                 img_rank = await get_image('tier', self.thisTier, self.session, 220, 220)
 
                 im.paste(img_rank, (x_rank, y-140), img_rank.convert('RGBA'))
@@ -2710,7 +2733,7 @@ class matchlol():
         else:  # si c'est l'aram, le traitement est différent
 
             data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank, serie from ranked_aram_s{saison} WHERE index = :index',
-                                     {'index': self.summonerName.lower()}).mappings().all()
+                                     {'index': self.id_compte}).mappings().all()
 
             wins_actual = data_aram[0]['wins']
             losses_actual = data_aram[0]['losses']
@@ -2833,13 +2856,13 @@ class matchlol():
                                    'd': deaths,
                                    'a': a,
                                    'rank': rank,
-                                   'index': self.summonerName.lower(),
+                                   'index': self.id_compte,
                                    'match_id': self.last_match,
                                    'serie' : serie_wins})  
 
                 requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
                                                                                                                         'match_id': self.last_match,
-                                                                                                                        'joueur': self.summonerName.lower()})     
+                                                                                                                        'joueur': self.id_compte})     
 
         line = Image.new("RGB", (lineX, lineY), (230, 230, 230))  # Ligne grise
 
@@ -3168,9 +3191,9 @@ class matchlol():
         if self.thisQ not in ['ARAM', 'FLEX']:
             try:
                 difwin = int(self.thisVictory) - \
-                        int(suivi_24h[self.summonerName.lower()]["wins_jour"])
+                        int(suivi_24h[self.id_compte]["wins_jour"])
                 diflos = int(self.thisLoose) - \
-                        int(suivi_24h[self.summonerName.lower()]["losses_jour"])
+                        int(suivi_24h[self.id_compte]["losses_jour"])
 
                 if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
                     d.text((x_metric + 650, y_name+50),
@@ -3184,9 +3207,9 @@ class matchlol():
         elif self.thisQ == 'ARAM' and activation:
             try:
                 difwin = wins - \
-                        int(suivi_24h[self.summonerName.lower()]["wins_jour"])
+                        int(suivi_24h[self.id_compte]["wins_jour"])
                 diflos = losses - \
-                        int(suivi_24h[self.summonerName.lower()]["losses_jour"])
+                        int(suivi_24h[self.id_compte]["losses_jour"])
 
                 if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
                     d.text((x_metric + 650, y_name+50),
@@ -3291,7 +3314,7 @@ class matchlol():
         im.paste(line, (0, 0))
 
         fill = (0, 0, 0)
-        d.text((x_name, y_name), self.summonerName, font=font, fill=fill)
+        d.text((x_name, y_name), self.riot_id, font=font, fill=fill)
 
         im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
                  box=(x_name-240, y_name-20))
@@ -3301,37 +3324,7 @@ class matchlol():
 
         d.text((x_name+700, y_name-20),
                f"Niveau {self.level_summoner}", font=font_little, fill=fill)
-        
-        # try: # Rank last season
 
-        #     data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{self.season-1} where index = '{self.summonerName}' ''')
-        #     self.tier_last_season = data_last_season.mappings().all()[0]['tier']
-
-            
-        #     img_tier_last_season = await get_image("tier", self.tier_last_season, self.session, 100, 100)
-            
-        #     im.paste(img_tier_last_season,(x_name+950, y_name-50), img_tier_last_season.convert('RGBA'))
-        # except: # si pas d'info, on ne fait rien
-        #     pass  
-
-
-        # if self.thisTier != ' ':  # on vérifie que le joueur a des stats en soloq, sinon il n'y a rien à afficher
-                
-        #     requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
-        #                                                                                                                 'match_id': self.last_match,
-        #                                                                                                                 'joueur': self.summonerName.lower()})
-        #     img_rank = await get_image('tier', self.thisTier, self.session, 220, 220)
-
-        #     im.paste(img_rank, (x_rank, y-140), img_rank.convert('RGBA'))
-
-        #     d.text((x_rank+220, y-110),
-        #                f'{self.thisTier} {self.thisRank}', font=font, fill=fill)
-        #     d.text((x_rank+220, y-45),
-        #                f'{self.thisLP} LP ({difLP})', font=font_little, fill=fill)
-
-
-        # d.text((x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L     {self.thisWinrateStat}% ', font=font_little, fill=fill)
-        
         d.text((x_rank+220, y-60),
                        f'{self.thisLP} LP', font=font_little, fill=fill)
         
@@ -3383,20 +3376,6 @@ class matchlol():
             draw.ellipse((x, y, x+h, y+h),fill=fg)
             draw.rectangle((x+(h/2), y, x+w+(h/2), y+h),fill=fg)
 
-
-        # img_blue_epee = await get_image('epee', 'blue', self.session)
-        # img_red_epee = await get_image('epee', 'red', self.session)
-
-        # im.paste(img_blue_epee, (x_kill_total, 10 + 190),
-        #          img_blue_epee.convert('RGBA'))
-        # d.text((x_kill_total + 100, 23 + 190), str(self.thisTeamKills),
-        #        font=font, fill=(0, 0, 0))
-
-        # im.paste(img_red_epee, (x_kill_total + 300, 10 + 190),
-        #          img_red_epee.convert('RGBA'))
-        # d.text((x_kill_total + 300 + 100, 23 + 190),
-        #        str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
-            
                         
         for i in range(self.nb_joueur):
             
@@ -3441,33 +3420,9 @@ class matchlol():
             d.text((ecart*n+ecart_pseudo, y_pseudo),
                    pseudo, font=font_text, fill=(0, 0, 0))
             
-            # rank
-            
-            # try:
-            #     rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['tier']
-            #     tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['division']
-            # except IndexError:
-            #     try:
-            #         data_mobalytics_copy = self.data_mobalytics.copy()
-            #         data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
-            #         rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['tier']
-            #         tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['division']
-            #     except IndexError:
-            #         rank_joueur = ''
-            #         tier_joueur = ''
-            
-            # if rank_joueur != '':
-            #     img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 60, 60)
 
-            #     im.paste(img_rank_joueur, (236*n +70, y_rank), img_rank_joueur.convert('RGBA'))
-                
-            #     d.text((236*n +150, y_rank), str(
-            #             tier_joueur), font=font, fill=(0, 0, 0))
             
-            
-                
-
-                        
+                                   
             color_scoring = {1 : (0,128,0),
                              2 : (89,148,207),
                              3 : (67,89,232),
@@ -3504,11 +3459,7 @@ class matchlol():
                 ecart_kda = 85
             d.text((ecart*n + ecart_kda, y_kda),
                        kda, font=font_little, fill=fill)
-            
-            # fill, top_kp = range_value(i, self.thisKPListe, True, True)
-            # d.text((236*n +70, y_KP),
-            #            str(self.thisKPListe[i]) + "%", font=font, fill=fill)
-            
+
             color = 'blue'
             
             fill = range_value_arena(i, self.thisDamageListe, True)
@@ -3557,8 +3508,7 @@ class matchlol():
     
             
         d.text((x_center, y_kda-30), 'KDA', font=font, fill=fill)
-        # d.text((x_center, y_score), 'MVP', font=font, fill=fill)             
-        # d.text((x_center+5, y_KP+20), 'KP', font=font, fill=fill)
+
         d.text((x_center-30, y_cs), 'SHIELD', font=font, fill=fill)
         d.text((x_center-15, y_dmg+20), 'DMG', font=font, fill=fill)
         d.text((x_center-15, y_tank+20), 'TANK', font=font, fill=fill)
@@ -3582,43 +3532,7 @@ class matchlol():
                         im.paste(await get_image("items", item, self.session, 50,50, self.version['n']['profileicon']),
                                 box=(ecart*joueur+60+nb*50, y_items+60))
                                 
-        # # Stat du jour
-        # if self.thisQ == 'ARAM':
-        #     suivi_24h = lire_bdd('ranked_aram_24h', 'dict')
-        # else:
-        #     suivi_24h = lire_bdd('suivi_24h', 'dict')
 
-        # if self.thisQ != 'ARAM' and self.thisQ != 'FLEX':
-        #     try:
-        #         difwin = int(self.thisVictory) - \
-        #             int(suivi_24h[self.summonerName.lower()]["wins"])
-        #         diflos = int(self.thisLoose) - \
-        #             int(suivi_24h[self.summonerName.lower()]["losses"])
-
-        #         if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
-        #             d.text((x_metric + 650, y_name+50),
-        #                    f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
-        #             d.text((x_metric + 1120, y_name+50),
-        #                    f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
-
-        #     except KeyError:
-        #         pass
-
-        # elif self.thisQ == 'ARAM' and activation:
-        #     try:
-        #         difwin = wins - \
-        #             int(suivi_24h[self.summonerName.lower()]["wins"])
-        #         diflos = losses - \
-        #             int(suivi_24h[self.summonerName.lower()]["losses"])
-
-        #         if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
-        #             d.text((x_metric + 650, y_name+50),
-        #                    f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
-        #             d.text((x_metric + 1120, y_name+50),
-        #                    f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
-
-            # except KeyError:
-            #     pass
 
         im.save(f'{name_img}.png')
 

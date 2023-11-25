@@ -100,9 +100,11 @@ class Challenges(Extension):
             title = 'Classement général des points de défis'
 
         else:
-            bdd_user_total = lire_bdd_perso(f'''SELECT challenges_total.* from challenges_total
-                        INNER join tracker on challenges_total.index = tracker.index
-                        where tracker.server_id = {int(ctx.guild_id)} ''').transpose()
+            bdd_user_total = lire_bdd_perso(f'''SELECT challenges_total.* , tracker.riot_id
+                                            from challenges_total
+                        INNER join tracker on challenges_total.index = tracker.compte_id
+                        where tracker.server_id = {int(ctx.guild_id)} ''',
+                        index_col='riot_id').transpose()
             title = f'Classement des points de défis du serveur {ctx.guild.name}'
 
         await ctx.defer(ephemeral=False)
@@ -130,18 +132,25 @@ class Challenges(Extension):
     @lol_challenges.subcommand("profil",
                                sub_cmd_description="Profil du compte",
                    options=[
-                       SlashCommandOption(name="summonername",
+                       SlashCommandOption(name="riot_id",
                                           description="Nom du joueur",
                                           type=interactions.OptionType.STRING,
                                           required=True)])
     async def challenges_profil(self,
                                 ctx: SlashContext,
-                                summonername: str):
+                                riot_id: str):
 
         session = aiohttp.ClientSession()
-        total_user, total_category, total_challenges, total_to_save = await get_data_joueur_challenges(summonername, session)
+        
+        riot_id = riot_id.replace(' ', '').lower()
+        
+        bdd = lire_bdd('tracker')[riot_id]
+        id_compte = bdd['id_compte'] 
+        puuid = bdd['puuid']
+        
+        total_user, total_category, total_challenges, total_to_save = await get_data_joueur_challenges(id_compte, session, puuid)
 
-        total_user = total_user[summonername]
+        total_user = total_user[id_compte]
 
         def stats(categorie):
             level = total_category[categorie]['level']
@@ -188,28 +197,36 @@ class Challenges(Extension):
 
         fig.write_image('plot.png')
         # txt
-        await ctx.send(f'Le joueur {summonername} a : \n{msg}\n __TOTAL__  : **{total_user["current"]}** / **{total_user["max"]}** (niveau {total_user["level"]}). Seulement **({total_user["percentile"]}%** des joueurs font mieux.)', files=interactions.File('plot.png'))
+        await ctx.send(f'Le joueur {riot_id} a : \n{msg}\n __TOTAL__  : **{total_user["current"]}** / **{total_user["max"]}** (niveau {total_user["level"]}). Seulement **({total_user["percentile"]}%** des joueurs font mieux.)', files=interactions.File('plot.png'))
         await session.close()
         os.remove('plot.png')
 
     @lol_challenges.subcommand("best",
                                sub_cmd_description="Meilleur classement pour les defis",
-                   options=[SlashCommandOption(name="summonername",
+                   options=[SlashCommandOption(name="riot_id",
                                                description="Nom du joueur",
                                                type=interactions.OptionType.STRING,
-                                               required=True)])
+                                               required=True),
+                            SlashCommandOption(name='minimum',
+                                               description='Position minimum',
+                                               type=interactions.OptionType.INTEGER,
+                                               required=False,
+                                               min_value=1,
+                                               max_value=1000000)])
     async def challenges_best(self,
                               ctx: SlashContext,
-                              summonername: str):
+                              riot_id: str,
+                              minimum: int = 1000000):
 
         # tous les summonername sont en minuscule :
-        summonername = summonername.lower().replace(' ', '')
+        riot_id = riot_id.lower().replace(' ', '')
         # charge la data
-        data = lire_bdd_perso(f'''SELECT "Joueur", value, percentile, level, level_number, position, challenges.* from challenges_data
+        data = lire_bdd_perso(f'''SELECT "Joueur", value, percentile, level, level_number, position, challenges.*, tracker.riot_id
+                              from challenges_data
                                           INNER JOIN challenges ON challenges_data."challengeId" = challenges."challengeId"
-                                          where "Joueur" = '{summonername}' ''').transpose()
-        # tri sur le joueur
-        data = data[data['Joueur'] == summonername]
+                                          INNER JOIN tracker on tracker.id_compte = challenges_data."Joueur"
+                                          where tracker.riot_id = '{riot_id}' ''').transpose()
+
         # colonne position en float
         data['position'] = data['position'].astype('float')
         # on vire les non classements
@@ -221,6 +238,8 @@ class Challenges(Extension):
             # on retient ce qui nous intéresse
             data = data[['name', 'value', 'level',
                          'shortDescription', 'position']]
+            
+            data = data[data['position'] <= minimum]
             # index
             data.set_index('name', inplace=True)
             dfi.export(data, 'image.png', max_cols=-1,
@@ -230,12 +249,12 @@ class Challenges(Extension):
 
             os.remove('image.png')
         else:
-            await ctx.send(f"Pas de ranking pour {summonername} :(.")
+            await ctx.send(f"Pas de ranking pour {riot_id} :(.")
 
-    @lol_challenges.subcommand("modifier_tracker",
-                               sub_cmd_description="Modifier la liste des challenges à ajouter / exclure",
+    @lol_challenges.subcommand("tracker",
+                               sub_cmd_description="Modifier la liste des challenges à ajouter / exclure dans le tracker",
                                     options=[
-                                            SlashCommandOption(name="summonername",
+                                            SlashCommandOption(name="riot_id",
                                                        description="Nom du joueur",
                                                        type=interactions.OptionType.STRING,
                                                        required=True),
@@ -254,11 +273,11 @@ class Challenges(Extension):
                                                                )
                                             ]
                                     )
-    async def modifier_challenges(self, ctx: SlashContext, summonername, nom_challenge:str, action:str):
+    async def modifier_challenges(self, ctx: SlashContext, riot_id, nom_challenge:str, action:str):
 
         # traitement des variables :
 
-        summonername = summonername.lower().replace(' ', '')
+        riot_id = riot_id.lower().replace(' ', '')
         nom_challenge = nom_challenge.lower()
 
         await ctx.defer(ephemeral=True)
@@ -266,6 +285,8 @@ class Challenges(Extension):
         df = lire_bdd('challenges').transpose()
         df['name'] = df['name'].str.lower()
         df.set_index('name', inplace=True)
+        
+        id_compte = lire_bdd('tracker')[riot_id]['id_compte']
 
         try:
             df.loc[nom_challenge, 'challengeId']
@@ -277,7 +298,7 @@ class Challenges(Extension):
 
             nb_row = requete_perso_bdd('''INSERT INTO public.challenge_exclusion("challengeId", index) VALUES (:challengeid, :summonername);''',
                             dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
-                                        'summonername':summonername},
+                                        'summonername': id_compte},
                             get_row_affected=True)
 
             if nb_row > 0:
@@ -289,7 +310,7 @@ class Challenges(Extension):
 
             nb_row = requete_perso_bdd('''DELETE FROM public.challenge_exclusion WHERE "challengeId" = :challengeid AND index = :summonername;''',
                             dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
-                                        'summonername':summonername},
+                                        'summonername': id_compte},
                             get_row_affected=True)
 
             if nb_row > 0:
