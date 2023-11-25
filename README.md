@@ -116,8 +116,8 @@ Riot a mis en place récemment un site de défis, avec 232 disponibles. Par exem
 Ai-je fait beaucoup de dégats sur les ennemis ?
 
  <p align="center">
-  <img width="600" height="400" src="https://github.com/Tomlora/MarinSlash/blob/main/vision.png?raw=true">
-  <img width="800" height="500" src="https://github.com/Tomlora/MarinSlash/blob/main/gold_team.png?raw=true">
+  <img width="700" height="400" src="https://github.com/Tomlora/MarinSlash/blob/main/vision.png?raw=true">
+  <img width="1000" height="500" src="https://github.com/Tomlora/MarinSlash/blob/main/gold_team.png?raw=true">
 </p>
 
 Ai-je amassé beaucoup de gold, me permettant d'être plus forts, par rapport aux autres ?
