@@ -688,14 +688,19 @@ class matchlol():
 
         # Detail de chaque champion...
 
-        self.dic = {(self.match_detail['info']['participants'][i]['riotIdGameName']).lower(
-        ).replace(" ", ""): i for i in range(self.nb_joueur)}
-
+        try:
+            self.dic = {(self.match_detail['info']['participants'][i]['riotIdGameName']).lower(
+            ).replace(" ", ""): i for i in range(self.nb_joueur)}
+        except KeyError: # game ancienne, où le riotid n'existait pas
+            self.dic = {(self.match_detail['info']['participants'][i]['summonerName']).lower(
+            ).replace(" ", ""): i for i in range(self.nb_joueur)}
+            
         # stats
         try:
             self.thisId = self.dic[
                 self.riot_id.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
         except KeyError: # changement de pseudo ? On va faire avec le puuid
+            
             self.dic = {(self.match_detail['metadata']['participants'][i]) : i for i in range(self.nb_joueur)}
             self.thisId = self.dic[self.me['puuid']]
 
@@ -868,6 +873,7 @@ class matchlol():
         if self.thisId <= 4:
             self.team = 0
             self.n_moba = 1
+            joueur_id = self.thisId
         # le sort_values permet de mettre les slots vides à la fin    
             for joueur in range(self.nb_joueur):
                 liste_items = [self.match_detail['info']['participants'][joueur][f'item{i}'] for i in range(6)]
@@ -886,9 +892,22 @@ class matchlol():
                 liste_items.sort(reverse=True)
                 self.allitems[joueur_id] = liste_items 
 
-
+        self.ban = self.match_detail['info']['teams'][self.team]['bans']
         self.team_stats = self.match_detail['info']['teams'][self.team]['objectives']
-
+        
+        self.champ_dict['-1'] = 'Aucun'
+        if len(self.ban) > 0: # s'il y a des ban
+            self.liste_ban = []
+            for key in self.ban:
+                row = self.champ_dict[str(key['championId'])]
+                self.liste_ban.append(row)
+            self.liste_ban.reverse()
+            
+            self.thisban = self.liste_ban[joueur_id]
+        
+        else:
+            self.thisban = '-1'
+        
         self.thisBaronTeam = self.team_stats['baron']['kills']
         self.thisDragonTeam = self.team_stats['dragon']['kills']
         self.thisHeraldTeam = self.team_stats['riftHerald']['kills']
@@ -981,11 +1000,18 @@ class matchlol():
         self.thisPseudoListe = dict_data(
             self.thisId, self.match_detail, 'summonerName')
         
-        self.thisRiotIdListe = dict_data(
-            self.thisId, self.match_detail, 'riotIdGameName')
+        try:
+            self.thisRiotIdListe = dict_data(
+                self.thisId, self.match_detail, 'riotIdGameName')
         
-        self.thisRiotTagListe = dict_data(
-            self.thisId, self.match_detail, 'riotIdTagline')
+            self.thisRiotTagListe = dict_data(
+                self.thisId, self.match_detail, 'riotIdTagline')
+        
+        except KeyError:
+            self.thisRiotIdListe = self.thisPseudoListe
+            self.thisRiotTagListe = ''         
+            
+            
 
         # champ id
 
@@ -1584,11 +1610,6 @@ class matchlol():
         
         self.DamageGoldRatio = round((self.thisDamageNoFormat/self.thisGoldNoFormat)*100,2)
 
-        # self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (temp_team_kills if i < 5
-        #                                                                                          else temp_team_kills_op), 2) * 100)
-        #                         for i in range(self.nb_joueur)]
-
-
         try:
             self.thisKP = int(
                 round((self.thisKills + self.thisAssists) / (self.thisTeamKills), 2) * 100)
@@ -1653,13 +1674,13 @@ class matchlol():
         gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
         baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
         item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
-        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min)
+        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min, ban)
         VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
         :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
         :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
         :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
         :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
-        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min);
+        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min, :ban);
         UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur''',
             {
                 'match_id': self.last_match,
@@ -1742,7 +1763,8 @@ class matchlol():
                 'ecart_gold_individuel' : self.ecart_gold_noformat,
                 'ecart_gold_min' : self.ecart_gold_permin,
                 'riot_id' : self.riot_id.lower(),
-                'riot_tagline' : self.riot_tag
+                'riot_tagline' : self.riot_tag,
+                'ban' : self.thisban,
             },
         )
 
@@ -2147,7 +2169,7 @@ class matchlol():
 
         else:  # si c'est l'aram, le traitement est différent
 
-            data_aram = get_data_bdd(f''' SELECT index,wins, losses, lp, games, k, d, a, activation, rank, serie
+            data_aram = get_data_bdd(f''' SELECT ranked_aram_s{saison}.index,wins, losses, lp, games, k, d, a, activation, rank, serie
                                      from ranked_aram_s{saison}
                                      INNER JOIN tracker on tracker.id_compte = ranked_aram_s{saison}.index
                                      WHERE tracker.id_compte = :id_compte ''',
@@ -3416,7 +3438,7 @@ class matchlol():
                 font_text = font_little
                 ecart_pseudo = 75
                 
-            pseudo = self.thisPseudoListe[i]
+            pseudo = self.thisRiotIdListe[i]
             d.text((ecart*n+ecart_pseudo, y_pseudo),
                    pseudo, font=font_text, fill=(0, 0, 0))
             
@@ -3489,19 +3511,9 @@ class matchlol():
             d.text((ecart*n+50, y_tank),
                    f'{int(self.thisDamageTakenListe[i]/1000)}k / {int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font_tank, fill=fill)
             
-
-                       
-
             
             drawProgressBar(ecart*n+60, y_tank+70, 120, 15, (self.thisDamageTakenListe[i] + self.thisDamageSelfMitigatedListe[i])/(np.sum(self.thisDamageTakenListe) + np.sum(self.thisDamageSelfMitigatedListe)), fg=color)
 
-            # if top_kp == 'max': 
-            #     drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg='green')
-            # elif top_kp == 'min':
-            #     drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg='#8B0000')
-            # else:
-            #     drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg=color)
-            # drawProgressBar(236*n+45, y_dmg+70, 120, 15, self.thisDamageRatioListe[i], fg=color)
             
 
         fill = (0,0,0)
