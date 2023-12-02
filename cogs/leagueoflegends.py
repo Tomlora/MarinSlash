@@ -360,6 +360,9 @@ class LeagueofLegends(Extension):
             case "OTHER":
                 embed = interactions.Embed(
                     title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une game ", color=color)
+            case "PERSO":
+                embed = interactions.Embed(
+                    title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une game perso", color=color)
             case "ARAM":
                 embed = interactions.Embed(
                     title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une ARAM ", color=color)
@@ -442,13 +445,22 @@ class LeagueofLegends(Extension):
             a = round(
                 stats_joueur.loc[id_compte, 'assists'], 1)
             kp = int(stats_joueur.loc[id_compte, 'kp'])
-            mvp = round(
-                stats_joueur.loc[id_compte, 'mvp'], 1)
+            
+            try:
+                mvp = round(
+                    stats_joueur.loc[id_compte, 'mvp'], 1)
+            except TypeError:
+                mvp = 0
             ratio_victoire = int((stats_joueur.loc[id_compte, 'victoire'] / stats_joueur.loc[id_compte, 'nb_games'])*100)
             nb_games = int(
                 stats_joueur.loc[id_compte, 'nb_games'])
-            embed.add_field(
-                name=f"{nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=True)
+            
+            if mvp == 0:
+                embed.add_field(
+                    name=f"{nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=True)
+            else:
+                embed.add_field(
+                    name=f"{nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=True)
 
         # on découpe le texte embed
         chunk_size = 1024
@@ -762,7 +774,7 @@ class LeagueofLegends(Extension):
                 # si maj pseudo ou tag
                 if riot_id != me['gameName'].replace(" ", "").lower() or riot_tag != me['tagLine']:
                     requete_perso_bdd(
-                        'UPDATE tracker SET riot_id = :riot_id, riot_tagline = :riot_tagline WHERE id_compte = :id_compte',
+                        'UPDATE tracker SET riot_id = :riot_id, riot_tagline = :riot_tag WHERE id_compte = :id_compte',
                         {'id_compte': id_compte, 'riot_id': me['gameName'].lower().replace(" ", ""), 'riot_tag': me['tagLine'].upper()},
                     )
                     
@@ -1148,7 +1160,11 @@ class LeagueofLegends(Extension):
 
             df = lire_bdd_perso(f'''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, suivi.wins_jour, suivi.losses_jour, suivi."LP_jour", suivi.tier_jour, suivi.rank_jour, tracker.server_id from suivi_s{saison} as suivi
                                     INNER join tracker ON tracker.id_compte = suivi.index
-                                    where suivi.tier != 'Non-classe' and tracker.server_id = {int(guild.id)} and tracker.banned = false ''')
+                                    where suivi.tier != 'Non-classe'
+                                    and tracker.server_id = {int(guild.id)}
+                                    and tracker.banned = false
+                                    and tracker.activation = true ''',
+                                    index_col='id_compte')
 
             if df.shape[1] > 0:  # si pas de data, inutile de continuer
 
@@ -1618,18 +1634,11 @@ class LeagueofLegends(Extension):
                                                        type=interactions.OptionType.INTEGER,
                                                        min_value=12,
                                                        max_value=saison,
-                                                       required=True),
-                                    SlashCommandOption(name='nb_champ_max',
-                                                       description='Nombre de champions maximum',
-                                                       type=interactions.OptionType.INTEGER,
-                                                       min_value=1,
-                                                       max_value=24,
                                                        required=True)])
     async def recap_annuel(self,
                        ctx: SlashContext,
                        riot_id: str, # à supprimer
-                       saison : int,
-                       nb_champ_max : int):
+                       saison : int):
         
         
         if not isOwner_slash(ctx):
@@ -1736,8 +1745,7 @@ class LeagueofLegends(Extension):
 
                 df_grp, df_grp_champ, df_mois, discord_id, df_rank = creation_agregat(df_ranked, compte)
                     
-                df_grp_champ = df_grp_champ.head(nb_champ_max)
-                    
+                   
                 # on cherche l'user
                 user = self.bot.get_user(discord_id)
                     
@@ -1749,11 +1757,11 @@ class LeagueofLegends(Extension):
                     
                     kda = (stat['kills_SUM'] + stat['assists_SUM']) / stat['deaths_SUM']
                     kda = np.round(kda, 1)
-                    msg_grp = (f"- Kills : **{stat['kills_SUM']}** (Moy : **{np.round(stat['kills_MEAN'],1)}**) | Morts : **{stat['deaths_SUM']}** (Moy : **{np.round(stat['deaths_MEAN'],1)}**) | "+
-                        f"Assists : **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**) \n"+
-                        f"- KP moyen : **{int(stat['kp_MEAN'])}**% | KDA : **{kda}** | CS : **{stat['cs_SUM']}** (Moy cs/min) : **{np.round(stat['cs_min_MEAN'],1)}** \n"+
+                    msg_grp = (f"- K : **{stat['kills_SUM']}** (Moy : **{np.round(stat['kills_MEAN'],1)}**) | D : **{stat['deaths_SUM']}** (Moy : **{np.round(stat['deaths_MEAN'],1)}**) | "+
+                        f"A : **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**) \n"+
+                        f"- KP : **{int(stat['kp_MEAN'])}**% | KDA : **{kda}** | CS : **{stat['cs_SUM']}** (CS/min) : **{np.round(stat['cs_min_MEAN'],1)}** \n"+
                         f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}** \n"+
-                        f"- Tu as joué **{int(stat['time_SUM'])}**m ({stat['time_SUM'] // 60 // 24}j) et **{int(stat['temps_dead_SUM'])}** min en étant mort, soit **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**%\n"+
+                        f"- Temps **{int(stat['time_SUM'])}**m ({stat['time_SUM'] // 60 // 24}j) et **{int(stat['temps_dead_SUM'])}** min en étant mort, soit **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**%\n"+
                         f"- Redside : **{stat['redside']}**% | Solokills : **{stat['solokills_SUM']}** | Ecart gold/min : **{np.round(stat['ecart_gold_min_MEAN'],1)}** \n")
                         
                     if mode != 'ARAM':
@@ -1762,24 +1770,46 @@ class LeagueofLegends(Extension):
                     embed_grp.add_field(name=f"{index[1]} - **{stat['nb_games']}** P (**{stat['winrate']}**% victoire | {stat['ecart_lp_SUM']} LP) | {stat['afk_SUM']} afk", value=msg_grp)
                         
                 msg_champ = ''
-                embed_champ = interactions.Embed(title=f'Recap par champion ({nb_champ_max} champions les plus joués)')
-                    
-                for index, stat in df_grp_champ.iterrows():
+                embed_champ = interactions.Embed(title=f'Recap par champion (3 champions les plus joués) 1/1')
+                
+                
+                for index, stat in df_grp_champ.head(2).iterrows():
                     
                     kda = (stat['kills_SUM'] + stat['assists_SUM']) / stat['deaths_SUM']
                     kda = np.round(kda, 1)
-                    msg_champ = (f"- Kills : **{stat['kills_SUM']}** (Moy : **{np.round(stat['kills_MEAN'],1)}**) | Morts : **{stat['deaths_SUM']}** (Moy : **{np.round(stat['deaths_MEAN'],1)}**) | "+
-                        f"Assists : **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**) \n"+
-                        f"- KP moyen : **{int(stat['kp_MEAN'])}**% | KDA : **{kda}** | CS : **{stat['cs_SUM']}** (Moy CS/min) : **{np.round(stat['cs_min_MEAN'],1)}** \n"+
+                    msg_champ = (f"- K : **{stat['kills_SUM']}** (Moy : **{np.round(stat['kills_MEAN'],1)}**) | D : **{stat['deaths_SUM']}** (Moy : **{np.round(stat['deaths_MEAN'],1)}**) | "+
+                        f"A: **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**) \n"+
+                        f"- KP : **{int(stat['kp_MEAN'])}**% | KDA : **{kda}** | CS : **{stat['cs_SUM']}** (CS/m) : **{np.round(stat['cs_min_MEAN'],1)}** \n"+
                         f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}** \n"+
-                        f"- Tu as joué **{int(stat['time_SUM'])}**m ({stat['time_SUM'] // 60 // 24}j) et **{int(stat['temps_dead_SUM'])}** min en étant mort, soit **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**%\n"+
-                        f"- Redside : **{stat['redside']}**% | Solokills : **{stat['solokills_SUM']}** | Ecart gold/min : **{np.round(stat['ecart_gold_min_MEAN'],1)}**  \n")
+                        f"- Temps **{int(stat['time_SUM'])}**m ({stat['time_SUM'] // 60 // 24}j) et **{int(stat['temps_dead_SUM'])}** min en étant mort, soit **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**%\n"+
+                        f"- Redside : **{stat['redside']}**% | Solokills : **{stat['solokills_SUM']}** | Ecart gold/m : **{np.round(stat['ecart_gold_min_MEAN'],1)}**  \n")
                         
                     if mode != 'ARAM':
-                        msg_champ += f"- Vision_min : **{np.round(stat['vision_min_MEAN'],1)}** | Vision_avantage : **{np.round(stat['vision_avantage_MEAN'],1)}**%"
+                        msg_champ += f"- Vision/m : **{np.round(stat['vision_min_MEAN'],1)}** | Vision_avantage : **{np.round(stat['vision_avantage_MEAN'],1)}**%"
 
               
                     embed_champ.add_field(name=f"{emote_champ_discord[index[1].capitalize()]} - **{stat['nb_games']}** P (**{stat['winrate']}**% victoire | {stat['ecart_lp_SUM']} LP) | {stat['afk_SUM']} afk", value=msg_champ)
+
+                msg_champ2 = ''
+                embed_champ2 = interactions.Embed(title=f'Recap par champion (3 champions les plus joués) 2/2')
+                
+                
+                for index, stat in df_grp_champ.iloc[2:3].iterrows():
+                    
+                    kda = (stat['kills_SUM'] + stat['assists_SUM']) / stat['deaths_SUM']
+                    kda = np.round(kda, 1)
+                    msg_champ = (f"- K : **{stat['kills_SUM']}** (Moy : **{np.round(stat['kills_MEAN'],1)}**) | D : **{stat['deaths_SUM']}** (Moy : **{np.round(stat['deaths_MEAN'],1)}**) | "+
+                        f"A: **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**)\n"+
+                        f"- KP : **{int(stat['kp_MEAN'])}**% | KDA : **{kda}** | CS : **{stat['cs_SUM']}** (CS/m) : **{np.round(stat['cs_min_MEAN'],1)}**\n"+
+                        f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}**\n"+
+                        f"- Temps **{int(stat['time_SUM'])}**m ({stat['time_SUM']//60//24}j) et **{int(stat['temps_dead_SUM'])}** min mort, soit **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**%\n"+
+                        f"- Redside : **{stat['redside']}**% | Solokills : **{stat['solokills_SUM']}** | Ecart gold/m : **{np.round(stat['ecart_gold_min_MEAN'],1)}**\n")
+                        
+                    if mode != 'ARAM':
+                        msg_champ2 += f"- Vision/m : **{np.round(stat['vision_min_MEAN'],1)}** | Vision_avantage : **{np.round(stat['vision_avantage_MEAN'],1)}**%"
+
+              
+                    embed_champ2.add_field(name=f"{emote_champ_discord[index[1].capitalize()]} - **{stat['nb_games']}** P (**{stat['winrate']}**% victoire | {stat['ecart_lp_SUM']} LP) | {stat['afk_SUM']} afk", value=msg_champ)
                         
                 msg_rank = ''
                 embed_rank = interactions.Embed(title=f'Recap Rank')
@@ -1789,11 +1819,11 @@ class LeagueofLegends(Extension):
                     kda = np.round(kda, 1)
                     
                     msg_rank = (f"- Kills : **{stat['kills_SUM']}** (Moy : **{np.round(stat['kills_MEAN'],1)}**) | Morts : **{stat['deaths_SUM']}** (Moy : **{np.round(stat['deaths_MEAN'],1)}**) | "+
-                        f"Assists : **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**) \n"+
-                        f"- KP moyen : **{int(stat['kp_MEAN'])}**% | KDA : **{kda}** | CS : **{stat['cs_SUM']}** (Moy CS/min) : **{np.round(stat['cs_min_MEAN'],1)}** \n"+
-                        f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}** \n"+
+                        f"Assists : **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**)\n"+
+                        f"- KP moyen : **{int(stat['kp_MEAN'])}**% | KDA : **{kda}** | CS : **{stat['cs_SUM']}** (Moy CS/min) : **{np.round(stat['cs_min_MEAN'],1)}**\n"+
+                        f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}**\n"+
                         f"- Tu as joué **{int(stat['time_SUM'])}**m ({stat['time_SUM'] // 60 // 24}j) et **{int(stat['temps_dead_SUM'])}** min en étant mort, soit **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**%\n"+
-                        f"- Redside : **{stat['redside']}**% | Solokills : **{stat['solokills_SUM']}** | Ecart gold/min : **{np.round(stat['ecart_gold_min_MEAN'],1)}**  \n")
+                        f"- Redside : **{stat['redside']}**% | Solokills : **{stat['solokills_SUM']}** | Ecart gold/min : **{np.round(stat['ecart_gold_min_MEAN'],1)}**\n")
                         
                     if mode != 'ARAM':
                         msg_rank += f"- Vision_min : **{np.round(stat['vision_min_MEAN'],1)}** | Vision_avantage : **{np.round(stat['vision_avantage_MEAN'],1)}%**"
@@ -1802,9 +1832,10 @@ class LeagueofLegends(Extension):
                                                 
                         
 
-                embed_list = [embed_grp, embed_champ, embed_rank]       
+                embed_list = [embed_grp, embed_champ, embed_champ2, embed_rank]       
                     
                 await user.send(content=f'**Recap S{saison}** ({compte.upper()}) ({mode}) - {nb_games} parties enregistrées', embeds=embed_list)
+                await user.send(content="N'hésite pas à utiliser /records_personnel pour voir tes records sur la saison !")
                 await user.send(content='---------------------------------------')
                 
                 # Essayer de rajouter les records personnels du joueur

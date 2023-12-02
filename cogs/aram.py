@@ -221,7 +221,9 @@ class Aram(Extension):
 
             df = lire_bdd_perso(f'''SELECT suivi.index, suivi.wins, suivi.losses, suivi.lp, suivi.rank, suivi.wins_jour, suivi.losses_jour, suivi.lp_jour, suivi.rank_jour, tracker.server_id, tracker.id_compte, tracker.riot_id, tracker.riot_tagline from ranked_aram_s{saison} as suivi 
                                         INNER join tracker ON tracker.id_compte = suivi.index 
-                                        where tracker.server_id = {int(guild.id)} and tracker.banned = false ''')
+                                        where tracker.server_id = {int(guild.id)}
+                                        and tracker.banned = false
+                                        and suivi.activation = true ''')
 
             if df.shape[1] > 0:  # s'il y a des données
 

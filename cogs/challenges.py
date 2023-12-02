@@ -32,13 +32,13 @@ class Challenges(Extension):
         session = aiohttp.ClientSession()
             # Ceux dont les challenges sont activés, sont maj à chaque game
         liste_summonername = lire_bdd_perso(
-                'SELECT * from tracker where challenges = false', 'dict')
+                'SELECT * from tracker where challenges = false', 'dict', index_col='id_compte')
 
-        for summonername, data in liste_summonername.items():
+        for id_compte, data in liste_summonername.items():
 
             try:
                 challenges = challengeslol(
-                        summonername, data['puuid'], session)
+                        id_compte, data['puuid'], session)
                 await challenges.preparation_data()
                 await challenges.sauvegarde()
 
@@ -197,7 +197,7 @@ class Challenges(Extension):
 
         fig.write_image('plot.png')
         # txt
-        await ctx.send(f'Le joueur {riot_id} a : \n{msg}\n __TOTAL__  : **{total_user["current"]}** / **{total_user["max"]}** (niveau {total_user["level"]}). Seulement **({total_user["percentile"]}%** des joueurs font mieux.)', files=interactions.File('plot.png'))
+        await ctx.send(f'Le joueur {riot_id} a : \n{msg}\n __TOTAL__  : **{total_user["current"]}** / **{total_user["max"]}** (niveau {total_user["level"]}). Seulement **({total_user["percentile"]*100}%** des joueurs font mieux.)', files=interactions.File('plot.png'))
         await session.close()
         os.remove('plot.png')
 

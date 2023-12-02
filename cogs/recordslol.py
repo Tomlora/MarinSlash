@@ -513,8 +513,9 @@ class Recordslol(Extension):
         elif compte_discord != None:
                 
             id_discord = str(compte_discord.id)
+
                                
-            joueur = compte_discord.username
+            joueur = compte_discord.global_name
             try:    
                 fichier = fichier[fichier['discord'] == id_discord]
             except KeyError:
@@ -524,8 +525,15 @@ class Recordslol(Extension):
         elif joueur == None and compte_discord == None:
                 
             fichier = fichier[fichier['discord'] == str(ctx.author.id)]
-                
-            joueur = ctx.author.name
+
+            try:
+                joueur = ctx.author.nick
+            except AttributeError:
+                joueur = ctx.author.nickname
+            author_global = ctx.author.global_name
+            if joueur == None:
+                joueur = author_global                
+            joueur = ctx.author.global_name
                 
         methode_pseudo = 'riot_id'
 

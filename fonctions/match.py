@@ -873,7 +873,6 @@ class matchlol():
         if self.thisId <= 4:
             self.team = 0
             self.n_moba = 1
-            joueur_id = self.thisId
         # le sort_values permet de mettre les slots vides à la fin    
             for joueur in range(self.nb_joueur):
                 liste_items = [self.match_detail['info']['participants'][joueur][f'item{i}'] for i in range(6)]
@@ -893,6 +892,7 @@ class matchlol():
                 self.allitems[joueur_id] = liste_items 
 
         self.ban = self.match_detail['info']['teams'][self.team]['bans']
+        self.ban_ennemi = self.match_detail['info']['teams'][self.n_moba]['bans']
         self.team_stats = self.match_detail['info']['teams'][self.team]['objectives']
         
         self.champ_dict['-1'] = 'Aucun'
@@ -901,19 +901,21 @@ class matchlol():
             for key in self.ban:
                 row = self.champ_dict[str(key['championId'])]
                 self.liste_ban.append(row)
-            self.liste_ban.reverse()
-            
-            self.thisban = self.liste_ban[joueur_id]
+                
+            for key in self.ban_ennemi:
+                row = self.champ_dict[str(key['championId'])]
+                self.liste_ban.append(row)
+
         
         else:
-            self.thisban = '-1'
+            self.thisban = ['-1', '-1', '-1', '-1', '-1', '-1', '-1', '-1', '-1', '-1']
+            self.liste_ban = ['-1', '-1', '-1', '-1', '-1', '-1', '-1', '-1', '-1', '-1']
         
         self.thisBaronTeam = self.team_stats['baron']['kills']
         self.thisDragonTeam = self.team_stats['dragon']['kills']
         self.thisHeraldTeam = self.team_stats['riftHerald']['kills']
         self.thisTurretsKillsTeam = self.team_stats['tower']['kills']
 
-        # A voir...
 
         try:
             self.thisCSAdvantageOnLane = round(
@@ -1280,13 +1282,15 @@ class matchlol():
             else:
                 id_mobalytics = self.thisId
 
-            self.mvp = int(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[id_mobalytics]]['mvpScore'].values[0])
+            self.mvp = int(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[id_mobalytics]}#{self.thisRiotTagListe[id_mobalytics]}']['mvpScore'].values[0])
 
             self.badges = self.data_mobalytics_complete['data']['lol']['player']['match']['subject']['badges']
         
         else:
             self.mvp = 0
             self.badges = ''
+            
+
 
         stats_mode = "RANKED_FLEX_SR" if self.thisQ == 'FLEX' else "RANKED_SOLO_5x5"
         try:
@@ -1674,13 +1678,15 @@ class matchlol():
         gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
         baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
         item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
-        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min, ban)
+        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
+        ban1, ban2, ban3, ban4, ban5, ban_adv1, ban_adv2, ban_adv3, ban_adv4, ban_adv5)
         VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
         :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
         :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
         :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
         :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
-        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min, :ban);
+        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
+        :ban1, :ban2, :ban3, :ban4, :ban5, :ban_adv1, :ban_adv2, :ban_adv3, :ban_adv4, :ban_adv5);
         UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur''',
             {
                 'match_id': self.last_match,
@@ -1764,7 +1770,16 @@ class matchlol():
                 'ecart_gold_min' : self.ecart_gold_permin,
                 'riot_id' : self.riot_id.lower(),
                 'riot_tagline' : self.riot_tag,
-                'ban' : self.thisban,
+                'ban1' : self.liste_ban[0],
+                'ban2' : self.liste_ban[1],
+                'ban3' : self.liste_ban[2],
+                'ban4' : self.liste_ban[3],
+                'ban5' : self.liste_ban[4],
+                'ban_adv1' : self.liste_ban[5],
+                'ban_adv2' : self.liste_ban[6],
+                'ban_adv3' : self.liste_ban[7],
+                'ban_adv4' : self.liste_ban[8],
+                'ban_adv5' : self.liste_ban[9],
             },
         )
 
@@ -2169,7 +2184,7 @@ class matchlol():
 
         else:  # si c'est l'aram, le traitement est différent
 
-            data_aram = get_data_bdd(f''' SELECT ranked_aram_s{saison}.index,wins, losses, lp, games, k, d, a, activation, rank, serie
+            data_aram = get_data_bdd(f''' SELECT ranked_aram_s{saison}.index,wins, losses, lp, games, k, d, a, ranked_aram_s{saison}.activation, rank, serie
                                      from ranked_aram_s{saison}
                                      INNER JOIN tracker on tracker.id_compte = ranked_aram_s{saison}.index
                                      WHERE tracker.id_compte = :id_compte ''',
@@ -2426,14 +2441,14 @@ class matchlol():
 
             if self.moba_ok:
                 try:
-                    rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['tier']
-                    tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['division']
+                    rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['tier']
+                    tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['division']
                 except IndexError:
                     try:
                         data_mobalytics_copy = self.data_mobalytics.copy()
                         data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
-                        rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['tier']
-                        tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['division']
+                        rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['tier']
+                        tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['division']
                     except IndexError:
                         rank_joueur = ''
                         tier_joueur = ''
@@ -2451,10 +2466,10 @@ class matchlol():
 
             if self.moba_ok:
                 try:
-                    scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['mvpScore'].values[0]
+                    scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['mvpScore'].values[0]
                 except IndexError:
                     try:
-                        scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['mvpScore'].values[0]
+                        scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['mvpScore'].values[0]
                     except IndexError:
                         scoring = '?'    
 
@@ -2754,8 +2769,11 @@ class matchlol():
 
         else:  # si c'est l'aram, le traitement est différent
 
-            data_aram = get_data_bdd(f'SELECT index,wins, losses, lp, games, k, d, a, activation, rank, serie from ranked_aram_s{saison} WHERE index = :index',
-                                     {'index': self.id_compte}).mappings().all()
+            data_aram = get_data_bdd(f''' SELECT ranked_aram_s{saison}.index,wins, losses, lp, games, k, d, a, ranked_aram_s{saison}.activation, rank, serie
+                                     from ranked_aram_s{saison}
+                                     INNER JOIN tracker on tracker.id_compte = ranked_aram_s{saison}.index
+                                     WHERE tracker.id_compte = :id_compte ''',
+                                     {'id_compte': self.id_compte}).mappings().all()
 
             wins_actual = data_aram[0]['wins']
             losses_actual = data_aram[0]['losses']
@@ -2993,14 +3011,14 @@ class matchlol():
 
             if self.moba_ok:
                 try:
-                    rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['tier']
-                    tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['rank'].values[0]['division']
+                    rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['tier']
+                    tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['division']
                 except IndexError:
                     try:
                         data_mobalytics_copy = self.data_mobalytics.copy()
                         data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
-                        rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['tier']
-                        tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['rank'].values[0]['division']
+                        rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['tier']
+                        tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['division']
                     except IndexError:
                         rank_joueur = ''
                         tier_joueur = ''
@@ -3015,10 +3033,10 @@ class matchlol():
 
             if self.moba_ok:
                 try:
-                    scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == self.thisPseudoListe[i]]['mvpScore'].values[0]
+                    scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['mvpScore'].values[0]
                 except IndexError:
                     try:
-                        scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == self.thisPseudoListe[i].lower()]['mvpScore'].values[0]
+                        scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['mvpScore'].values[0]
                     except IndexError:
                         scoring = '?'    
             else:
