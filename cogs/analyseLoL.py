@@ -23,6 +23,7 @@ from fonctions.match import (match_by_puuid_with_summonername,
                              get_match_timeline,
                              label_ward,
                              emote_champ_discord,
+                             match_by_puuid_with_puuid,
                              emote_rank_discord)
 from fonctions.channels_discord import get_embed
 from fonctions.gestion_bdd import lire_bdd_perso
@@ -51,7 +52,12 @@ parameters_commun_stats_lol = [
         max_value=saison,
         required=False),
     SlashCommandOption(
-        name='joueur',
+        name='riot_id',
+        description='se focaliser sur un joueur ? Incompatible avec grouper par personne',
+        type=interactions.OptionType.STRING,
+        required=False),
+    SlashCommandOption(
+        name='riot_tag',
         description='se focaliser sur un joueur ? Incompatible avec grouper par personne',
         type=interactions.OptionType.STRING,
         required=False),
@@ -168,26 +174,26 @@ def get_data_matchs(columns, season, server_id, view='global', datetime=None):
     if datetime == None:
         if view == 'global':
             df = lire_bdd_perso(
-                f'''SELECT matchs.id, matchs.joueur, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
-            INNER JOIN tracker ON tracker.index = matchs.joueur
+                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
+            INNER JOIN tracker ON tracker.id_compte = matchs.joueur
             where season = {season}''', index_col='id').transpose()
         else:
             df = lire_bdd_perso(
-                f'''SELECT matchs.id, matchs.joueur, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
-                INNER JOIN tracker ON tracker.index = matchs.joueur
+                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
+                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
                 where season = {season}
                 AND server_id = {server_id}''', index_col='id').transpose()
     else:
         if view == 'global':
             df = lire_bdd_perso(
-                f'''SELECT matchs.id, matchs.joueur, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, matchs.datetime tracker.discord from matchs
-            INNER JOIN tracker ON tracker.index = matchs.joueur
+                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, matchs.datetime tracker.discord from matchs
+            INNER JOIN tracker ON tracker.id_compte = matchs.joueur
             where season = {season}
             and datetime >= :date''', index_col='id').transpose()
         else:
             df = lire_bdd_perso(
-                f'''SELECT matchs.id, matchs.joueur, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, matchs.datetime tracker.discord from matchs
-                INNER JOIN tracker ON tracker.index = matchs.joueur
+                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, matchs.datetime tracker.discord from matchs
+                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
                 where season = {season}
                 AND server_id = {server_id}
                 AND datetime >= :date''', index_col='id').transpose()
@@ -287,7 +293,12 @@ class analyseLoL(Extension):
                             sub_cmd_description="Permet d'afficher des statistiques durant la game",
                             options=[
                                 SlashCommandOption(
-                                    name="summonername",
+                                    name="riot_id",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=True),
+                                SlashCommandOption(
+                                    name="riot_tag",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
                                     required=True),
@@ -311,7 +322,8 @@ class analyseLoL(Extension):
                                     max_value=10)])
     async def analyse(self,
                       ctx: SlashContext,
-                      summonername: str,
+                      riot_id: str,
+                      riot_tag:str,
                       stat: str,
                       stat2: str = "no",
                       game: int = 0):
@@ -320,7 +332,8 @@ class analyseLoL(Extension):
         liste_graph = list()
         liste_delete = list()
 
-        summonername = summonername.lower()
+        riot_id = riot_id.lower().replace(' ', '')
+        riot_tag = riot_tag.upper()
 
         def graphique(fig, name):
             fig.write_image(name)
@@ -334,7 +347,14 @@ class analyseLoL(Extension):
         warnings.simplefilter(action='ignore', category=FutureWarning)
         pd.options.mode.chained_assignment = None  # default='warn'
         session = aiohttp.ClientSession()
-        last_match, match_detail, me = await match_by_puuid_with_summonername(summonername, game, session)
+        
+        puuid = lire_bdd_perso('''SELECT index, puuid from tracker where riot_id = :riot_id and riot_tagline = :riot_tag''',
+                                     params={'riot_id' : riot_id,
+                                             'riot_tag' : riot_tag})\
+                                                 .T\
+                                                     .loc[riot_id, 'puuid']
+                                                     
+        last_match, match_detail = await match_by_puuid_with_puuid(puuid, game, session)
         timeline = await get_match_timeline(session, last_match)
 
         # timestamp à diviser par 60000
@@ -342,12 +362,12 @@ class analyseLoL(Extension):
         dict_joueur = []
         for i in range(0, 10):
             summoner = await get_summoner_by_puuid(timeline['metadata']['participants'][i], session)
-            dict_joueur.append(summoner['name'].lower())
+            dict_joueur.append(summoner['gameName'].lower())
 
         await session.close()
 
-        if summonername in dict_joueur:
-            thisId = list(dict_joueur).index(summonername)
+        if riot_id in dict_joueur:
+            thisId = list(dict_joueur).index(riot_id)
 
         if thisId <= 4:
             team = ['Team alliée', 'Team adverse']
@@ -408,7 +428,7 @@ class analyseLoL(Extension):
                                                            'BLUE_TRINKET': 'Trinket bleu'
                                                            })
 
-            df_ward = df_ward[df_ward['joueur'] == summonername]
+            df_ward = df_ward[(df_ward['riot_id'] == riot_id) & (df_ward['riot_tagline'] == riot_tag)]
 
             illustrative_var = np.array(df_ward['wardType'])
             illustrative_type = np.array(df_ward['type'])
@@ -520,7 +540,7 @@ class analyseLoL(Extension):
 
             df_timeline_diff.iloc[0, 2] = df_timeline_diff.iloc[1, 2]
 
-            plt.title(f'Ecart gold {summonername}')
+            plt.title(f'Ecart gold {riot_id}')
 
             cmap = ListedColormap(['r', 'b'])
             norm = BoundaryNorm([val_min, 0, val_max], cmap.N)
@@ -572,7 +592,7 @@ class analyseLoL(Extension):
                                                                '9': dict_joueur[8],
                                                                '10': dict_joueur[9]})
 
-            df_timeline = df_timeline[df_timeline['joueur'] == summonername]
+            df_timeline = df_timeline[(df_timeline['riot_id'] == riot_id) & (df_timeline['riot_tagline'] == riot_tag)]
 
             img = io.imread('./img/map.jpg')
 
@@ -621,7 +641,12 @@ class analyseLoL(Extension):
                             sub_cmd_description="Voir des stats de fin de game",
                             options=[
                                 SlashCommandOption(
-                                    name="summonername",
+                                    name="riot_id",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=True),
+                                SlashCommandOption(
+                                    name="riot_tag",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
                                     required=True),
@@ -652,7 +677,9 @@ class analyseLoL(Extension):
                                     max_value=10)])
     async def var(self,
                   ctx: SlashContext,
-                  summonername, stat: str,
+                  riot_id: str,
+                  riot_tag : str,
+                  stat: str,
                   stat2: str = 'no',
                   stat3: str = 'no',
                   game: int = 0):
@@ -670,8 +697,17 @@ class analyseLoL(Extension):
             liste_graph.append(interactions.File(name))
 
         session = aiohttp.ClientSession()
+        
+        riot_id = riot_id.lower().replace(' ', '')
+        riot_tag = riot_tag.upper()
+        
+        puuid = lire_bdd_perso('''SELECT index, puuid from tracker where riot_id = :riot_id and riot_tagline = :riot_tag''',
+                                     params={'riot_id' : riot_id,
+                                             'riot_tag' : riot_tag})\
+                                                 .T\
+                                                     .loc[riot_id, 'puuid']
 
-        last_match, match_detail_stats, me = await match_by_puuid_with_summonername(summonername, game, session)
+        last_match, match_detail_stats = await match_by_puuid_with_puuid(puuid, game, session)
 
         match_detail = pd.DataFrame(match_detail_stats)
 
@@ -687,22 +723,21 @@ class analyseLoL(Extension):
             champ_dict[row['key']] = row['id']
 
         dic = {
-            (match_detail['info']['participants'][0]['summonerName']).lower().replace(" ", ""): 0,
-            (match_detail['info']['participants'][1]['summonerName']).lower().replace(" ", ""): 1,
-            (match_detail['info']['participants'][2]['summonerName']).lower().replace(" ", ""): 2,
-            (match_detail['info']['participants'][3]['summonerName']).lower().replace(" ", ""): 3,
-            (match_detail['info']['participants'][4]['summonerName']).lower().replace(" ", ""): 4,
-            (match_detail['info']['participants'][5]['summonerName']).lower().replace(" ", ""): 5,
-            (match_detail['info']['participants'][6]['summonerName']).lower().replace(" ", ""): 6,
-            (match_detail['info']['participants'][7]['summonerName']).lower().replace(" ", ""): 7,
-            (match_detail['info']['participants'][8]['summonerName']).lower().replace(" ", ""): 8,
-            (match_detail['info']['participants'][9]['summonerName']).lower().replace(" ", ""): 9
+            (match_detail['info']['participants'][0]['riotIdGameName']).lower().replace(" ", ""): 0,
+            (match_detail['info']['participants'][1]['riotIdGameName']).lower().replace(" ", ""): 1,
+            (match_detail['info']['participants'][2]['riotIdGameName']).lower().replace(" ", ""): 2,
+            (match_detail['info']['participants'][3]['riotIdGameName']).lower().replace(" ", ""): 3,
+            (match_detail['info']['participants'][4]['riotIdGameName']).lower().replace(" ", ""): 4,
+            (match_detail['info']['participants'][5]['riotIdGameName']).lower().replace(" ", ""): 5,
+            (match_detail['info']['participants'][6]['riotIdGameName']).lower().replace(" ", ""): 6,
+            (match_detail['info']['participants'][7]['riotIdGameName']).lower().replace(" ", ""): 7,
+            (match_detail['info']['participants'][8]['riotIdGameName']).lower().replace(" ", ""): 8,
+            (match_detail['info']['participants'][9]['riotIdGameName']).lower().replace(" ", ""): 9
         }
 
-        thisId = dic[
-            summonername.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
+        thisId = dic[riot_id]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
 
-        pseudo = dict_data(thisId, match_detail, 'summonerName')
+        pseudo = dict_data(thisId, match_detail, 'riotIdGameName')
         thisChamp = dict_data(thisId, match_detail, 'championId')
 
         champ_names = []
@@ -873,7 +908,8 @@ class analyseLoL(Extension):
                               ctx: SlashContext,
                               calcul: str,
                               season: int = saison,
-                              joueur: str = None,
+                              riot_id: str = None,
+                              riot_tag: str = None,
                               role: str = None,
                               champion: str = None,
                               mode_de_jeu: str = None,
@@ -906,10 +942,11 @@ class analyseLoL(Extension):
 
         df[df['season'] == season]
 
-        if joueur != None:
-            joueur = joueur.lower()
-            df = df[df['joueur'] == joueur]
-            title += f' pour {joueur}'
+        if riot_id != None and riot_tag != None:
+            riot_id = riot_id.lower().replace(' ', '')
+            riot_tag = riot_tag.upper()
+            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
+            title += f' pour {riot_id}'
 
         if champion != None:
             champion = champion.capitalize()
@@ -1043,7 +1080,8 @@ class analyseLoL(Extension):
                                   ctx: SlashContext,
                                   calcul: str,
                                   season: int = saison,
-                                  joueur: str = None,
+                                  riot_id: str = None,
+                                  riot_tag: str = None,
                                   role: str = None,
                                   champion: str = None,
                                   mode_de_jeu: str = None,
@@ -1061,10 +1099,11 @@ class analyseLoL(Extension):
 
         df[df['season'] == season]
 
-        if joueur != None:
-            joueur = joueur.lower()
-            df = df[df['joueur'] == joueur]
-            title += f' pour {joueur}'
+        if riot_id != None and riot_tag != None:
+            riot_id = riot_id.lower().replace(' ', '')
+            riot_tag = riot_tag.upper()
+            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
+            title += f' pour {riot_id}'
 
         if champion != None:
             champion = champion.capitalize()
@@ -1088,7 +1127,7 @@ class analyseLoL(Extension):
         title += f' ({calcul})'
 
         if calcul == 'count':
-            if joueur != None:
+            if riot_id != None:
                 showlegend = True
             else:
                 showlegend = False
@@ -1135,7 +1174,8 @@ class analyseLoL(Extension):
                               ctx: SlashContext,
                               calcul: str,
                               season: int = saison,
-                              joueur: str = None,
+                              riot_id: str = None,
+                              riot_tag : str = None,
                               role: str = None,
                               champion: str = None,
                               mode_de_jeu: str = None,
@@ -1153,10 +1193,11 @@ class analyseLoL(Extension):
 
         df[df['season'] == season]
 
-        if joueur != None:
-            joueur = joueur.lower()
-            df = df[df['joueur'] == joueur]
-            title += f' pour {joueur}'
+        if riot_id != None and riot_tag != None:
+            riot_id = riot_id.lower().replace(' ', '')
+            riot_tag = riot_tag.upper()
+            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
+            title += f' pour {riot_id}'
 
         if champion != None:
             champion = champion.capitalize()
@@ -1295,7 +1336,8 @@ class analyseLoL(Extension):
                             type: str,
                             calcul: str,
                             season: int = saison,
-                            joueur: str = None,
+                            riot_id: str = None,
+                            riot_tag: str = None,
                             role: str = None,
                             champion: str = None,
                             mode_de_jeu: str = None,
@@ -1318,10 +1360,11 @@ class analyseLoL(Extension):
 
         df[df['season'] == season]
 
-        if joueur != None:
-            joueur = joueur.lower()
-            df = df[df['joueur'] == joueur]
-            title += f' pour {joueur}'
+        if riot_id != None and riot_tag != None:
+            riot_id = riot_id.lower().replace(' ', '')
+            riot_tag = riot_tag.upper()
+            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
+            title += f' pour {riot_id}'
 
         if champion != None:
             champion = champion.capitalize()
@@ -1391,7 +1434,8 @@ class analyseLoL(Extension):
                            ctx: SlashContext,
                            calcul: str,
                            season: int = saison,
-                           joueur: str = None,
+                           riot_id: str = None,
+                           riot_tag: str = None,
                            role: str = None,
                            champion: str = None,
                            mode_de_jeu: str = None,
@@ -1408,10 +1452,11 @@ class analyseLoL(Extension):
 
         df[df['season'] == season]
 
-        if joueur != None:
-            joueur = joueur.lower()
-            df = df[df['joueur'] == joueur]
-            title += f' pour {joueur}'
+        if riot_id != None and riot_tag != None:
+            riot_id = riot_id.lower().replace(' ', '')
+            riot_tag = riot_tag.upper()
+            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
+            title += f' pour {riot_id}'
 
         if champion != None:
             champion = champion.capitalize()
@@ -1561,7 +1606,8 @@ class analyseLoL(Extension):
                               ctx: SlashContext,
                               calcul: str,
                               season: int = saison,
-                              joueur: str = None,
+                              riot_id: str = None,
+                              riot_tag: str = None,
                               role: str = None,
                               champion: str = None,
                               mode_de_jeu: str = None,
@@ -1579,10 +1625,11 @@ class analyseLoL(Extension):
 
         df[df['season'] == season]
 
-        if joueur != None:
-            joueur = joueur.lower()
-            df = df[df['joueur'] == joueur]
-            title += f' pour {joueur}'
+        if riot_id != None and riot_tag != None:
+            riot_id = riot_id.lower().replace(' ', '')
+            riot_tag = riot_tag.upper()
+            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
+            title += f' pour {riot_id}'
 
         if champion != None:
             champion = champion.capitalize()
@@ -1677,16 +1724,17 @@ class analyseLoL(Extension):
                     return await ctx.edit(components=[])
 
         elif calcul == 'explain':
-            if joueur != None:
+            if riot_id != None and riot_tag != None:
                 df = lire_bdd_perso(
-                    f'''SELECT matchs.*, tracker.discord from matchs
+                    f'''SELECT matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
                             INNER JOIN tracker ON tracker.index = matchs.joueur
                             where season = {season}
-                            and joueur = '{joueur}'
+                            and tracker.riot_id = '{riot_id}'
+                            and tracker.riot_tagline = '{riot_tag}'
                             ''', index_col='id').transpose()
             else:
                 df = lire_bdd_perso(
-                    f'''SELECT matchs.*, tracker.discord from matchs
+                    f'''SELECT matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
                             INNER JOIN tracker ON tracker.index = matchs.joueur
                             where season = {season}
                             ''', index_col='id').transpose()
@@ -1739,10 +1787,15 @@ class analyseLoL(Extension):
     @stats_lol.subcommand('ecart_gold',
                           sub_cmd_description='Statistiques sur les Ecart gold',
                           options=[SlashCommandOption(
-                              name='joueur',
+                              name='riot_id',
                               description='Pseudo LoL',
                               type=interactions.OptionType.STRING,
                               required=True),
+                              SlashCommandOption(
+                                  name='riot_tag',
+                                  description='tag',
+                                  type=interactions.OptionType.STRING,
+                                  required=True),
                               SlashCommandOption(
                               name='nb_parties',
                               description='Combien de parties minimum ?',
@@ -1807,7 +1860,8 @@ class analyseLoL(Extension):
     async def stats_lol_ecart_gold(self,
                                    ctx: SlashContext,
                                    season: int = saison,
-                                   joueur: str = None,
+                                   riot_id: str = None,
+                                   riot_tag:str = None,
                                    role: str = None,
                                    mode_de_jeu: str = 'RANKED',
                                    nb_parties: int = 5,
@@ -1824,10 +1878,11 @@ class analyseLoL(Extension):
 
         df[df['season'] == season]
 
-        if joueur != None:
-            joueur = joueur.lower()
-            df = df[df['joueur'] == joueur]
-            title += f' pour {joueur}'
+        if riot_id != None and riot_tag != None:
+            riot_id = riot_id.lower().replace(' ', '')
+            riot_tag = riot_tag.upper()
+            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
+            title += f' pour {riot_id}'
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]

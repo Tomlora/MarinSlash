@@ -962,7 +962,7 @@ class Recordslol(Extension):
         # data
         if view == 'global':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
-                                     INNER JOIN tracker on tracker.index = matchs.joueur
+                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
@@ -971,7 +971,7 @@ class Recordslol(Extension):
 
         elif view == 'serveur':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs, tracker
-                                         INNER JOIN tracker on tracker.index = matchs.joueur
+                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                          where season = {saison}
                                          and mode = '{mode}'
                                          and server_id = '{int(ctx.guild_id)}'

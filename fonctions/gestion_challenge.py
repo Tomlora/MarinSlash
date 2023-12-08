@@ -170,7 +170,7 @@ class challengeslol():
         
         try:
             self.points_total_before = lire_bdd_perso(f'''SELECT index, current FROM challenges_total where index = {self.id_compte} ''')\
-                .loc['current', self.summonerName]
+                .loc['current', self.id_compte]
         except:
             self.points_total_before = 0
             

@@ -403,7 +403,7 @@ class LeagueofLegends(Extension):
 
         # badges
 
-        if insights:
+        if insights and match_info.thisQ != 'ARENA 2v2':
             await match_info.calcul_badges(sauvegarder)
         else:
             match_info.observations = ''

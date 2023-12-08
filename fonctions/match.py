@@ -1330,23 +1330,28 @@ class matchlol():
         for key in self.current_champ_list['data']:
             row = self.current_champ_list['data'][key]
             self.champ_dict[row['key']] = row['id']
-
-        # Detail de chaque champion...
-
-        self.dic = {(self.match_detail['info']['participants'][i]['summonerName']).lower(
-        ).replace(" ", ""): i for i in range(self.nb_joueur)}
-
+            
+            
+        try:
+            self.dic = {(self.match_detail['info']['participants'][i]['riotIdGameName']).lower(
+            ).replace(" ", ""): i for i in range(self.nb_joueur)}
+        except KeyError: # game ancienne, où le riotid n'existait pas
+            self.dic = {(self.match_detail['info']['participants'][i]['summonerName']).lower(
+            ).replace(" ", ""): i for i in range(self.nb_joueur)}
+            
         # stats
         try:
             self.thisId = self.dic[
                 self.riot_id.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
-            
         except KeyError: # changement de pseudo ? On va faire avec le puuid
+            
             self.dic = {(self.match_detail['metadata']['participants'][i]) : i for i in range(self.nb_joueur)}
             self.thisId = self.dic[self.me['puuid']]
 
-        self.summonerName = self.match_detail_participants['summonerName'].lower().replace(' ', '')
+
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
+        self.summonerName = self.match_detail_participants['summonerName'].lower().replace(' ', '')
+        
         self.season = 13  # TODO a modifier quand changement de saison
 
 
@@ -1440,7 +1445,7 @@ class matchlol():
         self.thisItems = [self.item[f'item{i}'] for i in range(6)]
 
 
-
+        self.info_account = await get_summonerinfo_by_puuid(self.me['puuid'], self.session)
 
         # item6 = ward. Pas utile
 
@@ -1461,7 +1466,7 @@ class matchlol():
         self.thisDamagePerMinute = round(
             int(self.match_detail_participants['totalDamageDealtToChampions']) / self.thisTime, 0)
 
-        async with self.session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{self.me['id']}",
+        async with self.session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{self.info_account['id']}",
                                     params=self.params_me) as session4:
             self.thisStats = await session4.json()  # detail du match sélectionné
         self.thisWinrateStat = ' '
@@ -1539,10 +1544,10 @@ class matchlol():
         self.thisPseudoListe = dict_data_arena(
             self.thisId, self.match_detail, 'summonerName')
 
-        self.thisRiotIdListe = dict_data(
+        self.thisRiotIdListe = dict_data_arena(
             self.thisId, self.match_detail, 'riotIdGameName')
         
-        self.thisRiotTagListe = dict_data(
+        self.thisRiotTagListe = dict_data_arena(
             self.thisId, self.match_detail, 'riotIdTagline')
 
         # champ id
@@ -1815,14 +1820,16 @@ class matchlol():
                                 LEFT JOIN data_proplayers ON data_acc_proplayers.joueur = data_proplayers.plug''', index_col=None).T
         
         self.observations_proplayers = ''
-        for joueur in self.thisPseudoListe:
+        for num_joueur, joueur in enumerate(self.thisPseudoListe):
             if joueur in df_data_pro['compte'].tolist():
                 name_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'joueur'].values[0]
                 role_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'role'].values[0]
                 team_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'team_plug'].values[0]
+                champ_joueur = self.thisChampNameListe[num_joueur]
                 if team_joueur == '':
-                    team_joueur = 'Aucune'
-                self.observations_proplayers += f':stadium: **{name_joueur}** ({joueur}) : {role_joueur} chez {team_joueur} \n'
+                    self.observations_proplayers += f':stadium: **{name_joueur}** ({champ_joueur}) : {role_joueur} \n'
+                else: 
+                    self.observations_proplayers += f':stadium: **{name_joueur}** ({champ_joueur}) : {role_joueur} chez {team_joueur} \n'
                        
     async def calcul_badges(self, sauvegarder):
         # TODO : Faire une table qui récapitule si un badge a été obtenu par un joueur dans une game spécifique
@@ -3278,7 +3285,7 @@ class matchlol():
         name_img : nom de l'image enregistré'''
         
 
-        model = pickle.load(open('model/scoring_ridge.pkl', 'rb'))
+        # model = pickle.load(open('model/scoring_rf.pkl', 'rb'))
         
         # def scoring(i):
         #     """Calcule la performance d'un joueur
@@ -3443,13 +3450,13 @@ class matchlol():
             im.paste(im=await get_image("champion", self.thisChampNameListe[i], self.session, 100, 100, self.version['n']['champion']),
                  box=(ecart*n+95, y_avatar))
             
-            if len(self.thisPseudoListe[i])  > 14:
+            if len(self.thisRiotIdListe[i])  > 14:
                 font_text = font_very_very_little
                 ecart_pseudo = 60
-            elif len(self.thisPseudoListe[i]) > 8:
+            elif len(self.thisRiotIdListe[i]) > 8:
                 font_text = font_very_very_little
                 ecart_pseudo = 55
-            elif len(self.thisPseudoListe[i]) < 5:
+            elif len(self.thisRiotIdListe[i]) < 5:
                 font_text = font_little
                 ecart_pseudo = 100
             else:
@@ -3459,10 +3466,7 @@ class matchlol():
             pseudo = self.thisRiotIdListe[i]
             d.text((ecart*n+ecart_pseudo, y_pseudo),
                    pseudo, font=font_text, fill=(0, 0, 0))
-            
-
-            
-                                   
+             
             color_scoring = {1 : (0,128,0),
                              2 : (89,148,207),
                              3 : (67,89,232),
