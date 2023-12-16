@@ -16,8 +16,7 @@ import aiohttp
 from datetime import datetime
 from interactions.ext.paginators import Paginator
 
-from fonctions.match import (match_by_puuid_with_summonername,
-                             get_summoner_by_puuid,
+from fonctions.match import (get_summoner_by_puuid,
                              get_version,
                              get_champ_list,
                              get_match_timeline,
@@ -211,11 +210,11 @@ def transformation_top(df,
     # On compte le nombre d'occurences
     df_group = df_item.groupby(value).count().reset_index()
     # On trie du plus grand au plus petit
-    df_group = df_group.sort_values('joueur', ascending=False)
+    df_group = df_group.sort_values('riot_id', ascending=False)
     # On retient le top x
     df_group = df_group.head(top)
     # On fait le graphique
-    fig = px.histogram(df_group, value, 'joueur', color=value, title=title,
+    fig = px.histogram(df_group, value, 'riot_id', color=value, title=title,
                        text_auto=".i").update_xaxes(categoryorder='total descending')
     # On enlève la légende et l'axe y
     fig.update_layout(showlegend=showlegend)
@@ -280,6 +279,77 @@ def dict_data(thisId: int,
 
     return liste
 
+def mapping_joueur(df, colonne, dict_joueur):
+    df = df.astype({colonne: 'string'})
+
+    df[colonne] = df[colonne].map({'1': dict_joueur[0],
+                                                        '2': dict_joueur[1],
+                                                        '3': dict_joueur[2],
+                                                        '4': dict_joueur[3],
+                                                        '5': dict_joueur[4],
+                                                        '6': dict_joueur[5],
+                                                        '7': dict_joueur[6],
+                                                        '8': dict_joueur[7],
+                                                        '9': dict_joueur[8],
+                                                        '10': dict_joueur[9]})
+    return df
+
+def tri_riot_id(df, riot_id, riot_tag, title):
+    riot_id = riot_id.lower().replace(' ', '')
+    riot_tag = riot_tag.upper()
+    df = df[(df['riot_id'] == riot_id) & (df['riot_tagline'] == riot_tag)]
+    title += f' pour {riot_id}'
+    return riot_id, riot_tag, df, title
+
+def tri_champion(champion, df, title):
+    champion = champion.capitalize()
+    df = df[df['champion'] == champion]
+    title += f' sur {champion}'
+    return champion, df, title
+
+def tri_occurence(df, colonne, nb_parties):
+    occurences = df[colonne].value_counts()
+
+    mask = df[colonne].isin(occurences.index[occurences >= nb_parties])
+
+    df = df[mask]
+            
+    return df 
+
+def load_timeline(timeline):
+    df_timeline = pd.DataFrame(
+        timeline['info']['frames'][1]['participantFrames'])
+    df_timeline = df_timeline.transpose()
+    df_timeline['timestamp'] = 0
+
+    minute = len(timeline['info']['frames']) - 1
+
+    for i in range(2, minute):
+        df_timeline2 = pd.DataFrame(
+            timeline['info']['frames'][i]['participantFrames'])
+        df_timeline2 = df_timeline2.transpose()
+        df_timeline2['timestamp'] = i
+        df_timeline = df_timeline.append(df_timeline2)
+
+    df_timeline['riot_id'] = df_timeline['participantId']
+            
+    return df_timeline
+
+def format_graph_var(thisId, match_detail, info : str, pseudo : list, champ_names:list, rename_x, title_graph):
+
+    thisStats = dict_data(thisId, match_detail, info)
+
+    dict_score = {
+                pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
+
+    df = pd.DataFrame.from_dict(dict_score, orient='index')
+    df = df.reset_index()
+    df = df.rename(columns={"index": "pseudo", 0: rename_x})
+
+    fig = px.histogram(df, y="pseudo", x=rename_x, color="pseudo", title=title_graph, text_auto=True)
+    fig.update_layout(showlegend=False)
+                    
+    return fig 
 
 class analyseLoL(Extension):
     def __init__(self, bot):
@@ -396,23 +466,12 @@ class analyseLoL(Extension):
             df_ward = df_ward.astype(
                 {"creatorId": 'int32', "killerId": 'int32'})
 
-            df_ward['joueur'] = df_ward['creatorId']
+            df_ward['riot_id'] = df_ward['creatorId']
 
-            df_ward['joueur'] = np.where(
-                df_ward.joueur == 0, df_ward.killerId, df_ward.joueur)
-
-            df_ward = df_ward.astype({"joueur": 'string'})
-
-            df_ward['joueur'] = df_ward['joueur'].map({'1': dict_joueur[0],
-                                                       '2': dict_joueur[1],
-                                                       '3': dict_joueur[2],
-                                                       '4': dict_joueur[3],
-                                                       '5': dict_joueur[4],
-                                                       '6': dict_joueur[5],
-                                                       '7': dict_joueur[6],
-                                                       '8': dict_joueur[7],
-                                                       '9': dict_joueur[8],
-                                                       '10': dict_joueur[9]})
+            df_ward['riot_id'] = np.where(
+                df_ward['riot_id'] == 0, df_ward.killerId, df_ward['riot_id'])
+            
+            df_ward = mapping_joueur(df_ward, 'riot_id', dict_joueur)
 
             df_ward['points'] = df_ward['wardType'].map(label_ward).fillna(1)
 
@@ -428,7 +487,9 @@ class analyseLoL(Extension):
                                                            'BLUE_TRINKET': 'Trinket bleu'
                                                            })
 
-            df_ward = df_ward[(df_ward['riot_id'] == riot_id) & (df_ward['riot_tagline'] == riot_tag)]
+            # df_ward = df_ward[(df_ward['riot_id'] == riot_id) & (df_ward['riot_tagline'] == riot_tag)]
+            
+            df_ward = df_ward[(df_ward['riot_id'] == riot_id)]
 
             illustrative_var = np.array(df_ward['wardType'])
             illustrative_type = np.array(df_ward['type'])
@@ -443,37 +504,12 @@ class analyseLoL(Extension):
             graphique(fig, 'vision.png')
 
         if 'gold' in stat:
+            
+            df_timeline = load_timeline(timeline)
 
-            df_timeline = pd.DataFrame(
-                timeline['info']['frames'][1]['participantFrames'])
-            df_timeline = df_timeline.transpose()
-            df_timeline['timestamp'] = 0
+            df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
 
-            minute = len(timeline['info']['frames']) - 1
-
-            for i in range(2, minute):
-                df_timeline2 = pd.DataFrame(
-                    timeline['info']['frames'][i]['participantFrames'])
-                df_timeline2 = df_timeline2.transpose()
-                df_timeline2['timestamp'] = i
-                df_timeline = df_timeline.append(df_timeline2)
-
-            df_timeline['joueur'] = df_timeline['participantId']
-
-            df_timeline = df_timeline.astype({"joueur": 'string'})
-
-            df_timeline['joueur'] = df_timeline['joueur'].map({'1': dict_joueur[0],
-                                                               '2': dict_joueur[1],
-                                                               '3': dict_joueur[2],
-                                                               '4': dict_joueur[3],
-                                                               '5': dict_joueur[4],
-                                                               '6': dict_joueur[5],
-                                                               '7': dict_joueur[6],
-                                                               '8': dict_joueur[7],
-                                                               '9': dict_joueur[8],
-                                                               '10': dict_joueur[9]})
-
-            fig = px.line(df_timeline, x='timestamp', y='totalGold', color='joueur', markers=True, title='Gold',
+            fig = px.line(df_timeline, x='timestamp', y='totalGold', color='riot_id', markers=True, title='Gold',
                           height=1000, width=1800)
             fig.update_layout(xaxis_title='Temps',
                               font_size=18)
@@ -482,24 +518,12 @@ class analyseLoL(Extension):
 
         if 'gold_team' in stat:
 
-            df_timeline = pd.DataFrame(
-                timeline['info']['frames'][1]['participantFrames'])
-            df_timeline = df_timeline.transpose()
-            df_timeline['timestamp'] = 0
+            df_timeline = load_timeline(timeline)
 
-            minute = len(timeline['info']['frames']) - 1
-
-            for i in range(2, minute):
-                df_timeline2 = pd.DataFrame(
-                    timeline['info']['frames'][i]['participantFrames'])
-                df_timeline2 = df_timeline2.transpose()
-                df_timeline2['timestamp'] = i
-                df_timeline = df_timeline.append(df_timeline2)
-
-            df_timeline['joueur'] = df_timeline['participantId']
+            df_timeline['riot_id'] = df_timeline['participantId']
 
             df_timeline['team'] = np.where(
-                df_timeline.joueur <= 5, team[0], team[1])
+                df_timeline['riot_id'] <= 5, team[0], team[1])
 
             df_timeline = df_timeline.groupby(['team', 'timestamp'], as_index=False)[
                 'totalGold'].sum()
@@ -563,36 +587,13 @@ class analyseLoL(Extension):
 
         if 'position' in stat:
 
-            df_timeline = pd.DataFrame(
-                timeline['info']['frames'][1]['participantFrames'])
-            df_timeline = df_timeline.transpose()
-            df_timeline['timestamp'] = 0
+            df_timeline = load_timeline(timeline)
 
-            minute = len(timeline['info']['frames']) - 1
+            df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
 
-            for i in range(2, minute):
-                df_timeline2 = pd.DataFrame(
-                    timeline['info']['frames'][i]['participantFrames'])
-                df_timeline2 = df_timeline2.transpose()
-                df_timeline2['timestamp'] = i
-                df_timeline = df_timeline.append(df_timeline2)
-
-            df_timeline['joueur'] = df_timeline['participantId']
-
-            df_timeline = df_timeline.astype({"joueur": 'string'})
-
-            df_timeline['joueur'] = df_timeline['joueur'].map({'1': dict_joueur[0],
-                                                               '2': dict_joueur[1],
-                                                               '3': dict_joueur[2],
-                                                               '4': dict_joueur[3],
-                                                               '5': dict_joueur[4],
-                                                               '6': dict_joueur[5],
-                                                               '7': dict_joueur[6],
-                                                               '8': dict_joueur[7],
-                                                               '9': dict_joueur[8],
-                                                               '10': dict_joueur[9]})
-
-            df_timeline = df_timeline[(df_timeline['riot_id'] == riot_id) & (df_timeline['riot_tagline'] == riot_tag)]
+            # df_timeline = df_timeline[(df_timeline['riot_id'] == riot_id) & (df_timeline['riot_tagline'] == riot_tag)]
+            
+            df_timeline = df_timeline[(df_timeline['riot_id'] == riot_id)]
 
             img = io.imread('./img/map.jpg')
 
@@ -622,13 +623,15 @@ class analyseLoL(Extension):
                     go.Scatter(x=x, y=y, mode="markers+text", text=str(i + 1), marker=dict(color=color, size=20),
                                textposition='top center', textfont=dict(size=35, color=color)))
 
-            fig.update_layout(width=1200, height=1200)
-            fig.update_layout(coloraxis_showscale=False, showlegend=False)
+            fig.update_layout(width=1200,
+                              height=1200,
+                              coloraxis_showscale=False,
+                              showlegend=False)
 
-            fig.update_xaxes(showticklabels=False)
-            fig.update_yaxes(showticklabels=False)
-            fig.update_yaxes(automargin=True)
-            fig.update_xaxes(automargin=True)
+            fig.update_xaxes(showticklabels=False,
+                             automargin=True)
+            fig.update_yaxes(showticklabels=False,
+                             automargin=True)
 
             graphique(fig, 'position.png')
 
@@ -746,55 +749,20 @@ class analyseLoL(Extension):
 
         try:
             if "dmg" in stat:
-
-                thisStats = dict_data(
-                    thisId, match_detail, 'totalDamageDealtToChampions')
-
-                dict_score = {
-                    pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
-
-                df = pd.DataFrame.from_dict(dict_score, orient='index')
-                df = df.reset_index()
-                df = df.rename(columns={"index": "pseudo", 0: 'dmg'})
-
-                fig = px.histogram(
-                    df, y="pseudo", x="dmg", color="pseudo", title="Total DMG", text_auto=True)
-                fig.update_layout(showlegend=False)
+                            
+                fig = format_graph_var(thisId, match_detail, 'totalDamageDealtToChampions', pseudo, champ_names, 'dmg', 'Total DMG')
 
                 graphique(fig, 'dmg.png')
 
             if "gold" in stat:
-
-                thisStats = dict_data(thisId, match_detail, 'goldEarned')
-
-                dict_score = {
-                    pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
-
-                # print(dict_score)
-                df = pd.DataFrame.from_dict(dict_score, orient='index')
-                df = df.reset_index()
-                df = df.rename(columns={"index": "pseudo", 0: 'gold'})
-
-                fig = px.histogram(
-                    df, y="pseudo", x="gold", color="pseudo", title="Total Gold", text_auto=True)
-                fig.update_layout(showlegend=False)
+                
+                fig = format_graph_var(thisId, match_detail, 'goldEarned', pseudo, champ_names, 'gold', 'Total Gold')
 
                 graphique(fig, 'gold.png')
 
             if "vision" in stat:
-
-                thisStats = dict_data(thisId, match_detail, 'visionScore')
-
-                dict_score = {
-                    pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
-
-                df = pd.DataFrame.from_dict(dict_score, orient='index')
-                df = df.reset_index()
-                df = df.rename(columns={"index": "pseudo", 0: 'vision'})
-
-                fig = px.histogram(
-                    df, y="pseudo", x="vision", color="pseudo", title="Total Vision", text_auto=True)
-                fig.update_layout(showlegend=False)
+                
+                fig = format_graph_var(thisId, match_detail, 'visionScore', pseudo, champ_names, 'vision', 'Total Vision')
 
                 graphique(fig, 'vision.png')
 
@@ -806,7 +774,7 @@ class analyseLoL(Extension):
                     thisId, match_detail, 'damageSelfMitigated')
 
                 dict_score = {
-                    pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
+                    pseudo[i] + "(" + champ_names[i] + ")": [totalDamageTaken[i], [damageSelfMitigated[i]]] for i in range(len(pseudo))}
 
                 # print(dict_score)
                 df = pd.DataFrame.from_dict(dict_score, orient='index')
@@ -829,38 +797,14 @@ class analyseLoL(Extension):
                 graphique(fig, 'tank.png')
 
             if "heal_allies" in stat:
-
-                thisStats = dict_data(
-                    thisId, match_detail, 'totalHealsOnTeammates')
-
-                dict_score = {
-                    pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
-
-                # print(dict_score)
-                df = pd.DataFrame.from_dict(dict_score, orient='index')
-                df = df.reset_index()
-                df = df.rename(columns={"index": "pseudo", 0: 'heal_allies'})
-
-                fig = px.histogram(df, y="pseudo", x="heal_allies", color="pseudo", title="Total Heal allies",
-                                   text_auto=True)
-                fig.update_layout(showlegend=False)
+                
+                fig = format_graph_var(thisId, match_detail, 'totalHealsOnTeammates', pseudo, champ_names, 'heal_allies', 'Total Heal allies')
 
                 graphique(fig, 'heal_allies.png')
 
             if "solokills" in stat:
-
-                thisStats = dict_data(thisId, match_detail, 'soloKills')
-
-                dict_score = {
-                    pseudo[i] + "(" + champ_names[i] + ")": thisStats[i] for i in range(len(pseudo))}
-
-                df = pd.DataFrame.from_dict(dict_score, orient='index')
-                df = df.reset_index()
-                df = df.rename(columns={"index": "pseudo", 0: 'SoloKills'})
-
-                fig = px.histogram(df, y="pseudo", x="SoloKills", color="pseudo", title="Total SoloKills",
-                                   text_auto=True)
-                fig.update_layout(showlegend=False)
+                
+                fig = format_graph_var(thisId, match_detail, 'soloKills', pseudo, champ_names, 'SoloKiils', 'Total SoloKills')
 
                 graphique(fig, 'solokills.png')
 
@@ -880,8 +824,7 @@ class analyseLoL(Extension):
     choice_progression = SlashCommandChoice(
         name='progression', value='progression')
     choice_ecart = SlashCommandChoice(name='ecart', value='ecart')
-    choice_explain = SlashCommandChoice(
-        name='explique ma victoire', value='explain')
+
 
     @slash_command(name="lol_stats",
                    description="Historique de game")
@@ -929,7 +872,8 @@ class analyseLoL(Extension):
         # with open('./obj/item.json', encoding='utf-8') as mon_fichier:
         #     data = json.load(mon_fichier)
 
-        async with session.get(f"https://ddragon.leagueoflegends.com/cdn/13.12.1/data/fr_FR/item.json") as itemlist:
+        version = await get_version(session)
+        async with session.get(f"https://ddragon.leagueoflegends.com/cdn/{version['n']['item']}/data/fr_FR/item.json") as itemlist:
             data = await itemlist.json()
 
         for column_item in column_list:
@@ -943,15 +887,10 @@ class analyseLoL(Extension):
         df[df['season'] == season]
 
         if riot_id != None and riot_tag != None:
-            riot_id = riot_id.lower().replace(' ', '')
-            riot_tag = riot_tag.upper()
-            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
-            title += f' pour {riot_id}'
+            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
 
         if champion != None:
-            champion = champion.capitalize()
-            df = df[df['champion'] == champion]
-            title += f' sur {champion}'
+            champion, df, title = tri_champion(champion, df, title)
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
@@ -1031,15 +970,15 @@ class analyseLoL(Extension):
                     df_item = df[df[button_ctx.ctx.values[0]] != 0]
 
                     df_item = df_item[[
-                        'joueur', button_ctx.ctx.values[0], 'victoire']]
+                        'riot_id', button_ctx.ctx.values[0], 'victoire']]
                     # On compte le nombre d'occurences
-                    df_group = df_item.groupby(['joueur', button_ctx.ctx.values[0]]).agg([
+                    df_group = df_item.groupby(['riot_id', button_ctx.ctx.values[0]]).agg([
                         'count']).reset_index()
                     df_group = df_group.droplevel(1, axis=1)
                     df_group.rename(
                         columns={'victoire': 'count'}, inplace=True)
                     df_item = df_item.merge(df_group, how='left', on=[
-                        'joueur', button_ctx.ctx.values[0]])
+                        'riot_id', button_ctx.ctx.values[0]])
                     # df_item.drop_duplicates(inplace=True)
                     df_item = df_item.sort_values(
                         ['count'], ascending=False)
@@ -1070,7 +1009,7 @@ class analyseLoL(Extension):
                               choices=[choice_comptage, choice_winrate]),
                               SlashCommandOption(
                               name='nb_parties',
-                              description='Combien de parties minimum ?',
+                              description='Combien de parties minimum ? (Debloque un graph détaillé pour winrate)',
                               required=False,
                               type=interactions.OptionType.INTEGER,
                               min_value=1
@@ -1100,30 +1039,23 @@ class analyseLoL(Extension):
         df[df['season'] == season]
 
         if riot_id != None and riot_tag != None:
-            riot_id = riot_id.lower().replace(' ', '')
-            riot_tag = riot_tag.upper()
-            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
-            title += f' pour {riot_id}'
+            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
 
         if champion != None:
-            champion = champion.capitalize()
-            df = df[df['champion'] == champion]
-            title += f' sur {champion}'
+            champion, df, title = tri_champion(champion, df, title)
+
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
             title += f' en {mode_de_jeu}'
 
+
         if role != None:
             df = df[df['role'] == role]
             title += f' ({role})'
 
-        occurences = df['champion'].value_counts()
-
-        mask = df['champion'].isin(occurences.index[occurences >= nb_parties])
-
-        df = df[mask]
-
+        df = tri_occurence(df, 'champion', nb_parties)
+                
         title += f' ({calcul})'
 
         if calcul == 'count':
@@ -1138,6 +1070,7 @@ class analyseLoL(Extension):
 
         elif calcul == 'winrate':
 
+            df['victoire_int'] = df['victoire'].astype(int)
             df['victoire'] = df['victoire'].map({True: 'Victoire',
                                                  False: 'Défaite'})
 
@@ -1149,6 +1082,25 @@ class analyseLoL(Extension):
             embed, files = get_embed(fig, 'wr')
 
             await ctx.send(embeds=embed, files=files)
+            
+            if nb_parties > 1: # on fait le détail de winrate par champ si ce champ est renseigné
+                df_grp = df.groupby('champion').agg(victoire_sum=('victoire_int', 'sum'),
+                                                    nb_games=('victoire', 'count'))
+                df_grp['winrate'] = np.round((df_grp['victoire_sum'] / df_grp['nb_games']) * 100,1)
+                
+                df_grp['champion_joues'] = df_grp.index + '(' + df_grp['nb_games'].astype(str) + ')'
+                
+                fig = px.histogram(df_grp, x='champion_joues',
+                                   y='winrate',
+                                   color='champion_joues',
+                                   text_auto=".i").update_xaxes(categoryorder='total descending')
+                
+                fig.update_layout(title=f'Winrate par champion ({nb_parties} parties minimum)',
+                                  showlegend=False)
+                
+                embed, files = get_embed(fig, 'wr')
+                
+                await ctx.send(embeds=embed, files=files)
 
         else:
             await ctx.send('Non disponible')
@@ -1194,15 +1146,10 @@ class analyseLoL(Extension):
         df[df['season'] == season]
 
         if riot_id != None and riot_tag != None:
-            riot_id = riot_id.lower().replace(' ', '')
-            riot_tag = riot_tag.upper()
-            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
-            title += f' pour {riot_id}'
+            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
 
         if champion != None:
-            champion = champion.capitalize()
-            df = df[df['champion'] == champion]
-            title += f' sur {champion}'
+            champion, df, title = tri_champion(champion, df, title)
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
@@ -1212,11 +1159,7 @@ class analyseLoL(Extension):
             df = df[df['role'] == role]
             title += f' ({role})'
 
-        occurences = df['champion'].value_counts()
-
-        mask = df['champion'].isin(occurences.index[occurences >= nb_parties])
-
-        df = df[mask]
+        df = tri_occurence(df, 'champion', nb_parties)
 
         title += f' ({calcul})'
 
@@ -1224,7 +1167,7 @@ class analyseLoL(Extension):
 
             df.drop('discord', axis=1, inplace=True)
 
-            df = df.groupby('joueur').agg(
+            df = df.groupby('riot_id').agg(
                 {'double': ['sum', 'count'], 'triple': 'sum', 'quadra': 'sum', 'penta': 'sum'})
             df.columns = pd.Index([e[0] + "_" + e[1].upper()
                                   for e in df.columns.tolist()])
@@ -1244,49 +1187,24 @@ class analyseLoL(Extension):
                 await ctx.send(txt)
 
             else:
-
-                data = [
-                    go.Bar(
+                
+                def format_data_graph(df, colonne: str):
+                    trace = go.Bar(
                         x=df.index,
-                        y=df['double'],
-                        name='Double',
+                        y=df[colonne],
+                        name=colonne.capitalize(),
                         orientation='v',
-                        text=df['double'],
-                        textposition='inside',
-                        insidetextanchor='middle',
-                        textfont=dict(color='white')
-                    ),
-                    go.Bar(
-                        x=df.index,
-                        y=df['triple'],
-                        name='Triple',
-                        orientation='v',
-                        text=df['triple'],
-                        textposition='inside',
-                        insidetextanchor='middle',
-                        textfont=dict(color='white')
-                    ),
-                    go.Bar(
-                        x=df.index,
-                        y=df['quadra'],
-                        name='Quadra',
-                        orientation='v',
-                        text=df['quadra'],
-                        textposition='inside',
-                        insidetextanchor='middle',
-                        textfont=dict(color='white')
-                    ),
-                    go.Bar(
-                        x=df.index,
-                        y=df['penta'],
-                        name='Penta',
-                        orientation='v',
-                        text=df['penta'],
+                        text=df[colonne],
                         textposition='inside',
                         insidetextanchor='middle',
                         textfont=dict(color='white')
                     )
-                ]
+                    return trace
+
+                data = [format_data_graph(df, 'double'),
+                        format_data_graph(df, 'triple'),
+                        format_data_graph(df, 'quadra'),
+                        format_data_graph(df, 'penta')]
 
                 layout = go.Layout(
                     title='Graphique',
@@ -1361,15 +1279,10 @@ class analyseLoL(Extension):
         df[df['season'] == season]
 
         if riot_id != None and riot_tag != None:
-            riot_id = riot_id.lower().replace(' ', '')
-            riot_tag = riot_tag.upper()
-            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
-            title += f' pour {riot_id}'
+            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
 
         if champion != None:
-            champion = champion.capitalize()
-            df = df[df['champion'] == champion]
-            title += f' sur {champion}'
+            champion, df, title = tri_champion(champion, df, title)
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
@@ -1379,11 +1292,7 @@ class analyseLoL(Extension):
             df = df[df['role'] == role]
             title += f' ({role})'
 
-        occurences = df['champion'].value_counts()
-
-        mask = df['champion'].isin(occurences.index[occurences >= nb_parties])
-
-        df = df[mask]
+        df = tri_occurence(df, 'champion', nb_parties)
 
         title += f' ({calcul})'
 
@@ -1401,7 +1310,9 @@ class analyseLoL(Extension):
             nb_games = df.shape[0]
 
             if group_par_champion:
-                dict_stat = {'dmg': 'dmg', 'tank': 'dmg_tank', 'kda': 'kills'}
+                dict_stat = {'dmg': 'dmg',
+                             'tank': 'dmg_tank',
+                             'kda': 'kills'}
                 df = df.groupby('champion', as_index=False).mean().sort_values(
                     by=dict_stat[type], ascending=False).head(10)
                 fig.add_trace(go.Histogram(x=df['champion'], y=df[dict_stat[type]], name=dict_stat[type], histfunc='avg',
@@ -1410,7 +1321,7 @@ class analyseLoL(Extension):
             else:
                 for column, name in dict_stats_choose.items():
 
-                    fig.add_trace(go.Histogram(x=df['joueur'], y=df[column], histfunc='avg', name=name,
+                    fig.add_trace(go.Histogram(x=df['riot_id'], y=df[column], histfunc='avg', name=name,
                                                texttemplate="%{y:.0f}")).update_xaxes(categoryorder='total descending')
 
             fig.update_yaxes(visible=False)
@@ -1453,15 +1364,10 @@ class analyseLoL(Extension):
         df[df['season'] == season]
 
         if riot_id != None and riot_tag != None:
-            riot_id = riot_id.lower().replace(' ', '')
-            riot_tag = riot_tag.upper()
-            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
-            title += f' pour {riot_id}'
+            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
 
         if champion != None:
-            champion = champion.capitalize()
-            df = df[df['champion'] == champion]
-            title += f' sur {champion}'
+            champion, df, title = tri_champion(champion, df, title)
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
@@ -1514,7 +1420,7 @@ class analyseLoL(Extension):
 
                     df['date'] = df['datetime'].dt.strftime('%d %m')
 
-                    df = df.groupby(['joueur', 'date', 'ladder']).agg(
+                    df = df.groupby(['riot_id', 'riot_tagline', 'date', 'ladder']).agg(
                         {'lp': 'max'}).reset_index()
 
                     df['jour'] = df['date'].astype('str').str[:2]
@@ -1527,7 +1433,7 @@ class analyseLoL(Extension):
                         transfo_points, axis=1, mode='RANKED')
 
                     fig = px.line(df, x='date', y='points',
-                                  color='joueur', text='ladder', title=title)
+                                  color='riot_id', text='ladder', title=title)
 
                     fig.update_yaxes(visible=False)
 
@@ -1547,7 +1453,7 @@ class analyseLoL(Extension):
                     df['ladder'] = df['tier'].str[0] + \
                         ' / ' + df['lp'].astype('str') + ' LP'
 
-                    df = df.groupby(['joueur', 'date', 'tier']).agg(
+                    df = df.groupby(['riot_id', 'riot_tagline', 'date', 'tier']).agg(
                         {'lp': 'max'}).reset_index()
 
                     df['jour'] = df['date'].astype('str').str[:2]
@@ -1560,7 +1466,7 @@ class analyseLoL(Extension):
                         transfo_points, axis=1, mode='ARAM')
 
                     fig = px.line(df, x='date', y='points',
-                                  color='joueur', text='tier', title=title)
+                                  color='riot_id', text='tier', title=title)
 
                     fig.update_yaxes(visible=False)
 
@@ -1576,7 +1482,7 @@ class analyseLoL(Extension):
 
         elif calcul == 'ecart':
             if champion != None:
-                df = df.groupby('joueur').agg(
+                df = df.groupby('riot_id').agg(
                     {'ecart_lp': 'sum', 'champion': 'count', 'victoire': 'sum'})
                 df.rename(columns={'champion': 'nbgames'}, inplace=True)
                 df['percent'] = df['victoire'] / df['nbgames']
@@ -1626,15 +1532,10 @@ class analyseLoL(Extension):
         df[df['season'] == season]
 
         if riot_id != None and riot_tag != None:
-            riot_id = riot_id.lower().replace(' ', '')
-            riot_tag = riot_tag.upper()
-            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
-            title += f' pour {riot_id}'
+            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
 
-        if champion != None:
-            champion = champion.capitalize()
-            df = df[df['champion'] == champion]
-            title += f' sur {champion}'
+        if champion != None:            
+            champion, df, title = tri_champion(champion, df, title)
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
@@ -1647,7 +1548,7 @@ class analyseLoL(Extension):
         title += f' ({calcul})'
 
         if calcul == 'count':
-            df = df.groupby('joueur').count()
+            df = df.groupby('riot_id').count()
             fig = px.histogram(x=df.index, y=df['victoire'], color=df.index, text_auto=True, title=title).update_xaxes(
                 categoryorder="total descending")
             fig.update_layout(showlegend=False)
@@ -1658,10 +1559,10 @@ class analyseLoL(Extension):
         elif calcul == 'time':
             if grouper == 'discord':
                 df = df.groupby('discord').agg(
-                    {'time': 'sum', 'champion': 'count', 'joueur': 'max'})
-                df.set_index('joueur', inplace=True)
+                    {'time': 'sum', 'champion': 'count', 'riot_id': 'max'})
+                df.set_index('riot_id', inplace=True)
             else:
-                df = df.groupby('joueur').agg(
+                df = df.groupby('riot_id').agg(
                     {'time': 'sum', 'champion': 'count'})
             df.rename(columns={'champion': 'nbgames'}, inplace=True)
 
@@ -1723,67 +1624,7 @@ class analyseLoL(Extension):
                     # When it times out, edit the original message and remove the button(s)
                     return await ctx.edit(components=[])
 
-        elif calcul == 'explain':
-            if riot_id != None and riot_tag != None:
-                df = lire_bdd_perso(
-                    f'''SELECT matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
-                            INNER JOIN tracker ON tracker.index = matchs.joueur
-                            where season = {season}
-                            and tracker.riot_id = '{riot_id}'
-                            and tracker.riot_tagline = '{riot_tag}'
-                            ''', index_col='id').transpose()
-            else:
-                df = lire_bdd_perso(
-                    f'''SELECT matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
-                            INNER JOIN tracker ON tracker.index = matchs.joueur
-                            where season = {season}
-                            ''', index_col='id').transpose()
-
-            df.drop(['joueur', 'season', 'discord', 'ecart_lp', 'mvp', 'note', 'snowball', 'team',
-                     'item1', 'item2', 'item3', 'item4', 'item5', 'item6', 'mode', 'date', 'rank', 'tier', 'lp', 'id_participant'], axis=1, inplace=True)
-
-            col_int = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'team_kills', 'team_deaths',
-                       'dmg', 'dmg_ad', 'dmg_true', 'vision_score', 'cs', 'cs_jungle', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'gold',
-                       'solokills', 'dmg_reduit', 'heal_total', 'heal_allies', 'serie_kills', 'cs_dix_min', 'jgl_dix_min', 'baron', 'drake', 'herald',
-                       'cs_max_avantage', 'level_max_avantage', 'afk', 'dmg_tank', 'shield', 'allie_feeder', 'temps_vivant', 'dmg_tower', 'ecart_gold_team', 'victoire']
-            col_float = ['time', 'cs_min', 'vision_min', 'gold_min', 'dmg_min', 'vision_avantage', 'early_drake', 'temps_dead', 'kp', 'kda', 'damageratio', 'tankratio',
-                         'early_baron', 'gold_share']
-
-            df[col_int] = df[col_int].astype(int)
-            df[col_float] = df[col_float].astype(float)
-
-            corr_victoire = df.corr()[['victoire']].drop(
-                'victoire').sort_values(by='victoire', ascending=False)
-
-            corr_victoire = corr_victoire.head(5)
-
-            corr_defaite = df.corr()[['victoire']].drop(
-                'victoire').sort_values(by='victoire', ascending=True)
-
-            corr_defaite = corr_defaite.head(5)
-
-            txt_victoire = ''
-            txt_defaite = ''
-
-            for facteur, value in corr_victoire.iterrows():
-                txt_victoire += f'**{facteur}** : **{round(value[0], 2)}**\n'
-
-            for facteur, value in corr_defaite.iterrows():
-                txt_defaite += f'**{facteur}** : **{round(value[0], 2)}**\n'
-
-                # On prépare l'embed
-            embed = interactions.Embed(color=interactions.Color.random())
-            embed.add_field(
-                name=f'Explications', value='Proche de 1 : Participe à la victoire | Proche de -1 : Participe à la défaite', inline=False)
-            embed.add_field(name=f'Facteurs de victoire',
-                            value=txt_victoire, inline=False)
-            embed.add_field(name=f'Facteurs de défaite',
-                            value=txt_defaite, inline=False)
-
-            await ctx.send(embeds=embed)
-
-
-
+        
     @stats_lol.subcommand('ecart_gold',
                           sub_cmd_description='Statistiques sur les Ecart gold',
                           options=[SlashCommandOption(
@@ -1879,10 +1720,7 @@ class analyseLoL(Extension):
         df[df['season'] == season]
 
         if riot_id != None and riot_tag != None:
-            riot_id = riot_id.lower().replace(' ', '')
-            riot_tag = riot_tag.upper()
-            df = df[(df['riot_id'] == riot_id) & df['riot_tagline'] == riot_tag]
-            title += f' pour {riot_id}'
+            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
 
         if mode_de_jeu != None:
             df = df[df['mode'] == mode_de_jeu]
@@ -1905,9 +1743,9 @@ class analyseLoL(Extension):
             title += f'  | défaite only |'
 
            
-        df_grp = df.groupby('champion').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'joueur': 'count'})
+        df_grp = df.groupby('champion').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
         
-        df_grp = df_grp[df_grp['joueur'] >= nb_parties]
+        df_grp = df_grp[df_grp['riot_id'] >= nb_parties]
         
         df_grp.sort_values('ecart_gold', ascending=False, inplace=True)
         
@@ -1929,9 +1767,9 @@ class analyseLoL(Extension):
         embeds.append(embed1)
         
         if role == None:
-            df_role = df.groupby('role').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'joueur': 'count'})
+            df_role = df.groupby('role').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
             
-            df_role = df_role[df_role['joueur'] >= nb_parties]
+            df_role = df_role[df_role['riot_id'] >= nb_parties]
             df_role.sort_values('ecart_gold', ascending=False, inplace=True)
             
             txt_role = ''
@@ -1948,9 +1786,9 @@ class analyseLoL(Extension):
         
         if tier == None:
             txt_tier = ''
-            df_tier = df.groupby('tier').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'joueur': 'count'})
+            df_tier = df.groupby('tier').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
             
-            df_tier = df_tier[df_tier['joueur'] >= nb_parties]
+            df_tier = df_tier[df_tier['riot_id'] >= nb_parties]
             df_tier.sort_values('ecart_gold', ascending=False, inplace=True)
             
             for tier, data in df_tier.iterrows():
@@ -1962,9 +1800,9 @@ class analyseLoL(Extension):
             
             embeds.append(embed2)
                 
-            df_rank = df.groupby(['tier', 'rank']).agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'joueur': 'count'})
+            df_rank = df.groupby(['tier', 'rank']).agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
             
-            df_rank = df_rank[df_rank['joueur'] >= nb_parties]
+            df_rank = df_rank[df_rank['riot_id'] >= nb_parties]
             df_rank.sort_values('ecart_gold', ascending=False, inplace=True)
             
             txt_rank = ''

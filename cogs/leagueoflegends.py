@@ -334,7 +334,7 @@ class LeagueofLegends(Extension):
                         exploits += records_check2(fichier, fichier_joueur,
                                                    fichier_champion, parameter, value, methode)
 
-            if match_info.thisQ == 'ARAM':  # seulement en aram
+            if match_info.thisQ in ['ARAM', 'CLASH ARAM']:  # seulement en aram
                 for parameter, value in param_records_only_aram.items():
 
                     exploits, chunk = check_chunk(exploits, chunk, chunk_size)
@@ -366,6 +366,9 @@ class LeagueofLegends(Extension):
             case "ARAM":
                 embed = interactions.Embed(
                     title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une ARAM ", color=color)
+            case "CLASH ARAM":
+                embed = interactions.Embed(
+                    title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** un CLASH ARAM ", color=color)
             case 'ARENA 2v2':
                 embed = interactions.Embed(
                     title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de terminer ** {match_info.thisWin}ème ** en ARENA ", color=color)
@@ -544,6 +547,7 @@ class LeagueofLegends(Extension):
                 embed = await match_info.test('resume', embed, difLP)
 
         else:
+            embed.add_field(name='Augment', value=match_info.descriptionAugment)
             embed = await match_info.test_arena('resume', embed, difLP)
 
         # on charge les img
@@ -1634,11 +1638,16 @@ class LeagueofLegends(Extension):
                                                        type=interactions.OptionType.INTEGER,
                                                        min_value=12,
                                                        max_value=saison,
+                                                       required=True),
+                                    SlashCommandOption(name='annee',
+                                                       description='Annee',
+                                                       type=interactions.OptionType.INTEGER,
                                                        required=True)])
     async def recap_annuel(self,
                        ctx: SlashContext,
                        riot_id: str, # à supprimer
-                       saison : int):
+                       saison : int,
+                       annee : int):
         
         
         if not isOwner_slash(ctx):
@@ -1751,7 +1760,7 @@ class LeagueofLegends(Extension):
                     
                 msg_grp = ''
                 nb_games = df_grp['nb_games'].sum()
-                embed_grp = interactions.Embed(title='Recap par poste')
+                embed_grp = interactions.Embed(ftitle='Recap par poste')
                     
                 for index, stat in df_grp.iterrows():
                     
@@ -1834,7 +1843,7 @@ class LeagueofLegends(Extension):
 
                 embed_list = [embed_grp, embed_champ, embed_champ2, embed_rank]       
                     
-                await user.send(content=f'**Recap S{saison}** ({compte.upper()}) ({mode}) - {nb_games} parties enregistrées', embeds=embed_list)
+                await user.send(content=f'**Recap {annee}** ({compte.upper()}) ({mode}) - {nb_games} parties enregistrées', embeds=embed_list)
                 await user.send(content="N'hésite pas à utiliser /records_personnel pour voir tes records sur la saison !")
                 await user.send(content='---------------------------------------')
                 

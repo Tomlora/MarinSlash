@@ -989,7 +989,7 @@ class matchlol():
         self.thisDamageSelfMitigatedListe = dict_data(
             self.thisId, self.match_detail, 'damageSelfMitigated')
 
-        if self.thisQ == 'ARAM':
+        if self.thisQ in ['ARAM', 'CLASH ARAM']:
             try:
                 self.snowball = self.match_detail_challenges['snowballsHit']
             except Exception:
@@ -1371,6 +1371,10 @@ class matchlol():
         self.thisTimeLiving = round(fix_temps(round(
             (int(self.match_detail_participants['longestTimeSpentLiving']) / 60), 2)),2)
         
+        self.thisAugmentlist = [self.match_detail_participants['playerAugment1'], self.match_detail_participants['playerAugment2'],
+                                self.match_detail_participants['playerAugment3'], self.match_detail_participants['playerAugment4']]
+
+        
 
         self.thisWin = ' '
         self.thisTime = fix_temps(round(
@@ -1453,6 +1457,17 @@ class matchlol():
 
         async with self.session.get(f"https://ddragon.leagueoflegends.com/cdn/{self.version['n']['item']}/data/fr_FR/item.json") as itemlist:
             self.data = await itemlist.json()
+            
+        async with self.session.get('https://raw.communitydragon.org/pbe/plugins/rcp-be-lol-game-data/global/fr_fr/v1/cherry-augments.json') as augmentlist:
+            self.data_augment = await augmentlist.json()
+            
+        self.data_augment = pd.DataFrame(self.data_augment)    
+        
+        self.thisAugment = self.data_augment[self.data_augment['id'].isin(self.thisAugmentlist)]
+        
+        self.descriptionAugment = ''
+        for num, (id, augment) in enumerate(self.thisAugment.iterrows()):
+            self.descriptionAugment += f'- **{augment["nameTRA"]}**\n'
 
         self.data_item = []
 
@@ -1582,16 +1597,16 @@ class matchlol():
 
         # Augment
 
-        self.augment1 = dict_data_arena(
+        self.augment1list = dict_data_arena(
         self.thisId, self.match_detail, 'playerAugment1')
 
-        self.augment2 = dict_data_arena(
+        self.augment2list = dict_data_arena(
         self.thisId, self.match_detail, 'playerAugment2')
 
-        self.augment3 = dict_data_arena(
+        self.augment3list = dict_data_arena(
         self.thisId, self.match_detail, 'playerAugment3')
 
-        self.augment4 = dict_data_arena(
+        self.augment4list = dict_data_arena(
         self.thisId, self.match_detail, 'playerAugment4')
 
 
@@ -1833,7 +1848,7 @@ class matchlol():
                        
     async def calcul_badges(self, sauvegarder):
         # TODO : Faire une table qui récapitule si un badge a été obtenu par un joueur dans une game spécifique
-        if self.thisQ == 'ARAM':
+        if self.thisQ in ['ARAM', 'CLASH ARAM']:
             # couronnes pour aram
             settings = lire_bdd_perso(
                 f'SELECT index, score_aram as score from achievements_settings')
@@ -1884,7 +1899,7 @@ class matchlol():
                         'no_damage_to_turrets' : f"\n{type_comment[type]} **0** DMG sur les tours",
                         'mvp' : f"\n{type_comment[type]} **Meilleur joueur**"}
             
-            if self.thisQ != 'ARAM':
+            if not self.thisQ in ['ARAM', 'CLASH ARAM']:
                 dict_insight['ready_to_rumble'] = f"\n{type_comment[type]} Proactif en early avec **{values[0]}** kills/assists avant 15 minutes"
                 
             if slug == 'early_game_farmer' and values[0] >= 85: # on l'ajoute à partir de 85 cs, car le calcul de base est trop gentil (65-70 cs)
@@ -1968,11 +1983,11 @@ class matchlol():
             self.observations += f"\n:green_circle: :shield: **{self.thisTotalShielded} ** boucliers"
             txt_sql += add_sql(txt_sql, 'shield', [self.thisTotalShielded], self.last_match, self.id_compte)
             
-        if self.thisVisionAdvantage >= 60 and self.thisQ != 'ARAM':
+        if self.thisVisionAdvantage >= 60 and not self.thisQ in ['ARAM', 'CLASH ARAM']:
             self.observations += f"\n:green_circle: :eye: **{self.thisVisionAdvantage}**% AV vision"
             txt_sql += add_sql(txt_sql, 'vision_avantage', [self.thisVisionAdvantage], self.last_match, self.id_compte)
         
-        elif self.thisVisionAdvantage <= -50 and self.thisQ != 'ARAM':
+        elif self.thisVisionAdvantage <= -50 and not self.thisQ in ['ARAM', 'CLASH ARAM']:
             self.observations += f"\n:red_circle: :eye: **{self.thisVisionAdvantage}**% AV vision"
             txt_sql += add_sql(txt_sql, 'vision_avantage', [self.thisVisionAdvantage], self.last_match, self.id_compte)
             
@@ -2147,7 +2162,7 @@ class matchlol():
             last_season = '13_old'
 
         try:
-            if self.thisQ != 'ARAM':
+            if not self.thisQ in ['ARAM', 'CLASH ARAM']:
                 data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{last_season} where index = {self.id_compte} ''')
                 self.tier_last_season = data_last_season.mappings().all()[0]['tier']
             else:
@@ -2160,7 +2175,7 @@ class matchlol():
         except Exception:
             pass  
 
-        if self.thisQ != "ARAM":  # si ce n'est pas le mode aram, on prend la soloq normal
+        if not self.thisQ in ["ARAM", 'CLASH ARAM']:  # si ce n'est pas le mode aram, on prend la soloq normal
             if self.thisTier != ' ':  # on vérifie que le joueur a des stats en soloq, sinon il n'y a rien à afficher
 
                 requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :id_compte''', {'ecart_lp': difLP,
@@ -2361,7 +2376,7 @@ class matchlol():
             elif i == 7:
                 draw_red_line(i)
 
-            if self.thisQ != "ARAM" and i == dict_position[self.thisPosition]:
+            if not self.thisQ  in ["ARAM", "CLASH ARAM"] and i == dict_position[self.thisPosition]:
                 draw_light_blue_line(i)
 
         draw_black_line()
@@ -2414,7 +2429,7 @@ class matchlol():
             d.text((x_dmg_taken+10, y), 'TANK(reduit)', font=font, fill=fill)
             d.text((x_score-20, y), 'MVP', font=font, fill=fill)
 
-            if self.thisQ != "ARAM":
+            if not self.thisQ in ["ARAM", "CLASH ARAM"]:
                 d.text((x_vision, y), 'VS', font=font, fill=fill)
 
         # participants
@@ -2537,7 +2552,7 @@ class matchlol():
                 d.text((x_cs + 10, initial_y), str(
                     self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill)
 
-            if self.thisQ != "ARAM":
+            if not self.thisQ in ["ARAM", "CLASH ARAM"]:
 
                 fill = range_value(i, self.thisVisionListe)
 
@@ -2556,7 +2571,7 @@ class matchlol():
                    f'{int(self.thisDamageTakenListe[i]/1000)}k / {int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font, fill=fill)
 
             initial_y += 200 if i == 4 else 100
-        if self.thisQ != "ARAM":
+        if not self.thisQ in ["ARAM", "CLASH ARAM"]:
             y_ecart = 220 + 190
             for ecart in [self.ecart_top_gold_affiche, self.ecart_jgl_gold_affiche, self.ecart_mid_gold_affiche, self.ecart_adc_gold_affiche, self.ecart_supp_gold_affiche]:
                 if ecart > 0:
@@ -2575,7 +2590,7 @@ class matchlol():
                          box=(350 + n, 10 + 190))
                 n += 100
 
-        if self.thisQ != "ARAM":
+        if not self.thisQ in ["ARAM", "CLASH ARAM"]:
 
             drk = await get_image('monsters', 'dragon', self.session)
             elder = await get_image('monsters', 'elder', self.session)
@@ -2612,12 +2627,12 @@ class matchlol():
                str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
 
         # Stat du jour
-        if self.thisQ == 'ARAM':
+        if self.thisQ in ['ARAM', 'CLASH ARAM']:
             suivi_24h = lire_bdd(f'ranked_aram_S{saison}', 'dict')
         else:
             suivi_24h = lire_bdd(f'suivi_S{saison}', 'dict')
 
-        if self.thisQ not in ['ARAM', 'FLEX']:
+        if self.thisQ not in ['ARAM', 'CLASH ARAM', 'FLEX']:
 
             difwin = int(self.thisVictory) - \
                         int(suivi_24h[self.id_compte]["wins_jour"])
@@ -2631,7 +2646,7 @@ class matchlol():
                            f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
 
 
-        elif self.thisQ == 'ARAM' and activation:
+        elif self.thisQ in ['ARAM', 'CLASH ARAM'] and activation:
 
             difwin = wins - \
                         int(suivi_24h[self.id_compte]["wins_jour"])

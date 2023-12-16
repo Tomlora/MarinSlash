@@ -96,13 +96,16 @@ class Challenges(Extension):
                                     view: str = 'general'):
 
         if view == 'general':
-            bdd_user_total = lire_bdd('challenges_total').transpose()
+            bdd_user_total = lire_bdd_perso(f'''SELECT challenges_total.* , tracker.riot_id
+                                            from challenges_total
+                        INNER join tracker on challenges_total.index = tracker.id_compte''',
+                        index_col='riot_id').transpose()
             title = 'Classement général des points de défis'
 
         else:
             bdd_user_total = lire_bdd_perso(f'''SELECT challenges_total.* , tracker.riot_id
                                             from challenges_total
-                        INNER join tracker on challenges_total.index = tracker.compte_id
+                        INNER join tracker on challenges_total.index = tracker.id_compte
                         where tracker.server_id = {int(ctx.guild_id)} ''',
                         index_col='riot_id').transpose()
             title = f'Classement des points de défis du serveur {ctx.guild.name}'
@@ -207,6 +210,10 @@ class Challenges(Extension):
                                                description="Nom du joueur",
                                                type=interactions.OptionType.STRING,
                                                required=True),
+                            SlashCommandOption(name="riot_tag",
+                                               description="Tag du joueur",
+                                               type=interactions.OptionType.STRING,
+                                               required=True),
                             SlashCommandOption(name='minimum',
                                                description='Position minimum',
                                                type=interactions.OptionType.INTEGER,
@@ -216,16 +223,18 @@ class Challenges(Extension):
     async def challenges_best(self,
                               ctx: SlashContext,
                               riot_id: str,
+                              riot_tag: str,
                               minimum: int = 1000000):
 
         # tous les summonername sont en minuscule :
         riot_id = riot_id.lower().replace(' ', '')
+        riot_tag = riot_tag.upper()
         # charge la data
         data = lire_bdd_perso(f'''SELECT "Joueur", value, percentile, level, level_number, position, challenges.*, tracker.riot_id
                               from challenges_data
                                           INNER JOIN challenges ON challenges_data."challengeId" = challenges."challengeId"
                                           INNER JOIN tracker on tracker.id_compte = challenges_data."Joueur"
-                                          where tracker.riot_id = '{riot_id}' ''').transpose()
+                                          where tracker.riot_id = '{riot_id}' and tracker.riot_tagline = '{riot_tag}' ''').transpose()
 
         # colonne position en float
         data['position'] = data['position'].astype('float')
