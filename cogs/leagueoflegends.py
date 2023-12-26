@@ -7,6 +7,7 @@ import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, listen, slash_command, Task, IntervalTrigger, TimeTrigger
 from fonctions.params import Version, saison
 from fonctions.channels_discord import verif_module, identifier_role_by_name
+from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples, emote_champ_discord
 from fonctions.match import emote_rank_discord, emote_champ_discord
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
@@ -17,7 +18,6 @@ from dateutil import tz
 from interactions.ext.paginators import Paginator
 import traceback
 import numpy as np
-
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -1137,7 +1137,7 @@ class LeagueofLegends(Extension):
                                     inplace=True)
 
         response = ''.join(
-            f'''{data['riot_id']} #{data['riot_tagline']} : {emote_rank_discord[data['tier']]} {data['rank']} | {data['LP']} LP | {data['winrate']}% WR\n'''
+            f'''**{data['riot_id']} #{data['riot_tagline']}** : {emote_rank_discord[data['tier']]} {data['rank']} | {data['LP']} LP | {data['winrate']}% WR\n'''
             for lig, data in df.iterrows())
 
         
@@ -1299,7 +1299,7 @@ class LeagueofLegends(Extension):
 
                 if totalgames > 0:  # s'il n'y a pas de game, on ne va pas afficher le récap
                     await channel_tracklol.send(embeds=embed)
-                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
+                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites \n **Fin de saison <t:1704844800:R>** ')
 
     @Task.create(TimeTrigger(hour=4))
     async def lolsuivi(self):
@@ -1660,12 +1660,22 @@ class LeagueofLegends(Extension):
                     WHERE tracker.activation = true and season = {saison}''',
                     index_col = 'match_id').T
         
-        for mode in ['RANKED', 'ARAM']:
+        fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills'] 
+        fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold']
+        fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
+        fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
+        fichier_tank_heal = ['dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
+        fichier_objectif = ['baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower']
+        fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'couronne', 'snowball']
         
+        liste_complete = fichier_kills + fichier_dmg + fichier_vision + fichier_farming + fichier_tank_heal + fichier_objectif + fichier_divers
+        
+        time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20}
+        
+        for mode in ['RANKED', 'ARAM']:
+            
             df_ranked = df[df['mode'] == mode] 
             
-            
-
             df_ranked = df_ranked[df_ranked['riot_id'] == riot_id.lower()] # TODO : A supprimer
             
             for compte in df_ranked['riot_id'].unique():
@@ -1760,7 +1770,7 @@ class LeagueofLegends(Extension):
                     
                 msg_grp = ''
                 nb_games = df_grp['nb_games'].sum()
-                embed_grp = interactions.Embed(ftitle='Recap par poste')
+                embed_grp = interactions.Embed(title='Recap par poste')
                     
                 for index, stat in df_grp.iterrows():
                     
@@ -1844,10 +1854,155 @@ class LeagueofLegends(Extension):
                 embed_list = [embed_grp, embed_champ, embed_champ2, embed_rank]       
                     
                 await user.send(content=f'**Recap {annee}** ({compte.upper()}) ({mode}) - {nb_games} parties enregistrées', embeds=embed_list)
-                await user.send(content="N'hésite pas à utiliser /records_personnel pour voir tes records sur la saison !")
                 await user.send(content='---------------------------------------')
                 
                 # Essayer de rajouter les records personnels du joueur
+
+        for mode in ['RANKED', 'ARAM']:
+            
+            fichier_divers_copy = fichier_divers.copy()   
+            fichier_farming_copy = fichier_farming.copy()     
+            
+            methode_pseudo = 'riot_id'
+            
+            df_records_original = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
+                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                     where season = {saison}
+                                     and mode = '{mode}'
+                                     and time >= {time_mini[mode]}
+                                     and tracker.banned = false''', index_col='id').transpose() 
+            
+            df_records_original['early_drake'] = df_records_original['early_drake'].replace({0 : 999})    
+            df_records_original['early_baron'] = df_records_original['early_baron'].replace({0 : 999}) 
+            
+            for column in liste_complete:
+                
+                try:
+                    df_records_original[f'{column}_rank_max'] = df_records_original[column].rank(method='min', ascending=False).astype(int)
+                    df_records_original[f'{column}_rank_min'] = df_records_original[column].rank(method='min', ascending=True).astype(int)
+                except:
+                    print('erreur', column)
+            
+             
+            
+            if mode == 'RANKED':
+                
+                fichier_divers_copy.remove('snowball')
+
+            if mode == 'ARAM':  # on vire les records qui ne doivent pas être comptés en aram
+
+                fichier_farming_copy.remove('cs_jungle')
+                fichier_farming_copy.remove('jgl_dix_min')                 
+            
+            title = f'Records Personnel {mode} s{saison}'     
+            
+            df_records_original = df_records_original[df_records_original['riot_id'] == riot_id.lower()]  # TODO : a supprimer
+                
+            for discord_id in df_records_original['discord'].unique():
+                
+                user = self.bot.get_user(discord_id)
+                
+                df_records = df_records_original[df_records_original['discord'] == discord_id]
+                
+                
+                def format_value(joueur, champion, url, short=False):
+                    text = ''
+                    for j, c, u in zip(joueur, champion, url):
+                        if short:
+                            text += f'**__ {j} __ {c} ** \n'
+                        else:
+                            text += f'**__{j}__** {emote_champ_discord.get(c.capitalize(), "inconnu")} [G]({u}) \n'
+                    return text
+                
+                def creation_embed(fichier, column, methode_pseudo, embed, methode='max'):
+                        joueur, champion, record, url, rank = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo, rank=True)
+                    
+                        value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"** {joueur[0]} ** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]})\n"
+                        
+                        embed.add_field(
+                            name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
+                            value=f"Records : __{record}__ (#{rank}) \n {value_text}",
+                            inline=True
+                        )
+                        
+                        return embed
+                
+                embed1 = interactions.Embed(
+                    title=title + " Kills", color=interactions.Color.random())    
+
+                for column in fichier_kills:
+                    
+                    embed1 = creation_embed(df_records, column, methode_pseudo, embed1)
+                
+
+                embed2 = interactions.Embed(
+                    title=title + " DMG", color=interactions.Color.random())
+
+                for column in fichier_dmg:
+                    
+                    embed2 = creation_embed(df_records, column, methode_pseudo, embed2)
+
+                embed5 = interactions.Embed(
+                    title=title + " Farming", color=interactions.Color.random())
+
+                for column in fichier_farming:
+                    
+                    embed5 = creation_embed(df_records, column, methode_pseudo, embed5)
+
+                embed6 = interactions.Embed(
+                    title=title + " Tank/Heal", color=interactions.Color.random())
+
+                for column in fichier_tank_heal:
+                    
+                    embed6 = creation_embed(df_records, column, methode_pseudo, embed6)
+
+                embed7 = interactions.Embed(
+                    title=title + " Divers", color=interactions.Color.random())
+
+                for column in fichier_divers:
+                    
+                    embed7 = creation_embed(df_records, column, methode_pseudo, embed7)
+
+
+                if mode != 'ARAM':
+                    
+                    embed3 = interactions.Embed(
+                    title=title + " Vision", color=interactions.Color.random())
+
+                    for column in fichier_vision:
+                        
+                        embed3 = creation_embed(df_records, column, methode_pseudo, embed3)
+
+                        
+                    embed4 = interactions.Embed(
+                        title=title + " Objectif", color=interactions.Color.random())
+                    
+                    for column in fichier_objectif:
+                        methode = 'max'
+                        if column in ['early_drake', 'early_baron']:
+                            methode = 'min'
+                        
+                        embed4 = creation_embed(df_records, column, methode_pseudo, embed4, methode)
+
+                embed1.set_footer(text=f'Version {Version} by Tomlora')
+                embed2.set_footer(text=f'Version {Version} by Tomlora')
+                embed5.set_footer(text=f'Version {Version} by Tomlora')
+                embed6.set_footer(text=f'Version {Version} by Tomlora')
+                embed7.set_footer(text=f'Version {Version} by Tomlora')
+
+                if mode != 'ARAM':
+                    embed3.set_footer(text=f'Version {Version} by Tomlora')
+                    embed4.set_footer(text=f'Version {Version} by Tomlora')
+                    pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7]
+
+                else:
+                    pages=[embed1, embed2, embed5, embed6, embed7]
+                    
+                
+                await user.send(embeds=pages[:3])
+                await user.send(embeds=pages[3:])
+                    
+                await user.send('----------------------------------------------------')  
                     
                 await ctx.send(f'Fait pour {compte} {mode}')
 

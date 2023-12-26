@@ -529,7 +529,10 @@ class Recordslol(Extension):
             try:
                 joueur = ctx.author.nick
             except AttributeError:
-                joueur = ctx.author.nickname
+                try:
+                    joueur = ctx.author.nickname
+                except AttributeError:
+                    joueur = ctx.user.global_name
             author_global = ctx.author.global_name
             if joueur == None:
                 joueur = author_global                
