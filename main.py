@@ -36,7 +36,13 @@ async def on_message_create(message: MessageCreate):
 
     # Variables
     channel = message.message.channel     # get id channel
-    author = message.message.author.nick
+    try:
+        author = message.message.author.nick
+    except AttributeError:
+        try:
+            author = message.message.author.nickname
+        except AttributeError:
+            author = message.message.author.global_name
     author_global = message.message.author.global_name
     if author == None:
         author = author_global
