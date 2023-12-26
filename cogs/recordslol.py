@@ -490,7 +490,8 @@ class Recordslol(Extension):
                 fichier[f'{column}_rank_min'] = fichier[column].rank(method='min', ascending=True).astype(int)
             except:
                 print('erreur', column)
-            
+        
+        nb_games = fichier.shape[0]    
 
         if champion != None:
             
@@ -641,15 +642,15 @@ class Recordslol(Extension):
                 
                 embed4 = creation_embed(fichier, column, methode_pseudo, embed4, methode)
 
-        embed1.set_footer(text=f'Version {Version} by Tomlora')
-        embed2.set_footer(text=f'Version {Version} by Tomlora')
-        embed5.set_footer(text=f'Version {Version} by Tomlora')
-        embed6.set_footer(text=f'Version {Version} by Tomlora')
-        embed7.set_footer(text=f'Version {Version} by Tomlora')
+        embed1.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+        embed2.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+        embed5.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+        embed6.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+        embed7.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
 
         if mode != 'ARAM':
-            embed3.set_footer(text=f'Version {Version} by Tomlora')
-            embed4.set_footer(text=f'Version {Version} by Tomlora')
+            embed3.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+            embed4.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
             pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7]
 
         else:
@@ -964,7 +965,7 @@ class Recordslol(Extension):
         stat = stat.lower()
         # data
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
@@ -973,7 +974,7 @@ class Recordslol(Extension):
                                      index_col='id').transpose()
 
         elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs, tracker
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs, tracker
                                          INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                          where season = {saison}
                                          and mode = '{mode}'
@@ -986,7 +987,7 @@ class Recordslol(Extension):
             fichier = fichier[fichier['champion'] == champion]
             
         if joueur != None:
-            fichier = fichier[fichier['joueur'] == joueur.lower()]
+            fichier = fichier[fichier['riot_id'] == joueur.replace(' ', '').lower()]
             
         if compte_discord != None:
             fichier = fichier[fichier['discord'] == str(compte_discord.id)]
@@ -999,7 +1000,7 @@ class Recordslol(Extension):
             # on prépare le df count game
             count_game = fichier.groupby(['discord']).count().reset_index()
             count_game = count_game[['discord', 'champion']].rename(columns={'champion': 'count'})
-            
+            ascending=False
             # on prépare le fichier final
             
                
@@ -1038,6 +1039,7 @@ class Recordslol(Extension):
                     fichier = fichier[fichier[stat] != 0]
                 else:
                     ascending=False
+                    fichier = fichier[fichier[stat] != 0]
                     
                 fichier.sort_values(by=stat, ascending=ascending, inplace=True)
                 fichier = fichier.head(top)

@@ -1883,7 +1883,7 @@ class LeagueofLegends(Extension):
                 except:
                     print('erreur', column)
             
-             
+            nb_games = df_records_original.shape[0] 
             
             if mode == 'RANKED':
                 
@@ -1945,7 +1945,7 @@ class LeagueofLegends(Extension):
                 embed5 = interactions.Embed(
                     title=title + " Farming", color=interactions.Color.random())
 
-                for column in fichier_farming:
+                for column in fichier_farming_copy:
                     
                     embed5 = creation_embed(df_records, column, methode_pseudo, embed5)
 
@@ -1959,7 +1959,7 @@ class LeagueofLegends(Extension):
                 embed7 = interactions.Embed(
                     title=title + " Divers", color=interactions.Color.random())
 
-                for column in fichier_divers:
+                for column in fichier_divers_copy:
                     
                     embed7 = creation_embed(df_records, column, methode_pseudo, embed7)
 
@@ -1984,15 +1984,15 @@ class LeagueofLegends(Extension):
                         
                         embed4 = creation_embed(df_records, column, methode_pseudo, embed4, methode)
 
-                embed1.set_footer(text=f'Version {Version} by Tomlora')
-                embed2.set_footer(text=f'Version {Version} by Tomlora')
-                embed5.set_footer(text=f'Version {Version} by Tomlora')
-                embed6.set_footer(text=f'Version {Version} by Tomlora')
-                embed7.set_footer(text=f'Version {Version} by Tomlora')
+                embed1.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+                embed2.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+                embed5.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+                embed6.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+                embed7.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
 
                 if mode != 'ARAM':
-                    embed3.set_footer(text=f'Version {Version} by Tomlora')
-                    embed4.set_footer(text=f'Version {Version} by Tomlora')
+                    embed3.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+                    embed4.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
                     pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7]
 
                 else:
@@ -2001,7 +2001,9 @@ class LeagueofLegends(Extension):
                 
                 await user.send(embeds=pages[:3])
                 await user.send(embeds=pages[3:])
-                    
+                
+                
+                await user.send("N'hésite pas à utiliser **/palmares** (nom du record) pour avoir le détail du classement du record !")    
                 await user.send('----------------------------------------------------')  
                     
                 await ctx.send(f'Fait pour {compte} {mode}')
