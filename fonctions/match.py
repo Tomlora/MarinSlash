@@ -195,6 +195,7 @@ def trouver_records_multiples(df, category, methode='max', identifiant = 'riot_i
             
         # Sélectionnez toutes les lignes avec la même valeur minimale
         max_min_rows : pd.DataFrame = df.loc[df[category] == record]
+
         
         if rank:
             rank_value = max_min_rows[f'{category}_rank_{methode}'].values[0]
@@ -228,6 +229,10 @@ def trouver_records_multiples(df, category, methode='max', identifiant = 'riot_i
                 
 
     except Exception:
+        # exc_type, exc_value, exc_traceback = sys.exc_info()
+        # traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        # traceback_msg = ''.join(traceback_details)
+        # print(traceback_msg)
         if rank:
             return ['inconnu'], ['inconnu'], 0, ['#'], 0
         else:
@@ -411,6 +416,10 @@ async def get_spectator(session, id):
         if session_spectator.status == 404:
             return None
         return await session_spectator.json()
+    
+async def get_champion_masteries(session, puuid):
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}', params={'api_key': api_key_lol}) as data_masteries:    
+        return await data_masteries.json()
 
 
 def dict_data(thisId: int, match_detail, info):
