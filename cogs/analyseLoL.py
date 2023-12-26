@@ -39,6 +39,8 @@ choice_var = [SlashCommandChoice(name="dmg", value="dmg"),
 
 choice_analyse = [SlashCommandChoice(name="gold", value="gold"),
                   SlashCommandChoice(name='gold_team', value='gold_team'),
+                  SlashCommandChoice(name='cs', value='cs'),
+                  SlashCommandChoice(name='level', value='level'),
                   SlashCommandChoice(name='vision', value='vision'),
                   SlashCommandChoice(name='position', value='position')]
 
@@ -515,6 +517,36 @@ class analyseLoL(Extension):
                               font_size=18)
 
             graphique(fig, 'gold.png')
+            
+
+        if 'cs' in stat:
+            
+            df_timeline = load_timeline(timeline)
+
+            df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
+            
+            df_timeline['cs'] = df_timeline['jungleMinionsKilled'] + df_timeline['minionsKilled']
+
+            fig = px.line(df_timeline, x='timestamp', y='cs', color='riot_id', markers=True, title='CS',
+                          height=1000, width=1800)
+            fig.update_layout(xaxis_title='Temps',
+                              font_size=18)
+
+            graphique(fig, 'cs.png')
+            
+
+        if 'level' in stat:
+            
+            df_timeline = load_timeline(timeline)
+
+            df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
+            
+            fig = px.line(df_timeline, x='timestamp', y='level', color='riot_id', markers=True, title='CS',
+                          height=1000, width=1800)
+            fig.update_layout(xaxis_title='Temps',
+                              font_size=18)
+
+            graphique(fig, 'cs.png')
 
         if 'gold_team' in stat:
 

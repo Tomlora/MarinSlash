@@ -244,7 +244,6 @@ def trouver_records_multiples(df, category, methode='max', identifiant = 'riot_i
         return joueur, champion, record, url_game
 
 
-
 def range_value(i, liste, min: bool = False, return_top: bool = False):
     if i == np.argmax(liste[:5]) or i-5 == np.argmax(liste[5:]):
         fill = (0, 128, 0)

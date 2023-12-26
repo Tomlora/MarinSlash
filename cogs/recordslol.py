@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
+from fonctions.word import suggestion_word
 import interactions
 from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, AutocompleteContext
 from interactions.ext.paginators import Paginator
@@ -10,6 +11,7 @@ from aiohttp import ClientSession
 import plotly.express as px
 import asyncio
 from fonctions.channels_discord import get_embed, mention
+import difflib
 
 def option_stats_records(name, params, description='type de recherche'):
     option = SlashCommandOption(
@@ -520,7 +522,7 @@ class Recordslol(Extension):
             try:    
                 fichier = fichier[fichier['discord'] == id_discord]
             except KeyError:
-                return await ctx.send('Joueur introuvable ou tu es banni')    
+                return await ctx.send('Joueur introuvable ou tu es banni. ')    
                 
             
         elif joueur == None and compte_discord == None:
@@ -1058,8 +1060,9 @@ class Recordslol(Extension):
                 
                 await ctx.send(embeds=embed)
                 
-            except KeyError:
-                await ctx.send("Ce record n'existe pas. Merci de regarder les records pour voir les noms disponibles.")
+            except KeyError:              
+                suggestion = suggestion_word(stat, fichier.columns.tolist())
+                await ctx.send(f"Ce record n'existe pas. Souhaitais-tu dire : **{suggestion}** ?")
                 
 
 def setup(bot):

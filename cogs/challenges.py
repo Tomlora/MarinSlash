@@ -4,6 +4,7 @@ import os
 from fonctions.gestion_bdd import (lire_bdd, lire_bdd_perso, requete_perso_bdd)
 from fonctions.gestion_challenge import (get_data_joueur_challenges,
                                          challengeslol)
+from fonctions.word import suggestion_word
 import time
 import plotly.express as px
 import plotly.graph_objects as go
@@ -300,7 +301,8 @@ class Challenges(Extension):
         try:
             df.loc[nom_challenge, 'challengeId']
         except:
-            await ctx.send("Ce challenge n'existe pas", ephemeral=True)
+            suggestion = suggestion_word(nom_challenge, df.index.tolist())
+            await ctx.send(f"Ce challenge n'existe pas. Souhaitais-tu dire : **{suggestion}**", ephemeral=True)
             return None
 
         if action == 'exclure':
