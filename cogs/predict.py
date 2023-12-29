@@ -103,8 +103,8 @@ async def predict_match(match_id, match, champion, session : aiohttp.ClientSessi
             blueParticipant.append(participant['summonerName'])
             blueChampion.append(champion[str(championId)])
 
-    txt_rouge = '**Team Red**\n'
-    txt_bleu = '**Team Blue **\n'
+    txt_rouge = '**:red_circle: Team Red**\n'
+    txt_bleu = '**:blue_circle: Team Blue **\n'
     
     def format_nombre(nombre):
         try:
