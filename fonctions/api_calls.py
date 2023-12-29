@@ -51,9 +51,14 @@ async def get_past_matches(summonerName: str, match_id : str, session : ClientSe
         async with session.post(url, headers=headers, json=payload) as session_match_detail:
             response = await session_match_detail.json()  # detail du match sélectionné
         data_match = response["data"]["lol"]["player"]["match"]
-        
+    
         return data_match
-    except:
+    except Exception:
+        print('Erreur get_past_matches')
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        traceback_msg = ''.join(traceback_details)
+        print(traceback_msg)
         return None
     
 async def get_live_match(summonerName: str, session:ClientSession):
@@ -133,7 +138,8 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
     
     championIds = {v: k for k, v in championIds.items()} # on inverse clé et value
     summonerName_url = summonerName.replace(' ', '+')
-    summonerNameTag = summonerName.replace(' ', '')
+    summonerNameTag = summonerName
+    
     
     def trouver_indice_hashtag(chaine):
         for indice, caractere in enumerate(chaine):
@@ -144,87 +150,101 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
     
     if indice != -1:
         summonerName_url = summonerName_url[:indice]
-    url = f"https://championmastery.gg/summoner?summoner={summonerName_url}&region=EUW"
-    
-    response = await session.get(url)
-    
-    content = await response.text()
- 
-
-    soup = BeautifulSoup(content, "html.parser")
-    results = soup.find("tbody", id="tbody")
-    
-    mastery_list = []
-    try:
-        job_elements = results.find_all("tr")
-
+        riot_id = summonerNameTag[:indice]
+        riot_tag = summonerNameTag[indice+1:]
         
-
-        for job_element in job_elements:
-            data = []
-            data = job_element.text.splitlines()[0]
-            premier_chiffre = None
-            position_premier_chiffre = None
-
-            for position, caractere in enumerate(data):
-                if caractere.isdigit():
-                    premier_chiffre = caractere
-                    position_premier_chiffre = position
-                    break
-            
-            def correction_name(mot : str):
-                mot = mot.replace("'", "").replace(" ", "").replace(".", "")
-                if mot == 'KaiSa':
-                    return "Kaisa"
-                elif mot == 'LeBlanc':
-                    return "Leblanc"
-                elif mot == 'KhaZix':
-                    return "Khazix"
-                elif mot == 'VelKoz':
-                    return "Velkoz"  
-                elif mot == 'Wukong':
-                    return "MonkeyKing"  
-                elif mot == 'ChoGath':
-                    return "Chogath"
-                elif mot == "Nunu&Willump":
-                    return "Nunu"
-                elif mot == "RenataGlasc":
-                    return "Renata"
-                elif mot == "BelVeth":
-                    return "Belveth"
-                return mot
-            
-            champion_name = correction_name(data[:position_premier_chiffre]) 
-            
-            chiffres = [caractere for caractere in data[position_premier_chiffre+1:] if caractere.isdigit()]
-            
-            championId = int(championIds[champion_name])
-            mastery = int(''.join(chiffres))
-            mastery_list.append({"mastery": mastery, "championId": championId})
+    if riot_tag == 'EUW': # si le tag est EUW, championmastery fonctionne bien. En revanche, si ce n'est pas le cas, il peut se tromper de joueur.
+        url = f"https://championmastery.gg/summoner?summoner={summonerName_url}&region=EUW"
         
-    except AttributeError:
+        response = await session.get(url)
+        
+        content = await response.text()
+    
+
+        soup = BeautifulSoup(content, "html.parser")
+        results = soup.find("tbody", id="tbody")
+        
+        mastery_list = []
         try:
-            riot_id = summonerNameTag[:indice]
-            riot_tag = summonerNameTag[indice+1:]
+            job_elements = results.find_all("tr")
 
-            me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+            
 
-            puuid = me['puuid']
-            
-            data_masteries : dict = await get_champion_masteries(session, puuid)
-            
-            for value in data_masteries:
-                mastery = value['championPoints']
-                championId = value['championId']
-            
+            for job_element in job_elements:
+                data = []
+                data = job_element.text.splitlines()[0]
+                premier_chiffre = None
+                position_premier_chiffre = None
+
+                for position, caractere in enumerate(data):
+                    if caractere.isdigit():
+                        premier_chiffre = caractere
+                        position_premier_chiffre = position
+                        break
+                
+                def correction_name(mot : str):
+                    mot = mot.replace("'", "").replace(" ", "").replace(".", "")
+                    if mot == 'KaiSa':
+                        return "Kaisa"
+                    elif mot == 'LeBlanc':
+                        return "Leblanc"
+                    elif mot == 'KhaZix':
+                        return "Khazix"
+                    elif mot == 'VelKoz':
+                        return "Velkoz"  
+                    elif mot == 'Wukong':
+                        return "MonkeyKing"  
+                    elif mot == 'ChoGath':
+                        return "Chogath"
+                    elif mot == "Nunu&Willump":
+                        return "Nunu"
+                    elif mot == "RenataGlasc":
+                        return "Renata"
+                    elif mot == "BelVeth":
+                        return "Belveth"
+                    return mot
+                
+                champion_name = correction_name(data[:position_premier_chiffre]) 
+                
+                chiffres = [caractere for caractere in data[position_premier_chiffre+1:] if caractere.isdigit()]
+                
+                championId = int(championIds[champion_name])
+                mastery = int(''.join(chiffres))
                 mastery_list.append({"mastery": mastery, "championId": championId})
-        except Exception:
-            print(summonerName)
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
-            traceback_msg = ''.join(traceback_details)
-            print(traceback_msg)
             
+        except AttributeError:
+            try:
+                me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+                puuid = me['puuid']
+                
+                data_masteries : dict = await get_champion_masteries(session, puuid)
+                
+                for value in data_masteries:
+                    mastery = value['championPoints']
+                    championId = value['championId']
+                
+                    mastery_list.append({"mastery": mastery, "championId": championId})
+                    
+                
+            except Exception:
+                print(summonerName)
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                traceback_msg = ''.join(traceback_details)
+                print(traceback_msg)
+    
+    else:
+        mastery_list = []
+        me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+        puuid = me['puuid']
+                
+        data_masteries : dict = await get_champion_masteries(session, puuid)
+                
+        for value in data_masteries:
+            mastery = value['championPoints']
+            championId = value['championId']
+                
+            mastery_list.append({"mastery": mastery, "championId": championId})                
         
 
     mastery_dict = {

@@ -43,11 +43,12 @@ async def add_stats(raw_data) -> list:
     return processed_data
 
 
-async def predict_match(ctx : SlashContext, match_id, match, champion, session : aiohttp.ClientSession):
+async def predict_match(match_id, match, champion, session : aiohttp.ClientSession, ctx : SlashContext = None):
     
-
     participants = match["participants"]
-    msg = await ctx.send('Match trouvé')
+    if isinstance(ctx, SlashContext):
+        msg = await ctx.send('Match trouvé')
+        
     blueWinrates = []
     blueMasteries = []
     redWinrates = []
@@ -67,7 +68,9 @@ async def predict_match(ctx : SlashContext, match_id, match, champion, session :
     # Get Masteries and Winrates
     for participant in participants:
         batch += 1
-        await msg.edit(content=f"Game **EUW1_{match_id}** : Processing participant {batch} ({100*batch//totalBatches}%)")
+        if isinstance(ctx, SlashContext):
+            await msg.edit(content=f"Game **EUW1_{match_id}** : Processing participant {batch} ({100*batch//totalBatches}%)")
+            
         championId = participant["championId"]
         team = participant["team"]
         summonerName = participant["summonerName"]
@@ -81,6 +84,8 @@ async def predict_match(ctx : SlashContext, match_id, match, champion, session :
             if championId == mastery_object["championId"]:
                 mastery = mastery_object["mastery"]
 
+
+        
         winrate = 0
         for winrate_object in winrate_list:
             if championId == winrate_object["championID"]:
@@ -138,7 +143,8 @@ async def predict_match(ctx : SlashContext, match_id, match, champion, session :
     prediction = model.predict([dataset])
     proba = model.predict_proba([dataset])
     
-    await msg.delete()
+    if isinstance(ctx, SlashContext):
+        await msg.delete()
     
     del model
 
@@ -165,7 +171,7 @@ async def get_last_match_prediction(ctx : SlashContext, summonerName: str, match
 
     match_id = match_id[5:]
     match = await api_calls.get_past_matches(summonerName, match_id, session)
-    prediction, proba, txt_recap = await predict_match(ctx, match_id, match, champions, session)
+    prediction, proba, txt_recap = await predict_match(match_id, match, champions, session, ctx)
 
 
     teams_result = {
@@ -223,7 +229,7 @@ async def get_current_match_prediction(ctx : SlashContext, summonerName: str, ma
     match = await api_calls.get_live_match(summonerName, session)
     if match == 'Aucun':
         return 'Aucun', 'Aucun'
-    prediction, proba, txt_recap = await predict_match(ctx, match_id, match, champions, session)
+    prediction, proba, txt_recap = await predict_match(match_id, match, champions, session, ctx)
 
     for participant in match['participants']:
         if participant["summonerName"].lower() == summonerName.lower():
@@ -260,6 +266,11 @@ class predict(Extension):
                                             type=interactions.OptionType.STRING,
                                             required=True),
                                         SlashCommandOption(
+                                            name='tag',
+                                            description='Tag',
+                                            type=interactions.OptionType.STRING,
+                                            required=True),
+                                        SlashCommandOption(
                                             name='match_id',
                                             description='EUW1_...',
                                             type=interactions.OptionType.STRING,
@@ -268,11 +279,14 @@ class predict(Extension):
     async def predict_probability(self,
                           ctx: SlashContext,
                           summonername: str,
+                          tag: str,
                           match_id: str):
         
         session = aiohttp.ClientSession()
         
         await ctx.defer(ephemeral=False)
+        
+        summonername = summonername + '#' + tag
 
         try:
             data, txt_recap = await get_last_match_prediction(ctx, summonername, match_id, session)
@@ -372,6 +386,7 @@ class predict(Extension):
             await session.close()
 
 
+    
 
 def setup(bot):
     predict(bot)
