@@ -6,6 +6,7 @@ import aiohttp
 import sys
 import traceback
 import humanize
+from fonctions.match import emote_champ_discord
 
 
 from fonctions.match import (get_version,
@@ -117,11 +118,11 @@ async def predict_match(match_id, match, champion, session : aiohttp.ClientSessi
     for masteries, winrate, participant, champion in zip(redMasteries, redWinrates, redParticipant, redChampion):
         winrate = round(winrate*100,0)
 
-        txt_rouge += f'**{participant}** ({champion}) : WR **{int(winrate)}%** | Pts : **{format_nombre(masteries)}** \n'
+        txt_rouge += f'{emote_champ_discord.get(champion.capitalize(), champion)} **{participant}**  : WR **{int(winrate)}%** | Pts : **{format_nombre(masteries)}** \n'
          
     for masteries, winrate, participant, champion in zip(blueMasteries, blueWinrates, blueParticipant, blueChampion):
         winrate = round(winrate*100,0)
-        txt_bleu += f'**{participant}** ({champion}) : WR **{int(winrate)}%** | Pts : **{format_nombre(masteries)}** \n'
+        txt_bleu += f'**{emote_champ_discord.get(champion.capitalize(), champion)} {participant}**  : WR **{int(winrate)}%** | Pts : **{format_nombre(masteries)}** \n'
         
     txt_recap = {'redside' : txt_rouge, 'blueside' : txt_bleu}        
     # Process Data
@@ -348,7 +349,7 @@ class predict(Extension):
         
         await ctx.defer(ephemeral=False)
         
-        match_id = 'en cours'
+        match_id = '      en cours'
         
         summonername = summonername + "#" + tagline
 
