@@ -55,6 +55,75 @@ async def get_past_matches(summonerName: str, match_id : str, session : ClientSe
         return data_match
     except:
         return None
+    
+async def get_live_match(summonerName: str, session:ClientSession):
+
+    url = "https://u.gg/api"
+    
+    def trouver_indice_hashtag(chaine):
+        for indice, caractere in enumerate(chaine):
+            if caractere == '#':
+                return indice
+        return -1
+    indice = trouver_indice_hashtag(summonerName)
+    
+    riot_id = summonerName[:indice]
+    riot_tag = summonerName[indice+1:]
+
+
+    payload = {
+            "operationName": "GetLiveGame",
+            "variables": {"riotUserName": riot_id,
+                          "riotTagLine" : riot_tag,
+                          "regionId": 'euw1'},
+            "query": "query GetLiveGame($regionId: String!, $riotUserName: String!, $riotTagLine : String!) {\n  getLiveGame(regionId: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine) {\n    gameLengthSeconds\n    gameType\n    teamA {\n      banId\n      championId\n      championLosses\n      championWins\n      championStats {\n        kills\n        deaths\n        assists\n        __typename\n      }\n      currentRole\n      onRole\n      partyNumber\n      previousSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      currentSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      roleDatas {\n        games\n        roleName\n        wins\n        __typename\n      }\n      summonerIconId\n      riotUserName\n      riotTagLine\n   summonerRuneA\n      summonerRuneB\n      summonerRuneData\n      summonerSpellA\n      summonerSpellB\n      threatLevel\n      __typename\n    }\n    teamB {\n      banId\n      championId\n      championLosses\n      championWins\n      championStats {\n        kills\n        deaths\n        assists\n        __typename\n      }\n      currentRole\n      onRole\n      partyNumber\n      previousSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      currentSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      roleDatas {\n        games\n        roleName\n        wins\n        __typename\n      }\n      summonerIconId\n      riotUserName\n      riotTagLine\n     summonerRuneA\n      summonerRuneB\n      summonerRuneData\n      summonerSpellA\n      summonerSpellB\n      threatLevel\n      __typename\n    }\n    __typename\n  }\n}\n",
+        }
+
+    headers = {
+            "Accept-Encoding":"gzip, deflate, br",
+            "Accept":"*/*",
+            "Content-Type": "application/json",
+            "Connection": "keep-alive",
+            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+          }
+
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        response = await session_match_detail.json()  # detail du match sélectionné
+
+
+    if response["data"]["getLiveGame"] == None:
+        return 'Aucun'
+
+    live_game_data = {}
+
+    live_game_data["gameType"] = response["data"]["getLiveGame"]["gameType"]
+
+    live_game_data["participants"] = []
+
+    for summoner in response["data"]["getLiveGame"]["teamA"]:
+        live_game_data["participants"].append(
+            {
+                "championLosses": summoner["championLosses"],
+                "championId": summoner["championId"],
+                "championWins": summoner["championWins"],
+                "currentRole": summoner["currentRole"],
+                "summonerName": summoner["riotUserName"] + "#" + summoner["riotTagLine"],
+                "team": "BLUE",
+            }
+        )
+    for summoner in response["data"]["getLiveGame"]["teamB"]:
+        live_game_data["participants"].append(
+            {
+                "championLosses": summoner["championLosses"],
+                "championId": summoner["championId"],
+                "championWins": summoner["championWins"],
+                "currentRole": summoner["currentRole"],
+                "summonerName": summoner["riotUserName"] + "#" + summoner["riotTagLine"],
+                "team": "RED",
+            }
+        )
+    return live_game_data
+
 
 
 # Gets the mastery_list of a player from championmastery.gg
@@ -230,45 +299,48 @@ async def get_winrates(summonerName: str, session : ClientSession):
                         "wins"
                     ] = championPerformance["wins"]
 
-        # For season 13 (split 2)
-        payload = {
-                "operationName": "getPlayerStats",
-                "variables": {
-                    "riotUserName": summonerName,
-                    "riotTagLine" : tagline,
-                    "regionId": "euw1",
-                    "role": 7,
-                    "seasonId": 21,
-                    "queueType": [420],
-                },
-                "query": "query getPlayerStats($queueType: [Int!], $regionId: String!, $role: [Int!], $seasonId: Int!, $riotUserName: String!, $riotTagLine : String!) {\n  fetchPlayerStatistics(\n    queueType: $queueType\n    riotUserName: $riotUserName\n    riotTagLine: $riotTagLine\n      regionId: $regionId\n    role: $role\n    seasonId: $seasonId\n  ) {\n    basicChampionPerformances {\n      assists\n      championId\n      cs\n      damage\n      damageTaken\n      deaths\n      gold\n      kills\n      totalMatches\n      wins\n      lpAvg\n    }\n    exodiaUuid\n    puuid\n    queueType\n    regionId\n    role\n    seasonId\n    __typename\n  }\n}"
-            }
+        
+        season_boucle = [20,21] # For season 13 (split 1, split 2)
+        
+        for season in season_boucle:
+            payload = {
+                    "operationName": "getPlayerStats",
+                    "variables": {
+                        "riotUserName": summonerName,
+                        "riotTagLine" : tagline,
+                        "regionId": "euw1",
+                        "role": 7,
+                        "seasonId": season,
+                        "queueType": [420],
+                    },
+                    "query": "query getPlayerStats($queueType: [Int!], $regionId: String!, $role: [Int!], $seasonId: Int!, $riotUserName: String!, $riotTagLine : String!) {\n  fetchPlayerStatistics(\n    queueType: $queueType\n    riotUserName: $riotUserName\n    riotTagLine: $riotTagLine\n      regionId: $regionId\n    role: $role\n    seasonId: $seasonId\n  ) {\n    basicChampionPerformances {\n      assists\n      championId\n      cs\n      damage\n      damageTaken\n      deaths\n      gold\n      kills\n      totalMatches\n      wins\n      lpAvg\n    }\n    exodiaUuid\n    puuid\n    queueType\n    regionId\n    role\n    seasonId\n    __typename\n  }\n}"
+                }
 
-        async with session.post(url, headers=headers, json=payload) as session_match_detail:
-            response = await session_match_detail.json()  # detail du match sélectionné
+            async with session.post(url, headers=headers, json=payload) as session_match_detail:
+                response = await session_match_detail.json()  # detail du match sélectionné
 
-        playerStats = response
+            playerStats = response
 
-        for playerStatistics in playerStats["data"]["fetchPlayerStatistics"]:
-            if playerStatistics["__typename"] == "PlayerStatistics":
-                for championPerformance in playerStatistics[
-                    "basicChampionPerformances"
-                ]:
-                    if championPerformance["championId"] in summonerWinrate:
-                        summonerWinrate[championPerformance["championId"]][
-                            "totalMatches"
-                        ] += championPerformance["totalMatches"]
-                        summonerWinrate[championPerformance["championId"]][
-                            "wins"
-                        ] += championPerformance["wins"]
-                    else:
-                        summonerWinrate[championPerformance["championId"]] = dict()
-                        summonerWinrate[championPerformance["championId"]][
-                            "totalMatches"
-                        ] = championPerformance["totalMatches"]
-                        summonerWinrate[championPerformance["championId"]][
-                            "wins"
-                        ] = championPerformance["wins"]
+            for playerStatistics in playerStats["data"]["fetchPlayerStatistics"]:
+                if playerStatistics["__typename"] == "PlayerStatistics":
+                    for championPerformance in playerStatistics[
+                        "basicChampionPerformances"
+                    ]:
+                        if championPerformance["championId"] in summonerWinrate:
+                            summonerWinrate[championPerformance["championId"]][
+                                "totalMatches"
+                            ] += championPerformance["totalMatches"]
+                            summonerWinrate[championPerformance["championId"]][
+                                "wins"
+                            ] += championPerformance["wins"]
+                        else:
+                            summonerWinrate[championPerformance["championId"]] = dict()
+                            summonerWinrate[championPerformance["championId"]][
+                                "totalMatches"
+                            ] = championPerformance["totalMatches"]
+                            summonerWinrate[championPerformance["championId"]][
+                                "wins"
+                            ] = championPerformance["wins"]
 
         winrate_list = []
 

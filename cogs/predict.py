@@ -5,6 +5,7 @@ import numpy as np
 import aiohttp
 import sys
 import traceback
+import humanize
 
 
 from fonctions.match import (get_version,
@@ -43,12 +44,23 @@ async def add_stats(raw_data) -> list:
 
 
 async def predict_match(ctx : SlashContext, match_id, match, champion, session : aiohttp.ClientSession):
+    
+
     participants = match["participants"]
     msg = await ctx.send('Match trouvé')
     blueWinrates = []
     blueMasteries = []
     redWinrates = []
     redMasteries = []
+    redParticipant = []
+    redChampion = []
+    blueParticipant = []
+    blueChampion = []
+
+    try:
+        humanize.activate('fr_FR', path='C:/Users/Kevin/PycharmProjects/bot_discord_aio/translations/')
+    except FileNotFoundError:
+        humanize.i18n.activate('fr_FR')    
 
     batch = 0
     totalBatches = 10
@@ -73,16 +85,42 @@ async def predict_match(ctx : SlashContext, match_id, match, champion, session :
         for winrate_object in winrate_list:
             if championId == winrate_object["championID"]:
                 winrate = winrate_object["winrate"] / 100
-
+                
         if team == "RED":
             redMasteries.append(mastery)
             redWinrates.append(winrate)
+            redParticipant.append(participant['summonerName'])
+            redChampion.append(champion[str(championId)])
         else:
             blueMasteries.append(mastery)
             blueWinrates.append(winrate)
+            blueParticipant.append(participant['summonerName'])
+            blueChampion.append(champion[str(championId)])
 
+    txt_rouge = '**Team Red**\n'
+    txt_bleu = '**Team Blue **\n'
+    
+    def format_nombre(nombre):
+        try:
+            if len(str(int(nombre))) <= 6 :
+                return humanize.intcomma(int(nombre)) # on met des espaces entre les milliers
+            else:
+                return humanize.intword(int(nombre)).replace('million', 'M') # on transforme le nombre en mots
+        except ValueError:
+            return 0
+        
+    for masteries, winrate, participant, champion in zip(redMasteries, redWinrates, redParticipant, redChampion):
+        winrate = round(winrate*100,0)
+
+        txt_rouge += f'**{participant}** ({champion}) : WR **{int(winrate)}%** | Pts : **{format_nombre(masteries)}** \n'
+         
+    for masteries, winrate, participant, champion in zip(blueMasteries, blueWinrates, blueParticipant, blueChampion):
+        winrate = round(winrate*100,0)
+        txt_bleu += f'**{participant}** ({champion}) : WR **{int(winrate)}%** | Pts : **{format_nombre(masteries)}** \n'
+        
+    txt_recap = {'redside' : txt_rouge, 'blueside' : txt_bleu}        
     # Process Data
-
+    
     blueData = []
     redData = []
 
@@ -104,7 +142,7 @@ async def predict_match(ctx : SlashContext, match_id, match, champion, session :
     
     del model
 
-    return prediction, proba
+    return prediction, proba, txt_recap
 
 
 
@@ -127,7 +165,7 @@ async def get_last_match_prediction(ctx : SlashContext, summonerName: str, match
 
     match_id = match_id[5:]
     match = await api_calls.get_past_matches(summonerName, match_id, session)
-    prediction, proba = await predict_match(ctx, match_id, match, champions, session)
+    prediction, proba, txt_recap = await predict_match(ctx, match_id, match, champions, session)
 
 
     teams_result = {
@@ -161,8 +199,53 @@ async def get_last_match_prediction(ctx : SlashContext, summonerName: str, match
     else:
         response["correct"] = False
 
-    return response
+    return response, txt_recap
 
+
+async def get_current_match_prediction(ctx : SlashContext, summonerName: str, match_id : str, session:aiohttp.ClientSession):
+    
+    async def charger_champion(session):
+        version = await get_version(session)
+        current_champ_list = await get_champ_list(session, version)
+        return current_champ_list
+
+
+    current_champ_list = await charger_champion(session)
+
+    champions = {}
+    for key in current_champ_list['data']:
+        row = current_champ_list['data'][key]
+        champions[row['key']] = row['id']
+        
+    # Get last match
+
+    match_id = match_id[5:]
+    match = await api_calls.get_live_match(summonerName, session)
+    if match == 'Aucun':
+        return 'Aucun', 'Aucun'
+    prediction, proba, txt_recap = await predict_match(ctx, match_id, match, champions, session)
+
+    for participant in match['participants']:
+        if participant["summonerName"].lower() == summonerName.lower():
+            your_team = participant["team"]
+            your_champion = champions[str(participant["championId"])]
+            your_role = participant["currentRole"]        
+
+    response = {}
+
+    if (prediction == 1 and your_team == "BLUE") or (
+        prediction == 0 and your_team == "RED"
+    ):
+        response["victory_predicted"] = True
+    else:
+        response["victory_predicted"] = False
+
+    response["team"] = your_team
+    response["champion"] = your_champion
+    response["role"] = your_role
+    response['probability'] = proba
+
+    return response, txt_recap
 
 class predict(Extension):
     def __init__(self, bot):
@@ -192,12 +275,10 @@ class predict(Extension):
         await ctx.defer(ephemeral=False)
 
         try:
-            data = await get_last_match_prediction(ctx, summonername, match_id, session)
+            data, txt_recap = await get_last_match_prediction(ctx, summonername, match_id, session)
             
-            txt = f'Game **{match_id}** \n'
-            txt += f'Ta team était : **{data["team"]}** \n'
-            txt += f'Ton role était : **{data["role"]}** \n'
-            txt += f'Ton champion était : **{data["champion"]}** \n'
+            
+            txt = f'Game **{match_id}** | **{data["team"]}** side | **{data["champion"]}** **({data["role"]})** \n'
             
             if data["won"]:
                 result = 'une victoire'
@@ -216,6 +297,68 @@ class predict(Extension):
                 txt += f'La prédiction était **{prediction}** -> Defaite : {np.round(probability[0][0]*100,0)}% | Victoire : {np.round(probability[0][1]*100,0)}% \n'
             else:
                 txt += f'La prédiction était **{prediction}** -> Victoire : {np.round(probability[0][0]*100,0)}% | Défaite : {np.round(probability[0][1]*100,0)}% \n'
+            
+            txt += f'\n {txt_recap["redside"]} \n\n{txt_recap["blueside"]}'  
+            await ctx.send(txt)
+            
+            await session.close()
+        
+        except Exception:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+            traceback_msg = ''.join(traceback_details)
+            print(traceback_msg)
+            await ctx.send('Erreur')
+            await session.close()
+            
+    @slash_command(name='predict_victory_en_cours',
+                                    description='Predit le resultat de la game',
+                                    options=[
+                                        SlashCommandOption(
+                                            name='summonername',
+                                            description='SummonerName',
+                                            type=interactions.OptionType.STRING,
+                                            required=True),
+                                        SlashCommandOption(
+                                            name='tagline',
+                                            description='tag',
+                                            type=interactions.OptionType.STRING,
+                                            required=True
+                                        )])
+    async def predict_probability_direct(self,
+                          ctx: SlashContext,
+                          summonername: str,
+                          tagline: str):
+        
+        session = aiohttp.ClientSession()
+        
+        await ctx.defer(ephemeral=False)
+        
+        match_id = 'en cours'
+        
+        summonername = summonername + "#" + tagline
+
+        try:
+            data, txt_recap = await get_current_match_prediction(ctx, summonername, match_id, session)
+            
+            if data == "Aucun":
+                return await ctx.send('Pas de game en cours')
+            
+            txt = f'Game **{match_id}** | **{data["team"]}** side | **{data["champion"]}** **({data["role"]})** \n'
+            
+            if data['victory_predicted']:
+                prediction = 'une victoire'
+            else:
+                prediction = 'defaite'
+            
+            probability = data['probability']
+            
+            if data['team'] == 'BLUE':
+                txt += f'La prédiction est **{prediction}** -> Defaite : {np.round(probability[0][0]*100,0)}% | Victoire : {np.round(probability[0][1]*100,0)}% \n'
+            else:
+                txt += f'La prédiction est **{prediction}** -> Victoire : {np.round(probability[0][0]*100,0)}% | Défaite : {np.round(probability[0][1]*100,0)}% \n'
+                
+            txt += f'\n {txt_recap["redside"]} \n\n{txt_recap["blueside"]}'    
             await ctx.send(txt)
             
             await session.close()
