@@ -15,24 +15,26 @@ class Quizz(Extension):
         
     async def indice(self, ctx : SlashContext, msg : interactions.Message, liste_indice):
         
+        time_to_sleep = 60
+        
         if len(liste_indice) >= 1:
-            await asyncio.sleep(60)
+            await asyncio.sleep(time_to_sleep)
             await msg.edit(content=f'{msg.content} \n **Indice 1** {liste_indice[0]}')
         
         if len(liste_indice) >= 2:
-            await asyncio.sleep(60)
+            await asyncio.sleep(time_to_sleep)
             await msg.edit(content=f'{msg.content} \n **Indice 2** {liste_indice[1]}')
 
         if len(liste_indice) >= 3:
-            await asyncio.sleep(60)
+            await asyncio.sleep(time_to_sleep)
             await msg.edit(content=f'{msg.content} \n **Indice 3** {liste_indice[2]}')
             
         if len(liste_indice) >= 4:
-            await asyncio.sleep(60)
+            await asyncio.sleep(time_to_sleep)
             await msg.edit(content=f'{msg.content} \n **Indice 4** {liste_indice[3]}')
             
         if len(liste_indice) >= 5:
-            await asyncio.sleep(120)
+            await asyncio.sleep(time_to_sleep * 2)
             await msg.edit(content=f'{msg.content} \n **Indice 5** {liste_indice[4]}')
     
     async def gestion_quizz(self, ctx : SlashContext, quizz_selected, championnat_selected, stat_selected, df_reponse):

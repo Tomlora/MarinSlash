@@ -23,7 +23,8 @@ from fonctions.match import (get_summoner_by_puuid,
                              label_ward,
                              emote_champ_discord,
                              match_by_puuid_with_puuid,
-                             emote_rank_discord)
+                             emote_rank_discord,
+                             get_summoner_by_riot_id)
 from fonctions.channels_discord import get_embed
 from fonctions.gestion_bdd import lire_bdd_perso
 from fonctions.params import saison
@@ -335,7 +336,7 @@ def load_timeline(timeline):
 
     df_timeline['riot_id'] = df_timeline['participantId']
             
-    return df_timeline
+    return df_timeline, minute
 
 def format_graph_var(thisId, match_detail, info : str, pseudo : list, champ_names:list, rename_x, title_graph):
 
@@ -420,11 +421,15 @@ class analyseLoL(Extension):
         pd.options.mode.chained_assignment = None  # default='warn'
         session = aiohttp.ClientSession()
         
-        puuid = lire_bdd_perso('''SELECT index, puuid from tracker where riot_id = :riot_id and riot_tagline = :riot_tag''',
-                                     params={'riot_id' : riot_id,
-                                             'riot_tag' : riot_tag})\
-                                                 .T\
-                                                     .loc[riot_id, 'puuid']
+        try:
+            puuid = lire_bdd_perso('''SELECT index, puuid from tracker where riot_id = :riot_id and riot_tagline = :riot_tag''',
+                                        params={'riot_id' : riot_id,
+                                                'riot_tag' : riot_tag})\
+                                                    .T\
+                                                        .loc[riot_id, 'puuid']
+        except KeyError:
+            me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+            puuid = me['puuid']
                                                      
         last_match, match_detail = await match_by_puuid_with_puuid(puuid, game, session)
         timeline = await get_match_timeline(session, last_match)
@@ -507,7 +512,7 @@ class analyseLoL(Extension):
 
         if 'gold' in stat:
             
-            df_timeline = load_timeline(timeline)
+            df_timeline, minute = load_timeline(timeline)
 
             df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
 
@@ -521,7 +526,7 @@ class analyseLoL(Extension):
 
         if 'cs' in stat:
             
-            df_timeline = load_timeline(timeline)
+            df_timeline, minute = load_timeline(timeline)
 
             df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
             
@@ -537,7 +542,7 @@ class analyseLoL(Extension):
 
         if 'level' in stat:
             
-            df_timeline = load_timeline(timeline)
+            df_timeline, minute = load_timeline(timeline)
 
             df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
             
@@ -550,7 +555,7 @@ class analyseLoL(Extension):
 
         if 'gold_team' in stat:
 
-            df_timeline = load_timeline(timeline)
+            df_timeline, minute = load_timeline(timeline)
 
             df_timeline['riot_id'] = df_timeline['participantId']
 
@@ -619,7 +624,7 @@ class analyseLoL(Extension):
 
         if 'position' in stat:
 
-            df_timeline = load_timeline(timeline)
+            df_timeline, minute = load_timeline(timeline)
 
             df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
 
