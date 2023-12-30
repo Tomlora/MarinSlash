@@ -5,10 +5,12 @@ import sys
 import os
 import traceback
 from aiohttp import ClientSession
-from fonctions.match import get_summoner_by_riot_id, get_champion_masteries
+from fonctions.match import get_summoner_by_riot_id, get_champion_masteries, getLiveGame, getPlayerStats
 
 api_moba = os.environ.get('API_moba')
 # Gets the mast matches from mobalytics
+
+
 
 
 def wait(seconds):
@@ -76,25 +78,7 @@ async def get_live_match(summonerName: str, session:ClientSession):
     riot_tag = summonerName[indice+1:]
 
 
-    payload = {
-            "operationName": "GetLiveGame",
-            "variables": {"riotUserName": riot_id,
-                          "riotTagLine" : riot_tag,
-                          "regionId": 'euw1'},
-            "query": "query GetLiveGame($regionId: String!, $riotUserName: String!, $riotTagLine : String!) {\n  getLiveGame(regionId: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine) {\n    gameLengthSeconds\n    gameType\n    teamA {\n      banId\n      championId\n      championLosses\n      championWins\n      championStats {\n        kills\n        deaths\n        assists\n        __typename\n      }\n      currentRole\n      onRole\n      partyNumber\n      previousSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      currentSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      roleDatas {\n        games\n        roleName\n        wins\n        __typename\n      }\n      summonerIconId\n      riotUserName\n      riotTagLine\n   summonerRuneA\n      summonerRuneB\n      summonerRuneData\n      summonerSpellA\n      summonerSpellB\n      threatLevel\n      __typename\n    }\n    teamB {\n      banId\n      championId\n      championLosses\n      championWins\n      championStats {\n        kills\n        deaths\n        assists\n        __typename\n      }\n      currentRole\n      onRole\n      partyNumber\n      previousSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      currentSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      roleDatas {\n        games\n        roleName\n        wins\n        __typename\n      }\n      summonerIconId\n      riotUserName\n      riotTagLine\n     summonerRuneA\n      summonerRuneB\n      summonerRuneData\n      summonerSpellA\n      summonerSpellB\n      threatLevel\n      __typename\n    }\n    __typename\n  }\n}\n",
-        }
-
-    headers = {
-            "Accept-Encoding":"gzip, deflate, br",
-            "Accept":"*/*",
-            "Content-Type": "application/json",
-            "Connection": "keep-alive",
-            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
-          }
-
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
-
+    response = await getLiveGame(session, riot_id, riot_tag)
 
     if response["data"]["getLiveGame"] == None:
         return 'Aucun'
@@ -277,32 +261,8 @@ async def get_winrates(summonerName: str, session : ClientSession):
 
     try:
         # For season 12
-        payload = {
-                "operationName": "getPlayerStats",
-                "variables": {
-                    "riotUserName": summonerName,
-                    "riotTagLine" : tagline,
-                    "regionId": "euw1",
-                    "role": 7,
-                    "seasonId": 18,
-                    "queueType": [420],
-                },
-                "query": "query getPlayerStats($queueType: [Int!], $regionId: String!, $role: [Int!], $seasonId: Int!, $riotUserName: String!, $riotTagLine : String!) {\n  fetchPlayerStatistics(\n    queueType: $queueType\n    riotUserName: $riotUserName\n    riotTagLine: $riotTagLine\n      regionId: $regionId\n    role: $role\n    seasonId: $seasonId\n  ) {\n    basicChampionPerformances {\n      assists\n      championId\n      cs\n      damage\n      damageTaken\n      deaths\n      gold\n      kills\n      totalMatches\n      wins\n      lpAvg\n    }\n    exodiaUuid\n    puuid\n    queueType\n    regionId\n    role\n    seasonId\n    __typename\n  }\n}"
-            }
         
-        headers = {
-            "Accept-Encoding":"gzip, deflate, br",
-            "Accept":"*/*",
-            "Content-Type": "application/json",
-            "Connection": "keep-alive",
-            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
-          }
-
-        # response = requests.post(url, headers=headers, json=payload)
-
-        async with session.post(url, headers=headers, json=payload) as session_match_detail:
-            response = await session_match_detail.json()  # detail du match sélectionné
-
+        response = await getPlayerStats(session, summonerName, tagline)
 
         playerStats = response
 
@@ -323,21 +283,7 @@ async def get_winrates(summonerName: str, session : ClientSession):
         season_boucle = [20,21] # For season 13 (split 1, split 2)
         
         for season in season_boucle:
-            payload = {
-                    "operationName": "getPlayerStats",
-                    "variables": {
-                        "riotUserName": summonerName,
-                        "riotTagLine" : tagline,
-                        "regionId": "euw1",
-                        "role": 7,
-                        "seasonId": season,
-                        "queueType": [420],
-                    },
-                    "query": "query getPlayerStats($queueType: [Int!], $regionId: String!, $role: [Int!], $seasonId: Int!, $riotUserName: String!, $riotTagLine : String!) {\n  fetchPlayerStatistics(\n    queueType: $queueType\n    riotUserName: $riotUserName\n    riotTagLine: $riotTagLine\n      regionId: $regionId\n    role: $role\n    seasonId: $seasonId\n  ) {\n    basicChampionPerformances {\n      assists\n      championId\n      cs\n      damage\n      damageTaken\n      deaths\n      gold\n      kills\n      totalMatches\n      wins\n      lpAvg\n    }\n    exodiaUuid\n    puuid\n    queueType\n    regionId\n    role\n    seasonId\n    __typename\n  }\n}"
-                }
-
-            async with session.post(url, headers=headers, json=payload) as session_match_detail:
-                response = await session_match_detail.json()  # detail du match sélectionné
+            response = await getPlayerStats(session, summonerName, tagline, season=season)
 
             playerStats = response
 
@@ -371,6 +317,7 @@ async def get_winrates(summonerName: str, session : ClientSession):
                     "winrate": (champion["wins"] / champion["totalMatches"] * 100),
                 }
             )
+
         winrate_dict = {
             "summonerName": summonerName,
             "region": "EUW",

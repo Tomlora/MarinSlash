@@ -293,7 +293,7 @@ class predict(Extension):
             data, txt_recap = await get_last_match_prediction(ctx, summonername, match_id, session)
             
             
-            txt = f'Game **{match_id}** | **{data["team"]}** side | **{data["champion"]}** **({data["role"]})** \n'
+            txt = f'Game **{match_id}** | **{data["team"]}** side | {emote_champ_discord.get(data["champion"].capitalize(), data["champion"])} **({data["role"]})** \n'
             
             if data["won"]:
                 result = 'une victoire'
@@ -304,7 +304,7 @@ class predict(Extension):
             if data['correct']:
                 prediction = 'correcte'
             else:
-                prediction = 'incorrecte'
+                prediction = 'fausse'
             
             probability = data['probability']
             
@@ -313,7 +313,7 @@ class predict(Extension):
             else:
                 txt += f'La prédiction était **{prediction}** -> Victoire : {np.round(probability[0][0]*100,0)}% | Défaite : {np.round(probability[0][1]*100,0)}% \n'
             
-            txt += f'\n {txt_recap["redside"]} \n\n{txt_recap["blueside"]}'  
+            txt += f'\n{txt_recap["redside"]} \n{txt_recap["blueside"]}'  
             await ctx.send(txt)
             
             await session.close()
@@ -359,12 +359,12 @@ class predict(Extension):
             if data == "Aucun":
                 return await ctx.send('Pas de game en cours')
             
-            txt = f'Game **{match_id}** | **{data["team"]}** side | **{data["champion"]}** **({data["role"]})** \n'
+            txt = f'Game **{match_id}** | **{data["team"]}** side | {emote_champ_discord.get(data["champion"].capitalize(), data["champion"])} **({data["role"]})** \n'
             
             if data['victory_predicted']:
                 prediction = 'une victoire'
             else:
-                prediction = 'defaite'
+                prediction = 'une defaite'
             
             probability = data['probability']
             
@@ -373,7 +373,7 @@ class predict(Extension):
             else:
                 txt += f'La prédiction est **{prediction}** -> Victoire : {np.round(probability[0][0]*100,0)}% | Défaite : {np.round(probability[0][1]*100,0)}% \n'
                 
-            txt += f'\n {txt_recap["redside"]} \n\n{txt_recap["blueside"]}'    
+            txt += f'\n{txt_recap["redside"]} \n{txt_recap["blueside"]}'    
             await ctx.send(txt)
             
             await session.close()
