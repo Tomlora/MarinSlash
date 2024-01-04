@@ -63,12 +63,12 @@ class Aram(Extension):
 
 
 
-    @aram.subcommand("classement",
+    @aram.subcommand("list",
                    sub_cmd_description="classement en aram")
     async def ladder_aram(self, ctx: SlashContext):
 
         suivi_aram = lire_bdd_perso(
-            f'''SELECT ranked_aram_s.*, tracker.id_compte, tracker.riot_id from ranked_aram_s{saison}
+            f'''SELECT ranked_aram_s{saison}.*, tracker.id_compte, tracker.riot_id from ranked_aram_s{saison}
             INNER JOIN tracker on tracker.id_compte = ranked_aram_s{saison}.index
             where games != 0''',
             index_col='id_compte',
@@ -82,9 +82,9 @@ class Aram(Extension):
         df.sort_values('lp', ascending=False, inplace=True)
 
         embed = interactions.Embed(
-            title="Suivi LOL", description='ARAM', color=interactions.Color.random())
+            title="Suivi LOL ARAM", description='', color=interactions.Color.random())
 
-        for key in df['id_compte']:
+        for key in df['index']:
 
             wr = round((suivi_aram[key]['wins'] /
                        suivi_aram[key]['games'])*100, 2)
@@ -93,13 +93,13 @@ class Aram(Extension):
                 (suivi_aram[key]['k'] + suivi_aram[key]['a']) / suivi_aram[key]['d'], 2)
 
             if suivi_aram[key]['activation']:
-                embed.add_field(name=str(f"{key} ({suivi_aram[key]['lp']} LP) [{suivi_aram[key]['rank']}]"),
+                embed.add_field(name=str(f"{suivi_aram[key]['riot_id']} ({suivi_aram[key]['lp']} LP) {emote_rank_discord[suivi_aram[key]['rank']]}"),
                                 value="V : " +
                                 str(suivi_aram[key]['wins']) + " | D : " +
                                 str(suivi_aram[key]['losses']) + " | WR :  "
                                 + str(wr) + "% | KDA : " + str(kda), inline=False)
             else:
-                embed.add_field(name=str(f"{suivi_aram[key]['riot_id']} ({suivi_aram[key]['lp']} LP) [{suivi_aram[key]['rank']}] [Désactivé]"),
+                embed.add_field(name=str(f"{suivi_aram[key]['riot_id']} ({suivi_aram[key]['lp']} LP) {emote_rank_discord[suivi_aram[key]['rank']]} [Désactivé]"),
                                 value="V : " +
                                 str(suivi_aram[key]['wins']) + " | D : " +
                                 str(suivi_aram[key]['losses']) + " | WR :  "
