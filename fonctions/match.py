@@ -1133,6 +1133,9 @@ class matchlol():
 
         self.thisVisionListe = dict_data(
             self.thisId, self.match_detail, 'visionScore')
+        
+        self.thisPinkListe = dict_data(
+            self.thisId, self.match_detail, 'visionWardsBoughtInGame')
 
         self.thisVisionPerMinListe = [round((self.thisVisionListe[i] / self.thisTime), 1) for i in range(self.nb_joueur)]
 
@@ -1382,8 +1385,53 @@ class matchlol():
             self.thisVictory = '0'
             self.thisLoose = '0'
             self.thisWinStreak = '0'
+        except KeyError:
+            if self.thisQ == 'ARAM':
+                self.thisWinrate = '0'
+                self.thisWinrateStat = '0'
+                self.thisRank = 'Inconnu'
+                self.thisTier = " "
+                self.thisLP = '0'
+                self.thisVictory = '0'
+                self.thisLoose = '0'
+                self.thisWinStreak = '0'
+                
+            else:
+                data_joueur = lire_bdd_perso(f'SELECT * from suivi_s{self.season} where index = {self.id_compte}').T
+                self.thisWinrate = int(data_joueur['wins'].values[0]) / (
+                    int(data_joueur['wins'].values[0]) + int(data_joueur['losses'].values[0]))
+                self.thisWinrateStat = str(int(self.thisWinrate * 100))
+                self.thisRank = str(data_joueur['rank'].values[0])
+                self.thisTier = str(data_joueur['tier'].values[0])
+                self.thisLP = str(data_joueur['LP'].values[0])
+                self.thisVictory = str(data_joueur['wins'].values[0])
+                self.thisLoose = str(data_joueur['losses'].values[0])
+                self.thisWinStreak = str(data_joueur['serie'].values[0])                
 
         self.url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(self.last_match)[5:]}#participant{int(self.thisId)+1}'
+        
+        self.liste_rank = []
+        self.liste_tier = []
+        
+        for i in range(self.nb_joueur):
+            if self.moba_ok:
+                try:
+                    self.liste_rank.append(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['tier'])
+                    self.liste_tier.append(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['division'])
+                except IndexError:
+                    try:
+                        data_mobalytics_copy = self.data_mobalytics.copy()
+                        data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
+                        self.liste_rank.append(data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['tier'])
+                        self.liste_tier.append(data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['division'])
+                    except IndexError:
+                        self.liste_rank.append('')
+                        self.liste_tier.append('')
+            else:
+                self.liste_rank.append('')
+                self.liste_tier.append('')
+                    
+
         
 
     async def prepare_data_arena(self):
@@ -1744,6 +1792,30 @@ class matchlol():
             self.thisWinStreak = '0'
 
         self.url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(self.last_match)[5:]}#participant{int(self.thisId)+1}'
+        
+        self.liste_rank = []
+        self.liste_tier = []
+        
+        for i in range(self.nb_joueur):
+            if self.moba_ok:
+                try:
+                    self.liste_rank.append(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['tier'])
+                    self.liste_tier.append(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['division'])
+                except IndexError:
+                    try:
+                        data_mobalytics_copy = self.data_mobalytics.copy()
+                        data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
+                        self.liste_rank.append(data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['tier'])
+                        self.liste_tier.append(data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['division'])
+                    except IndexError:
+                        self.liste_rank.append('')
+                        self.liste_tier.append('')
+            else:
+                self.liste_rank.append('')
+                self.liste_tier.append('')
+                
+        self.thisVisionListe = [0,0,0,0,0,0,0,0]
+        self.thisPinkListe = [0,0,0,0,0,0,0,0]
 
 
     async def save_data(self):
@@ -1865,6 +1937,79 @@ class matchlol():
                 'ban_adv5' : self.liste_ban[9],
             },
         )
+
+        if self.thisQ != 'ARENA 2v2' and self.thisQ != 'OTHER':
+            requete_perso_bdd('''INSERT INTO public.matchs_joueur(
+            match_id, allie1, allie2, allie3, allie4, allie5, ennemi1, ennemi2, ennemi3, ennemi4, ennemi5,
+        tier1, div1, tier2, div2, tier3, div3, tier4, div4, tier5, div5, tier6, div6, tier7, div7, tier8, div8, tier9, div9, tier10, div10,
+        tierallie_avg, divallie_avg, tierennemy_avg, divennemy_avg)
+            VALUES (:match_id, :allie1, :allie2, :allie3, :allie4, :allie5, :ennemi1, :ennemi2, :ennemi3, :ennemi4, :ennemi5,
+        :t1, :d1, :t2, :d2, :t3, :d3, :t4, :d4, :t5, :d5, :t6, :d6, :t7, :d7, :t8, :d8, :t9, :d9, :t10, :d10,
+        :tier_allie, :div_allie, :tier_ennemy, :div_ennemy);''',
+        {'match_id' : self.last_match,
+                'allie1' : f'{self.thisRiotIdListe[0]}#{self.thisRiotTagListe[0]}',
+            'allie2' : f'{self.thisRiotIdListe[1]}#{self.thisRiotTagListe[1]}',
+            'allie3' : f'{self.thisRiotIdListe[2]}#{self.thisRiotTagListe[2]}',
+            'allie4' : f'{self.thisRiotIdListe[3]}#{self.thisRiotTagListe[3]}',
+            'allie5' : f'{self.thisRiotIdListe[4]}#{self.thisRiotTagListe[4]}',
+            'ennemi1' : f'{self.thisRiotIdListe[5]}#{self.thisRiotTagListe[5]}',
+            'ennemi2' : f'{self.thisRiotIdListe[6]}#{self.thisRiotTagListe[6]}',
+            'ennemi3' : f'{self.thisRiotIdListe[7]}#{self.thisRiotTagListe[7]}',
+            'ennemi4' : f'{self.thisRiotIdListe[8]}#{self.thisRiotTagListe[8]}',
+            'ennemi5' : f'{self.thisRiotIdListe[9]}#{self.thisRiotTagListe[9]}',
+            't1' : self.liste_rank[0],
+            'd1' : self.liste_tier[0],
+            't2' : self.liste_rank[1],
+            'd2' : self.liste_tier[1],
+            't3' : self.liste_rank[2],
+            'd3' : self.liste_tier[2],
+            't4' : self.liste_rank[3],
+            'd4' : self.liste_tier[3],
+            't5' : self.liste_rank[4],
+            'd5' : self.liste_tier[4],
+            't6' : self.liste_rank[5],
+            'd6' : self.liste_tier[5],
+            't7' : self.liste_rank[6],
+            'd7' : self.liste_tier[6],
+            't8' : self.liste_rank[7],
+            'd8' : self.liste_tier[7],
+            't9' : self.liste_rank[8],
+            'd9' : self.liste_tier[8],
+            't10' : self.liste_rank[9],
+            'd10' : self.liste_tier[9],
+            'tier_allie' : self.avgtier_ally,
+            'div_allie' : self.avgrank_ally,
+            'tier_ennemy' : self.avgtier_enemy,
+            'div_ennemy' : self.avgrank_enemy
+            })
+
+            requete_perso_bdd('''INSERT INTO public.matchs_autres(
+        match_id, vision1, vision2, vision3, vision4, vision5, vision6, vision7, vision8, vision9, vision10, pink1, pink2, pink3, pink4, pink5, pink6, pink7, pink8, pink9, pink10)
+        VALUES (:match_id, :v1, :v2, :v3, :v4, :v5, :v6, :v7, :v8, :v9, :v10, :p1, :p2, :p3, :p4, :p5, :p6, :p7, :p8, :p9, :p10);''',
+        {'match_id' : self.last_match,
+        'v1' : self.thisVisionListe[0],
+        'v2' : self.thisVisionListe[1],
+        'v3' : self.thisVisionListe[2],
+        'v4' : self.thisVisionListe[3],
+        'v5' : self.thisVisionListe[4],
+        'v6' : self.thisVisionListe[5],
+        'v7' : self.thisVisionListe[6],
+        'v8' : self.thisVisionListe[7],
+        'v9' : self.thisVisionListe[8],
+        'v10' : self.thisVisionListe[9],
+        'p1' : self.thisPinkListe[0],
+        'p2' : self.thisPinkListe[1],
+        'p3' : self.thisPinkListe[2],
+        'p4' : self.thisPinkListe[3],
+        'p5' : self.thisPinkListe[4],
+        'p6' : self.thisPinkListe[5],
+        'p7' : self.thisPinkListe[6],
+        'p8' : self.thisPinkListe[7],
+        'p9' : self.thisPinkListe[8],
+        'p10' : self.thisPinkListe[9],
+        }
+        )
+
 
     async def add_couronnes(self, points):
         """Ajoute les couronnes dans la base de données"""
