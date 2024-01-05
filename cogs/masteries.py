@@ -1,6 +1,6 @@
 import pandas as pd
 import aiohttp
-from fonctions.match import get_version, get_champ_list, get_champion_masteries
+from fonctions.match import get_version, get_champ_list, get_champion_masteries, emote_champ_discord
 from fonctions.gestion_bdd import lire_bdd_perso, sauvegarde_bdd
 from fonctions.channels_discord import get_embed
 from time import sleep
@@ -9,6 +9,32 @@ from interactions import SlashCommandChoice, SlashCommandOption, Extension, Slas
 from datetime import datetime
 from dateutil import tz
 import plotly_express as px
+from interactions.ext.paginators import Paginator
+
+async def champion_unique(riot_id, riot_tag):
+    df = lire_bdd_perso(f'''SELECT DISTINCT "champion", mode, datetime from matchs WHERE 
+                        joueur = (SELECT id_compte from tracker WHERE riot_id = :riot_id and riot_tagline = :riot_tag)''',
+                        index_col=None,
+                        params={'riot_id' : riot_id,
+                                'riot_tag' : riot_tag.upper(),
+                                'chest' : False}).T
+    return df
+
+async def champion_lastplay(riot_id, riot_tag):
+    
+    df = lire_bdd_perso(f'''SELECT "championId", "lastPlayTime" from data_masteries WHERE 
+                            id = (SELECT id_compte from tracker WHERE riot_id = :riot_id and riot_tagline = :riot_tag)''',
+                            index_col=None,
+                            params={'riot_id' : riot_id,
+                                    'riot_tag' : riot_tag.upper()}).T
+        
+    df['jour'] = df['lastPlayTime'].dt.day
+    df['mois'] = df['lastPlayTime'].dt.month
+    df['annee'] = df['lastPlayTime'].dt.year 
+        
+    return df
+
+
 
 class Masteries(Extension):
     def __init__(self, bot):
@@ -231,6 +257,115 @@ class Masteries(Extension):
         embed, file = get_embed(fig, 'masteries')
         
         await ctx.send(embeds=embed, files=file)
+        
+    @slash_command(name="lol_lastplay",
+                   description="Champions les moins joués",
+                   default_member_permissions=interactions.Permissions.MANAGE_GUILD,
+                   options=[
+                       SlashCommandOption(name="riot_id",
+                                          description="Nom du joueur",
+                                          type=interactions.OptionType.STRING, required=True),
+                       SlashCommandOption(name="riot_tag",
+                                          description="Tag",
+                                          type=interactions.OptionType.STRING, required=True)
+                       ]
+                   )
+    async def lastplay(self,
+                   ctx: SlashContext,
+                   riot_id: str,
+                   riot_tag:str):
 
+        await ctx.defer(ephemeral=False)
+        
+        riot_id = riot_id.lower().replace(' ', '')
+
+        df = await champion_lastplay(riot_id, riot_tag)
+        
+        df.sort_values('lastPlayTime', inplace=True)
+        
+        response = ''
+
+        response = ''
+        for index, data in df.iterrows():
+            response += f'**{emote_champ_discord.get(data["championId"].capitalize(), data["championId"].capitalize())}** : {data["jour"]}/{data["mois"]}/{data["annee"]} \n' 
+        
+        paginator = Paginator.create_from_string(self.bot, response, page_size=1500, timeout=60)
+
+        paginator.default_title = f'Dernière game jouée pour {riot_id} #{riot_tag}'
+        await paginator.send(ctx)
+        
+        df_champion_unique = await champion_unique(riot_id, riot_tag)
+        
+        def count_champion_per_year(df, response, response_count, mode, annee):
+            df['annee'] = df['datetime'].dt.year
+            df = df[df['annee'] == annee]
+            df = df[df['mode'] == mode]
+            liste_champ = ', '.join(df['champion'].unique().tolist())
+            response += f'{mode} ({annee}) :'
+            response += liste_champ + "\n"
+            
+            response_count += f'**{mode}** ({annee}) : {len(df["champion"].unique().tolist())} \n'
+            return response, response_count
+        
+        response = ''
+        response_count = 'Champions joués chaque année : \n'
+
+        for annee in [2023, 2024]:
+            for mode in ['RANKED', 'ARAM']:
+                response, response_count = count_champion_per_year(df_champion_unique, response, response_count, mode, annee )
+        
+        del df, df_champion_unique        
+        await ctx.send(response_count)
+        
+    @slash_command(name="lol_coffre",
+                   description="Champions où le coffre est disponible",
+                   default_member_permissions=interactions.Permissions.MANAGE_GUILD,
+                   options=[
+                       SlashCommandOption(name="riot_id",
+                                          description="Nom du joueur",
+                                          type=interactions.OptionType.STRING, required=True),
+                       SlashCommandOption(name="riot_tag",
+                                          description="Tag",
+                                          type=interactions.OptionType.STRING, required=True)
+                       ]
+                   )
+    async def coffre(self,
+                   ctx: SlashContext,
+                   riot_id: str,
+                   riot_tag:str):
+
+        await ctx.defer(ephemeral=False)
+
+        riot_id = riot_id.lower().replace(' ', '')
+
+        df = lire_bdd_perso(f'''SELECT "championId" from data_masteries WHERE 
+                            id = (SELECT id_compte from tracker WHERE riot_id = :riot_id and riot_tagline = :riot_tag)
+                            and "chestGranted" = :chest''',
+                            index_col=None,
+                            params={'riot_id' : riot_id,
+                                    'riot_tag' : riot_tag.upper(),
+                                    'chest' : False}).T
+        
+        
+        df.sort_values('championId', inplace=True)
+        
+        response = ''
+
+        response = ''
+        
+        espace = 0
+        for index, data in df.iterrows():
+            response += f'{emote_champ_discord.get(data["championId"].capitalize(), data["championId"].capitalize())}' 
+            
+            espace += 1
+            if (espace) % 10 == 0:
+                response += '\n'
+            else:
+                response += ' | '
+        
+        paginator = Paginator.create_from_string(self.bot, response, page_size=4000, timeout=60)
+
+        paginator.default_title = f'Coffres disponibles pour {riot_id} #{riot_tag}'
+        await paginator.send(ctx)
 def setup(bot):
     Masteries(bot)
