@@ -350,8 +350,8 @@ class Masteries(Extension):
         df.sort_values('championId', inplace=True)
         
         response = ''
-
-        response = ''
+        
+        nb_coffre = len(df['championId'])
         
         espace = 0
         for index, data in df.iterrows():
@@ -365,7 +365,9 @@ class Masteries(Extension):
         
         paginator = Paginator.create_from_string(self.bot, response, page_size=4000, timeout=60)
 
-        paginator.default_title = f'Coffres disponibles pour {riot_id} #{riot_tag}'
+        paginator.default_title = f'{nb_coffre} Coffres disponibles pour {riot_id} #{riot_tag} '
         await paginator.send(ctx)
+        
+        
 def setup(bot):
     Masteries(bot)
