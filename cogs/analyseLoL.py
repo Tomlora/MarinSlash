@@ -1792,7 +1792,7 @@ class analyseLoL(Extension):
         txt = ''
         embeds = []
         for champion, data in df_grp.iterrows():
-            txt += f'\n{emote_champ_discord[champion.capitalize()]} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["joueur"])} games) \n'
+            txt += f'\n{emote_champ_discord[champion.capitalize()]} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
         
         try:    
             embed1 = interactions.Embed(title=title, color=interactions.Color.random())
@@ -1812,7 +1812,7 @@ class analyseLoL(Extension):
             txt_role = ''
             for role, data in df_role.iterrows():
                 
-                txt_role += f'\n{role} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["joueur"])} games) \n'
+                txt_role += f'\n{role} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
             
 
                 embed4 = interactions.Embed(title=title, color=interactions.Color.random())
@@ -1830,7 +1830,7 @@ class analyseLoL(Extension):
             
             for tier, data in df_tier.iterrows():
                 
-                txt_tier += f'\n{emote_rank_discord[tier]} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["joueur"])} games) \n'
+                txt_tier += f'\n{emote_rank_discord[tier]} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
                 
             embed2 = interactions.Embed(title=title, color=interactions.Color.random())
             embed2.add_field(name=f'Tier', value=txt_tier, inline=False)
@@ -1845,7 +1845,7 @@ class analyseLoL(Extension):
             txt_rank = ''
             for (tier, rank), data in df_rank.iterrows():
                     
-                txt_rank += f'\n{emote_rank_discord[tier]} {rank} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["joueur"])} games) \n'
+                txt_rank += f'\n{emote_rank_discord[tier]} {rank} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
                     
             embed3 = interactions.Embed(title=title, color=interactions.Color.random())
             embed3.add_field(name=f'Tier/Rank', value=txt_rank, inline=False)

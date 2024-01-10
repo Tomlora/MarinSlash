@@ -771,7 +771,7 @@ class matchlol():
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
         self.match_detail_challenges = self.match_detail_participants['challenges']
         self.thisPosition = self.match_detail_participants['teamPosition']
-        self.season = 13  # TODO a modifier quand changement de saison
+        self.season = 14  # TODO a modifier quand changement de saison
 
         if (str(self.thisPosition) == "MIDDLE"):
             self.thisPosition = "MID"
@@ -1355,8 +1355,10 @@ class matchlol():
         else:
             self.mvp = 0
             self.badges = ''
-            
-
+            self.avgtier_ally = ''
+            self.avgrank_ally = ''
+            self.avgtier_enemy = ''
+            self.avgrank_enemy = ''
 
         stats_mode = "RANKED_FLEX_SR" if self.thisQ == 'FLEX' else "RANKED_SOLO_5x5"
         try:
@@ -1463,7 +1465,7 @@ class matchlol():
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
         self.summonerName = self.match_detail_participants['summonerName'].lower().replace(' ', '')
         
-        self.season = 13  # TODO a modifier quand changement de saison
+        self.season = 14  # TODO a modifier quand changement de saison
 
 
         self.timestamp = str(self.match_detail['info']['gameCreation'])[
@@ -2470,6 +2472,13 @@ class matchlol():
                     serie_wins = serie_wins + 1
                 else:
                     serie_wins = 0
+                
+                if serie_wins > 1:    
+                    bonus_lp_serie = serie_wins * 2
+                else:
+                    bonus_lp_serie = 0 
+                    
+                lp = lp + bonus_lp_serie  
 
                 # rank
 
@@ -2489,7 +2498,7 @@ class matchlol():
                 for rank, lp_threshold in ranks:
                     if lp < lp_threshold:
                         break
-
+                    
                 # SIMULATION CHANGEMENT ELO
 
                 if games > 5 and self.AFKTeam == 0:  # si plus de 5 games et pas d'afk
@@ -2705,6 +2714,14 @@ class matchlol():
 
             else:
                 scoring = np.where(array_scoring_trie == liste[i])[0][0] + 1
+                if self.thisRiotIdListe[i].lower().replace(' ', '') == self.riot_id:
+                    requete_perso_bdd('''UPDATE matchs
+                                      SET mvp = :mvp 
+                                      WHERE match_id = :match_id
+                                      AND joueur = :joueur''',
+                                      {'mvp' : int(scoring),
+                                       'match_id' : self.last_match,
+                                       'joueur' : self.id_compte})
                 
             color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (67,89,232), 10 : (220,20,60)}
 

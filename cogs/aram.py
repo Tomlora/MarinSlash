@@ -64,12 +64,21 @@ class Aram(Extension):
 
 
     @aram.subcommand("list",
-                   sub_cmd_description="classement en aram")
-    async def ladder_aram(self, ctx: SlashContext):
+                   sub_cmd_description="classement en aram",
+                     options=[
+                       SlashCommandOption(
+                           name='season',
+                           description="Saison LoL",
+                           type=interactions.OptionType.INTEGER,
+                           required=False)])
+    async def ladder_aram(self,
+                          ctx: SlashContext,
+                          season : int = saison,
+                          ):
 
         suivi_aram = lire_bdd_perso(
-            f'''SELECT ranked_aram_s{saison}.*, tracker.id_compte, tracker.riot_id from ranked_aram_s{saison}
-            INNER JOIN tracker on tracker.id_compte = ranked_aram_s{saison}.index
+            f'''SELECT ranked_aram_s{season}.*, tracker.id_compte, tracker.riot_id from ranked_aram_s{season}
+            INNER JOIN tracker on tracker.id_compte = ranked_aram_s{season}.index
             where games != 0''',
             index_col='id_compte',
             format='dict')
@@ -197,7 +206,10 @@ class Aram(Extension):
 
         embed3.add_field(name="Malus elo", value=bonus_elo, inline=False)
         
-        embeds = [embed, embed2, embed3]
+        embed4 = interactions.Embed(
+            title='Bonus (Autres)', description='Une série de victoire ajoute 2 lp multiplié par la série en cours', color=interactions.Color.random())
+        
+        embeds = [embed, embed2, embed3, embed4]
 
         paginator = Paginator.create_from_embeds(
             self.bot,

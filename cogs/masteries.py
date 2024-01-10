@@ -260,7 +260,7 @@ class Masteries(Extension):
         
     @slash_command(name="lol_lastplay",
                    description="Champions les moins joués",
-                   default_member_permissions=interactions.Permissions.MANAGE_GUILD,
+                #    default_member_permissions=interactions.Permissions.MANAGE_GUILD,
                    options=[
                        SlashCommandOption(name="riot_id",
                                           description="Nom du joueur",
@@ -319,7 +319,7 @@ class Masteries(Extension):
         
     @slash_command(name="lol_coffre",
                    description="Champions où le coffre est disponible",
-                   default_member_permissions=interactions.Permissions.MANAGE_GUILD,
+                #    default_member_permissions=interactions.Permissions.MANAGE_GUILD,
                    options=[
                        SlashCommandOption(name="riot_id",
                                           description="Nom du joueur",
