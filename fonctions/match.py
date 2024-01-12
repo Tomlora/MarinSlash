@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import warnings
-from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd, lire_bdd_perso
+from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd, lire_bdd_perso, sauvegarde_bdd
 from fonctions.params import saison
 from fonctions.channels_discord import mention
 import numpy as np
@@ -645,6 +645,26 @@ async def getLiveGame(session : aiohttp.ClientSession, riot_id, riot_tag, region
         response = await session_match_detail.json()  # detail du match sélectionné
         
         return response
+    
+    
+def load_timeline(timeline):
+    df_timeline = pd.DataFrame(
+        timeline['info']['frames'][1]['participantFrames'])
+    df_timeline = df_timeline.transpose()
+    df_timeline['timestamp'] = 0
+
+    minute = len(timeline['info']['frames']) - 1
+
+    for i in range(1, minute):
+        df_timeline2 = pd.DataFrame(
+            timeline['info']['frames'][i]['participantFrames'])
+        df_timeline2 = df_timeline2.transpose()
+        df_timeline2['timestamp'] = i
+        df_timeline = df_timeline.append(df_timeline2)
+
+    df_timeline['riot_id'] = df_timeline['participantId']
+            
+    return df_timeline, minute
 
 class matchlol():
 
@@ -714,7 +734,9 @@ class matchlol():
         if self.me is None:
             self.me = await get_summoner_by_riot_id(self.session, self.riot_id, self.riot_tag)
             
-        self.info_account = await get_summonerinfo_by_puuid(self.me['puuid'], self.session)
+            
+        self.puuid = self.me['puuid']    
+        self.info_account = await get_summonerinfo_by_puuid(self.puuid, self.session)
         # on recherche l'id de la game.
         if self.identifiant_game is None:
             self.my_matches = await get_list_matchs_with_me(self.session, self.me, self.params_my_match)
@@ -765,7 +787,7 @@ class matchlol():
         except KeyError: # changement de pseudo ? On va faire avec le puuid
             
             self.dic = {(self.match_detail['metadata']['participants'][i]) : i for i in range(self.nb_joueur)}
-            self.thisId = self.dic[self.me['puuid']]
+            self.thisId = self.dic[self.puuid]
 
 
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
@@ -1326,6 +1348,14 @@ class matchlol():
 
         # stats mobalytics
 
+        if self.thisQ == 'RANKED':
+            self.data_timeline = await get_match_timeline(self.session, self.last_match)
+            self.index_timeline = self.data_timeline['metadata']['participants'].index(self.puuid) + 1
+        else:
+            self.data_timeline = ''  
+            self.index_timeline = 0
+            
+            
         try:
             self.data_mobalytics, self.data_mobalytics_complete = await get_mobalytics(self.summonerName, self.session, int(self.last_match[5:]))
             self.moba_ok = True
@@ -1459,7 +1489,7 @@ class matchlol():
         except KeyError: # changement de pseudo ? On va faire avec le puuid
             
             self.dic = {(self.match_detail['metadata']['participants'][i]) : i for i in range(self.nb_joueur)}
-            self.thisId = self.dic[self.me['puuid']]
+            self.thisId = self.dic[self.puuid]
 
 
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
@@ -1562,7 +1592,7 @@ class matchlol():
         self.thisItems = [self.item[f'item{i}'] for i in range(6)]
 
 
-        self.info_account = await get_summonerinfo_by_puuid(self.me['puuid'], self.session)
+        self.info_account = await get_summonerinfo_by_puuid(self.puuid, self.session)
 
         # item6 = ward. Pas utile
 
@@ -1764,6 +1794,13 @@ class matchlol():
         
         self.ecart_gold_noformat = 0
         self.ecart_gold_permin = 0
+        
+        if self.thisQ == 'RANKED':
+            self.data_timeline = await get_match_timeline(self.session, self.last_match)
+            self.index_timeline = self.data_timeline['metadata']['participants'].index(self.puuid) + 1
+        else:
+            self.data_timeline = ''  
+            self.index_timeline = 0
 
 
         try:
@@ -1944,10 +1981,11 @@ class matchlol():
             requete_perso_bdd('''INSERT INTO public.matchs_joueur(
             match_id, allie1, allie2, allie3, allie4, allie5, ennemi1, ennemi2, ennemi3, ennemi4, ennemi5,
         tier1, div1, tier2, div2, tier3, div3, tier4, div4, tier5, div5, tier6, div6, tier7, div7, tier8, div8, tier9, div9, tier10, div10,
-        tierallie_avg, divallie_avg, tierennemy_avg, divennemy_avg)
+        tierallie_avg, divallie_avg, tierennemy_avg, divennemy_avg, champ1, champ2, champ3, champ4, champ5, champ6, champ7, champ8, champ9, champ10)
             VALUES (:match_id, :allie1, :allie2, :allie3, :allie4, :allie5, :ennemi1, :ennemi2, :ennemi3, :ennemi4, :ennemi5,
         :t1, :d1, :t2, :d2, :t3, :d3, :t4, :d4, :t5, :d5, :t6, :d6, :t7, :d7, :t8, :d8, :t9, :d9, :t10, :d10,
-        :tier_allie, :div_allie, :tier_ennemy, :div_ennemy);''',
+        :tier_allie, :div_allie, :tier_ennemy, :div_ennemy,
+        :c1, :c2, :c3, :c4, :c5, :c6, :c7, :c8, :c9, :c10);''',
         {'match_id' : self.last_match,
                 'allie1' : f'{self.thisRiotIdListe[0]}#{self.thisRiotTagListe[0]}',
             'allie2' : f'{self.thisRiotIdListe[1]}#{self.thisRiotTagListe[1]}',
@@ -1982,7 +2020,17 @@ class matchlol():
             'tier_allie' : self.avgtier_ally,
             'div_allie' : self.avgrank_ally,
             'tier_ennemy' : self.avgtier_enemy,
-            'div_ennemy' : self.avgrank_enemy
+            'div_ennemy' : self.avgrank_enemy,
+            'c1' : self.thisChampNameListe[0],
+            'c2' : self.thisChampNameListe[1],
+            'c3' : self.thisChampNameListe[2],
+            'c4' : self.thisChampNameListe[3],
+            'c5' : self.thisChampNameListe[4],
+            'c6' : self.thisChampNameListe[5],
+            'c7' : self.thisChampNameListe[6],
+            'c8' : self.thisChampNameListe[7],
+            'c9' : self.thisChampNameListe[8],
+            'c10' : self.thisChampNameListe[9],
             })
 
             requete_perso_bdd('''INSERT INTO public.matchs_autres(
@@ -2011,6 +2059,87 @@ class matchlol():
         'p10' : self.thisPinkListe[9],
         }
         )
+            
+    
+    async def save_timeline(self):
+        
+        def unpack_dict_championStats(row):
+            return pd.Series(row['championStats'])
+
+        def unpack_dict_damageStats(row):
+            return pd.Series(row['damageStats'])
+        
+        df_timeline_load, self.minute = load_timeline(self.data_timeline)  
+        
+        self.df_timeline_joueur = df_timeline_load[df_timeline_load['riot_id'] == self.index_timeline]  
+        
+        self.df_timeline_position = self.df_timeline_joueur[['position', 'timestamp', 'totalGold', 'xp', 'jungleMinionsKilled', 'currentGold', 'level']]
+
+        self.df_timeline_position['riot_id'] = self.id_compte
+        self.df_timeline_position['match_id'] = self.last_match
+
+        self.df_timeline_position['position_x'] = self.df_timeline_position['position'].apply(lambda x : x['x'])
+        self.df_timeline_position['position_y'] = self.df_timeline_position['position'].apply(lambda x : x['y'])
+        self.df_timeline_position.drop('position', axis=1, inplace=True)
+
+        self.df_timeline_stats = self.df_timeline_joueur.apply(unpack_dict_championStats, axis=1)
+        self.df_timeline_dmg = self.df_timeline_joueur.apply(unpack_dict_damageStats, axis=1)
+        
+        self.df_timeline_position = pd.concat([self.df_timeline_position,
+                                               self.df_timeline_stats,
+                                               self.df_timeline_dmg], axis=1)
+        
+        sauvegarde_bdd(self.df_timeline_position,
+                       'data_timeline',
+                        methode_save='append',
+                        index=False)   
+        
+
+    async def save_timeline_event(self):
+        self.df_events = pd.DataFrame(self.data_timeline['info']['frames'][1]['events'])
+
+        self.minute = len(self.data_timeline['info']['frames']) - 1
+
+        for i in range(1, self.minute):
+            df_timeline2 = pd.DataFrame(
+                self.data_timeline['info']['frames'][i]['events'])
+            self.df_events = self.df_events.append(df_timeline2)
+
+        self.df_events['timestamp'] = self.df_events['timestamp'] / 60000 # arrondir à l'inférieur ou au supérieur ?
+            
+        self.df_events['wardType'] = self.df_events['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
+                                                                'UNDEFINED': 'Balise Zombie',
+                                                                'CONTROL_WARD': 'Pink',
+                                                                'SIGHT_WARD': 'Ward support',
+                                                                'BLUE_TRINKET': 'Trinket bleu'
+                                                                })
+
+
+        self.df_events_joueur = self.df_events[(self.df_events['participantId'] == self.index_timeline) |
+                                        (self.df_events['creatorId'] == self.index_timeline) |
+                                        (self.df_events['killerId'] == self.index_timeline) |
+                                        (self.df_events['victimId'] == self.index_timeline) |
+                                        self.df_events['assistingParticipantIds'].apply(lambda x: isinstance(x, list) and self.index_timeline in x)]
+
+        self.df_events_joueur['riot_id'] = self.id_compte
+        self.df_events_joueur['match_id'] = self.last_match
+
+        self.df_events_joueur['position_x'] = self.df_events_joueur['position'].apply(lambda x : x['x'] if isinstance(x, dict) else 0)
+        self.df_events_joueur['position_y'] = self.df_events_joueur['position'].apply(lambda x : x['y'] if isinstance(x, dict) else 0)
+        self.df_events_joueur.drop('position', axis=1, inplace=True)
+
+        self.df_events_joueur.drop(['victimDamageDealt', 'victimDamageReceived', 'participantId', 'creatorId'], axis=1, inplace=True)
+        self.df_events_joueur.reset_index(inplace=True, drop=True)    
+        
+        # on simplifie quelques data
+        
+        self.df_events_joueur.loc[(self.df_events_joueur['type'] == 'CHAMPION_KILL')
+                                  & (self.df_events_joueur['victimId'] == self.index_timeline), 'type'] = 'DEATHS'
+        
+        sauvegarde_bdd(self.df_events_joueur,
+                       'data_timeline_events',
+                        methode_save='append',
+                        index=False)  
 
 
     async def add_couronnes(self, points):

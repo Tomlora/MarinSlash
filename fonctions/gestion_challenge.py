@@ -308,7 +308,7 @@ class challengeslol():
                         txt += f'\n:sparkles: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]} | **{position}**ème] : \n> **{value}** (+{dif_value}) :arrow_right: **{next_palier}** pour :up:'
         
         
-        if not self.data_evolution.empty:
+        if not self.data_evolution.empty and len(embed) <= 5000:
             for joueur, data in self.data_evolution.head(5).iterrows():
                 if txt_evolution.count(data['name']) == 0: # on ne veut pas de doublons
                     txt_evolution, chunk = check_chunk(txt_evolution, chunk, chunk_size)
@@ -317,7 +317,7 @@ class challengeslol():
                     txt_evolution += f'\n:comet: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]}] : \n> **{value}** (+{dif_value} / **+{data["evolution"]:.2f}%**)'
         
         chunk = 1      
-        if not self.data_new_percentile.empty:
+        if not self.data_new_percentile.empty and len(embed) <= 5000:
             for joueur, data in self.data_new_percentile.head(5).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
                 percentile = data['percentile'] * 100
@@ -325,7 +325,7 @@ class challengeslol():
                 txt_24h += f'\n:zap: **{data["name"]}** ({data["shortDescription"]}) [{emote_rank_discord[data["level"]]}] : \n> **{percentile:.2f}%** (+{dif_percentile:.2f}%) top'
                 
       
-        if not self.data_new_position.empty:
+        if not self.data_new_position.empty and len(embed) <= 5500:
             for joueur, data in self.data_new_position.head(self.nb_challenges).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
                 position = format_nombre(data['position'])
@@ -338,7 +338,7 @@ class challengeslol():
                 
         chunk = 1      
         if not self.data_new_level.empty:
-            for joueur, data in self.data_new_level.iterrows():
+            for joueur, data in self.data_new_level.head(5).iterrows():
                 txt_level_up, chunk = check_chunk(txt_level_up, chunk, chunk_size)
                 next_palier = format_nombre(data['diff_vers_palier_suivant'])
                 value = format_nombre(data['value'])

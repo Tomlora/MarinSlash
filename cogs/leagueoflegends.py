@@ -18,6 +18,7 @@ from dateutil import tz
 from interactions.ext.paginators import Paginator
 import traceback
 import numpy as np
+import psycopg2.errors
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -185,18 +186,22 @@ class LeagueofLegends(Extension):
 
         if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ != 'ARENA 2v2' :
             await match_info.save_data()
+            
+            if match_info.thisQ == 'RANKED':
+                await match_info.save_timeline()
+                await match_info.save_timeline_event()
 
         if match_info.thisQId == 900:  # urf
             return {}, 'URF', 0,
 
 
-        if match_info.thisQId == 1300:  # urf
+        elif match_info.thisQId == 1300:  # urf
             return {}, 'NexusBlitz', 0,
         
-        if match_info.thisQId == 840:
+        elif match_info.thisQId == 840:
             return {}, 'Bot', 0,   # bot game
 
-        if match_info.thisTime <= 3.0:
+        elif match_info.thisTime <= 3.0:
             return {}, 'Remake', 0,
 
 
@@ -673,7 +678,10 @@ class LeagueofLegends(Extension):
         
         
         if df_banned.empty:
-            id_compte = lire_bdd_perso(f'''SELECT * from tracker where riot_id = '{riot_id.replace(' ', '')}' and riot_tagline = '{riot_tag}' ''').loc['id_compte'].values[0]
+            try:
+                id_compte = lire_bdd_perso(f'''SELECT * from tracker where riot_id = '{riot_id.replace(' ', '')}' and riot_tagline = '{riot_tag}' ''').loc['id_compte'].values[0]
+            except IndexError:
+                return await ctx.send("Ce compte n'existe pas ou n'est pas enregistré")
             embed, mode_de_jeu, resume = await self.printInfo(id_compte,
                                                             riot_id,
                                                             riot_tag,
@@ -722,6 +730,7 @@ class LeagueofLegends(Extension):
             chal = challengeslol(id_compte, me['puuid'], session, nb_challenges=nbchallenges)
             await chal.preparation_data()
             await chal.comparaison()
+
 
             embed = await chal.embedding_discord(embed)
 
@@ -886,7 +895,7 @@ class LeagueofLegends(Extension):
                      riot_tag):
 
         discord_id = int(ctx.author.id)
-        df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''')
+        df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col=None)
         
         try:
             if verif_module('league_ranked', int(ctx.guild.id)) and df_banned.empty:
@@ -896,7 +905,7 @@ class LeagueofLegends(Extension):
                 puuid = me['puuid']
                 info_account = await get_summonerinfo_by_puuid(puuid, session)
                 requete_perso_bdd(f'''
-                                INSERT INTO tracker(index, id, discord, server_id, puuid, riot_id, riot_tag, id_account) VALUES (:riot_id, :id, :discord, :guilde, :puuid, :riot_id, :riot_tagline, :id_league); 
+                                INSERT INTO tracker(index, id, discord, server_id, puuid, riot_id, riot_tagline, id_league) VALUES (:riot_id, :id, :discord, :guilde, :puuid, :riot_id, :riot_tagline, :id_league); 
                                 ''',
                                   {'riot_id' : riot_id,
                                     'id': await getId_with_puuid(puuid, session),
@@ -904,22 +913,24 @@ class LeagueofLegends(Extension):
                                    'guilde': int(ctx.guild.id),
                                    'puuid': puuid,
                                    'riot_id' : riot_id,
-                                   'riot_tag' : riot_tag,
+                                   'riot_tagline' : riot_tag,
                                    'id_league' : info_account['id']})
                 
                 requete_perso_bdd(f'''
                                 INSERT INTO suivi_s{saison}(
                                 index, wins, losses, "LP", tier, rank, serie, wins_jour, losses_jour, "LP_jour", tier_jour, rank_jour)
-                                VALUES ( (SELECT id_compte from tracker where riot_id = '{riot_id}' ), 0, 0, 0, 'Non-classe', 0, 0, 0, 0, 0, 'Non-classe', 0);
+                                VALUES ( (SELECT id_compte from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ), 0, 0, 0, 'Non-classe', 0, 0, 0, 0, 0, 'Non-classe', 0);
                                                        
                                 INSERT INTO ranked_aram_s{saison}(
                                 index, wins, losses, lp, games, k, d, a, activation, rank, serie, wins_jour, losses_jour, lp_jour, rank_jour)
-                                VALUES ( (SELECT id_compte from tracker where riot_id = '{riot_id}'), 0, 0, 0, 0, 0, 0, 0, True, 'IRON', 0, 0, 0, 0, 'IRON'); ''')
+                                VALUES ( (SELECT id_compte from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}'), 0, 0, 0, 0, 0, 0, 0, True, 'IRON', 0, 0, 0, 0, 'IRON'); ''')
 
                 await ctx.send(f"{riot_id} #{riot_tag} a été ajouté avec succès au live-feed!")
                 await session.close()
             else:
                 await ctx.send("Module désactivé pour ce serveur ou tu n'as pas l'autorisation")
+        except psycopg2.errors.CardinalityViolation:
+            await ctx.send('Ce compte est déjà inscrit')
         except Exception:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
@@ -1304,7 +1315,7 @@ class LeagueofLegends(Extension):
 
                 if totalgames > 0:  # s'il n'y a pas de game, on ne va pas afficher le récap
                     await channel_tracklol.send(embeds=embed)
-                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites \n **Fin de saison <t:1704844800:R>** ')
+                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites ')
 
     @Task.create(TimeTrigger(hour=4))
     async def lolsuivi(self):
