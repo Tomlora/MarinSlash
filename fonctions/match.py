@@ -415,7 +415,8 @@ async def get_spectator(session, id):
         if session_spectator.status == 404:
             return None
         return await session_spectator.json()
-    
+
+
 async def get_champion_masteries(session, puuid):
     async with session.get(f'https://{my_region}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}', params={'api_key': api_key_lol}) as data_masteries:    
         return await data_masteries.json()
@@ -2105,15 +2106,6 @@ class matchlol():
                 self.data_timeline['info']['frames'][i]['events'])
             self.df_events = self.df_events.append(df_timeline2)
 
-        self.df_events['timestamp'] = self.df_events['timestamp'] / 60000 # arrondir à l'inférieur ou au supérieur ?
-            
-        self.df_events['wardType'] = self.df_events['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
-                                                                'UNDEFINED': 'Balise Zombie',
-                                                                'CONTROL_WARD': 'Pink',
-                                                                'SIGHT_WARD': 'Ward support',
-                                                                'BLUE_TRINKET': 'Trinket bleu'
-                                                                })
-
 
         self.df_events_joueur = self.df_events[(self.df_events['participantId'] == self.index_timeline) |
                                         (self.df_events['creatorId'] == self.index_timeline) |
@@ -2129,12 +2121,27 @@ class matchlol():
         self.df_events_joueur.drop('position', axis=1, inplace=True)
 
         self.df_events_joueur.drop(['victimDamageDealt', 'victimDamageReceived', 'participantId', 'creatorId'], axis=1, inplace=True)
+        
+        if 'actualStartTime' in self.df_events_joueur.columns: # cette colonne n'est pas toujours présente
+            self.df_events_joueur.drop(['actualStartTime'], axis=1, inplace=True)
+
+        if 'name' in self.df_events_joueur.columns: # cette colonne n'est pas toujours présente
+            self.df_events_joueur.drop(['name'], axis=1, inplace=True)
         self.df_events_joueur.reset_index(inplace=True, drop=True)    
         
         # on simplifie quelques data
         
         self.df_events_joueur.loc[(self.df_events_joueur['type'] == 'CHAMPION_KILL')
                                   & (self.df_events_joueur['victimId'] == self.index_timeline), 'type'] = 'DEATHS'
+        
+        self.df_events_joueur['timestamp'] = np.round(self.df_events_joueur['timestamp'] / 60000,2) 
+            
+        self.df_events_joueur['wardType'] = self.df_events_joueur['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
+                                                                'UNDEFINED': 'Balise Zombie',
+                                                                'CONTROL_WARD': 'Pink',
+                                                                'SIGHT_WARD': 'Ward support',
+                                                                'BLUE_TRINKET': 'Trinket bleu'
+                                                                })
         
         sauvegarde_bdd(self.df_events_joueur,
                        'data_timeline_events',

@@ -658,6 +658,10 @@ class LeagueofLegends(Extension):
                        SlashCommandOption(name='identifiant_game',
                                           description="A ne pas utiliser",
                                           type=interactions.OptionType.STRING,
+                                          required=False),
+                       SlashCommandOption(name='ce_channel',
+                                          description='Poster dans ce channel ?',
+                                          type=interactions.OptionType.BOOLEAN,
                                           required=False)])
     async def game(self,
                    ctx: SlashContext,
@@ -666,11 +670,14 @@ class LeagueofLegends(Extension):
                    numerogame: int,
                    sauvegarder: bool = False,
                    identifiant_game=None,
-                   affichage=1):
+                   affichage=1,
+                   ce_channel=False):
 
         await ctx.defer(ephemeral=False)
-
         
+        server_id = int(ctx.guild_id)
+        discord_server_id = chan_discord(int(server_id))
+
         discord_id = int(ctx.author.id)
         riot_id = riot_id.lower()
         riot_tag = riot_tag.upper()
@@ -691,9 +698,24 @@ class LeagueofLegends(Extension):
                                                             guild_id=int(
                                                                 ctx.guild_id),
                                                             affichage=affichage)
+            
+            if not ce_channel:
+                if mode_de_jeu in ['RANKED', 'FLEX']:
+                    tracklol = discord_server_id.tracklol
+                
+                elif mode_de_jeu == 'ARENA 2v2':
+                    tracklol = discord_server_id.tft
+                else:
+                    tracklol = discord_server_id.lol_others
+
+                channel_tracklol = await self.bot.fetch_channel(tracklol)
+            else:
+                channel_tracklol = ctx
+
 
             if embed != {}:
-                await ctx.send(embeds=embed, files=resume)
+                await ctx.delete()
+                await channel_tracklol.send(embeds=embed, files=resume)
                 os.remove('resume.png')
         else:
             await ctx.send("Tu n'as pas l'autorisation d'utiliser cette commande.")
@@ -1388,9 +1410,6 @@ class LeagueofLegends(Extension):
     async def closer(self, ctx):
         await ctx.send('https://clips.twitch.tv/EmpathicClumsyYogurtKippa-lmcFoGXm1U5Jx2bv')
 
-    @slash_command(name="upset", description="Meilleur joueur de LoL")
-    async def upset(self, ctx):
-        await ctx.send('https://clips.twitch.tv/CuriousBenevolentMageHotPokket-8M0TX_zTaGW7P2g7')
 
     @slash_command(name='recap_journalier',
                    description='Mon recap sur les 24 dernières heures',

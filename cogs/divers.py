@@ -162,6 +162,7 @@ class Divers(Extension):
 
     @slash_command(name='spank',
                                     description='spank un membre',
+                                    default_member_permissions=interactions.Permissions.MANAGE_GUILD,
                                     options=[
                                         SlashCommandOption(
                                             name='member',
@@ -211,6 +212,7 @@ class Divers(Extension):
 
     @slash_command(name="mute",
                                     description="mute someone for x secondes",
+                                    default_member_permissions=interactions.Permissions.MUTE_MEMBERS,
                                     options=[
                                         SlashCommandOption(
                                             name="member",
@@ -235,20 +237,20 @@ class Divers(Extension):
                         seconds: int,
                         reason: str = "Aucune raison n'a été renseignée"):
 
-        if await ctx.author.has_permission(interactions.Permissions.MUTE_MEMBERS):
-            muted_role = await self.get_muted_role(ctx.guild)
-            self.database_handler.add_tempmute(int(member.id), int(ctx.guild_id),
-                                               datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds))
-            await member.add_role(role=muted_role, guild_id=ctx.guild_id)
 
-            if reason == "Aucune raison n'a été renseignée":
-                description = f"{member.mention} a été muté pour {seconds} secondes ! 🎙"
-            else:
-                description = f"{member.mention} a été muté pour {seconds} secondes ! 🎙"
-            embed = interactions.Embed(description=description,
+        muted_role = await self.get_muted_role(ctx.guild)
+        self.database_handler.add_tempmute(int(member.id), int(ctx.guild_id),
+                                               datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds))
+        await member.add_role(role=muted_role, guild_id=ctx.guild_id)
+
+        if reason == "Aucune raison n'a été renseignée":
+            description = f"{member.mention} a été muté pour {seconds} secondes ! 🎙"
+        else:
+            description = f"{member.mention} a été muté pour {seconds} secondes ! 🎙"
+        embed = interactions.Embed(description=description,
                                        color=interactions.Color.random())
 
-            await ctx.send(embeds=embed)
+        await ctx.send(embeds=embed)
 
     @slash_command(name='my_cool_modal')
     async def my_cool_modal(self, ctx):
@@ -425,6 +427,7 @@ class Divers(Extension):
             
     @slash_command(name="ban_list",
                                     description="Gère la ban list",
+                                    default_member_permissions=interactions.Permissions.MANAGE_GUILD,
                                     options=[
                                         SlashCommandOption(
                                             name="utilisateur",
@@ -442,23 +445,21 @@ class Divers(Extension):
                         action:bool):
         
 
-        if int(ctx.author.id) == 298418038460514314 or ctx.author.has_permission(interactions.Permissions.ADMINISTRATOR):
-            discord_id = int(utilisateur.id)
-            row_affected = requete_perso_bdd('UPDATE tracker SET banned = :action where discord = :discord_id',
+
+        discord_id = int(utilisateur.id)
+        row_affected = requete_perso_bdd('UPDATE tracker SET banned = :action where discord = :discord_id',
                                              dict_params={'action' : action, 'discord_id' : str(discord_id)},
                                              get_row_affected=True) 
             
-            if row_affected > 0:
-                await ctx.send(f'Modification effectuée pour {utilisateur.mention}')
-                if action:
-                    await utilisateur.send('Tu as été banni des fonctionnalités de Marin.')
-                else:
-                    await utilisateur.send('Tu as été débanni des fonctionnalités de Marin.')
+        if row_affected > 0:
+            await ctx.send(f'Modification effectuée pour {utilisateur.mention}')
+            if action:
+                await utilisateur.send('Tu as été banni des fonctionnalités de Marin.')
             else:
-                await ctx.send('Pas de compte associé')
-            
+                await utilisateur.send('Tu as été débanni des fonctionnalités de Marin.')
         else:
-            await ctx.send("Tu n'as pas l'autorisation")           
+            await ctx.send('Pas de compte associé')
+                    
             
         
                     
