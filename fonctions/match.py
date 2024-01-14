@@ -12,6 +12,7 @@ from io import BytesIO
 import aiohttp
 import asyncio
 import pickle
+import sqlalchemy.exc
 
 # TODO : rajouter temps en vie
 
@@ -44,6 +45,10 @@ def label_rank(x):
                     'I': 4}
     return dict_chg_rank[x]
 
+
+def get_id_account_bdd(riot_id, riot_tag):
+    id_acc = lire_bdd_perso(f'''SELECT * from tracker where riot_id = '{riot_id.replace(' ', '')}' and riot_tagline = '{riot_tag}' ''').loc['id_compte'].values[0]
+    return id_acc
 
 
 label_ward = {'YELLOW TRINKET': 1,
@@ -1866,117 +1871,123 @@ class matchlol():
         else:
             self.kda_save = round((int(self.thisKills) + int(self.thisAssists)) / (int(self.thisDeaths) + 1), 2)
 
-        requete_perso_bdd(
-            '''INSERT INTO public.matchs(
-        match_id, joueur, role, champion, kills, assists, deaths, double, triple, quadra, penta,
-        victoire, team_kills, team_deaths, "time", dmg, dmg_ad, dmg_ap, dmg_true, vision_score, cs, cs_jungle, vision_pink, vision_wards, vision_wards_killed,
-        gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
-        baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
-        item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
-        early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
-        ban1, ban2, ban3, ban4, ban5, ban_adv1, ban_adv2, ban_adv3, ban_adv4, ban_adv5)
-        VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
-        :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
-        :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
-        :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
-        :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
-        :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
-        :ban1, :ban2, :ban3, :ban4, :ban5, :ban_adv1, :ban_adv2, :ban_adv3, :ban_adv4, :ban_adv5);
-        UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur''',
-            {
-                'match_id': self.last_match,
-                'joueur': self.id_compte,
-                'role': self.thisPosition,
-                'champion': self.thisChampName,
-                'kills': self.thisKills,
-                'assists': self.thisAssists,
-                'deaths': self.thisDeaths,
-                'double': self.thisDouble,
-                'triple': self.thisTriple,
-                'quadra': self.thisQuadra,
-                'penta': self.thisPenta,
-                'result': self.thisWinBool,
-                'team_kills': self.thisTeamKills,
-                'team_deaths': self.thisTeamKillsOp,
-                'time': self.thisTime,
-                'dmg': self.thisDamageNoFormat,
-                'dmg_ad': self.thisDamageADNoFormat,
-                'dmg_ap': self.thisDamageAPNoFormat,
-                'dmg_true': self.thisDamageTrueNoFormat,
-                'vision_score': self.thisVision,
-                'cs': self.thisMinion,
-                'cs_jungle': self.thisJungleMonsterKilled,
-                'vision_pink': self.thisPink,
-                'vision_wards': self.thisWards,
-                'vision_wards_killed': self.thisWardsKilled,
-                'gold': self.thisGoldNoFormat,
-                'cs_min': self.thisMinionPerMin,
-                'vision_min': self.thisVisionPerMin,
-                'gold_min': self.thisGoldPerMinute,
-                'dmg_min': self.thisDamagePerMinute,
-                'solokills': self.thisSoloKills,
-                'dmg_reduit': self.thisDamageSelfMitigated,
-                'heal_total': self.thisTotalHealed,
-                'heal_allies': self.thisTotalOnTeammates,
-                'serie_kills': self.thisKillingSprees,
-                'cs_dix_min': self.thisCSafter10min,
-                'jgl_dix_min': self.thisJUNGLEafter10min,
-                'baron': self.thisBaronTeam,
-                'drake': self.thisDragonTeam,
-                'team': self.team,
-                'herald': self.thisHeraldTeam,
-                'cs_max_avantage': self.thisCSAdvantageOnLane,
-                'level_max_avantage': self.thisLevelAdvantage,
-                'afk': self.AFKTeamBool,
-                'vision_avantage': self.thisVisionAdvantage,
-                'early_drake': self.earliestDrake,
-                'temps_dead': self.thisTimeSpendDead,
-                'item1': self.thisItems[0],
-                'item2': self.thisItems[1],
-                'item3': self.thisItems[2],
-                'item4': self.thisItems[3],
-                'item5': self.thisItems[4],
-                'item6': self.thisItems[5],
-                'kp': self.thisKP,
-                'kda': self.kda_save,
-                'mode': self.thisQ,
-                'season': self.season,
-                'date': int(self.timestamp),
-                'damageratio': self.thisDamageRatio,
-                'tankratio': self.thisDamageTakenRatio,
-                'rank': self.thisRank,
-                'tier': self.thisTier,
-                'lp': self.thisLP,
-                'id_participant': self.thisId,
-                'dmg_tank': self.thisDamageTakenNoFormat,
-                'shield': self.thisTotalShielded,
-                'early_baron': self.earliestBaron,
-                'allie_feeder': self.thisAllieFeeder,
-                'snowball': self.snowball,
-                'temps_vivant': self.thisTimeSpendAlive,
-                'dmg_tower': self.thisDamageTurrets,
-                'gold_share': self.gold_share,
-                'mvp': self.mvp,
-                'ecart_gold_team': self.ecart_gold_team,
-                'ka': self.thisKills + self.thisAssists,
-                'time_first_death': self.thisTimeLiving,
-                'dmgsurgold' : self.DamageGoldRatio,
-                'ecart_gold_individuel' : self.ecart_gold_noformat,
-                'ecart_gold_min' : self.ecart_gold_permin,
-                'riot_id' : self.riot_id.lower(),
-                'riot_tagline' : self.riot_tag,
-                'ban1' : self.liste_ban[0],
-                'ban2' : self.liste_ban[1],
-                'ban3' : self.liste_ban[2],
-                'ban4' : self.liste_ban[3],
-                'ban5' : self.liste_ban[4],
-                'ban_adv1' : self.liste_ban[5],
-                'ban_adv2' : self.liste_ban[6],
-                'ban_adv3' : self.liste_ban[7],
-                'ban_adv4' : self.liste_ban[8],
-                'ban_adv5' : self.liste_ban[9],
-            },
-        )
+        df_exists = lire_bdd_perso(f'''SELECT match_id, joueur from matchs
+                                   WHERE match_id = '{self.last_match}' 
+                                   AND joueur = {self.id_compte}  ''',
+                                   index_col=None)
+        
+        if df_exists.empty:
+            requete_perso_bdd(
+                '''INSERT INTO public.matchs(
+            match_id, joueur, role, champion, kills, assists, deaths, double, triple, quadra, penta,
+            victoire, team_kills, team_deaths, "time", dmg, dmg_ad, dmg_ap, dmg_true, vision_score, cs, cs_jungle, vision_pink, vision_wards, vision_wards_killed,
+            gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
+            baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
+            item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
+            early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
+            ban1, ban2, ban3, ban4, ban5, ban_adv1, ban_adv2, ban_adv3, ban_adv4, ban_adv5)
+            VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
+            :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
+            :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
+            :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
+            :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
+            :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
+            :ban1, :ban2, :ban3, :ban4, :ban5, :ban_adv1, :ban_adv2, :ban_adv3, :ban_adv4, :ban_adv5);
+            UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur''',
+                {
+                    'match_id': self.last_match,
+                    'joueur': self.id_compte,
+                    'role': self.thisPosition,
+                    'champion': self.thisChampName,
+                    'kills': self.thisKills,
+                    'assists': self.thisAssists,
+                    'deaths': self.thisDeaths,
+                    'double': self.thisDouble,
+                    'triple': self.thisTriple,
+                    'quadra': self.thisQuadra,
+                    'penta': self.thisPenta,
+                    'result': self.thisWinBool,
+                    'team_kills': self.thisTeamKills,
+                    'team_deaths': self.thisTeamKillsOp,
+                    'time': self.thisTime,
+                    'dmg': self.thisDamageNoFormat,
+                    'dmg_ad': self.thisDamageADNoFormat,
+                    'dmg_ap': self.thisDamageAPNoFormat,
+                    'dmg_true': self.thisDamageTrueNoFormat,
+                    'vision_score': self.thisVision,
+                    'cs': self.thisMinion,
+                    'cs_jungle': self.thisJungleMonsterKilled,
+                    'vision_pink': self.thisPink,
+                    'vision_wards': self.thisWards,
+                    'vision_wards_killed': self.thisWardsKilled,
+                    'gold': self.thisGoldNoFormat,
+                    'cs_min': self.thisMinionPerMin,
+                    'vision_min': self.thisVisionPerMin,
+                    'gold_min': self.thisGoldPerMinute,
+                    'dmg_min': self.thisDamagePerMinute,
+                    'solokills': self.thisSoloKills,
+                    'dmg_reduit': self.thisDamageSelfMitigated,
+                    'heal_total': self.thisTotalHealed,
+                    'heal_allies': self.thisTotalOnTeammates,
+                    'serie_kills': self.thisKillingSprees,
+                    'cs_dix_min': self.thisCSafter10min,
+                    'jgl_dix_min': self.thisJUNGLEafter10min,
+                    'baron': self.thisBaronTeam,
+                    'drake': self.thisDragonTeam,
+                    'team': self.team,
+                    'herald': self.thisHeraldTeam,
+                    'cs_max_avantage': self.thisCSAdvantageOnLane,
+                    'level_max_avantage': self.thisLevelAdvantage,
+                    'afk': self.AFKTeamBool,
+                    'vision_avantage': self.thisVisionAdvantage,
+                    'early_drake': self.earliestDrake,
+                    'temps_dead': self.thisTimeSpendDead,
+                    'item1': self.thisItems[0],
+                    'item2': self.thisItems[1],
+                    'item3': self.thisItems[2],
+                    'item4': self.thisItems[3],
+                    'item5': self.thisItems[4],
+                    'item6': self.thisItems[5],
+                    'kp': self.thisKP,
+                    'kda': self.kda_save,
+                    'mode': self.thisQ,
+                    'season': self.season,
+                    'date': int(self.timestamp),
+                    'damageratio': self.thisDamageRatio,
+                    'tankratio': self.thisDamageTakenRatio,
+                    'rank': self.thisRank,
+                    'tier': self.thisTier,
+                    'lp': self.thisLP,
+                    'id_participant': self.thisId,
+                    'dmg_tank': self.thisDamageTakenNoFormat,
+                    'shield': self.thisTotalShielded,
+                    'early_baron': self.earliestBaron,
+                    'allie_feeder': self.thisAllieFeeder,
+                    'snowball': self.snowball,
+                    'temps_vivant': self.thisTimeSpendAlive,
+                    'dmg_tower': self.thisDamageTurrets,
+                    'gold_share': self.gold_share,
+                    'mvp': self.mvp,
+                    'ecart_gold_team': self.ecart_gold_team,
+                    'ka': self.thisKills + self.thisAssists,
+                    'time_first_death': self.thisTimeLiving,
+                    'dmgsurgold' : self.DamageGoldRatio,
+                    'ecart_gold_individuel' : self.ecart_gold_noformat,
+                    'ecart_gold_min' : self.ecart_gold_permin,
+                    'riot_id' : self.riot_id.lower(),
+                    'riot_tagline' : self.riot_tag,
+                    'ban1' : self.liste_ban[0],
+                    'ban2' : self.liste_ban[1],
+                    'ban3' : self.liste_ban[2],
+                    'ban4' : self.liste_ban[3],
+                    'ban5' : self.liste_ban[4],
+                    'ban_adv1' : self.liste_ban[5],
+                    'ban_adv2' : self.liste_ban[6],
+                    'ban_adv3' : self.liste_ban[7],
+                    'ban_adv4' : self.liste_ban[8],
+                    'ban_adv5' : self.liste_ban[9],
+                },
+            )
 
         if self.thisQ != 'ARENA 2v2' and self.thisQ != 'OTHER':
             requete_perso_bdd('''INSERT INTO public.matchs_joueur(
@@ -1986,7 +1997,9 @@ class matchlol():
             VALUES (:match_id, :allie1, :allie2, :allie3, :allie4, :allie5, :ennemi1, :ennemi2, :ennemi3, :ennemi4, :ennemi5,
         :t1, :d1, :t2, :d2, :t3, :d3, :t4, :d4, :t5, :d5, :t6, :d6, :t7, :d7, :t8, :d8, :t9, :d9, :t10, :d10,
         :tier_allie, :div_allie, :tier_ennemy, :div_ennemy,
-        :c1, :c2, :c3, :c4, :c5, :c6, :c7, :c8, :c9, :c10);''',
+        :c1, :c2, :c3, :c4, :c5, :c6, :c7, :c8, :c9, :c10)
+        ON CONFLICT (match_id)
+        DO NOTHING;''',
         {'match_id' : self.last_match,
                 'allie1' : f'{self.thisRiotIdListe[0]}#{self.thisRiotTagListe[0]}',
             'allie2' : f'{self.thisRiotIdListe[1]}#{self.thisRiotTagListe[1]}',
@@ -2036,7 +2049,9 @@ class matchlol():
 
             requete_perso_bdd('''INSERT INTO public.matchs_autres(
         match_id, vision1, vision2, vision3, vision4, vision5, vision6, vision7, vision8, vision9, vision10, pink1, pink2, pink3, pink4, pink5, pink6, pink7, pink8, pink9, pink10)
-        VALUES (:match_id, :v1, :v2, :v3, :v4, :v5, :v6, :v7, :v8, :v9, :v10, :p1, :p2, :p3, :p4, :p5, :p6, :p7, :p8, :p9, :p10);''',
+        VALUES (:match_id, :v1, :v2, :v3, :v4, :v5, :v6, :v7, :v8, :v9, :v10, :p1, :p2, :p3, :p4, :p5, :p6, :p7, :p8, :p9, :p10)
+        ON CONFLICT (match_id)
+        DO NOTHING;''',
         {'match_id' : self.last_match,
         'v1' : self.thisVisionListe[0],
         'v2' : self.thisVisionListe[1],
@@ -2090,10 +2105,14 @@ class matchlol():
                                                self.df_timeline_stats,
                                                self.df_timeline_dmg], axis=1)
         
-        sauvegarde_bdd(self.df_timeline_position,
-                       'data_timeline',
-                        methode_save='append',
-                        index=False)   
+        try:
+            sauvegarde_bdd(self.df_timeline_position,
+                        'data_timeline',
+                            methode_save='append',
+                            index=False)  
+        except sqlalchemy.exc.IntegrityError:
+            pass
+        
         
 
     async def save_timeline_event(self):
@@ -2134,7 +2153,7 @@ class matchlol():
         self.df_events_joueur.loc[(self.df_events_joueur['type'] == 'CHAMPION_KILL')
                                   & (self.df_events_joueur['victimId'] == self.index_timeline), 'type'] = 'DEATHS'
         
-        self.df_events_joueur['timestamp'] = np.round(self.df_events_joueur['timestamp'] / 60000,2) 
+        self.df_events_joueur['timestamp'] = self.df_events_joueur['timestamp'] / 60000
             
         self.df_events_joueur['wardType'] = self.df_events_joueur['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
                                                                 'UNDEFINED': 'Balise Zombie',
@@ -2142,11 +2161,20 @@ class matchlol():
                                                                 'SIGHT_WARD': 'Ward support',
                                                                 'BLUE_TRINKET': 'Trinket bleu'
                                                                 })
+ 
+        df_exists = lire_bdd_perso(f'''SELECT match_id, riot_id FROM data_timeline_events WHERE 
+        match_id = '{self.last_match}'
+        AND riot_id = {self.id_compte}  ''',
+        index_col=None)
         
-        sauvegarde_bdd(self.df_events_joueur,
-                       'data_timeline_events',
-                        methode_save='append',
-                        index=False)  
+        if df_exists.empty:
+            try:
+                sauvegarde_bdd(self.df_events_joueur,
+                                'data_timeline_events',
+                                    methode_save='append',
+                                    index=False)  
+            except sqlalchemy.exc.IntegrityError:
+                pass
 
 
     async def add_couronnes(self, points):
