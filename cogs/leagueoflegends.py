@@ -7,8 +7,8 @@ import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, listen, slash_command, Task, IntervalTrigger, TimeTrigger
 from fonctions.params import Version, saison
 from fonctions.channels_discord import verif_module, identifier_role_by_name
-from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples, emote_champ_discord
-from fonctions.match import emote_rank_discord, emote_champ_discord
+from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples, emote_champ_discord, get_id_account_bdd
+from fonctions.match import emote_rank_discord, emote_champ_discord, fix_temps
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import challengeslol
@@ -19,6 +19,7 @@ from interactions.ext.paginators import Paginator
 import traceback
 import numpy as np
 import psycopg2.errors
+import ast
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -686,7 +687,7 @@ class LeagueofLegends(Extension):
         
         if df_banned.empty:
             try:
-                id_compte = lire_bdd_perso(f'''SELECT * from tracker where riot_id = '{riot_id.replace(' ', '')}' and riot_tagline = '{riot_tag}' ''').loc['id_compte'].values[0]
+                id_compte = get_id_account_bdd(riot_id, riot_tag)
             except IndexError:
                 return await ctx.send("Ce compte n'existe pas ou n'est pas enregistré")
             embed, mode_de_jeu, resume = await self.printInfo(id_compte,
@@ -709,12 +710,13 @@ class LeagueofLegends(Extension):
                     tracklol = discord_server_id.lol_others
 
                 channel_tracklol = await self.bot.fetch_channel(tracklol)
+                
+                await ctx.delete()
             else:
                 channel_tracklol = ctx
 
 
-            if embed != {}:
-                await ctx.delete()
+            if embed != {}:                
                 await channel_tracklol.send(embeds=embed, files=resume)
                 os.remove('resume.png')
         else:
@@ -922,6 +924,7 @@ class LeagueofLegends(Extension):
         try:
             if verif_module('league_ranked', int(ctx.guild.id)) and df_banned.empty:
                 riot_id = riot_id.lower().replace(' ', '')
+                riot_tag = riot_tag.upper()
                 session = aiohttp.ClientSession()
                 me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
                 puuid = me['puuid']
@@ -2064,6 +2067,138 @@ class LeagueofLegends(Extension):
                     
                 await ctx.send(f'Fait pour {discord_id} {mode}')
 
+
+    @slash_command(name="history_game",
+                   description="Deroulement d'une game",
+                   options=[
+                       SlashCommandOption(name="riot_id",
+                                          description="Nom du joueur",
+                                          type=interactions.OptionType.STRING,
+                                          required=True),
+                       SlashCommandOption(name="riot_tag",
+                                          description="Tag",
+                                          type=interactions.OptionType.STRING,
+                                          required=True),
+                       SlashCommandOption(name="match_id",
+                                          description="Id de la game avec EUW1",
+                                          type=interactions.OptionType.STRING,
+                                          required=True)])
+    async def history(self,
+                   ctx: SlashContext,
+                   riot_id: str,
+                   riot_tag:str,
+                   match_id : str):
+
+        
+        
+        session = aiohttp.ClientSession()
+
+        version = await get_version(session)
+        
+        await ctx.defer(ephemeral=False)
+        
+        async with session.get(f"https://ddragon.leagueoflegends.com/cdn/{version['n']['item']}/data/fr_FR/item.json") as itemlist:
+            data_item = await itemlist.json()
+            
+        df = lire_bdd_perso(f'''SELECT * FROM public.data_timeline_events
+        WHERE match_id = '{match_id}' 
+        AND riot_id = (SELECT id_compte FROM tracker where riot_id = '{riot_id.lower().replace(' ', '')}' and riot_tagline = '{riot_tag.upper()}') ''', index_col=None).T
+        
+        limite_text = 1
+        
+        if df.empty:
+            return await ctx.send('Game introuvable')
+        
+        df['timestamp'] = df['timestamp'].apply(fix_temps)
+        
+        txt = f'**Détail {match_id} ({riot_id}#{riot_tag})** \n\n'
+
+        dict_pos = {1 : 'TOP',
+                    2: 'JGL',
+                    3: 'MID',
+                    4 : 'ADC',
+                    5 : 'SUPPORT',
+                    6 : 'TOP',
+                    7 : 'JGL',
+                    8 : 'MID',
+                    9 : 'ADC',
+                    10 : 'SUPPORT'}
+        
+        dict_serie = {2 : 'DOUBLE',
+                 3 : 'TRIPLE',
+                 4 : 'QUADRA',
+                 5 : 'PENTA'}
+
+        df['timestamp'] = df['timestamp'].astype(str)
+
+        for index, data in df.iterrows():
+            
+            txt += f"**{data['timestamp'].replace('.', 'm')} : **"
+            match data['type']:
+                case 'ITEM_PURCHASED':
+                    item = data_item['data'][str(data['itemId'])[:-2]]['name']
+                    txt += f"Acheté : **{item}**"
+                case 'ITEM_DESTROYED':
+                    item = data_item['data'][str(data['itemId'])[:-2]]['name']
+                    txt += f'Detruit : **{item}**'
+                case 'DEATHS':
+                    killer = dict_pos[int(data['killerId'])]
+                    assist = [dict_pos[int(x)] for x in list(ast.literal_eval(data['assistingParticipantIds']))]
+                    txt += f"Mort par le **{killer}** assistés par **{','.join(assist)}**"
+                    
+                case 'CHAMPION_KILL':
+                    killer = dict_pos[int(data['victimId'])]
+                    assist = [dict_pos[int(x)] for x in list(ast.literal_eval(data['assistingParticipantIds']))]
+                    txt += f"Kill sur {killer} assistés par {','.join(assist)}"
+                    
+                    if data['shutdownBounty'] != 0.0:
+                        txt += f". Shutdown : **{int(data['shutdownBounty'])}** gold"
+                        
+                case 'CHAMPION_SPECIAL_KILL':
+                    if data['killType'] == 'KILL_MULTI':
+                        txt += f"**{dict_serie[int(data['multiKillLength'])]} **"
+                    elif data['killType'] == 'KILL_FIRST_BLOOD':
+                        killer = dict_pos[int(data['killerId'])]
+                        txt += f'First Blood en tuant {killer}'
+                        
+                case 'TURRET_PLATE_DESTROYED':
+                    txt += f"Plate en **{data['laneType']}**"
+                case 'SKILL_LEVEL_UP':
+                    txt += f"Up **spell {int(data['skillSlot'])}**"
+                case 'WARD_PLACED':
+                    txt += f"Utilisation : **{data['wardType']}**"
+                case 'WARD_KILL':
+                    txt += f"Destruction : **{data['wardType']}**"    
+                case 'BUILDING_KILL':
+                    txt += f"Prise : **{data['buildingType']}** '{data['towerType']} en **{data['laneType']}**"
+                case 'ELITE_MONSTER_KILL':
+                    killer = dict_pos[int(data['killerId'])]
+                    assist = [dict_pos[int(x)] for x in list(ast.literal_eval(data['assistingParticipantIds']))]
+                    txt += f"Le {killer} a tué le {data['monsterType']} ({data['monsterSubType']}) avec l'aide de {','.join(assist)}"
+                case 'LEVEL_UP':
+                    txt += f"Up niveau **{int(data['level'])}**"
+                    
+            txt += '\n'
+            
+            if len(txt) >= 900 * limite_text:
+                txt += '###'
+                limite_text += 1
+                
+        liste_txt = txt.split('###')
+        
+        liste_embeds = []
+        for i, texte in enumerate(liste_txt):
+            embed = interactions.Embed(title=f'**Détail {match_id} ({riot_id}#{riot_tag})** (Partie {i})')
+            embed.add_field('Description', texte)
+            liste_embeds.append(embed)
+        
+        paginator = Paginator.create_from_embeds(
+            self.bot,
+            *liste_embeds)    
+
+        paginator.show_select_menu = True
+        
+        await paginator.send(ctx)   
 
 def setup(bot):
     LeagueofLegends(bot)
