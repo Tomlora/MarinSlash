@@ -2082,12 +2082,22 @@ class LeagueofLegends(Extension):
                        SlashCommandOption(name="match_id",
                                           description="Id de la game avec EUW1",
                                           type=interactions.OptionType.STRING,
-                                          required=True)])
+                                          required=True),
+                       SlashCommandOption(name='action',
+                                          description='filtrer sur un élément',
+                                          type=interactions.OptionType.STRING,
+                                          required=False,
+                                          choices=[SlashCommandChoice(name='niveau', value='niveau'),
+                                                   SlashCommandChoice(name='item', value='item'),
+                                                   SlashCommandChoice(name='kda', value='kda'),
+                                                   SlashCommandChoice(name='objectif', value='objectif'),
+                                                   SlashCommandChoice(name='vision', value='vision')])])
     async def history(self,
                    ctx: SlashContext,
                    riot_id: str,
                    riot_tag:str,
-                   match_id : str):
+                   match_id : str,
+                   action = None):
 
         
         
@@ -2111,6 +2121,20 @@ class LeagueofLegends(Extension):
         
         df['timestamp'] = df['timestamp'].apply(fix_temps)
         
+        
+        if action != None:
+            if action == 'niveau':
+                df = df[df['type'].isin(['LEVEL_UP', 'SKILL_LEVEL_UP'])]
+            elif action == 'item':
+                df = df[df['type'].isin(['ITEM_PURCHASED', 'ITEM_DESTROYED'])]
+            elif action == 'kda':
+                df = df[df['type'].isin(['DEATHS', 'CHAMPION_KILL', 'CHAMPION_SPECIAL_KILL'])]
+            elif action == 'objectif':
+                df = df[df['type'].isin(['ELITE_MONSTER_KILL', 'BUILDING_KILL', 'TURRET_PLATE_DESTROYED'])]
+            elif action == 'vision':
+                df = df[df['type'].isin(['WARD_PLACED', 'WARD_KILL'])]
+                
+                
         txt = f'**Détail {match_id} ({riot_id}#{riot_tag})** \n\n'
 
         dict_pos = {1 : 'TOP',
@@ -2144,12 +2168,12 @@ class LeagueofLegends(Extension):
                 case 'DEATHS':
                     killer = dict_pos[int(data['killerId'])]
                     assist = [dict_pos[int(x)] for x in list(ast.literal_eval(data['assistingParticipantIds']))]
-                    txt += f"**Mort** par le **{killer}** assistés par **{','.join(assist)}**"
+                    txt += f"__Mort__ par le **{killer}** assistés par **{','.join(assist)}**"
                     
                 case 'CHAMPION_KILL':
                     killer = dict_pos[int(data['victimId'])]
                     assist = [dict_pos[int(x)] for x in list(ast.literal_eval(data['assistingParticipantIds']))]
-                    txt += f"**Kill** sur **{killer}** assistés par **{','.join(assist)}**"
+                    txt += f"__Kill__ sur **{killer}** assistés par **{','.join(assist)}**"
                     
                     if data['shutdownBounty'] != 0.0:
                         txt += f". Shutdown : **{int(data['shutdownBounty'])}** gold"
