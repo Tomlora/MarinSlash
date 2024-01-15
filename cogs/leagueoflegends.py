@@ -2144,19 +2144,19 @@ class LeagueofLegends(Extension):
                 case 'DEATHS':
                     killer = dict_pos[int(data['killerId'])]
                     assist = [dict_pos[int(x)] for x in list(ast.literal_eval(data['assistingParticipantIds']))]
-                    txt += f"Mort par le **{killer}** assistés par **{','.join(assist)}**"
+                    txt += f"**Mort** par le **{killer}** assistés par **{','.join(assist)}**"
                     
                 case 'CHAMPION_KILL':
                     killer = dict_pos[int(data['victimId'])]
                     assist = [dict_pos[int(x)] for x in list(ast.literal_eval(data['assistingParticipantIds']))]
-                    txt += f"Kill sur {killer} assistés par {','.join(assist)}"
+                    txt += f"**Kill** sur **{killer}** assistés par **{','.join(assist)}**"
                     
                     if data['shutdownBounty'] != 0.0:
                         txt += f". Shutdown : **{int(data['shutdownBounty'])}** gold"
                         
                 case 'CHAMPION_SPECIAL_KILL':
                     if data['killType'] == 'KILL_MULTI':
-                        txt += f"**{dict_serie[int(data['multiKillLength'])]} **"
+                        txt += f"Serie : **{dict_serie[int(data['multiKillLength'])]}**"
                     elif data['killType'] == 'KILL_FIRST_BLOOD':
                         killer = dict_pos[int(data['killerId'])]
                         txt += f'First Blood en tuant {killer}'
@@ -2170,7 +2170,7 @@ class LeagueofLegends(Extension):
                 case 'WARD_KILL':
                     txt += f"Destruction : **{data['wardType']}**"    
                 case 'BUILDING_KILL':
-                    txt += f"Prise : **{data['buildingType']}** '{data['towerType']} en **{data['laneType']}**"
+                    txt += f"Prise : **{data['buildingType']}** ({data['towerType']}) en **{data['laneType']}**"
                 case 'ELITE_MONSTER_KILL':
                     killer = dict_pos[int(data['killerId'])]
                     assist = [dict_pos[int(x)] for x in list(ast.literal_eval(data['assistingParticipantIds']))]
