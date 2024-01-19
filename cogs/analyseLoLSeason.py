@@ -111,7 +111,7 @@ class AnalyseLoLSeason(Extension):
                 dict_allie[name_allie] = champ_allie
                 dict_ennemi[name_ennemi] = champ_ennemi
 
-        def count_champion(dict, head):
+        def count_champion(dict):
             df_champion = pd.DataFrame.from_dict(dict, orient='index', columns=['champion'])
             df_champion['victoire'] = victory
             df_champion['victoire'] = df_champion['victoire'].astype(int)
@@ -122,16 +122,15 @@ class AnalyseLoLSeason(Extension):
             df_count.index = df_count.index.str.capitalize()
             df_count['%'] = np.int8((df_count['count'] / df_count['count'].sum())*100)
             df_count['%_victoire'] = np.int8(df_count['victory'] / df_count['count'] * 100)
-            df_count = df_count.head(head)
             
             # return df_champion
             
             return df_count          
         
-        df_allie = count_champion(dict_allie, 15)
-        df_ennemi = count_champion(dict_ennemi, 15)    
+        df_allie = count_champion(dict_allie)
+        df_ennemi = count_champion(dict_ennemi)    
         
-        def embedding(df, title):
+        def embedding(df, title, part):
             embed = interactions.Embed(f'{title} ({nbgames} games)')
             txt = ''
             for champion, data in df.iterrows():
@@ -140,15 +139,19 @@ class AnalyseLoLSeason(Extension):
                 victory_percent = data['%_victoire']
                 txt += f'{emote_champ_discord.get(champion, champion)} Pick **{count}** fois ({pick_percent}%) -> WR : **{victory_percent}%** \n'
             
-            embed.add_field(name=mode, value=txt)    
+            embed.add_field(name=f'{mode} PARTIE {part}', value=txt)    
             
             return embed
         
         
-        embed_allie = embedding(df_allie, 'ALLIE')
-        embed_ennemi = embedding(df_ennemi, 'ENNEMI')
+        embed_allie_top10 = embedding(df_allie.iloc[:10], 'ALLIE', 1)
+        embed_allie_top20 = embedding(df_allie.iloc[10:20], 'ALLIE', 2)
+        embed_allie_top30 = embedding(df_allie.iloc[20:30], 'ALLIE', 3)
+        embed_ennemi_top10 = embedding(df_ennemi.iloc[:10], 'ENNEMI', 1)
+        embed_ennemi_top20 = embedding(df_ennemi.iloc[10:20], 'ENNEMI', 2)
+        embed_ennemi_top30 = embedding(df_ennemi.iloc[20:30], 'ENNEMI', 3)
         
-        embeds = [embed_allie, embed_ennemi]
+        embeds = [embed_allie_top10, embed_allie_top20, embed_allie_top30, embed_ennemi_top10, embed_ennemi_top20, embed_ennemi_top30]
     
 
         paginator = Paginator.create_from_embeds(
