@@ -9,8 +9,9 @@ from fonctions.params import Version
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
                                    get_data_bdd,
+                                   lire_bdd_perso,
                                    requete_perso_bdd)
-from fonctions.match import dict_rankid
+from fonctions.match import dict_rankid, emote_rank_discord, emote_champ_discord
 import aiohttp
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -50,9 +51,12 @@ async def get_matchs_details_tft(session, match_id):
     return match_data
 
 
-async def matchtft_by_puuid(summonerName, idgames: int, session):
-    me = await get_summonertft_by_name(session, summonerName)
-    puuid = me['puuid']
+async def matchtft_by_puuid(summonerName, idgames: int, session, puuid = None):
+    
+    if puuid is None:
+            me = await get_summonertft_by_name(session, summonerName)
+            puuid = me['puuid']
+            
     liste_matchs = await get_matchs_by_puuid(session, puuid)
     last_match = liste_matchs[idgames]
     match = await get_matchs_details_tft(session, last_match)
@@ -70,8 +74,8 @@ class tft(Extension):
     async def on_startup(self):
         self.updatetft.start()
 
-    async def stats_tft(self, summonername, session, idgames: int = 0, ):
-        match_detail, id_match, puuid = await matchtft_by_puuid(summonername, idgames, session)
+    async def stats_tft(self, summonername, session, idgames: int = 0, puuid = None):
+        match_detail, id_match, puuid = await matchtft_by_puuid(summonername, idgames, session, puuid)
 
         summonername = summonername.lower()
         # identifier le joueur via son puuid
@@ -112,7 +116,7 @@ class tft(Extension):
 
         for augment in augments:
             augment = augment.replace(
-                'TFT6_Augment_', '').replace('TFT7_Augment_', '').replace('TFT8_Augment_', '').replace('TFT9_Augment_', '')
+                'TFT6_Augment_', '').replace('TFT7_Augment_', '').replace('TFT8_Augment_', '').replace('TFT9_Augment_', '').replace('TFT10_Augment_', '')
             msg_augment = f'{msg_augment} | {augment}'
 
         # Classement
@@ -120,11 +124,17 @@ class tft(Extension):
         classement = stats_joueur['placement']
 
         # on sauvegarde si ranked
+        
+        df_exists = lire_bdd_perso(f'''SELECT match_id, joueur from trackertft_stats
+                                   WHERE match_id = '{id_match}' 
+                                   AND joueur = '{summonername.lower()}'  ''',
+                                   index_col=None)
+        
 
-        if thisQ == 'RANKED':
+        if thisQ == 'RANKED' and df_exists.empty:
 
             requete_perso_bdd(f'''UPDATE suivitft
-                            SET top{classement} = top{classement} + 1 WHERE index = '{summonername.lower()}' ''')
+                                SET top{classement} = top{classement} + 1 WHERE index = '{summonername.lower()}' ''')
 
         # Stats
 
@@ -254,15 +264,15 @@ class tft(Extension):
 
         # Stats
         if ranked:
-            embed.add_field(name=f'Current rank : {tier} {rank} | {lp}LP ({difLP})',
+            embed.add_field(name=f'{emote_rank_discord[tier]} {rank} | {lp}LP ({difLP})',
                             value=f'Winrate : **{wr}%** \n', inline=False)
-            embed.add_field(name=f'Classement moyen : **{score_avg}** ({nbgames} games)',
+            embed.add_field(name=f'Classement moyen : **{int(score_avg)}** ({nbgames} games)',
                             value = f'Top 1 : **{suivi_profil[summonername][f"top1"]}** | Top 2 : **{suivi_profil[summonername][f"top2"]}** | \
                             Top 3 : **{suivi_profil[summonername][f"top3"]}**  | Top 4 : **{suivi_profil[summonername][f"top4"]}**\n' +
                             f'Top 5 : **{suivi_profil[summonername][f"top5"]}** | Top 6 : **{suivi_profil[summonername][f"top6"]}** | \
                                 Top 7 : **{suivi_profil[summonername][f"top7"]}** | Top 8 : **{suivi_profil[summonername][f"top8"]}**', inline=False)
         else:
-            embed.add_field(name=f'Current rank : Non-classe',
+            embed.add_field(name=f'Non-classe',
                             value=f'En placement', inline=False)
 
         embed.add_field(name="Augments : ",
@@ -275,13 +285,13 @@ class tft(Extension):
 
         # [0] est l'index
         for set in df_traits.iterrows():
-            name = set[1]['name'].replace('Set9_', '')
+            name = set[1]['name'].replace('Set9_', '').replace('Set10_', '')
             tier_current = set[1]['tier_current']
             tier_total = set[1]['tier_total']
             nb_units = set[1]['num_units']
 
             embed.add_field(
-                name=name, value=f"Tier: {tier_current} / {tier_total} \nNombre d'unités: {nb_units}", inline=True)
+                name=name, value=f"{tier_current} / {tier_total} \nUnités: {nb_units}", inline=True)
 
         dic_rarity = {0: "1",
                       1: "2",
@@ -296,20 +306,40 @@ class tft(Extension):
 
         inline = False
         for mob in df_mobs.iterrows():
-            monster_name = mob[1]['character_id'].replace(
-                'tft9_', '').replace('TFT9_', '')
+            monster_name = mob[1]['character_id']\
+                .replace('tft9_', '').replace('TFT9_', '')\
+                    .replace('tft10_', '').replace('TFT10_', '')
+                    
             monster_tier = mob[1]['tier']
+            
+            def afficher_etoiles(monster_tier):
+                return '⭐' * int(monster_tier)
+            
+            # afficher un nombre de stars en fonction de monster_tier:
+            
             rarity = mob[1]['rarity']
-            embed.add_field(name=f'{monster_name} ({dic_rarity[rarity]}:moneybag:)',
-                            value=f':star: : {monster_tier}', inline=inline)
+            embed.add_field(name=f'{emote_champ_discord[monster_name.capitalize().replace(" ", "")]} ({dic_rarity[rarity]}:moneybag:)',
+                            value=afficher_etoiles(monster_tier), inline=inline)
             inline = True
 
-        embed.add_field(name="Stats :bar_chart: : ", value=f':money_with_wings: : **{gold_restants}** \n\
-                        Level : **{level}** \n\
-                        Dégats infligés : **{dmg_total}**', inline=False)
+        embed.add_field(name="Stats :bar_chart: : ", value=f':money_with_wings: : **{gold_restants}** | Level : **{level}** | DMG infligés : **{dmg_total}**', inline=False)
 
         embed.set_footer(
             text=f'Version {Version} by Tomlora - Match {id_match}')
+
+      
+        if df_exists.empty:
+            requete_perso_bdd('''INSERT INTO trackertft_stats(joueur, match_id, mode, top, gold, level, dmg, last_round)
+        VALUES (:joueur, :match_id, :mode, :top, :gold, :level, :dmg, :last_round);''',
+                {'joueur': summonername.lower(),
+                'match_id': id_match,
+                'mode': thisQ,
+                'top': classement,
+                'gold' : gold_restants,
+                'level' : level,
+                'dmg' : dmg_total,
+                'last_round' : last_round})
+            
 
         return embed
 
@@ -332,18 +362,22 @@ class tft(Extension):
                       idgames: int = 0):
 
         await ctx.defer(ephemeral=False)
+        
+        puuid = lire_bdd_perso(f'''SELECT puuid from trackertft where index = '{summonername.lower()}' ''', index_col=None).loc['puuid'][0]
 
         session = aiohttp.ClientSession()
 
-        embed = await self.stats_tft(summonername, session, idgames)
+        embed = await self.stats_tft(summonername, session, idgames, puuid)
 
         await session.close()
 
         await ctx.send(embeds=embed)
 
     async def printLivetft(self, summonername: str, discord_server_id: chan_discord, session):
+        
+        puuid = lire_bdd_perso(f'''SELECT puuid from trackertft where index = '{summonername.lower()}' ''', index_col=None).loc['puuid'][0]
 
-        embed = await self.stats_tft(summonername, session, idgames=0)
+        embed = await self.stats_tft(summonername, session, idgames=0, puuid=puuid)
 
         channel = await self.bot.fetch_channel(discord_server_id.tft)
 
@@ -354,11 +388,12 @@ class tft(Extension):
     async def updatetft(self):
 
         session = aiohttp.ClientSession()
-        data = get_data_bdd('''SELECT trackertft.index, trackertft.id, tracker.server_id from trackertft
+        data = get_data_bdd('''SELECT trackertft.index, trackertft.id, trackertft.puuid, tracker.server_id from trackertft
                     INNER JOIN tracker on trackertft.index = tracker.index''')
-        for joueur, id_game, server_id in data:
+        
+        for joueur, id_game, puuid, server_id in data:
 
-            match_detail, id_match, puuid = await matchtft_by_puuid(joueur, 0, session)
+            match_detail, id_match, puuid = await matchtft_by_puuid(joueur, 0, session, puuid)
 
             if str(id_game) != id_match:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = summonername // value = numéro de la game
                 try:
@@ -385,27 +420,39 @@ class tft(Extension):
     async def tftadd(self,
                      ctx: SlashContext,
                      summonername):
-        # TODO : à simplifier
-        # TODO : refaire tftremove
+
+
         session = aiohttp.ClientSession()
-        data = lire_bdd('trackertft', 'dict')
-        suivi_profil = lire_bdd('suivitft', 'dict')
+
 
         await ctx.defer(ephemeral=False)
 
-        profil = get_stats_ranked(summonername)[0]
+        try:
+            profil = await get_stats_ranked(session, summonername)
+            profil = profil[0]
+            
 
-        tier = profil['tier']
-        rank = profil['rank']
-        lp = profil['leaguePoints']
+            tier = profil['tier']
+            rank = profil['rank']
+            lp = profil['leaguePoints']
+
+        except:
+            tier = 'Non-classe'
+            rank = '0'
+            lp = 0
+            
         match_detail, id_match, puuid = await matchtft_by_puuid(summonername, 0, session)
         # ajout du summonername (clé) et de l'id de la dernière game(getId)
-        data[summonername] = {'id': id_match}
-        suivi_profil[summonername] = {'LP': lp, 'tier': tier, 'rank': rank}
-        data = pd.DataFrame.from_dict(data, orient="index")
-        suivi_profil = pd.DataFrame.from_dict(suivi_profil, orient="index")
-        sauvegarde_bdd(data, 'trackertft')
-        sauvegarde_bdd(suivi_profil, 'suivitft')
+        
+        requete_perso_bdd('''INSERT INTO public.trackertft(index, id, puuid) VALUES (:index, :id, :puuid);
+        INSERT INTO public.suivitft(index, "LP", tier, rank) VALUES (:index, :LP, :tier, :rank);                  
+                          ''',
+                          dict_params={'index': summonername.lower(),
+                                       'id': id_match,
+                                       'puuid': puuid,
+                                       'LP': lp,
+                                       'tier': tier,
+                                       'rank': rank})
 
         await ctx.send(summonername + " was successfully added to live-feed!")
         # except:
@@ -423,7 +470,7 @@ class tft(Extension):
 
         response = response[:-2]
         embed = interactions.Embed(
-            title="Live feed list", description=response, colour=interactions.Color.random())
+            title="Live feed list", description=response, color=interactions.Color.random())
 
         await ctx.send(embeds=embed)
 
