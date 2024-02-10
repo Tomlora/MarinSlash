@@ -287,11 +287,11 @@ class Aram(Extension):
 
                     elif elo_lp[tier_old] < elo_lp[tier]:
                         difLP = f"Promotion (x{elo_lp[tier] - elo_lp[tier_old]}) / +{str(difLP)} "
-                        emote = ":arrow_up:"
+                        emote = "<:frogUp:1205933878540238868>"
 
                     elif elo_lp[tier_old] == elo_lp[tier]:
                         if difLP > 0:
-                            emote = ":arrow_up:"
+                            emote = "<:frogUp:1205933878540238868>"
                         elif difLP < 0:
                             emote = ":arrow_down:"
                         elif difLP == 0:

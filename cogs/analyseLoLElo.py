@@ -31,8 +31,7 @@ class AnalyseLoLElo(Extension):
         await ctx.defer(ephemeral=False)     
         
 
-        df = df[df['tierallie_avg'] != ''] # on supprime les parties sans rank
-        df = df[df['mode'] == 'RANKED'] # only SoloQ
+        df = df[(df['tierallie_avg'] != '') & (df['mode'] == 'RANKED')] # on supprime les parties sans rank et on veut only soloq
         
         # stats qu'on veut
         
@@ -88,7 +87,7 @@ class AnalyseLoLElo(Extension):
         df_mean[columns] = np.round(df_mean[columns], 2)
         df_mean.index.name = 'Tier'
         
-        df_mean.reindex(['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'], inplace=True)
+        df_mean = df_mean.reindex(['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'])
         
         dfi.export(df_mean, 'image.png',
                    fontsize=9,

@@ -800,6 +800,7 @@ class matchlol():
         self.match_detail_challenges = self.match_detail_participants['challenges']
         self.thisPosition = self.match_detail_participants['teamPosition']
         self.season = 14  # TODO a modifier quand changement de saison
+        self.split = 1
 
         if (str(self.thisPosition) == "MIDDLE"):
             self.thisPosition = "MID"
@@ -1878,21 +1879,21 @@ class matchlol():
         
         if df_exists.empty:
             requete_perso_bdd(
-                '''INSERT INTO public.matchs(
+                '''INSERT INTO matchs(
             match_id, joueur, role, champion, kills, assists, deaths, double, triple, quadra, penta,
             victoire, team_kills, team_deaths, "time", dmg, dmg_ad, dmg_ap, dmg_true, vision_score, cs, cs_jungle, vision_pink, vision_wards, vision_wards_killed,
             gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
             baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
             item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
-            ban1, ban2, ban3, ban4, ban5, ban_adv1, ban_adv2, ban_adv3, ban_adv4, ban_adv5)
+            ban1, ban2, ban3, ban4, ban5, ban_adv1, ban_adv2, ban_adv3, ban_adv4, ban_adv5, split)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
             :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
-            :ban1, :ban2, :ban3, :ban4, :ban5, :ban_adv1, :ban_adv2, :ban_adv3, :ban_adv4, :ban_adv5);
+            :ban1, :ban2, :ban3, :ban4, :ban5, :ban_adv1, :ban_adv2, :ban_adv3, :ban_adv4, :ban_adv5, :split);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur''',
                 {
                     'match_id': self.last_match,
@@ -1986,11 +1987,12 @@ class matchlol():
                     'ban_adv3' : self.liste_ban[7],
                     'ban_adv4' : self.liste_ban[8],
                     'ban_adv5' : self.liste_ban[9],
+                    'split' : self.split
                 },
             )
 
         if self.thisQ != 'ARENA 2v2' and self.thisQ != 'OTHER':
-            requete_perso_bdd('''INSERT INTO public.matchs_joueur(
+            requete_perso_bdd('''INSERT INTO matchs_joueur(
             match_id, allie1, allie2, allie3, allie4, allie5, ennemi1, ennemi2, ennemi3, ennemi4, ennemi5,
         tier1, div1, tier2, div2, tier3, div3, tier4, div4, tier5, div5, tier6, div6, tier7, div7, tier8, div8, tier9, div9, tier10, div10,
         tierallie_avg, divallie_avg, tierennemy_avg, divennemy_avg, champ1, champ2, champ3, champ4, champ5, champ6, champ7, champ8, champ9, champ10)
@@ -2047,9 +2049,10 @@ class matchlol():
             'c10' : self.thisChampNameListe[9],
             })
 
-            requete_perso_bdd('''INSERT INTO public.matchs_autres(
-        match_id, vision1, vision2, vision3, vision4, vision5, vision6, vision7, vision8, vision9, vision10, pink1, pink2, pink3, pink4, pink5, pink6, pink7, pink8, pink9, pink10)
-        VALUES (:match_id, :v1, :v2, :v3, :v4, :v5, :v6, :v7, :v8, :v9, :v10, :p1, :p2, :p3, :p4, :p5, :p6, :p7, :p8, :p9, :p10)
+            requete_perso_bdd('''INSERT INTO matchs_autres(
+        match_id, vision1, vision2, vision3, vision4, vision5, vision6, vision7, vision8, vision9, vision10, pink1, pink2, pink3, pink4, pink5, pink6, pink7, pink8, pink9, pink10,
+        ecart_gold_top, ecart_gold_jgl, ecart_gold_mid, ecart_gold_adc, ecart_gold_supp)
+        VALUES (:match_id, :v1, :v2, :v3, :v4, :v5, :v6, :v7, :v8, :v9, :v10, :p1, :p2, :p3, :p4, :p5, :p6, :p7, :p8, :p9, :p10, :ecart_top, :ecart_jgl, :ecart_mid, :ecart_adc, :ecart_supp)
         ON CONFLICT (match_id)
         DO NOTHING;''',
         {'match_id' : self.last_match,
@@ -2073,9 +2076,15 @@ class matchlol():
         'p8' : self.thisPinkListe[7],
         'p9' : self.thisPinkListe[8],
         'p10' : self.thisPinkListe[9],
+        'ecart_top' : self.ecart_top_gold_affiche,
+        'ecart_jgl' : self.ecart_jgl_gold_affiche,
+        'ecart_mid' : self.ecart_mid_gold_affiche,
+        'ecart_adc' : self.ecart_adc_gold_affiche,
+        'ecart_supp' : self.ecart_supp_gold_affiche
+        
+        
         }
-        )
-            
+        )       
     
     async def save_timeline(self):
         
@@ -2153,7 +2162,7 @@ class matchlol():
         self.df_events_joueur.loc[(self.df_events_joueur['type'] == 'CHAMPION_KILL')
                                   & (self.df_events_joueur['victimId'] == self.index_timeline), 'type'] = 'DEATHS'
         
-        self.df_events_joueur['timestamp'] = self.df_events_joueur['timestamp'] / 60000
+        self.df_events_joueur['timestamp'] = np.round(self.df_events_joueur['timestamp'] / 60000,2)
             
         self.df_events_joueur['wardType'] = self.df_events_joueur['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
                                                                 'UNDEFINED': 'Balise Zombie',
@@ -2292,11 +2301,11 @@ class matchlol():
                 values.append(0)
                 
             if (values[0] == 0):
-                txt_sql += f'''UPDATE public.data_badges SET {name} = True WHERE match_id = '{last_match}' and joueur = '{id_compte}';'''
+                txt_sql += f'''UPDATE data_badges SET {name} = True WHERE match_id = '{last_match}' and joueur = '{id_compte}';'''
             elif (values[0] != 0 and values[1] == 0):
-                txt_sql += f'''UPDATE public.data_badges SET {name} = True, {name}_value = {values[0]} WHERE match_id = '{last_match}' and joueur = '{id_compte}';'''
+                txt_sql += f'''UPDATE data_badges SET {name} = True, {name}_value = {values[0]} WHERE match_id = '{last_match}' and joueur = '{id_compte}';'''
             else:
-                txt_sql += f'''UPDATE public.data_badges SET {name} = True, {name}_value1 = {values[0]}, {name}_value2 = {values[1]} WHERE match_id = '{last_match}' and joueur = '{id_compte}';'''
+                txt_sql += f'''UPDATE data_badges SET {name} = True, {name}_value1 = {values[0]}, {name}_value2 = {values[1]} WHERE match_id = '{last_match}' and joueur = '{id_compte}';'''
             
             return txt_sql
         
@@ -2446,7 +2455,7 @@ class matchlol():
         else:
             self.observations2 = ''
 
-        requete_perso_bdd(f'''INSERT INTO public.data_badges(
+        requete_perso_bdd(f'''INSERT INTO data_badges(
 	                match_id, joueur)
 	                VALUES ('{self.last_match}', '{self.id_compte}');''')
         

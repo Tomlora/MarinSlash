@@ -12,7 +12,7 @@ from fonctions.match import emote_rank_discord, emote_champ_discord, fix_temps
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import challengeslol
-import asyncio
+from fonctions.api_calls import getRankings, update_ugg
 from datetime import datetime, timedelta
 from dateutil import tz
 from interactions.ext.paginators import Paginator
@@ -20,6 +20,7 @@ import traceback
 import numpy as np
 import psycopg2.errors
 import ast
+import humanize
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -1189,6 +1190,8 @@ class LeagueofLegends(Extension):
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                     where channels_module.league_ranked = true and tracker.banned = false'''
         ).fetchall()
+        
+        session = aiohttp.ClientSession()
 
         for server_id in data:
 
@@ -1198,7 +1201,7 @@ class LeagueofLegends(Extension):
 
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
-            df = lire_bdd_perso(f'''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, suivi.wins_jour, suivi.losses_jour, suivi."LP_jour", suivi.tier_jour, suivi.rank_jour, tracker.server_id from suivi_s{saison} as suivi
+            df = lire_bdd_perso(f'''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, suivi.wins_jour, suivi.losses_jour, suivi."LP_jour", suivi.tier_jour, suivi.rank_jour, suivi.classement_euw, tracker.server_id from suivi_s{saison} as suivi
                                     INNER join tracker ON tracker.id_compte = suivi.index
                                     where suivi.tier != 'Non-classe'
                                     and tracker.server_id = {int(guild.id)}
@@ -1231,7 +1234,7 @@ class LeagueofLegends(Extension):
                 totalwin = 0
                 totaldef = 0
                 totalgames = 0
-
+                
                 for key in joueur:
 
                     # suivi est mis à jour par update et updaterank. On va donc prendre le comparer à suivi24h
@@ -1242,6 +1245,8 @@ class LeagueofLegends(Extension):
                     tier_old = str(suivi[key]['tier_jour'])
                     rank_old = str(suivi[key]['rank_jour'])
                     classement_old = f"{tier_old} {rank_old}"
+                    
+                    rank_euw_old = suivi[key]['classement_euw']
 
                     # on veut les stats soloq
 
@@ -1255,6 +1260,24 @@ class LeagueofLegends(Extension):
                     totalwin = totalwin + difwins
                     totaldef = totaldef + diflosses
                     totalgames = totalwin + totaldef
+                    
+                    # Ranking EUW
+                    success = await update_ugg(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'])
+                    stats_rankings = await getRankings(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'], 'euw1', 22, 420)
+                    rank_euw = stats_rankings['data']['overallRanking']['overallRanking']
+                    percent_rank_euw = int(round(stats_rankings['data']['overallRanking']['overallRanking'] / stats_rankings['data']['overallRanking']['totalPlayerCount'] * 100,0))
+                    
+                    if rank_euw_old == 0:
+                        rank_euw_old = rank_euw
+
+                    diff_rank_euw = rank_euw - rank_euw_old
+                    
+                    if diff_rank_euw > 0:
+                        diff_rank_euw = f"+{humanize.intcomma(int(diff_rank_euw)).replace(',', ' ')}"
+                    else:
+                        diff_rank_euw = f"{humanize.intcomma(int(diff_rank_euw)).replace(',', ' ')}"
+                        
+                    rank_euw_format = humanize.intcomma(int(rank_euw)).replace(',', ' ')
 
                     # evolution
 
@@ -1288,47 +1311,40 @@ class LeagueofLegends(Extension):
                                 difrank = 0
                             difLP = (100 * difrank) - LP + int(suivi[key]['LP'])
                         difLP = f"Promotion (x{difrank}) / +{str(difLP)} "
-                        emote = ":arrow_up:"
+                        emote = "<:frogUp:1205933878540238868>"
 
                     elif dict_rankid[classement_old] == dict_rankid[classement_new]:
                         if difLP > 0:
-                            emote = ":arrow_up:"
+                            emote = "<:frogUp:1205933878540238868>"
                         elif difLP < 0:
                             emote = ":arrow_down:"
                         elif difLP == 0:
                             emote = ":arrow_right:"
 
                     embed.add_field(
-                        name=f"{suivi[key]['riot_id']} ( {emote_rank_discord[tier]} {rank} )",
-                        value="V : "
-                        + str(suivi[key]['wins'])
-                        + "("
-                        + str(difwins)
-                        + ") | D : "
-                        + str(suivi[key]['losses'])
-                        + "("
-                        + str(diflosses)
-                        + ") | LP :  "
-                        + str(suivi[key]['LP'])
-                        + "("
-                        + str(difLP)
-                        + ")    "
-                        + emote,
-                        inline=False,
-                    )
-
+                        name=f"{suivi[key]['riot_id']} ( {emote_rank_discord[tier]} {rank} ) #{rank_euw_format}({diff_rank_euw}) | {percent_rank_euw}%",
+                        value=f"V : {suivi[key]['wins']} ({difwins}) | D : {suivi[key]['losses']} ({diflosses}) | LP :  {suivi[key]['LP']}({difLP})   {emote}", inline=False)
+                    
                     if (difwins + diflosses > 0):  # si supérieur à 0, le joueur a joué
                         sql += f'''UPDATE suivi_s{saison}
                             SET wins_jour = {suivi[key]['wins']},
                             losses_jour = {suivi[key]['losses']},
                             "LP_jour" = {suivi[key]['LP']},
                             tier_jour = '{suivi[key]['tier']}',
-                            rank_jour = '{suivi[key]['rank']}'
+                            rank_jour = '{suivi[key]['rank']}',
                             where index = '{key}';'''
+                            
+                    sql+= f'''UPDATE suivi_s{saison}
+                            SET classement_euw = {rank_euw},
+                            classement_percent_euw = {percent_rank_euw}
+                            where index = '{key}';''' 
 
                 channel_tracklol = await self.bot.fetch_channel(chan_discord_id.tracklol)
 
                 embed.set_footer(text=f'Version {Version} by Tomlora')
+                
+                
+                await session.close()
 
                 if sql != '':  # si vide, pas de requête
                     requete_perso_bdd(sql)

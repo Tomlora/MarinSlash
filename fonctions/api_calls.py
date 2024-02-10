@@ -332,3 +332,156 @@ async def get_winrates(summonerName: str, session : ClientSession):
         traceback_msg = ''.join(traceback_details)
         print(traceback_msg)
         return None
+
+
+async def get_player_match_history(session, summonerName, tagline,  role=[], regionId="euw1", championId=[], queueType=[420], seasonIds=[21], page=1):
+    
+    url = "https://u.gg/api"
+    headers = {
+                "Accept-Encoding":"gzip, deflate, br",
+                "Accept":"*/*",
+                "Content-Type": "application/json",
+                "Connection": "keep-alive",
+                "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+            }
+
+    payload = {
+            "operationName": "FetchMatchSummaries",
+            "variables": {
+                "championId": championId,
+                "queueType": queueType,
+                "regionId": regionId,
+                "role":role,
+                "seasonIds":seasonIds,
+                "riotUserName": summonerName,
+                "riotTagLine" : tagline,
+                "page":page
+            },
+            "query": "query FetchMatchSummaries($championId: [Int], $page: Int, $queueType: [Int], $regionId: String!, $role: [Int], $seasonIds: [Int]!, $riotUserName: String!, $riotTagLine : String!) {  fetchPlayerMatchSummaries(    championId: $championId    page: $page    queueType: $queueType   regionId: $regionId    role: $role    seasonIds: $seasonIds    riotUserName: $riotUserName  riotTagLine : $riotTagLine) {    finishedMatchSummaries    totalNumMatches    matchSummaries {      assists      championId      cs      damage      deaths      gold      items      jungleCs      killParticipation      kills      level      matchCreationTime      matchDuration      matchId      maximumKillStreak      primaryStyle      queueType      regionId      role      runes      subStyle      summonerName      summonerSpells      psHardCarry      psTeamPlay      lpInfo {        lp        placement        promoProgress        promoTarget        promotedTo {          tier          rank          __typename        }        __typename      }      teamA {        championId        summonerName        teamId        role        hardCarry        teamplay        __typename      }      teamB {        championId        summonerName        teamId        role        hardCarry        teamplay        __typename      }      version      visionScore      win      __typename    }    __typename  }}"
+           }
+
+    headers = {
+            "Accept-Encoding":"gzip, deflate, br",
+            "Accept":"*/*",
+            "Content-Type": "application/json",
+            "Connection": "keep-alive",
+            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+          }
+    
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        response = await session_match_detail.json()  # detail du match sélectionné
+        
+    return response
+
+async def update_ugg(session, summonerName, tagline, regionId="euw1"):
+    
+    url = "https://u.gg/api"
+    headers = {
+                "Accept-Encoding":"gzip, deflate, br",
+                "Accept":"*/*",
+                "Content-Type": "application/json",
+                "Connection": "keep-alive",
+                "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+            }
+    
+    payload = {
+            "operationName": "UpdatePlayerProfile",
+            "variables": {
+                "regionId": regionId,
+                "riotUserName": summonerName,
+                "riotTagLine" : tagline,
+            },
+            "query": "query UpdatePlayerProfile($regionId: String!, $riotUserName: String!, $riotTagLine : String!) {  updatePlayerProfile(region_id: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine) {    success    errorReason    __typename  }}"
+           }
+    
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        response = await session_match_detail.json()  # detail du match sélectionné
+        
+    response = response['data']['updatePlayerProfile']['success']
+        
+    return response
+    # return json.loads(x.text)["data"]["updatePlayerProfile"]["success"]
+    
+    
+
+async def getRanks(session : ClientSession, summonerName, tagline, regionId='euw1', season=22):
+    """Avopir le rank et le tier d'un joueur"""
+    
+    url = "https://u.gg/api"
+    headers = {
+                "Accept-Encoding":"gzip, deflate, br",
+                "Accept":"*/*",
+                "Content-Type": "application/json",
+                "Connection": "keep-alive",
+                "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+            }
+    payload = {
+                "operationName": "fetchProfileRanks",
+                "variables": {
+                    "regionId": regionId,
+                    "riotUserName": summonerName,
+                    "riotTagLine" : tagline,
+                    "seasonId": season,
+                },
+                "query": """query fetchProfileRanks($regionId: String!, $riotUserName: String!, $riotTagLine : String!, $seasonId: Int!) { fetchProfileRanks(regionId: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine, seasonId: $seasonId) { rankScores {lastUpdatedAt
+                        losses
+                        lp
+                        promoProgress
+                        queueType
+                        rank
+                        role
+                        tier
+                        seasonId
+                        wins
+                        }
+                    }
+                    }"""
+                #  "query": "query getPlayerStats($queueType: [Int!], $regionId: String!, $role: [Int!], $seasonId: Int!, $riotUserName: String!, $riotTagLine : String!) {\n  fetchPlayerStatistics(\n    queueType: $queueType\n    riotUserName: $riotUserName\n    riotTagLine: $riotTagLine\n      regionId: $regionId\n    role: $role\n    tier: $tier\n    rank : $rank\n     seasonId: $seasonId\n  ) {\n    basicChampionPerformances {\n  assists\n      championId\n      cs\n      damage\n      damageTaken\n      deaths\n      gold\n      kills\n      totalMatches\n      wins\n      lpAvg\n    }\n    exodiaUuid\n    puuid\n    queueType\n    regionId\n    role\n    seasonId\n    __typename\n  }\n}"
+            }
+        
+
+        # response = requests.post(url, headers=headers, json=payload)
+
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        response = await session_match_detail.json()  # detail du match sélectionné
+        
+    return response
+
+
+
+async def getRankings(session : ClientSession, summonerName, tagline, regionId='euw1', season=22, queueType=420):
+    """Avoir le classement du joueur"""
+    
+    url = "https://u.gg/api"
+    headers = {
+                "Accept-Encoding":"gzip, deflate, br",
+                "Accept":"*/*",
+                "Content-Type": "application/json",
+                "Connection": "keep-alive",
+                "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+            }
+    
+    payload = {
+                "operationName": "GetOverallPlayerRanking",
+                "variables": {
+                    "regionId": regionId,
+                    "riotUserName": summonerName,
+                    "riotTagLine" : tagline,
+                    # "seasonId": season,
+                    'queueType': queueType
+                },
+                "query": """query GetOverallPlayerRanking($queueType: Int, $riotUserName: String, $riotTagLine:String, $regionId: String) {
+    overallRanking(queueType: $queueType, riotUserName: $riotUserName, riotTagLine: $riotTagLine,  regionId: $regionId) {
+        overallRanking
+        totalPlayerCount
+        }
+        }"""}
+        
+
+
+        # response = requests.post(url, headers=headers, json=payload)
+
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        response = await session_match_detail.json()  # detail du match sélectionné
+        
+    return response
