@@ -81,8 +81,14 @@ class AnalyseLoLElo(Extension):
         df_mean['time'] = np.round(df_mean['time'], 2)
         df_mean['nbgames'] = nbgames.values
         
-        df_mean.columns = ['V', 'P', 'V/m', 'P/m', 'V(Autre)', 'V(Sup)', 'P(Autres)', 'P(Sup)', 'V(Autre)/m', 'V(Sup)/m', 'P(Autre)/m', 'P(Sup)/m', 'T', 'Parties']
+        columns = ['V', 'P', 'V/m', 'P/m', 'V(Autre)', 'V(Sup)', 'P(Autres)', 'P(Sup)', 'V(Autre)/m', 'V(Sup)/m', 'P(Autre)/m', 'P(Sup)/m', 'T', 'Parties']
+
+        df_mean.columns = columns
+
+        df_mean[columns] = np.round(df_mean[columns], 2)
         df_mean.index.name = 'Tier'
+        
+        df_mean.reindex(['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'], inplace=True)
         
         dfi.export(df_mean, 'image.png',
                    fontsize=9,

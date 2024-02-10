@@ -213,7 +213,7 @@ class Recordslol(Extension):
         self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold']
         self.fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
         self.fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
-        self.fichier_tank_heal = ['dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
+        self.fichier_tank_heal = ['dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
         self.fichier_objectif = ['baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower']
         self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'couronne', 'snowball']
 
@@ -1063,6 +1063,106 @@ class Recordslol(Extension):
             except KeyError:              
                 suggestion = suggestion_word(stat, fichier.columns.tolist())
                 await ctx.send(f"Ce record n'existe pas. Souhaitais-tu dire : **{suggestion}** ?")
+                
+
+    @records_lol.subcommand("date_record",
+                                    sub_cmd_description="Date des records",
+                                    options=[
+                                        SlashCommandOption(
+                                            name="saison",
+                                            description="saison lol ?",
+                                            type=interactions.OptionType.INTEGER,
+                                            required=False,
+                                            min_value=12,
+                                            max_value=saison),
+                                        SlashCommandOption(
+                                            name='mode',
+                                            description='quel mode de jeu ?',
+                                            type=interactions.OptionType.STRING,
+                                            required=False,
+                                            choices=[
+                                                SlashCommandChoice(name='ranked',
+                                                       value='RANKED'),
+                                                SlashCommandChoice(name='aram',
+                                                       value='ARAM'),
+                                                SlashCommandChoice(name='flex',
+                                                       value='FLEX')]),
+                                        SlashCommandOption(
+                                            name='view',
+                                            description='Global ou serveur ?',
+                                            type=interactions.OptionType.STRING,
+                                            required=False,
+                                            choices=[
+                                                SlashCommandChoice(name='global', value='global'),
+                                                SlashCommandChoice(name='serveur', value='serveur')
+                                            ]
+                                        )
+                                    ]
+    )
+    async def date_record(self,
+                        ctx: SlashContext,
+                        saison: int = saison,
+                        mode:str = 'RANKED',
+                        view : str = 'global'):
+        
+        # data
+        if view == 'global':
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
+                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                     where season = {saison}
+                                     and mode = '{mode}'
+                                     and time >= {self.time_mini[mode]}
+                                     and tracker.banned = false''',
+                                     index_col='id').transpose()
+
+        elif view == 'serveur':
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs, tracker
+                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                         where season = {saison}
+                                         and mode = '{mode}'
+                                         and time >= {self.time_mini[mode]}
+                                         and tracker.banned = false''',
+                                         index_col='id').transpose()
+
+            
+
+            
+
+        fichier = fichier[['match_id', 'id_participant', 'riot_id', 'discord', 'champion','datetime'] + self.liste_complete]
+        
+
+        
+        df_complet = []
+       
+        for stat in self.liste_complete:                        
+            if stat in ['early_baron', 'early_drake']:
+                ascending=True
+                
+                fichier_filtre = fichier[fichier[stat] != 0]
+            else:
+                ascending=False
+                fichier_filtre = fichier[fichier[stat] != 0]
+                        
+            fichier_filtre.sort_values(by=stat, ascending=ascending, inplace=True)
+            fichier_filtre = fichier_filtre.head(1)
+            fichier_filtre['record'] = stat
+            df_complet.append(fichier_filtre)
+            
+        df_complet = pd.concat(df_complet)    
+        
+        
+        df_complet.sort_values('datetime', ascending=False, inplace=True)
+        
+        txt = ''
+
+        for id, data in df_complet.iterrows():
+            record = data["record"]
+            txt += f'Record **{record}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {emote_champ_discord.get(data["champion"].capitalize(), data["champion"]) } : **{data[record]}** \n'
+        
+        paginator = Paginator.create_from_string(self.bot, txt, page_size=2000, timeout=120)
+
+        paginator.default_title = f'Date Records {mode}'
+        await paginator.send(ctx)            
                 
 
 def setup(bot):

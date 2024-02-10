@@ -320,15 +320,71 @@ class Aram(Extension):
                 if totalgames > 0:
                     await channel_tracklol.send(embeds=embed)
                     await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites')
+                    
+    @slash_command(name="editer_compte_aram",
+                   description="Editer un compte aram",
+                   default_member_permissions=interactions.Permissions.MANAGE_GUILD,
+                   options=[
+                       SlashCommandOption(name="riot_id",
+                                          description="Nom du joueur",
+                                          type=interactions.OptionType.STRING, required=True),
+                       SlashCommandOption(name="riot_tag",
+                                          description="Tag",
+                                          type=interactions.OptionType.STRING, required=True),
+                       SlashCommandOption(name="lp",
+                                          description="LP à ajouter ou retirer",
+                                          type=interactions.OptionType.INTEGER,
+                                          required=False),
+                       SlashCommandOption(name="victoire",
+                                          description="Victoire à ajouter ou retirer",
+                                          type=interactions.OptionType.INTEGER,
+                                          required=False),
+                        SlashCommandOption(name="defaite",
+                                          description="Victoire à ajouter ou retirer",
+                                          type=interactions.OptionType.INTEGER,
+                                          required=False)])
+    async def edit_compte_aram(self,
+                       ctx: SlashContext,
+                       riot_id: str,
+                       riot_tag:str,
+                       lp: int = 0,
+                       victoire : int =0,
+                       defaite : int =0):
+            """
+            Modifie le compte ARAM d'un joueur dans la base de données.
 
-
+            Args:
+                ctx (SlashContext): Le contexte de la commande Slash.
+                riot_id (str): L'identifiant Riot du joueur.
+                riot_tag (str): Le tag Riot du joueur.
+                lp (int, optional): Le nombre de points de ligue à ajouter. Par défaut 0.
+                victoire (int, optional): Le nombre de victoires à ajouter. Par défaut 0.
+                defaite (int, optional): Le nombre de défaites à ajouter. Par défaut 0.
+            """
+            await ctx.defer(ephemeral=False)
+            
+            season = 14
+             
+            nb_row = requete_perso_bdd(f'''UPDATE ranked_aram_s{season}
+                SET wins = wins + :wins, lp = lp + :lp, losses = losses + :losses, games = wins + losses
+                WHERE index = (SELECT id_compte from tracker where riot_id = :riot_id and riot_tagline = :riot_tag);''',
+                {'wins': victoire, 'lp': lp, 'losses': defaite, 'riot_id': riot_id.lower(), 'riot_tag': riot_tag.upper()},
+                get_row_affected=True)
+            
+            
+            if nb_row > 0:
+                await ctx.send(f"Compte ARAM modifié pour {riot_id}#{riot_tag}")
+            else:
+                await ctx.send('Compte introuvable :(')
+        
+        
     @Task.create(TimeTrigger(hour=5))
     async def lolsuivi_aram(self):
 
         await self.update_aram24h()
 
     @slash_command(name="force_update_aram24h",
-                   description="Réservé à Tomlora")
+                   default_member_permissions=interactions.Permissions.MANAGE_GUILD)
     async def force_update_aram(self, ctx: SlashContext):
 
         if isOwner_slash(ctx):

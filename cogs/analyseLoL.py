@@ -632,7 +632,7 @@ class analyseLoL(Extension):
             
             df_timeline = df_timeline[(df_timeline['riot_id'] == riot_id)]
 
-            img = io.imread('./img/map.jpg')
+            img = io.imread('./img/map2.jpg')
 
             # 3750 taille optimale et 4 en diviseur
             x_pos = 468.75

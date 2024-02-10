@@ -646,10 +646,6 @@ class LeagueofLegends(Extension):
                                           required=True,
                                           min_value=0,
                                           max_value=100),
-                       SlashCommandOption(name="sauvegarder",
-                                          description="sauvegarder la game",
-                                          type=interactions.OptionType.BOOLEAN,
-                                          required=False),
                        SlashCommandOption(name="affichage",
                                           description="Mode d'affichage",
                                           type=interactions.OptionType.INTEGER,
@@ -669,7 +665,6 @@ class LeagueofLegends(Extension):
                    riot_id: str,
                    riot_tag:str,
                    numerogame: int,
-                   sauvegarder: bool = False,
                    identifiant_game=None,
                    affichage=1,
                    ce_channel=False):
@@ -694,7 +689,7 @@ class LeagueofLegends(Extension):
                                                             riot_id,
                                                             riot_tag,
                                                             idgames=numerogame,
-                                                            sauvegarder=sauvegarder,
+                                                            sauvegarder=True,
                                                             identifiant_game=identifiant_game,
                                                             guild_id=int(
                                                                 ctx.guild_id),
@@ -1348,7 +1343,7 @@ class LeagueofLegends(Extension):
         await self.update_24h()
 
     @slash_command(name="force_update24h",
-                   description="Réservé à Tomlora")
+                   default_member_permissions=interactions.Permissions.MANAGE_GUILD)
     async def force_update(self, ctx: SlashContext):
 
         await ctx.defer(ephemeral=False)
@@ -2110,7 +2105,7 @@ class LeagueofLegends(Extension):
         async with session.get(f"https://ddragon.leagueoflegends.com/cdn/{version['n']['item']}/data/fr_FR/item.json") as itemlist:
             data_item = await itemlist.json()
             
-        df = lire_bdd_perso(f'''SELECT * FROM public.data_timeline_events
+        df = lire_bdd_perso(f'''SELECT * FROM data_timeline_events
         WHERE match_id = '{match_id}' 
         AND riot_id = (SELECT id_compte FROM tracker where riot_id = '{riot_id.lower().replace(' ', '')}' and riot_tagline = '{riot_tag.upper()}') ''', index_col=None).T
         

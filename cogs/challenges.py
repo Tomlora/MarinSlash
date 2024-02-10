@@ -307,7 +307,7 @@ class Challenges(Extension):
 
         if action == 'exclure':
 
-            nb_row = requete_perso_bdd('''INSERT INTO public.challenge_exclusion("challengeId", index) VALUES (:challengeid, :summonername);''',
+            nb_row = requete_perso_bdd('''INSERT INTO challenge_exclusion("challengeId", index) VALUES (:challengeid, :summonername);''',
                             dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
                                         'summonername': id_compte},
                             get_row_affected=True)
@@ -319,7 +319,7 @@ class Challenges(Extension):
 
         elif action == 'inclure':
 
-            nb_row = requete_perso_bdd('''DELETE FROM public.challenge_exclusion WHERE "challengeId" = :challengeid AND index = :summonername;''',
+            nb_row = requete_perso_bdd('''DELETE FROM challenge_exclusion WHERE "challengeId" = :challengeid AND index = :summonername;''',
                             dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
                                         'summonername': id_compte},
                             get_row_affected=True)

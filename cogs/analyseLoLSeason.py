@@ -109,6 +109,8 @@ class AnalyseLoLSeason(Extension):
                 if name_allie in dict_allie.keys():
                     name_allie = f'{name_allie} + {match_id}'
                 dict_allie[name_allie] = champ_allie
+                if name_ennemi in dict_ennemi:
+                    name_ennemi = f'{name_ennemi} + {match_id}'
                 dict_ennemi[name_ennemi] = champ_ennemi
 
         def count_champion(dict):

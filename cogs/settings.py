@@ -1,5 +1,6 @@
 from fonctions.permissions import isOwner_slash
-from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd
+from fonctions.channels_discord import mention
+from fonctions.gestion_bdd import get_data_bdd, requete_perso_bdd, lire_bdd_perso
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, slash_command
 import interactions
 from interactions.ext.paginators import Paginator
@@ -54,8 +55,25 @@ class Settings(Extension):
             else:  # pour un channel, c'est #
                 embed2.add_field(
                         name=variable, value=f'<#{valeur}>', inline=True)
+                
+        #ban list
+        
+        df_banlist = lire_bdd_perso(f'''SELECT discord from tracker
+                                    WHERE banned = True
+                                    AND server_id = {int(ctx.guild_id)} ''', index_col=None).T 
+        
+        embed_ban = interactions.Embed(title='Banlist',
+                                       thumbnail=interactions.EmbedAttachment(url=ctx.guild.icon.as_url()))
+        if df_banlist.empty:
+            embed_ban.add_field(name='Joueurs bannis',
+                                value='Pas de joueur banni')
+        else:
+            df_banlist['discord'] = df_banlist['discord'].apply(lambda x : mention(x, 'membre'))
+            txt_ban = ' , '.join(df_banlist['discord'].tolist())
+            embed_ban.add_field(name='Joueurs bannis',
+                                value=txt_ban)
 
-        embeds = [embed1, embed2]
+        embeds = [embed1, embed2, embed_ban]
         paginator = Paginator.create_from_embeds(
                 self.bot,
                 *embeds)

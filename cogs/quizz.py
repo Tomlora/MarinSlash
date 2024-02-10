@@ -72,7 +72,7 @@ class Quizz(Extension):
                         requete_perso_bdd(f'''INSERT INTO quizz({discord_id}) VALUES (:joueur)
                                                     ON CONFLICT (discord_id)
                                                     DO NOTHING;
-                                                    UPDATE public.quizz
+                                                    UPDATE quizz
                                                 SET count_top1="count_top1"+1, result_top1="result_top1"+1
                                                 WHERE discord_id = {discord_id};''')
                         break
@@ -113,7 +113,7 @@ class Quizz(Extension):
                         requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
                                                     ON CONFLICT (discord_id)
                                                     DO NOTHING;
-                                                    UPDATE public.quizz
+                                                    UPDATE quizz
                                                 SET count_top5="count_top5"+1, result_top1="result_top5"+1
                                                 WHERE discord_id = {discord_id};''')
                         break
@@ -175,7 +175,7 @@ class Quizz(Extension):
                         requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
                                                     ON CONFLICT (discord_id)
                                                     DO NOTHING;
-                                                    UPDATE public.quizz
+                                                    UPDATE quizz
                                                 SET count_joueur="count_joueur"+1, result_joueur="result_joueur"+1
                                                 WHERE discord_id = {discord_id};''')
                         break
@@ -211,7 +211,7 @@ class Quizz(Extension):
                         requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
                                                         ON CONFLICT (discord_id)
                                                         DO NOTHING;
-                                                        UPDATE public.quizz
+                                                        UPDATE quizz
                                                     SET count_top6_team="count_top6_team"+1, result_top6_team="result_top6_team"+1
                                                     WHERE discord_id = {discord_id};''')
                         break

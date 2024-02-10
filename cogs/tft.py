@@ -127,14 +127,14 @@ class tft(Extension):
         
         df_exists = lire_bdd_perso(f'''SELECT match_id, joueur from trackertft_stats
                                    WHERE match_id = '{id_match}' 
-                                   AND joueur = '{summonername.lower()}'  ''',
+                                   AND joueur = (SELECT id_compte from trackertft where index = '{summonername.lower()}')  ''',
                                    index_col=None)
         
 
         if thisQ == 'RANKED' and df_exists.empty:
 
             requete_perso_bdd(f'''UPDATE suivitft
-                                SET top{classement} = top{classement} + 1 WHERE index = '{summonername.lower()}' ''')
+                                SET top{classement} = top{classement} + 1 WHERE index = (SELECT id_compte from trackertft where index = '{summonername.lower()}') ''')
 
         # Stats
 
@@ -168,7 +168,9 @@ class tft(Extension):
 
         # Stats
 
-        suivi_profil = lire_bdd('suivitft', 'dict')
+        suivi_profil = lire_bdd_perso('''SELECT trackertft.index, suivitft."LP", suivitft.tier, 
+                                      suivitft.rank, suivitft.top1, suivitft.top2, suivitft.top3, suivitft.top4, suivitft.top5, suivitft.top6, suivitft.top7, suivitft.top8 from suivitft
+                                      INNER JOIN trackertft ON trackertft.id_compte = suivitft.index''', 'dict')
         
         try:
             profil = await get_stats_ranked(session, summonername)
@@ -221,7 +223,7 @@ class tft(Extension):
                 difLP = "Promotion :arrow_up: / +" + str(difLP)
 
             requete_perso_bdd('''UPDATE suivitft
-                              SET tier = :tier, rank = :rank, "LP" = :lp WHERE index = :summonername''', {'tier': tier,
+                              SET tier = :tier, rank = :rank, "LP" = :lp WHERE index = (SELECT id_compte FROM trackertft where index = :summonername)''', {'tier': tier,
                                                                                                           'rank': rank,
                                                                                                           'lp': lp,
                                                                                                           'summonername': summonername})
@@ -282,6 +284,8 @@ class tft(Extension):
 
         df_traits = pd.DataFrame(stats_joueur['traits'])
         df_traits = df_traits.sort_values(by='tier_current', ascending=False)
+        
+        
 
         # [0] est l'index
         for set in df_traits.iterrows():
@@ -303,8 +307,8 @@ class tft(Extension):
 
         df_mobs = pd.DataFrame(stats_joueur['units'])
         df_mobs = df_mobs.sort_values(by='tier', ascending=False)
-
-        inline = False
+        
+        inline=False
         for mob in df_mobs.iterrows():
             monster_name = mob[1]['character_id']\
                 .replace('tft9_', '').replace('TFT9_', '')\
@@ -330,7 +334,7 @@ class tft(Extension):
       
         if df_exists.empty:
             requete_perso_bdd('''INSERT INTO trackertft_stats(joueur, match_id, mode, top, gold, level, dmg, last_round)
-        VALUES (:joueur, :match_id, :mode, :top, :gold, :level, :dmg, :last_round);''',
+        VALUES ( (SELECT id_compte FROM trackertft where index = :joueur), :match_id, :mode, :top, :gold, :level, :dmg, :last_round);''',
                 {'joueur': summonername.lower(),
                 'match_id': id_match,
                 'mode': thisQ,
@@ -339,6 +343,17 @@ class tft(Extension):
                 'level' : level,
                 'dmg' : dmg_total,
                 'last_round' : last_round})
+            
+            id_compte = lire_bdd_perso(f'''SELECT id_compte FROM trackertft where index = '{summonername.lower()}' ''', index_col=None).loc['id_compte'][0]
+            df_traits['joueur'] = id_compte
+            df_traits['id'] = id_match
+            
+            df_mobs['joueur'] = id_compte
+            df_mobs['id'] = id_match
+            
+            
+            sauvegarde_bdd(df_traits, 'trackertft_traits', 'append')
+            sauvegarde_bdd(df_mobs, 'trackertft_mobs', 'append')
             
 
         return embed
@@ -444,16 +459,24 @@ class tft(Extension):
         match_detail, id_match, puuid = await matchtft_by_puuid(summonername, 0, session)
         # ajout du summonername (clé) et de l'id de la dernière game(getId)
         
-        requete_perso_bdd('''INSERT INTO public.trackertft(index, id, puuid) VALUES (:index, :id, :puuid);
-        INSERT INTO public.suivitft(index, "LP", tier, rank) VALUES (:index, :LP, :tier, :rank);                  
-                          ''',
+        requete_perso_bdd('''INSERT INTO trackertft(index, id, puuid)
+                          VALUES (:index, :id, :puuid);''',
                           dict_params={'index': summonername.lower(),
                                        'id': id_match,
                                        'puuid': puuid,
                                        'LP': lp,
                                        'tier': tier,
                                        'rank': rank})
-
+        
+        requete_perso_bdd('''INSERT INTO suivitft(index, "LP", tier, rank)
+                          VALUES ( (SELECT id_compte FROM trackertft where index = :summonername), :LP, :tier, :rank); ''',
+                          dict_params={'index': summonername.lower(),
+                                       'id': id_match,
+                                       'puuid': puuid,
+                                       'LP': lp,
+                                       'tier': tier,
+                                       'rank': rank})
+        
         await ctx.send(summonername + " was successfully added to live-feed!")
         # except:
         # await ctx.send("Oops! There is no summoner with that name!")
