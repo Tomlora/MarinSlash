@@ -299,9 +299,7 @@ class Aram(Extension):
 
                     if nbgames != 0:
                         embed.add_field(name=suivi[key]['riot_id'] + " ( " + emote_rank_discord[tier] + " )",
-                                        value=f"V : {suivi[key]['wins']} ({difwins}) | " +
-                                        f"D : {suivi[key]['losses']} ({diflosses}) | " +
-                                        f"LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)
+                                        value=f"V : {suivi[key]['wins']} ({difwins}) | D : {suivi[key]['losses']} ({diflosses}) | LP :  {suivi[key]['lp']} ({difLP}) {emote}", inline=False)
 
                     if difwins + diflosses > 0:  # si supérieur à 0, le joueur a joué
                         sql += f'''UPDATE ranked_aram_S{saison}

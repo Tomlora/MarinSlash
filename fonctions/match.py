@@ -4,6 +4,7 @@ import warnings
 from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd, lire_bdd_perso, sauvegarde_bdd
 from fonctions.params import saison
 from fonctions.channels_discord import mention
+from fonctions.api_calls import getRanks
 import numpy as np
 import sys
 import traceback
@@ -1842,6 +1843,8 @@ class matchlol():
         self.liste_rank = []
         self.liste_tier = []
         
+
+        
         for i in range(self.nb_joueur):
             if self.moba_ok:
                 try:
@@ -1857,8 +1860,18 @@ class matchlol():
                         self.liste_rank.append('')
                         self.liste_tier.append('')
             else:
-                self.liste_rank.append('')
-                self.liste_tier.append('')
+                try:
+                    data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
+                    df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
+                    rank_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
+                    tier_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
+                    self.liste_rank.append(rank_joueur)
+                    self.liste_tier.append(tier_joueur)
+                    
+                except IndexError:
+                    self.liste_rank.append('')
+                    self.liste_tier.append('')
+
                 
         self.thisVisionListe = [0,0,0,0,0,0,0,0]
         self.thisPinkListe = [0,0,0,0,0,0,0,0]
@@ -2840,6 +2853,7 @@ class matchlol():
             self.model = ''
 
 
+            
         for i in range(self.nb_joueur):
             im.paste(
                 im=await get_image("champion", self.thisChampNameListe[i], self.session, profil_version=self.version['n']['champion']),
@@ -2865,8 +2879,15 @@ class matchlol():
                         rank_joueur = ''
                         tier_joueur = ''
             else:
-                rank_joueur = ''
-                tier_joueur = ''
+                try:
+                    
+                    data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
+                    df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
+                    rank_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
+                    tier_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
+                except IndexError:
+                    rank_joueur = ''
+                    tier_joueur = ''
 
             if rank_joueur != '':
                 img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 100, 100)

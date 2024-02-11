@@ -1331,7 +1331,7 @@ class LeagueofLegends(Extension):
                             losses_jour = {suivi[key]['losses']},
                             "LP_jour" = {suivi[key]['LP']},
                             tier_jour = '{suivi[key]['tier']}',
-                            rank_jour = '{suivi[key]['rank']}',
+                            rank_jour = '{suivi[key]['rank']}'
                             where index = '{key}';'''
                             
                     sql+= f'''UPDATE suivi_s{saison}

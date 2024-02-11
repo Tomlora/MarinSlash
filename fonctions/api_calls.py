@@ -485,3 +485,47 @@ async def getRankings(session : ClientSession, summonerName, tagline, regionId='
         response = await session_match_detail.json()  # detail du match sélectionné
         
     return response
+
+
+
+async def getRanks(session : ClientSession, summonerName, tagline, regionId='euw1', season=22):
+    url = "https://u.gg/api"
+    """Avopir le rank et le tier d'un joueur"""
+    payload = {
+                "operationName": "fetchProfileRanks",
+                "variables": {
+                    "regionId": regionId,
+                    "riotUserName": summonerName,
+                    "riotTagLine" : tagline,
+                    "seasonId": season,
+                },
+                "query": """query fetchProfileRanks($regionId: String!, $riotUserName: String!, $riotTagLine : String!, $seasonId: Int!) { fetchProfileRanks(regionId: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine, seasonId: $seasonId) { rankScores {lastUpdatedAt
+                        losses
+                        lp
+                        promoProgress
+                        queueType
+                        rank
+                        role
+                        tier
+                        seasonId
+                        wins
+                        }
+                    }
+                    }"""
+                #  "query": "query getPlayerStats($queueType: [Int!], $regionId: String!, $role: [Int!], $seasonId: Int!, $riotUserName: String!, $riotTagLine : String!) {\n  fetchPlayerStatistics(\n    queueType: $queueType\n    riotUserName: $riotUserName\n    riotTagLine: $riotTagLine\n      regionId: $regionId\n    role: $role\n    tier: $tier\n    rank : $rank\n     seasonId: $seasonId\n  ) {\n    basicChampionPerformances {\n  assists\n      championId\n      cs\n      damage\n      damageTaken\n      deaths\n      gold\n      kills\n      totalMatches\n      wins\n      lpAvg\n    }\n    exodiaUuid\n    puuid\n    queueType\n    regionId\n    role\n    seasonId\n    __typename\n  }\n}"
+            }
+        
+    headers = {
+            "Accept-Encoding":"gzip, deflate, br",
+            "Accept":"*/*",
+            "Content-Type": "application/json",
+            "Connection": "keep-alive",
+            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+          }
+
+        # response = requests.post(url, headers=headers, json=payload)
+
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        response = await session_match_detail.json()  # detail du match sélectionné
+        
+    return response
