@@ -1494,7 +1494,23 @@ class matchlol():
         self.liste_rank = []
         self.liste_tier = []
         
+        self.winrate_joueur = {}
+        
+
+        
         for i in range(self.nb_joueur):
+            data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
+            df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
+            
+            try:
+                nbgames = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] + df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['losses'].values[0]
+                wr = round((df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] / nbgames) * 100)
+            except IndexError:
+                wr = 0
+                nbgames = 0
+            
+            self.winrate_joueur[f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}'] = {'winrate' : wr, 'nbgames' : nbgames}
+            
             if self.moba_ok:
                 try:
                     self.liste_rank.append(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['tier'])
@@ -1509,9 +1525,16 @@ class matchlol():
                         self.liste_rank.append('')
                         self.liste_tier.append('')
             else:
-                self.liste_rank.append('')
-                self.liste_tier.append('')
+                try:
+                    rank_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
+                    tier_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
+                    self.liste_rank.append(rank_joueur)
+                    self.liste_tier.append(tier_joueur)
                     
+                except IndexError:
+                    self.liste_rank.append('')
+                    self.liste_tier.append('')
+
 
         
 
@@ -1883,10 +1906,23 @@ class matchlol():
         
         self.liste_rank = []
         self.liste_tier = []
+        self.winrate_joueur = {}
         
 
         
         for i in range(self.nb_joueur):
+            data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
+            df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
+            
+            try:
+                nbgames = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] + df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['losses'].values[0]
+                wr = round((df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] / nbgames) * 100)
+            except IndexError:
+                wr = 0
+                nbgames = 0
+            
+            self.winrate_joueur[f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}'] = {'winrate' : wr, 'nbgames' : nbgames}
+            
             if self.moba_ok:
                 try:
                     self.liste_rank.append(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['tier'])
@@ -1902,8 +1938,6 @@ class matchlol():
                         self.liste_tier.append('')
             else:
                 try:
-                    data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
-                    df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
                     rank_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
                     tier_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
                     self.liste_rank.append(rank_joueur)
@@ -2515,6 +2549,15 @@ class matchlol():
         
         if txt_sql != '' and sauvegarder:
             requete_perso_bdd(txt_sql)
+            
+    async def detection_smurf(self):
+        
+        self.observations_smurf = ''
+        
+        for joueur, stat in self.winrate_joueur.items():
+            if joueur != f'{self.riot_id}#{self.riot_tag}' and stat['winrate'] >= 70 and stat['nbgames'] >= 10:
+                self.observations_smurf += f':eyes: **{joueur}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
+        
             
             
     async def resume_general(self,

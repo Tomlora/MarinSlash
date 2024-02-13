@@ -532,9 +532,16 @@ class LeagueofLegends(Extension):
          
         # Detection joueurs pro 
         await match_info.detection_joueurs_pro()    
-                
+                       
         if match_info.observations_proplayers != '':
             embed.add_field(name='Joueurs Pro', value=match_info.observations_proplayers)
+            
+        # Detection Smurf
+        
+        await match_info.detection_smurf()
+            
+        if match_info.observations_smurf != '':
+            embed.add_field(name='Smurf', value=match_info.observations_smurf)
 
         if match_info.thisQ != 'ARENA 2v2':
 
