@@ -337,6 +337,35 @@ async def get_mobalytics(pseudo : str, session: aiohttp.ClientSession, match_id)
     return df_moba, match_detail_stats
 
 
+async def update_ugg(session, summonerName, tagline, regionId="euw1"):
+    
+    url = "https://u.gg/api"
+    headers = {
+                "Accept-Encoding":"gzip, deflate, br",
+                "Accept":"*/*",
+                "Content-Type": "application/json",
+                "Connection": "keep-alive",
+                "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+            }
+    
+    payload = {
+            "operationName": "UpdatePlayerProfile",
+            "variables": {
+                "regionId": regionId,
+                "riotUserName": summonerName,
+                "riotTagLine" : tagline,
+            },
+            "query": "query UpdatePlayerProfile($regionId: String!, $riotUserName: String!, $riotTagLine : String!) {  updatePlayerProfile(region_id: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine) {    success    errorReason    __typename  }}"
+           }
+    
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        response = await session_match_detail.json()  # detail du match sélectionné
+        
+    response = response['data']['updatePlayerProfile']['success']
+        
+    return response
+
+
 async def getRanks(session : aiohttp.ClientSession, summonerName, tagline, regionId='euw1', season=22):
     url = "https://u.gg/api"
     """Avopir le rank et le tier d'un joueur"""
@@ -490,10 +519,10 @@ def dict_data(thisId: int, match_detail, info):
 
     return liste
 
-def dict_data_arena(thisId: int, match_detail, info):
+def dict_data_arena(thisId: int, match_detail, info, nb_joueur):
     
 
-    return [match_detail['info']['participants'][i][info] for i in range(8)]
+    return [match_detail['info']['participants'][i][info] for i in range(nb_joueur)]
 
 async def match_by_puuid_with_summonername(summonerName,
                          idgames: int,
@@ -627,6 +656,7 @@ async def get_spectator_data(puuid, session):
 
 
 def charger_font(size):
+
     try:
         font = ImageFont.truetype("DejaVuSans.ttf", size)  # Ubuntu 18.04
     except OSError:
@@ -634,12 +664,12 @@ def charger_font(size):
             font = ImageFont.truetype("arial.ttf", size)  # Windows
         except OSError:
             font = ImageFont.truetype(
-                        "AppleSDGothicNeo.ttc", size
-                    )  # MacOS
+                            "AppleSDGothicNeo.ttc", size
+                        )  # MacOS
 
     return font
 
-async def getPlayerStats(session : aiohttp.ClientSession, summonerName, tagline, regionId='euw1', role=7, season=18, queueType=420):
+async def getPlayerStats(session : aiohttp.ClientSession, summonerName, tagline, regionId='euw1', role=7, season=22, queueType=420):
     url = "https://u.gg/api"
     payload = {
                 "operationName": "getPlayerStats",
@@ -713,6 +743,39 @@ def load_timeline(timeline):
     df_timeline['riot_id'] = df_timeline['participantId']
             
     return df_timeline, minute
+
+
+async def get_stat_champion_by_player(session, champ_dict, riot_id, riot_tag, season=22):
+    """
+    Retrieves the statistics of a player's performance with each champion.
+    
+    Parameters:
+        session (object): The session object for making HTTP requests.
+        champ_dict (dict): A dictionary mapping champion IDs to their names.
+        riot_id (str): The Riot ID of the player.
+        riot_tag (str): The Riot tag of the player.
+        season (int, optional): The season number. Defaults to 22.
+    
+    Returns:
+        pandas.DataFrame: A DataFrame containing the statistics of the player's performance with each champion.
+    """
+    data_stat = await getPlayerStats(session, riot_id, riot_tag, season=season)
+    
+    df_data_stat = pd.DataFrame(data_stat['data']['fetchPlayerStatistics'][0]['basicChampionPerformances'])
+    
+    if not 'championId' in df_data_stat.columns: # pas de data
+        return ''
+        
+
+    df_data_stat['championId'] = df_data_stat['championId'].astype(str)
+
+    df_data_stat.replace({'championId': champ_dict}, inplace=True)
+
+    df_data_stat['winrate'] = df_data_stat['wins'] / df_data_stat['totalMatches'] * 100
+
+    df_data_stat['winrate'] = df_data_stat['winrate'].astype(int)
+    
+    return df_data_stat
 
 class matchlol():
 
@@ -1496,11 +1559,35 @@ class matchlol():
         
         self.winrate_joueur = {}
         
+        self.winrate_champ_joueur = {}
+        
+        
 
         
         for i in range(self.nb_joueur):
+            
+            try:
+                success = await update_ugg(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
+            except:
+                pass
+            
+            
             data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
             df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
+            
+            df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), 22)
+                        
+            if isinstance(df_data_stat, pd.DataFrame):
+
+                df_data_stat = df_data_stat[df_data_stat['championId'] == self.thisChampNameListe[i]]
+
+                if df_data_stat.empty:
+                    dict_data_stat = ''
+                else:
+                    dict_data_stat = df_data_stat.to_dict(orient='records')[0]
+            else:
+                dict_data_stat = ''
+            
             
             try:
                 nbgames = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] + df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['losses'].values[0]
@@ -1509,7 +1596,8 @@ class matchlol():
                 wr = 0
                 nbgames = 0
             
-            self.winrate_joueur[f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}'] = {'winrate' : wr, 'nbgames' : nbgames}
+            self.winrate_joueur[f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].upper()}'] = {'winrate' : wr, 'nbgames' : nbgames}
+            self.winrate_champ_joueur[f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].upper()}'] = dict_data_stat
             
             if self.moba_ok:
                 try:
@@ -1590,6 +1678,10 @@ class matchlol():
                                 self.match_detail_participants['playerAugment3'], self.match_detail_participants['playerAugment4']]
 
         
+        if str(self.thisWinId) == 'True':
+            self.thisWinBool = True
+        else:
+            self.thisWinBool = False
 
         self.thisWin = ' '
         self.thisTime = fix_temps(round(
@@ -1609,13 +1701,13 @@ class matchlol():
         self.thisDamageTrueNoFormat = self.match_detail_participants['trueDamageDealtToChampions']
 
         self.thisDoubleListe = dict_data_arena(
-            self.thisId, self.match_detail, 'doubleKills')
+            self.thisId, self.match_detail, 'doubleKills', self.nb_joueur)
         self.thisTripleListe = dict_data_arena(
-            self.thisId, self.match_detail, 'tripleKills')
+            self.thisId, self.match_detail, 'tripleKills', self.nb_joueur)
         self.thisQuadraListe = dict_data_arena(
-            self.thisId, self.match_detail, 'quadraKills')
+            self.thisId, self.match_detail, 'quadraKills', self.nb_joueur)
         self.thisPentaListe = dict_data_arena(
-            self.thisId, self.match_detail, 'pentaKills')
+            self.thisId, self.match_detail, 'pentaKills', self.nb_joueur)
 
         self.thisTimeSpendDead = fix_temps(round(
             float(self.match_detail_participants['totalTimeSpentDead'])/60, 2))
@@ -1712,17 +1804,17 @@ class matchlol():
         # total kills
 
         self.thisKillsListe = dict_data_arena(
-            self.thisId, self.match_detail, 'kills')
+            self.thisId, self.match_detail, 'kills', self.nb_joueur)
         # deaths
 
         self.thisDeathsListe = dict_data_arena(
-            self.thisId, self.match_detail, 'deaths')
+            self.thisId, self.match_detail, 'deaths', self.nb_joueur)
 
 
         # assists
 
         self.thisAssistsListe = dict_data_arena(
-            self.thisId, self.match_detail, 'assists')
+            self.thisId, self.match_detail, 'assists', self.nb_joueur)
 
         self.thisKDAListe = [float(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (self.thisDeathsListe[i]), 2)) if self.thisDeathsListe[i] >= 1 
                              else float(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (self.thisDeathsListe[i] + 1), 2)) for i in range(self.nb_joueur)]
@@ -1755,35 +1847,35 @@ class matchlol():
         self.thisWin = self.match_detail_participants['placement']
 
         self.thisPosition = dict_data_arena(
-            self.thisId, self.match_detail, 'placement')
+            self.thisId, self.match_detail, 'placement', self.nb_joueur)
 
 
 
         self.thisDamageListe = dict_data_arena(
-            self.thisId, self.match_detail, 'totalDamageDealtToChampions')
+            self.thisId, self.match_detail, 'totalDamageDealtToChampions', self.nb_joueur)
         self.thisDamageTakenListe = dict_data_arena(
-            self.thisId, self.match_detail, 'totalDamageTaken')
+            self.thisId, self.match_detail, 'totalDamageTaken', self.nb_joueur)
         self.thisDamageSelfMitigatedListe = dict_data_arena(
-            self.thisId, self.match_detail, 'damageSelfMitigated')
+            self.thisId, self.match_detail, 'damageSelfMitigated', self.nb_joueur)
         self.thisShieldListe = dict_data_arena(
-            self.thisId, self.match_detail, 'totalDamageShieldedOnTeammates')
+            self.thisId, self.match_detail, 'totalDamageShieldedOnTeammates', self.nb_joueur)
 
 
         # pseudo
 
         self.thisPseudoListe = dict_data_arena(
-            self.thisId, self.match_detail, 'summonerName')
+            self.thisId, self.match_detail, 'summonerName', self.nb_joueur)
 
         self.thisRiotIdListe = dict_data_arena(
-            self.thisId, self.match_detail, 'riotIdGameName')
+            self.thisId, self.match_detail, 'riotIdGameName', self.nb_joueur)
         
         self.thisRiotTagListe = dict_data_arena(
-            self.thisId, self.match_detail, 'riotIdTagline')
+            self.thisId, self.match_detail, 'riotIdTagline', self.nb_joueur)
 
         # champ id
 
         self.thisChampListe = dict_data_arena(
-            self.thisId, self.match_detail, 'championId')
+            self.thisId, self.match_detail, 'championId', self.nb_joueur)
 
         # champ
 
@@ -1813,16 +1905,16 @@ class matchlol():
         # Augment
 
         self.augment1list = dict_data_arena(
-        self.thisId, self.match_detail, 'playerAugment1')
+        self.thisId, self.match_detail, 'playerAugment1', self.nb_joueur)
 
         self.augment2list = dict_data_arena(
-        self.thisId, self.match_detail, 'playerAugment2')
+        self.thisId, self.match_detail, 'playerAugment2', self.nb_joueur)
 
         self.augment3list = dict_data_arena(
-        self.thisId, self.match_detail, 'playerAugment3')
+        self.thisId, self.match_detail, 'playerAugment3', self.nb_joueur)
 
         self.augment4list = dict_data_arena(
-        self.thisId, self.match_detail, 'playerAugment4')
+        self.thisId, self.match_detail, 'playerAugment4', self.nb_joueur)
 
 
         # mise en forme
@@ -1873,6 +1965,40 @@ class matchlol():
         else:
             self.data_timeline = ''  
             self.index_timeline = 0
+            
+        try:
+            self.data_mobalytics, self.data_mobalytics_complete = await get_mobalytics(self.summonerName, self.session, int(self.last_match[5:]))
+            self.moba_ok = True
+        except:
+            self.moba_ok = False
+            self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))
+
+
+        if self.moba_ok:
+            self.avgtier_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['tier']
+            self.avgrank_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['division']
+
+            self.avgtier_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['tier']
+            self.avgrank_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['division']
+
+            if self.thisId >= 5:
+                dict_id = {5 : 0, 6 : 1, 7: 2, 8: 3, 9 : 4 }
+
+                id_mobalytics = dict_id[self.thisId]
+            else:
+                id_mobalytics = self.thisId
+
+            self.mvp = int(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[id_mobalytics]}#{self.thisRiotTagListe[id_mobalytics]}']['mvpScore'].values[0])
+
+            self.badges = self.data_mobalytics_complete['data']['lol']['player']['match']['subject']['badges']
+        
+        else:
+            self.mvp = 0
+            self.badges = ''
+            self.avgtier_ally = ''
+            self.avgrank_ally = ''
+            self.avgtier_enemy = ''
+            self.avgrank_enemy = ''
 
 
         try:
@@ -1907,6 +2033,7 @@ class matchlol():
         self.liste_rank = []
         self.liste_tier = []
         self.winrate_joueur = {}
+
         
 
         
@@ -2555,11 +2682,16 @@ class matchlol():
         self.observations_smurf = ''
         
         for joueur, stat in self.winrate_joueur.items():
-            if joueur != f'{self.riot_id}#{self.riot_tag}' and stat['winrate'] >= 70 and stat['nbgames'] >= 10:
+            if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] >= 70 and stat['nbgames'] >= 10:
                 self.observations_smurf += f':eyes: **{joueur}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
-        
-            
-            
+                
+        for joueur, stat in self.winrate_champ_joueur.items():
+            if isinstance(stat, dict):
+                if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] >= 70 and stat['totalMatches'] >= 5:
+                    self.observations_smurf += f':trophy: **{joueur}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {stat["championId"]} \n'
+                
+
+
     async def resume_general(self,
                              name_img,
                              embed,

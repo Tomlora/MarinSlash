@@ -8,11 +8,11 @@ from interactions import SlashCommandOption, Extension, SlashContext, SlashComma
 from fonctions.params import Version, saison
 from fonctions.channels_discord import verif_module, identifier_role_by_name
 from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples, emote_champ_discord, get_id_account_bdd
-from fonctions.match import emote_rank_discord, emote_champ_discord, fix_temps
+from fonctions.match import emote_rank_discord, emote_champ_discord, fix_temps, update_ugg
+from fonctions.api_calls import getRankings
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import challengeslol
-from fonctions.api_calls import getRankings, update_ugg
 from datetime import datetime, timedelta
 from dateutil import tz
 from interactions.ext.paginators import Paginator
@@ -150,7 +150,7 @@ class LeagueofLegends(Extension):
         await match_info.get_data_riot()
 
 
-        if match_info.thisQId != 1700:  # urf
+        if match_info.thisQId not in [1700, 1900]:  # urf
             await match_info.prepare_data()
 
         else:
@@ -1269,7 +1269,10 @@ class LeagueofLegends(Extension):
                     totalgames = totalwin + totaldef
                     
                     # Ranking EUW
-                    success = await update_ugg(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'])
+                    try:
+                        success = await update_ugg(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'])
+                    except:
+                        pass
                     stats_rankings = await getRankings(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'], 'euw1', 22, 420)
                     rank_euw = stats_rankings['data']['overallRanking']['overallRanking']
                     percent_rank_euw = int(round(stats_rankings['data']['overallRanking']['overallRanking'] / stats_rankings['data']['overallRanking']['totalPlayerCount'] * 100,0))

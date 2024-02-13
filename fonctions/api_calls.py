@@ -373,33 +373,7 @@ async def get_player_match_history(session, summonerName, tagline,  role=[], reg
         
     return response
 
-async def update_ugg(session, summonerName, tagline, regionId="euw1"):
-    
-    url = "https://u.gg/api"
-    headers = {
-                "Accept-Encoding":"gzip, deflate, br",
-                "Accept":"*/*",
-                "Content-Type": "application/json",
-                "Connection": "keep-alive",
-                "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
-            }
-    
-    payload = {
-            "operationName": "UpdatePlayerProfile",
-            "variables": {
-                "regionId": regionId,
-                "riotUserName": summonerName,
-                "riotTagLine" : tagline,
-            },
-            "query": "query UpdatePlayerProfile($regionId: String!, $riotUserName: String!, $riotTagLine : String!) {  updatePlayerProfile(region_id: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine) {    success    errorReason    __typename  }}"
-           }
-    
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
-        
-    response = response['data']['updatePlayerProfile']['success']
-        
-    return response
+
     # return json.loads(x.text)["data"]["updatePlayerProfile"]["success"]
     
     
