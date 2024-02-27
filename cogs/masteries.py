@@ -150,7 +150,11 @@ class Masteries(Extension):
     @lol_maitrise.subcommand("joueur",
                                sub_cmd_description="Points pour un joueur",
                    options=[
-                       SlashCommandOption(name="joueur",
+                       SlashCommandOption(name="riot_id",
+                                          description="Joueur",
+                                          type=interactions.OptionType.STRING,
+                                          required=True),
+                        SlashCommandOption(name="riot_tag",
                                           description="Joueur",
                                           type=interactions.OptionType.STRING,
                                           required=True),
@@ -162,15 +166,19 @@ class Masteries(Extension):
                                           max_value=100)])
     async def maitrise_joueur(self,
                                 ctx: SlashContext,
-                                joueur: str,
+                                riot_id: str,
+                                riot_tag: str,
                                 top:int=20):
        
-        joueur = joueur.lower().replace(' ', '')
+       
+       
+        riot_id = riot_id.lower().replace(' ', '')
+        riot_tag = riot_tag.upper()
         
         await ctx.defer(ephemeral=False)
         df = lire_bdd_perso(f'''SELECT data_masteries.*, tracker.index as pseudo from data_masteries 
                             INNER JOIN tracker ON data_masteries.id = tracker.id_compte
-                            WHERE tracker.index = '{joueur}' ''', index_col='index').T
+                            WHERE tracker.riot_id = '{riot_id}' and tracker.riot_tagline = '{riot_tag}' ''', index_col='index').T
 
         df.sort_values('championPoints', ascending=False, inplace=True)
 
@@ -181,7 +189,7 @@ class Masteries(Extension):
                            y='championPoints',
                            text_auto='.i',
                            color='championId',
-                           title=f'Points de maitrise pour {joueur} (top {top})')
+                           title=f'Points de maitrise pour {riot_id} (top {top})')
 
         fig.update_layout(showlegend=False)
         

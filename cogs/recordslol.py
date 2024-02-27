@@ -313,7 +313,8 @@ class Recordslol(Extension):
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false ''', index_col='id').transpose()
+                                     and tracker.banned = false
+                                     and tracker.save_records = true ''', index_col='id').transpose()
         elif view == 'serveur':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -321,7 +322,8 @@ class Recordslol(Extension):
                                      and mode = '{mode}'
                                      and server_id = {int(ctx.guild_id)}
                                      and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false ''', index_col='id').transpose()
+                                     and tracker.banned = false
+                                     and tracker.save_records = true ''', index_col='id').transpose()
 
         if champion != None:
             
@@ -472,7 +474,11 @@ class Recordslol(Extension):
         if view == 'global':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                     where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]} and tracker.banned = false''', index_col='id').transpose()
+                                     where season = {saison}
+                                     and mode = '{mode}'
+                                     and time >= {self.time_mini[mode]}
+                                     and tracker.banned = false
+                                     and tracker.save_records = true ''', index_col='id').transpose()
         elif view == 'serveur':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -480,7 +486,8 @@ class Recordslol(Extension):
                                      and mode = '{mode}'
                                      and server_id = {int(ctx.guild_id)}
                                      and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false''', index_col='id').transpose()
+                                     and tracker.banned = false
+                                     and tracker.save_records = true ''', index_col='id').transpose()
             
         fichier['early_drake'] = fichier['early_drake'].replace({0 : 999})    
         fichier['early_baron'] = fichier['early_baron'].replace({0 : 999}) 
@@ -506,7 +513,7 @@ class Recordslol(Extension):
             
             joueur = joueur.lower().replace(' ', '')
                 
-            id_joueur = lire_bdd_perso('''SELECT tracker.riot_id, tracker.discord from tracker where tracker.banned = false''',
+            id_joueur = lire_bdd_perso('''SELECT tracker.riot_id, tracker.discord from tracker where tracker.banned = false and tracker.save_records = true ''',
                                             format='dict', index_col='riot_id')
             try:
                 fichier = fichier[fichier['discord'] == id_joueur[joueur]['discord']]
@@ -728,7 +735,12 @@ class Recordslol(Extension):
 
         # data
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs where season = {saison} and mode = '{mode}' and time >= {self.time_mini[mode]} and tracker.banned = false''', index_col='id').transpose()
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
+                                     where season = {saison}
+                                     and mode = '{mode}'
+                                     and time >= {self.time_mini[mode]}
+                                     and tracker.banned = false
+                                     and tracker.save_records = true ''', index_col='id').transpose()
         elif view == 'serveur':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -736,7 +748,8 @@ class Recordslol(Extension):
                                      and mode = '{mode}'
                                      and server_id = '{int(ctx.guild_id)}'
                                      and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false''', index_col='id').transpose()
+                                     and tracker.banned = false
+                                     and tracker.save_records = true ''', index_col='id').transpose()
 
         # liste records
 
@@ -972,7 +985,8 @@ class Recordslol(Extension):
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false''',
+                                     and tracker.banned = false
+                                     and tracker.save_records = true ''',
                                      index_col='id').transpose()
 
         elif view == 'serveur':
@@ -982,7 +996,8 @@ class Recordslol(Extension):
                                          and mode = '{mode}'
                                          and server_id = '{int(ctx.guild_id)}'
                                          and time >= {self.time_mini[mode]}
-                                         and tracker.banned = false''',
+                                         and tracker.banned = false
+                                         and tracker.save_records = true ''',
                                          index_col='id').transpose()
             
         if champion != None:
@@ -1112,7 +1127,8 @@ class Recordslol(Extension):
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false''',
+                                     and tracker.banned = false
+                                     and tracker.save_records = true ''',
                                      index_col='id').transpose()
 
         elif view == 'serveur':
@@ -1121,7 +1137,8 @@ class Recordslol(Extension):
                                          where season = {saison}
                                          and mode = '{mode}'
                                          and time >= {self.time_mini[mode]}
-                                         and tracker.banned = false''',
+                                         and tracker.banned = false
+                                         and tracker.save_records = true ''',
                                          index_col='id').transpose()
 
             

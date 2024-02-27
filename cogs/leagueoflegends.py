@@ -138,7 +138,9 @@ class LeagueofLegends(Extension):
                         guild_id: int = 0,
                         me=None,
                         insights: bool = True,
-                        affichage=1):
+                        affichage=1,
+                        check_doublon: bool = True,
+                        check_records : bool = True):
 
         match_info = matchlol(id_compte,
                               riot_id,
@@ -185,6 +187,15 @@ class LeagueofLegends(Extension):
                                           ).transpose()
 
 
+        if check_doublon:
+            df_doublon = lire_bdd_perso(f'''SELECT match_id, joueur from matchs
+                        INNER JOIN tracker ON matchs.joueur = tracker.id_compte
+                        WHERE matchs.joueur = (SELECT id_compte WHERE riot_id = '{riot_id.lower()}' and riot_tagline = '{riot_tag.upper()}')
+                        AND match_id = '{match_info.last_match}' ''', index_col=None)
+            
+            if not df_doublon.empty:
+                return {}, 'Doublon', 0,
+
 
         if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ != 'ARENA 2v2' :
             await match_info.save_data()
@@ -230,8 +241,8 @@ class LeagueofLegends(Extension):
             suivi[id_compte]['losses'] = match_info.thisLoose
             suivi[id_compte]['LP'] = match_info.thisLP
 
-        # on ne prend que les ranked > 20 min ou aram > 10 min
-        if (match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10):
+        # on ne prend que les ranked > 20 min ou aram > 10 min + Ceux qui veulent checker les records
+        if ((match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10)) and check_records:
 
             # pour le nouveau système de records
             param_records = {'kda': match_info.thisKDA,
@@ -541,7 +552,7 @@ class LeagueofLegends(Extension):
         await match_info.detection_smurf()
             
         if match_info.observations_smurf != '':
-            embed.add_field(name='Smurf', value=match_info.observations_smurf)
+            embed.add_field(name='Bons joueurs', value=match_info.observations_smurf)
 
         if match_info.thisQ != 'ARENA 2v2':
 
@@ -667,6 +678,14 @@ class LeagueofLegends(Extension):
                        SlashCommandOption(name='ce_channel',
                                           description='Poster dans ce channel ?',
                                           type=interactions.OptionType.BOOLEAN,
+                                          required=False),
+                       SlashCommandOption(name='check_doublon',
+                                          description='Verifier si la game a déjà été enregistrée ?',
+                                          type=interactions.OptionType.BOOLEAN,
+                                          required=False),
+                       SlashCommandOption(name='check_records',
+                                          description='Compter les records ?',
+                                          type=interactions.OptionType.BOOLEAN,
                                           required=False)])
     async def game(self,
                    ctx: SlashContext,
@@ -675,7 +694,9 @@ class LeagueofLegends(Extension):
                    numerogame: int,
                    identifiant_game=None,
                    affichage=1,
-                   ce_channel=False):
+                   ce_channel=False,
+                   check_doublon=True,
+                   check_records=True):
 
         await ctx.defer(ephemeral=False)
         
@@ -701,7 +722,9 @@ class LeagueofLegends(Extension):
                                                             identifiant_game=identifiant_game,
                                                             guild_id=int(
                                                                 ctx.guild_id),
-                                                            affichage=affichage)
+                                                            affichage=affichage,
+                                                            check_doublon=check_doublon,
+                                                            check_records=check_records)
             
             if not ce_channel:
                 if mode_de_jeu in ['RANKED', 'FLEX']:
@@ -739,7 +762,8 @@ class LeagueofLegends(Extension):
                         insights=True,
                         nbchallenges=0,
                         affichage=1,
-                        banned=False):
+                        banned=False,
+                        check_records=True):
 
 
         embed, mode_de_jeu, resume = await self.printInfo(id_compte,
@@ -751,7 +775,8 @@ class LeagueofLegends(Extension):
                                                           identifiant_game=identifiant_game,
                                                           me=me,
                                                           insights=insights,
-                                                          affichage=affichage)
+                                                          affichage=affichage,
+                                                          check_records=check_records)
 
         if tracker_challenges:
             chal = challengeslol(id_compte, me['puuid'], session, nb_challenges=nbchallenges)
@@ -786,10 +811,13 @@ class LeagueofLegends(Extension):
                 
             
 
-    @Task.create(IntervalTrigger(minutes=1))
+    @Task.create(IntervalTrigger(minutes=2))
     async def update(self):
         data = get_data_bdd(
-            '''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, tracker.id, tracker.server_id, tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges, tracker.insights, tracker.nb_challenges, tracker.affichage, tracker.banned, tracker.riot_id, tracker.riot_tagline, tracker.id_league
+            '''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, tracker.id, tracker.server_id,
+            tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges,
+            tracker.insights, tracker.nb_challenges, tracker.affichage,
+            tracker.banned, tracker.riot_id, tracker.riot_tagline, tracker.id_league, tracker.save_records
                             from tracker 
                             INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                             where tracker.activation = true and channels_module.league_ranked = true'''
@@ -797,7 +825,7 @@ class LeagueofLegends(Extension):
         timeout = aiohttp.ClientTimeout(total=20)
         session = aiohttp.ClientSession(timeout=timeout)
 
-        for id_compte, riot_id, riot_tag, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage, banned, riot_id, riot_tagline, id_league in data:
+        for id_compte, riot_id, riot_tag, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage, banned, riot_id, riot_tagline, id_league, check_records in data:
 
             id_last_game = await getId_with_puuid(puuid, session)
 
@@ -838,7 +866,8 @@ class LeagueofLegends(Extension):
                                          insights=insights,
                                          nbchallenges=nb_challenges,
                                          affichage=affichage,
-                                         banned=banned)
+                                         banned=banned,
+                                         check_records=check_records)
 
                     # update rank
                     await self.updaterank(id_compte, riot_id, riot_tag,  discord_server_id, session, id_league, discord_id)
@@ -1046,6 +1075,10 @@ class LeagueofLegends(Extension):
                                SlashCommandOption(name="insights",
                                                   description="Insights dans le recap",
                                                   type=interactions.OptionType.BOOLEAN,
+                                                  required=False),
+                                SlashCommandOption(name="records",
+                                                  description="Prendre en compte dans les records",
+                                                  type=interactions.OptionType.BOOLEAN,
                                                   required=False)])
     async def tracker_config(self,
                              ctx: SlashContext,
@@ -1056,7 +1089,8 @@ class LeagueofLegends(Extension):
                              tracker_challenges: bool = None,
                              insights: bool = None,
                              nb_challenges: int = None,
-                             affichage: int = None):
+                             affichage: int = None,
+                             records: bool = None):
 
         riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper()
@@ -1128,6 +1162,15 @@ class LeagueofLegends(Extension):
 
             else:
                 await ctx.send('Joueur introuvable')
+                
+        if records != None:
+
+            nb_row = requete_perso_bdd('UPDATE tracker SET save_records = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
+                'activation': records, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
+            if nb_row > 0:
+                await ctx.send('Records modifié')
+            else:
+                await ctx.send('Joueur introuvable')
 
         if (
             tracker_fin is None
@@ -1136,6 +1179,7 @@ class LeagueofLegends(Extension):
             and insights is None
             and nb_challenges is None
             and affichage is None
+            and records is None
         ):
             await ctx.send('Tu dois choisir une option !')
 

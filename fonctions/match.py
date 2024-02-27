@@ -695,7 +695,10 @@ async def getPlayerStats(session : aiohttp.ClientSession, summonerName, tagline,
         # response = requests.post(url, headers=headers, json=payload)
 
     async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
+        try:
+            response = await session_match_detail.json()  # detail du match sélectionné
+        except aiohttp.client_exceptions.ContentTypeError:
+            response = await session_match_detail.json(content_type=None)  # detail du match sélectionné
         
     return response
 
@@ -761,7 +764,10 @@ async def get_stat_champion_by_player(session, champ_dict, riot_id, riot_tag, se
     """
     data_stat = await getPlayerStats(session, riot_id, riot_tag, season=season)
     
-    df_data_stat = pd.DataFrame(data_stat['data']['fetchPlayerStatistics'][0]['basicChampionPerformances'])
+    try:
+        df_data_stat = pd.DataFrame(data_stat['data']['fetchPlayerStatistics'][0]['basicChampionPerformances'])
+    except TypeError:
+        return ''
     
     if not 'championId' in df_data_stat.columns: # pas de data
         return ''
@@ -1208,8 +1214,10 @@ class matchlol():
         
         except KeyError:
             self.thisRiotIdListe = self.thisPseudoListe
-            self.thisRiotTagListe = ''         
+            self.thisRiotTagListe = ''    
             
+        # Correction d'un bug rito
+
             
 
         # champ id
@@ -1573,7 +1581,10 @@ class matchlol():
             
             
             data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
-            df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
+            try:
+                df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
+            except TypeError:
+                df_rank = ''
             
             df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), 22)
                         
@@ -1590,8 +1601,12 @@ class matchlol():
             
             
             try:
-                nbgames = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] + df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['losses'].values[0]
-                wr = round((df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] / nbgames) * 100)
+                if isinstance(df_rank, pd.DataFrame):
+                    nbgames = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] + df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['losses'].values[0]
+                    wr = round((df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] / nbgames) * 100)
+                else:
+                    nbgames = 0
+                    wr = 0
             except IndexError:
                 wr = 0
                 nbgames = 0
@@ -1609,7 +1624,7 @@ class matchlol():
                         data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
                         self.liste_rank.append(data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['tier'])
                         self.liste_tier.append(data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['division'])
-                    except IndexError:
+                    except:
                         self.liste_rank.append('')
                         self.liste_tier.append('')
             else:
@@ -1619,7 +1634,7 @@ class matchlol():
                     self.liste_rank.append(rank_joueur)
                     self.liste_tier.append(tier_joueur)
                     
-                except IndexError:
+                except:
                     self.liste_rank.append('')
                     self.liste_tier.append('')
 
@@ -2682,13 +2697,13 @@ class matchlol():
         self.observations_smurf = ''
         
         for joueur, stat in self.winrate_joueur.items():
-            if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] >= 70 and stat['nbgames'] >= 10:
-                self.observations_smurf += f':eyes: **{joueur}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
+            if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] >= 70 and stat['nbgames'] >= 20:
+                self.observations_smurf += f':eyes: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
                 
         for joueur, stat in self.winrate_champ_joueur.items():
             if isinstance(stat, dict):
-                if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] >= 70 and stat['totalMatches'] >= 5:
-                    self.observations_smurf += f':trophy: **{joueur}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {stat["championId"]} \n'
+                if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] >= 70 and stat['totalMatches'] >= 15:
+                    self.observations_smurf += f':muscle: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {stat["championId"]} \n'
                 
 
 
@@ -3076,8 +3091,13 @@ class matchlol():
                 box=(10, initial_y-13),
             )
 
-            d.text((x_name, initial_y),
-                   self.thisRiotIdListe[i], font=font, fill=(0, 0, 0))
+
+            if self.thisRiotIdListe[i] == '' or self.thisRiotIdListe[i] == ' ':
+                d.text((x_name, initial_y),
+                    self.thisPseudoListe[i], font=font, fill=(0, 0, 0))
+            else:
+                d.text((x_name, initial_y),
+                    self.thisRiotIdListe[i], font=font, fill=(0, 0, 0))
 
             # rank
 
@@ -3091,7 +3111,7 @@ class matchlol():
                         data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
                         rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['tier']
                         tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['division']
-                    except IndexError:
+                    except:
                         rank_joueur = ''
                         tier_joueur = ''
             else:
@@ -3101,7 +3121,7 @@ class matchlol():
                     df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
                     rank_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
                     tier_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
-                except IndexError:
+                except:
                     rank_joueur = ''
                     tier_joueur = ''
 

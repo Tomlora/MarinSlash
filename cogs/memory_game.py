@@ -74,36 +74,41 @@ class Memory(Extension):
         sequence = self.game.sequence
         current_index = self.game.current_index
         custom_id = ctx.custom_id
-        match ctx.custom_id:
-            case str(custom_id):
-                if int(custom_id) == int(sequence[current_index]):
-                    if len(sequence) == current_index + 1:
-                        self.game.successful()
-                        self.game.sequence_reset()
-                        self.memory_game_task.start(ctx.message, 0)
-                    else:
-                        self.game.correct_current_index()
-                    await ctx.send("", ephemeral=True)
-                else:
-                    self.game.__init__()
-                    buttons = []
-                    for i in range(25):
-                        if i == sequence[current_index]:
-                            buttons.append(
-                                Button(style = ButtonStyle.GREEN, label = f'{i}', custom_id = f'{i}', disabled=True)
-                            )
-                        elif i == int(custom_id):
-                            buttons.append(
-                                Button(style = ButtonStyle.RED, label = f'{i}', custom_id = f'{i}', disabled=True)
-                            )
+        
+        try:
+            match ctx.custom_id:
+                case str(custom_id):
+                    if int(custom_id) == int(sequence[current_index]):
+                        if len(sequence) == current_index + 1:
+                            self.game.successful()
+                            self.game.sequence_reset()
+                            self.memory_game_task.start(ctx.message, 0)
                         else:
-                            buttons.append(
-                                Button(style = ButtonStyle.GRAY, label = f'{i}', custom_id = f'{i}', disabled=True)
-                            )
-                    actionrowbuttons = interactions.spread_to_rows(*buttons)
-                    embed = interactions.Embed(description=f'uh oh, Tu as validé {custom_id} au lieu de {sequence[current_index]}\n'
-                                                        f'La suite correcte était {sequence} ce qui correspond à {len(sequence)} 3 nombres')
-                    await ctx.edit_origin(embed=embed.to_dict(), components=actionrowbuttons)
+                            self.game.correct_current_index()
+                        await ctx.send("", ephemeral=True)
+                    else:
+                        self.game.__init__()
+                        buttons = []
+                        for i in range(25):
+                            if i == sequence[current_index]:
+                                buttons.append(
+                                    Button(style = ButtonStyle.GREEN, label = f'{i}', custom_id = f'{i}', disabled=True)
+                                )
+                            elif i == int(custom_id):
+                                buttons.append(
+                                    Button(style = ButtonStyle.RED, label = f'{i}', custom_id = f'{i}', disabled=True)
+                                )
+                            else:
+                                buttons.append(
+                                    Button(style = ButtonStyle.GRAY, label = f'{i}', custom_id = f'{i}', disabled=True)
+                                )
+                        actionrowbuttons = interactions.spread_to_rows(*buttons)
+                        embed = interactions.Embed(description=f'uh oh, Tu as validé {custom_id} au lieu de {sequence[current_index]}\n'
+                                                            f'La suite correcte était {sequence} ce qui correspond à {len(sequence)} 3 nombres')
+                        await ctx.edit_origin(embed=embed.to_dict(), components=actionrowbuttons)
+        
+        except ValueError:
+            pass
                     
 
 def setup(bot):
