@@ -154,9 +154,13 @@ class LeagueofLegends(Extension):
 
         if match_info.thisQId not in [1700, 1900]:  # urf
             await match_info.prepare_data()
+            await match_info.prepare_data_moba()
+            await match_info.prepare_data_ugg()
 
         else:
             await match_info.prepare_data_arena()
+            await match_info.prepare_data_moba()
+            await match_info.prepare_data_ugg()
 
 
         # pour nouveau système de record
@@ -164,7 +168,8 @@ class LeagueofLegends(Extension):
                          INNER JOIN tracker ON tracker.id_compte = matchs.joueur
                          where season = {match_info.season}
                          and mode = '{match_info.thisQ}'
-                         and server_id = {guild_id}''',
+                         and server_id = {guild_id}
+                         and tracker.save_records = True ''',
                                  index_col='id'
                                  ).transpose()
 
@@ -173,7 +178,8 @@ class LeagueofLegends(Extension):
                                         where season = {match_info.season}
                                         and mode = '{match_info.thisQ}'
                                         and discord = (SELECT tracker.discord from tracker WHERE tracker.id_compte = {id_compte})
-                                        and server_id = {guild_id}''',
+                                        and server_id = {guild_id}
+                                        and tracker.save_records = True ''',
                                         index_col='id',
                                         ).transpose()
 
@@ -182,7 +188,8 @@ class LeagueofLegends(Extension):
                                         where season = {match_info.season}
                                         and mode = '{match_info.thisQ}'
                                         and champion = '{match_info.thisChampName}'
-                                        and server_id = {guild_id}''',
+                                        and server_id = {guild_id}
+                                        and tracker.save_records = True ''',
                                           index_col='id',
                                           ).transpose()
 
@@ -285,7 +292,11 @@ class LeagueofLegends(Extension):
                              'ecart_gold_team': match_info.ecart_gold_team,
                              'kills+assists': match_info.thisKills + match_info.thisAssists,
                              'temps_avant_premiere_mort' : match_info.thisTimeLiving,
-                             'dmg/gold' : match_info.DamageGoldRatio}
+                             'dmg/gold' : match_info.DamageGoldRatio,
+                             'skillshot_dodged' : match_info.thisSkillshot_dodged,
+                             'temps_cc' : match_info.time_CC,
+                             'spells_used' : match_info.thisSpellUsed}
+            
 
             param_records_only_ranked = {'vision_score': match_info.thisVision,
                                          'vision_wards': match_info.thisWards,
@@ -299,8 +310,8 @@ class LeagueofLegends(Extension):
                                          'jgl_dix_min': match_info.thisJUNGLEafter10min,
                                          'baron': match_info.thisBaronTeam,
                                          'drake': match_info.thisDragonTeam,
-                                         'herald': match_info.thisHeraldTeam,
-                                         'cs_jungle': match_info.thisJungleMonsterKilled}
+                                         'cs_jungle': match_info.thisJungleMonsterKilled,
+                                         'buffs_voles' : match_info.thisbuffsVolees}
 
             param_records_only_aram = {'snowball': match_info.snowball}
 
@@ -682,10 +693,6 @@ class LeagueofLegends(Extension):
                        SlashCommandOption(name='check_doublon',
                                           description='Verifier si la game a déjà été enregistrée ?',
                                           type=interactions.OptionType.BOOLEAN,
-                                          required=False),
-                       SlashCommandOption(name='check_records',
-                                          description='Compter les records ?',
-                                          type=interactions.OptionType.BOOLEAN,
                                           required=False)])
     async def game(self,
                    ctx: SlashContext,
@@ -695,8 +702,7 @@ class LeagueofLegends(Extension):
                    identifiant_game=None,
                    affichage=1,
                    ce_channel=False,
-                   check_doublon=True,
-                   check_records=True):
+                   check_doublon=True):
 
         await ctx.defer(ephemeral=False)
         
@@ -704,10 +710,20 @@ class LeagueofLegends(Extension):
         discord_server_id = chan_discord(int(server_id))
 
         discord_id = int(ctx.author.id)
-        riot_id = riot_id.lower()
+        riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper()
         df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col='discord')
         
+        try:
+            check_records = bool(lire_bdd_perso(f'''SELECT riot_id, save_records from tracker WHERE riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''', 
+                                                index_col='riot_id')\
+                                                    .T\
+                                                        .loc[riot_id]['save_records'])
+            
+            if check_records.empty: # cela veut dire que le compte n'a pas été trouvé
+                check_records = True
+        except:
+            check_records = True
         
         if df_banned.empty:
             try:
@@ -822,7 +838,7 @@ class LeagueofLegends(Extension):
                             INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                             where tracker.activation = true and channels_module.league_ranked = true'''
         ).fetchall()
-        timeout = aiohttp.ClientTimeout(total=20)
+        timeout = aiohttp.ClientTimeout(total=60*5)
         session = aiohttp.ClientSession(timeout=timeout)
 
         for id_compte, riot_id, riot_tag, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage, banned, riot_id, riot_tagline, id_league, check_records in data:
@@ -1252,7 +1268,7 @@ class LeagueofLegends(Extension):
 
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
-            df = lire_bdd_perso(f'''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, suivi.wins_jour, suivi.losses_jour, suivi."LP_jour", suivi.tier_jour, suivi.rank_jour, suivi.classement_euw, tracker.server_id from suivi_s{saison} as suivi
+            df = lire_bdd_perso(f'''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, suivi.wins_jour, suivi.losses_jour, suivi."LP_jour", suivi.tier_jour, suivi.rank_jour, suivi.classement_euw, suivi.classement_percent_euw, tracker.server_id from suivi_s{saison} as suivi
                                     INNER join tracker ON tracker.id_compte = suivi.index
                                     where suivi.tier != 'Non-classe'
                                     and tracker.server_id = {int(guild.id)}
@@ -1298,6 +1314,7 @@ class LeagueofLegends(Extension):
                     classement_old = f"{tier_old} {rank_old}"
                     
                     rank_euw_old = suivi[key]['classement_euw']
+                    percent_rank_old = suivi[key]['classement_percent_euw']
 
                     # on veut les stats soloq
 
@@ -1317,9 +1334,13 @@ class LeagueofLegends(Extension):
                         success = await update_ugg(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'])
                     except:
                         pass
-                    stats_rankings = await getRankings(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'], 'euw1', 22, 420)
-                    rank_euw = stats_rankings['data']['overallRanking']['overallRanking']
-                    percent_rank_euw = int(round(stats_rankings['data']['overallRanking']['overallRanking'] / stats_rankings['data']['overallRanking']['totalPlayerCount'] * 100,0))
+                    try:
+                        stats_rankings = await getRankings(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'], 'euw1', 22, 420)
+                        rank_euw = stats_rankings['data']['overallRanking']['overallRanking']
+                        percent_rank_euw = int(round(stats_rankings['data']['overallRanking']['overallRanking'] / stats_rankings['data']['overallRanking']['totalPlayerCount'] * 100,0))
+                    except TypeError:
+                        rank_euw = rank_euw_old
+                        percent_rank_euw = percent_rank_old
                     
                     if rank_euw_old == 0:
                         rank_euw_old = rank_euw
@@ -1764,8 +1785,8 @@ class LeagueofLegends(Extension):
         fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
         fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
         fichier_tank_heal = ['dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
-        fichier_objectif = ['baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower']
-        fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'couronne', 'snowball']
+        fichier_objectif = ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower']
+        fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball']
         
         liste_complete = fichier_kills + fichier_dmg + fichier_vision + fichier_farming + fichier_tank_heal + fichier_objectif + fichier_divers
         
@@ -1819,7 +1840,6 @@ class LeagueofLegends(Extension):
                                     'kda' : ['sum', 'mean'],
                                     'ecart_lp' : ['sum'],
                                     'temps_avant_premiere_mort' : ['mean'],
-                                    'couronne' : ['sum', 'mean'],
                                     'team' : ['sum'], # nombre de redside. A comparer avec le nombre de game
                                     'team_kills' : ['sum', 'mean'],
                                     'team_deaths' : ['sum', 'mean'],

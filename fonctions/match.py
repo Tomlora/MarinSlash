@@ -404,7 +404,14 @@ async def getRanks(session : aiohttp.ClientSession, summonerName, tagline, regio
         # response = requests.post(url, headers=headers, json=payload)
 
     async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
+        try:
+            response = await session_match_detail.json()  # detail du match sélectionné
+        except:
+            try:
+                response = await session_match_detail.json(content_type=None)
+            except:
+                print(session_match_detail.text)
+                response = ''
         
     return response
 
@@ -486,8 +493,8 @@ async def get_challenges_config(session):
     async with session.get(f'https://{my_region}.api.riotgames.com/lol/challenges/v1/challenges/config?api_key={api_key_lol}') as challenge_config:
         return await challenge_config.json()
     
-async def get_spectator(session, id):
-    async with session.get(f'https://{my_region}.api.riotgames.com/lol/spectator/v4/active-games/by-summoner/{id}?api_key={api_key_lol}') as session_spectator:
+async def get_spectator(session, puuid):
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/{puuid}?api_key={api_key_lol}') as session_spectator:
         if session_spectator.status == 404:
             return None
         return await session_spectator.json()
@@ -614,9 +621,7 @@ async def getId_with_puuid(puuid : str, session : aiohttp.ClientSession):
     
     
 async def get_spectator_data(puuid, session):
-    me = await get_summoner_by_puuid(puuid, session)
-    id = me['id']
-    data = await get_spectator(session, id )
+    data = await get_spectator(session, puuid)
 
     if data is None:
         return None, None, None, None, None
@@ -697,8 +702,12 @@ async def getPlayerStats(session : aiohttp.ClientSession, summonerName, tagline,
     async with session.post(url, headers=headers, json=payload) as session_match_detail:
         try:
             response = await session_match_detail.json()  # detail du match sélectionné
-        except aiohttp.client_exceptions.ContentTypeError:
-            response = await session_match_detail.json(content_type=None)  # detail du match sélectionné
+        except:
+            try:
+                response = await session_match_detail.json(content_type=None)  # detail du match sélectionné
+            except:
+                print(session_match_detail.text)
+                response = ''
         
     return response
 
@@ -762,7 +771,11 @@ async def get_stat_champion_by_player(session, champ_dict, riot_id, riot_tag, se
     Returns:
         pandas.DataFrame: A DataFrame containing the statistics of the player's performance with each champion.
     """
+
     data_stat = await getPlayerStats(session, riot_id, riot_tag, season=season)
+
+    if data_stat == '':
+        return ''
     
     try:
         df_data_stat = pd.DataFrame(data_stat['data']['fetchPlayerStatistics'][0]['basicChampionPerformances'])
@@ -938,6 +951,7 @@ class matchlol():
         self.thisWin = ' '
         self.thisTime = fix_temps(round(
             (int(self.match_detail['info']['gameDuration']) / 60), 2))
+        self.time_CC = self.match_detail_participants['timeCCingOthers']
                 
         # si le joueur n'est pas mort, le temps est à 0
         if self.thisTimeLiving == 0:
@@ -1065,6 +1079,33 @@ class matchlol():
         self.thisTotalOnTeammates = self.match_detail_participants['totalHealsOnTeammates']
         self.thisTurretsKillsPerso = self.match_detail_participants['turretKills']
         self.thisTurretsLost = self.match_detail_participants['turretsLost']
+        
+        
+        # pings
+        
+        self.pings_allin = self.match_detail_participants['allInPings']
+        self.pings_assistsme = self.match_detail_participants['assistMePings']
+        self.pings_basics = self.match_detail_participants['basicPings']
+        self.pings_command = self.match_detail_participants['commandPings']
+        self.pings_danger = self.match_detail_participants['dangerPings']
+        self.pings_ennemymissing = self.match_detail_participants['enemyMissingPings']
+        self.pings_ennemy_vision = self.match_detail_participants['enemyVisionPings']
+        self.pings_get_back = self.match_detail_participants['getBackPings']
+        self.pings_hold = self.match_detail_participants['holdPings']
+        self.pings_onmyway = self.match_detail_participants['onMyWayPings']
+        
+        # spells
+        
+        self.s1cast = self.match_detail_participants['spell1Casts']
+        self.s2cast = self.match_detail_participants['spell2Casts']
+        self.s3cast = self.match_detail_participants['spell3Casts']
+        self.s4cast = self.match_detail_participants['spell4Casts']
+        
+        
+        
+        
+        
+        
 
         # Stat de team :
 
@@ -1467,6 +1508,8 @@ class matchlol():
         self.DamageGoldRatio = round((self.thisDamageNoFormat/self.thisGoldNoFormat)*100,2)
 
         # stats mobalytics
+        
+    async def prepare_data_moba(self):
 
         if self.thisQ == 'RANKED':
             self.data_timeline = await get_match_timeline(self.session, self.last_match)
@@ -1558,7 +1601,10 @@ class matchlol():
                 self.thisLP = str(data_joueur['LP'].values[0])
                 self.thisVictory = str(data_joueur['wins'].values[0])
                 self.thisLoose = str(data_joueur['losses'].values[0])
-                self.thisWinStreak = str(data_joueur['serie'].values[0])                
+                self.thisWinStreak = str(data_joueur['serie'].values[0]) 
+                
+                
+    async def prepare_data_ugg(self):                       
 
         self.url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(self.last_match)[5:]}#participant{int(self.thisId)+1}'
         
@@ -1580,30 +1626,34 @@ class matchlol():
                 pass
             
             
-            data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
-            try:
-                df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
-            except TypeError:
-                df_rank = ''
+
+            self.data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
+
             
-            df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), 22)
+            if self.data_rank != '': 
+                try:
+                    self.df_rank = pd.DataFrame(self.data_rank['data']['fetchProfileRanks']['rankScores'])
+                except TypeError:
+                    self.df_rank = ''
+            
+            self.df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), 22)
                         
-            if isinstance(df_data_stat, pd.DataFrame):
+            if isinstance(self.df_data_stat, pd.DataFrame):
 
-                df_data_stat = df_data_stat[df_data_stat['championId'] == self.thisChampNameListe[i]]
+                self.df_data_stat = self.df_data_stat[self.df_data_stat['championId'] == self.thisChampNameListe[i]]
 
-                if df_data_stat.empty:
+                if self.df_data_stat.empty:
                     dict_data_stat = ''
                 else:
-                    dict_data_stat = df_data_stat.to_dict(orient='records')[0]
+                    dict_data_stat = self.df_data_stat.to_dict(orient='records')[0]
             else:
                 dict_data_stat = ''
             
             
             try:
-                if isinstance(df_rank, pd.DataFrame):
-                    nbgames = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] + df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['losses'].values[0]
-                    wr = round((df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] / nbgames) * 100)
+                if isinstance(self.df_rank, pd.DataFrame):
+                    nbgames = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] + self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['losses'].values[0]
+                    wr = round((self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] / nbgames) * 100)
                 else:
                     nbgames = 0
                     wr = 0
@@ -1629,8 +1679,8 @@ class matchlol():
                         self.liste_tier.append('')
             else:
                 try:
-                    rank_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
-                    tier_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
+                    rank_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
+                    tier_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
                     self.liste_rank.append(rank_joueur)
                     self.liste_tier.append(tier_joueur)
                     
@@ -2094,6 +2144,8 @@ class matchlol():
         self.thisPinkListe = [0,0,0,0,0,0,0,0]
 
 
+
+        
     async def save_data(self):
         """Sauvegarde l'ensemble des données dans la base de données"""
         
@@ -2116,14 +2168,14 @@ class matchlol():
             baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
             item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
-            ban1, ban2, ban3, ban4, ban5, ban_adv1, ban_adv2, ban_adv3, ban_adv4, ban_adv5, split)
+            ban1, ban2, ban3, ban4, ban5, ban_adv1, ban_adv2, ban_adv3, ban_adv4, ban_adv5, split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
             :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
-            :ban1, :ban2, :ban3, :ban4, :ban5, :ban_adv1, :ban_adv2, :ban_adv3, :ban_adv4, :ban_adv5, :split);
+            :ban1, :ban2, :ban3, :ban4, :ban5, :ban_adv1, :ban_adv2, :ban_adv3, :ban_adv4, :ban_adv5, :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur''',
                 {
                     'match_id': self.last_match,
@@ -2217,10 +2269,40 @@ class matchlol():
                     'ban_adv3' : self.liste_ban[7],
                     'ban_adv4' : self.liste_ban[8],
                     'ban_adv5' : self.liste_ban[9],
-                    'split' : self.split
+                    'split' : self.split,
+                    'skillshot_dodged' : self.thisSkillshot_dodged,
+                    'temps_cc' : self.time_CC,
+                    'spells_used' : self.thisSpellUsed,
+                    'buffs_voles' : self.thisbuffsVolees,
+                    's1cast' : self.s1cast,
+                    's2cast' : self.s2cast,
+                    's3cast' : self.s3cast,
+                    's4cast' : self.s4cast
                 },
             )
+            
+        # pings
+        
+        requete_perso_bdd('''INSERT INTO matchs_pings(
+            match_id, joueur, allin, assistsme, basics, command, danger, ennemy_missing, ennemy_vision, get_back, hold, onmyway)
+            VALUES (:match_id, :joueur, :allin, :assistsme, :basics, :command, :danger, :ennemy_missing, :ennemy_vision, :get_back, :hold, :onmyway)''',
+        {'match_id' : self.last_match,
+         'joueur' : self.id_compte,
+         'allin' : self.pings_allin,
+         'assistsme' : self.pings_assistsme,
+         'basics' : self.pings_basics,
+         'command' : self.pings_command,
+         'danger' : self.pings_danger,
+         'ennemy_missing' : self.pings_ennemymissing,
+         'ennemy_vision' : self.pings_ennemy_vision,
+         'get_back' : self.pings_get_back,
+         'hold' : self.pings_hold,
+         'onmyway' : self.pings_onmyway
+            })
+        
 
+
+        
         if self.thisQ != 'ARENA 2v2' and self.thisQ != 'OTHER':
             requete_perso_bdd('''INSERT INTO matchs_joueur(
             match_id, allie1, allie2, allie3, allie4, allie5, ennemi1, ennemi2, ennemi3, ennemi4, ennemi5,

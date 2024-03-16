@@ -280,7 +280,7 @@ async def get_winrates(summonerName: str, session : ClientSession):
                     ] = championPerformance["wins"]
 
         
-        season_boucle = [20,21] # For season 13 (split 1, split 2)
+        season_boucle = [20, 21, 22] # For season 13 (split 1, split 2) / season 14 (split 1)
         
         for season in season_boucle:
             response = await getPlayerStats(session, summonerName, tagline, season=season)

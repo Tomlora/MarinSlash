@@ -193,6 +193,10 @@ emote_v2 = {
     "gold_share" : ":dollar:",
     "ecart_gold_team" : ":euro:",
     "temps_avant_premiere_mort" : ":timer:",
+    "skillshot_dodged" : ":wind_face:",
+    "temps_cc" : ":timer:",
+    'spells_used' : ':archery:',
+    'buffs_voles' : ':spy:'
 }
 
 choice_pantheon = [SlashCommandChoice(name="KDA", value="KDA"),
@@ -214,8 +218,8 @@ class Recordslol(Extension):
         self.fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
         self.fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
         self.fichier_tank_heal = ['dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
-        self.fichier_objectif = ['baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower']
-        self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'couronne', 'snowball']
+        self.fichier_objectif = ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower']
+        self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles']
 
         self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers
 
@@ -735,14 +739,15 @@ class Recordslol(Extension):
 
         # data
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id from matchs
+                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
                                      and tracker.banned = false
                                      and tracker.save_records = true ''', index_col='id').transpose()
         elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      where season = {saison}
                                      and mode = '{mode}'
@@ -757,8 +762,8 @@ class Recordslol(Extension):
         'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
         'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage',
         'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
-        'baron', 'drake', 'herald', 'early_drake', 'early_baron', 'dmg_tower',
-        'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'couronne', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold']
+        'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
+        'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles']
 
 
         if mode == 'ARAM':
@@ -889,6 +894,7 @@ class Recordslol(Extension):
                                text_auto=True,
                                color=counts_champion.index,
                                title=f'Record {champion} ({mode}) ')
+            
             
             embed, file = get_embed(fig, 'stats')
             
