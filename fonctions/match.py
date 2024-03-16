@@ -1101,12 +1101,6 @@ class matchlol():
         self.s3cast = self.match_detail_participants['spell3Casts']
         self.s4cast = self.match_detail_participants['spell4Casts']
         
-        
-        
-        
-        
-        
-
         # Stat de team :
 
         self.thisBaronPerso = self.match_detail_challenges['teamBaronKills']
@@ -1506,19 +1500,18 @@ class matchlol():
             self.thisId, self.match_detail, "damageTakenOnTeamPercentage")
         
         self.DamageGoldRatio = round((self.thisDamageNoFormat/self.thisGoldNoFormat)*100,2)
-
-        # stats mobalytics
         
-    async def prepare_data_moba(self):
-
         if self.thisQ == 'RANKED':
             self.data_timeline = await get_match_timeline(self.session, self.last_match)
             self.index_timeline = self.data_timeline['metadata']['participants'].index(self.puuid) + 1
         else:
             self.data_timeline = ''  
             self.index_timeline = 0
-            
-            
+
+        # stats mobalytics
+        
+    async def prepare_data_moba(self):
+
         try:
             self.data_mobalytics, self.data_mobalytics_complete = await get_mobalytics(self.summonerName, self.session, int(self.last_match[5:]))
             self.moba_ok = True
@@ -2168,14 +2161,14 @@ class matchlol():
             baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
             item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
-            ban1, ban2, ban3, ban4, ban5, ban_adv1, ban_adv2, ban_adv3, ban_adv4, ban_adv5, split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast)
+            split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
             :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
-            :ban1, :ban2, :ban3, :ban4, :ban5, :ban_adv1, :ban_adv2, :ban_adv3, :ban_adv4, :ban_adv5, :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast);
+            :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur''',
                 {
                     'match_id': self.last_match,
@@ -2259,16 +2252,6 @@ class matchlol():
                     'ecart_gold_min' : self.ecart_gold_permin,
                     'riot_id' : self.riot_id.lower(),
                     'riot_tagline' : self.riot_tag,
-                    'ban1' : self.liste_ban[0],
-                    'ban2' : self.liste_ban[1],
-                    'ban3' : self.liste_ban[2],
-                    'ban4' : self.liste_ban[3],
-                    'ban5' : self.liste_ban[4],
-                    'ban_adv1' : self.liste_ban[5],
-                    'ban_adv2' : self.liste_ban[6],
-                    'ban_adv3' : self.liste_ban[7],
-                    'ban_adv4' : self.liste_ban[8],
-                    'ban_adv5' : self.liste_ban[9],
                     'split' : self.split,
                     'skillshot_dodged' : self.thisSkillshot_dodged,
                     'temps_cc' : self.time_CC,
@@ -2281,11 +2264,16 @@ class matchlol():
                 },
             )
             
-        # pings
+        # pings et ban
         
         requete_perso_bdd('''INSERT INTO matchs_pings(
             match_id, joueur, allin, assistsme, basics, command, danger, ennemy_missing, ennemy_vision, get_back, hold, onmyway)
-            VALUES (:match_id, :joueur, :allin, :assistsme, :basics, :command, :danger, :ennemy_missing, :ennemy_vision, :get_back, :hold, :onmyway)''',
+            VALUES (:match_id, :joueur, :allin, :assistsme, :basics, :command, :danger, :ennemy_missing, :ennemy_vision, :get_back, :hold, :onmyway);
+        INSERT INTO matchs_ban(
+        match_id, ban1, ban2, ban3, ban4, ban5, ban_adv1, ban_adv2, ban_adv3, ban_adv4, ban_adv5)
+        VALUES (:match_id, :ban1, :ban2, :ban3, :ban4, :ban5, :ban_adv1, :ban_adv2, :ban_adv3, :ban_adv4, :ban_adv5)
+        ON CONFLICT (match_id)
+        DO NOTHING;''',
         {'match_id' : self.last_match,
          'joueur' : self.id_compte,
          'allin' : self.pings_allin,
@@ -2297,11 +2285,19 @@ class matchlol():
          'ennemy_vision' : self.pings_ennemy_vision,
          'get_back' : self.pings_get_back,
          'hold' : self.pings_hold,
-         'onmyway' : self.pings_onmyway
+         'onmyway' : self.pings_onmyway,
+        'ban1' : self.liste_ban[0],
+        'ban2' : self.liste_ban[1],
+        'ban3' : self.liste_ban[2],
+        'ban4' : self.liste_ban[3],
+        'ban5' : self.liste_ban[4],
+        'ban_adv1' : self.liste_ban[5],
+        'ban_adv2' : self.liste_ban[6],
+        'ban_adv3' : self.liste_ban[7],
+        'ban_adv4' : self.liste_ban[8],
+        'ban_adv5' : self.liste_ban[9],
             })
         
-
-
         
         if self.thisQ != 'ARENA 2v2' and self.thisQ != 'OTHER':
             requete_perso_bdd('''INSERT INTO matchs_joueur(
@@ -2425,6 +2421,16 @@ class matchlol():
         self.df_timeline_position = pd.concat([self.df_timeline_position,
                                                self.df_timeline_stats,
                                                self.df_timeline_dmg], axis=1)
+        
+        
+        self.max_abilityHaste = self.df_timeline_position['abilityHaste'].max()
+        self.max_ap = self.df_timeline_position['abilityPower'].max()
+        self.max_armor = self.df_timeline_position['armor'].max()
+        self.max_ad = self.df_timeline_position['attackDamage'].max()
+        self.currentgold = self.df_timeline_position['currentGold'].max()
+        self.max_hp = self.df_timeline_position['healthMax'].max()
+        self.max_mr = self.df_timeline_position['magicResist'].max()
+        self.movement_speed = self.df_timeline_position['movementSpeed'].max()
         
         try:
             sauvegarde_bdd(self.df_timeline_position,

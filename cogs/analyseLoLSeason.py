@@ -83,7 +83,7 @@ class AnalyseLoLSeason(Extension):
         AND matchs.mode = '{mode}' ''', index_col='match_id').T
         
         if champion != None:
-            df = df[df['champîon'] == champion.replace(' ', '').capitalize()]
+            df = df[df['champion'] == champion.replace(' ', '').capitalize()]
         
         if role != None:
             df = df[df['role'] == role]

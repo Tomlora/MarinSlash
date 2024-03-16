@@ -196,8 +196,18 @@ emote_v2 = {
     "skillshot_dodged" : ":wind_face:",
     "temps_cc" : ":timer:",
     'spells_used' : ':archery:',
-    'buffs_voles' : ':spy:'
+    'buffs_voles' : ':spy:',
+    'abilityHaste' : ':timer:',
+    'abilityPower' : ':magic_wand:',
+    'armor' : ':shield:',
+    'attackDamage' : ':crossed_swords:',
+    'currentGold' : ':euro:',
+    'healthMax' : ':sparkling_heart:',
+    'magicResist' : ':shield:',
+    'movementSpeed' : ':wind_face:'
 }
+
+
 
 choice_pantheon = [SlashCommandChoice(name="KDA", value="KDA"),
                    SlashCommandChoice(name='KDA moyenne', value='KDA moyenne'),
@@ -220,8 +230,9 @@ class Recordslol(Extension):
         self.fichier_tank_heal = ['dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
         self.fichier_objectif = ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower']
         self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles']
+        self.fichier_stats = ['abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed']
 
-        self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers
+        self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers + self.fichier_stats
 
     @slash_command(name='lol_records', description='records League of Legends')
     async def records_lol(self, ctx: SlashContext):
@@ -312,16 +323,38 @@ class Recordslol(Extension):
         methode_pseudo = 'discord'
         
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
+                                        max_data_timeline."abilityHaste" AS "abilityHaste",
+                                        max_data_timeline."abilityPower" AS "abilityPower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackDamage",
+                                        max_data_timeline."currentGold" AS "currentGold",
+                                        max_data_timeline."healthMax" AS "healthMax",
+                                        max_data_timeline."magicResist" AS "magicResist",
+                                        max_data_timeline."movementSpeed" AS "movementSpeed"   
+                                                                             
+                                     from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
                                      and tracker.banned = false
                                      and tracker.save_records = true ''', index_col='id').transpose()
         elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
+                                        max_data_timeline."abilityHaste" AS "abilityHaste",
+                                        max_data_timeline."abilityPower" AS "abilityPower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackDamage",
+                                        max_data_timeline."currentGold" AS "currentGold",
+                                        max_data_timeline."healthMax" AS "healthMax",
+                                        max_data_timeline."magicResist" AS "magicResist",
+                                        max_data_timeline."movementSpeed" AS "movementSpeed"   
+                                                                             
+                                     from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = {int(ctx.guild_id)}
@@ -435,6 +468,13 @@ class Recordslol(Extension):
                     methode = 'min'
                 
                 embed4 = creation_embed(fichier, column, methode_pseudo, embed4, methode)
+                
+            embed8 = interactions.Embed(
+            title=title + " Stats", color=interactions.Color.random())
+
+            for column in self.fichier_stats:
+                
+                embed8 = creation_embed(fichier, column, methode_pseudo, embed8)
 
         embed1.set_footer(text=f'Version {Version} by Tomlora')
         embed2.set_footer(text=f'Version {Version} by Tomlora')
@@ -445,7 +485,8 @@ class Recordslol(Extension):
         if mode != 'ARAM':
             embed3.set_footer(text=f'Version {Version} by Tomlora')
             embed4.set_footer(text=f'Version {Version} by Tomlora')
-            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7]
+            embed8.set_footer(text=f'Version {Version} by Tomlora')
+            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8]
 
         else:
             pages=[embed1, embed2, embed5, embed6, embed7]
@@ -476,16 +517,38 @@ class Recordslol(Extension):
         methode_pseudo = 'discord'
         
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                        max_data_timeline."abilityHaste" AS "abilityHaste",
+                                        max_data_timeline."abilityPower" AS "abilityPower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackDamage",
+                                        max_data_timeline."currentGold" AS "currentGold",
+                                        max_data_timeline."healthMax" AS "healthMax",
+                                        max_data_timeline."magicResist" AS "magicResist",
+                                        max_data_timeline."movementSpeed" AS "movementSpeed"   
+                                        
+                                     from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
                                      and tracker.banned = false
                                      and tracker.save_records = true ''', index_col='id').transpose()
         elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                        max_data_timeline."abilityHaste" AS "abilityHaste",
+                                        max_data_timeline."abilityPower" AS "abilityPower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackDamage",
+                                        max_data_timeline."currentGold" AS "currentGold",
+                                        max_data_timeline."healthMax" AS "healthMax",
+                                        max_data_timeline."magicResist" AS "magicResist",
+                                        max_data_timeline."movementSpeed" AS "movementSpeed"   
+                                                                             
+                                     from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = {int(ctx.guild_id)}
@@ -496,13 +559,20 @@ class Recordslol(Extension):
         fichier['early_drake'] = fichier['early_drake'].replace({0 : 999})    
         fichier['early_baron'] = fichier['early_baron'].replace({0 : 999}) 
         
+        
+        
         for column in self.liste_complete:
             
             try:
                 fichier[f'{column}_rank_max'] = fichier[column].rank(method='min', ascending=False).astype(int)
                 fichier[f'{column}_rank_min'] = fichier[column].rank(method='min', ascending=True).astype(int)
             except:
-                print('erreur', column)
+                try:
+                    fichier[column].fillna(0, inplace=True)
+                    fichier[f'{column}_rank_max'] = fichier[column].rank(method='min', ascending=False).astype(int)
+                    fichier[f'{column}_rank_min'] = fichier[column].rank(method='min', ascending=True).astype(int)
+                except:
+                    print('erreur', column)
         
         nb_games = fichier.shape[0]    
 
@@ -654,6 +724,13 @@ class Recordslol(Extension):
                     methode = 'min'
                 
                 embed4 = creation_embed(fichier, column, methode_pseudo, embed4, methode)
+                
+            embed8 = interactions.Embed(
+            title=title + " Stats", color=interactions.Color.random())
+
+            for column in self.fichier_stats:
+                
+                embed8 = creation_embed(fichier, column, methode_pseudo, embed8)
 
         embed1.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
         embed2.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
@@ -664,7 +741,8 @@ class Recordslol(Extension):
         if mode != 'ARAM':
             embed3.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
             embed4.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
-            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7]
+            embed8.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8]
 
         else:
             pages=[embed1, embed2, embed5, embed6, embed7]
@@ -739,16 +817,38 @@ class Recordslol(Extension):
 
         # data
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id,
+                                        max_data_timeline."abilityHaste" AS "abilityHaste",
+                                        max_data_timeline."abilityPower" AS "abilityPower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackDamage",
+                                        max_data_timeline."currentGold" AS "currentGold",
+                                        max_data_timeline."healthMax" AS "healthMax",
+                                        max_data_timeline."magicResist" AS "magicResist",
+                                        max_data_timeline."movementSpeed" AS "movementSpeed"                                     
+                                     
+                                     from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
                                      and tracker.banned = false
                                      and tracker.save_records = true ''', index_col='id').transpose()
         elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id,
+                                        max_data_timeline."abilityHaste" AS "abilityHaste",
+                                        max_data_timeline."abilityPower" AS "abilityPower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackDamage",
+                                        max_data_timeline."currentGold" AS "currentGold",
+                                        max_data_timeline."healthMax" AS "healthMax",
+                                        max_data_timeline."magicResist" AS "magicResist",
+                                        max_data_timeline."movementSpeed" AS "movementSpeed"                                     
+                                     
+                                     from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = '{int(ctx.guild_id)}'
@@ -758,18 +858,23 @@ class Recordslol(Extension):
 
         # liste records
 
-        liste_records = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills', 
-        'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
-        'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage',
-        'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
-        'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
-        'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles']
+        if mode in ['RANKED', 'FLEX']:
+            liste_records = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills', 
+            'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
+            'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage',
+            'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
+            'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
+            'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles',
+            'abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed']
 
 
         if mode == 'ARAM':
-            liste_records.append('snowball')
-            liste_records.remove('cs_jungle')
-            liste_records.remove('jgl_dix_min')
+            liste_records = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills', 
+            'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
+            'cs', 'cs_min', 'cs_dix_min', 'cs_max_avantage',
+            'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
+            'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
+            'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used']
 
         if champion == None:
             # Initialisation des listes
@@ -986,8 +1091,19 @@ class Recordslol(Extension):
         stat = stat.lower()
         # data
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                        max_data_timeline."abilityHaste" AS "abilityhaste",
+                                        max_data_timeline."abilityPower" AS "abilitypower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackdamage",
+                                        max_data_timeline."currentGold" AS "currentgold",
+                                        max_data_timeline."healthMax" AS "healthmax",
+                                        max_data_timeline."magicResist" AS "magicresist",
+                                        max_data_timeline."movementSpeed" AS "movementspeed"     
+                                        
+                                        from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
@@ -996,8 +1112,19 @@ class Recordslol(Extension):
                                      index_col='id').transpose()
 
         elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs, tracker
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                        max_data_timeline."abilityHaste" AS "abilityhaste",
+                                        max_data_timeline."abilityPower" AS "abilitypower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackdamage",
+                                        max_data_timeline."currentGold" AS "currentgold",
+                                        max_data_timeline."healthMax" AS "healthmax",
+                                        max_data_timeline."magicResist" AS "magicresist",
+                                        max_data_timeline."movementSpeed" AS "movementspeed"     
+                                                                             
+                                     from matchs, tracker
                                          INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                          where season = {saison}
                                          and mode = '{mode}'
                                          and server_id = '{int(ctx.guild_id)}'
@@ -1128,8 +1255,18 @@ class Recordslol(Extension):
         
         # data
         if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                        max_data_timeline."abilityHaste" AS "abilityHaste",
+                                        max_data_timeline."abilityPower" AS "abilityPower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackDamage",
+                                        max_data_timeline."currentGold" AS "currentGold",
+                                        max_data_timeline."healthMax" AS "healthMax",
+                                        max_data_timeline."magicResist" AS "magicResist",
+                                        max_data_timeline."movementSpeed" AS "movementSpeed"                                          
+                                     from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
@@ -1138,8 +1275,19 @@ class Recordslol(Extension):
                                      index_col='id').transpose()
 
         elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs, tracker
+            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                        max_data_timeline."abilityHaste" AS "abilityHaste",
+                                        max_data_timeline."abilityPower" AS "abilityPower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackDamage",
+                                        max_data_timeline."currentGold" AS "currentGold",
+                                        max_data_timeline."healthMax" AS "healthMax",
+                                        max_data_timeline."magicResist" AS "magicResist",
+                                        max_data_timeline."movementSpeed" AS "movementSpeed"     
+                                                                             
+                                     from matchs, tracker
                                          INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                          where season = {saison}
                                          and mode = '{mode}'
                                          and time >= {self.time_mini[mode]}

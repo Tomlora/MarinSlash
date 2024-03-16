@@ -164,8 +164,19 @@ class LeagueofLegends(Extension):
 
 
         # pour nouveau système de record
-        fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
+        fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord, 
+                                 max_data_timeline."abilityHaste" AS "abilityHaste",
+                                max_data_timeline."abilityPower" AS "abilityPower",
+                                max_data_timeline.armor AS armor,
+                                max_data_timeline."attackDamage" AS "attackDamage",
+                                max_data_timeline."currentGold" AS "currentGold",
+                                max_data_timeline."healthMax" AS "healthMax",
+                                max_data_timeline."magicResist" AS "magicResist",
+                                max_data_timeline."movementSpeed" AS "movementSpeed"
+                                 
+                                 from matchs
                          INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                          where season = {match_info.season}
                          and mode = '{match_info.thisQ}'
                          and server_id = {guild_id}
@@ -173,8 +184,19 @@ class LeagueofLegends(Extension):
                                  index_col='id'
                                  ).transpose()
 
-        fichier_joueur = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
+        fichier_joueur = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
+                                        max_data_timeline."abilityHaste" AS "abilityHaste",
+                                        max_data_timeline."abilityPower" AS "abilityPower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackDamage",
+                                        max_data_timeline."currentGold" AS "currentGold",
+                                        max_data_timeline."healthMax" AS "healthMax",
+                                        max_data_timeline."magicResist" AS "magicResist",
+                                        max_data_timeline."movementSpeed" AS "movementSpeed"
+                                        
+                                        from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                         where season = {match_info.season}
                                         and mode = '{match_info.thisQ}'
                                         and discord = (SELECT tracker.discord from tracker WHERE tracker.id_compte = {id_compte})
@@ -183,8 +205,18 @@ class LeagueofLegends(Extension):
                                         index_col='id',
                                         ).transpose()
 
-        fichier_champion = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord from matchs
+        fichier_champion = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
+                                        max_data_timeline."abilityHaste" AS "abilityHaste",
+                                        max_data_timeline."abilityPower" AS "abilityPower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackDamage",
+                                        max_data_timeline."currentGold" AS "currentGold",
+                                        max_data_timeline."healthMax" AS "healthMax",
+                                        max_data_timeline."magicResist" AS "magicResist",
+                                        max_data_timeline."movementSpeed" AS "movementSpeed"
+                                        from matchs
                                           INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                          LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                         where season = {match_info.season}
                                         and mode = '{match_info.thisQ}'
                                         and champion = '{match_info.thisChampName}'
@@ -207,7 +239,7 @@ class LeagueofLegends(Extension):
         if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ != 'ARENA 2v2' :
             await match_info.save_data()
             
-            if match_info.thisQ == 'RANKED':
+            if match_info.thisQ in ['RANKED', 'FLEX']:
                 await match_info.save_timeline()
                 await match_info.save_timeline_event()
 
@@ -311,7 +343,17 @@ class LeagueofLegends(Extension):
                                          'baron': match_info.thisBaronTeam,
                                          'drake': match_info.thisDragonTeam,
                                          'cs_jungle': match_info.thisJungleMonsterKilled,
-                                         'buffs_voles' : match_info.thisbuffsVolees}
+                                         'buffs_voles' : match_info.thisbuffsVolees,
+                                         'abilityHaste' : match_info.max_abilityHaste,
+                                         'abilityPower' : match_info.max_ap,
+                                         'armor' : match_info.max_armor,
+                                         'attackDamage' : match_info.max_ad,
+                                         'currentGold' : match_info.currentgold,
+                                         'healthMax' : match_info.max_hp,
+                                         'magicResist' : match_info.max_mr,
+                                         'movementSpeed' : match_info.movement_speed}
+            
+
 
             param_records_only_aram = {'snowball': match_info.snowball}
 
