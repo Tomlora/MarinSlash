@@ -60,7 +60,7 @@ def records_check2(fichier,
     None à la place du fichier pour désactiver un check.                                                                                                                                 
     '''
     embed = ''
-    category_exclusion_egalite = ['baron', 'herald', 'drake']
+    category_exclusion_egalite = ['baron', 'herald', 'drake', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_horde', 'first_niveau_max', 'first_blood']
 
     if result_category_match == 0:  # si le score est de 0, inutile
         return embed
@@ -239,9 +239,9 @@ class LeagueofLegends(Extension):
         if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ != 'ARENA 2v2' :
             await match_info.save_data()
             
-            if match_info.thisQ in ['RANKED', 'FLEX']:
-                await match_info.save_timeline()
-                await match_info.save_timeline_event()
+        if match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime > 20:
+            await match_info.save_timeline()
+            await match_info.save_timeline_event()
 
         if match_info.thisQId == 900:  # urf
             return {}, 'URF', 0,
@@ -351,7 +351,16 @@ class LeagueofLegends(Extension):
                                          'currentGold' : match_info.currentgold,
                                          'healthMax' : match_info.max_hp,
                                          'magicResist' : match_info.max_mr,
-                                         'movementSpeed' : match_info.movement_speed}
+                                         'movementSpeed' : match_info.movement_speed,
+                                         'fourth_dragon' : match_info.timestamp_fourth_dragon,
+                                         'first_elder' : match_info.timestamp_first_elder,
+                                         'first_horde' : match_info.timestamp_first_horde,
+                                         'first_double' : match_info.timestamp_doublekill,
+                                         'first_triple' : match_info.timestamp_triplekill,
+                                         'first_quadra' : match_info.timestamp_quadrakill,
+                                         'first_penta' : match_info.timestamp_pentakill,
+                                         'first_niveau_max' : match_info.timestamp_niveau_max,
+                                         'first_blood' : match_info.timestamp_first_blood}
             
 
 
@@ -394,7 +403,7 @@ class LeagueofLegends(Extension):
                     methode = 'max'
 
                     # si ce sont ces deux records, on veut le plus petit résultat
-                    if parameter in ['early_drake', 'early_baron']:
+                    if parameter in ['early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']:
                         methode = 'min'
 
                     # on ne veut pas les records par champion sur ces stats.

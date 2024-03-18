@@ -1153,6 +1153,7 @@ class matchlol():
         self.thisDragonTeam = self.team_stats['dragon']['kills']
         self.thisHeraldTeam = self.team_stats['riftHerald']['kills']
         self.thisTurretsKillsTeam = self.team_stats['tower']['kills']
+        self.thisHordeTeam = self.team_stats['horde']['kills']
 
 
         try:
@@ -2440,6 +2441,8 @@ class matchlol():
         except sqlalchemy.exc.IntegrityError:
             pass
         
+
+
         
 
     async def save_timeline_event(self):
@@ -2458,37 +2461,139 @@ class matchlol():
                                         (self.df_events['killerId'] == self.index_timeline) |
                                         (self.df_events['victimId'] == self.index_timeline) |
                                         self.df_events['assistingParticipantIds'].apply(lambda x: isinstance(x, list) and self.index_timeline in x)]
-
-        self.df_events_joueur['riot_id'] = self.id_compte
-        self.df_events_joueur['match_id'] = self.last_match
-
-        self.df_events_joueur['position_x'] = self.df_events_joueur['position'].apply(lambda x : x['x'] if isinstance(x, dict) else 0)
-        self.df_events_joueur['position_y'] = self.df_events_joueur['position'].apply(lambda x : x['y'] if isinstance(x, dict) else 0)
-        self.df_events_joueur.drop('position', axis=1, inplace=True)
-
-        self.df_events_joueur.drop(['victimDamageDealt', 'victimDamageReceived', 'participantId', 'creatorId'], axis=1, inplace=True)
         
-        if 'actualStartTime' in self.df_events_joueur.columns: # cette colonne n'est pas toujours présente
-            self.df_events_joueur.drop(['actualStartTime'], axis=1, inplace=True)
+        self.events_teamid = self.df_events_joueur['teamId'].unique()[-1]
+        
+        self.df_events_team = self.df_events[(self.df_events['teamId'] == self.events_teamid) | (self.df_events['killerTeamId'] == self.events_teamid)]
+        
+        def format_df_events(df):
 
-        if 'name' in self.df_events_joueur.columns: # cette colonne n'est pas toujours présente
-            self.df_events_joueur.drop(['name'], axis=1, inplace=True)
-        self.df_events_joueur.reset_index(inplace=True, drop=True)    
+            df['riot_id'] = self.id_compte
+            df['match_id'] = self.last_match
+
+            df['position_x'] = df['position'].apply(lambda x : x['x'] if isinstance(x, dict) else 0)
+            df['position_y'] = df['position'].apply(lambda x : x['y'] if isinstance(x, dict) else 0)
+            df.drop('position', axis=1, inplace=True)
+
+            df.drop(['victimDamageDealt', 'victimDamageReceived', 'participantId', 'creatorId'], axis=1, inplace=True)
+                
+            if 'actualStartTime' in df.columns: # cette colonne n'est pas toujours présente
+                df.drop(['actualStartTime'], axis=1, inplace=True)
+
+            if 'name' in df.columns: # cette colonne n'est pas toujours présente
+                    df.drop(['name'], axis=1, inplace=True)
+            df.reset_index(inplace=True, drop=True)    
+                
+                # on simplifie quelques data
+                
+            df.loc[(df['type'] == 'CHAMPION_KILL')
+                                        & (df['victimId'] == self.index_timeline), 'type'] = 'DEATHS'
+                
+            df['timestamp'] = np.round(df['timestamp'] / 60000,2)
+                    
+            df['wardType'] = df['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
+                                                                        'UNDEFINED': 'Balise Zombie',
+                                                                        'CONTROL_WARD': 'Pink',
+                                                                        'SIGHT_WARD': 'Ward support',
+                                                                        'BLUE_TRINKET': 'Trinket bleu'
+                                                                        })
+                
+            return df
         
-        # on simplifie quelques data
         
-        self.df_events_joueur.loc[(self.df_events_joueur['type'] == 'CHAMPION_KILL')
-                                  & (self.df_events_joueur['victimId'] == self.index_timeline), 'type'] = 'DEATHS'
-        
-        self.df_events_joueur['timestamp'] = np.round(self.df_events_joueur['timestamp'] / 60000,2)
-            
-        self.df_events_joueur['wardType'] = self.df_events_joueur['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
-                                                                'UNDEFINED': 'Balise Zombie',
-                                                                'CONTROL_WARD': 'Pink',
-                                                                'SIGHT_WARD': 'Ward support',
-                                                                'BLUE_TRINKET': 'Trinket bleu'
-                                                                })
+
+        self.df_events_joueur = format_df_events(self.df_events_joueur)
+        self.df_events_team = format_df_events(self.df_events_team)
  
+ 
+        # Records
+        
+        self.df_events_monster_kill = self.df_events_team[self.df_events_team['type'] == 'ELITE_MONSTER_KILL'][['type', 'timestamp', 'monsterType', 'monsterSubType']]
+        self.df_events_dragon = self.df_events_monster_kill[self.df_events_monster_kill['monsterType'] == 'DRAGON']
+        
+        # Temps 4e dragon (soul hextech)
+        try:
+            index_fourth_dragon = self.df_events_dragon.index[3]
+            self.timestamp_fourth_dragon = self.df_events_dragon.loc[index_fourth_dragon, 'timestamp']
+        except IndexError: # pas de 4e dragon
+            self.timestamp_fourth_dragon = 999.0
+            
+        # Elder 
+        
+        self.df_events_elder = self.df_events_team[self.df_events_team['monsterSubType'] == 'ELDER_DRAGON']
+
+        if self.df_events_elder.empty:
+            self.timestamp_first_elder = 999.0
+        else:
+            self.timestamp_first_elder = self.df_events_elder['timestamp'].min()
+            
+        # Horde
+        
+        self.df_events_horde = self.df_events_team[self.df_events_team['monsterType'] == 'HORDE']
+
+        if self.df_events_horde.empty:
+            self.timestamp_first_horde = 999.0
+        else:
+            self.timestamp_first_horde = self.df_events_horde['timestamp'].min()
+            
+        # Autres  
+        
+        def timestamp_killmulti(df):
+            if df.empty:
+                return 999
+            else:
+                return df['timestamp'].min()  
+               
+        self.df_niveau_max = self.df_events_joueur[self.df_events_joueur['level'] == 18.0]
+        
+        self.df_first_blood = self.df_events_joueur[self.df_events_joueur['killType'] == 'KILL_FIRST_BLOOD']
+        
+        self.timestamp_niveau_max = timestamp_killmulti(self.df_niveau_max)
+        self.timestamp_first_blood = timestamp_killmulti(self.df_first_blood)
+
+            
+        if 'multiKillLength' in self.df_events_joueur.columns:    
+            self.df_events_doublekills = self.df_events_joueur[self.df_events_joueur['multiKillLength'] == 2.0]
+            self.df_events_triplekills = self.df_events_joueur[self.df_events_joueur['multiKillLength'] == 3.0]
+            self.df_events_quadrakills = self.df_events_joueur[self.df_events_joueur['multiKillLength'] == 4.0]
+            self.df_events_pentakills = self.df_events_joueur[self.df_events_joueur['multiKillLength'] == 5.0]
+                
+            self.timestamp_doublekill = timestamp_killmulti(self.df_events_doublekills)
+            self.timestamp_triplekill = timestamp_killmulti(self.df_events_triplekills)
+            self.timestamp_quadrakill = timestamp_killmulti(self.df_events_quadrakills)
+            self.timestamp_pentakill = timestamp_killmulti(self.df_events_pentakills)
+        
+        else:
+            self.timestamp_doublekill = 999
+            self.timestamp_triplekill = 999
+            self.timestamp_quadrakill = 999
+            self.timestamp_pentakill = 999           
+        
+
+            
+        requete_perso_bdd('''UPDATE matchs SET fourth_dragon = :fourth_dragon,
+                          first_elder = :first_elder,
+                          first_horde = :first_horde,
+                          first_double = :first_double,
+                          first_triple = :first_triple,
+                          first_quadra = :first_quadra,
+                          first_penta = :first_penta,
+                          first_niveau_max = :first_niveau_max,
+                          first_blood = :first_blood
+                        WHERE match_id = :match_id AND joueur = :joueur''',
+                    {'fourth_dragon': self.timestamp_fourth_dragon,
+                    'first_elder' : self.timestamp_first_elder,
+                    'first_horde' : self.timestamp_first_horde,
+                    'first_double' : self.timestamp_doublekill,
+                    'first_triple' : self.timestamp_triplekill,
+                    'first_quadra' : self.timestamp_quadrakill,
+                    'first_penta' : self.timestamp_pentakill,
+                    'first_niveau_max' : self.timestamp_niveau_max,
+                    'first_blood' : self.timestamp_first_blood,
+                    'match_id': self.last_match,
+                    'joueur': self.id_compte})
+        
+        
         df_exists = lire_bdd_perso(f'''SELECT match_id, riot_id FROM data_timeline_events WHERE 
         match_id = '{self.last_match}'
         AND riot_id = {self.id_compte}  ''',
@@ -2835,7 +2940,7 @@ class matchlol():
         x_dmg_taken = x_dmg_percent + 235
 
         x_kill_total = 1000
-        x_objectif = 1700
+        x_objectif = 1600
 
         lineX = 2600
         lineY = 100
@@ -3339,6 +3444,7 @@ class matchlol():
             elder = await get_image('monsters', 'elder', self.session)
             herald = await get_image('monsters', 'herald', self.session)
             nashor = await get_image('monsters', 'nashor', self.session)
+            horde = await get_image('monsters', 'horde', self.session)
 
             im.paste(drk, (x_objectif, 10 + 190), drk.convert('RGBA'))
             d.text((x_objectif + 100, 25 + 190), str(self.thisDragonTeam),
@@ -3355,6 +3461,10 @@ class matchlol():
             im.paste(nashor, (x_objectif + 600, 10 + 190), nashor.convert('RGBA'))
             d.text((x_objectif + 600 + 100, 25 + 190),
                    str(self.thisBaronTeam), font=font, fill=(0, 0, 0))
+            
+            im.paste(horde, (x_objectif + 800, 10 + 190), horde.convert('RGBA'))
+            d.text((x_objectif + 800 + 100, 25 + 190),
+                   str(self.thisHordeTeam), font=font, fill=(0, 0, 0))
 
         img_blue_epee = await get_image('epee', 'blue', self.session)
         img_red_epee = await get_image('epee', 'red', self.session)
@@ -3436,7 +3546,7 @@ class matchlol():
         y = 120
         y_name = y - 60
         x_rank = 1750
-        x_objectif = 1700
+        x_objectif = 1600
 
         y_avatar = 320
         y_pseudo = y_avatar + 100
@@ -3969,6 +4079,7 @@ class matchlol():
             elder = await get_image('monsters', 'elder', self.session)
             herald = await get_image('monsters', 'herald', self.session)
             nashor = await get_image('monsters', 'nashor', self.session)
+            horde = await get_image('monsters', 'horde', self.session)
 
             im.paste(drk, (x_objectif, 10 + 190), drk.convert('RGBA'))
             d.text((x_objectif + 100, 25 + 190), str(self.thisDragonTeam),
@@ -3985,6 +4096,10 @@ class matchlol():
             im.paste(nashor, (x_objectif + 600, 10 + 190), nashor.convert('RGBA'))
             d.text((x_objectif + 600 + 100, 25 + 190),
                    str(self.thisBaronTeam), font=font, fill=(0, 0, 0))
+            
+            im.paste(horde, (x_objectif + 800, 10 + 190), horde.convert('RGBA'))
+            d.text((x_objectif + 800 + 100, 25 + 190),
+                   str(self.thisHordeTeam), font=font, fill=(0, 0, 0))
 
 
         # Stat du jour

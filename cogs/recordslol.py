@@ -204,8 +204,18 @@ emote_v2 = {
     'currentGold' : ':euro:',
     'healthMax' : ':sparkling_heart:',
     'magicResist' : ':shield:',
-    'movementSpeed' : ':wind_face:'
+    'movementSpeed' : ':wind_face:',
+    'fourth_dragon' : ':dragon:',
+    'first_elder' : ':dragon:',
+    'first_horde' : ':space_invader:',
+    'first_double' : ':two:',
+    'first_triple' : ':three:',
+    'first_quadra' : ':four:',
+    'first_penta' : ':five:',
+    'first_niveau_max' : ':star:',
+    'first_blood' : ':dagger:'
 }
+
 
 
 
@@ -223,17 +233,20 @@ class Recordslol(Extension):
         self.bot: interactions.Client = bot
         self.time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20} # minutes minimum pour compter dans les records
         
-        self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills'] 
+        self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_blood'] 
         self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold']
         self.fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
         self.fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
         self.fichier_tank_heal = ['dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
-        self.fichier_objectif = ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower']
+        self.fichier_objectif = ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde']
         self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles']
-        self.fichier_stats = ['abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed']
+        self.fichier_stats = ['abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'first_niveau_max']
 
         self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers + self.fichier_stats
 
+
+        self.records_min = ['early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']
+        
     @slash_command(name='lol_records', description='records League of Legends')
     async def records_lol(self, ctx: SlashContext):
         pass
@@ -375,6 +388,7 @@ class Recordslol(Extension):
 
         fichier_farming = self.fichier_farming.copy()
         fichier_divers = self.fichier_divers.copy()
+        fichier_kills = self.fichier_kills.copy()
 
         # on rajoute quelques éléments sur d'autres pages...
 
@@ -386,6 +400,12 @@ class Recordslol(Extension):
 
             fichier_farming.remove('cs_jungle')
             fichier_farming.remove('jgl_dix_min')
+            fichier_kills.remove('first_double')
+            fichier_kills.remove('first_triple')
+            fichier_kills.remove('first_quadra')
+            fichier_kills.remove('first_penta')
+            fichier_kills.remove('first_blood')
+            
 
 
         def format_value(joueur, champion, url, short=False):
@@ -415,9 +435,12 @@ class Recordslol(Extension):
         embed1 = interactions.Embed(
             title=title + " Kills", color=interactions.Color.random())    
 
-        for column in self.fichier_kills:
+        for column in fichier_kills:
+            methode = 'max'
+            if column in self.records_min:
+                methode = 'min'
             
-            embed1 = creation_embed(fichier, column, methode_pseudo, embed1)
+            embed1 = creation_embed(fichier, column, methode_pseudo, embed1, methode)
           
 
         embed2 = interactions.Embed(
@@ -464,7 +487,7 @@ class Recordslol(Extension):
             
             for column in self.fichier_objectif:
                 methode = 'max'
-                if column in ['early_drake', 'early_baron']:
+                if column in self.records_min:
                     methode = 'min'
                 
                 embed4 = creation_embed(fichier, column, methode_pseudo, embed4, methode)
@@ -473,8 +496,11 @@ class Recordslol(Extension):
             title=title + " Stats", color=interactions.Color.random())
 
             for column in self.fichier_stats:
+                methode = 'max'
+                if column in self.records_min:
+                    methode = 'min'
                 
-                embed8 = creation_embed(fichier, column, methode_pseudo, embed8)
+                embed8 = creation_embed(fichier, column, methode_pseudo, embed8, methode)
 
         embed1.set_footer(text=f'Version {Version} by Tomlora')
         embed2.set_footer(text=f'Version {Version} by Tomlora')
@@ -672,8 +698,11 @@ class Recordslol(Extension):
             title=title + " Kills", color=interactions.Color.random())    
 
         for column in self.fichier_kills:
+            methode = 'max'
+            if column in self.records_min:
+                methode = 'min'
             
-            embed1 = creation_embed(fichier, column, methode_pseudo, embed1)
+            embed1 = creation_embed(fichier, column, methode_pseudo, embed1, methode)
           
 
         embed2 = interactions.Embed(
@@ -720,7 +749,7 @@ class Recordslol(Extension):
             
             for column in self.fichier_objectif:
                 methode = 'max'
-                if column in ['early_drake', 'early_baron']:
+                if column in self.records_min:
                     methode = 'min'
                 
                 embed4 = creation_embed(fichier, column, methode_pseudo, embed4, methode)
@@ -729,8 +758,11 @@ class Recordslol(Extension):
             title=title + " Stats", color=interactions.Color.random())
 
             for column in self.fichier_stats:
+                methode = 'max'
+                if column in self.records_min:
+                    methode = 'min'
                 
-                embed8 = creation_embed(fichier, column, methode_pseudo, embed8)
+                embed8 = creation_embed(fichier, column, methode_pseudo, embed8, methode)
 
         embed1.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
         embed2.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
@@ -864,8 +896,10 @@ class Recordslol(Extension):
             'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage',
             'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
             'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
-            'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles',
-            'abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed']
+            'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold', 
+            'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles',
+            'abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'fourth_dragon',
+            'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']
 
 
         if mode == 'ARAM':
@@ -874,7 +908,8 @@ class Recordslol(Extension):
             'cs', 'cs_min', 'cs_dix_min', 'cs_max_avantage',
             'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
             'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
-            'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used']
+            'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort',
+            'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used']
 
         if champion == None:
             # Initialisation des listes
@@ -884,7 +919,7 @@ class Recordslol(Extension):
             # Parcours des enregistrements dans liste_records
             for records in liste_records:
                 methode = 'max'
-                if records in ['early_drake', 'early_baron']:
+                if records in self.records_min:
                     methode = 'min'
 
                 # Appel de la fonction trouver_records_multiples
@@ -1187,6 +1222,9 @@ class Recordslol(Extension):
                 if stat in ['early_baron', 'early_drake']:
                     ascending=True
                     fichier = fichier[fichier[stat] != 0]
+                elif stat in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']:
+                    ascending=True
+                    fichier = fichier[fichier[stat] != 999]
                 else:
                     ascending=False
                     fichier = fichier[fichier[stat] != 0]
@@ -1308,8 +1346,10 @@ class Recordslol(Extension):
         for stat in self.liste_complete:                        
             if stat in ['early_baron', 'early_drake']:
                 ascending=True
-                
                 fichier_filtre = fichier[fichier[stat] != 0]
+            elif stat in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']:
+                ascending=True
+                fichier_filtre = fichier[fichier[stat] != 999]
             else:
                 ascending=False
                 fichier_filtre = fichier[fichier[stat] != 0]

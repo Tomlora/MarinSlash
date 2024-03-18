@@ -23,7 +23,6 @@ class activity(Extension):
     @listen()
     async def on_ready(self):
 
-
         liste_guild = self.bot.guilds
         
         print(f'Serveurs connectés : {len(liste_guild)}')
@@ -33,14 +32,13 @@ class activity(Extension):
             guild = await self.bot.fetch_guild(server)
 
             text_channel_list = [channel.id for channel in guild.channels]
-            print(
-                f' Serveurs connectés => Name : {guild.name} | Id : {guild.id} | Chan1 : {text_channel_list[0]}')
+            print(f' Serveurs connectés => Name : {guild.name} | Id : {guild.id} | Chan1 : {text_channel_list[0]}')
 
             role = get(guild.roles, name="Muted")
 
             if role is None:
                 role = await guild.create_role(name="Muted", permissions=interactions.Permissions.VIEW_CHANNEL)
-            return role
+
 
 
 def setup(bot):
