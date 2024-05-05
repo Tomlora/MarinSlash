@@ -15,6 +15,7 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 import aiohttp
 from datetime import datetime
 from interactions.ext.paginators import Paginator
+import dataframe_image as dfi
 
 from fonctions.match import (get_summoner_by_puuid,
                              get_version,
@@ -405,6 +406,7 @@ class analyseLoL(Extension):
         liste_graph = list()
         liste_delete = list()
 
+        riot_id_origin = riot_id.lower()
         riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper()
 
@@ -443,8 +445,10 @@ class analyseLoL(Extension):
 
         await session.close()
 
-        if riot_id in dict_joueur:
-            thisId = list(dict_joueur).index(riot_id)
+        if riot_id_origin in dict_joueur:
+            thisId = list(dict_joueur).index(riot_id_origin)
+        else:
+            return await ctx.send(f'Erreur. Joueur introuvable parmi **{dict_joueur}**')
 
         if thisId <= 4:
             team = ['Team alliée', 'Team adverse']
@@ -1214,7 +1218,7 @@ class analyseLoL(Extension):
             df.sort_values(['penta', 'quadra', 'triple', 'double'], ascending=[
                            False, False, False, False], inplace=True)
 
-            if joueur == None:
+            if riot_id == None:
 
                 txt = f'{title} :'
 
@@ -1861,7 +1865,83 @@ class analyseLoL(Extension):
 
             paginator.show_select_menu = True
             await paginator.send(ctx)
+            
+    @stats_lol.subcommand('elo',
+                          sub_cmd_description='Statistiques sur ton elo',
+                          options=[SlashCommandOption(
+                              name='riot_id',
+                              description='Pseudo LoL',
+                              type=interactions.OptionType.STRING,
+                              required=True),
+                              SlashCommandOption(
+                                  name='riot_tag',
+                                  description='tag',
+                                  type=interactions.OptionType.STRING,
+                                  required=True),
+                              SlashCommandOption(
+                              name='season',
+                              description='saison lol',
+                              type=interactions.OptionType.INTEGER,
+                              min_value=12,
+                              max_value=saison,
+                              required=False),
+                            #   SlashCommandOption(
+                            #   name='role',
+                            #   description='Role LoL. Remplir ce role retire les stats par role',
+                            #   type=interactions.OptionType.STRING,
+                            #   required=False,
+                            #   choices=[
+                            #       SlashCommandChoice(name='top', value='TOP'),
+                            #       SlashCommandChoice(
+                            #           name='jungle', value='JUNGLE'),
+                            #       SlashCommandChoice(name='mid', value='MID'),
+                            #       SlashCommandChoice(name='adc', value='ADC'),
+                            #       SlashCommandChoice(name='support', value='SUPPORT')]),
+                              SlashCommandOption(
+                              name='mode_de_jeu',
+                              description='se focaliser sur un mode de jeu ?',
+                              type=interactions.OptionType.STRING,
+                              required=False,
+                              choices=[
+                                  SlashCommandChoice(name='soloq',
+                                                     value='RANKED'),
+                                  SlashCommandChoice(name='flex', value='FLEX')]),
+                          ])
+    async def stats_lol_elo(self,
+                                   ctx: SlashContext,
+                                   season: int = saison,
+                                   riot_id: str = None,
+                                   riot_tag:str = None,
+                                #    role: str = None,
+                                   mode_de_jeu: str = 'RANKED',
+                                   ):
+
+        await ctx.defer(ephemeral=False)
         
+        riot_id = riot_id.replace(' ', '').lower()
+        riot_tag = riot_tag.upper()
+        
+        df = lire_bdd_perso(f''' SELECT matchs.tier,
+            matchs.rank,
+            matchs.victoire,
+            round(avg(matchs.mvp)) AS "Moyenne_MVP",
+            count(matchs.mvp) AS count,
+            round(avg(matchs.kp)) AS kp,
+            round(avg(matchs.kda)) AS kda,
+            round(avg(matchs.ecart_gold)) AS ecart_gold
+        FROM matchs
+        WHERE matchs.joueur = (( SELECT tracker.id_compte
+                FROM tracker
+                WHERE tracker.riot_id = '{riot_id}' AND tracker.riot_tagline = '{riot_tag}')) AND matchs.season = {season} AND matchs.mode = '{mode_de_jeu}'
+        GROUP BY matchs.joueur, matchs.tier, matchs.rank, matchs.victoire
+        ORDER BY tier ASC, rank DESC, victoire ASC;''' , index_col=['tier', 'rank', 'victoire']).T
+        
+        dfi.export(df, 'image.png', max_cols=-1,
+                            max_rows=-1, table_conversion="matplotlib")
+
+        await ctx.send(files=interactions.File('image.png'))
+
+        os.remove('image.png')
         
 
 

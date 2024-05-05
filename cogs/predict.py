@@ -323,7 +323,7 @@ class predict(Extension):
             traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
             traceback_msg = ''.join(traceback_details)
             print(traceback_msg)
-            await ctx.send('Erreur')
+            await ctx.send("Erreur. Si la game vient de se terminer, **merci d'attendre 5m**")
             await session.close()
             
     @slash_command(name='predict_victory_en_cours',

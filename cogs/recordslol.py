@@ -13,6 +13,7 @@ import asyncio
 from fonctions.channels_discord import get_embed, mention
 import difflib
 
+
 def option_stats_records(name, params, description='type de recherche'):
     option = SlashCommandOption(
         name=name,
@@ -213,7 +214,10 @@ emote_v2 = {
     'first_quadra' : ':four:',
     'first_penta' : ':five:',
     'first_niveau_max' : ':star:',
-    'first_blood' : ':dagger:'
+    'first_blood' : ':dagger:',
+    'kills_min' : ':dagger:',
+    'deaths_min' : ':skull:',
+    'assists_min' : ':crossed_swords:'
 }
 
 
@@ -233,7 +237,7 @@ class Recordslol(Extension):
         self.bot: interactions.Client = bot
         self.time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20} # minutes minimum pour compter dans les records
         
-        self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_blood'] 
+        self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_blood', 'kills_min', 'deaths_min', 'assists_min'] 
         self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold']
         self.fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
         self.fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
@@ -241,8 +245,17 @@ class Recordslol(Extension):
         self.fichier_objectif = ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde']
         self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles']
         self.fichier_stats = ['abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'first_niveau_max']
+        self.fichier_timer = ["ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10",
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"]
 
-        self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers + self.fichier_stats
+        self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers + self.fichier_stats + self.fichier_timer
 
 
         self.records_min = ['early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']
@@ -344,11 +357,21 @@ class Recordslol(Extension):
                                         max_data_timeline."currentGold" AS "currentGold",
                                         max_data_timeline."healthMax" AS "healthMax",
                                         max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed"   
+                                        max_data_timeline."movementSpeed" AS "movementSpeed",
+                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10",
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
                                                                              
                                      from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
@@ -363,11 +386,21 @@ class Recordslol(Extension):
                                         max_data_timeline."currentGold" AS "currentGold",
                                         max_data_timeline."healthMax" AS "healthMax",
                                         max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed"   
+                                        max_data_timeline."movementSpeed" AS "movementSpeed",
+                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10", 
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
                                                                              
                                      from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = {int(ctx.guild_id)}
@@ -470,6 +503,13 @@ class Recordslol(Extension):
         for column in fichier_divers:
             
             embed7 = creation_embed(fichier, column, methode_pseudo, embed7)
+            
+        embed9 = interactions.Embed(
+            title=title + " Timer", color=interactions.Color.random())
+
+        for column in self.fichier_timer:
+            
+            embed9 = creation_embed(fichier, column, methode_pseudo, embed9)
 
 
         if mode != 'ARAM':
@@ -507,15 +547,16 @@ class Recordslol(Extension):
         embed5.set_footer(text=f'Version {Version} by Tomlora')
         embed6.set_footer(text=f'Version {Version} by Tomlora')
         embed7.set_footer(text=f'Version {Version} by Tomlora')
+        embed9.set_footer(text=f'Version {Version} by Tomlora')
 
         if mode != 'ARAM':
             embed3.set_footer(text=f'Version {Version} by Tomlora')
             embed4.set_footer(text=f'Version {Version} by Tomlora')
             embed8.set_footer(text=f'Version {Version} by Tomlora')
-            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8]
+            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9]
 
         else:
-            pages=[embed1, embed2, embed5, embed6, embed7]
+            pages=[embed1, embed2, embed5, embed6, embed7, embed9]
             
         paginator = Paginator.create_from_embeds(
             self.bot,
@@ -551,11 +592,21 @@ class Recordslol(Extension):
                                         max_data_timeline."currentGold" AS "currentGold",
                                         max_data_timeline."healthMax" AS "healthMax",
                                         max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed"   
+                                        max_data_timeline."movementSpeed" AS "movementSpeed",
+                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10", 
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
                                         
                                      from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
@@ -570,11 +621,21 @@ class Recordslol(Extension):
                                         max_data_timeline."currentGold" AS "currentGold",
                                         max_data_timeline."healthMax" AS "healthMax",
                                         max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed"   
+                                        max_data_timeline."movementSpeed" AS "movementSpeed",
+                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10",
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
                                                                              
                                      from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = {int(ctx.guild_id)}
@@ -732,6 +793,13 @@ class Recordslol(Extension):
         for column in fichier_divers:
             
             embed7 = creation_embed(fichier, column, methode_pseudo, embed7)
+            
+        embed9 = interactions.Embed(
+            title=title + " Timer", color=interactions.Color.random())
+
+        for column in self.fichier_timer:
+            
+            embed9 = creation_embed(fichier, column, methode_pseudo, embed9)
 
 
         if mode != 'ARAM':
@@ -769,15 +837,16 @@ class Recordslol(Extension):
         embed5.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
         embed6.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
         embed7.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+        embed9.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
 
         if mode != 'ARAM':
             embed3.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
             embed4.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
             embed8.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
-            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8]
+            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9]
 
         else:
-            pages=[embed1, embed2, embed5, embed6, embed7]
+            pages=[embed1, embed2, embed5, embed6, embed7, embed9]
             
         paginator = Paginator.create_from_embeds(
             self.bot,
@@ -857,11 +926,21 @@ class Recordslol(Extension):
                                         max_data_timeline."currentGold" AS "currentGold",
                                         max_data_timeline."healthMax" AS "healthMax",
                                         max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed"                                     
+                                        max_data_timeline."movementSpeed" AS "movementSpeed",
+                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10",
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
                                      
                                      from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
@@ -876,11 +955,21 @@ class Recordslol(Extension):
                                         max_data_timeline."currentGold" AS "currentGold",
                                         max_data_timeline."healthMax" AS "healthMax",
                                         max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed"                                     
+                                        max_data_timeline."movementSpeed" AS "movementSpeed",
+                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10", 
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
                                      
                                      from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and server_id = '{int(ctx.guild_id)}'
@@ -893,23 +982,41 @@ class Recordslol(Extension):
         if mode in ['RANKED', 'FLEX']:
             liste_records = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills', 
             'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
-            'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage',
+            'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage', 'kills_min', 'deaths_min', 'assists_min',
             'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
             'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
             'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold', 
             'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles',
             'abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'fourth_dragon',
-            'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']
+            'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood',
+            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10", 
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"]
 
 
         if mode == 'ARAM':
             liste_records = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills', 
             'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
-            'cs', 'cs_min', 'cs_dix_min', 'cs_max_avantage',
+            'cs', 'cs_min', 'cs_dix_min', 'cs_max_avantage', 'kills_min', 'deaths_min', 'assists_min',
             'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
             'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
             'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort',
-            'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used']
+            'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used',
+            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10", 
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"]
 
         if champion == None:
             # Initialisation des listes
@@ -1134,11 +1241,21 @@ class Recordslol(Extension):
                                         max_data_timeline."currentGold" AS "currentgold",
                                         max_data_timeline."healthMax" AS "healthmax",
                                         max_data_timeline."magicResist" AS "magicresist",
-                                        max_data_timeline."movementSpeed" AS "movementspeed"     
+                                        max_data_timeline."movementSpeed" AS "movementspeed",
+                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10",
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
                                         
                                         from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
@@ -1155,11 +1272,21 @@ class Recordslol(Extension):
                                         max_data_timeline."currentGold" AS "currentgold",
                                         max_data_timeline."healthMax" AS "healthmax",
                                         max_data_timeline."magicResist" AS "magicresist",
-                                        max_data_timeline."movementSpeed" AS "movementspeed"     
+                                        max_data_timeline."movementSpeed" AS "movementspeed",
+                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30"
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10",
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
                                                                              
                                      from matchs, tracker
                                          INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                          LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                         LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
                                          where season = {saison}
                                          and mode = '{mode}'
                                          and server_id = '{int(ctx.guild_id)}'
@@ -1301,10 +1428,21 @@ class Recordslol(Extension):
                                         max_data_timeline."currentGold" AS "currentGold",
                                         max_data_timeline."healthMax" AS "healthMax",
                                         max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed"                                          
+                                        max_data_timeline."movementSpeed" AS "movementSpeed",
+                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10",
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                                                                  
                                      from matchs
                                      INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                      LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
                                      where season = {saison}
                                      and mode = '{mode}'
                                      and time >= {self.time_mini[mode]}
@@ -1321,11 +1459,21 @@ class Recordslol(Extension):
                                         max_data_timeline."currentGold" AS "currentGold",
                                         max_data_timeline."healthMax" AS "healthMax",
                                         max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed"     
+                                        max_data_timeline."movementSpeed" AS "movementSpeed",
+                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                        "TURRET_PLATE_DESTROYED_10",
+                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
                                                                              
                                      from matchs, tracker
                                          INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                          LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                         LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
                                          where season = {saison}
                                          and mode = '{mode}'
                                          and time >= {self.time_mini[mode]}

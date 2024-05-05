@@ -357,9 +357,10 @@ class challengeslol():
                 texte = texte.replace('#', '').replace(' #', '') # on supprime la balise qui nous servait de split
                 
                 if texte != '':
-                    if titre == 'Challenges':
+                    if titre == 'Challenges (Level)':
                         if self.dif_points_total != 0:
                             titre += f' | {self.points_total} pts (+{self.dif_points_total}) [{emote_rank_discord[self.rank_total]} ({self.percentile_total:.2f}%)]' 
+                            # titre += f' | {self.points_total} pts [{emote_rank_discord[self.rank_total]} ({self.percentile_total:.2f}%)]' 
                         else:
                             titre += f' | {self.points_total} pts [{emote_rank_discord[self.rank_total]} ({self.percentile_total:.2f}%)]' 
                     embed.add_field(name=titre, value=texte, inline=False)
@@ -369,9 +370,10 @@ class challengeslol():
                 texte = texte.split('#')  # on split sur notre mot clé
 
                 for i in range(len(texte)): # pour chaque partie du texte, on l'envoie dans un embed différent
-                    if i == 0 and titre == 'Challenges':
+                    if i == 0 and titre == 'Challenges (Level)':
                         if self.dif_points_total != 0:
                             field_name = f'{titre} | {self.points_total} pts  (+{self.dif_points_total}) [{emote_rank_discord[self.rank_total]} ({self.percentile_total:.2f}%)]' 
+                            # field_name = f'{titre} | {self.points_total} pts [{emote_rank_discord[self.rank_total]} ({self.percentile_total:.2f}%)]' 
                         else:
                             field_name = f'{titre} | {self.points_total} pts [{emote_rank_discord[self.rank_total]} ({self.percentile_total:.2f}%)]'
                     elif i == 0:
@@ -389,10 +391,11 @@ class challengeslol():
             
             return embed
         
-        embed = format_txt_embed(txt, chunk_size, 'Challenges', embed)
-        embed = format_txt_embed(txt_evolution, chunk_size, 'Challenges (Meilleurs progrès)', embed)
+        # embed = format_txt_embed(txt, chunk_size, 'Challenges', embed)
         embed = format_txt_embed(txt_level_up, chunk_size, 'Challenges (Level)', embed)
         embed = format_txt_embed(txt_24h, chunk_size, 'Challenges (Classement)', embed)
+        embed = format_txt_embed(txt_evolution, chunk_size, 'Challenges (Meilleurs progrès)', embed)
+        
         
                     
         return embed

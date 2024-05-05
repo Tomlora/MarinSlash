@@ -22,7 +22,7 @@ class customcmd(Extension):
         pass
     
 
-    @custom.subcommand("commande",
+    @custom.subcommand("cmd",
                            sub_cmd_description="Utiliser la commande",
                            options=[SlashCommandOption(name="nom",
                                                        description="Nom de la commande",
@@ -117,16 +117,21 @@ class customcmd(Extension):
         
         embed = interactions.Embed(title='Liste des commandes')
         liste_embed = []
+        i = 0
         
         for nom, data in df.iterrows():
             embed.add_field(name=nom, value=f"Crée par **{mention(data['author'], 'membre')}**")
             
-            if len(embed) > 3800: # Nouveau embed si on approche de la taille max
+            i = i + 1
+            
+            if i == 10: # Nouveau embed si on approche de la taille max
                 liste_embed.append(embed)
                 embed = interactions.Embed(title='Liste des commandes')
+                i = 0
                 
-            if len(liste_embed) == 0: # si toujours premier embed
-                liste_embed.append(embed)
+        if len(liste_embed) == 0 or i != 0: # si toujours premier embed ou embed incomplet
+            liste_embed.append(embed)
+
             
         paginator = Paginator.create_from_embeds(
             self.bot,

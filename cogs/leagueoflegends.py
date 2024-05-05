@@ -327,40 +327,46 @@ class LeagueofLegends(Extension):
                              'dmg/gold' : match_info.DamageGoldRatio,
                              'skillshot_dodged' : match_info.thisSkillshot_dodged,
                              'temps_cc' : match_info.time_CC,
-                             'spells_used' : match_info.thisSpellUsed}
+                             'spells_used' : match_info.thisSpellUsed,
+                             'kills_min' : match_info.kills_min,
+                             'deaths_min' : match_info.deaths_min,
+                             'assists_min' : match_info.assists_min}
             
 
-            param_records_only_ranked = {'vision_score': match_info.thisVision,
-                                         'vision_wards': match_info.thisWards,
-                                         'vision_wards_killed': match_info.thisWardsKilled,
-                                         'vision_pink': match_info.thisPink,
-                                         'vision_min': match_info.thisVisionPerMin,
-                                         'level_max_avantage': match_info.thisLevelAdvantage,
-                                         'vision_avantage': match_info.thisVisionAdvantage,
-                                         'early_drake': match_info.earliestDrake,
-                                         'early_baron': match_info.earliestBaron,
-                                         'jgl_dix_min': match_info.thisJUNGLEafter10min,
-                                         'baron': match_info.thisBaronTeam,
-                                         'drake': match_info.thisDragonTeam,
-                                         'cs_jungle': match_info.thisJungleMonsterKilled,
-                                         'buffs_voles' : match_info.thisbuffsVolees,
-                                         'abilityHaste' : match_info.max_abilityHaste,
-                                         'abilityPower' : match_info.max_ap,
-                                         'armor' : match_info.max_armor,
-                                         'attackDamage' : match_info.max_ad,
-                                         'currentGold' : match_info.currentgold,
-                                         'healthMax' : match_info.max_hp,
-                                         'magicResist' : match_info.max_mr,
-                                         'movementSpeed' : match_info.movement_speed,
-                                         'fourth_dragon' : match_info.timestamp_fourth_dragon,
-                                         'first_elder' : match_info.timestamp_first_elder,
-                                         'first_horde' : match_info.timestamp_first_horde,
-                                         'first_double' : match_info.timestamp_doublekill,
-                                         'first_triple' : match_info.timestamp_triplekill,
-                                         'first_quadra' : match_info.timestamp_quadrakill,
-                                         'first_penta' : match_info.timestamp_pentakill,
-                                         'first_niveau_max' : match_info.timestamp_niveau_max,
-                                         'first_blood' : match_info.timestamp_first_blood}
+            if match_info.thisQ in ['RANKED', 'FLEX']:
+                param_records_only_ranked = {'vision_score': match_info.thisVision,
+                                            'vision_wards': match_info.thisWards,
+                                            'vision_wards_killed': match_info.thisWardsKilled,
+                                            'vision_pink': match_info.thisPink,
+                                            'vision_min': match_info.thisVisionPerMin,
+                                            'level_max_avantage': match_info.thisLevelAdvantage,
+                                            'vision_avantage': match_info.thisVisionAdvantage,
+                                            'early_drake': match_info.earliestDrake,
+                                            'early_baron': match_info.earliestBaron,
+                                            'jgl_dix_min': match_info.thisJUNGLEafter10min,
+                                            'baron': match_info.thisBaronTeam,
+                                            'drake': match_info.thisDragonTeam,
+                                            'cs_jungle': match_info.thisJungleMonsterKilled,
+                                            'buffs_voles' : match_info.thisbuffsVolees,
+                                            'abilityHaste' : match_info.max_abilityHaste,
+                                            'abilityPower' : match_info.max_ap,
+                                            'armor' : match_info.max_armor,
+                                            'attackDamage' : match_info.max_ad,
+                                            'currentGold' : match_info.currentgold,
+                                            'healthMax' : match_info.max_hp,
+                                            'magicResist' : match_info.max_mr,
+                                            'movementSpeed' : match_info.movement_speed,
+                                            'fourth_dragon' : match_info.timestamp_fourth_dragon,
+                                            'first_elder' : match_info.timestamp_first_elder,
+                                            'first_horde' : match_info.timestamp_first_horde,
+                                            'first_double' : match_info.timestamp_doublekill,
+                                            'first_triple' : match_info.timestamp_triplekill,
+                                            'first_quadra' : match_info.timestamp_quadrakill,
+                                            'first_penta' : match_info.timestamp_pentakill,
+                                            'first_niveau_max' : match_info.timestamp_niveau_max,
+                                            'first_blood' : match_info.timestamp_first_blood}
+            else:
+                param_records_only_ranked = {}
             
 
 
@@ -1069,7 +1075,7 @@ class LeagueofLegends(Extension):
                                      ctx: SlashContext):
 
         df = lire_bdd_perso(
-            f'''SELECT index, activation, spec_tracker, challenges, insights, server_id, nb_challenges, affichage, riot_id, riot_tagline FROM tracker WHERE discord = '{int(ctx.author.id)}' and banned = false ''').transpose()
+            f'''SELECT index, activation, spec_tracker, challenges, insights, server_id, nb_challenges, affichage, riot_id, riot_tagline, save_records FROM tracker WHERE discord = '{int(ctx.author.id)}' and banned = false ''').transpose()
 
         await ctx.defer(ephemeral=True)
         if df.empty:
@@ -1083,7 +1089,7 @@ class LeagueofLegends(Extension):
                     affichage = 'mode classique'
                 elif data['affichage'] == 2:
                     affichage = 'mode beta'
-                txt += f'\n**{data["riot_id"]} #{data["riot_tagline"]}** ({guild.name}): Tracking : **{data["activation"]}** ({affichage})  | Spectateur tracker : **{data["spec_tracker"]}** | Challenges : **{data["challenges"]}** (Affiché : {data["nb_challenges"]}) | Insights : **{data["insights"]}**'
+                txt += f'\n**{data["riot_id"]} #{data["riot_tagline"]}** ({guild.name}): Tracking : **{data["activation"]}** ({affichage})  | Spectateur tracker : **{data["spec_tracker"]}** | Challenges : **{data["challenges"]}** (Affiché : {data["nb_challenges"]}) | Insights : **{data["insights"]}** | Records : **{data["save_records"]}**'
 
             await ctx.send(txt, ephemeral=True)
 
@@ -1477,7 +1483,7 @@ class LeagueofLegends(Extension):
 
                 if totalgames > 0:  # s'il n'y a pas de game, on ne va pas afficher le récap
                     await channel_tracklol.send(embeds=embed)
-                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites ')
+                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites. Fin de saison : <t:1715723940:R> ')
 
     @Task.create(TimeTrigger(hour=4))
     async def lolsuivi(self):
@@ -1542,13 +1548,7 @@ class LeagueofLegends(Extension):
         else:
             await ctx.send(f" Le joueur {riot_id} n'est pas dans la base de données.")
 
-    @slash_command(name="abbedagge", description="Meilleur joueur de LoL")
-    async def abbedagge(self, ctx):
-        await ctx.send('https://clips.twitch.tv/ShakingCovertAuberginePanicVis-YDRK3JFk7Glm6nbB')
 
-    @slash_command(name="closer", description="Meilleur joueur de LoL")
-    async def closer(self, ctx):
-        await ctx.send('https://clips.twitch.tv/EmpathicClumsyYogurtKippa-lmcFoGXm1U5Jx2bv')
 
 
     @slash_command(name='recap_journalier',
@@ -1728,7 +1728,7 @@ class LeagueofLegends(Extension):
             part = 1
             embeds = []
             
-            emote_status_match = {'Victoire' : 'V', 'Défaite' : 'D'}
+            emote_status_match = {'Victoire' : ':green_circle:', 'Défaite' : ':red_circle:'}
             
            
             
@@ -1737,13 +1737,13 @@ class LeagueofLegends(Extension):
             for index, match in df.iterrows():
                 rank_img = emote_rank_discord[match["tier"]]
                 champ_img = emote_champ_discord.get(match["champion"].capitalize(), 'inconnu')
-                txt += f'[{match["datetime"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] {emote_status_match[match["victoire"]]} | Top {match["mvp"]} | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%) | LP : **{match["ecart_lp"]}** | G : {match["ecart_gold"]} \n'
+                txt += f'[{match["datetime"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%) | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} \n'
 
                 if embed.fields and len(txt) + sum(len(field.value) for field in embed.fields) > 4000:
                     embed.add_field(name='KDA', value=total_kda)
                     embed.add_field(name='Champions', value=txt_champ)
                     embed.add_field(
-                        name='Ratio', value=f'{total_victoire} ({nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%)')
+                        name='Ratio', value=f'{total_victoire} ({nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%) | LP {total_lp}')
                     embed.add_field(
                         name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}**')
                 

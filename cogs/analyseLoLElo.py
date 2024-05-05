@@ -87,7 +87,7 @@ class AnalyseLoLElo(Extension):
         df_mean[columns] = np.round(df_mean[columns], 2)
         df_mean.index.name = 'Tier'
         
-        df_mean = df_mean.reindex(['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'])
+        df_mean = df_mean.reindex(['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'])
         
         dfi.export(df_mean, 'image.png',
                    fontsize=9,

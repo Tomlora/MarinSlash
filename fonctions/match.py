@@ -19,6 +19,22 @@ import sqlalchemy.exc
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
+from collections import Counter
+
+def mode(lst):
+    
+    cleaned_lst = [value for value in lst if value != '']
+    
+    if not cleaned_lst:
+        return ''
+    # Compter les occurrences de chaque élément dans la liste
+    counts = Counter(cleaned_lst)
+    # Trouver l'élément avec le plus grand nombre d'occurrences
+    mode_value = max(counts.values())
+    # Filtrer les éléments qui ont le même nombre maximal d'occurrences
+    modes = [key for key, value in counts.items() if value == mode_value]
+    return modes
+
 def fix_temps(duree):
     '''Convertit le temps en secondes en minutes et secondes'''
     minutes = int(duree)
@@ -933,7 +949,10 @@ class matchlol():
         elif (str(self.thisPosition) == "UTILITY"):
             self.thisPosition = "SUPPORT"
 
-        self.summonerName = self.match_detail_participants['summonerName'].lower().replace(' ', '')
+        try:
+            self.summonerName = self.match_detail_participants['summonerName'].lower().replace(' ', '')
+        except KeyError:
+            self.summonerName = self.match_detail_participants['riotIdGameName'].lower().replace(' ', '')
         self.timestamp = str(self.match_detail['info']['gameCreation'])[:-3]  # traduire avec datetime.date.fromtimestamp()
         # self.thisQ = ' '
         self.thisChamp = self.match_detail_participants['championId']
@@ -1055,6 +1074,10 @@ class matchlol():
             self.thisKDA = float(round(self.match_detail_challenges['kda'], 2))
         else:
             self.thisKDA = 0
+            
+        self.kills_min = np.round(self.thisKills / self.thisTime, 2)
+        self.deaths_min = np.round(self.thisDeaths / self.thisTime, 2)
+        self.assists_min = np.round(self.thisAssists / self.thisTime, 2)
 
         # Page record 2
 
@@ -1238,8 +1261,6 @@ class matchlol():
 
         # pseudo
 
-        self.thisPseudoListe = dict_data(
-            self.thisId, self.match_detail, 'summonerName')
         
         try:
             self.thisRiotIdListe = dict_data(
@@ -1247,8 +1268,12 @@ class matchlol():
         
             self.thisRiotTagListe = dict_data(
                 self.thisId, self.match_detail, 'riotIdTagline')
+            
+            self.thisPseudoListe = self.thisRiotIdListe
         
         except KeyError:
+            self.thisPseudoListe = dict_data(
+                self.thisId, self.match_detail, 'summonerName')
             self.thisRiotIdListe = self.thisPseudoListe
             self.thisRiotTagListe = ''    
             
@@ -1596,6 +1621,10 @@ class matchlol():
                 self.thisVictory = str(data_joueur['wins'].values[0])
                 self.thisLoose = str(data_joueur['losses'].values[0])
                 self.thisWinStreak = str(data_joueur['serie'].values[0]) 
+                     
+                
+
+
                 
                 
     async def prepare_data_ugg(self):                       
@@ -1681,6 +1710,18 @@ class matchlol():
                 except:
                     self.liste_rank.append('')
                     self.liste_tier.append('')
+                    
+        # if not self.moba_ok: # si moba n'est pas dispo, nous allons calculer nous-même l'avg des tier et rank
+        #     try:
+        #         self.avgtier_ally = mode(self.liste_rank[:5])[0]
+        #         self.avgrank_ally = mode(self.liste_tier[:5])[0]
+        #         self.avgtier_enemy = mode(self.liste_rank[5:])[0]
+        #         self.avgrank_enemy = mode(self.liste_tier[:5])[0]
+        #     except:
+        #         self.avgtier_ally = ''
+        #         self.avgrank_ally = ''
+        #         self.avgtier_enemy = ''
+        #         self.avgrank_enemy = ''
 
 
         
@@ -1712,7 +1753,10 @@ class matchlol():
 
 
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
-        self.summonerName = self.match_detail_participants['summonerName'].lower().replace(' ', '')
+        try:
+            self.summonerName = self.match_detail_participants['summonerName'].lower().replace(' ', '')
+        except KeyError:
+            self.summonerName = self.match_detail_participants['riotIdGameName'].lower().replace(' ', '')
         
         self.season = 14  # TODO a modifier quand changement de saison
 
@@ -1868,6 +1912,10 @@ class matchlol():
 
         self.thisDeathsListe = dict_data_arena(
             self.thisId, self.match_detail, 'deaths', self.nb_joueur)
+        
+        self.kills_min = np.round(self.thisKills / self.thisTime, 2)
+        self.deaths_min = np.round(self.thisDeaths / self.thisTime, 2)
+        self.assists_min = np.round(self.thisAssists / self.thisTime, 2)
 
 
         # assists
@@ -1922,14 +1970,19 @@ class matchlol():
 
         # pseudo
 
-        self.thisPseudoListe = dict_data_arena(
-            self.thisId, self.match_detail, 'summonerName', self.nb_joueur)
+
 
         self.thisRiotIdListe = dict_data_arena(
             self.thisId, self.match_detail, 'riotIdGameName', self.nb_joueur)
         
         self.thisRiotTagListe = dict_data_arena(
             self.thisId, self.match_detail, 'riotIdTagline', self.nb_joueur)
+        
+        try:
+            self.thisPseudoListe = dict_data_arena(
+                self.thisId, self.match_detail, 'summonerName', self.nb_joueur)
+        except:
+            self.thisPseudoListe = self.thisRiotIdListe
 
         # champ id
 
@@ -2136,9 +2189,7 @@ class matchlol():
                 
         self.thisVisionListe = [0,0,0,0,0,0,0,0]
         self.thisPinkListe = [0,0,0,0,0,0,0,0]
-
-
-
+    
         
     async def save_data(self):
         """Sauvegarde l'ensemble des données dans la base de données"""
@@ -2162,14 +2213,14 @@ class matchlol():
             baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
             item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
-            split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast)
+            split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
             :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
-            :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast);
+            :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur''',
                 {
                     'match_id': self.last_match,
@@ -2261,7 +2312,12 @@ class matchlol():
                     's1cast' : self.s1cast,
                     's2cast' : self.s2cast,
                     's3cast' : self.s3cast,
-                    's4cast' : self.s4cast
+                    's4cast' : self.s4cast,
+                    'horde' : self.thisHordeTeam,
+                    'moba' : self.moba_ok,
+                    'kills_min' : self.kills_min,
+                    'deaths_min' : self.deaths_min,
+                    'assists_min' : self.assists_min
                 },
             )
             
@@ -2423,6 +2479,8 @@ class matchlol():
                                                self.df_timeline_stats,
                                                self.df_timeline_dmg], axis=1)
         
+        # self.df_timeline_position['timestamp'] = self.df_timeline_position['timestamp'].apply(fix_temps)
+        
         
         self.max_abilityHaste = self.df_timeline_position['abilityHaste'].max()
         self.max_ap = self.df_timeline_position['abilityPower'].max()
@@ -2490,6 +2548,8 @@ class matchlol():
                                         & (df['victimId'] == self.index_timeline), 'type'] = 'DEATHS'
                 
             df['timestamp'] = np.round(df['timestamp'] / 60000,2)
+            
+            df['timestamp'] = df['timestamp'].apply(fix_temps)
                     
             df['wardType'] = df['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
                                                                         'UNDEFINED': 'Balise Zombie',
@@ -2608,6 +2668,47 @@ class matchlol():
             except sqlalchemy.exc.IntegrityError:
                 pass
 
+
+        #####  
+        
+        def filtre_timeline(time):
+            df_filtre_timeline = self.df_events_joueur[self.df_events_joueur['timestamp'] <= time]
+            df_filtre_timeline.loc[(df_filtre_timeline['type'] == 'CHAMPION_SPECIAL_KILL') & (df_filtre_timeline['killerId'] == self.index_timeline), 'type'] = 'CHAMPION_KILL'
+            df_filtre_timeline.loc[(df_filtre_timeline['type'] == 'CHAMPION_KILL') & (df_filtre_timeline['killerId'] != self.index_timeline), 'type'] = 'ASSISTS'
+            df_filtre_timeline.drop_duplicates(subset=['timestamp', 'killerId', 'type'], inplace=True)
+            df_filtre_timeline = df_filtre_timeline.groupby(['type', 'riot_id', 'match_id'], as_index=False).count()
+            df_filtre_timeline['type'] = df_filtre_timeline.apply(lambda x : x['type'] + '_' + str(time), axis=1)
+            df_filtre_timeline.rename(columns={'timestamp' : 'value'}, inplace=True )
+            return df_filtre_timeline[['type', 'riot_id', 'match_id', 'value']]
+
+        df_10min = filtre_timeline(10)
+        df_20min = filtre_timeline(20)
+        df_30min = filtre_timeline(30)
+
+        self.df_time = pd.concat([df_10min, df_20min, df_30min])
+
+        self.df_time_pivot = self.df_time.pivot_table(index=['riot_id', 'match_id'],
+                                                      columns='type', values='value',
+                                                      aggfunc='sum').reset_index()
+        
+        df_exists = lire_bdd_perso(f'''SELECT match_id, riot_id FROM data_timeline_palier WHERE 
+        match_id = '{self.last_match}'
+        AND riot_id = {self.id_compte}  ''',
+        index_col=None)
+        
+        if df_exists.empty:
+            try:
+                sauvegarde_bdd(self.df_time_pivot,
+                                        'data_timeline_palier',
+                                            methode_save='append',
+                                            index=False) 
+            except sqlalchemy.exc.IntegrityError:
+                pass
+       
+        
+        
+        
+        
 
     async def add_couronnes(self, points):
         """Ajoute les couronnes dans la base de données"""
@@ -3226,7 +3327,7 @@ class matchlol():
                 im.paste(self.img_ally_avg, (x_name+200, 120-20 + 190), self.img_ally_avg.convert('RGBA'))
 
                 d.text((x_name+300, 120 + 190), str(
-                            self.avgrank_ally), font=font, fill=(0, 0, 0))
+                            self.avgrank_ally), font=font, fill=(255, 255, 255))
 
             except FileNotFoundError:
                 self.img_ally_avg = 'UNRANKED'
