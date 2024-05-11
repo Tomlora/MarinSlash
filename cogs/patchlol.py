@@ -33,7 +33,7 @@ class Patchlol(Extension):
 
             # MAJ de la BDD
 
-            requete_perso_bdd('UPDATE patchnotes SET version = :version', {
+            requete_perso_bdd('''UPDATE settings SET value = :version where parametres = 'patchnotes' ''', {
                               'version': patch_actuel.version_patch})
 
             # Embed
