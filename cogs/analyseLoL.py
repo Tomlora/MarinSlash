@@ -28,7 +28,9 @@ from fonctions.match import (get_summoner_by_puuid,
                              get_summoner_by_riot_id)
 from fonctions.channels_discord import get_embed
 from fonctions.gestion_bdd import lire_bdd_perso
-from fonctions.params import saison
+
+
+saison = int(lire_bdd_perso('select * from settings', format='dict', index_col='parametres')['saison']['value'])
 
 
 choice_var = [SlashCommandChoice(name="dmg", value="dmg"),

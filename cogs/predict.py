@@ -7,8 +7,6 @@ import sys
 import traceback
 import humanize
 from fonctions.match import emote_champ_discord
-
-
 from fonctions.match import (get_version,
                              get_champ_list,
                              get_version,
@@ -18,8 +16,6 @@ import joblib
 import fonctions.api_calls as api_calls
 import numpy as np
 import scipy.stats
-
-  
 
 async def add_stats(raw_data) -> list:
     processed_data = []
@@ -59,6 +55,9 @@ async def predict_match(match_id, match, champion, session : aiohttp.ClientSessi
     blueParticipant = []
     blueChampion = []
 
+    redLevel = []
+    blueLevel = []
+
     try:
         humanize.activate('fr_FR', path='C:/Users/Kevin/PycharmProjects/bot_discord_aio/translations/')
     except FileNotFoundError:
@@ -84,9 +83,7 @@ async def predict_match(match_id, match, champion, session : aiohttp.ClientSessi
         for mastery_object in mastery_list:
             if championId == mastery_object["championId"]:
                 mastery = mastery_object["mastery"]
-
-
-        
+                level = mastery_object['level']
         winrate = 0
         for winrate_object in winrate_list:
             if championId == winrate_object["championID"]:
@@ -97,11 +94,13 @@ async def predict_match(match_id, match, champion, session : aiohttp.ClientSessi
             redWinrates.append(winrate)
             redParticipant.append(participant['summonerName'])
             redChampion.append(champion[str(championId)])
+            redLevel.append(level)
         else:
             blueMasteries.append(mastery)
             blueWinrates.append(winrate)
             blueParticipant.append(participant['summonerName'])
             blueChampion.append(champion[str(championId)])
+            blueLevel.append(level)
 
     txt_rouge = '**:red_circle: Team Red**\n'
     txt_bleu = '**:blue_circle: Team Blue **\n'
@@ -115,17 +114,19 @@ async def predict_match(match_id, match, champion, session : aiohttp.ClientSessi
         except ValueError:
             return 0
         
-    for masteries, winrate, participant, champion in zip(redMasteries, redWinrates, redParticipant, redChampion):
+    for masteries, winrate, participant, champion, lev in zip(redMasteries, redWinrates, redParticipant, redChampion, redLevel):
         winrate = round(winrate*100,0)
 
-        txt_rouge += f'{emote_champ_discord.get(champion.capitalize(), champion)} **{participant}**  : WR **{int(winrate)}%** | Pts : **{format_nombre(masteries)}** \n'
+        txt_rouge += f'{emote_champ_discord.get(champion.capitalize(), champion)} **{participant}**  : WR **{int(winrate)}%** | Pts : **{format_nombre(masteries)}** | Lvl : **{lev}** \n'
          
-    for masteries, winrate, participant, champion in zip(blueMasteries, blueWinrates, blueParticipant, blueChampion):
+    for masteries, winrate, participant, champion, lev in zip(blueMasteries, blueWinrates, blueParticipant, blueChampion, blueLevel):
         winrate = round(winrate*100,0)
-        txt_bleu += f'**{emote_champ_discord.get(champion.capitalize(), champion)} {participant}**  : WR **{int(winrate)}%** | Pts : **{format_nombre(masteries)}** \n'
+        txt_bleu += f'**{emote_champ_discord.get(champion.capitalize(), champion)} {participant}**  : WR **{int(winrate)}%** | Pts : **{format_nombre(masteries)}** | Lvl : **{lev}** \n'
         
     txt_recap = {'redside' : txt_rouge, 'blueside' : txt_bleu}        
-    # Process Data
+
+
+    # Process Data pour envoi
     
     blueData = []
     redData = []

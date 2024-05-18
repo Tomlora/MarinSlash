@@ -113,15 +113,22 @@ class Masteries(Extension):
         pass    
 
     @lol_maitrise.subcommand("champion",
-                               sub_cmd_description="Points sur un champion",
+                               sub_cmd_description="Maitrise sur un champion",
                    options=[
                        SlashCommandOption(name="champion",
                                           description="Champion",
                                           type=interactions.OptionType.STRING,
-                                          required=True)])
+                                          required=True),
+                        SlashCommandOption(name="affichage",
+                                            description="Affichage",
+                                            type=interactions.OptionType.STRING,
+                                            required=True,
+                                            choices=[SlashCommandChoice(name="Points", value='championPoints'),
+                                                           SlashCommandChoice(name="Level", value='championLevel')])])
     async def maitrise_champion(self,
                                 ctx: SlashContext,
-                                champion: str):
+                                champion: str,
+                                affichage:str):
        
         champion = champion.capitalize().replace(' ', '')
         
@@ -132,11 +139,11 @@ class Masteries(Extension):
                     INNER JOIN tracker ON data_masteries.id = tracker.id_compte
                     WHERE "championId" = '{champion}' ''', index_col='index').T
 
-        df.sort_values('championPoints', ascending=False, inplace=True)
+        df.sort_values(affichage, ascending=False, inplace=True)
         
         fig = px.histogram(df,
                            x='pseudo',
-                           y='championPoints',
+                           y=affichage,
                            text_auto='.i',
                            color='pseudo',
                            title=f'Points de maitrise sur {champion}')
@@ -158,6 +165,12 @@ class Masteries(Extension):
                                           description="Joueur",
                                           type=interactions.OptionType.STRING,
                                           required=True),
+                        SlashCommandOption(name="affichage",
+                                            description="Affichage",
+                                            type=interactions.OptionType.STRING,
+                                            required=True,
+                                            choices=[SlashCommandChoice(name="Points", value='championPoints'),
+                                                           SlashCommandChoice(name="Level", value='championLevel')]),
                        SlashCommandOption(name='top',
                                           description='top combien ?',
                                           type=interactions.OptionType.INTEGER,
@@ -168,6 +181,7 @@ class Masteries(Extension):
                                 ctx: SlashContext,
                                 riot_id: str,
                                 riot_tag: str,
+                                affichage:str,
                                 top:int=20):
        
        
@@ -180,13 +194,13 @@ class Masteries(Extension):
                             INNER JOIN tracker ON data_masteries.id = tracker.id_compte
                             WHERE tracker.riot_id = '{riot_id}' and tracker.riot_tagline = '{riot_tag}' ''', index_col='index').T
 
-        df.sort_values('championPoints', ascending=False, inplace=True)
+        df.sort_values(affichage, ascending=False, inplace=True)
 
         df = df.head(top)
         
         fig = px.histogram(df,
                            x='championId',
-                           y='championPoints',
+                           y=affichage,
                            text_auto='.i',
                            color='championId',
                            title=f'Points de maitrise pour {riot_id} (top {top})')
@@ -208,6 +222,12 @@ class Masteries(Extension):
                                                 SlashCommandChoice(name='top_points', value='top_points'),
                                                 SlashCommandChoice(name='max par personne', value='max_personne')
                                             ]),
+                        SlashCommandOption(name="affichage",
+                                            description="Affichage",
+                                            type=interactions.OptionType.STRING,
+                                            required=True,
+                                            choices=[SlashCommandChoice(name="Points", value='championPoints'),
+                                                           SlashCommandChoice(name="Level", value='championLevel')]),
                        SlashCommandOption(name='top',
                                           description='top combien ?',
                                           type=interactions.OptionType.INTEGER,
@@ -217,6 +237,7 @@ class Masteries(Extension):
     async def maitrise_best(self,
                                 ctx: SlashContext,
                                 methode: str,
+                                affichage:str,
                                 top:int=20):
               
         await ctx.defer(ephemeral=False)
@@ -224,14 +245,14 @@ class Masteries(Extension):
         df = lire_bdd_perso(f'''SELECT data_masteries.*, tracker.index as pseudo from data_masteries 
                             INNER JOIN tracker ON data_masteries.id = tracker.id_compte''', index_col='index').T
 
-        df['championPoints'] = df['championPoints'].astype(int)
+        df[affichage] = df[affichage].astype(int)
         
         if methode == 'top_points':
 
             df_grp = df.copy()
             df_grp['pseudo'] = df_grp['pseudo'] + "(" + df_grp['championId'] + ")"
 
-            df_grp.sort_values('championPoints', ascending=False, inplace=True)
+            df_grp.sort_values(affichage, ascending=False, inplace=True)
 
             df_grp = df_grp.head(top)
             
@@ -240,11 +261,11 @@ class Masteries(Extension):
         
         elif methode == 'max_personne':
 
-            df_grp = df.groupby('pseudo', as_index=False)[['championPoints']].max()
+            df_grp = df.groupby('pseudo', as_index=False)[[affichage]].max()
 
-            df_grp = df_grp.merge(df[['pseudo', 'championPoints', 'championId']], how='left', on=['pseudo', 'championPoints'])
+            df_grp = df_grp.merge(df[['pseudo', affichage, 'championId']], how='left', on=['pseudo', affichage])
 
-            df_grp.sort_values('championPoints', ascending=False, inplace=True)
+            df_grp.sort_values(affichage, ascending=False, inplace=True)
 
             df_grp['pseudo'] = df_grp['pseudo'] + "(" + df_grp['championId'] + ")"
             
@@ -255,7 +276,7 @@ class Masteries(Extension):
 
         fig = px.histogram(df_grp,
                            x='pseudo',
-                           y='championPoints',
+                           y=affichage,
                            text_auto='.i',
                            color='pseudo',
                            title=title)

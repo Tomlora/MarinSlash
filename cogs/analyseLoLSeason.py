@@ -7,10 +7,12 @@ from fonctions.match import emote_champ_discord
 import numpy as np
 from interactions.ext.paginators import Paginator
 
+saison = int(lire_bdd_perso('select * from settings', format='dict', index_col='parametres')['saison']['value'])
 
 class AnalyseLoLSeason(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
+        
 
 
     @slash_command(name='lol_analyse_season', description='Stats sur sa saison')
@@ -65,7 +67,7 @@ class AnalyseLoLSeason(Extension):
                       riot_id: str,
                       riot_tag:str,
                       mode:str,
-                      saison = 14,
+                      saison = saison,
                       champion = None,
                       role = None):
         

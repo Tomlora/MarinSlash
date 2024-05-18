@@ -95,12 +95,18 @@ async def get_data_joueur_challenges(id_compte: int, session, puuid=None):
     
     # on verifie que les challenges n'existent pas déjà dans la bdd, sinon on les ajoute
     
-    data_actuel = lire_bdd_perso('''SELECT index, name from challenges''').transpose()
+    data_actuel = lire_bdd_perso('''SELECT index, name, "challengeId" from challenges''').transpose()
+
     
-    data_challenge = data_challenge[~data_challenge['name'].isin(data_actuel['name'])]
+    data_challenge_new = data_challenge[(~data_challenge['name'].isin(data_actuel['name'])) | (~data_challenge['challengeId'].isin(data_actuel['challengeId']))]
     
     if not data_challenge.empty:
-        sauvegarde_bdd(data_challenge, 'challenges', 'append', index=False)
+        sauvegarde_bdd(data_challenge_new, 'challenges', 'append', index=False)
+
+
+    
+
+    
     return data_total_joueur, data_joueur_category, data_joueur_challenges, data_joueur_to_save
 
 
@@ -189,7 +195,7 @@ class challengeslol():
             
             # on supprime les challenges non-désirés
             
-            df_exclusion = lire_bdd_perso(f'''SELECT id, "challengeId" from challenge_exclusion where index = {self.id_compte} ''',
+            df_exclusion = lire_bdd_perso(f'''SELECT id, "challengeId" from challenge_exclusion where index = {self.id_compte} or index = -1 ''', #-1 pour ALL
                                           index_col='id').transpose()
             
             if not df_exclusion.empty:
@@ -383,6 +389,7 @@ class challengeslol():
                     field_value = texte[i]
                     # parfois la découpe renvoie un espace vide.
                     if not field_value in ['', ' ']:
+                        field_value = field_value.replace('<em>', '**').replace('</em>', '**')
                         try:
                             embed.add_field(name=field_name,
                                         value=field_value, inline=False)

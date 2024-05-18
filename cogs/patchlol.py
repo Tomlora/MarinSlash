@@ -24,8 +24,7 @@ class Patchlol(Extension):
         await patch_actuel.get_data()
 
         # Version chargée dans la bdd
-        version = get_data_bdd("SELECT version from patchnotes").mappings().all()[
-            0]['version']
+        version = get_data_bdd("SELECT * from settings where parametres = 'patchnotes' ").mappings().all()[0]['value']
 
         # Si les versions sont différentes, on update:
 

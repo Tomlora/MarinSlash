@@ -382,7 +382,7 @@ async def update_ugg(session, summonerName, tagline, regionId="euw1"):
     return response
 
 
-async def getRanks(session : aiohttp.ClientSession, summonerName, tagline, regionId='euw1', season=22):
+async def getRanks(session : aiohttp.ClientSession, summonerName, tagline, regionId='euw1', season=23):
     url = "https://u.gg/api"
     """Avopir le rank et le tier d'un joueur"""
     payload = {
@@ -2676,6 +2676,7 @@ class matchlol():
             df_filtre_timeline.loc[(df_filtre_timeline['type'] == 'CHAMPION_SPECIAL_KILL') & (df_filtre_timeline['killerId'] == self.index_timeline), 'type'] = 'CHAMPION_KILL'
             df_filtre_timeline.loc[(df_filtre_timeline['type'] == 'CHAMPION_KILL') & (df_filtre_timeline['killerId'] != self.index_timeline), 'type'] = 'ASSISTS'
             df_filtre_timeline.drop_duplicates(subset=['timestamp', 'killerId', 'type'], inplace=True)
+            df_filtre_timeline = df_filtre_timeline[df_filtre_timeline['wardType'] != 'Balise Zombie']
             df_filtre_timeline = df_filtre_timeline.groupby(['type', 'riot_id', 'match_id'], as_index=False).count()
             df_filtre_timeline['type'] = df_filtre_timeline.apply(lambda x : x['type'] + '_' + str(time), axis=1)
             df_filtre_timeline.rename(columns={'timestamp' : 'value'}, inplace=True )
@@ -3111,16 +3112,8 @@ class matchlol():
                 d.text((x_rank+220, y-45),
                        f'{self.thisLP} LP ({difLP})', font=font_little, fill=fill)
 
-                # Gestion des bo
-                if int(self.thisLP) == 100:
-                    bo = self.thisStats[self.i]['miniSeries']
-                    bo_wins = str(bo['wins'])
-                    bo_losses = str(bo['losses'])
-                    # bo_progress = str(bo['progress'])
-                    d.text(
-                        (x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L {self.thisWinrateStat}%  |  (BO3 : {bo_wins} / {bo_losses}) ', font=font_little, fill=fill)
-                else:
-                    d.text(
+
+                d.text(
                         (x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L     {self.thisWinrateStat}% ', font=font_little, fill=fill)
             else:  # si pas de stats en soloq
                 d.text((x_rank+220, y-45), 'En placement', font=font, fill=fill)

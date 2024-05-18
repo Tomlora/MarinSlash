@@ -1096,14 +1096,15 @@ class LeagueofLegends(Extension):
         # Y a-t-il des challenges exclus ?
 
         df_exclusion = lire_bdd_perso(f'''SELECT challenge_exclusion.*, challenges.name, tracker.riot_id from challenge_exclusion
-                            INNER join tracker on challenge_exclusion.index = tracker.id_compte
+                            LEFT join tracker on challenge_exclusion.index = tracker.id_compte
                             INNER join challenges on challenge_exclusion."challengeId" = challenges."challengeId"
-                            WHERE tracker.discord = '{int(ctx.author.id)}' ''', index_col='id').transpose()
+                            WHERE tracker.discord = '{int(ctx.author.id)}' or challenge_exclusion.index = -1 ''', index_col='id').transpose()
 
         if df_exclusion.empty:
             await ctx.send("Tu n'as aucun challenge exclu", ephemeral=True)
         else:
             df_exclusion.sort_values('index', inplace=True)
+            df_exclusion['riot_id'].fillna('TOUS', inplace=True)
             txt_exclusion = ''.join(
                 f'\n- {data["riot_id"]} : **{data["name"]}** '
                 for row, data in df_exclusion.iterrows()
@@ -1483,7 +1484,7 @@ class LeagueofLegends(Extension):
 
                 if totalgames > 0:  # s'il n'y a pas de game, on ne va pas afficher le récap
                     await channel_tracklol.send(embeds=embed)
-                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites. Fin de saison : <t:1715723940:R> ')
+                    await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites.')
 
     @Task.create(TimeTrigger(hour=4))
     async def lolsuivi(self):

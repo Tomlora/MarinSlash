@@ -4,6 +4,7 @@ import os
 from fonctions.gestion_bdd import (lire_bdd, lire_bdd_perso, requete_perso_bdd)
 from fonctions.gestion_challenge import (get_data_joueur_challenges,
                                          challengeslol)
+from fonctions.match import emote_rank_discord
 from fonctions.word import suggestion_word
 import time
 import plotly.express as px
@@ -11,6 +12,7 @@ import plotly.graph_objects as go
 import dataframe_image as dfi
 import interactions
 from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, listen, Task, TimeTrigger
+from fonctions.permissions import isOwner_slash
 
 
 class Challenges(Extension):
@@ -187,7 +189,7 @@ class Challenges(Extension):
             # dict de parametres
 
             msg = msg + \
-                f"{argument[0]} : ** {argument[2]} ** points / ** {argument[3]} ** possibles (niveau {argument[1]}) . Seulement **{argument[4]}**% des joueurs font mieux \n"
+                f"{argument[0]} : ** {argument[2]} ** points / ** {argument[3]} ** possibles (niveau {emote_rank_discord[argument[1]]}) . Seulement **{argument[4]}**% des joueurs font mieux \n"
             fig.add_trace(go.Indicator(value=argument[2],
                                        title={
                                            'text': argument[0] + " (" + argument[1] + ")", 'font': {'size': 16}},
@@ -201,7 +203,7 @@ class Challenges(Extension):
 
         fig.write_image('plot.png')
         # txt
-        await ctx.send(f'Le joueur {riot_id} a : \n{msg}\n __TOTAL__  : **{total_user["current"]}** / **{total_user["max"]}** (niveau {total_user["level"]}). Seulement **({total_user["percentile"]*100}%** des joueurs font mieux.)', files=interactions.File('plot.png'))
+        await ctx.send(f'Le joueur {riot_id} a : \n{msg}\n __TOTAL__  : **{total_user["current"]}** / **{total_user["max"]}** (niveau {emote_rank_discord[total_user["level"]]}). Seulement **({round(total_user["percentile"]*100,2)}%** des joueurs font mieux.)', files=interactions.File('plot.png'))
         await session.close()
         os.remove('plot.png')
 
@@ -328,6 +330,73 @@ class Challenges(Extension):
                 await ctx.send(f'Le challenge {nom_challenge} a été réinclus au tracking', ephemeral=True)
             else:
                 await ctx.send("Ce joueur n'existe pas ou ce challenge n'était pas exclu", ephemeral=True)
+
+    @lol_challenges.subcommand("manage",
+                               sub_cmd_description="Modifier la liste des challenges à ajouter / exclure dans le tracker. Admin only",
+                                    options=[SlashCommandOption(name="nom_challenge",
+                                                       description="Nom du challenge à exclure",
+                                                       type=interactions.OptionType.STRING,
+                                                       required=True),
+                                            SlashCommandOption(name='action',
+                                                               description='Action à mener',
+                                                               type=interactions.OptionType.STRING,
+                                                               required=True,
+                                                               choices=[
+                                                                   SlashCommandChoice(name='inclure', value='inclure'),
+                                                                   SlashCommandChoice(name='exclure', value='exclure')
+                                                                   ]
+                                                               )
+                                            ]
+                                    )
+    async def modifier_challenges_all(self, ctx: SlashContext, nom_challenge:str, action:str):
+
+        # traitement des variables :
+
+        if isOwner_slash(ctx):
+
+            id_compte = -1
+            nom_challenge = nom_challenge.lower()
+
+            await ctx.defer(ephemeral=False)
+
+            df = lire_bdd('challenges').transpose()
+            df['name'] = df['name'].str.lower()
+            df.set_index('name', inplace=True)
+
+            try:
+                df.loc[nom_challenge, 'challengeId']
+            except:
+                suggestion = suggestion_word(nom_challenge, df.index.tolist())
+                await ctx.send(f"Ce challenge n'existe pas. Souhaitais-tu dire : **{suggestion}**", ephemeral=True)
+                return None
+
+            if action == 'exclure':
+
+                nb_row = requete_perso_bdd('''INSERT INTO challenge_exclusion("challengeId", index) VALUES (:challengeid, :summonername);''',
+                                dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
+                                            'summonername': id_compte},
+                                get_row_affected=True)
+
+                if nb_row > 0:
+                    await ctx.send(f'Le challenge {nom_challenge} a été exclu du tracking pour tous les joueurs', ephemeral=True)
+                else:
+                    await ctx.send("Le challenge n'existe pas", ephemeral=True)
+
+            elif action == 'inclure':
+
+                nb_row = requete_perso_bdd('''DELETE FROM challenge_exclusion WHERE "challengeId" = :challengeid AND index = :summonername;''',
+                                dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
+                                            'summonername': id_compte},
+                                get_row_affected=True)
+
+                if nb_row > 0:
+                    await ctx.send(f'Le challenge {nom_challenge} a été réinclus au tracking pour tous les joueurs', ephemeral=True)
+                else:
+                    await ctx.send("Ce challenge n'était pas exclu", ephemeral=True)
+        
+        else:
+            ctx.send("Tu n'as pas l'autorisation d'utiliser cette commande")
+
 
 
 def setup(bot):

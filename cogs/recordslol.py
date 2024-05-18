@@ -422,6 +422,7 @@ class Recordslol(Extension):
         fichier_farming = self.fichier_farming.copy()
         fichier_divers = self.fichier_divers.copy()
         fichier_kills = self.fichier_kills.copy()
+        fichier_timer = self.fichier_timer.copy()
 
         # on rajoute quelques éléments sur d'autres pages...
 
@@ -504,13 +505,6 @@ class Recordslol(Extension):
             
             embed7 = creation_embed(fichier, column, methode_pseudo, embed7)
             
-        embed9 = interactions.Embed(
-            title=title + " Timer", color=interactions.Color.random())
-
-        for column in self.fichier_timer:
-            
-            embed9 = creation_embed(fichier, column, methode_pseudo, embed9)
-
 
         if mode != 'ARAM':
             
@@ -541,22 +535,30 @@ class Recordslol(Extension):
                     methode = 'min'
                 
                 embed8 = creation_embed(fichier, column, methode_pseudo, embed8, methode)
+                
+            embed9 = interactions.Embed(
+                title=title + " Timer", color=interactions.Color.random())
+
+            for column in fichier_timer:
+                
+                embed9 = creation_embed(fichier, column, methode_pseudo, embed9)
 
         embed1.set_footer(text=f'Version {Version} by Tomlora')
         embed2.set_footer(text=f'Version {Version} by Tomlora')
         embed5.set_footer(text=f'Version {Version} by Tomlora')
         embed6.set_footer(text=f'Version {Version} by Tomlora')
         embed7.set_footer(text=f'Version {Version} by Tomlora')
-        embed9.set_footer(text=f'Version {Version} by Tomlora')
+        
 
         if mode != 'ARAM':
             embed3.set_footer(text=f'Version {Version} by Tomlora')
             embed4.set_footer(text=f'Version {Version} by Tomlora')
             embed8.set_footer(text=f'Version {Version} by Tomlora')
+            embed9.set_footer(text=f'Version {Version} by Tomlora')
             pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9]
 
         else:
-            pages=[embed1, embed2, embed5, embed6, embed7, embed9]
+            pages=[embed1, embed2, embed5, embed6, embed7]
             
         paginator = Paginator.create_from_embeds(
             self.bot,
@@ -720,6 +722,7 @@ class Recordslol(Extension):
         
         fichier_farming = self.fichier_farming.copy()
         fichier_divers = self.fichier_divers.copy()
+        fichier_timer = self.fichier_timer.copy()
 
         # on rajoute quelques éléments sur d'autres pages...
 
@@ -731,6 +734,9 @@ class Recordslol(Extension):
 
             fichier_farming.remove('cs_jungle')
             fichier_farming.remove('jgl_dix_min')
+            
+            for stat in ["WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30", "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30", "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30", "TURRET_PLATE_DESTROYED_10"]:
+                fichier_timer.remove(stat)
 
 
         def format_value(joueur, champion, url, short=False):
@@ -794,13 +800,6 @@ class Recordslol(Extension):
             
             embed7 = creation_embed(fichier, column, methode_pseudo, embed7)
             
-        embed9 = interactions.Embed(
-            title=title + " Timer", color=interactions.Color.random())
-
-        for column in self.fichier_timer:
-            
-            embed9 = creation_embed(fichier, column, methode_pseudo, embed9)
-
 
         if mode != 'ARAM':
             
@@ -831,22 +830,29 @@ class Recordslol(Extension):
                     methode = 'min'
                 
                 embed8 = creation_embed(fichier, column, methode_pseudo, embed8, methode)
+                
+            embed9 = interactions.Embed(
+                title=title + " Timer", color=interactions.Color.random())
+
+            for column in fichier_timer:
+                
+                embed9 = creation_embed(fichier, column, methode_pseudo, embed9)
 
         embed1.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
         embed2.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
         embed5.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
         embed6.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
         embed7.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
-        embed9.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
 
         if mode != 'ARAM':
             embed3.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
             embed4.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
             embed8.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+            embed9.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
             pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9]
 
         else:
-            pages=[embed1, embed2, embed5, embed6, embed7, embed9]
+            pages=[embed1, embed2, embed5, embed6, embed7]
             
         paginator = Paginator.create_from_embeds(
             self.bot,
@@ -1012,11 +1018,7 @@ class Recordslol(Extension):
                                         "BUILDING_KILL_20", "BUILDING_KILL_30",
                                         "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
                                         "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10", 
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"]
+                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30"]
 
         if champion == None:
             # Initialisation des listes
@@ -1294,6 +1296,9 @@ class Recordslol(Extension):
                                          and tracker.banned = false
                                          and tracker.save_records = true ''',
                                          index_col='id').transpose()
+        
+        
+        fichier.columns = [col.lower() for col in fichier.columns]
             
         if champion != None:
             fichier = fichier[fichier['champion'] == champion]
@@ -1488,6 +1493,7 @@ class Recordslol(Extension):
         fichier = fichier[['match_id', 'id_participant', 'riot_id', 'discord', 'champion','datetime'] + self.liste_complete]
         
 
+        fichier.columns = [col.lower() for col in fichier.columns]
         
         df_complet = []
        

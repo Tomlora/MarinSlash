@@ -6,6 +6,7 @@ import os
 import traceback
 from aiohttp import ClientSession
 from fonctions.match import get_summoner_by_riot_id, get_champion_masteries, getLiveGame, getPlayerStats
+import pandas as pd
 
 api_moba = os.environ.get('API_moba')
 # Gets the mast matches from mobalytics
@@ -134,38 +135,18 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
     
     if indice != -1:
         summonerName_url = summonerName_url[:indice]
-        riot_id = summonerNameTag[:indice]
-        riot_tag = summonerNameTag[indice+1:]
+        riot_id = summonerNameTag[:indice].lower()
+        riot_tag = summonerNameTag[indice+1:].lower()
         
-    if riot_tag == 'EUW': # si le tag est EUW, championmastery fonctionne bien. En revanche, si ce n'est pas le cas, il peut se tromper de joueur.
-        url = f"https://championmastery.gg/summoner?summoner={summonerName_url}&region=EUW"
+    try: # si le tag est EUW, championmastery fonctionne bien. En revanche, si ce n'est pas le cas, il peut se tromper de joueur.
         
-        response = await session.get(url)
+        # url = f"https://championmastery.gg/summoner?summoner={summonerName_url}&region=EUW"
+        url = f'https://championmastery.gg/player?riotId={riot_id}%23{riot_tag}&region=EUW&lang=en_US'
         
-        content = await response.text()
-    
-
-        soup = BeautifulSoup(content, "html.parser")
-        results = soup.find("tbody", id="tbody")
+        df = pd.read_html(url, header=0)[0].head(-1) # la dernière ligne est un total
         
         mastery_list = []
-        try:
-            job_elements = results.find_all("tr")
-
-            
-
-            for job_element in job_elements:
-                data = []
-                data = job_element.text.splitlines()[0]
-                premier_chiffre = None
-                position_premier_chiffre = None
-
-                for position, caractere in enumerate(data):
-                    if caractere.isdigit():
-                        premier_chiffre = caractere
-                        position_premier_chiffre = position
-                        break
-                
+        try:               
                 def correction_name(mot : str):
                     mot = mot.replace("'", "").replace(" ", "").replace(".", "")
                     if mot == 'KaiSa':
@@ -188,13 +169,14 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
                         return "Belveth"
                     return mot
                 
-                champion_name = correction_name(data[:position_premier_chiffre]) 
+                df['Champion name'] = df['Champion name'].apply(correction_name)
                 
-                chiffres = [caractere for caractere in data[position_premier_chiffre+1:] if caractere.isdigit()]
-                
-                championId = int(championIds[champion_name])
-                mastery = int(''.join(chiffres))
-                mastery_list.append({"mastery": mastery, "championId": championId})
+               
+                for index, data in df.iterrows():
+                    championId = int(championIds[data['Champion name']])
+                    mastery = int(data['Points'])
+                    level = int(data['Level'])
+                    mastery_list.append({"mastery": mastery, 'level' : level, "championId": championId})
             
         except AttributeError:
             try:
@@ -205,9 +187,10 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
                 
                 for value in data_masteries:
                     mastery = value['championPoints']
+                    level = value['championLevel']
                     championId = value['championId']
                 
-                    mastery_list.append({"mastery": mastery, "championId": championId})
+                    mastery_list.append({"mastery": mastery, 'level' : level, "championId": championId})
                     
                 
             except Exception:
@@ -217,7 +200,8 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
                 traceback_msg = ''.join(traceback_details)
                 print(traceback_msg)
     
-    else:
+    except:
+        print(f"Erreur Masteries {summonerName_url} : Retour à l'API")
         mastery_list = []
         me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
         puuid = me['puuid']
@@ -226,9 +210,10 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
                 
         for value in data_masteries:
             mastery = value['championPoints']
+            level = value['championLevel']
             championId = value['championId']
                 
-            mastery_list.append({"mastery": mastery, "championId": championId})                
+            mastery_list.append({"mastery": mastery, 'level' : level, "championId": championId})              
         
 
     mastery_dict = {
@@ -280,7 +265,7 @@ async def get_winrates(summonerName: str, session : ClientSession):
                     ] = championPerformance["wins"]
 
         
-        season_boucle = [20, 21, 22] # For season 13 (split 1, split 2) / season 14 (split 1)
+        season_boucle = [20, 21, 22, 23] # For season 13 (split 1, split 2) / season 14 (split 1)
         
         for season in season_boucle:
             response = await getPlayerStats(session, summonerName, tagline, season=season)
@@ -334,7 +319,7 @@ async def get_winrates(summonerName: str, session : ClientSession):
         return None
 
 
-async def get_player_match_history(session, summonerName, tagline,  role=[], regionId="euw1", championId=[], queueType=[420], seasonIds=[21], page=1):
+async def get_player_match_history(session, summonerName, tagline,  role=[], regionId="euw1", championId=[], queueType=[420], seasonIds=[21,22,23], page=1):
     
     url = "https://u.gg/api"
     headers = {
@@ -378,7 +363,7 @@ async def get_player_match_history(session, summonerName, tagline,  role=[], reg
     
     
 
-async def getRanks(session : ClientSession, summonerName, tagline, regionId='euw1', season=22):
+async def getRanks(session : ClientSession, summonerName, tagline, regionId='euw1', season=23):
     """Avopir le rank et le tier d'un joueur"""
     
     url = "https://u.gg/api"
@@ -423,7 +408,7 @@ async def getRanks(session : ClientSession, summonerName, tagline, regionId='euw
 
 
 
-async def getRankings(session : ClientSession, summonerName, tagline, regionId='euw1', season=22, queueType=420):
+async def getRankings(session : ClientSession, summonerName, tagline, regionId='euw1', season=23, queueType=420):
     """Avoir le classement du joueur"""
     
     url = "https://u.gg/api"
