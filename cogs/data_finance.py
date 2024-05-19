@@ -46,7 +46,8 @@ class data_finance(Extension):
                                               SlashCommandChoice(
                                                   name='Cashflow', value='cashflow'),
                                               SlashCommandChoice(
-                                                  name='Revenus', value='revenu')])])
+                                                  name='Revenus', value='revenu'),
+                                               SlashCommandChoice(name='Dividende', value='dividende')])])
     async def info_generale(self,
                         ctx: SlashContext,
                         ticker,
@@ -56,18 +57,25 @@ class data_finance(Extension):
 
         await entreprise.initialisation()
 
-        match vue:
-            case 'general':
-                df = await entreprise.info_generale()
-            case 'balanced': 
-                df = entreprise.balance_sheet_final
-            case 'cashflow':
-                df = entreprise.cashflow_final
-            case 'revenu':
-                df = entreprise.income
+        if entreprise.type == 'ETF':
+            df = await entreprise.info_generale()
+            content = '** Note ** : Seul le général est disponible pour les ETF.'
+        else:
+            content = None
+            match vue:
+                case 'general':
+                    df = await entreprise.info_generale()
+                case 'balanced': 
+                    df = entreprise.balance_sheet_final / 1000
+                case 'cashflow':
+                    df = entreprise.cashflow_final / 1000
+                case 'revenu':
+                    df = entreprise.income / 1000
+                case 'dividende':
+                    df = entreprise.dividendes
 
 
-        await export_as_image(df, ctx)
+        await export_as_image(df, ctx, content)
 
     @finance.subcommand("evolution",
                             sub_cmd_description="Evolution prix d'une entreprise",
@@ -75,16 +83,32 @@ class data_finance(Extension):
                                 SlashCommandOption(name="ticker",
                                                     description="Ticker de l'entreprise",
                                                     type=interactions.OptionType.STRING,
-                                                    required=True)])
+                                                    required=True),
+                                SlashCommandOption(name="periode",
+                                          description="Periode",
+                                          type=interactions.OptionType.STRING,
+                                          required=True,
+                                          choices=[
+                                              SlashCommandChoice(
+                                                  name='1 mois', value='1mo'),
+                                              SlashCommandChoice(
+                                                  name='6 mois', value='6mo'),
+                                              SlashCommandChoice(
+                                                  name='1 an', value='1y'),
+                                              SlashCommandChoice(
+                                                  name='3 ans', value='3y'),
+                                            SlashCommandChoice(name='5 ans', value='5y'),
+                                            SlashCommandChoice(name='10 ans', value='10y')])])
     async def evolution(self,
                         ctx: SlashContext,
-                        ticker):
+                        ticker,
+                        periode):
 
         entreprise = askFinance(ticker)
 
         await entreprise.initialisation()
 
-        embed, file = await entreprise.history()
+        embed, file = await entreprise.history(periode)
         await ctx.send(embeds=embed, files=file)
 
     @finance.subcommand("valorisation",
@@ -102,11 +126,17 @@ class data_finance(Extension):
 
         await entreprise.initialisation()
 
-        df_valorisation, prix_moyen, difference = await entreprise.valorisation()
+        if entreprise.type != 'ETF':
+
+            df_valorisation, prix_moyen, difference = await entreprise.valorisation()
+
+            prix_actuel = entreprise.current_price
 
 
-        await export_as_image(df_valorisation, ctx, f'Prix moyen : **{prix_moyen}** (Différence de **{difference}**)')
+            await export_as_image(df_valorisation, ctx, f'Prix actuel : {prix_actuel} | Prix moyen : **{prix_moyen}** | (Différence de **{difference}**)')
 
+        else:
+            ctx.send("Cette méthode n'est pas adaptée aux ETF")
 
 
 

@@ -135,7 +135,7 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
     
     if indice != -1:
         summonerName_url = summonerName_url[:indice]
-        riot_id = summonerNameTag[:indice].lower()
+        riot_id = summonerNameTag[:indice].lower().replace(' ', '+')
         riot_tag = summonerNameTag[indice+1:].lower()
         
     try: # si le tag est EUW, championmastery fonctionne bien. En revanche, si ce n'est pas le cas, il peut se tromper de joueur.
@@ -143,7 +143,10 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
         # url = f"https://championmastery.gg/summoner?summoner={summonerName_url}&region=EUW"
         url = f'https://championmastery.gg/player?riotId={riot_id}%23{riot_tag}&region=EUW&lang=en_US'
         
-        df = pd.read_html(url, header=0)[0].head(-1) # la dernière ligne est un total
+        async with ClientSession() as session:
+            async with session.get(url) as resp:
+                text = await resp.text()
+                df = pd.read_html(text, header=0)[0].head(-1)
         
         mastery_list = []
         try:               
@@ -444,6 +447,7 @@ async def getRankings(session : ClientSession, summonerName, tagline, regionId='
         response = await session_match_detail.json()  # detail du match sélectionné
         
     return response
+
 
 
 

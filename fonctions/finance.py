@@ -156,158 +156,188 @@ class askFinance:
         self.data_info = YFinance(self.ticker, session)
         self.data_info = await self.data_info.info
         self.data = yf.Ticker(self.ticker)
-        self.current_price = self.data_info['currentPrice']
-        self.balance_sheet = self.data.get_balance_sheet() / 1000
-        self.cashflow = self.data.cashflow / 1000
-        self.income = self.data.income_stmt / 1000
-        self.df = pd.concat([self.balance_sheet, self.cashflow, self.income])
-        self.capitaux_propres = self.df.loc[['StockholdersEquity']]
-        self.dividendes : pd.DataFrame = self.data.dividends
 
-        self.secteur = self.data_info['sector']
-        self.business = self.data_info['longBusinessSummary']
+        self.type = self.data_info['quoteType']
+
+        if self.type != 'ETF':
+            self.current_price = self.data_info['currentPrice']
+            self.balance_sheet = self.data.get_balance_sheet() 
+            self.cashflow = self.data.cashflow 
+            self.income = self.data.income_stmt
+            self.df = pd.concat([self.balance_sheet, self.cashflow, self.income])
+                # On inverse les coonnes pour avoir du plus ancien au plus récent
+            self.df = self.df.iloc[:,::-1]
+            self.capitaux_propres = self.df.loc[['StockholdersEquity']]
+            self.dividendes : pd.DataFrame = self.data.dividends
+
+            self.secteur = self.data_info['sector']
+            self.business = self.data_info['longBusinessSummary']
 
 
-        try:
-            self.dette_nette = self.df.loc[['NetDebt']]
-        except:
-            self.dette_nette = self.df.loc[['TotalDebt']]
+            try:
+                self.dette_nette = self.df.loc[['NetDebt']]
+            except:
+                self.dette_nette = self.df.loc[['TotalDebt']]
 
-        self.nb_actions = self.df.loc[['Diluted Average Shares']]
+            self.nb_actions = self.df.loc[['Diluted Average Shares']] / 1000
 
-        self.balance_sheet_to_keep = await self.filtrer_index(self.df, ['Total Revenue',
-                 'Cost Of Revenue',
-                 'Gross Profit',
-                 'Gross Margin',
-                 'Research And Development',
-                 'General and Administrative Expenses',
-                'Selling and Marketing',
-                'Selling General And Administration',
-                'Operating Income',
-                'Operating Margin',
-                'Other Non Operating Income Expenses', # Other expenses
-                 'Total Expenses', # Cost and Expenses
-                 'Interest Income',
-                 'Interest Expense',
-                 'Normalized EBITDA',
-                 'Other Income Expense', # A verifier
-                 'Pretax Income',
-                 'Tax Provision',
-                 'Net Income'
-                 ])
-        
-        self.balance_sheet_final = self.df.loc[self.balance_sheet_to_keep]
+            self.nb_actions_last = self.nb_actions.values[0][-1]
 
-        self.cf_to_keep = await self.filtrer_index(self.df, [
-        'Net Income',
-        'Depreciation And Amortization',
-        'Deferred Income Tax',
-        'Stock Based Compensation',
-        'Change In Working Capital',
-        'Changes In Account Receivables',
-        'Change In Inventory',
-        'Change In Account Payable',
-        'Change In Other Working Capital', # introuvable
-        'Other Non Cash Items',
-        'Cash Flow From Continuing Operating Activities',
-        'Net PPE Purchase And Sale', # Investments Property Plant and Equipment
-        'Net Business Purchase And Sale',  # acquisitions net
-        'Purchase Of Investment',
-        'Sale Of Investment',
-        'Other Investing Activities'
-        'Cash Flow From Continuing Investing Activities',
-        'Repayment Of Debt',
-        'Net Common Stock Issuance', # à verifier. PreferredStock ?
-        'Common Stock Payments',
-        'Common Stock Dividend Paid',
-        'Other Financing Activities',
-        'Cash Flow From Continuing Financing Activities',
-        'Forex', 
-        'Changes In Cash',
-        'End Cash Position',
-        'Beginning Cash Position',
-        'Operating Cash Flow',
-        'Free Cash Flow'])
-        
-        self.cashflow_final = self.df.loc[self.cf_to_keep]
-
-        self.croissance_ca = self.balance_sheet_final.loc['Total Revenue'].pct_change().mean()
-        self.croissance_cashflow = self.cashflow_final.loc['Free Cash Flow'].pct_change().mean()
-        self.croissance_nb_actions = self.nb_actions.iloc[0].pct_change().mean() * 100 
-
-        self.roe = await self.ROE(self.cashflow_final.loc['Net Income'], self.capitaux_propres)
-
-        self.croissance_roe = self.roe.iloc[0].mean()  
-
-        # Pour la dette ratio, plutot par trimestre et on va prendre le total sur 1 an
-
-        self.balance_sheet_quarter = self.data.get_balance_sheet(freq='quarterly').iloc[:,:4]
-        self.cashflow_quarter = self.data.get_cashflow(freq='quarterly').iloc[:,:4]   
-
-        try:
-            self.dette_nette = self.balance_sheet_quarter.loc['NetDebt'].mean()
-        except:
-            self.dette_nette = self.balance_sheet_quarter.loc['TotalDebt'].mean()
+            self.balance_sheet_to_keep = await self.filtrer_index(self.df, ['Total Revenue',
+                    'Cost Of Revenue',
+                    'Gross Profit',
+                    'Gross Margin',
+                    'Research And Development',
+                    'General and Administrative Expenses',
+                    'Selling and Marketing',
+                    'Selling General And Administration',
+                    'Operating Income',
+                    'Operating Margin',
+                    'Other Non Operating Income Expenses', # Other expenses
+                    'Total Expenses', # Cost and Expenses
+                    'Interest Income',
+                    'Interest Expense',
+                    'Normalized EBITDA',
+                    'Other Income Expense', # A verifier
+                    'Pretax Income',
+                    'Tax Provision',
+                    'Net Income'
+                    ])
             
-        try:    
-            self.cashflow_net = self.cashflow_quarter.loc['FreeCashFlow'].mean()
-        except:
-            self.cashflow_net = 0
+            self.balance_sheet_final = self.df.loc[self.balance_sheet_to_keep]
+
+            self.cf_to_keep = await self.filtrer_index(self.df, [
+            'Net Income',
+            'Depreciation And Amortization',
+            'Deferred Income Tax',
+            'Stock Based Compensation',
+            'Change In Working Capital',
+            'Changes In Account Receivables',
+            'Change In Inventory',
+            'Change In Account Payable',
+            'Change In Other Working Capital', # introuvable
+            'Other Non Cash Items',
+            'Cash Flow From Continuing Operating Activities',
+            'Net PPE Purchase And Sale', # Investments Property Plant and Equipment
+            'Net Business Purchase And Sale',  # acquisitions net
+            'Purchase Of Investment',
+            'Sale Of Investment',
+            'Other Investing Activities'
+            'Cash Flow From Continuing Investing Activities',
+            'Repayment Of Debt',
+            'Net Common Stock Issuance', # à verifier. PreferredStock ?
+            'Common Stock Payments',
+            'Common Stock Dividend Paid',
+            'Other Financing Activities',
+            'Cash Flow From Continuing Financing Activities',
+            'Forex', 
+            'Changes In Cash',
+            'End Cash Position',
+            'Beginning Cash Position',
+            'Operating Cash Flow',
+            'Free Cash Flow'])
+            
+            self.cashflow_final = self.df.loc[self.cf_to_keep] 
+
+            self.croissance_ca = self.balance_sheet_final.loc['Total Revenue'].pct_change().mean()
+            self.croissance_cashflow = self.cashflow_final.loc['Free Cash Flow'].pct_change().mean()
+            self.croissance_nb_actions = self.nb_actions.iloc[0].pct_change().mean() * 100 
+
+            self.roe = await self.ROE(self.cashflow_final.loc['Net Income'], self.capitaux_propres)
+
+            self.croissance_roe = self.roe.iloc[0].mean()  
+
+            # Pour la dette ratio, plutot par trimestre et on va prendre le total sur 1 an
+
+            self.balance_sheet_quarter = self.data.get_balance_sheet(freq='quarterly').iloc[:,:4]
+            self.cashflow_quarter = self.data.get_cashflow(freq='quarterly').iloc[:,:4]   
+
+            try:
+                self.dette_nette = self.balance_sheet_quarter.loc['NetDebt'].mean()
+            except:
+                self.dette_nette = self.balance_sheet_quarter.loc['TotalDebt'].mean()
+                
+            try:    
+                self.cashflow_net = self.cashflow_quarter.loc['FreeCashFlow'].mean()
+            except:
+                self.cashflow_net = 0
 
 
-        self.dette_ratio = await self.dette_nette_sur_cashflow(self.dette_nette, self.cashflow_net)
+            self.dette_ratio = await self.dette_nette_sur_cashflow(self.dette_nette, self.cashflow_net)
 
-        self.profit_margin = await self.marge_cashflow(self.balance_sheet_final.loc['Net Income'], self.balance_sheet_final.loc['Total Revenue'])
+            self.profit_margin = await self.marge_cashflow(self.balance_sheet_final.loc['Net Income'], self.balance_sheet_final.loc['Total Revenue'])
 
-        self.profit_margin_mean =  self.profit_margin.mean()
+            self.profit_margin_mean =  self.profit_margin.mean()
 
-        # ----
+            # ----
 
 
-        self.profit_gross = await self.marge_gross(self.balance_sheet_final.loc['Gross Profit'], self.balance_sheet_final.loc['Total Revenue'])
+            self.profit_gross = await self.marge_gross(self.balance_sheet_final.loc['Gross Profit'], self.balance_sheet_final.loc['Total Revenue'])
 
-        self.profit_gross_mean = self.profit_gross.mean()
+            self.profit_gross_mean = self.profit_gross.mean()
 
-        # ----
+            # ----
 
-        self.profit_operating = await self.marge_operating(self.balance_sheet_final.loc['Operating Income'],self.balance_sheet_final.loc['Total Revenue'])
+            self.profit_operating = await self.marge_operating(self.balance_sheet_final.loc['Operating Income'],self.balance_sheet_final.loc['Total Revenue'])
 
-        self.profit_operating_mean = self.profit_operating.mean()  
+            self.profit_operating_mean = self.profit_operating.mean()  
 
-        self.benef_par_action = self.data_info['trailingEps']
-        self.PE_ratio = self.data_info['trailingPE']  #current_price / benef_par_action
+            self.benef_par_action = self.data_info['trailingEps']
+            self.PE_ratio = self.data_info['trailingPE']  #current_price / benef_par_action
 
-        self.cash = self.data_info['totalCash']
+            self.cash = self.data_info['totalCash']
+        
+        else:
+            self.current_price = self.data_info['navPrice']
+            self.fond = self.data_info['fundFamily']
+            self.average_return_3years = self.data_info['threeYearAverageReturn'] * 100
+            self.average_return_5years = self.data_info['fiveYearAverageReturn'] * 100
+            self.average_return = self.data_info['ytdReturn'] * 100
 
         await session.close()
 
-    async def history(self):
-        hist = self.data.history(period='1mo')
-        fig = px.line(hist, hist.index, 'Close')
+    async def history(self, periode):
+        hist = self.data.history(period=periode)
+        fig = px.line(hist, hist.index, 'Close', title=f'Prix {self.ticker}')
 
-        embed, fig = get_embed(fig)
+        embed, fig = get_embed(fig, name='evolution')
 
 
         return embed, fig
     
     async def info_generale(self):
 
-        df = pd.DataFrame(columns=['Stat', 'Valeur'])
+        if self.type != 'ETF':
 
-        df.set_index('Stat', inplace=True)
+            df = pd.DataFrame(columns=['Stat', 'Valeur'])
 
-        df.loc['Prix'] = np.round(self.current_price,2)
-        df.loc['Secteur'] = self.secteur
-        df.loc['Capitaux Propres'] = self.capitaux_propres.iloc[:, 0].values[0]
-        df.loc['Business'] = self.business
-        df.loc['Croissance CA par an'] = np.round(self.croissance_ca,2)
-        df.loc['Croissance CF par an'] = np.round(self.croissance_cashflow,2)
-        df.loc['Croissance ROE'] = np.round(self.croissance_roe,2)
-        df.loc['Ratio Dette'] = np.round(self.dette_ratio,2)
-        df.loc['Croissance NB action'] = np.round(self.croissance_nb_actions,2)
-        df.loc['Profit marge moyenne'] = np.round(self.profit_margin_mean,2)
-        df.loc['BPA'] = np.round(self.benef_par_action,2)
-        df.loc['PE_ratio'] = np.round(self.PE_ratio,2)
+            df.set_index('Stat', inplace=True)
+
+            df.loc['Prix'] = np.round(self.current_price,2)
+            df.loc['Type'] = self.type
+            df.loc['Secteur'] = self.secteur
+            df.loc['Capitaux Propres'] = self.capitaux_propres.iloc[:, -1].values[0]
+            # df.loc['Business'] = self.business
+            df.loc['Croissance CA par an'] = np.round(self.croissance_ca,2)
+            df.loc['Croissance CF par an'] = np.round(self.croissance_cashflow,2)
+            df.loc['Croissance ROE'] = np.round(self.croissance_roe,2)
+            df.loc['Ratio Dette'] = np.round(self.dette_ratio,2)
+            df.loc['Nb actions'] = self.nb_actions_last
+            df.loc['Croissance NB action'] = np.round(self.croissance_nb_actions,2)
+            df.loc['Profit marge moyenne'] = np.round(self.profit_margin_mean,2)
+            df.loc['BPA'] = np.round(self.benef_par_action,2)
+            df.loc['PE_ratio'] = np.round(self.PE_ratio,2)
+
+        else:
+
+            df = pd.DataFrame(columns=['Stat', 'Valeur'])
+            df.set_index('Stat', inplace=True)
+            df.loc['Prix'] = np.round(self.current_price,2)
+            df.loc['Type'] = self.type
+            df.loc['Propriétaire'] = self.fond
+            df.loc['Return moyen 3y'] = np.round(self.average_return_3years)
+            df.loc['Return moyen 5y'] = np.round(self.average_return_5years)
+            df.loc['Return moyen'] = np.round(self.average_return)
 
         return df
 
@@ -318,6 +348,8 @@ class askFinance:
         self.benefice_par_action = self.balance_sheet_final.loc['Net Income'] / self.nb_actions
 
     async def valorisation(self):
+
+
         self.eps = self.benef_par_action
 
         temps = 5 # ans
@@ -348,10 +380,10 @@ class askFinance:
                 self.df_prix_cible.loc[cle_croissance, cle_per] = resultat_avec_securite
 
         
-        self.moyenne = (self.df_prix_cible.loc['croissance_realiste', 'per_neutre'] +
+        self.moyenne = np.round((self.df_prix_cible.loc['croissance_realiste', 'per_neutre'] +
                         self.df_prix_cible.loc['croissance_realiste', 'per_realiste'] + 
-                        self.df_prix_cible.loc['croissance_neutre', 'per_realiste']) / 3 
+                        self.df_prix_cible.loc['croissance_neutre', 'per_realiste']) / 3 ,2)
         
-        self.difference = self.current_price - self.moyenne
+        self.difference = np.round(self.current_price - self.moyenne,2)
 
-        return self.df_prix_cible; self.moyenne, self.difference
+        return self.df_prix_cible, self.moyenne, self.difference

@@ -10,6 +10,7 @@ import traceback
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import aiohttp
+from bs4 import BeautifulSoup
 import asyncio
 import pickle
 import sqlalchemy.exc
@@ -328,6 +329,116 @@ url_api_moba = os.environ.get('url_moba')
 
 my_region = 'euw1'
 region = "EUROPE"
+
+async def get_masteries_old(summonerName: str, championIds, session : aiohttp.ClientSession) -> dict:
+    
+    championIds = {v: k for k, v in championIds.items()} # on inverse clé et value
+    summonerName_url = summonerName.replace(' ', '+')
+    summonerNameTag = summonerName
+    
+    
+    def trouver_indice_hashtag(chaine):
+        for indice, caractere in enumerate(chaine):
+            if caractere == '#':
+                return indice
+        return -1
+    indice = trouver_indice_hashtag(summonerName_url)
+    
+    if indice != -1:
+        summonerName_url = summonerName_url[:indice]
+        riot_id = summonerNameTag[:indice].lower().replace(' ', '+')
+        riot_tag = summonerNameTag[indice+1:].lower()
+        
+    try: # si le tag est EUW, championmastery fonctionne bien. En revanche, si ce n'est pas le cas, il peut se tromper de joueur.
+        
+        # url = f"https://championmastery.gg/summoner?summoner={summonerName_url}&region=EUW"
+        url = f'https://championmastery.gg/player?riotId={riot_id}%23{riot_tag}&region=EUW&lang=en_US'
+
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                text = await resp.text()
+                df = pd.read_html(text, header=0)[0].head(-1)
+        
+        mastery_list = []
+        try:               
+                def correction_name(mot : str):
+                    mot = mot.replace("'", "").replace(" ", "").replace(".", "")
+                    if mot == 'KaiSa':
+                        return "Kaisa"
+                    elif mot == 'LeBlanc':
+                        return "Leblanc"
+                    elif mot == 'KhaZix':
+                        return "Khazix"
+                    elif mot == 'VelKoz':
+                        return "Velkoz"  
+                    elif mot == 'Wukong':
+                        return "MonkeyKing"  
+                    elif mot == 'ChoGath':
+                        return "Chogath"
+                    elif mot == "Nunu&Willump":
+                        return "Nunu"
+                    elif mot == "RenataGlasc":
+                        return "Renata"
+                    elif mot == "BelVeth":
+                        return "Belveth"
+                    return mot
+                
+                df['Champion name'] = df['Champion name'].apply(correction_name)
+                
+               
+                for index, data in df.iterrows():
+                    championId = int(championIds[data['Champion name']])
+                    mastery = int(data['Points'])
+                    level = int(data['Level'])
+                    mastery_list.append({"mastery": mastery, 'level' : level, "championId": championId})
+            
+        except AttributeError:
+            try:
+                me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+                puuid = me['puuid']
+                
+                data_masteries : dict = await get_champion_masteries(session, puuid)
+                
+                for value in data_masteries:
+                    mastery = value['championPoints']
+                    level = value['championLevel']
+                    championId = value['championId']
+                
+                    mastery_list.append({"mastery": mastery, 'level' : level, "championId": championId})
+                    
+                
+            except Exception:
+                print(summonerName)
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                traceback_msg = ''.join(traceback_details)
+                print(traceback_msg)
+    
+    except:
+        print(f"Erreur Masteries {summonerName_url} : Retour à l'API")
+        mastery_list = []
+        me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+        puuid = me['puuid']
+                
+        data_masteries : dict = await get_champion_masteries(session, puuid)
+                
+        for value in data_masteries:
+            mastery = value['championPoints']
+            level = value['championLevel']
+            championId = value['championId']
+                
+            mastery_list.append({"mastery": mastery, 'level' : level, "championId": championId})              
+        
+
+    mastery_dict = {
+        "summonerName": summonerName,
+        "region": "EUW",
+        "mastery": mastery_list,
+    }
+
+    return pd.DataFrame(mastery_dict['mastery'])
+
 
 
 async def get_mobalytics(pseudo : str, session: aiohttp.ClientSession, match_id):
@@ -1250,7 +1361,7 @@ class matchlol():
             self.thisId, self.match_detail, 'totalDamageTaken')
         self.thisDamageSelfMitigatedListe = dict_data(
             self.thisId, self.match_detail, 'damageSelfMitigated')
-
+        
         if self.thisQ in ['ARAM', 'CLASH ARAM']:
             try:
                 self.snowball = self.match_detail_challenges['snowballsHit']
@@ -1534,7 +1645,34 @@ class matchlol():
             self.data_timeline = ''  
             self.index_timeline = 0
 
-        # stats mobalytics
+
+
+        self.mastery_list = []
+
+        self.thisRiotIdListe = dict_data(
+                self.thisId, self.match_detail, 'riotIdGameName')
+        
+        self.thisRiotTagListe = dict_data(
+                self.thisId, self.match_detail, 'riotIdTagline')
+        
+        for id, tag in zip(self.thisRiotIdListe, self.thisRiotTagListe  ):
+            id_tag = f'{id}#{tag}'
+            masteries_data = await get_masteries_old(id_tag, self.champ_dict, self.session)
+            masteries_data.set_index('championId', inplace=True)
+            self.mastery_list.append(masteries_data)
+
+        self.mastery_level = []
+        for masteries_df, championid in zip(self.mastery_list, self.thisChampListe):
+            try:
+                self.mastery_level.append(masteries_df.loc[championid]['level'])
+            except:
+                self.mastery_level.append('?')
+
+
+
+
+
+
         
     async def prepare_data_moba(self):
 
@@ -3022,12 +3160,13 @@ class matchlol():
         lineY = 100
 
         x_name = 350
-        x_level = x_name - 350
+        
         x_ecart = x_name - 200
-        x_kills = 1000 + 120
+        x_kills = 1000 + 300
         x_score = x_kills - 160
         x_deaths = x_kills + 100
         x_assists = x_deaths + 100
+        x_level = x_score - 125
 
         x_kda = x_assists + 110
 
@@ -3037,9 +3176,9 @@ class matchlol():
 
         x_vision = x_cs + 150
 
-        x_dmg_percent = x_vision + 150
+        x_dmg_percent = x_vision + 180
 
-        x_dmg_taken = x_dmg_percent + 235
+        x_dmg_taken = x_dmg_percent + 150
 
         x_kill_total = 1000
         x_objectif = 1600
@@ -3080,8 +3219,8 @@ class matchlol():
 
         last_season = self.season - 1
 
-        if last_season == 13: # pour split la saison en 2
-            last_season = '13_old'
+        if last_season == 14: # pour split la saison en 2
+            last_season = '14_1'
 
         try:
             if not self.thisQ in ['ARAM', 'CLASH ARAM']:
@@ -3337,6 +3476,7 @@ class matchlol():
 
         for y in range(123 + 190, 724 + 190, 600):
             fill = (255, 255, 255) if y == 123 + 190 else (0, 0, 0)
+            d.text((x_level-10, y), 'LVL', font=font, fill=fill)
             d.text((x_name, y), 'Name', font=font, fill=fill)
 
 
@@ -3346,8 +3486,8 @@ class matchlol():
             d.text((x_kda, y), 'KDA', font=font, fill=fill)
             d.text((x_kp+10, y), 'KP', font=font, fill=fill)
             d.text((x_cs, y), 'CS', font=font, fill=fill)
-            d.text((x_dmg_percent+10, y), "DMG", font=font, fill=fill)
-            d.text((x_dmg_taken+10, y), 'TANK(reduit)', font=font, fill=fill)
+            d.text((x_dmg_percent-10, y), "DMG", font=font, fill=fill)
+            d.text((x_dmg_taken+10, y), 'TANK', font=font, fill=fill)
             d.text((x_score-20, y), 'MVP', font=font, fill=fill)
 
             if not self.thisQ in ["ARAM", "CLASH ARAM"]:
@@ -3377,6 +3517,22 @@ class matchlol():
                 im=await get_image("champion", self.thisChampNameListe[i], self.session, profil_version=self.version['n']['champion']),
                 box=(10, initial_y-13),
             )
+
+            if self.mastery_level[i] > 100:
+                x_mastery = 5
+                font_mastery = font_little
+            elif self.mastery_level[i] > 10:
+                x_mastery = 20
+                font_mastery = font
+            else:
+                x_mastery = 35
+                font_mastery = font
+
+            d.text((x_mastery, initial_y),
+                   str(self.mastery_level[i]), font=font_mastery, fill=(255, 255, 255))
+
+            d.text((x_level, initial_y),
+                   str(self.thisLevelListe[i]), font=font, fill=(0, 0, 0))
 
 
             if self.thisRiotIdListe[i] == '' or self.thisRiotIdListe[i] == ' ':
@@ -3415,9 +3571,9 @@ class matchlol():
             if rank_joueur != '':
                 img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 100, 100)
 
-                im.paste(img_rank_joueur, (x_score-200, initial_y-20), img_rank_joueur.convert('RGBA'))
+                im.paste(img_rank_joueur, (x_score-320, initial_y-20), img_rank_joueur.convert('RGBA'))
 
-                d.text((x_score-100, initial_y), str(
+                d.text((x_score-220, initial_y), str(
                         tier_joueur), font=font, fill=(0, 0, 0))
 
             if self.moba_ok:
@@ -3503,14 +3659,14 @@ class matchlol():
 
             fill = range_value(i, self.thisDamageListe)
 
-            d.text((x_dmg_percent - 20, initial_y),
-                   f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font, fill=fill)
+            d.text((x_dmg_percent, initial_y),
+                   f'{int(self.thisDamageListe[i]/1000)}k', font=font, fill=fill)
 
             fill = range_value(i, np.array(
                 self.thisDamageTakenListe) + np.array(self.thisDamageSelfMitigatedListe))
 
             d.text((x_dmg_taken + 25, initial_y),
-                   f'{int(self.thisDamageTakenListe[i]/1000)}k / {int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font, fill=fill)
+                   f'{int(self.thisDamageTakenListe[i]/1000) + int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font, fill=fill)
 
             initial_y += 200 if i == 4 else 100
         if not self.thisQ in ["ARAM", "CLASH ARAM"]:
