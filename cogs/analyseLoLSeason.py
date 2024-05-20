@@ -6,8 +6,23 @@ from fonctions.gestion_bdd import lire_bdd_perso
 from fonctions.match import emote_champ_discord
 import numpy as np
 from interactions.ext.paginators import Paginator
+import dataframe_image as dfi
+import os
 
 saison = int(lire_bdd_perso('select * from settings', format='dict', index_col='parametres')['saison']['value'])
+
+async def export_as_image(df, ctx : SlashContext, content=None):
+    dfi.export(df, 'image.png', max_cols=-1,
+                       max_rows=-1, table_conversion="matplotlib")
+
+    if content == None:
+        await ctx.send(files=interactions.File('image.png'))
+    
+    else:
+        await ctx.send(content=content, files=interactions.File('image.png'))
+    
+
+    os.remove('image.png')
 
 class AnalyseLoLSeason(Extension):
     def __init__(self, bot):
@@ -164,6 +179,108 @@ class AnalyseLoLSeason(Extension):
 
         paginator.show_select_menu = True
         await paginator.send(ctx)
+
+    @lol_analyse_season.subcommand("ecart_stats",
+                            sub_cmd_description="Permet d'afficher des statistiques sur des écarts durant la saison",
+                            options=[
+                                SlashCommandOption(
+                                    name="methode",
+                                    description="Methode",
+                                    type=interactions.OptionType.STRING,
+                                    required=False,
+                                    choices=[
+                                        SlashCommandChoice(name='gold_individuel', value='ecart_gold'),
+                                        SlashCommandChoice(name='gold_team', value='ecart_gold_team'),
+                                        SlashCommandChoice(name='kills', value='kills'),
+                                        SlashCommandChoice(name='morts', value='deaths'),
+                                        SlashCommandChoice(name='assists', value='assists'),
+                                        SlashCommandChoice(name='dmg', value='dmg'),
+                                        SlashCommandChoice(name='tank', value='dmg_tank'),
+                                        SlashCommandChoice(name='cs', value='cs'),
+                                        SlashCommandChoice(name='vision', value='vision_score'),
+                                        SlashCommandChoice(name='afk', value='afk'),
+                                        SlashCommandChoice(name='duree', value='time')]),
+                                SlashCommandOption(
+                                    name="saison",
+                                    description="Quelle saison?",
+                                    type=interactions.OptionType.INTEGER,
+                                    required=False),
+                                SlashCommandOption(
+                                    name="champion",
+                                    description="Quelle champion?",
+                                    type=interactions.OptionType.INTEGER,
+                                    required=False),
+                                SlashCommandOption(
+                                    name="calcul",
+                                    description="Calcul",
+                                    type=interactions.OptionType.STRING,
+                                    required=False,
+                                    choices=[
+                                        SlashCommandChoice(name='Somme', value='sum'),
+                                        SlashCommandChoice(name='Moyenne', value='mean')]),
+                                SlashCommandOption(
+                                    name="minmax",
+                                    description="Inclure min et max?",
+                                    type=interactions.OptionType.BOOLEAN,
+                                    required=False),
+                                SlashCommandOption(
+                                    name="role",
+                                    description="role",
+                                    type=interactions.OptionType.STRING,
+                                    required=False,
+                                    choices=[
+                                        SlashCommandChoice(name='top', value='TOP'),
+                                        SlashCommandChoice(name='jungle', value='JUNGLE'),
+                                        SlashCommandChoice(name='mid', value='MID'),
+                                        SlashCommandChoice(name='adc', value='ADC'),
+                                        SlashCommandChoice(name='support', value='SUPPORT')])
+                                ])
+    async def analyse_gold(self,
+                      ctx: SlashContext,
+                      methode = 'ecart_gold',
+                      saison = 0,
+                      champion = None,
+                      calcul = 'sum',
+                      minmax = False,
+                      role = None):
+        
+        
+        await ctx.defer(ephemeral=False)     
+        
+        df = lire_bdd_perso(f'''SELECT tracker.riot_id, matchs.champion, matchs.role, matchs.victoire, matchs.{methode}, matchs.tier, matchs.season from tracker
+        INNER JOIN matchs ON tracker.id_compte = matchs.joueur
+        AND matchs.mode = 'RANKED'
+        and server_id = {int(ctx.guild_id)} ''', index_col=None).T
+
+        if minmax:
+            aggfunc = [calcul, 'count', 'min', 'max']
+        else:
+            aggfunc = [calcul, 'count']
+
+        if champion != None:
+            df = df[df['champion'] == champion.replace(' ', '').capitalize()]
+        
+        if role != None:
+            df = df[df['role'] == role]
+        
+        if saison != 0:
+            df = df[df['season'] == saison]
+
+        df['victoire'].replace({False : 'Défaite', True : 'Victoire'}, inplace=True )
+
+        df_pivot = df.pivot_table(index='riot_id',
+                                columns=['victoire'],
+                                values=methode,
+                                aggfunc=aggfunc,
+                                fill_value=0)
+        
+        df_pivot = df_pivot.astype(int)
+
+        df_pivot['Ecart'] = df_pivot[(calcul, 'Défaite')] + df_pivot[(calcul, 'Victoire')]
+        df_pivot.sort_values('Ecart', ascending=False, inplace=True)
+        
+        await export_as_image(df_pivot, ctx)
+        
   
                 
 def setup(bot):
