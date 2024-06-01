@@ -217,7 +217,8 @@ class AnalyseLoLSeason(Extension):
                                     required=False,
                                     choices=[
                                         SlashCommandChoice(name='Somme', value='sum'),
-                                        SlashCommandChoice(name='Moyenne', value='mean')]),
+                                        SlashCommandChoice(name='Moyenne', value='mean'),
+                                        SlashCommandChoice(name='Mediane', value='median')]),
                                 SlashCommandOption(
                                     name="minmax",
                                     description="Inclure min et max?",

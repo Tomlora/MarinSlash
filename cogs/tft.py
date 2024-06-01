@@ -58,6 +58,8 @@ async def matchtft_by_puuid(summonerName, idgames: int, session, puuid = None):
             puuid = me['puuid']
             
     liste_matchs = await get_matchs_by_puuid(session, puuid)
+    if len(liste_matchs) == 0:
+        return None, None, None
     last_match = liste_matchs[idgames]
     match = await get_matchs_details_tft(session, last_match)
     match = pd.DataFrame(match)
@@ -76,6 +78,9 @@ class tft(Extension):
 
     async def stats_tft(self, summonername, session, idgames: int = 0, puuid = None):
         match_detail, id_match, puuid = await matchtft_by_puuid(summonername, idgames, session, puuid)
+
+        if not isinstance(match_detail, pd.DataFrame):
+            return {}
 
         summonername = summonername.lower()
         # identifier le joueur via son puuid

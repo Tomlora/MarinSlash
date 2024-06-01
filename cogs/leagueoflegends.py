@@ -238,6 +238,8 @@ class LeagueofLegends(Extension):
 
         if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ != 'ARENA 2v2' :
             await match_info.save_data()
+        else:
+            requete_perso_bdd(f'''DELETE from prev_lol WHERE riot_id = '{riot_id.lower()}' and riot_tag = '{riot_tag.upper()}' and match_id = '' ''')
             
         if match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime > 20:
             await match_info.save_timeline()
@@ -1260,8 +1262,8 @@ class LeagueofLegends(Extension):
     @slash_command(name='lol_list',
                    description='Affiche la liste des joueurs suivis',
                    options=[SlashCommandOption(name='season',
-                                               description='Saison LoL',
-                                               type=interactions.OptionType.INTEGER,
+                                               description='14 pour le split en cours, 14_numero split pour un split terminé. Les splits commencent en S14',
+                                               type=interactions.OptionType.STRING,
                                                required=False),
                        SlashCommandOption(name='serveur_only',
                                       description='General ou serveur ?',
@@ -1269,7 +1271,7 @@ class LeagueofLegends(Extension):
                                       required=False)])
     async def lollist(self,
                       ctx: SlashContext,
-                      season : int = saison,
+                      season : str = saison,
                       serveur_only: bool = False):
 
         if serveur_only:
@@ -1305,7 +1307,7 @@ class LeagueofLegends(Extension):
         
         paginator = Paginator.create_from_string(self.bot, response, page_size=1000, timeout=60)
 
-        paginator.default_title = 'Live feed list'
+        paginator.default_title = f'Live feed list Split {season}'
         await paginator.send(ctx)
         # await ctx.send(embeds=embed)
 

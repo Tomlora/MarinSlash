@@ -884,7 +884,7 @@ def load_timeline(timeline):
     return df_timeline, minute
 
 
-async def get_stat_champion_by_player(session, champ_dict, riot_id, riot_tag, season=22):
+async def get_stat_champion_by_player(session, champ_dict, riot_id, riot_tag, season=23):
     """
     Retrieves the statistics of a player's performance with each champion.
     
@@ -1638,7 +1638,7 @@ class matchlol():
         
         self.DamageGoldRatio = round((self.thisDamageNoFormat/self.thisGoldNoFormat)*100,2)
         
-        if self.thisQ == 'RANKED':
+        if self.thisQ in ['RANKED', 'FLEX']:
             self.data_timeline = await get_match_timeline(self.session, self.last_match)
             self.index_timeline = self.data_timeline['metadata']['participants'].index(self.puuid) + 1
         else:
@@ -2209,7 +2209,7 @@ class matchlol():
         self.ecart_gold_noformat = 0
         self.ecart_gold_permin = 0
         
-        if self.thisQ == 'RANKED':
+        if self.thisQ in ['RANKED', 'FLEX']:
             self.data_timeline = await get_match_timeline(self.session, self.last_match)
             self.index_timeline = self.data_timeline['metadata']['participants'].index(self.puuid) + 1
         else:
@@ -2359,7 +2359,8 @@ class matchlol():
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
             :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min);
-            UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur''',
+            UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
+            UPDATE prev_lol SET match_id = :match_id where riot_id = :riot_id and riot_tag = :riot_tagline''',
                 {
                     'match_id': self.last_match,
                     'joueur': self.id_compte,
@@ -3176,9 +3177,9 @@ class matchlol():
 
         x_vision = x_cs + 150
 
-        x_dmg_percent = x_vision + 180
+        x_dmg_percent = x_vision + 110
 
-        x_dmg_taken = x_dmg_percent + 150
+        x_dmg_taken = x_dmg_percent + 260
 
         x_kill_total = 1000
         x_objectif = 1600
@@ -3217,15 +3218,17 @@ class matchlol():
         d.text((x_name+700, y_name-20),
                f"Niveau {self.level_summoner}", font=font_little, fill=fill)
 
-        last_season = self.season - 1
+        last_season = self.season
 
         if last_season == 14: # pour split la saison en 2
             last_season = '14_1'
 
         try:
             if not self.thisQ in ['ARAM', 'CLASH ARAM']:
-                data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{last_season} where index = {self.id_compte} ''')
-                self.tier_last_season = data_last_season.mappings().all()[0]['tier']
+                data_last_season = get_data_bdd(f'''SELECT index, tier, rank from suivi_s{last_season} where index = {self.id_compte} ''')
+                data_last_season = data_last_season.mappings().all()[0]
+                self.tier_last_season = data_last_season['tier']
+                self.rank_last_season = data_last_season['rank']
             else:
                 data_last_season = get_data_bdd(f'''SELECT index, rank from ranked_aram_s{self.season-1} where index = {self.id_compte} ''')
                 self.tier_last_season = data_last_season.mappings().all()[0]['rank']
@@ -3233,6 +3236,9 @@ class matchlol():
             img_tier_last_season = await get_image("tier", self.tier_last_season, self.session, 100, 100)
 
             im.paste(img_tier_last_season,(x_name+950, y_name-50), img_tier_last_season.convert('RGBA'))
+            if not self.thisQ in ['ARAM', 'CLASH ARAM']:
+                d.text((x_name+1050, y_name-30), f'{self.rank_last_season}', font=font, fill=fill)   
+
         except Exception:
             pass  
 
@@ -3486,7 +3492,7 @@ class matchlol():
             d.text((x_kda, y), 'KDA', font=font, fill=fill)
             d.text((x_kp+10, y), 'KP', font=font, fill=fill)
             d.text((x_cs, y), 'CS', font=font, fill=fill)
-            d.text((x_dmg_percent-10, y), "DMG", font=font, fill=fill)
+            d.text((x_dmg_percent+30, y), "DMG", font=font, fill=fill)
             d.text((x_dmg_taken+10, y), 'TANK', font=font, fill=fill)
             d.text((x_score-20, y), 'MVP', font=font, fill=fill)
 
@@ -3518,10 +3524,10 @@ class matchlol():
                 box=(10, initial_y-13),
             )
 
-            if self.mastery_level[i] > 100:
-                x_mastery = 5
+            if self.mastery_level[i] >= 100:
+                x_mastery = 15
                 font_mastery = font_little
-            elif self.mastery_level[i] > 10:
+            elif self.mastery_level[i] >= 10:
                 x_mastery = 20
                 font_mastery = font
             else:
@@ -3530,9 +3536,22 @@ class matchlol():
 
             d.text((x_mastery, initial_y),
                    str(self.mastery_level[i]), font=font_mastery, fill=(255, 255, 255))
+            
+            # couleur
+            if i <= 4:
+                ecart_level = self.thisLevelListe[i] - self.thisLevelListe[i+5]
+
+                if ecart_level > 0:
+                    fill_level = (0, 128, 0)
+                elif ecart_level < 0:
+                    fill_level = (255, 0, 0)
+                else:
+                    fill_level = (0, 0, 0)
+            else:
+                fill_level = (0, 0, 0)
 
             d.text((x_level, initial_y),
-                   str(self.thisLevelListe[i]), font=font, fill=(0, 0, 0))
+                   str(self.thisLevelListe[i]), font=font, fill=fill_level)
 
 
             if self.thisRiotIdListe[i] == '' or self.thisRiotIdListe[i] == ' ':
@@ -3660,7 +3679,7 @@ class matchlol():
             fill = range_value(i, self.thisDamageListe)
 
             d.text((x_dmg_percent, initial_y),
-                   f'{int(self.thisDamageListe[i]/1000)}k', font=font, fill=fill)
+                   f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font, fill=fill)
 
             fill = range_value(i, np.array(
                 self.thisDamageTakenListe) + np.array(self.thisDamageSelfMitigatedListe))

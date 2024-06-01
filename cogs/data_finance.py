@@ -159,7 +159,7 @@ class data_finance(Extension):
                             sub_cmd_description="Corrélation entre entreprise",
                             options=[
                                 SlashCommandOption(name="ticker",
-                                                    description="Tickers des entreprises avec un espace entre chaque : TTE.PA STLAB.PA",
+                                                    description="Tickers des entreprises avec un espace entre chaque : TTE.PA STLAP.PA",
                                                     type=interactions.OptionType.STRING,
                                                     required=True),
                                 SlashCommandOption(name="periode",
@@ -210,7 +210,7 @@ class data_finance(Extension):
                             sub_cmd_description="Corrélation entre entreprise",
                             options=[
                                 SlashCommandOption(name="ticker",
-                                                    description="Tickers des entreprises avec un espace entre chaque : TTE.PA STLAB.PA",
+                                                    description="Tickers des entreprises avec un espace entre chaque : TTE.PA STLAP.PA",
                                                     type=interactions.OptionType.STRING,
                                                     required=True),
                                 SlashCommandOption(name="periode",

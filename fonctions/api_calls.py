@@ -53,6 +53,7 @@ async def get_past_matches(summonerName: str, match_id : str, session : ClientSe
     try:
         async with session.post(url, headers=headers, json=payload) as session_match_detail:
             response = await session_match_detail.json()  # detail du match sélectionné
+            print(response)
         data_match = response["data"]["lol"]["player"]["match"]
     
         return data_match
@@ -268,7 +269,7 @@ async def get_winrates(summonerName: str, session : ClientSession):
                     ] = championPerformance["wins"]
 
         
-        season_boucle = [20, 21, 22, 23] # For season 13 (split 1, split 2) / season 14 (split 1)
+        season_boucle = [20, 21, 23] # For season 13 (split 1, split 2) / season 14 (split 1) # La 22 est faite au-dessus
         
         for season in season_boucle:
             response = await getPlayerStats(session, summonerName, tagline, season=season)

@@ -157,6 +157,8 @@ class askFinance:
         self.data_info = await self.data_info.info
         self.data = yf.Ticker(self.ticker)
 
+        self.name = self.data_info['shortName']
+
         self.type = self.data_info['quoteType']
 
         if self.type != 'ETF':
@@ -298,7 +300,7 @@ class askFinance:
 
     async def history(self, periode):
         hist = self.data.history(period=periode)
-        fig = px.line(hist, hist.index, 'Close', title=f'Prix {self.ticker}')
+        fig = px.line(hist, hist.index, 'Close', title=f'Prix {self.ticker} ({self.name})')
 
         embed, fig = get_embed(fig, name='evolution')
 
@@ -387,3 +389,5 @@ class askFinance:
         self.difference = np.round(self.current_price - self.moyenne,2)
 
         return self.df_prix_cible, self.moyenne, self.difference
+    
+
