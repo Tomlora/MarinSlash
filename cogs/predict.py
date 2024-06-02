@@ -95,13 +95,19 @@ async def predict_match(match_id, match, champion, session : aiohttp.ClientSessi
             redWinrates.append(winrate)
             redParticipant.append(participant['summonerName'])
             redChampion.append(champion[str(championId)])
-            redLevel.append(level)
+            try:
+                redLevel.append(level)
+            except UnboundLocalError:
+                redLevel.append(0)
         else:
             blueMasteries.append(mastery)
             blueWinrates.append(winrate)
             blueParticipant.append(participant['summonerName'])
             blueChampion.append(champion[str(championId)])
-            blueLevel.append(level)
+            try:
+                blueLevel.append(level)
+            except UnboundLocalError:
+                blueLevel.append(0)
 
     txt_rouge = '**:red_circle: Team Red**\n'
     txt_bleu = '**:blue_circle: Team Blue **\n'
@@ -234,11 +240,16 @@ async def get_current_match_prediction(ctx : SlashContext, summonerName: str, ma
         return 'Aucun', 'Aucun'
     prediction, proba, txt_recap = await predict_match(match_id, match, champions, session, ctx)
 
+    mode = match['gameType']
+
     for participant in match['participants']:
         if participant["summonerName"].lower() == summonerName.lower():
             your_team = participant["team"]
             your_champion = champions[str(participant["championId"])]
-            your_role = participant["currentRole"]        
+            if mode == 'normal_aram':
+                your_role = 'aram'
+            else:
+                your_role = participant["currentRole"]        
 
     response = {}
 
@@ -278,11 +289,16 @@ async def get_current_match_prediction_auto(summonerName: str, match_id : str, s
         return 'Aucun', 'Aucun'
     prediction, proba, txt_recap = await predict_match(match_id, match, champions, session, None)
 
+    mode = match['gameType']
+
     for participant in match['participants']:
         if participant["summonerName"].lower().replace(' ', '') == summonerName.lower().replace(' ', ''):
             your_team = participant["team"]
             your_champion = champions[str(participant["championId"])]
-            your_role = participant["currentRole"]        
+            if mode == 'normal_aram':
+                your_role = 'aram'
+            else:
+                your_role = participant["currentRole"]        
 
     response = {}
 
@@ -424,9 +440,9 @@ class predict(Extension):
             txt_result = df['text']
 
             if df['victoire']:
-                txt_result = 'Le résultat de ta game était une **victoire** \n'
+                txt_result += '\n\nLe résultat de ta game était une **victoire**'
             else:
-                txt_result = 'Le résultat de ta game était une **défaite** \n'
+                txt_result += '\n\nLe résultat de ta game était une **défaite**'
 
             if df['pred_correct']:
                 txt_result += '\nLa prédiction était **correcte**'
@@ -457,8 +473,11 @@ class predict(Extension):
 
         data_empty = lire_bdd_perso('''select riot_id, riot_tag from prev_lol where match_id = '' ''', index_col=None).T
 
+        liste_riot_id = data_empty['riot_id'].tolist()
+        liste_riot_tag = data_empty['riot_tag'].tolist()
+
         for riot_id, riot_tag in data_joueur:
-            if riot_id in data_empty['riot_id'] and riot_tag in data_empty['riot_tag']: # veut dire qu'il y a une game en cours
+            if not (riot_id in liste_riot_id and riot_tag in liste_riot_tag): # veut dire qu'il y a une game en cours
                 await self.predict_probability_auto(session, riot_id, riot_tag.lower())
             
         await session.close()  

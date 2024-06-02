@@ -251,7 +251,7 @@ async def get_winrates(summonerName: str, session : ClientSession):
     try:
         # For season 12
         
-        response = await getPlayerStats(session, summonerName, tagline)
+        response = await getPlayerStats(session, summonerName, tagline, season=22)
 
         playerStats = response
 

@@ -1390,10 +1390,10 @@ class LeagueofLegends(Extension):
                     totalgames = totalwin + totaldef
                     
                     # Ranking EUW
-                    try:
-                        success = await update_ugg(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'])
-                    except:
-                        pass
+                    # try:
+                    #     success = await update_ugg(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'])
+                    # except:
+                    #     pass
                     try:
                         stats_rankings = await getRankings(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'], 'euw1', 22, 420)
                         rank_euw = stats_rankings['data']['overallRanking']['overallRanking']

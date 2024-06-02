@@ -899,23 +899,57 @@ async def get_stat_champion_by_player(session, champ_dict, riot_id, riot_tag, se
         pandas.DataFrame: A DataFrame containing the statistics of the player's performance with each champion.
     """
 
-    data_stat = await getPlayerStats(session, riot_id, riot_tag, season=season)
+    if isinstance(season, int):
+        data_stat = await getPlayerStats(session, riot_id, riot_tag, season=season)
 
-    if data_stat == '':
-        return ''
-    
-    try:
-        df_data_stat = pd.DataFrame(data_stat['data']['fetchPlayerStatistics'][0]['basicChampionPerformances'])
-    except TypeError:
-        return ''
-    
-    if not 'championId' in df_data_stat.columns: # pas de data
-        return ''
+        if data_stat == '':
+            return ''
         
+        try:
+            df_data_stat = pd.DataFrame(data_stat['data']['fetchPlayerStatistics'][0]['basicChampionPerformances'])
+        except TypeError:
+            return ''
+        
+        if not 'championId' in df_data_stat.columns: # pas de data
+            return ''
+            
 
-    df_data_stat['championId'] = df_data_stat['championId'].astype(str)
+        df_data_stat['championId'] = df_data_stat['championId'].astype(str)
 
-    df_data_stat.replace({'championId': champ_dict}, inplace=True)
+        df_data_stat.replace({'championId': champ_dict}, inplace=True)
+
+    if isinstance(season, list):
+        list_df = []
+        for s in season:
+            data_stat = await getPlayerStats(session, riot_id, riot_tag, season=s)
+
+            if data_stat == '':
+                continue
+            
+            try:
+                df_data_stat = pd.DataFrame(data_stat['data']['fetchPlayerStatistics'][0]['basicChampionPerformances'])
+            except TypeError:
+                continue
+            
+            if not 'championId' in df_data_stat.columns: # pas de data
+                continue
+                
+
+            df_data_stat['championId'] = df_data_stat['championId'].astype(str)
+
+            df_data_stat.replace({'championId': champ_dict}, inplace=True)
+
+            list_df.append(df_data_stat)
+    
+        if len(list_df) == 0:
+            return ''
+        
+        df_data_stat = pd.concat(list_df)
+
+        if df_data_stat.empty:
+            return ''
+
+        df_data_stat = df_data_stat.groupby('championId', as_index=False).sum()
 
     df_data_stat['winrate'] = df_data_stat['wins'] / df_data_stat['totalMatches'] * 100
 
@@ -970,6 +1004,10 @@ class matchlol():
             if 'EUW' not in self.identifiant_game:
                 self.identifiant_game = f'EUW1_{self.identifiant_game}'
         self.me = me
+
+        params = lire_bdd_perso('select * from settings', format='dict', index_col='parametres')
+
+        self.ugg = params['update_ugg']['value']
         
 
     async def get_data_riot(self):
@@ -1781,15 +1819,19 @@ class matchlol():
         
         for i in range(self.nb_joueur):
             
-            try:
-                success = await update_ugg(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
-            except:
-                pass
-            
+            if self.ugg == 'True':
+                try:
+                    success = await update_ugg(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
+                except:
+                    pass
+                
+
             
 
             self.data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
 
+ 
+ 
             
             if self.data_rank != '': 
                 try:
@@ -1797,8 +1839,8 @@ class matchlol():
                 except TypeError:
                     self.df_rank = ''
             
-            self.df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), 22)
-                        
+            self.df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), [22,23])
+           
             if isinstance(self.df_data_stat, pd.DataFrame):
 
                 self.df_data_stat = self.df_data_stat[self.df_data_stat['championId'] == self.thisChampNameListe[i]]
@@ -1810,7 +1852,7 @@ class matchlol():
             else:
                 dict_data_stat = ''
             
-            
+
             try:
                 if isinstance(self.df_rank, pd.DataFrame):
                     nbgames = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['wins'].values[0] + self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['losses'].values[0]
@@ -1825,7 +1867,9 @@ class matchlol():
             self.winrate_joueur[f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].upper()}'] = {'winrate' : wr, 'nbgames' : nbgames}
             self.winrate_champ_joueur[f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].upper()}'] = dict_data_stat
             
+
             if self.moba_ok:
+
                 try:
                     self.liste_rank.append(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['tier'])
                     self.liste_tier.append(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['division'])
@@ -1839,6 +1883,7 @@ class matchlol():
                         self.liste_rank.append('')
                         self.liste_tier.append('')
             else:
+
                 try:
                     rank_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
                     tier_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
@@ -1848,6 +1893,7 @@ class matchlol():
                 except:
                     self.liste_rank.append('')
                     self.liste_tier.append('')
+
                     
         # if not self.moba_ok: # si moba n'est pas dispo, nous allons calculer nous-même l'avg des tier et rank
         #     try:
@@ -2360,7 +2406,7 @@ class matchlol():
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
             :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
-            UPDATE prev_lol SET match_id = :match_id where riot_id = :riot_id and riot_tag = :riot_tagline''',
+            UPDATE prev_lol SET match_id = :match_id where riot_id = :riot_id and riot_tag = :riot_tagline and match_id = '' ''',
                 {
                     'match_id': self.last_match,
                     'joueur': self.id_compte,
