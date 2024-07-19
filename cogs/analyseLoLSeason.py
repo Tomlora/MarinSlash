@@ -277,8 +277,10 @@ class AnalyseLoLSeason(Extension):
         
         df_pivot = df_pivot.astype(int)
 
-        df_pivot['Ecart'] = df_pivot[(calcul, 'Défaite')] + df_pivot[(calcul, 'Victoire')]
-        df_pivot.sort_values('Ecart', ascending=False, inplace=True)
+        nom_total = 'Ecart' if methode in ['ecart_gold', 'ecart_gold_team'] > 0 else 'Total'
+
+        df_pivot[nom_total] = df_pivot[(calcul, 'Défaite')] + df_pivot[(calcul, 'Victoire')]
+        df_pivot.sort_values(nom_total, ascending=False, inplace=True)
         
         await export_as_image(df_pivot, ctx)
         
