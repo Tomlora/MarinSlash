@@ -982,7 +982,7 @@ class matchlol():
                  idgames: int,
                  queue: int = 0,
                  index: int = 0,
-                 count: int = 20,
+                 count: int = 50,
                  identifiant_game=None,
                  me=None):
         """Class pour traiter les matchs
@@ -5080,10 +5080,10 @@ class matchlol():
             ecart_avatar = 350
             ecart_pseudo_supp = 0
         elif self.nb_joueur == 2:
-            ecart_supp = -50
+            ecart_supp = 400
             ecart_item = 280
-            ecart_avatar = 210
-            ecart_pseudo_supp = 0
+            ecart_avatar = 420
+            ecart_pseudo_supp = -50
         else:
             ecart_supp = -250
             ecart_item = 0
@@ -5133,7 +5133,7 @@ class matchlol():
         
         def draw_black_line_verticale(i:int):
             draw = ImageDraw.Draw(im)
-            draw.line((i, ecart, i, 2000), fill=(0, 0, 0), width=5)
+            draw.line((i, int(2600/3), i, 2000), fill=(0, 0, 0), width=5)
             
         def draw_line(i:int, color):
             

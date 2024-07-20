@@ -69,7 +69,7 @@ class Quizz(Extension):
                         
                     if joueur.lower() == answer_content.lower():
                         await ctx.send(f"Bonne réponse !' C'est {joueur} avec **{df_reponse[stat_selected]}** le {date} avec {equipe}")
-                        requete_perso_bdd(f'''INSERT INTO quizz({discord_id}) VALUES (:joueur)
+                        requete_perso_bdd(f'''INSERT INTO quizz({discord_id}) VALUES ({discord_id})
                                                     ON CONFLICT (discord_id)
                                                     DO NOTHING;
                                                     UPDATE quizz

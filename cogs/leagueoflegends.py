@@ -153,12 +153,12 @@ class LeagueofLegends(Extension):
         await match_info.get_data_riot()
 
 
-        if match_info.thisQId not in [1700, 1830, 1840, 1900]:  # urf
+        if match_info.thisQId not in [1700, 1820, 1830, 1840, 1900]:  # urf
             await match_info.prepare_data()
             await match_info.prepare_data_moba()
             await match_info.prepare_data_ugg()
         
-        elif match_info.thisQId in [1830, 1840]:
+        elif match_info.thisQId in [1820, 1830, 1840]:
             await match_info.prepare_data_swarm()
         else:
             await match_info.prepare_data_arena()
@@ -871,7 +871,7 @@ class LeagueofLegends(Extension):
                        SlashCommandOption(name="attente",
                                           description="Attente entre 2 games",
                                           type=interactions.OptionType.INTEGER,
-                                          required=True,
+                                          required=False,
                                           min_value=30,
                                           max_value=100),
                        SlashCommandOption(name="affichage",
