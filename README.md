@@ -69,7 +69,12 @@ Il existe deux formats de présentation :
  Format Colonne <b>(En beta)</b> : 
  <br>
  <img width="900" height="600" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese5.png?raw=true">
+  <br>
+  <b> Mode SWARM</b>
+  <br>
+  <img width="900" height="600" src="https://github.com/Tomlora/MarinSlash/blob/main/img/swarm.png">
 </p>
+ 
 
 Ce recap est personnalisable, c'est-à-dire qu'il y a différents modules qui peuvent être affichés ou non, comme les insights (les bons/mauvais points d'une partie) ou les succès (des challenges crées par Riot Games).
 
@@ -195,5 +200,12 @@ Détermine dans un tracker si une personne a lancé son stream twitch, et sur qu
 Suit les tweets de certains journalistes pour avoir l'information rapidement selon des mots clés.
 **En pause** depuis que l'API est payante
 
+****
+## Projet 6 : Finance
+
+Le bot peut montrer divers informations sur des entreprises, des ETF ou des actualités boursières. 
+Il peut aider au calcul du prix optimal d'une action en fonction de nos attentes dans le futur.
+
+A l'avenir, permettra de calculer les croisements de moyenne mobile 12j/2j qui sont une autre technique d'analyse de bourse.
 
 
