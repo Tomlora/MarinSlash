@@ -3,6 +3,8 @@ __Bot discord affichant des statistiques (League of Legends, TFT, Twitch, Summon
 
 Le bot collecte, traite et réutilise les données automatiquement et en continu. On peut également lui demander certaines actions.
 
+__Disclaimer : C'est un projet hobby, qui a été developpé pour apprendre Python. Le code peut donc être simplifié__
+
 # Ressources
 
 Pour diversifier mes compétences, le bot stocke des données dans :
