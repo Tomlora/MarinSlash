@@ -1182,7 +1182,7 @@ class analyseLoL(Extension):
         await ctx.defer(ephemeral=False)
 
         df = get_data_matchs(
-            'matchs.kills, matchs.double, matchs.triple, matchs.quadra, matchs.penta', saison, int(ctx.guild_id), view)
+            'matchs.kills, matchs.double, matchs.triple, matchs.quadra, matchs.penta, matchs.solokills', saison, int(ctx.guild_id), view)
 
         title = f'Kills'
 
@@ -1211,21 +1211,21 @@ class analyseLoL(Extension):
             df.drop('discord', axis=1, inplace=True)
 
             df = df.groupby('riot_id').agg(
-                {'double': ['sum', 'count'], 'triple': 'sum', 'quadra': 'sum', 'penta': 'sum'})
+                {'double': ['sum', 'count'], 'triple': 'sum', 'quadra': 'sum', 'penta': 'sum', 'solokills' : 'sum'})
             df.columns = pd.Index([e[0] + "_" + e[1].upper()
                                   for e in df.columns.tolist()])
             df.rename(columns={'double_SUM': 'double', 'double_COUNT': 'nbgames', 'triple_SUM': 'triple',
-                      'quadra_SUM': 'quadra', 'penta_SUM': 'penta'}, inplace=True)  # doubleCount sert à compter le nombre de games
+                      'quadra_SUM': 'quadra', 'penta_SUM': 'penta', 'solokills_SUM' : 'solokills'}, inplace=True)  # doubleCount sert à compter le nombre de games
 
-            df.sort_values(['penta', 'quadra', 'triple', 'double'], ascending=[
-                           False, False, False, False], inplace=True)
+            df.sort_values(['penta', 'quadra', 'triple', 'double', 'solokills'], ascending=[
+                           False, False, False, False, False], inplace=True)
 
             if riot_id == None:
 
                 txt = f'{title} :'
 
                 for joueur, data in df.iterrows():
-                    txt += f'\n**{joueur}** : **{data["penta"]}** penta, **{data["quadra"]}** quadra, **{data["triple"]}** triple, **{data["double"]}** double | **{data["nbgames"]}** games'
+                    txt += f'\n**{joueur}** : **{data["penta"]}** penta, **{data["quadra"]}** quadra, **{data["triple"]}** triple, **{data["double"]}** double | **{data["solokills"]}** solokills | **{data["nbgames"]}** games'
 
                 await ctx.send(txt)
 

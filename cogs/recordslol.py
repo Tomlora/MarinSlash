@@ -679,7 +679,7 @@ class Recordslol(Extension):
             id_joueur = lire_bdd_perso('''SELECT tracker.riot_id, tracker.discord from tracker where tracker.banned = false and tracker.save_records = true ''',
                                             format='dict', index_col='riot_id')
             try:
-                fichier = fichier[fichier['discord'] == id_joueur[joueur]['discord']]
+                fichier = fichier[fichier['riot_id'] == joueur]
             except KeyError:
                 return await ctx.send('Joueur introuvable ou tu es banni')    
               
