@@ -7,6 +7,9 @@ import yfinance as yf
 import numpy as np
 import plotly_express as px
 from fonctions.channels_discord import get_embed
+from sklearn.linear_model import LinearRegression
+from datetime import datetime, timedelta
+import plotly.graph_objects as go
 
 # Activity au lancement du bot
 
@@ -255,6 +258,119 @@ class data_finance(Extension):
         embed, file = get_embed(fig, name='evolution')
 
         del data, data_melt
+
+        await ctx.send(embeds=embed, files=file)
+
+
+    @finance.subcommand("analyse_graphique",
+                            sub_cmd_description="Analyse d'une entreprise",
+                            options=[
+                                SlashCommandOption(name="ticker",
+                                                    description="Ticker",
+                                                    type=interactions.OptionType.STRING,
+                                                    required=True),
+                                SlashCommandOption(name="periode",
+                                          description="Periode",
+                                          type=interactions.OptionType.STRING,
+                                          required=False,
+                                          choices=[
+                                                SlashCommandChoice(
+                                                  name='3 jours', value='3d'),
+                                                SlashCommandChoice(
+                                                  name='1 semaine', value='7d'),
+                                                SlashCommandChoice(
+                                                  name='2 semaines', value='14d'),
+                                              SlashCommandChoice(
+                                                  name='1 mois', value='1mo'),
+                                              SlashCommandChoice(
+                                                  name='6 mois', value='6mo'),
+                                              SlashCommandChoice(
+                                                  name='1 an', value='1y')]),
+                                SlashCommandOption(name='tendance',
+                                                   description='Afficher la tendance',
+                                                   type=interactions.OptionType.BOOLEAN,
+                                                   required=False),
+                                SlashCommandOption(name='bollinger',
+                                                   description='Afficher les bandes de bollinger',
+                                                   type=interactions.OptionType.BOOLEAN,
+                                                   required=False)])
+    async def analysegraphique(self,
+                        ctx: SlashContext,
+                        ticker : str,
+                        periode='150d',
+                        tendance=False,
+                        bollinger=False):  
+
+       
+        data = yf.Ticker(ticker)
+
+
+        await ctx.defer(ephemeral=False)
+
+        hist = data.history(period=periode)
+
+        hist.reset_index(inplace=True)
+
+        hist['average_rolling12j'] = hist.rolling(12, on='Date', min_periods=12)['Close'].mean()
+        hist['average_rolling2j'] = hist.rolling(2, on='Date', min_periods=2)['Close'].mean()
+
+        # Bollinger 
+        # Calculate the 20-period Simple Moving Average (SMA)
+        hist['SMA'] = hist['Close'].rolling(window=20).mean()
+
+        # Calculate the 20-period Standard Deviation (SD)
+        hist['SD'] = hist['Close'].rolling(window=20).std()
+
+        # Calculate the Upper Bollinger Band (UB) and Lower Bollinger Band (LB)
+        hist['UB'] = hist['SMA'] + 2 * hist['SD']
+        hist['LB'] = hist['SMA'] - 2 * hist['SD']
+
+        fig = go.Figure()
+
+        fig.add_trace(go.Scatter(x=hist['Date'],
+                                y=hist['Close'],
+                                name='Close',
+                                mode='lines'))
+
+        X = np.array(hist.index.astype('int64')).reshape(-1,1)
+        lr = LinearRegression().fit(X=X,
+                                    y=hist['Close'])
+        
+        if tendance:
+
+            fig.add_trace(go.Scatter(x=hist['Date'],
+                                    y=lr.predict(X),
+                                    name='trend',
+                                    mode='lines'))
+            
+        if bollinger:
+            # Add the Upper Bollinger Band (UB) and shade the area
+            fig.add_trace(go.Scatter(x=hist['Date'], y=hist['UB'], mode='lines', name='Upper Bollinger Band', line=dict(color='red')))
+            fig.add_trace(go.Scatter(x=hist['Date'], y=hist['LB'], fill='tonexty', mode='lines', name='Lower Bollinger Band', line=dict(color='cyan')))
+
+        fig.add_trace(go.Scatter(x=hist['Date'],
+                                y=hist['average_rolling12j'],
+                                name='Moyenne mobile 12j',
+                                mode='lines'))
+
+        fig.add_trace(go.Scatter(x=hist['Date'],
+                                y=hist['average_rolling2j'],
+                                name='Moyenne mobile 2j',
+                                mode='lines'))
+
+        fig.update_layout(
+            autosize=False,
+            width=2000,
+            height=1500,
+            title=f'Analyse Graphique {ticker}'
+            )
+        
+
+        fig.update_yaxes(dtick=1)
+
+        fig.update_xaxes(range=[hist['Date'].min(), hist['Date'].max() + timedelta(days=90)])
+
+        embed, file = get_embed(fig, name='Analyse Graphique')
 
         await ctx.send(embeds=embed, files=file)
 
