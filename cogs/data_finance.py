@@ -269,6 +269,10 @@ class data_finance(Extension):
                                                     description="Ticker",
                                                     type=interactions.OptionType.STRING,
                                                     required=True),
+                                SlashCommandOption(name='linear',
+                                                   description='Afficher uniquement le prix à la fermeture',
+                                                   type=interactions.OptionType.BOOLEAN,
+                                                   required=False),
                                 SlashCommandOption(name="periode",
                                           description="Periode",
                                           type=interactions.OptionType.STRING,
@@ -297,6 +301,7 @@ class data_finance(Extension):
     async def analysegraphique(self,
                         ctx: SlashContext,
                         ticker : str,
+                        linear = False,
                         periode='150d',
                         tendance=False,
                         bollinger=False):  
@@ -327,10 +332,19 @@ class data_finance(Extension):
 
         fig = go.Figure()
 
-        fig.add_trace(go.Scatter(x=hist['Date'],
-                                y=hist['Close'],
-                                name='Close',
-                                mode='lines'))
+        if linear:
+
+            fig.add_trace(go.Scatter(x=hist['Date'],
+                                    y=hist['Close'],
+                                    name='Close',
+                                    mode='lines'))
+        
+        else:
+            fig = go.Figure(data=[go.Candlestick(x=hist['Date'],
+                            open=hist['Open'],
+                            high=hist['High'],
+                            low=hist['Low'],
+                            close=hist['Close'])])
 
         X = np.array(hist.index.astype('int64')).reshape(-1,1)
         lr = LinearRegression().fit(X=X,
