@@ -86,9 +86,12 @@ async def predict_match(match_id, match, champion, session : aiohttp.ClientSessi
                 mastery = mastery_object["mastery"]
                 level = mastery_object['level']
         winrate = 0
-        for winrate_object in winrate_list:
-            if championId == winrate_object["championID"]:
-                winrate = winrate_object["winrate"] / 100
+        try:
+            for winrate_object in winrate_list:
+                if championId == winrate_object["championID"]:
+                    winrate = winrate_object["winrate"] / 100
+        except TypeError:
+            winrate = 0
                 
         if team == "RED":
             redMasteries.append(mastery)

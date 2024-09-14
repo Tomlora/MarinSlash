@@ -41,16 +41,31 @@ class AnalyseLoLTimeline(Extension):
                                     name="riot_tag",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
-                                    required=True)])  
+                                    required=True),
+                                SlashCommandOption(
+                                        name='role',
+                                        description='Role LoL. Remplir ce role retire les stats aram',
+                                        type=interactions.OptionType.STRING,
+                                        required=False,
+                                        choices=[
+                                            SlashCommandChoice(name='top', value='TOP'),
+                                            SlashCommandChoice(name='jungle', value='JUNGLE'),
+                                            SlashCommandChoice(name='mid', value='MID'),
+                                            SlashCommandChoice(name='adc', value='ADC'),
+                                            SlashCommandChoice(name='support', value='SUPPORT')])])  
     
-    async def analyse_timeline_mort(self, ctx : SlashContext, riot_id, riot_tag):
+    async def analyse_timeline_mort(self, 
+                                    ctx : SlashContext,
+                                    riot_id,
+                                    riot_tag,
+                                    role='None'):
 
         riot_id = riot_id.replace(' ', '').lower()
         riot_tag = riot_tag.upper()
 
         await ctx.defer(ephemeral=False)          
 
-        req = f'''select public.data_timeline_events.match_id, datetime, timestamp from public.data_timeline_events
+        req = f'''select public.data_timeline_events.match_id, datetime, matchs.role, timestamp from public.data_timeline_events
         INNER JOIN matchs on matchs.match_id = public.data_timeline_events.match_id and matchs.joueur = public.data_timeline_events.riot_id
         INNER JOIN tracker on matchs.joueur = tracker.id_compte
         where tracker.riot_id = '{riot_id}' and tracker.riot_tagline = '{riot_tag}'
@@ -61,6 +76,9 @@ class AnalyseLoLTimeline(Extension):
 
         if df.empty:
             return await ctx.send('Joueur introuvable ou pas de données')
+        
+        if role != 'None':
+            df = df[df['role'] == role]
 
 
         df.sort_values('timestamp', inplace=True)
@@ -81,11 +99,14 @@ class AnalyseLoLTimeline(Extension):
 
         palier = df['bins'].value_counts()
 
-        txt = f'Joueur : {riot_id}#{riot_tag} \n Moyenne : {moyenne}\n'
+        txt = f'Joueur : {riot_id}#{riot_tag} \nMoyenne : {moyenne}\n'
+        percent_total = 0
 
         for index, value in palier.items():
             percent = int((value / palier.sum()) * 100)
-            txt += f'**{index}** : {value} ({percent}%)\n'
+            percent_total += percent
+            # txt += f'**{index}m** : {value} ({percent}%) | Cumulé : ({percent_total}%)\n'
+            txt += f'**{index}m** : {value} ({percent}%) \n'
 
 
         await ctx.send(txt)

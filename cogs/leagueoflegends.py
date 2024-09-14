@@ -161,9 +161,7 @@ class LeagueofLegends(Extension):
         elif match_info.thisQId in [1820, 1830, 1840]:
             await match_info.prepare_data_swarm()
         else:
-            await match_info.prepare_data_arena()
-            await match_info.prepare_data_moba()
-            await match_info.prepare_data_ugg()
+            pass
 
 
         # pour nouveau système de record
@@ -365,7 +363,7 @@ class LeagueofLegends(Extension):
                                             'healthMax' : match_info.max_hp,
                                             'magicResist' : match_info.max_mr,
                                             'movementSpeed' : match_info.movement_speed,
-                                            'fourth_dragon' : match_info.timestamp_fourth_dragon,
+                                            # 'fourth_dragon' : match_info.timestamp_fourth_dragon,
                                             'first_elder' : match_info.timestamp_first_elder,
                                             'first_horde' : match_info.timestamp_first_horde,
                                             'first_double' : match_info.timestamp_doublekill,
@@ -500,11 +498,7 @@ class LeagueofLegends(Extension):
                     else:
                         serie_victoire = 0
 
-        sauvegarde_bdd(suivi, f'suivi_s{saison}')  # achievements + suivi
-
-
-        # joueur pro
-        
+        sauvegarde_bdd(suivi, f'suivi_s{saison}')  # achievements + suivi       
 
         # badges
 
@@ -664,8 +658,7 @@ class LeagueofLegends(Extension):
             embed = await match_info.resume_swarm('resume', embed)
 
         else:
-            embed.add_field(name='Augment', value=match_info.descriptionAugment)
-            embed = await match_info.test_arena('resume', embed, difLP)
+            pass
 
         # on charge les img
 
@@ -1058,7 +1051,7 @@ class LeagueofLegends(Extension):
         timeout = aiohttp.ClientTimeout(total=60*5)
         session = aiohttp.ClientSession(timeout=timeout)
 
-        for id_compte, riot_id, riot_tag, last_game, server_id, tracker_bool, tracker_send, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage, banned, riot_id, riot_tagline, id_league, check_records in data:
+        for id_compte, riot_id, riot_tag, last_game, server_id, tracker_bool, tracker_spec, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage, banned, riot_id, riot_tagline, id_league, check_records in data:
 
             id_last_game = await getId_with_puuid(puuid, session)
 
@@ -1125,7 +1118,7 @@ class LeagueofLegends(Extension):
                     print(traceback_msg)
                     continue
 
-            if tracker_bool and not tracker_send:
+            if tracker_bool and not tracker_spec:
                 try:
                     url, gamemode, id_game, champ_joueur, icon = await get_spectator_data(puuid, session)
 
@@ -1713,7 +1706,7 @@ class LeagueofLegends(Extension):
 
 
     @slash_command(name='recap_journalier',
-                   description='Mon recap sur les 24 dernières heures',
+                   description='Mon recap sur un laps de temps',
                    options=[
                        SlashCommandOption(
                            name='riot_id',
@@ -1963,407 +1956,6 @@ class LeagueofLegends(Extension):
         else:
             await ctx.send('Pas de game enregistré sur les dernières 24h pour ce joueur')
             
-
-    # @lol_compte.subcommand("recap_annuel",
-    #                        sub_cmd_description="Recap annuel",
-    #                        options=[SlashCommandOption(name='saison',
-    #                                                    description='saison lol',
-    #                                                    type=interactions.OptionType.INTEGER,
-    #                                                    min_value=12,
-    #                                                    max_value=saison,
-    #                                                    required=True),
-    #                                 SlashCommandOption(name='annee',
-    #                                                    description='Annee',
-    #                                                    type=interactions.OptionType.INTEGER,
-    #                                                    required=True)])
-    # async def recap_annuel(self,
-    #                    ctx: SlashContext,
-    #                    saison : int,
-    #                    annee : int):
-        
-        
-    #     if not isOwner_slash(ctx):
-    #         return await ctx.send("Tu n'es pas autorisé à utiliser cette commande")
-        
-    #     await ctx.defer()
-        
-    #     df = lire_bdd_perso(f'''SELECT matchs.*, tracker.riot_id, tracker.discord from matchs
-    #                 INNER JOIN tracker on matchs.joueur = tracker.id_compte 
-    #                 WHERE tracker.activation = true and season = {saison}''',
-    #                 index_col = 'match_id').T
-        
-    #     fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills'] 
-    #     fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold']
-    #     fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
-    #     fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
-    #     fichier_tank_heal = ['dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
-    #     fichier_objectif = ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower']
-    #     fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball']
-        
-    #     liste_complete = fichier_kills + fichier_dmg + fichier_vision + fichier_farming + fichier_tank_heal + fichier_objectif + fichier_divers
-        
-    #     time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20}
-        
-    #     for mode in ['RANKED', 'ARAM']:
-            
-    #         df_ranked = df[df['mode'] == mode] 
-            
-    #         # df_ranked = df_ranked[df_ranked['riot_id'] == riot_id.lower()] # TODO : A supprimer
-            
-    #         for compte in df_ranked['riot_id'].unique():
-                
-    #             if compte in ['kiki', 'tomlora', 'rektexo', 'kazsc', 'bacquente', 'onvatecastrer'] and mode == 'RANKED':
-    #                 continue
-                
-    #             print(compte)
-
-    #             def creation_agregat(df, compte):
-                
-    #                 discord_id = df.loc[df['riot_id'] == compte, 'discord'].unique()[0]
-    #                 df_filter = df[df['riot_id'] == compte]
-                    
-    #                 def feature_engineering(df):
-    #                     df['afk'] = df['afk'].astype(int)
-    #                     return df
-                    
-    #                 df_filter = feature_engineering(df_filter)
-                    
-    #                 liste_champ = {'kills' : ['sum', 'mean'],
-    #                                 'assists' : ['sum', 'mean'],
-    #                                 'deaths' : ['sum', 'mean'],
-    #                                 'double' : ['sum'],
-    #                                 'triple' : ['sum'],
-    #                                 'quadra' : ['sum'],
-    #                                 'penta' : ['sum'],
-    #                                 'time' : ['sum', 'mean'],
-    #                                 'victoire' : ['sum', 'count'],
-    #                                 'ecart_gold_min' : ['mean'],
-    #                                 'cs' : ['sum'],
-    #                                 'cs_min' : ['mean'],
-    #                                 'vision_avantage' : ['mean'],
-    #                                 'vision_min' : ['mean'],
-    #                                 'solokills' : ['sum', 'mean'],
-    #                                 'serie_kills' : ['max'],
-    #                                 'drake' : ['sum'],
-    #                                 'baron' : ['sum'],
-    #                                 'afk' : ['sum'],
-    #                                 'temps_dead' : ['sum', 'mean'], # Sur time, tu as passé X minutes morts
-    #                                 'kp' : ['mean'],
-    #                                 'kda' : ['sum', 'mean'],
-    #                                 'ecart_lp' : ['sum'],
-    #                                 'temps_avant_premiere_mort' : ['mean'],
-    #                                 'team' : ['sum'], # nombre de redside. A comparer avec le nombre de game
-    #                                 'team_kills' : ['sum', 'mean'],
-    #                                 'team_deaths' : ['sum', 'mean'],
-    #                                 'champion' : ['count'] # nombre de games
-    #                                 }
-
-
-    #                 df_grp = df_filter.groupby(['riot_id', 'role']).agg(liste_champ)
-                            
-    #                 df_grp_champ = df_filter.groupby(['riot_id', 'champion']).agg(liste_champ)
-                    
-                    
-    #                 df_mois = df_filter.copy()
-                    
-    #                 df_mois['MOIS'] = df_filter['datetime'].dt.month
-                    
-    #                 df_grp_mois = df_mois.groupby(['riot_id', 'MOIS']).agg(liste_champ)
-                    
-    #                 df_rank = df_filter.groupby(['riot_id', 'tier']).agg(liste_champ)
-                    
-                    
-    #                 df_grp.columns = pd.Index([e[0] + "_" + e[1].upper() for e in df_grp.columns.tolist()])
-    #                 df_grp_champ.columns = pd.Index([e[0] + "_" + e[1].upper() for e in df_grp_champ.columns.tolist()])
-    #                 df_grp_mois.columns = pd.Index([e[0] + "_" + e[1].upper() for e in df_grp_mois.columns.tolist()])
-    #                 df_rank.columns = pd.Index([e[0] + "_" + e[1].upper() for e in df_rank.columns.tolist()])
-                    
-    #                 def feature_winrate(df):
-    #                     df['winrate'] = ((df['victoire_SUM'] / df['victoire_COUNT']) * 100).astype(int)
-                        
-    #                     df['redside'] = ((df['team_SUM'] / df['champion_COUNT']) * 100).astype(int)
-                        
-    #                     df.drop(columns=['victoire_SUM'], inplace=True)
-                        
-    #                     df.rename(columns={'champion_COUNT' : 'nb_games'}, inplace=True)
-                        
-    #                     df.sort_values('nb_games', inplace=True, ascending=False)
-                        
-    #                     return df
-                    
-    #                 df_grp = feature_winrate(df_grp)
-    #                 df_grp_champ = feature_winrate(df_grp_champ)
-    #                 df_grp_mois = feature_winrate(df_grp_mois)
-    #                 df_rank = feature_winrate(df_rank)
-                
-    #                 return df_grp, df_grp_champ, df_grp_mois, discord_id, df_rank
-
-    #             df_grp, df_grp_champ, df_mois, discord_id, df_rank = creation_agregat(df_ranked, compte)
-                    
-                   
-    #             # on cherche l'user
-    #             user = self.bot.get_user(discord_id)
-                    
-    #             msg_grp = ''
-    #             nb_games = df_grp['nb_games'].sum()
-    #             embed_grp = interactions.Embed(title='Recap par poste')
-                    
-    #             for index, stat in df_grp.iterrows():
-                    
-    #                 try:
-    #                     kda = (stat['kills_SUM'] + stat['assists_SUM']) / stat['deaths_SUM']
-    #                 except ZeroDivisionError:
-    #                     kda = (stat['kills_SUM'] + stat['assists_SUM']) / 1
-    #                 kda = np.round(kda, 1)
-    #                 msg_grp = (f"- K: **{stat['kills_SUM']}** (Moy: **{np.round(stat['kills_MEAN'],1)}**) | D: **{stat['deaths_SUM']}** (Moy :**{np.round(stat['deaths_MEAN'],1)}**) | "+
-    #                     f"A: **{stat['assists_SUM']}** (Moy: **{np.round(stat['assists_MEAN'], 1)}**) \n"+
-    #                     f"- KP: **{int(stat['kp_MEAN'])}**% | KDA: **{kda}** | CS: **{stat['cs_SUM']}** (CS/min): **{np.round(stat['cs_min_MEAN'],1)}** \n"+
-    #                     f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}** \n"+
-    #                     f"- Temps **{int(stat['time_SUM'])}**m ({stat['time_SUM'] // 60 // 24}j) dont **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**% mort\n"+
-    #                     f"- Redside: **{stat['redside']}**% | Solok: **{stat['solokills_SUM']}** | Ecart gold/min: **{np.round(stat['ecart_gold_min_MEAN'],1)}** \n")
-                        
-    #                 if mode != 'ARAM':
-    #                     msg_grp += f"- Vision_min : **{np.round(stat['vision_min_MEAN'],1)}** | Vision_avantage : **{np.round(stat['vision_avantage_MEAN'],1)}**%"
-                        
-    #                 msg_grp = msg_grp[:5900]
-                    
-    #                 embed_grp.add_field(name=f"{index[1]} - **{stat['nb_games']}** P (**{stat['winrate']}**% victoire | {stat['ecart_lp_SUM']} LP) | {stat['afk_SUM']} afk", value=msg_grp)
-                        
-    #             msg_champ = ''
-    #             embed_champ = interactions.Embed(title=f'Recap par champion (3 champions les plus joués) 1/1')
-                
-                
-    #             for index, stat in df_grp_champ.head(2).iterrows():
-                    
-    #                 try:
-    #                     kda = (stat['kills_SUM'] + stat['assists_SUM']) / stat['deaths_SUM']
-    #                 except ZeroDivisionError:
-    #                     kda = (stat['kills_SUM'] + stat['assists_SUM']) / 1
-    #                 kda = np.round(kda, 1)
-    #                 msg_champ = (f"- K : **{stat['kills_SUM']}** (Moy: **{np.round(stat['kills_MEAN'],1)}**) | D: **{stat['deaths_SUM']}** (Moy: **{np.round(stat['deaths_MEAN'],1)}**) | "+
-    #                     f"A: **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**) \n"+
-    #                     f"- KP: **{int(stat['kp_MEAN'])}**% | KDA: **{kda}** | CS: **{stat['cs_SUM']}** (CS/m): **{np.round(stat['cs_min_MEAN'],1)}** \n"+
-    #                     f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}** \n"+
-    #                     f"- Time **{int(stat['time_SUM'])}**m ({stat['time_SUM'] // 60 // 24}j) dont **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**% mort\n"+
-    #                     f"- Redside: **{stat['redside']}**% | Solok: **{stat['solokills_SUM']}** | Ecart gold/m: **{np.round(stat['ecart_gold_min_MEAN'],1)}**  \n")
-                        
-    #                 if mode != 'ARAM':
-    #                     msg_champ += f"- Vision/m: **{np.round(stat['vision_min_MEAN'],1)}** | Vision_avantage: **{np.round(stat['vision_avantage_MEAN'],1)}**%"
-
-              
-    #                 embed_champ.add_field(name=f"{emote_champ_discord[index[1].capitalize()]} - **{stat['nb_games']}** P (**{stat['winrate']}**% victoire | {stat['ecart_lp_SUM']} LP) | {stat['afk_SUM']} afk", value=msg_champ)
-
-    #             msg_champ2 = ''
-    #             embed_champ2 = interactions.Embed(title=f'Recap par champion (3 champions les plus joués) 2/2')
-                
-                
-    #             for index, stat in df_grp_champ.iloc[2:3].iterrows():
-                    
-    #                 try:
-    #                     kda = (stat['kills_SUM'] + stat['assists_SUM']) / stat['deaths_SUM']
-    #                 except ZeroDivisionError:
-    #                     kda = (stat['kills_SUM'] + stat['assists_SUM']) / 1
-    #                 kda = np.round(kda, 1)
-    #                 msg_champ = (f"- K: **{stat['kills_SUM']}** (Moy: **{np.round(stat['kills_MEAN'],1)}**) | D: **{stat['deaths_SUM']}** (Moy: **{np.round(stat['deaths_MEAN'],1)}**) | "+
-    #                     f"A: **{stat['assists_SUM']}** (Moy : **{np.round(stat['assists_MEAN'], 1)}**)\n"+
-    #                     f"- KP: **{int(stat['kp_MEAN'])}**% | KDA: **{kda}** | CS: **{stat['cs_SUM']}** (CS/m) : **{np.round(stat['cs_min_MEAN'],1)}**\n"+
-    #                     f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}**\n"+
-    #                     f"- Temps **{int(stat['time_SUM'])}**m ({stat['time_SUM']//60//24}j) dont **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**% mort\n"+
-    #                     f"- Redside: **{stat['redside']}**% | Solok: **{stat['solokills_SUM']}** | Ecart gold/m: **{np.round(stat['ecart_gold_min_MEAN'],1)}**\n")
-                        
-    #                 if mode != 'ARAM':
-    #                     msg_champ2 += f"- Vision/m : **{np.round(stat['vision_min_MEAN'],1)}** | Vision_avantage : **{np.round(stat['vision_avantage_MEAN'],1)}**%"
-
-              
-    #                 embed_champ2.add_field(name=f"{emote_champ_discord[index[1].capitalize()]} - **{stat['nb_games']}** P (**{stat['winrate']}**% victoire | {stat['ecart_lp_SUM']} LP) | {stat['afk_SUM']} afk", value=msg_champ)
-                        
-    #             msg_rank = ''
-    #             embed_rank = interactions.Embed(title=f'Recap Rank')
-                    
-    #             for index, stat in df_rank.iterrows():
-    #                 try:
-    #                     kda = (stat['kills_SUM'] + stat['assists_SUM']) / stat['deaths_SUM']
-    #                 except ZeroDivisionError:
-    #                     kda = (stat['kills_SUM'] + stat['assists_SUM']) / 1
-    #                 kda = np.round(kda, 1)
-                    
-    #                 msg_rank = (f"- Kills: **{stat['kills_SUM']}** (Moy: **{np.round(stat['kills_MEAN'],1)}**) | Morts: **{stat['deaths_SUM']}** (Moy: **{np.round(stat['deaths_MEAN'],1)}**) | "+
-    #                     f"Assists: **{stat['assists_SUM']}** (Moy: **{np.round(stat['assists_MEAN'], 1)}**)\n"+
-    #                     f"- KP moyen: **{int(stat['kp_MEAN'])}**% | KDA: **{kda}** | CS: **{stat['cs_SUM']}** (Moy CS/min): **{np.round(stat['cs_min_MEAN'],1)}**\n"+
-    #                     f"- :two: **{stat['double_SUM']}** | :three: **{stat['triple_SUM']}** | :four: **{stat['quadra_SUM']}** | :five: **{stat['penta_SUM']}**\n"+
-    #                     f"- Tu as joué **{int(stat['time_SUM'])}**m ({stat['time_SUM'] // 60 // 24}j) dont **{int((int(stat['temps_dead_SUM'])/int(stat['time_SUM']))*100)}**% mort\n"+
-    #                     f"- Redside: **{stat['redside']}**% | Solokills: **{stat['solokills_SUM']}** | Ecart gold/m: **{np.round(stat['ecart_gold_min_MEAN'],1)}**\n")
-                        
-    #                 if mode != 'ARAM':
-    #                     msg_rank += f"- Vision_min : **{np.round(stat['vision_min_MEAN'],1)}** | Vision_avantage : **{np.round(stat['vision_avantage_MEAN'],1)}%**"
-                    
-    #                 embed_rank.add_field(name=f"{emote_rank_discord[index[1].upper()]} - **{stat['nb_games']}** P (**{stat['winrate']}**% victoire | {stat['ecart_lp_SUM']} LP) | {stat['afk_SUM']} afk", value=msg_rank)
-                                                
-                        
-
-    #             embed_list = [embed_grp, embed_champ, embed_champ2, embed_rank]      
-
-                    
-    #             await user.send(content=f'**Recap {annee}** ({compte.upper()}) ({mode}) - {nb_games} parties enregistrées', embed=embed_list[0])
-    #             await user.send(embed=embed_list[1])
-    #             await user.send(embed=embed_list[2])
-    #             await user.send(embed=embed_list[3])
-    #             await user.send(content='---------------------------------------')
-                
-    #             # Essayer de rajouter les records personnels du joueur
-
-    #     for mode in ['RANKED', 'ARAM']:
-            
-    #         fichier_divers_copy = fichier_divers.copy()   
-    #         fichier_farming_copy = fichier_farming.copy()     
-            
-    #         methode_pseudo = 'riot_id'
-            
-    #         df_records_original = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord from matchs
-    #                                  INNER JOIN tracker on tracker.id_compte = matchs.joueur
-    #                                  where season = {saison}
-    #                                  and mode = '{mode}'
-    #                                  and time >= {time_mini[mode]}
-    #                                  and tracker.banned = false''', index_col='id').transpose() 
-            
-    #         df_records_original['early_drake'] = df_records_original['early_drake'].replace({0 : 999})    
-    #         df_records_original['early_baron'] = df_records_original['early_baron'].replace({0 : 999}) 
-            
-    #         for column in liste_complete:
-                
-    #             try:
-    #                 df_records_original[f'{column}_rank_max'] = df_records_original[column].rank(method='min', ascending=False).astype(int)
-    #                 df_records_original[f'{column}_rank_min'] = df_records_original[column].rank(method='min', ascending=True).astype(int)
-    #             except:
-    #                 print('erreur', column)
-            
-    #         nb_games = df_records_original.shape[0] 
-            
-    #         if mode == 'RANKED':
-                
-    #             fichier_divers_copy.remove('snowball')
-
-    #         if mode == 'ARAM':  # on vire les records qui ne doivent pas être comptés en aram
-
-    #             fichier_farming_copy.remove('cs_jungle')
-    #             fichier_farming_copy.remove('jgl_dix_min')                 
-            
-    #         title = f'Records Personnel {mode} s{saison}'     
-            
-    #         # df_records_original = df_records_original[df_records_original['riot_id'] == riot_id.lower()]  # TODO : a supprimer
-                
-    #         for discord_id in df_records_original['discord'].unique():
-                
-    #             user = self.bot.get_user(discord_id)
-                
-    #             df_records = df_records_original[df_records_original['discord'] == discord_id]
-                
-                
-    #             def format_value(joueur, champion, url, short=False):
-    #                 text = ''
-    #                 for j, c, u in zip(joueur, champion, url):
-    #                     if short:
-    #                         text += f'**__ {j} __ {c} ** \n'
-    #                     else:
-    #                         text += f'**__{j}__** {emote_champ_discord.get(c.capitalize(), "inconnu")} [G]({u}) \n'
-    #                 return text
-                
-    #             def creation_embed(fichier, column, methode_pseudo, embed, methode='max'):
-    #                     joueur, champion, record, url, rank = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo, rank=True)
-                    
-    #                     value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"** {joueur[0]} ** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]})\n"
-                        
-    #                     embed.add_field(
-    #                         name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-    #                         value=f"Records : __{record}__ (#{rank}) \n {value_text}",
-    #                         inline=True
-    #                     )
-                        
-    #                     return embed
-                
-    #             embed1 = interactions.Embed(
-    #                 title=title + " Kills", color=interactions.Color.random())    
-
-    #             for column in fichier_kills:
-                    
-    #                 embed1 = creation_embed(df_records, column, methode_pseudo, embed1)
-                
-
-    #             embed2 = interactions.Embed(
-    #                 title=title + " DMG", color=interactions.Color.random())
-
-    #             for column in fichier_dmg:
-                    
-    #                 embed2 = creation_embed(df_records, column, methode_pseudo, embed2)
-
-    #             embed5 = interactions.Embed(
-    #                 title=title + " Farming", color=interactions.Color.random())
-
-    #             for column in fichier_farming_copy:
-                    
-    #                 embed5 = creation_embed(df_records, column, methode_pseudo, embed5)
-
-    #             embed6 = interactions.Embed(
-    #                 title=title + " Tank/Heal", color=interactions.Color.random())
-
-    #             for column in fichier_tank_heal:
-                    
-    #                 embed6 = creation_embed(df_records, column, methode_pseudo, embed6)
-
-    #             embed7 = interactions.Embed(
-    #                 title=title + " Divers", color=interactions.Color.random())
-
-    #             for column in fichier_divers_copy:
-                    
-    #                 embed7 = creation_embed(df_records, column, methode_pseudo, embed7)
-
-
-    #             if mode != 'ARAM':
-                    
-    #                 embed3 = interactions.Embed(
-    #                 title=title + " Vision", color=interactions.Color.random())
-
-    #                 for column in fichier_vision:
-                        
-    #                     embed3 = creation_embed(df_records, column, methode_pseudo, embed3)
-
-                        
-    #                 embed4 = interactions.Embed(
-    #                     title=title + " Objectif", color=interactions.Color.random())
-                    
-    #                 for column in fichier_objectif:
-    #                     methode = 'max'
-    #                     if column in ['early_drake', 'early_baron']:
-    #                         methode = 'min'
-                        
-    #                     embed4 = creation_embed(df_records, column, methode_pseudo, embed4, methode)
-
-    #             embed1.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
-    #             embed2.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
-    #             embed5.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
-    #             embed6.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
-    #             embed7.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
-
-    #             if mode != 'ARAM':
-    #                 embed3.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
-    #                 embed4.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
-    #                 pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7]
-
-    #             else:
-    #                 pages=[embed1, embed2, embed5, embed6, embed7]
-                
-                
- 
-    #             for page in pages:
-    #                 await user.send(embed=page)
-
-                
-                
-    #             # await user.send("N'hésite pas à utiliser **/palmares** (nom du record) pour avoir le détail du classement du record !")    
-    #             # await user.send('----------------------------------------------------')  
-                    
-    #             await ctx.send(f'Fait pour {discord_id} {mode}')
-
 
     @slash_command(name="history_game",
                    description="Deroulement d'une game",
