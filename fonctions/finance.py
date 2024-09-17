@@ -255,17 +255,39 @@ class askFinance:
             self.cashflow_quarter = self.data.get_cashflow(freq='quarterly').iloc[:,:4]   
 
             try:
-                self.dette_nette = self.balance_sheet_quarter.loc['NetDebt'].mean()
+                self.dernier_free_cashflow = self.data_info['freeCashflow']
             except:
-                self.dette_nette = self.balance_sheet_quarter.loc['TotalDebt'].mean()
-                
-            try:    
-                self.cashflow_net = self.cashflow_quarter.loc['FreeCashFlow'].mean()
+                self.dernier_free_cashflow = 'inconnu'
+
+            try:
+                self.dernier_roe = self.data_info['returnOnEquity']
             except:
+                self.dernier_roe = 'inconnu'
+
+            try:   
+                self.dividende_rate = self.data_info['dividendRate']
+            except:
+                self.dividende_rate = 0
+
+            try:
+                self.dividende_yield = self.data_info['dividendYield'] * 100
+            except:
+                self.dividende_yield = 0
+
+            try:
+                self.dette_ratio = self.data_info['debtToEquity']
+            except:
+                self.dette_ratio = 'inconnu'
+            try:
+                self.cashflow_net = self.data_info['freeCashflow']
+            except KeyError:
                 self.cashflow_net = 0
 
-
-            self.dette_ratio = await self.dette_nette_sur_cashflow(self.dette_nette, self.cashflow_net)
+            try:
+                self.dette_nette = self.data_info['totalDebt']
+            except KeyError:
+                self.dette_nette = 0
+    
 
             self.profit_margin = await self.marge_cashflow(self.balance_sheet_final.loc['Net Income'], self.balance_sheet_final.loc['Total Revenue'])
 
@@ -319,7 +341,8 @@ class askFinance:
             df.loc['Type'] = self.type
             df.loc['Secteur'] = self.secteur
             df.loc['Capitaux Propres'] = self.capitaux_propres.iloc[:, -1].values[0]
-            # df.loc['Business'] = self.business
+            df.loc['Cashflow'] = self.dernier_free_cashflow
+            df.loc['Roe'] = self.dernier_roe
             df.loc['Croissance CA par an'] = np.round(self.croissance_ca,2)
             df.loc['Croissance CF par an'] = np.round(self.croissance_cashflow,2)
             df.loc['Croissance ROE'] = np.round(self.croissance_roe,2)
@@ -329,6 +352,10 @@ class askFinance:
             df.loc['Profit marge moyenne'] = np.round(self.profit_margin_mean,2)
             df.loc['BPA'] = np.round(self.benef_par_action,2)
             df.loc['PE_ratio'] = np.round(self.PE_ratio,2)
+            df.loc['Cash'] = self.cash
+            df.loc['Dette'] = self.dette_nette
+            df.loc['Taux dividende'] = self.dividende_rate
+            df.loc['Rendement dividende (%)'] = self.dividende_yield
 
         else:
 
@@ -349,45 +376,67 @@ class askFinance:
         self.free_cashflow_par_action = self.cashflow_final.loc['Free Cash Flow'] / self.nb_actions
         self.benefice_par_action = self.balance_sheet_final.loc['Net Income'] / self.nb_actions
 
-    async def valorisation(self):
+    # async def valorisation(self):
 
 
-        self.eps = self.benef_par_action
+    #     self.eps = self.benef_par_action
 
-        temps = 5 # ans
+    #     temps = 5 # ans
 
-        # evolution du per historique (zonebourse -> finance)
-        dict_per = {'per_pessimiste' : 14,
-        'per_neutre' : 20,
-        'per_realiste' : 30,
-        'per_optimiste' : 40}
+    #     # evolution du per historique (zonebourse -> finance)
+    #     dict_per = {'per_pessimiste' : 14,
+    #     'per_neutre' : 20,
+    #     'per_realiste' : 30,
+    #     'per_optimiste' : 40}
 
-        # yahoofinance
-        dict_croissance = {
-        'croissance_pessimiste' : 6.6,
-        'croissance_neutre' : 9.9,
-        'croissance_realiste' : 14,
-        'croissance_optimiste' : 20}
+    #     # yahoofinance
+    #     dict_croissance = {
+    #     'croissance_pessimiste' : 6.6,
+    #     'croissance_neutre' : 9.9,
+    #     'croissance_realiste' : 14,
+    #     'croissance_optimiste' : 20}
 
-        self.df_prix_cible = pd.DataFrame(columns=dict_per.keys(), index=dict_croissance.keys())
+    #     self.df_prix_cible = pd.DataFrame(columns=dict_per.keys(), index=dict_croissance.keys())
 
-        for (cle_per, per_selected) in dict_per.items():
+    #     for (cle_per, per_selected) in dict_per.items():
             
-            for (cle_croissance, croissance_selected) in dict_croissance.items():
+    #         for (cle_croissance, croissance_selected) in dict_croissance.items():
 
-                valeur_future = round(self.eps * (math.pow((1+croissance_selected/100),temps))*per_selected,2)
-                resultat = round(valeur_future/math.pow(1+0.095, temps),2)
-                resultat_avec_securite = round(resultat * 0.8,2)
+    #             valeur_future = round(self.eps * (math.pow((1+croissance_selected/100),temps))*per_selected,2)
+    #             resultat = round(valeur_future/math.pow(1+0.095, temps),2)
+    #             resultat_avec_securite = round(resultat * 0.8,2)
                 
-                self.df_prix_cible.loc[cle_croissance, cle_per] = resultat_avec_securite
+    #             self.df_prix_cible.loc[cle_croissance, cle_per] = resultat_avec_securite
 
         
-        self.moyenne = np.round((self.df_prix_cible.loc['croissance_realiste', 'per_neutre'] +
-                        self.df_prix_cible.loc['croissance_realiste', 'per_realiste'] + 
-                        self.df_prix_cible.loc['croissance_neutre', 'per_realiste']) / 3 ,2)
+    #     self.moyenne = np.round((self.df_prix_cible.loc['croissance_realiste', 'per_neutre'] +
+    #                     self.df_prix_cible.loc['croissance_realiste', 'per_realiste'] + 
+    #                     self.df_prix_cible.loc['croissance_neutre', 'per_realiste']) / 3 ,2)
         
-        self.difference = np.round(self.current_price - self.moyenne,2)
+    #     self.difference = np.round(self.current_price - self.moyenne,2)
 
-        return self.df_prix_cible, self.moyenne, self.difference
+    #     return self.df_prix_cible, self.moyenne, self.difference
     
+    async def analyste(self):
+
+        try:
+            nb_analyste = self.data_info['numberOfAnalystOpinions']
+            recommandation_mean = self.data_info['recommendationMean']
+            recommandation = self.data_info['recommendationKey']
+            current_price = self.data_info['currentPrice']
+            target_high = self.data_info['targetHighPrice']
+            target_low = self.data_info['targetLowPrice']
+            target_mean = self.data_info['targetMeanPrice']
+
+            self.df_analyste = pd.DataFrame([{'nb_analyste' : nb_analyste,
+                                        'recommandation' : recommandation,
+                                        'recommandation_mean' : recommandation_mean,
+                                        'current_price' : current_price,
+                                        'target_mean' : target_mean,
+                                        'target_high' : target_high,
+                                        'target_low' : target_low}]).T
+            
+            return self.df_analyste
+        except:
+            pass
 

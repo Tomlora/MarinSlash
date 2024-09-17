@@ -10,6 +10,7 @@ from fonctions.channels_discord import get_embed
 from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
+import pandas as pd
 
 # Activity au lancement du bot
 
@@ -54,7 +55,8 @@ class data_finance(Extension):
                                                   name='Cashflow', value='cashflow'),
                                               SlashCommandChoice(
                                                   name='Revenus', value='revenu'),
-                                               SlashCommandChoice(name='Dividende', value='dividende')])])
+                                               SlashCommandChoice(name='Dividende', value='dividende'),
+                                               SlashCommandChoice(name='Analyste', value='analyste')])])
     async def info_generale(self,
                         ctx: SlashContext,
                         ticker,
@@ -82,6 +84,8 @@ class data_finance(Extension):
                     df = entreprise.income / 1000
                 case 'dividende':
                     df = entreprise.dividendes
+                case 'analyste':
+                    df = await entreprise.analyste()
 
 
         await export_as_image(df, ctx, content)
@@ -128,34 +132,34 @@ class data_finance(Extension):
         embed, file = await entreprise.history(periode)
         await ctx.send(embeds=embed, files=file)
 
-    @finance.subcommand("valorisation",
-                            sub_cmd_description="Info générale sur une entreprise",
-                            options=[
-                                SlashCommandOption(name="ticker",
-                                                    description="Ticker de l'entreprise",
-                                                    type=interactions.OptionType.STRING,
-                                                    required=True)])
-    async def valorisation(self,
-                        ctx: SlashContext,
-                        ticker):
+    # @finance.subcommand("valorisation",
+    #                         sub_cmd_description="Info générale sur une entreprise",
+    #                         options=[
+    #                             SlashCommandOption(name="ticker",
+    #                                                 description="Ticker de l'entreprise",
+    #                                                 type=interactions.OptionType.STRING,
+    #                                                 required=True)])
+    # async def valorisation(self,
+    #                     ctx: SlashContext,
+    #                     ticker):
         
-        await ctx.defer(ephemeral=False)
+    #     await ctx.defer(ephemeral=False)
 
-        entreprise = askFinance(ticker)
+    #     entreprise = askFinance(ticker)
 
-        await entreprise.initialisation()
+    #     await entreprise.initialisation()
 
-        if entreprise.type != 'ETF':
+    #     if entreprise.type != 'ETF':
 
-            df_valorisation, prix_moyen, difference = await entreprise.valorisation()
+    #         df_valorisation, prix_moyen, difference = await entreprise.valorisation()
 
-            prix_actuel = entreprise.current_price
+    #         prix_actuel = entreprise.current_price
 
 
-            await export_as_image(df_valorisation, ctx, f'Prix actuel : {prix_actuel} | Prix moyen : **{prix_moyen}** | (Différence de **{difference}**)')
+    #         await export_as_image(df_valorisation, ctx, f'Prix actuel : {prix_actuel} | Prix moyen : **{prix_moyen}** | (Différence de **{difference}**)')
 
-        else:
-            ctx.send("Cette méthode n'est pas adaptée aux ETF")
+    #     else:
+    #         ctx.send("Cette méthode n'est pas adaptée aux ETF")
 
 
     @finance.subcommand("correlation",
@@ -294,6 +298,10 @@ class data_finance(Extension):
                                                    description='Afficher la tendance',
                                                    type=interactions.OptionType.BOOLEAN,
                                                    required=False),
+                                SlashCommandOption(name='dividende',
+                                                   description='Afficher les dividendes',
+                                                   type=interactions.OptionType.BOOLEAN,
+                                                   required=False),                                
                                 SlashCommandOption(name='bollinger',
                                                    description='Afficher les bandes de bollinger',
                                                    type=interactions.OptionType.BOOLEAN,
@@ -304,10 +312,13 @@ class data_finance(Extension):
                         linear = False,
                         periode='150d',
                         tendance=False,
+                        dividende=False,
                         bollinger=False):  
 
        
         data = yf.Ticker(ticker)
+
+        title = f'Analyse Graphique {ticker}'
 
 
         await ctx.defer(ephemeral=False)
@@ -329,6 +340,19 @@ class data_finance(Extension):
         # Calculate the Upper Bollinger Band (UB) and Lower Bollinger Band (LB)
         hist['UB'] = hist['SMA'] + 2 * hist['SD']
         hist['LB'] = hist['SMA'] - 2 * hist['SD']
+
+        df_croisement = hist.copy()
+
+        crossed = ((df_croisement['average_rolling12j'] < df_croisement['average_rolling2j']) != (df_croisement['average_rolling12j'].shift(1) < df_croisement['average_rolling2j'].shift(1)))
+
+
+        df_croisement['croisement'] = crossed 
+
+        df_croisement = df_croisement[['Date', 'Close', 'average_rolling12j', 'average_rolling2j', 'croisement']]
+
+        df_croisement['Date'] = df_croisement['Date'].astype(str)
+
+        cross_points = df_croisement[df_croisement['croisement'] == True]
 
         fig = go.Figure()
 
@@ -356,11 +380,43 @@ class data_finance(Extension):
                                     y=lr.predict(X),
                                     name='trend',
                                     mode='lines'))
+        
+        if dividende:
+            dividende = pd.DataFrame(data.get_dividends())
+
+            if not dividende.empty:
+                for date, row in dividende.iterrows():
+                    fig.add_shape(
+                        dict(
+                            name='Dividende',
+                            type="line",
+                            x0=date, x1=date,  # Coordonnées en x (ligne verticale)
+                            y0=min(0, cross_points['average_rolling2j'].min()),  # Coordonnée Y de début
+                            y1=max(0, cross_points['average_rolling2j'].max()),  # Coordonnée Y de fin
+                            line=dict(color="orange", width=2, dash="dot"),
+                        )
+                    )
+
+                title = title + f' | Dividende en Orange'
             
         if bollinger:
             # Add the Upper Bollinger Band (UB) and shade the area
             fig.add_trace(go.Scatter(x=hist['Date'], y=hist['UB'], mode='lines', name='Upper Bollinger Band', line=dict(color='red')))
             fig.add_trace(go.Scatter(x=hist['Date'], y=hist['LB'], fill='tonexty', mode='lines', name='Lower Bollinger Band', line=dict(color='cyan')))
+
+
+            for _, row in cross_points.iterrows():
+                fig.add_shape(
+                    dict(
+                        type="line",
+                        x0=row['Date'], x1=row['Date'],  # Coordonnées en x (ligne verticale)
+                        y0=min(0, cross_points['average_rolling2j'].min()),  # Coordonnée Y de début
+                        y1=max(0, cross_points['average_rolling2j'].max()),  # Coordonnée Y de fin
+                        line=dict(color="green", width=2, dash="dot"),
+                    )
+                )
+            
+            title = title + ' | Croisement Moyenne Mobile en Vert'
 
         fig.add_trace(go.Scatter(x=hist['Date'],
                                 y=hist['average_rolling12j'],
@@ -376,7 +432,7 @@ class data_finance(Extension):
             autosize=False,
             width=2000,
             height=1500,
-            title=f'Analyse Graphique {ticker}'
+            title=title
             )
         
 

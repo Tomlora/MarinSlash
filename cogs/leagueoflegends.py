@@ -1561,7 +1561,11 @@ class LeagueofLegends(Extension):
                     if diff_rank_euw > 0:
                         diff_rank_euw = f"+{humanize.intcomma(int(diff_rank_euw)).replace(',', ' ')}"
                     else:
-                        diff_rank_euw = f"{humanize.intcomma(int(diff_rank_euw)).replace(',', ' ')}"
+                        try:
+                            diff_rank_euw = f"{humanize.intcomma(int(diff_rank_euw)).replace(',', ' ')}"
+                        except ValueError:
+                            diff_rank_euw = f"{0}"
+
                         
                     rank_euw_format = humanize.intcomma(int(rank_euw)).replace(',', ' ')
 

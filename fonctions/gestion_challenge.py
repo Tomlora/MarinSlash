@@ -296,6 +296,7 @@ class challengeslol():
         txt_evolution = ''
         
         if not self.data_new_value.empty:
+            self.data_new_value.drop_duplicates(subset='challengeId', inplace=True)
             for joueur, data in self.data_new_value.head(self.nb_challenges).iterrows():
                 txt, chunk = check_chunk(txt, chunk, chunk_size)
                 value = format_nombre(data['value'])
@@ -315,6 +316,7 @@ class challengeslol():
         
         
         if not self.data_evolution.empty and len(embed) <= 5000:
+            self.data_evolution.drop_duplicates(subset='challengeId', inplace=True)
             for joueur, data in self.data_evolution.head(5).iterrows():
                 if txt_evolution.count(data['name']) == 0: # on ne veut pas de doublons
                     txt_evolution, chunk = check_chunk(txt_evolution, chunk, chunk_size)
@@ -324,6 +326,7 @@ class challengeslol():
         
         chunk = 1      
         if not self.data_new_percentile.empty and len(embed) <= 5000:
+            self.data_new_percentile.drop_duplicates(subset='challengeId', inplace=True)
             for joueur, data in self.data_new_percentile.head(5).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
                 percentile = data['percentile'] * 100
@@ -332,6 +335,7 @@ class challengeslol():
                 
       
         if not self.data_new_position.empty and len(embed) <= 5500:
+            self.data_new_position.drop_duplicates(subset='challengeId', inplace=True)
             for joueur, data in self.data_new_position.head(self.nb_challenges).iterrows():
                 txt_24h, chunk = check_chunk(txt_24h, chunk, chunk_size)
                 position = format_nombre(data['position'])
@@ -344,6 +348,7 @@ class challengeslol():
                 
         chunk = 1      
         if not self.data_new_level.empty:
+            self.data_new_level.drop_duplicates(subset='challengeId', inplace=True)
             for joueur, data in self.data_new_level.head(5).iterrows():
                 txt_level_up, chunk = check_chunk(txt_level_up, chunk, chunk_size)
                 next_palier = format_nombre(data['diff_vers_palier_suivant'])
