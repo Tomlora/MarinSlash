@@ -78,7 +78,7 @@ class Masteries(Extension):
             if not isinstance(df, pd.DataFrame):    
                 df = pd.DataFrame(data)    
 
-                df.drop(columns=['puuid', 'summonerId'], inplace=True)
+                df.drop(columns=['puuid'], inplace=True)
 
                 df['id'] = id_compte
                 
@@ -86,7 +86,7 @@ class Masteries(Extension):
                 
                 df2 = pd.DataFrame(data)
                 
-                df2.drop(columns=['puuid', 'summonerId'], inplace=True)
+                df2.drop(columns=['puuid'], inplace=True)
 
                 df2['id'] = id_compte
                 

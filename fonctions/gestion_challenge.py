@@ -286,7 +286,7 @@ class challengeslol():
                 if len(str(int(nombre))) <= 6 :
                     return humanize.intcomma(int(nombre)) # on met des espaces entre les milliers
                 else:
-                    return humanize.intword(int(nombre)).replace('million', 'M') # on transforme le nombre en mots
+                    return humanize.intword(int(nombre)).replace('million', 'M').replace('thousand', 'K') # on transforme le nombre en mots
             except ValueError:
                 return 0
         

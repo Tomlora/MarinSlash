@@ -2,7 +2,6 @@ import os
 import pandas as pd
 import warnings
 from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd, lire_bdd_perso, sauvegarde_bdd
-from fonctions.params import saison
 from fonctions.channels_discord import mention
 import numpy as np
 import sys
@@ -494,7 +493,7 @@ async def update_ugg(session, summonerName, tagline, regionId="euw1"):
     return response
 
 
-async def getRanks(session : aiohttp.ClientSession, summonerName, tagline, regionId='euw1', season=23):
+async def getRanks(session : aiohttp.ClientSession, summonerName, tagline, regionId='euw1', season=24):
     url = "https://u.gg/api"
     """Avopir le rank et le tier d'un joueur"""
     payload = {
@@ -1033,6 +1032,10 @@ class matchlol():
         params = lire_bdd_perso('select * from settings', format='dict', index_col='parametres')
 
         self.ugg = params['update_ugg']['value']
+        self.season = int(params['saison']['value'])
+        self.last_season = params['last_season']['value']
+        self.split = int(params['split']['value'])
+        self.season_ugg = int(params['season_ugg']['value'])
         
 
     async def get_data_riot(self):
@@ -1117,8 +1120,7 @@ class matchlol():
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
         self.match_detail_challenges = self.match_detail_participants['challenges']
         self.thisPosition = self.match_detail_participants['teamPosition']
-        self.season = 14  # TODO a modifier quand changement de saison
-        self.split = 1
+
 
         if (str(self.thisPosition) == "MIDDLE"):
             self.thisPosition = "MID"
@@ -1857,7 +1859,7 @@ class matchlol():
 
             
 
-            self.data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
+            self.data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), season=self.season_ugg)
 
  
  
@@ -1868,7 +1870,7 @@ class matchlol():
                 except TypeError:
                     self.df_rank = ''
             
-            self.df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), [22,23])
+            self.df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), [22,23,24])
            
             if isinstance(self.df_data_stat, pd.DataFrame):
 
@@ -2837,14 +2839,10 @@ class matchlol():
         d.text((x_name+700, y_name-20),
                f"Niveau {self.level_summoner}", font=font_little, fill=fill)
 
-        last_season = self.season
-
-        if last_season == 14: # pour split la saison en 2
-            last_season = '14_1'
 
         try:
             if not self.thisQ in ['ARAM', 'CLASH ARAM']:
-                data_last_season = get_data_bdd(f'''SELECT index, tier, rank from suivi_s{last_season} where index = {self.id_compte} ''')
+                data_last_season = get_data_bdd(f'''SELECT index, tier, rank from suivi_s{self.last_season} where index = {self.id_compte} ''')
                 data_last_season = data_last_season.mappings().all()[0]
                 self.tier_last_season = data_last_season['tier']
                 self.rank_last_season = data_last_season['rank']
@@ -2884,9 +2882,9 @@ class matchlol():
 
         else:  # si c'est l'aram, le traitement est différent
 
-            data_aram = get_data_bdd(f''' SELECT ranked_aram_s{saison}.index,wins, losses, lp, games, k, d, a, ranked_aram_s{saison}.activation, rank, serie
-                                     from ranked_aram_s{saison}
-                                     INNER JOIN tracker on tracker.id_compte = ranked_aram_s{saison}.index
+            data_aram = get_data_bdd(f''' SELECT ranked_aram_s{self.season}.index,wins, losses, lp, games, k, d, a, ranked_aram_s{self.season}.activation, rank, serie
+                                     from ranked_aram_s{self.season}
+                                     INNER JOIN tracker on tracker.id_compte = ranked_aram_s{self.season}.index
                                      WHERE tracker.id_compte = :id_compte ''',
                                      {'id_compte': self.id_compte}).mappings().all()
 
@@ -2996,7 +2994,7 @@ class matchlol():
                        f'{wins}W {losses}L     {round(wr,1)}% ', font=font_little, fill=fill)
 
                 # on met à jour
-                requete_perso_bdd(f'''UPDATE ranked_aram_s{saison}
+                requete_perso_bdd(f'''UPDATE ranked_aram_s{self.season}
                                     SET wins = :wins,
                                     losses = :losses,
                                     lp = :lp,
@@ -3198,7 +3196,7 @@ class matchlol():
             else:
                 try:
                     
-                    data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
+                    data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), season=self.season_ugg)
                     df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
                     rank_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
                     tier_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
@@ -3369,9 +3367,9 @@ class matchlol():
 
         # Stat du jour
         if self.thisQ in ['ARAM', 'CLASH ARAM']:
-            suivi_24h = lire_bdd(f'ranked_aram_S{saison}', 'dict')
+            suivi_24h = lire_bdd(f'ranked_aram_S{self.season}', 'dict')
         else:
-            suivi_24h = lire_bdd(f'suivi_S{saison}', 'dict')
+            suivi_24h = lire_bdd(f'suivi_S{self.season}', 'dict')
 
         if self.thisQ not in ['ARAM', 'CLASH ARAM', 'FLEX']:
 
@@ -3414,633 +3412,6 @@ class matchlol():
         return embed
 
 
-    async def test(self,
-                             name_img,
-                             embed,
-                             difLP):
-
-        '''Resume global de la game
-
-        Parameters
-        -----------
-        name_img : nom de l'image enregistré'''
-        
-
-
-        # Gestion de l'image 2
-        lineX = 2600
-        lineY = 100
-
-        x_name = 350
-
-        lineX = 2600
-        lineY = 100
-
-        x_name = 290
-        y = 120
-        y_name = y - 60
-        x_rank = 1750
-        x_objectif = 1600
-
-        y_avatar = 320
-        y_pseudo = y_avatar + 100
-        y_rank = y_pseudo + 50
-
-        x_kill_total = 1000
-
-        x_center = 236 * 5 + 70
-
-        y_ecart_gold = y_rank+60
-        y_score = y_ecart_gold + 50
-        y_items = y_score + 80
-        y_kda = y_items + 200
-
-        if self.thisQ == 'ARAM': # Vu qu'il n'y a pas de VS, on augmente
-            y_kda += 50
-        y_kda_raccourci = y_kda-50
-
-        y_KP = y_kda+100
-        y_cs = y_KP + 120
-        y_dmg = y_cs + 80
-        y_tank = y_dmg + 100
-        y_vision = y_tank + 100
-        x_metric = 120
-
-
-        font = charger_font(50)
-        font_little = charger_font(40)
-        font_dmg = charger_font(35)
-        font_very_little = charger_font(30)
-        font_very_very_little = charger_font(25)
-
-
-        im = Image.new("RGBA", (lineX, lineY * 13 + 190),
-                       (255, 255, 255))  # Ligne blanche
-        d = ImageDraw.Draw(im)
-
-        line = Image.new("RGB", (lineX, 300), (230, 230, 230))  # Ligne grise
-        im.paste(line, (0, 0))
-
-        fill = (0, 0, 0)
-        d.text((x_name, y_name), self.riot_id, font=font, fill=fill)
-
-        im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
-                 box=(x_name-240, y_name-20))
-
-        im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100, self.version['n']['profileicon']),
-                 box=(x_name-120, y_name-20))
-
-        d.text((x_name+700, y_name-20),
-               f"Niveau {self.level_summoner}", font=font_little, fill=fill)
-
-        try:
-            if self.thisQ != 'ARAM':
-                data_last_season = get_data_bdd(f'''SELECT index, tier from suivi_s{self.season-1} where index = {self.id_compte} ''')
-                self.tier_last_season = data_last_season.mappings().all()[0]['tier']
-            else:
-                data_last_season = get_data_bdd(f'''SELECT index, rank from ranked_aram_s{self.season-1} where index = {self.id_compte} ''')
-                self.tier_last_season = data_last_season.mappings().all()[0]['rank']
-
-            img_tier_last_season = await get_image("tier", self.tier_last_season, self.session, 100, 100)
-
-            im.paste(img_tier_last_season,(x_name+950, y_name-50), img_tier_last_season.convert('RGBA'))
-        except Exception:
-            pass  
-
-        if self.thisQ != "ARAM":  # si ce n'est pas le mode aram, on prend la soloq normal
-            if self.thisTier != ' ':  # on vérifie que le joueur a des stats en soloq, sinon il n'y a rien à afficher
-
-                requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
-                                                                                                                        'match_id': self.last_match,
-                                                                                                                        'joueur': self.id_compte})
-                img_rank = await get_image('tier', self.thisTier, self.session, 220, 220)
-
-                im.paste(img_rank, (x_rank, y-140), img_rank.convert('RGBA'))
-
-                d.text((x_rank+220, y-110),
-                       f'{self.thisTier} {self.thisRank}', font=font, fill=fill)
-                d.text((x_rank+220, y-45),
-                       f'{self.thisLP} LP ({difLP})', font=font_little, fill=fill)
-
-                # Gestion des bo
-                if int(self.thisLP) == 100:
-                    bo = self.thisStats[self.i]['miniSeries']
-                    bo_wins = str(bo['wins'])
-                    bo_losses = str(bo['losses'])
-                    # bo_progress = str(bo['progress'])
-                    d.text(
-                        (x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L {self.thisWinrateStat}%  |  (BO3 : {bo_wins} / {bo_losses}) ', font=font_little, fill=fill)
-                else:
-                    d.text(
-                        (x_rank+220, y+10), f'{self.thisVictory}W {self.thisLoose}L     {self.thisWinrateStat}% ', font=font_little, fill=fill)
-            else:  # si pas de stats en soloq
-                d.text((x_rank+220, y-45), 'En placement', font=font, fill=fill)
-
-        else:  # si c'est l'aram, le traitement est différent
-
-            data_aram = get_data_bdd(f''' SELECT ranked_aram_s{saison}.index,wins, losses, lp, games, k, d, a, ranked_aram_s{saison}.activation, rank, serie
-                                     from ranked_aram_s{saison}
-                                     INNER JOIN tracker on tracker.id_compte = ranked_aram_s{saison}.index
-                                     WHERE tracker.id_compte = :id_compte ''',
-                                     {'id_compte': self.id_compte}).mappings().all()
-
-            wins_actual = data_aram[0]['wins']
-            losses_actual = data_aram[0]['losses']
-            lp_actual = data_aram[0]['lp']
-            games_actual = data_aram[0]['games']
-            k_actual = data_aram[0]['k']
-            d_actual = data_aram[0]['d']
-            a_actual = data_aram[0]['a']
-            activation = data_aram[0]['activation']
-            rank_actual = data_aram[0]['rank']
-            serie_wins = data_aram[0]['serie']
-
-            if activation:
-
-                games = games_actual + 1
-
-                if str(self.thisWinId) == 'True':
-                    wins = wins_actual + 1
-                    losses = losses_actual
-
-                else:
-                    wins = wins_actual
-                    losses = losses_actual + 1
-
-                wr = round(wins / games, 2)*100
-
-                # si afk et lose, pas de perte
-                if self.AFKTeam >= 1 and str(self.thisWinId) != "True":
-                    points = 0
-                else:
-                    # calcul des LP
-                    if games <= 5:
-                        points = 50 if str(self.thisWinId) == 'True' else 0
-                    elif wr >= 60:
-                        points = 30 if str(self.thisWinId) == 'True' else -10
-                    elif wr <= 40:
-                        points = 10 if str(self.thisWinId) == "True" else -20
-                    else:
-                        if str(self.thisWinId) == "True":
-                            points = dict_points[int(wr)][0]
-                        else:
-                            points = dict_points[int(wr)][1]
-
-                lp = lp_actual + points
-                
-                if self.thisWinBool:
-                    serie_wins = serie_wins + 1
-                else:
-                    serie_wins = 0
-
-                # rank
-
-                ranks = [
-                    ('IRON', 100),
-                    ('BRONZE', 200),
-                    ('SILVER', 300),
-                    ('GOLD', 500),
-                    ('PLATINUM', 800),
-                    ('DIAMOND', 1200),
-                    ('MASTER', 1600),
-                    ('GRANDMASTER', 2000),
-                    ('CHALLENGER', float('inf'))
-                ]
-
-                for rank, lp_threshold in ranks:
-                    if lp < lp_threshold:
-                        break
-
-                # SIMULATION CHANGEMENT ELO
-
-                if games > 5 and self.AFKTeam == 0:  # si plus de 5 games et pas d'afk
-                    lp = lp - elo_lp[rank]  # malus en fonction du elo
-
-                # pas de lp negatif
-                if lp < 0:
-                    lp = 0
-
-                if rank_actual != rank:
-                    embed.add_field(
-                        name="Changement d'elo", value=f" :star: Tu es passé de **{rank_actual}** à **{rank}**")
-
-                k = k_actual + self.thisKills
-                difLP = lp - lp_actual
-                deaths = d_actual + self.thisDeaths
-                a = a_actual + self.thisAssists
-
-                img_rank = await get_image('tier', rank, self.session, 220, 220)
-
-                im.paste(img_rank, (x_rank, y-140), img_rank.convert('RGBA'))
-                d.text((x_rank+220, y-110), f'{rank}', font=font, fill=fill)
-                d.text((x_rank+220, y-45),
-                       f'{lp} LP ({difLP})', font=font_little, fill=fill)
-
-                d.text((x_rank+220, y+10),
-                       f'{wins}W {losses}L     {round(wr,1)}% ', font=font_little, fill=fill)
-
-                # on met à jour
-                requete_perso_bdd(f'''UPDATE ranked_aram_s{saison}
-                                    SET wins = :wins,
-                                    losses = :losses,
-                                    lp = :lp,
-                                    games = :games,
-                                    k = :k,
-                                    d = :d,
-                                    a = :a,
-                                    rank = :rank,
-                                    serie = :serie
-                                  WHERE index = :index;
-                                  UPDATE matchs
-                                  SET tier = :rank,
-                                  lp = :lp
-                                  WHERE joueur = :index AND
-                                  match_id = :match_id AND
-                                  mode='ARAM';''',
-                                  {'wins': wins,
-                                   'losses': losses,
-                                   'lp': lp,
-                                   'games': games,
-                                   'k': k,
-                                   'd': deaths,
-                                   'a': a,
-                                   'rank': rank,
-                                   'index': self.id_compte,
-                                   'match_id': self.last_match,
-                                   'serie' : serie_wins})  
-
-                requete_perso_bdd('''UPDATE matchs SET ecart_lp = :ecart_lp WHERE match_id = :match_id AND joueur = :joueur''', {'ecart_lp': difLP,
-                                                                                                                        'match_id': self.last_match,
-                                                                                                                        'joueur': self.id_compte})     
-
-        line = Image.new("RGB", (lineX, lineY), (230, 230, 230))  # Ligne grise
-
-        dict_position = {"TOP": 2, "JUNGLE": 3,
-                         "MID": 4, "ADC": 5, "SUPPORT": 6}
-
-        def draw_black_line_verticale(i:int):
-            draw = ImageDraw.Draw(im)
-            draw.line((i, 300, i, 2000), fill=(0, 0, 0), width=5)
-
-        def draw_light_blue_line(i:int):
-
-            # Créer une nouvelle image transparente
-            square = Image.new("RGBA", (236, 25), (0, 0, 255, 128))
-
-            # Dessiner un carré bleu sur l'image transparente
-            draw = ImageDraw.Draw(square)
-            draw.rectangle((236, 220, 236, 1000), fill=(0, 0, 255, 128), outline=None)
-
-            # Coller l'image transparente sur l'image originale
-            im.paste(square, (i-115, 295), square)
-
-        def draw_black_line() -> None:
-            im.paste(Image.new("RGB", (lineX, 3),
-                     (0, 0, 0)), (0, 180))
-
-        draw_black_line()
-
-
-
-        def drawProgressBar(x, y, w, h, progress, bg="black", fg="blue"):
-
-            draw = ImageDraw.Draw(im)
-            # draw background
-            draw.ellipse((x+w, y, x+h+w, y+h), fill=bg)
-            draw.ellipse((x, y, x+h, y+h), fill=bg)
-            draw.rectangle((x+(h/2), y, x+w+(h/2), y+h), fill=bg)
-
-            # draw progress bar
-            w *= progress
-            draw.ellipse((x+w, y, x+h+w, y+h),fill=fg)
-            draw.ellipse((x, y, x+h, y+h),fill=fg)
-            draw.rectangle((x+(h/2), y, x+w+(h/2), y+h),fill=fg)
-
-
-        img_blue_epee = await get_image('epee', 'blue', self.session)
-        img_red_epee = await get_image('epee', 'red', self.session)
-
-        im.paste(img_blue_epee, (x_kill_total, 10 + 190),
-                 img_blue_epee.convert('RGBA'))
-        d.text((x_kill_total + 100, 23 + 190), str(self.thisTeamKills),
-               font=font, fill=(0, 0, 0))
-
-        im.paste(img_red_epee, (x_kill_total + 300, 10 + 190),
-                 img_red_epee.convert('RGBA'))
-        d.text((x_kill_total + 300 + 100, 23 + 190),
-               str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
-
-        if self.moba_ok == False:
-
-            array_scoring = np.array([]) # qu'on va mettre du plus grand au plus petit
-            liste = []  # en ordre en fonction des joueurs
-            for i in range(0,10):
-                liste.append(self.calcul_scoring(i))
-                scoring_joueur = liste[i]
-                array_scoring = np.append(array_scoring, scoring_joueur)
-
-            array_scoring_trie = array_scoring.copy()
-            array_scoring_trie.sort()
-            
-            self.model = ''
-            
-        for i in range(self.nb_joueur):
-            
-            
-            if self.thisQ != "ARAM" and i == dict_position[self.thisPosition]:
-                draw_light_blue_line((i)*165)
-
-            draw_black_line_verticale((i+1)*236)
-            n = i
-
-            if i >= 5:
-                n += 1
-
-            im.paste(im=await get_image("champion", self.thisChampNameListe[i], self.session, 100, 100, self.version['n']['champion']),
-                 box=(236*n+70, y_avatar))
-
-            if len(self.thisPseudoListe[i])  > 14:
-                font_text = font_very_very_little
-                ecart_pseudo = 20
-            elif len(self.thisPseudoListe[i]) > 8:
-                font_text = font_very_very_little
-                ecart_pseudo = 30
-            elif len(self.thisPseudoListe[i]) < 5:
-                font_text = font_little
-                ecart_pseudo = 80
-            else:
-                font_text = font_little
-                ecart_pseudo = 50
-
-            pseudo = self.thisPseudoListe[i]
-            d.text((236*n+ecart_pseudo, y_pseudo),
-                   pseudo, font=font_text, fill=(0, 0, 0))
-
-            # rank
-
-            if self.moba_ok:
-                try:
-                    rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['tier']
-                    tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['division']
-                except IndexError:
-                    try:
-                        data_mobalytics_copy = self.data_mobalytics.copy()
-                        data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
-                        rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['tier']
-                        tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['division']
-                    except IndexError:
-                        rank_joueur = ''
-                        tier_joueur = ''
-
-                if rank_joueur != '':
-                    img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 60, 60)
-
-                    im.paste(img_rank_joueur, (236*n +70, y_rank), img_rank_joueur.convert('RGBA'))
-
-                    d.text((236*n +150, y_rank), str(
-                            tier_joueur), font=font, fill=(0, 0, 0))
-
-            if self.moba_ok:
-                try:
-                    scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['mvpScore'].values[0]
-                except IndexError:
-                    try:
-                        scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['mvpScore'].values[0]
-                    except IndexError:
-                        scoring = '?'    
-            else:
-                scoring = np.where(array_scoring_trie == liste[i])[0][0] + 1
-                
-            color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (67,89,232), 10 : (220,20,60)}
-
-            ecart_scoring = 90 if scoring == 10 else 100
-            d.text((236*n+ecart_scoring, y_score),
-                    str(scoring),
-                    font=font,
-                    fill=color_scoring.get(scoring, (0,0,0)))
-
-            kda_abrege = str(round(self.thisKDAListe[i],1))
-
-            if len(kda_abrege) == 3:
-                ecart_kda_abrege = 90
-            elif len(kda_abrege) >= 4:
-                ecart_kda_abrege = 70
-            else:
-                ecart_kda_abrege = 110
-
-            fill = range_value(i, self.thisKDAListe, True)
-            d.text((236*n +ecart_kda_abrege, y_kda_raccourci),
-                       kda_abrege, font=font_little, fill=fill)
-
-            kda = f'{self.thisKillsListe[i]}/{self.thisDeathsListe[i]}/{self.thisAssistsListe[i]}'
-
-            if len(kda) == 5:
-                ecart_kda = 60
-            if len(kda) == 6:
-                ecart_kda = 55
-            elif len(kda) >= 7:
-                ecart_kda = 40
-            else:
-                ecart_kda = 70
-            d.text((236*n + ecart_kda, y_kda),
-                       kda, font=font_little, fill=fill)
-
-            fill, top_kp = range_value(i, self.thisKPListe, True, True)
-            d.text((236*n +70, y_KP),
-                       str(self.thisKPListe[i]) + "%", font=font, fill=fill)
-
-            fill = range_value(i, self.thisDamageListe, True)
-
-            if int(self.thisDamageRatioListe[i]*100) < 10:
-                font_dmg_i = font_little
-            else:
-                font_dmg_i = font_dmg
-
-
-            d.text((236*n+30, y_dmg),
-                   f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font_dmg_i, fill=fill)
-
-            fill = range_value(i, np.array(self.thisMinionListe) +
-                               np.array(self.thisJungleMonsterKilledListe))
-
-            total_cs = self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]
-
-            decalage_cs = 85 if total_cs < 100 else 70
-            d.text((236*n+decalage_cs, y_cs), str(
-                    total_cs), font=font, fill=fill)
-
-            fill = range_value(i, np.array(self.thisDamageTakenListe) +
-                               np.array(self.thisDamageSelfMitigatedListe))
-
-            if int(self.thisDamageSelfMitigatedListe[i]/1000) >= 100:
-                font_tank = font_dmg
-            else:
-                font_tank = font_little
-
-            d.text((236*n+30, y_tank),
-                   f'{int(self.thisDamageTakenListe[i]/1000)}k / {int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font_tank, fill=fill)
-
-            if self.thisQ != 'ARAM':
-                fill, top_vision = range_value(i, self.thisVisionListe, True, True)
-
-                decalage_vision = 85 if self.thisVisionListe[i] < 10 else 70
-                d.text((236*n+decalage_vision, y_vision), str(
-                        self.thisVisionListe[i]), font=font, fill=fill)
-
-
-            if i <= 4:
-                color = 'blue'
-                drawProgressBar(236*n+45, y_tank+70, 120, 15, (self.thisDamageTakenListe[i] + self.thisDamageSelfMitigatedListe[i])/(np.sum(self.thisDamageTakenListe[:5]) + np.sum(self.thisDamageSelfMitigatedListe[:5])), fg=color)
-
-                if self.thisQ != 'ARAM':
-                    if top_vision=='max':
-                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[:5]), fg='green')
-                    elif top_vision=='min':
-                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[:5]), fg='#8B0000')
-                    else:
-                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[:5]), fg=color)
-            else:
-                color = 'red'
-                drawProgressBar(236*n+45, y_tank+70, 120, 15, (self.thisDamageTakenListe[i] + self.thisDamageSelfMitigatedListe[i])/(np.sum(self.thisDamageTakenListe[5:]) + np.sum(self.thisDamageSelfMitigatedListe[5:])), fg=color)
-                if self.thisQ != 'ARAM':
-                    if top_vision == 'max':
-                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[5:]), fg='green')
-                    elif top_vision == 'min':
-                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[5:]), fg='#8B0000')
-                    else:
-                        drawProgressBar(236*n+45, y_vision+70, 120, 15, (self.thisVisionListe[i])/np.sum(self.thisVisionListe[5:]), fg=color)
-            if top_kp == 'max': 
-                drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg='green')
-            elif top_kp == 'min':
-                drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg='#8B0000')
-            else:
-                drawProgressBar(236*n+45, y_KP+70, 120, 15, self.thisKPListe[i]/100, fg=color)
-            drawProgressBar(236*n+45, y_dmg+70, 120, 15, self.thisDamageRatioListe[i], fg=color)
-
-
-        fill = (0,0,0)
-
-
-        d.text((x_center, y_kda-30), 'KDA', font=font, fill=fill)
-        d.text((x_center, y_score), 'MVP', font=font, fill=fill)
-        d.text((x_center+5, y_KP+20), 'KP', font=font, fill=fill)
-        d.text((x_center+5, y_cs), 'CS', font=font, fill=fill)
-        d.text((x_center-15, y_dmg+20), 'DMG', font=font, fill=fill)
-        d.text((x_center-15, y_tank+20), 'TANK', font=font, fill=fill)
-
-
-        if self.thisQ != "ARAM":
-            d.text((x_center+5, y_vision+20), 'VS', font=font, fill=fill)
-            n_ecart = 0
-            for ecart in [self.ecart_top_gold_affiche, self.ecart_jgl_gold_affiche, self.ecart_mid_gold_affiche, self.ecart_adc_gold_affiche, self.ecart_supp_gold_affiche]:
-                if ecart > 0:
-                    d.text((236*n_ecart+80, y_ecart_gold), str(round(ecart/1000, 1)
-                                                   ) + "k", font=font_little, fill=(0, 128, 0))
-                else:
-                    d.text((236*n_ecart+80, y_ecart_gold), str(round(ecart/1000, 1)
-                                                      ) + "k", font=font_little, fill=(255, 0, 0))
-
-                n_ecart += 1
-
-
-
-
-        # match
-        d.text((10, 20 + 190), self.thisQ, font=font, fill=(0, 0, 0))
-
-
-
-
-        for joueur, items in self.allitems.items():
-            if joueur > 4:
-                joueur += 1
-            for nb, item in enumerate(items):
-                if item != 0:
-                    if nb < 3:
-                        im.paste(await get_image("items", item, self.session, 50,50, self.version['n']['profileicon']),
-                                box=(236*joueur+40+nb*50, y_items))
-                    else:
-                        nb = nb - 3
-                        im.paste(await get_image("items", item, self.session, 50,50, self.version['n']['profileicon']),
-                                box=(236*joueur+40+nb*50, y_items+60))
-
-
-
-
-        if self.thisQ != "ARAM":
-
-            drk = await get_image('monsters', 'dragon', self.session)
-            elder = await get_image('monsters', 'elder', self.session)
-            herald = await get_image('monsters', 'herald', self.session)
-            nashor = await get_image('monsters', 'nashor', self.session)
-            horde = await get_image('monsters', 'horde', self.session)
-
-            im.paste(drk, (x_objectif, 10 + 190), drk.convert('RGBA'))
-            d.text((x_objectif + 100, 25 + 190), str(self.thisDragonTeam),
-                   font=font, fill=(0, 0, 0))
-
-            im.paste(elder, (x_objectif + 200, 10 + 190), elder.convert('RGBA'))
-            d.text((x_objectif + 200 + 100, 25 + 190),
-                   str(self.thisElderPerso), font=font, fill=(0, 0, 0))
-
-            im.paste(herald, (x_objectif + 400, 10 + 190), herald.convert('RGBA'))
-            d.text((x_objectif + 400 + 100, 25 + 190),
-                   str(self.thisHeraldTeam), font=font, fill=(0, 0, 0))
-
-            im.paste(nashor, (x_objectif + 600, 10 + 190), nashor.convert('RGBA'))
-            d.text((x_objectif + 600 + 100, 25 + 190),
-                   str(self.thisBaronTeam), font=font, fill=(0, 0, 0))
-            
-            im.paste(horde, (x_objectif + 800, 10 + 190), horde.convert('RGBA'))
-            d.text((x_objectif + 800 + 100, 25 + 190),
-                   str(self.thisHordeTeam), font=font, fill=(0, 0, 0))
-
-
-        # Stat du jour
-        if self.thisQ == 'ARAM':
-            suivi_24h = lire_bdd(f'ranked_aram_S{saison}', 'dict')
-        else:
-            suivi_24h = lire_bdd(f'suivi_S{saison}', 'dict')
-
-        if self.thisQ not in ['ARAM', 'FLEX']:
-            try:
-                difwin = int(self.thisVictory) - \
-                        int(suivi_24h[self.id_compte]["wins_jour"])
-                diflos = int(self.thisLoose) - \
-                        int(suivi_24h[self.id_compte]["losses_jour"])
-
-                if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
-                    d.text((x_metric + 650, y_name+50),
-                           f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
-                    d.text((x_metric + 1120, y_name+50),
-                           f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
-
-            except KeyError:
-                pass
-
-        elif self.thisQ == 'ARAM' and activation:
-            try:
-                difwin = wins - \
-                        int(suivi_24h[self.id_compte]["wins_jour"])
-                diflos = losses - \
-                        int(suivi_24h[self.id_compte]["losses_jour"])
-
-                if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
-                    d.text((x_metric + 650, y_name+50),
-                           f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
-                    d.text((x_metric + 1120, y_name+50),
-                           f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
-
-            except KeyError:
-                pass
-
-        im.save(f'{name_img}.png')
-
-        await self.session.close()
-
-        return embed
-    
-
     
     async def prepare_data_swarm(self):
         """Récupère les données de la game"""
@@ -4069,8 +3440,6 @@ class matchlol():
     
         self.match_detail_participants = self.match_detail['info']['participants'][self.thisId]
         self.match_detail_challenges = self.match_detail_participants['challenges']
-        self.season = 14  # TODO a modifier quand changement de saison
-        self.split = 1
 
 
         try:

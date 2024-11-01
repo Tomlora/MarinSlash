@@ -516,12 +516,12 @@ class LeagueofLegends(Extension):
             name="Game", value=f"[Graph]({match_info.url_game}) | [OPGG](https://euw.op.gg/summoners/euw/{match_info.riot_id.replace(' ', '')}-{match_info.riot_tag}) ", inline=True)
 
         embed.add_field(
-            name='Champ', value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)", inline=True)
+            name='Champion', value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)", inline=True)
 
         # on va chercher les stats du joueur:
 
         time = 10 if match_info.thisQ == 'ARAM' else 15
-        stats_joueur = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
+        stats_joueur_saison = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
                     (count(victoire) filter (where victoire = True)) as victoire,
                     avg(kp) as kp,
                     count(victoire) as nb_games,
@@ -534,32 +534,57 @@ class LeagueofLegends(Extension):
                     and mode = '{match_info.thisQ}'
                     and time > {time}
                     GROUP BY tracker.id_compte''', index_col='id_compte').transpose()
+        
+        stats_joueur_split = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
+                    (count(victoire) filter (where victoire = True)) as victoire,
+                    avg(kp) as kp,
+                    count(victoire) as nb_games,
+                    (avg(mvp) filter (where mvp != 0)) as mvp
+                    from matchs
+                    INNER JOIN tracker on matchs.joueur = tracker.id_compte
+                    WHERE tracker.id_compte = {id_compte}
+                    and champion = '{match_info.thisChampName}'
+                    and season = {saison}
+                    and mode = '{match_info.thisQ}'
+                    and time > {time}
+                    and split = {match_info.split}
+                    GROUP BY tracker.id_compte''', index_col='id_compte').transpose()
 
-        if not stats_joueur.empty:
+        def stats_joueur(df, embed, id_compte, titre, inline=True):
 
             k = round(
-                stats_joueur.loc[id_compte, 'kills'], 1)
+                df.loc[id_compte, 'kills'], 1)
             d = round(
-                stats_joueur.loc[id_compte, 'deaths'], 1)
+                df.loc[id_compte, 'deaths'], 1)
             a = round(
-                stats_joueur.loc[id_compte, 'assists'], 1)
-            kp = int(stats_joueur.loc[id_compte, 'kp'])
+                df.loc[id_compte, 'assists'], 1)
+            kp = int(df.loc[id_compte, 'kp'])
             
             try:
                 mvp = round(
-                    stats_joueur.loc[id_compte, 'mvp'], 1)
+                    df.loc[id_compte, 'mvp'], 1)
             except TypeError:
                 mvp = 0
-            ratio_victoire = int((stats_joueur.loc[id_compte, 'victoire'] / stats_joueur.loc[id_compte, 'nb_games'])*100)
+            ratio_victoire = int((df.loc[id_compte, 'victoire'] / df.loc[id_compte, 'nb_games'])*100)
             nb_games = int(
-                stats_joueur.loc[id_compte, 'nb_games'])
+                df.loc[id_compte, 'nb_games'])
             
             if mvp == 0:
                 embed.add_field(
-                    name=f"{nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=True)
+                    name=f"{titre} : {nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
             else:
                 embed.add_field(
-                    name=f"{nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=True)
+                    name=f"{titre} : {nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
+                
+            return embed 
+
+        if not stats_joueur_saison.empty and match_info.split != 1:
+            embed = stats_joueur(stats_joueur_saison, embed, id_compte, 'Saison', False)
+        
+        if not stats_joueur_split.empty:
+            embed = stats_joueur(stats_joueur_split, embed, id_compte, 'Split')
+
+
 
         # on découpe le texte embed
         chunk_size = 1024
@@ -649,8 +674,6 @@ class LeagueofLegends(Extension):
             if affichage == 1:
                 embed = await match_info.resume_general('resume', embed, difLP)
 
-            elif affichage == 2:
-                embed = await match_info.test('resume', embed, difLP)
 
         elif match_info.thisQ == 'SWARM':
             embed.add_field(name='Augment', value=match_info.descriptionAugment)
@@ -665,12 +688,9 @@ class LeagueofLegends(Extension):
         resume = interactions.File('resume.png')
         embed.set_image(url='attachment://resume.png')
 
-        if sauvegarder:
-            embed.set_footer(
-                text=f'Version {Version} by Tomlora - Match {str(match_info.last_match)} - Sauvegardé')
-        else:
-            embed.set_footer(
-                text=f'Version {Version} by Tomlora - Match {str(match_info.last_match)}')
+        embed.set_footer(
+                text=f'by Tomlora - Match {str(match_info.last_match)}')
+        
         return embed, match_info.thisQ, resume
 
     async def updaterank(self,
@@ -750,12 +770,6 @@ class LeagueofLegends(Extension):
                                           required=True,
                                           min_value=0,
                                           max_value=100),
-                       SlashCommandOption(name="affichage",
-                                          description="Mode d'affichage",
-                                          type=interactions.OptionType.INTEGER,
-                                          required=False,
-                                          choices=[SlashCommandChoice(name="Affichage classique", value=1),
-                                                   SlashCommandChoice(name="Affichage beta", value=2)]),
                        SlashCommandOption(name='identifiant_game',
                                           description="A ne pas utiliser",
                                           type=interactions.OptionType.STRING,
@@ -774,7 +788,6 @@ class LeagueofLegends(Extension):
                    riot_tag:str,
                    numerogame: int,
                    identifiant_game=None,
-                   affichage=1,
                    ce_channel=False,
                    check_doublon=True):
 
@@ -812,7 +825,7 @@ class LeagueofLegends(Extension):
                                                             identifiant_game=identifiant_game,
                                                             guild_id=int(
                                                                 ctx.guild_id),
-                                                            affichage=affichage,
+                                                            affichage=1,
                                                             check_doublon=check_doublon,
                                                             check_records=check_records)
             
@@ -867,12 +880,6 @@ class LeagueofLegends(Extension):
                                           required=False,
                                           min_value=30,
                                           max_value=100),
-                       SlashCommandOption(name="affichage",
-                                          description="Mode d'affichage",
-                                          type=interactions.OptionType.INTEGER,
-                                          required=False,
-                                          choices=[SlashCommandChoice(name="Affichage classique", value=1),
-                                                   SlashCommandChoice(name="Affichage beta", value=2)]),
                        SlashCommandOption(name='identifiant_game',
                                           description="A ne pas utiliser",
                                           type=interactions.OptionType.STRING,
@@ -893,7 +900,6 @@ class LeagueofLegends(Extension):
                    numero_apres: int,
                    attente:int = 30,
                    identifiant_game=None,
-                   affichage=1,
                    ce_channel=False,
                    check_doublon=True):
 
@@ -934,7 +940,7 @@ class LeagueofLegends(Extension):
                                                                     identifiant_game=identifiant_game,
                                                                     guild_id=int(
                                                                         ctx.guild_id),
-                                                                    affichage=affichage,
+                                                                    affichage=1,
                                                                     check_doublon=check_doublon,
                                                                     check_records=check_records)
                     
@@ -987,7 +993,6 @@ class LeagueofLegends(Extension):
                         session=None,
                         insights=True,
                         nbchallenges=0,
-                        affichage=1,
                         banned=False,
                         check_records=True):
 
@@ -1001,7 +1006,7 @@ class LeagueofLegends(Extension):
                                                           identifiant_game=identifiant_game,
                                                           me=me,
                                                           insights=insights,
-                                                          affichage=affichage,
+                                                          affichage=1,
                                                           check_records=check_records)
 
         if tracker_challenges:
@@ -1046,7 +1051,8 @@ class LeagueofLegends(Extension):
             tracker.banned, tracker.riot_id, tracker.riot_tagline, tracker.id_league, tracker.save_records
                             from tracker 
                             INNER JOIN channels_module on tracker.server_id = channels_module.server_id
-                            where tracker.activation = true and channels_module.league_ranked = true'''
+                            where tracker.activation = true
+                            and channels_module.league_ranked = true'''
         ).fetchall()
         timeout = aiohttp.ClientTimeout(total=60*5)
         session = aiohttp.ClientSession(timeout=timeout)
@@ -1287,12 +1293,10 @@ class LeagueofLegends(Extension):
                                                   description="Tracker challenges",
                                                   type=interactions.OptionType.BOOLEAN,
                                                   required=False),
-                               SlashCommandOption(name="affichage",
-                                                  description="Affichage du tracker",
-                                                  type=interactions.OptionType.INTEGER,
-                                                  required=False,
-                                                  choices=[SlashCommandChoice(name="Mode classique", value=1),
-                                                           SlashCommandChoice(name="Mode beta", value=2)]),
+                               SlashCommandOption(name='ranked_aram',
+                                                   description='Ranked en aram',
+                                                   type=interactions.OptionType.BOOLEAN,
+                                                   required=False),
                                SlashCommandOption(name='nb_challenges',
                                                   description='Nombre de challenges à afficher dans le recap (entre 1 et 20)',
                                                   type=interactions.OptionType.INTEGER,
@@ -1314,101 +1318,119 @@ class LeagueofLegends(Extension):
                              tracker_fin: bool = None,
                              tracker_debut: bool = None,
                              tracker_challenges: bool = None,
+                             ranked_aram: bool = None,
                              insights: bool = None,
                              nb_challenges: int = None,
-                             affichage: int = None,
                              records: bool = None):
 
         riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper()
 
-        if tracker_fin != None:
+        await ctx.defer(ephemeral=False)
 
-            nb_row = requete_perso_bdd('UPDATE tracker SET activation = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag ', {
-                'activation': tracker_fin, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
-            if nb_row > 0:
-                if tracker_fin:
-                    await ctx.send('Tracker fin de game activé !')
+        try:
+            discord_id = int(lire_bdd_perso(f"SELECT discord from public.tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ", index_col=None).iloc[0].values[0])
+        except:
+            return await ctx.send('Erreur : Ce compte est introuvable')
+
+        if isOwner_slash(ctx) or discord_id == int(ctx.author.id):
+
+            if tracker_fin != None:
+
+                nb_row = requete_perso_bdd('UPDATE tracker SET activation = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag ', {
+                    'activation': tracker_fin, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
+                if nb_row > 0:
+                    if tracker_fin:
+                        await ctx.send('Tracker fin de game activé !')
+                    else:
+                        await ctx.send('Tracker fin de game désactivé !')
                 else:
-                    await ctx.send('Tracker fin de game désactivé !')
-            else:
-                await ctx.send('Joueur introuvable')
+                    await ctx.send('Joueur introuvable')
 
-        if tracker_debut != None:
+            if tracker_debut != None:
 
-            nb_row = requete_perso_bdd('UPDATE tracker SET spec_tracker = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
-                'activation': tracker_debut, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
-            if nb_row > 0:
-                if tracker_debut:
-                    await ctx.send('Tracker debut de game activé !')
+                nb_row = requete_perso_bdd('UPDATE tracker SET spec_tracker = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
+                    'activation': tracker_debut, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
+                if nb_row > 0:
+                    if tracker_debut:
+                        await ctx.send('Tracker debut de game activé !')
+                    else:
+                        await ctx.send('Tracker debut de game désactivé !')
                 else:
-                    await ctx.send('Tracker debut de game désactivé !')
-            else:
-                await ctx.send('Joueur introuvable')
+                    await ctx.send('Joueur introuvable')
 
-        if tracker_challenges != None:
+            if tracker_challenges != None:
 
-            nb_row = requete_perso_bdd('UPDATE tracker SET challenges = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
-                'activation': tracker_challenges, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
-            if nb_row > 0:
-                if tracker_challenges:
-                    await ctx.send('Tracker challenges activé !')
+                nb_row = requete_perso_bdd('UPDATE tracker SET challenges = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
+                    'activation': tracker_challenges, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
+                if nb_row > 0:
+                    if tracker_challenges:
+                        await ctx.send('Tracker challenges activé !')
+                    else:
+                        await ctx.send('Tracker challenges désactivé !')
                 else:
-                    await ctx.send('Tracker challenges désactivé !')
-            else:
-                await ctx.send('Joueur introuvable')
-
-        if insights != None:
-
-            nb_row = requete_perso_bdd('UPDATE tracker SET insights = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
-                'activation': insights, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
-            if nb_row > 0:
-                if insights:
-                    await ctx.send('Insights activé !')
-                else:
-                    await ctx.send('Insights désactivé !')
-            else:
-                await ctx.send('Joueur introuvable')
-
-        if affichage != None:
-
-            nb_row = requete_perso_bdd('UPDATE tracker SET affichage = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
-                'activation': affichage, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
-            if nb_row > 0:
-                await ctx.send('Affichage modifié')
-            else:
-                await ctx.send('Joueur introuvable')
-
-        if nb_challenges != None:
-
-            nb_row = requete_perso_bdd('UPDATE tracker SET nb_challenges = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
-                'activation': nb_challenges, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
-
-            if nb_row > 0:
-                await ctx.send(f'Nombre de challenges affichés : ** {nb_challenges} ** !')
-
-            else:
-                await ctx.send('Joueur introuvable')
+                    await ctx.send('Joueur introuvable')
+            
+            if ranked_aram != None:
+                nb_row = requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET activation = :activation WHERE index = (select id_compte from tracker where riot_id = :riot_id and riot_tagline = :riot_tag)',
+                                            {'activation': ranked_aram, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
+                if nb_row > 0:
+                    if ranked_aram:
+                        await ctx.send('Ranked aram activé')
+                    else:
+                        await ctx.send('Ranked aram désactivé')
                 
-        if records != None:
+                else:
+                    await ctx.send('Compte introuvable')
 
-            nb_row = requete_perso_bdd('UPDATE tracker SET save_records = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
-                'activation': records, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
-            if nb_row > 0:
-                await ctx.send('Records modifié')
-            else:
-                await ctx.send('Joueur introuvable')
+            if insights != None:
 
-        if (
-            tracker_fin is None
-            and tracker_debut is None
-            and tracker_challenges is None
-            and insights is None
-            and nb_challenges is None
-            and affichage is None
-            and records is None
-        ):
-            await ctx.send('Tu dois choisir une option !')
+                nb_row = requete_perso_bdd('UPDATE tracker SET insights = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
+                    'activation': insights, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
+                if nb_row > 0:
+                    if insights:
+                        await ctx.send('Insights activé !')
+                    else:
+                        await ctx.send('Insights désactivé !')
+                else:
+                    await ctx.send('Joueur introuvable')
+
+            if nb_challenges != None:
+
+                nb_row = requete_perso_bdd('UPDATE tracker SET nb_challenges = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
+                    'activation': nb_challenges, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
+
+                if nb_row > 0:
+                    await ctx.send(f'Nombre de challenges affichés : ** {nb_challenges} ** !')
+
+                else:
+                    await ctx.send('Joueur introuvable')
+                    
+            if records != None:
+
+                nb_row = requete_perso_bdd('UPDATE tracker SET save_records = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
+                    'activation': records, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
+                if nb_row > 0:
+                    if records:
+                        await ctx.send('Records activés pour ce compte')
+                    else:
+                        await ctx.send('Records désactivés pour ce compte')
+                else:
+                    await ctx.send('Joueur introuvable')
+
+            if (
+                tracker_fin is None
+                and tracker_debut is None
+                and tracker_challenges is None
+                and insights is None
+                and nb_challenges is None
+                and ranked_aram is None
+                and records is None
+            ):
+                await ctx.send('Tu dois choisir une option !')
+        
+        else:
+            ctx.send("Tu tentes de modifier un compte dont tu n'as pas l'autorisation")
 
     @slash_command(name='lol_list',
                    description='Affiche la liste des joueurs suivis',
@@ -1468,6 +1490,12 @@ class LeagueofLegends(Extension):
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                     where channels_module.league_ranked = true and tracker.banned = false'''
         ).fetchall()
+
+        params = lire_bdd_perso('select * from settings',
+                                format='dict',
+                                index_col='parametres')
+
+        saison = int(params['saison']['value'])
         
         session = aiohttp.ClientSession()
 
@@ -1476,6 +1504,7 @@ class LeagueofLegends(Extension):
             guild = await self.bot.fetch_guild(server_id[0])
 
             chan_discord_id = chan_discord(int(guild.id))
+
 
             # le suivi est déjà maj par game/update... Pas besoin de le refaire ici..
 
@@ -1546,7 +1575,7 @@ class LeagueofLegends(Extension):
                     # except:
                     #     pass
                     try:
-                        stats_rankings = await getRankings(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'], 'euw1', 22, 420)
+                        stats_rankings = await getRankings(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'], 'euw1', saison, 420)
                         rank_euw = stats_rankings['data']['overallRanking']['overallRanking']
                         percent_rank_euw = int(round(stats_rankings['data']['overallRanking']['overallRanking'] / stats_rankings['data']['overallRanking']['totalPlayerCount'] * 100,0))
                     except TypeError:

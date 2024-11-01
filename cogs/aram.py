@@ -118,42 +118,7 @@ class Aram(Extension):
 
         await ctx.send(embeds=embed)
 
-    @aram.subcommand('tracker_aram',
-                   sub_cmd_description='Activation/Désactivation',
-                   options=[
-                       SlashCommandOption(
-                           name='summonername',
-                           description="nom ingame",
-                           type=interactions.OptionType.STRING,
-                           required=True),
-                       SlashCommandOption(
-                           name="activation",
-                           description="True : Activé / False : Désactivé",
-                           type=interactions.OptionType.BOOLEAN,
-                           required=True)])
-    async def update_activation(self,
-                                ctx: SlashContext,
-                                summonername: str,
-                                activation: bool):
 
-        summonername = summonername.lower()
-        
-        discord_id = int(ctx.author.id)
-        df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''')
-
-        if df_banned.empty:
-            try:
-                requete_perso_bdd(f'UPDATE ranked_aram_s{saison} SET activation = :activation WHERE index = :index', {
-                                'activation': activation, 'index': summonername})
-                if activation:
-                    await ctx.send('Ranked activé !')
-                else:
-                    await ctx.send('Ranked désactivé !')
-            except KeyError:
-                await ctx.send('Joueur introuvable')
-                
-        else:
-            await ctx.send("Tu n'es pas autorisé à utiliser cette commande")
 
     @aram.subcommand("help",
                    sub_cmd_description='Help ranked aram')

@@ -332,10 +332,10 @@ class data_finance(Extension):
 
         # Bollinger 
         # Calculate the 20-period Simple Moving Average (SMA)
-        hist['SMA'] = hist['Close'].rolling(window=20).mean()
+        hist['SMA'] = hist['Open'].rolling(window=20).mean()
 
         # Calculate the 20-period Standard Deviation (SD)
-        hist['SD'] = hist['Close'].rolling(window=20).std()
+        hist['SD'] = hist['Open'].rolling(window=20).std()
 
         # Calculate the Upper Bollinger Band (UB) and Lower Bollinger Band (LB)
         hist['UB'] = hist['SMA'] + 2 * hist['SD']

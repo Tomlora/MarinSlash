@@ -203,6 +203,83 @@ class Settings(Extension):
         await ctx.send('Modification effectuée avec succès.')
 
 
+    @modifier_settings.subcommand('league_nouvelle_saison',
+                                  options=[
+                                      SlashCommandOption(name='table_source',
+                                                         description='Table nouvelle saison. Ex : suivi_s14',
+                                                         type=interactions.OptionType.STRING),
+                                      SlashCommandOption(name='table_copy',
+                                                         description='Nom de la table copie. Ex : suivi_s14_2',
+                                                         type=interactions.OptionType.STRING),
+                                      SlashCommandOption(name='split',
+                                                         description='Nb split',
+                                                         type=interactions.OptionType.INTEGER),
+                                      SlashCommandOption(name='test',
+                                                         description='Test',
+                                                         type=interactions.OptionType.BOOLEAN)
+                                  ])
+    async def league_nouvelle_saison(self, 
+                                    ctx: SlashContext,
+                                    table_source,
+                                    table_copy,
+                                    split,
+                                    test:bool):
+
+        await ctx.defer()
+
+        if isOwner_slash(ctx):
+            nouvelle_saison = table_source.split('_s')[-1]
+            last_saison = table_copy.split('_s')[-1]
+
+            nouvelle_saison_int = int(nouvelle_saison)
+
+            if test:
+
+                if split == 1:
+                    req = f''' create table {table_copy}_test as (select * from {table_source});
+                            UPDATE {table_copy}_test SET wins=0, losses=0, "LP"=0, tier='Non-classe',rank='0', serie=0, wins_jour=0, losses_jour=0, "LP_jour"=0, tier_jour='Non-classe', rank_jour=0, classement_euw=0, classement_percent_euw=0;
+                            create table ranked_aram_s{nouvelle_saison_int + 1}_test as (select * from ranked_aram_s{nouvelle_saison})
+                            ALTER TABLE {table_copy}_test RENAME TO suivi_s{nouvelle_saison_int + 1}_test;
+                            UPDATE ranked_aram_s{nouvelle_saison_int + 1}_test SET wins=0, losses=0, lp=0, games=0, k=0, d=0, a=0, rank='IRON', serie=0, wins_jour=0, losses_jour=0, lp_jour=0, rank_jour='IRON'; '''
+                
+                else:
+                    req = f''' create table {table_copy}_test as (select * from {table_source});
+                            UPDATE {table_copy}_test SET wins=0, losses=0, "LP"=0, tier='Non-classe',rank='0', serie=0, wins_jour=0, losses_jour=0, "LP_jour"=0, tier_jour='Non-classe', rank_jour=0, classement_euw=0, classement_percent_euw=0; '''
+                
+                print('nouvelle saison : ', nouvelle_saison)
+                print('last saison : ', last_saison)
+
+            else:    
+            
+                if split == 1: # nouvelle année
+
+                    req = f''' create table {table_copy} as (select * from {table_source});
+                            UPDATE {table_source} SET wins=0, losses=0, "LP"=0, tier='Non-classe',rank='0', serie=0, wins_jour=0, losses_jour=0, "LP_jour"=0, tier_jour='Non-classe', rank_jour=0, classement_euw=0, classement_percent_euw=0;
+                            UPDATE settings SET value = '{nouvelle_saison_int + 1}' where parametres = 'saison';
+                            UPDATE settings SET value = '{last_saison}' where parametres = 'last_season';
+                            UPDATE settings SET value = '{split}' where parametres = 'split'; 
+                            create table ranked_aram_s{nouvelle_saison_int + 1} as (select * from ranked_aram_s{nouvelle_saison})
+                            ALTER TABLE {table_source} RENAME TO suivi_s{nouvelle_saison_int + 1};
+                            UPDATE ranked_aram_s{nouvelle_saison_int + 1} SET wins=0, losses=0, lp=0, games=0, k=0, d=0, a=0, rank='IRON', serie=0, wins_jour=0, losses_jour=0, lp_jour=0, rank_jour='IRON'; '''
+                
+                else:
+                    req = f''' create table {table_copy} as (select * from {table_source});
+                            UPDATE {table_source} SET wins=0, losses=0, "LP"=0, tier='Non-classe',rank='0', serie=0, wins_jour=0, losses_jour=0, "LP_jour"=0, tier_jour='Non-classe', rank_jour=0, classement_euw=0, classement_percent_euw=0;
+                            UPDATE settings SET value = '{nouvelle_saison}' where parametres = 'saison';
+                            UPDATE settings SET value = '{last_saison}' where parametres = 'last_season';
+                            UPDATE settings SET value = '{split}' where parametres = 'split' '''
+
+
+            requete_perso_bdd(req)
+
+
+            await ctx.send(f'Nouvelle saison préparée ! Début de la S{nouvelle_saison} et du Split {split}')
+
+
+
+
+        else:
+            await ctx.send("Erreur : Tu n'as pas l'autorisation")
 
 
 def setup(bot):

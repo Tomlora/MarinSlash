@@ -269,7 +269,7 @@ async def get_winrates(summonerName: str, session : ClientSession):
                     ] = championPerformance["wins"]
 
         
-        season_boucle = [20, 21, 23] # For season 13 (split 1, split 2) / season 14 (split 1) # La 22 est faite au-dessus
+        season_boucle = [20, 21, 23, 24] # For season 13 (split 1, split 2) / season 14 (split 1) # La 22 est faite au-dessus
         
         for season in season_boucle:
             response = await getPlayerStats(session, summonerName, tagline, season=season)
@@ -323,7 +323,7 @@ async def get_winrates(summonerName: str, session : ClientSession):
         return None
 
 
-async def get_player_match_history(session, summonerName, tagline,  role=[], regionId="euw1", championId=[], queueType=[420], seasonIds=[21,22,23], page=1):
+async def get_player_match_history(session, summonerName, tagline,  role=[], regionId="euw1", championId=[], queueType=[420], seasonIds=[21,22,23,24], page=1):
     
     url = "https://u.gg/api"
     headers = {
@@ -367,7 +367,7 @@ async def get_player_match_history(session, summonerName, tagline,  role=[], reg
     
     
 
-async def getRanks(session : ClientSession, summonerName, tagline, regionId='euw1', season=23):
+async def getRanks(session : ClientSession, summonerName, tagline, regionId='euw1', season=24):
     """Avopir le rank et le tier d'un joueur"""
     
     url = "https://u.gg/api"
@@ -412,7 +412,7 @@ async def getRanks(session : ClientSession, summonerName, tagline, regionId='euw
 
 
 
-async def getRankings(session : ClientSession, summonerName, tagline, regionId='euw1', season=23, queueType=420):
+async def getRankings(session : ClientSession, summonerName, tagline, regionId='euw1', season=24, queueType=420):
     """Avoir le classement du joueur"""
     
     url = "https://u.gg/api"
