@@ -80,12 +80,15 @@ class LoLProplay(Extension):
         # upsert
 
         df_final_origin = lire_bdd_perso('''SELECT * from data_acc_proplayers''', index_col=['joueur', 'compte']).T
-
+        
         df_final.set_index(['joueur', 'compte'], inplace=True)
 
         df_final_origin = pd.concat([df_final_origin[~df_final_origin.index.isin(df_final.index)], df_final])
 
+        df_final_origin.drop_duplicates(subset=['joueur', 'compte', 'region'], inplace=True)
+
         df_final_origin.reset_index(inplace=True)
+
 
         sauvegarde_bdd(df_final_origin.drop(columns='index'), 'data_acc_proplayers')
 
@@ -110,6 +113,8 @@ class LoLProplay(Extension):
                      joueur,
                      equipe):
 
+        await ctx.defer(ephemeral=False)             
+
         nb_row = requete_perso_bdd(f'''UPDATE public.data_proplayers SET team_plug = '{equipe}' where plug = '{joueur}' ''', get_row_affected=True)
 
         if nb_row > 0:
@@ -121,7 +126,7 @@ class LoLProplay(Extension):
 
 
     @lol_pro.subcommand("add_compte",
-                           sub_cmd_description="Mettre à jour son equipe",
+                           sub_cmd_description="Ajouter un compte d'un joueur",
                            options=[
                                SlashCommandOption(name="compte",
                                                   description="Compte du joueur sans tag",
@@ -136,8 +141,11 @@ class LoLProplay(Extension):
                      compte,
                      joueur):
         
-        df = lire_bdd_perso( '''SELECT index, plug from public.data_proplayers ''', index_col=None ).T
-        index = df['index'].max()
+        await ctx.defer(ephemeral=False)
+        
+        df = lire_bdd_perso( '''SELECT plug from public.data_proplayers ''', index_col=None ).T
+        df_index = lire_bdd_perso( '''SELECT index from public.data_acc_proplayers ''', index_col=None ).T
+        index = df_index['index'].max()
         liste_joueur = df['plug'].to_list()
 
         if joueur in liste_joueur:
@@ -153,6 +161,98 @@ class LoLProplay(Extension):
         else:
             suggestion = suggestion_word(joueur, liste_joueur)
             await ctx.send(f'Joueur introuvable. Souhaitais-tu dire : **{suggestion}**')
+
+
+    @lol_pro.subcommand("add_joueur",
+                           sub_cmd_description="Ajouter un nouveau joueur",
+                           options=[
+                               SlashCommandOption(name="joueur",
+                                                  description="Joueur",
+                                                  type=interactions.OptionType.STRING,
+                                                  required=True),
+                                SlashCommandOption(name="team",
+                                                  description="Son equipe",
+                                                  type=interactions.OptionType.STRING,
+                                                  required=True),
+                                SlashCommandOption(name="compte",
+                                                  description="Son compte",
+                                                  type=interactions.OptionType.STRING,
+                                                  required=True), 
+                                SlashCommandOption(name="role",
+                                                  description="Son role",
+                                                  type=interactions.OptionType.STRING,
+                                                  required=True)])
+    async def add_joueur(self,
+                     ctx: SlashContext,
+                     joueur,
+                     team,
+                     compte,
+                     role):
+        
+
+        await ctx.defer(ephemeral=False)
+        df = lire_bdd_perso( '''SELECT index, plug from public.data_proplayers ''', index_col=None ).T
+        index = df['index'].max()
+        liste_joueur = df['plug'].to_list()
+
+        if joueur in liste_joueur:
+            await ctx.send('Joueur déjà présent')
+                   
+        else:
+            requete_perso_bdd('''INSERT INTO public.data_proplayers(
+                                index, current, home, role, accounts, team_plug, plug, "rankHigh", "rankHighNum", "rankHighLP", "rankHighLPNum")
+                                VALUES (:index, 'None', 'None', :role, 1, :team, :joueur, 'Challenger', 999999, 999999, 999999); ''',
+                                dict_params={'index' : index + 1,
+                                             'role' : role,
+                                             'joueur' : joueur,
+                                             'team' : team})
+            
+            requete_perso_bdd('''INSERT INTO public.data_acc_proplayers(
+                                index, joueur, compte, region)
+                                VALUES (:index, :joueur, :compte, 'EUW') ''',
+                                dict_params={'index' : index + 1,
+                                             'joueur' : joueur,
+                                             'compte' : compte})
+            
+            await ctx.send('Ajouté')
+
+    @lol_pro.subcommand("search",
+                           sub_cmd_description="Chercher un joueur",
+                           options=[
+                               SlashCommandOption(name="joueur",
+                                                  description="Joueur",
+                                                  type=interactions.OptionType.STRING,
+                                                  required=True)])
+    async def search_joueur(self,
+                     ctx: SlashContext,
+                     joueur):
+        
+
+        await ctx.defer(ephemeral=False)
+        df_joueur = lire_bdd_perso( f'''SELECT team_plug, plug, role from public.data_proplayers where plug like '%{joueur}%' ''', index_col=None ).T
+        df_compte = lire_bdd_perso( f'''SELECT compte from public.data_acc_proplayers where region = 'EUW' and joueur like '%{joueur}%' ''', index_col=None ).T.drop_duplicates()
+
+        if df_joueur.empty:
+            await ctx.send('Joueur introuvable')
+        
+        else:
+            txt = 'Joueurs trouvés : \n'
+
+            for index, data in df_joueur.iterrows():
+                txt += f'{data["plug"]} ({data["team_plug"]}) : {data["role"]}  \n'
+
+            txt += '\nComptes trouvés : \n'
+
+            for index, data in df_compte.iterrows():
+                if index % 5 == 0:
+                    txt += '\n'
+                txt += f' {data["compte"]} |'
+
+
+            await ctx.send(txt)
+                   
+
+    
     
 
 def setup(bot):
