@@ -10,6 +10,7 @@ from datetime import datetime
 from dateutil import tz
 import plotly_express as px
 from interactions.ext.paginators import Paginator
+import ast
 
 async def champion_unique(riot_id, riot_tag):
     df = lire_bdd_perso(f'''SELECT DISTINCT "champion", mode, datetime from matchs WHERE 
@@ -32,6 +33,15 @@ async def champion_lastplay(riot_id, riot_tag):
     df['mois'] = df['lastPlayTime'].dt.month
     df['annee'] = df['lastPlayTime'].dt.year 
         
+    return df
+
+
+async def extraire_variables_imbriquees(df, colonne):
+    df[colonne] = [ast.literal_eval(str(item))
+                   for index, item in df[colonne].iteritems()]
+
+    df = pd.concat([df.drop([colonne], axis=1),
+                   df[colonne].apply(pd.Series)], axis=1)
     return df
 
 
@@ -102,6 +112,10 @@ class Masteries(Extension):
         
         df['championId'] = df['championId'].str.capitalize()
         df['championId'] = df['championId'].str.replace(' ', '')
+
+        df = await extraire_variables_imbriquees(df, 'nextSeasonMilestone')
+        df.drop(columns='rewardConfig', inplace=True)
+        df = await extraire_variables_imbriquees(df, 'requireGradeCounts')
 
         sauvegarde_bdd(df, 'data_masteries', 'replace')
         
@@ -346,56 +360,56 @@ class Masteries(Extension):
         del df, df_champion_unique        
         await ctx.send(response_count)
         
-    @slash_command(name="lol_coffre",
-                   description="Champions où le coffre est disponible",
-                #    default_member_permissions=interactions.Permissions.MANAGE_GUILD,
-                   options=[
-                       SlashCommandOption(name="riot_id",
-                                          description="Nom du joueur",
-                                          type=interactions.OptionType.STRING, required=True),
-                       SlashCommandOption(name="riot_tag",
-                                          description="Tag",
-                                          type=interactions.OptionType.STRING, required=True)
-                       ]
-                   )
-    async def coffre(self,
-                   ctx: SlashContext,
-                   riot_id: str,
-                   riot_tag:str):
+    # @slash_command(name="lol_coffre",
+    #                description="Champions où le coffre est disponible",
+    #             #    default_member_permissions=interactions.Permissions.MANAGE_GUILD,
+    #                options=[
+    #                    SlashCommandOption(name="riot_id",
+    #                                       description="Nom du joueur",
+    #                                       type=interactions.OptionType.STRING, required=True),
+    #                    SlashCommandOption(name="riot_tag",
+    #                                       description="Tag",
+    #                                       type=interactions.OptionType.STRING, required=True)
+    #                    ]
+    #                )
+    # async def coffre(self,
+    #                ctx: SlashContext,
+    #                riot_id: str,
+    #                riot_tag:str):
 
-        await ctx.defer(ephemeral=False)
+    #     await ctx.defer(ephemeral=False)
 
-        riot_id = riot_id.lower().replace(' ', '')
+    #     riot_id = riot_id.lower().replace(' ', '')
 
-        df = lire_bdd_perso(f'''SELECT "championId" from data_masteries WHERE 
-                            id = (SELECT id_compte from tracker WHERE riot_id = :riot_id and riot_tagline = :riot_tag)
-                            and "chestGranted" = :chest''',
-                            index_col=None,
-                            params={'riot_id' : riot_id,
-                                    'riot_tag' : riot_tag.upper(),
-                                    'chest' : False}).T
+    #     df = lire_bdd_perso(f'''SELECT "championId" from data_masteries WHERE 
+    #                         id = (SELECT id_compte from tracker WHERE riot_id = :riot_id and riot_tagline = :riot_tag)
+    #                         and "chestGranted" = :chest''',
+    #                         index_col=None,
+    #                         params={'riot_id' : riot_id,
+    #                                 'riot_tag' : riot_tag.upper(),
+    #                                 'chest' : False}).T
         
         
-        df.sort_values('championId', inplace=True)
+    #     df.sort_values('championId', inplace=True)
         
-        response = ''
+    #     response = ''
         
-        nb_coffre = len(df['championId'])
+    #     nb_coffre = len(df['championId'])
         
-        espace = 0
-        for index, data in df.iterrows():
-            response += f'{emote_champ_discord.get(data["championId"].capitalize(), data["championId"].capitalize())}' 
+    #     espace = 0
+    #     for index, data in df.iterrows():
+    #         response += f'{emote_champ_discord.get(data["championId"].capitalize(), data["championId"].capitalize())}' 
             
-            espace += 1
-            if (espace) % 10 == 0:
-                response += '\n'
-            else:
-                response += ' | '
+    #         espace += 1
+    #         if (espace) % 10 == 0:
+    #             response += '\n'
+    #         else:
+    #             response += ' | '
         
-        paginator = Paginator.create_from_string(self.bot, response, page_size=4000, timeout=60)
+    #     paginator = Paginator.create_from_string(self.bot, response, page_size=4000, timeout=60)
 
-        paginator.default_title = f'{nb_coffre} Coffres disponibles pour {riot_id} #{riot_tag} '
-        await paginator.send(ctx)
+    #     paginator.default_title = f'{nb_coffre} Coffres disponibles pour {riot_id} #{riot_tag} '
+    #     await paginator.send(ctx)
         
         
 def setup(bot):
