@@ -346,7 +346,7 @@ class data_finance(Extension):
         crossed = ((df_croisement['average_rolling12j'] < df_croisement['average_rolling2j']) != (df_croisement['average_rolling12j'].shift(1) < df_croisement['average_rolling2j'].shift(1)))
 
 
-        df_croisement['croisement'] = crossed 
+        df_croisement['croisement'] = crossed.shift(-1) 
 
         df_croisement = df_croisement[['Date', 'Close', 'average_rolling12j', 'average_rolling2j', 'croisement']]
 

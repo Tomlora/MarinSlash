@@ -4,6 +4,52 @@ import pandas as pd
 from aiohttp import ClientSession
 from fonctions.gestion_bdd import sauvegarde_bdd, lire_bdd_perso, requete_perso_bdd
 from fonctions.word import suggestion_word
+from datetime import datetime
+from dateutil import tz
+
+
+
+async def data_joueur_leaguepedia(session, liste_championnat):
+
+    liste_df = []
+
+    for championnat in liste_championnat: # https://lol.fandom.com/wiki/Metadata:Leagues
+        url = "https://lol.fandom.com/api.php"
+        params = {
+            "action": "cargoquery",
+            "tables": "Tournaments,TournamentPlayers,PlayerRedirects, Players",
+            "fields": "Players.Player,Players.Name,Players.Country, Players.Role, Tournaments.League, Players.Team, Players.Country",
+            "where" : f"Tournaments.League in ('{championnat}') and Players.Role in ('Top', 'Jungle', 'Mid', 'Bot', 'Support') ",
+            "join_on": "Tournaments.OverviewPage=TournamentPlayers.OverviewPage, TournamentPlayers.Player = PlayerRedirects.AllName, PlayerRedirects.OverviewPage=Players.OverviewPage",
+            "group_by" : 'Players.OverviewPage',
+            "format": "json",
+            "limit": "1000"  # Augmentez la limite ici
+        }
+
+        response = await session.get(url, params=params)
+        data = await response.json()
+
+        data = data['cargoquery']
+
+        # Transformation des données pour obtenir une liste de dictionnaires
+        cleaned_data = [entry['title'] for entry in data]
+
+        # Création du DataFrame à partir des données nettoyées
+        df = pd.DataFrame(cleaned_data)
+
+        # Optionnel : Renommer les colonnes pour un meilleur affichage
+        df.columns = ['plug', 'Nom', 'Pays', 'Rôle', 'Ligue', 'team_plug']
+
+        liste_df.append(df)
+
+
+    df_leaguepedia = pd.concat(liste_df).reset_index(drop=True).drop_duplicates(keep='first', subset='plug')
+
+    df_leaguepedia['Rôle'] = df_leaguepedia['Rôle'].replace({'Bot' : 'ADC'})
+
+    df_leaguepedia['plug'] = df_leaguepedia['plug'].str.replace(r'\s*\(.*?\)', '', regex=True)
+
+    return df_leaguepedia
 
 
 class LoLProplay(Extension):
@@ -19,6 +65,8 @@ class LoLProplay(Extension):
 
         session = ClientSession()
         data = await session.get('https://www.trackingthepros.com/d/list_players?filter_region=ALL&')
+
+        print('Update Database Proplayers...')
 
         txt = await data.json()
 
@@ -62,6 +110,16 @@ class LoLProplay(Extension):
         df_pro = df_pro[['current', 'home', 'role', 'accounts', 'team_plug', 'plug', 'rankHigh', 'rankHighNum', 'rankHighLP', 'rankHighLPNum']]
 
 
+        # NOTE : Data Leaguepedia
+
+        df_leaguepedia = await data_joueur_leaguepedia(session, ['LoL EMEA Championship', 'La Ligue Française', 'La Ligue Française Division 2', 'Iberian Cup', 'Prime League Pro Division',
+                        'Turkish Championship League', 'Ultraliga', 'Arabian League', 'Northern League of Legends Championship', 'Esports Balkan League'])
+        
+        for joueur in df_pro['plug'].tolist():
+            if joueur in df_leaguepedia['plug'].tolist():
+                df_pro.loc[df_pro['plug'] == joueur, 'team_plug'] = df_leaguepedia.loc[df_leaguepedia['plug'] == joueur, 'team_plug'].values[0] 
+
+
         # upsert
 
         df_pro_origin = lire_bdd_perso('''SELECT * from data_proplayers''', index_col='plug').T
@@ -71,6 +129,11 @@ class LoLProplay(Extension):
         df_pro_origin = pd.concat([df_pro_origin[~df_pro_origin.index.isin(df_pro.index)], df_pro])
 
         df_pro_origin = df_pro_origin.reset_index()[['current', 'home', 'role', 'accounts', 'team_plug', 'plug', 'rankHigh', 'rankHighNum', 'rankHighLP', 'rankHighLPNum']]
+
+        df_pro_origin = df_pro_origin.merge(df_leaguepedia[['plug', 'Pays']], how='left', on='plug')
+
+        timezone = tz.gettz('Europe/Paris')
+        df_pro_origin['update'] = datetime.now(timezone)
 
         sauvegarde_bdd(df_pro_origin,
                 'data_proplayers')
@@ -85,44 +148,46 @@ class LoLProplay(Extension):
 
         df_final_origin = pd.concat([df_final_origin[~df_final_origin.index.isin(df_final.index)], df_final])
 
-        df_final_origin.drop_duplicates(subset=['joueur', 'compte', 'region'], inplace=True)
-
         df_final_origin.reset_index(inplace=True)
+
+        df_final_origin.drop_duplicates(subset=['joueur', 'compte', 'region'], inplace=True)
 
 
         sauvegarde_bdd(df_final_origin.drop(columns='index'), 'data_acc_proplayers')
+
+        print('Update Database Proplayers terminée !')
 
 
     @slash_command(name='lol_pro', description='Pro League of Legends')
     async def lol_pro(self, ctx: SlashContext):
         pass
 
-    @lol_pro.subcommand("update_joueur",
-                           sub_cmd_description="Mettre à jour son equipe",
-                           options=[
-                               SlashCommandOption(name="joueur",
-                                                  description="Nom du joueur",
-                                                  type=interactions.OptionType.STRING,
-                                                  required=True),
-                                SlashCommandOption(name="equipe",
-                                                  description="Nouvel equipe",
-                                                  type=interactions.OptionType.STRING,
-                                                  required=True)])
-    async def update_joueur(self,
-                     ctx: SlashContext,
-                     joueur,
-                     equipe):
+    # @lol_pro.subcommand("update_joueur",
+    #                        sub_cmd_description="Mettre à jour son equipe",
+    #                        options=[
+    #                            SlashCommandOption(name="joueur",
+    #                                               description="Nom du joueur",
+    #                                               type=interactions.OptionType.STRING,
+    #                                               required=True),
+    #                             SlashCommandOption(name="equipe",
+    #                                               description="Nouvel equipe",
+    #                                               type=interactions.OptionType.STRING,
+    #                                               required=True)])
+    # async def update_joueur(self,
+    #                  ctx: SlashContext,
+    #                  joueur,
+    #                  equipe):
 
-        await ctx.defer(ephemeral=False)             
+    #     await ctx.defer(ephemeral=False)             
 
-        nb_row = requete_perso_bdd(f'''UPDATE public.data_proplayers SET team_plug = '{equipe}' where plug = '{joueur}' ''', get_row_affected=True)
+    #     nb_row = requete_perso_bdd(f'''UPDATE public.data_proplayers SET team_plug = '{equipe}' where plug = '{joueur}' ''', get_row_affected=True)
 
-        if nb_row > 0:
-            await ctx.send(f'Database modifiée. {joueur} rejoint {equipe}')
-        else:
-            liste_joueur = lire_bdd_perso( '''SELECT plug from public.data_proplayers ''', index_col=None ).T['plug'].to_list()
-            suggestion = suggestion_word(joueur, liste_joueur)
-            await ctx.send(f'Joueur introuvable. Souhaitais-tu dire : **{suggestion}**')
+    #     if nb_row > 0:
+    #         await ctx.send(f'Database modifiée. {joueur} rejoint {equipe}')
+    #     else:
+    #         liste_joueur = lire_bdd_perso( '''SELECT plug from public.data_proplayers ''', index_col=None ).T['plug'].to_list()
+    #         suggestion = suggestion_word(joueur, liste_joueur)
+    #         await ctx.send(f'Joueur introuvable. Souhaitais-tu dire : **{suggestion}**')
 
 
     @lol_pro.subcommand("add_compte",

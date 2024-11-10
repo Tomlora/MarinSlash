@@ -1008,17 +1008,12 @@ class Recordslol(Extension):
 
         if mode == 'ARAM':
             liste_records = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills', 
-            'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
+            'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min',
             'cs', 'cs_min', 'cs_dix_min', 'cs_max_avantage', 'kills_min', 'deaths_min', 'assists_min',
             'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
-            'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
+            'baron', 'drake', 'dmg_tower',
             'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort',
-            'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used',
-            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
-                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30"]
+            'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used']
 
         if champion == None:
             # Initialisation des listes

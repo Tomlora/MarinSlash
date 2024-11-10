@@ -351,7 +351,7 @@ async def get_masteries_old(summonerName: str, championIds, session : aiohttp.Cl
         
     try: # si le tag est EUW, championmastery fonctionne bien. En revanche, si ce n'est pas le cas, il peut se tromper de joueur.
         
-        # url = f"https://championmastery.gg/summoner?summoner={summonerName_url}&region=EUW"
+
         url = f'https://championmastery.gg/player?riotId={riot_id}%23{riot_tag}&region=EUW&lang=en_US'
 
         
@@ -416,19 +416,25 @@ async def get_masteries_old(summonerName: str, championIds, session : aiohttp.Cl
                 print(traceback_msg)
     
     except:
-        print(f"Erreur Masteries {summonerName_url} : Retour à l'API")
-        mastery_list = []
-        me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
-        puuid = me['puuid']
-                
-        data_masteries : dict = await get_champion_masteries(session, puuid)
-                
-        for value in data_masteries:
-            mastery = value['championPoints']
-            level = value['championLevel']
-            championId = value['championId']
-                
-            mastery_list.append({"mastery": mastery, 'level' : level, "championId": championId})              
+        try:
+            print(f"Erreur Masteries {summonerName_url} {riot_tag} : Retour à l'API")
+            mastery_list = []
+            me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+            puuid = me['puuid']
+                    
+            data_masteries : dict = await get_champion_masteries(session, puuid)
+                    
+            for value in data_masteries:
+                mastery = value['championPoints']
+                level = value['championLevel']
+                championId = value['championId']
+                    
+                mastery_list.append({"mastery": mastery, 'level' : level, "championId": championId})           
+
+        except:
+            print(f"Erreur avec l'API pour {summonerName_url} {riot_tag}")
+            mastery_list.append({"mastery" : 1, 'level' : 0, 'championId' : 1})
+
         
 
     mastery_dict = {
@@ -1735,7 +1741,7 @@ class matchlol():
             try:
                 self.mastery_level.append(masteries_df.loc[championid]['level'])
             except:
-                self.mastery_level.append('?')
+                self.mastery_level.append(0)
 
 
 
@@ -2509,7 +2515,7 @@ class matchlol():
                 role_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'role'].values[0]
                 team_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'team_plug'].values[0]
                 champ_joueur = self.thisChampNameListe[num_joueur]
-                if team_joueur == '':
+                if team_joueur in ('', None):
                     self.observations_proplayers += f':stadium: **{name_joueur}** ({champ_joueur}) : {role_joueur} \n'
                 else: 
                     self.observations_proplayers += f':stadium: **{name_joueur}** ({champ_joueur}) : {role_joueur} chez {team_joueur} \n'

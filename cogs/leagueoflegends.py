@@ -6,9 +6,9 @@ import warnings
 import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, listen, slash_command, Task, IntervalTrigger, TimeTrigger
 from fonctions.params import Version, saison
-from fonctions.channels_discord import verif_module, identifier_role_by_name
-from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples, emote_champ_discord, get_id_account_bdd
-from fonctions.match import emote_rank_discord, emote_champ_discord, fix_temps, update_ugg
+from fonctions.channels_discord import identifier_role_by_name
+from fonctions.match import trouver_records, get_version, emote_champ_discord, get_id_account_bdd
+from fonctions.match import emote_rank_discord, emote_champ_discord, fix_temps
 from fonctions.api_calls import getRankings
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
@@ -17,8 +17,6 @@ from datetime import datetime, timedelta
 from dateutil import tz
 from interactions.ext.paginators import Paginator
 import traceback
-import numpy as np
-import psycopg2.errors
 import ast
 import humanize
 from asyncio import sleep
@@ -34,13 +32,10 @@ from fonctions.match import (matchlol,
                              getId_with_puuid,
                              dict_rankid,
                              get_league_by_summoner,
-                             get_summoner_by_name,
-                             get_summonerinfo_by_puuid,
                              trouver_records,
                              label_rank,
                              label_tier,
-                             get_spectator_data,
-                             get_summoner_by_riot_id
+                             get_spectator_data
                              )
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 
