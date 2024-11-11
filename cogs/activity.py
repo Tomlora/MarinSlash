@@ -32,7 +32,7 @@ class activity(Extension):
             guild = await self.bot.fetch_guild(server)
 
             text_channel_list = [channel.id for channel in guild.channels]
-            print(f' Serveurs connectés => Name : {guild.name} | Id : {guild.id} | Chan1 : {text_channel_list[0]}')
+            # print(f' Serveurs connectés => Name : {guild.name} | Id : {guild.id} | Chan1 : {text_channel_list[0]}')
 
             role = get(guild.roles, name="Muted")
 

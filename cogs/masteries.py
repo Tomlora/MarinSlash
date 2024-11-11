@@ -117,6 +117,8 @@ class Masteries(Extension):
         df.drop(columns='rewardConfig', inplace=True)
         df = await extraire_variables_imbriquees(df, 'requireGradeCounts')
 
+        df['update'] = datetime.now(timezone)
+
         sauvegarde_bdd(df, 'data_masteries', 'replace')
         
         print('Masteries sauvegardés !')

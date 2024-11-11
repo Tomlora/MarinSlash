@@ -9,7 +9,6 @@ import traceback
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import aiohttp
-from bs4 import BeautifulSoup
 import asyncio
 import pickle
 import sqlalchemy.exc
@@ -2515,10 +2514,11 @@ class matchlol():
                 role_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'role'].values[0]
                 team_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'team_plug'].values[0]
                 champ_joueur = self.thisChampNameListe[num_joueur]
+                emote_champ = emote_champ_discord.get(champ_joueur.capitalize(), f'({champ_joueur})')
                 if team_joueur in ('', None):
-                    self.observations_proplayers += f':stadium: **{name_joueur}** ({champ_joueur}) : {role_joueur} \n'
+                    self.observations_proplayers += f':stadium: **{name_joueur}** {emote_champ} : {role_joueur} \n'
                 else: 
-                    self.observations_proplayers += f':stadium: **{name_joueur}** ({champ_joueur}) : {role_joueur} chez {team_joueur} \n'
+                    self.observations_proplayers += f':stadium: **{name_joueur}** {emote_champ} : {role_joueur} chez {team_joueur} \n'
                        
     async def calcul_badges(self, sauvegarder):
         # TODO : Faire une table qui récapitule si un badge a été obtenu par un joueur dans une game spécifique
@@ -2764,7 +2764,8 @@ class matchlol():
         for joueur, stat in self.winrate_champ_joueur.items():
             if isinstance(stat, dict):
                 if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] >= 70 and stat['totalMatches'] >= 15:
-                    self.observations_smurf += f':muscle: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {stat["championId"]} \n'
+                    emote_champ = emote_champ_discord.get(stat["championId"].capitalize(), stat["championId"])
+                    self.observations_smurf += f':muscle: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {emote_champ} \n'
                 
 
 
