@@ -1879,6 +1879,8 @@ class matchlol():
            
             if isinstance(self.df_data_stat, pd.DataFrame):
 
+                self.df_data_stat['poids_games'] = (self.df_data_stat['totalMatches'] / self.df_data_stat['totalMatches'].sum() * 100).astype(int)
+
                 self.df_data_stat = self.df_data_stat[self.df_data_stat['championId'] == self.thisChampNameListe[i]]
 
                 if self.df_data_stat.empty:
@@ -2785,20 +2787,20 @@ class matchlol():
         self.observations_mauvais_ennemi = ''
         
         for num, (joueur, stat) in enumerate(self.winrate_joueur.items()):
-            if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] <= 40 and stat['nbgames'] >= 15:
+            if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] <= 40 and stat['nbgames'] >= 20:
                 if num <= 4:
-                    self.observations_mauvais_allie += f':eyes: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
+                    self.observations_mauvais_allie += f':thumbdown: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
                 else:
-                    self.observations_mauvais_ennemi += f':eyes: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
+                    self.observations_mauvais_ennemi += f':thumbdown: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
                 
         for num, (joueur, stat) in enumerate(self.winrate_champ_joueur.items()):
             if isinstance(stat, dict):
                 if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] <= 40 and stat['totalMatches'] >= 15:
                     emote_champ = emote_champ_discord.get(stat["championId"].capitalize(), stat["championId"])
                     if num <= 4:
-                        self.observations_mauvais_allie += f':muscle: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {emote_champ} \n'
+                        self.observations_mauvais_allie += f':thumbdown: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {emote_champ} \n'
                     else:
-                        self.observations_mauvais_ennemi += f':muscle: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {emote_champ} \n'
+                        self.observations_mauvais_ennemi += f':thumbdown: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {emote_champ} \n'
                 
     async def detection_first_time(self):
 
@@ -2806,10 +2808,22 @@ class matchlol():
                 
         for num, (joueur, stat) in enumerate(self.winrate_champ_joueur.items()):
             if isinstance(stat, dict):
-                if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['totalMatches'] <= 1:
+                if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['totalMatches'] <= 5:
                     emote_champ = emote_champ_discord.get(stat["championId"].capitalize(), stat["championId"])
 
-                    self.first_time += f'<:worryschool:1307745643996905519> **{joueur.split("#")[0]}** : {emote_champ} \n'
+                    self.first_time += f'**{joueur.split("#")[0]}** : {stat["totalMatches"]} games sur {emote_champ} \n'
+
+
+    async def detection_otp(self):
+
+        self.otp = ''
+                
+        for num, (joueur, stat) in enumerate(self.winrate_champ_joueur.items()):
+            if isinstance(stat, dict):
+                if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['totalMatches'] >= 20 and stat['poids_games'] > 70:
+                    emote_champ = emote_champ_discord.get(stat["championId"].capitalize(), stat["championId"])
+
+                    self.otp += f'**{joueur.split("#")[0]}** : {emote_champ} {stat["poids_games"]}% pick \n'
 
 
 

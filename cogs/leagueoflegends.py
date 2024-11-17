@@ -587,7 +587,7 @@ class LeagueofLegends(Extension):
 
         if exploits == '':  # si l'exploit est vide, il n'y a aucun exploit
             embed.add_field(
-                name=f"Durée de la game : {str(int(match_info.thisTime))} minutes",
+                name=f":timer: {str(int(match_info.thisTime))} minutes",
                 value=f'Aucun exploit',
                 inline=False,
             )
@@ -595,7 +595,7 @@ class LeagueofLegends(Extension):
         elif len(exploits) <= chunk_size:
             exploits = exploits.replace('#', '').replace(' #', '')
             embed.add_field(
-                name=f"Durée de la game : {str(int(match_info.thisTime))} minutes",
+                name=f":timer: {str(int(match_info.thisTime))} minutes",
                 value=exploits,
                 inline=False,
             )
@@ -622,14 +622,14 @@ class LeagueofLegends(Extension):
                         exploits += f'{emoji} Tu as battu **{count}** records \n'
 
             embed.add_field(
-                name=f'Durée de la game : {int(match_info.thisTime)} minutes', value=exploits)
+                name=f':timer: {int(match_info.thisTime)} minutes', value=exploits)
 
         else:  # si l'embed nécessite plusieurs fields, et est inférieur à la longueur max de l'embed
             exploits = exploits.split('#')  # on split sur notre mot clé
 
             for i in range(len(exploits)):
                 field_name = (
-                    f"Durée de la game : {str(int(match_info.thisTime))} minutes"
+                    f":timer: {str(int(match_info.thisTime))} minutes"
                     if i == 0
                     else f"Records {i + 1}"
                 )
@@ -664,16 +664,22 @@ class LeagueofLegends(Extension):
             await match_info.detection_mauvais_joueur()
 
             if match_info.observations_mauvais_allie != '':
-                embed.add_field(name='Mauvais joueurs :blue_circle:', value=match_info.observations_mauvais_allie)
+                embed.add_field(name='Joueurs nuls :blue_circle:', value=match_info.observations_mauvais_allie)
 
             if match_info.observations_mauvais_ennemi != '':
-                embed.add_field(name='Mauvais joueurs :red_circle:', value=match_info.observations_mauvais_ennemi)     
+                embed.add_field(name='Joueurs nuls :red_circle:', value=match_info.observations_mauvais_ennemi)     
 
             # Detection First Time
             await match_info.detection_first_time()
 
             if match_info.first_time != '':
-                embed.add_field(name='First time', value=match_info.first_time)           
+                embed.add_field(name='<:worryschool:1307745643996905519> Débutant', value=match_info.first_time)       
+
+            # OTP
+            await match_info.detection_otp()
+
+            if match_info.otp != '':
+                embed.add_field(name=':one: OTP', value=match_info.otp)         
 
             # Insights
             
