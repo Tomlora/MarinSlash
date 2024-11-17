@@ -653,10 +653,29 @@ class LeagueofLegends(Extension):
             
             await match_info.detection_smurf()
                 
-            if match_info.observations_smurf != '':
-                embed.add_field(name='Bons joueurs', value=match_info.observations_smurf)
+            if match_info.observations_smurf_allie != '':
+                embed.add_field(name='Bons joueurs :blue_circle:', value=match_info.observations_smurf_allie)
 
+            if match_info.observations_smurf_ennemi != '':
+                embed.add_field(name='Bons joueurs :red_circle:', value=match_info.observations_smurf_ennemi)
 
+            # Detection mauvais joueur
+
+            await match_info.detection_mauvais_joueur()
+
+            if match_info.observations_mauvais_allie != '':
+                embed.add_field(name='Mauvais joueurs :blue_circle:', value=match_info.observations_mauvais_allie)
+
+            if match_info.observations_mauvais_ennemi != '':
+                embed.add_field(name='Mauvais joueurs :red_circle:', value=match_info.observations_mauvais_ennemi)     
+
+            # Detection First Time
+            await match_info.detection_first_time()
+
+            if match_info.first_time != '':
+                embed.add_field(name='First time', value=match_info.first_time)           
+
+            # Insights
             
             if match_info.observations != '':
                 embed.add_field(name='Insights', value=match_info.observations)

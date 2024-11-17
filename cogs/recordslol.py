@@ -1482,7 +1482,7 @@ class Recordslol(Extension):
                                          index_col='id').transpose()
 
             
-
+        await ctx.defer()
             
 
         fichier = fichier[['match_id', 'id_participant', 'riot_id', 'discord', 'champion','datetime'] + self.liste_complete]
@@ -1492,20 +1492,21 @@ class Recordslol(Extension):
         
         df_complet = []
        
-        for stat in self.liste_complete:                        
-            if stat in ['early_baron', 'early_drake']:
+        for stat in self.liste_complete: 
+            stat_lower = stat.lower()                       
+            if stat_lower in ['early_baron', 'early_drake']:
                 ascending=True
-                fichier_filtre = fichier[fichier[stat] != 0]
-            elif stat in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']:
+                fichier_filtre = fichier[fichier[stat_lower] != 0]
+            elif stat_lower in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']:
                 ascending=True
-                fichier_filtre = fichier[fichier[stat] != 999]
+                fichier_filtre = fichier[fichier[stat_lower] != 999]
             else:
                 ascending=False
-                fichier_filtre = fichier[fichier[stat] != 0]
+                fichier_filtre = fichier[fichier[stat_lower] != 0]
                         
-            fichier_filtre.sort_values(by=stat, ascending=ascending, inplace=True)
+            fichier_filtre.sort_values(by=stat_lower, ascending=ascending, inplace=True)
             fichier_filtre = fichier_filtre.head(1)
-            fichier_filtre['record'] = stat
+            fichier_filtre['record'] = stat_lower
             df_complet.append(fichier_filtre)
             
         df_complet = pd.concat(df_complet)    
@@ -1517,7 +1518,7 @@ class Recordslol(Extension):
 
         for id, data in df_complet.iterrows():
             record = data["record"]
-            txt += f'Record **{record}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {emote_champ_discord.get(data["champion"].capitalize(), data["champion"]) } : **{data[record]}** \n'
+            txt += f' **{record}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {emote_champ_discord.get(data["champion"].capitalize(), data["champion"]) } : **{data[record]}** \n'
         
         paginator = Paginator.create_from_string(self.bot, txt, page_size=2000, timeout=120)
 
