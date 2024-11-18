@@ -1879,7 +1879,10 @@ class matchlol():
            
             if isinstance(self.df_data_stat, pd.DataFrame):
 
+
+
                 self.df_data_stat['poids_games'] = (self.df_data_stat['totalMatches'] / self.df_data_stat['totalMatches'].sum() * 100).astype(int)
+
 
                 self.df_data_stat = self.df_data_stat[self.df_data_stat['championId'] == self.thisChampNameListe[i]]
 
@@ -2521,10 +2524,14 @@ class matchlol():
                 team_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'team_plug'].values[0]
                 champ_joueur = self.thisChampNameListe[num_joueur]
                 emote_champ = emote_champ_discord.get(champ_joueur.capitalize(), f'({champ_joueur})')
+                if num_joueur <= 4:
+                    emote = ':blue_circle:'
+                else:
+                    emote = ':red_circle:'
                 if team_joueur in ('', None):
-                    self.observations_proplayers += f':stadium: **{name_joueur}** {emote_champ} : {role_joueur} \n'
+                    self.observations_proplayers += f'{emote} **{name_joueur}** {emote_champ} : {role_joueur} \n'
                 else: 
-                    self.observations_proplayers += f':stadium: **{name_joueur}** {emote_champ} : {role_joueur} chez {team_joueur} \n'
+                    self.observations_proplayers += f'{emote} **{name_joueur}** {emote_champ} : {role_joueur} chez {team_joueur} \n'
                        
     async def calcul_badges(self, sauvegarder):
         # TODO : Faire une table qui récapitule si un badge a été obtenu par un joueur dans une game spécifique
@@ -2761,46 +2768,52 @@ class matchlol():
             
     async def detection_smurf(self):
         
-        self.observations_smurf_allie = ''
-        self.observations_smurf_ennemi = ''
+        self.observations_smurf = ''
         
         for num, (joueur, stat) in enumerate(self.winrate_joueur.items()):
             if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] >= 70 and stat['nbgames'] >= 20:
                 if num <= 4:
-                    self.observations_smurf_allie += f':eyes: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
+                    emote = ':blue_circle:'
                 else:
-                    self.observations_smurf_ennemi += f':eyes: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
+                    emote = ':red_circle:'
+                self.observations_smurf += f'{emote} **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
+
                 
         for num, (joueur, stat) in enumerate(self.winrate_champ_joueur.items()):
             if isinstance(stat, dict):
                 if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] >= 70 and stat['totalMatches'] >= 15:
                     emote_champ = emote_champ_discord.get(stat["championId"].capitalize(), stat["championId"])
                     if num <= 4:
-                        self.observations_smurf_allie += f':muscle: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {emote_champ} \n'
+                        emote = ':blue_circle:'
                     else:
-                        self.observations_smurf_ennemi += f':muscle: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {emote_champ} \n'
+                        emote = ':red_circle:'
+                    self.observations_smurf += f'{emote} **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {emote_champ} \n'
+
                 
 
     async def detection_mauvais_joueur(self):
         
-        self.observations_mauvais_allie = ''
-        self.observations_mauvais_ennemi = ''
+        self.observations_mauvais_joueur = ''
         
         for num, (joueur, stat) in enumerate(self.winrate_joueur.items()):
             if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] <= 40 and stat['nbgames'] >= 20:
                 if num <= 4:
-                    self.observations_mauvais_allie += f':thumbdown: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
+                    emote = ':blue_circle:'
                 else:
-                    self.observations_mauvais_ennemi += f':thumbdown: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
+                    emote = ':red_circle:'
+                self.observations_mauvais_joueur += f'{emote} **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["nbgames"]} parties) \n'
+
                 
         for num, (joueur, stat) in enumerate(self.winrate_champ_joueur.items()):
             if isinstance(stat, dict):
                 if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['winrate'] <= 40 and stat['totalMatches'] >= 15:
                     emote_champ = emote_champ_discord.get(stat["championId"].capitalize(), stat["championId"])
                     if num <= 4:
-                        self.observations_mauvais_allie += f':thumbdown: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {emote_champ} \n'
+                        emote = ':blue_circle:'
                     else:
-                        self.observations_mauvais_ennemi += f':thumbdown: **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {emote_champ} \n'
+                        emote = ':red_circle:'
+                    self.observations_mauvais_joueur += f'{emote} **{joueur.split("#")[0]}** : WR : {stat["winrate"]}% ({stat["totalMatches"]} parties) sur {emote_champ} \n'
+
                 
     async def detection_first_time(self):
 
@@ -2809,9 +2822,13 @@ class matchlol():
         for num, (joueur, stat) in enumerate(self.winrate_champ_joueur.items()):
             if isinstance(stat, dict):
                 if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['totalMatches'] <= 5:
+                    if num <= 4:
+                        emote = ':blue_circle:'
+                    else:
+                        emote = ':red_circle:'
                     emote_champ = emote_champ_discord.get(stat["championId"].capitalize(), stat["championId"])
 
-                    self.first_time += f'**{joueur.split("#")[0]}** : {stat["totalMatches"]} games sur {emote_champ} \n'
+                    self.first_time += f'{emote} **{joueur.split("#")[0]}** : {stat["totalMatches"]} games sur {emote_champ} \n'
 
 
     async def detection_otp(self):
@@ -2822,8 +2839,13 @@ class matchlol():
             if isinstance(stat, dict):
                 if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['totalMatches'] >= 20 and stat['poids_games'] > 70:
                     emote_champ = emote_champ_discord.get(stat["championId"].capitalize(), stat["championId"])
+                    if num <= 4:
+                        emote = ':blue_circle:'
+                    else:
+                        emote = ':red_circle:'
+                    
 
-                    self.otp += f'**{joueur.split("#")[0]}** : {emote_champ} {stat["poids_games"]}% pick \n'
+                    self.otp += f'{emote} **{joueur.split("#")[0]}** : {emote_champ} {stat["poids_games"]}% pick | {stat["winrate"]}% WR \n'
 
 
 

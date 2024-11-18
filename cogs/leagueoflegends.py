@@ -647,33 +647,30 @@ class LeagueofLegends(Extension):
             await match_info.detection_joueurs_pro()    
                         
             if match_info.observations_proplayers != '':
-                embed.add_field(name='Joueurs Pro', value=match_info.observations_proplayers)
+                embed.add_field(name=':stadium: Joueurs Pro', value=match_info.observations_proplayers)
                 
             # Detection Smurf
             
             await match_info.detection_smurf()
                 
-            if match_info.observations_smurf_allie != '':
-                embed.add_field(name='Bons joueurs :blue_circle:', value=match_info.observations_smurf_allie)
+            if match_info.observations_smurf != '':
+                embed.add_field(name=':muscle: Bons joueurs', value=match_info.observations_smurf)
 
-            if match_info.observations_smurf_ennemi != '':
-                embed.add_field(name='Bons joueurs :red_circle:', value=match_info.observations_smurf_ennemi)
 
             # Detection mauvais joueur
 
             await match_info.detection_mauvais_joueur()
 
-            if match_info.observations_mauvais_allie != '':
-                embed.add_field(name='Joueurs nuls :blue_circle:', value=match_info.observations_mauvais_allie)
-
-            if match_info.observations_mauvais_ennemi != '':
-                embed.add_field(name='Joueurs nuls :red_circle:', value=match_info.observations_mauvais_ennemi)     
+            if match_info.observations_mauvais_joueur != '':
+                embed.add_field(name=':thumbdown: Joueurs nuls', value=match_info.observations_mauvais_joueur) 
 
             # Detection First Time
-            await match_info.detection_first_time()
 
-            if match_info.first_time != '':
-                embed.add_field(name='<:worryschool:1307745643996905519> Débutant', value=match_info.first_time)       
+            if match_info.thisQ != 'ARAM':
+                await match_info.detection_first_time()
+
+                if match_info.first_time != '':
+                    embed.add_field(name='<:worryschool:1307745643996905519> Débutant', value=match_info.first_time)       
 
             # OTP
             await match_info.detection_otp()
