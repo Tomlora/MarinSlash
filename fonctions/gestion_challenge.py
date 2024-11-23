@@ -106,7 +106,7 @@ async def get_data_joueur_challenges(id_compte: int, session, puuid=None):
 
     data_challenge_new['update'] = datetime.now()
     
-    if not data_challenge.empty:
+    if not data_challenge_new.empty:
         timezone=tz.gettz('Europe/Paris')
 
         data_challenge_new['update'] = datetime.now(timezone)        

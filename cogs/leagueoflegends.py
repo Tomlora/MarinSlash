@@ -271,7 +271,11 @@ class LeagueofLegends(Extension):
                 difLP = int(match_info.thisLP) - \
                         int(suivi[id_compte]['LP'])
             else:
-                difLP = 0
+                if int(match_info.thisLP) < int(suivi[id_compte]['LP']):
+                    difLP = (100 - int(suivi[id_compte]['LP'])) + int(match_info.thisLP)
+                else:
+                    difLP = (-100 - int(suivi[id_compte]['LP'])) + int(match_info.thisLP)
+
         except Exception:
             difLP = 0
 
@@ -1323,8 +1327,13 @@ class LeagueofLegends(Extension):
                     #     pass
                     try:
                         stats_rankings = await getRankings(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'], 'euw1', saison, 420)
-                        rank_euw = stats_rankings['data']['overallRanking']['overallRanking']
-                        percent_rank_euw = int(round(stats_rankings['data']['overallRanking']['overallRanking'] / stats_rankings['data']['overallRanking']['totalPlayerCount'] * 100,0))
+                        
+                        if stats_rankings == 'Service indisponible':
+                            rank_euw = rank_euw_old
+                            percent_rank_euw = percent_rank_old
+                        else:
+                            rank_euw = stats_rankings['data']['overallRanking']['overallRanking']
+                            percent_rank_euw = int(round(stats_rankings['data']['overallRanking']['overallRanking'] / stats_rankings['data']['overallRanking']['totalPlayerCount'] * 100,0))
                     except TypeError:
                         rank_euw = rank_euw_old
                         percent_rank_euw = percent_rank_old

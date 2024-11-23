@@ -1,17 +1,26 @@
-from bs4 import BeautifulSoup
-import json
 import time
 import sys
 import os
 import traceback
 from aiohttp import ClientSession
-from fonctions.match import get_summoner_by_riot_id, get_champion_masteries, getLiveGame, getPlayerStats
 import pandas as pd
 
 api_moba = os.environ.get('API_moba')
-# Gets the mast matches from mobalytics
+url_api_moba = os.environ.get('url_moba')
+
+api_key_lol = os.environ.get('API_LOL')
+my_region = 'euw1'
+region = "EUROPE"
 
 
+async def get_champion_masteries(session, puuid):
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}', params={'api_key': api_key_lol}) as data_masteries:    
+        return await data_masteries.json()
+
+async def get_summoner_by_riot_id(session : ClientSession, riot_id, riot_tag):
+    async with session.get(f'https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{riot_id}/{riot_tag}', params={'api_key': api_key_lol}) as session_summoner:
+        me = await session_summoner.json()  # informations sur le joueur
+    return me
 
 
 def wait(seconds):
@@ -227,6 +236,145 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
     }
 
     return mastery_dict['mastery']
+
+async def getPlayerStats(session : ClientSession, summonerName, tagline, regionId='euw1', role=7, season=22, queueType=420):
+    url = "https://u.gg/api"
+    payload = {
+                "operationName": "getPlayerStats",
+                "variables": {
+                    "riotUserName": summonerName,
+                    "riotTagLine" : tagline,
+                    "regionId": regionId,
+                    "role": role,
+                    "seasonId": season,
+                    "queueType": [queueType],
+                },
+                "query": "query getPlayerStats($queueType: [Int!], $regionId: String!, $role: [Int!], $seasonId: Int!, $riotUserName: String!, $riotTagLine : String!) {\n  fetchPlayerStatistics(\n    queueType: $queueType\n    riotUserName: $riotUserName\n    riotTagLine: $riotTagLine\n      regionId: $regionId\n    role: $role\n    seasonId: $seasonId\n  ) {\n    basicChampionPerformances {\n      assists\n      championId\n      cs\n      damage\n      damageTaken\n      deaths\n      gold\n      kills\n      totalMatches\n      wins\n      lpAvg\n    }\n    exodiaUuid\n    puuid\n    queueType\n    regionId\n    role\n    seasonId\n    __typename\n  }\n}"
+            }
+        
+    headers = {
+            "Accept-Encoding":"gzip, deflate, br",
+            "Accept":"*/*",
+            "Content-Type": "application/json",
+            "Connection": "keep-alive",
+            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+          }
+
+        # response = requests.post(url, headers=headers, json=payload)
+
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        try:
+            response = await session_match_detail.json()  # detail du match sélectionné
+        except:
+            try:
+                response = await session_match_detail.json(content_type=None)  # detail du match sélectionné
+            except:
+                print(session_match_detail.text)
+                response = ''
+        
+    return response
+
+
+
+async def getLiveGame(session : ClientSession, riot_id, riot_tag, region='euw1'):
+    url = "https://u.gg/api"
+
+
+    payload = {
+            "operationName": "GetLiveGame",
+            "variables": {"riotUserName": riot_id,
+                          "riotTagLine" : riot_tag,
+                          "regionId": region},
+            "query": "query GetLiveGame($regionId: String!, $riotUserName: String!, $riotTagLine : String!) {\n  getLiveGame(regionId: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine) {\n    gameLengthSeconds\n    gameType\n    teamA {\n      banId\n      championId\n      championLosses\n      championWins\n      championStats {\n        kills\n        deaths\n        assists\n        __typename\n      }\n      currentRole\n      onRole\n      partyNumber\n      previousSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      currentSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      roleDatas {\n        games\n        roleName\n        wins\n        __typename\n      }\n      summonerIconId\n      riotUserName\n      riotTagLine\n   summonerRuneA\n      summonerRuneB\n      summonerRuneData\n      summonerSpellA\n      summonerSpellB\n      threatLevel\n      __typename\n    }\n    teamB {\n      banId\n      championId\n      championLosses\n      championWins\n      championStats {\n        kills\n        deaths\n        assists\n        __typename\n      }\n      currentRole\n      onRole\n      partyNumber\n      previousSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      currentSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      roleDatas {\n        games\n        roleName\n        wins\n        __typename\n      }\n      summonerIconId\n      riotUserName\n      riotTagLine\n     summonerRuneA\n      summonerRuneB\n      summonerRuneData\n      summonerSpellA\n      summonerSpellB\n      threatLevel\n      __typename\n    }\n    __typename\n  }\n}\n",
+        }
+
+    headers = {
+            "Accept-Encoding":"gzip, deflate, br",
+            "Accept":"*/*",
+            "Content-Type": "application/json",
+            "Connection": "keep-alive",
+            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+          }
+
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        response = await session_match_detail.json()  # detail du match sélectionné
+        
+        return response
+    
+
+
+async def get_role(session : ClientSession, summonerName, tagline, regionId='euw1', queueType=420):
+    """Role du joueur sur ses 50 dernières parties"""
+    url = "https://u.gg/api"
+    payload = {
+                "operationName": "GetRecentRoleRates",
+                "variables": {
+                    "regionId": regionId,
+                    "riotUserName": summonerName,
+                    "riotTagLine" : tagline,
+                    'queueType': queueType
+                },
+                "query": """query GetRecentRoleRates($queueType: Int, $riotUserName: String, $riotTagLine:String, $regionId: String) {
+    recentRoleRates(queueType: $queueType, riotUserName: $riotUserName, riotTagLine: $riotTagLine,  regionId: $regionId) {
+        adc {gameCount, winCount}
+        jungle {gameCount, winCount}
+        mid {gameCount, winCount}
+        supp {gameCount, winCount}
+        top {gameCount, winCount}
+        }
+        }"""}
+        
+    headers = {
+            "Accept-Encoding":"gzip, deflate, br",
+            "Accept":"*/*",
+            "Content-Type": "application/json",
+            "Connection": "keep-alive",
+            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+          }
+
+        # response = requests.post(url, headers=headers, json=payload)
+
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        response = await session_match_detail.json()  # detail du match sélectionné
+
+    try:
+        response = response['data']['recentRoleRates']
+    except:
+        response = ''
+        
+    return response
+
+
+async def get_recent_players(session : ClientSession, summonerName, tagline, regionId='euw1'):
+    """Role du joueur sur ses 50 dernières parties"""
+    url = "https://u.gg/api"
+    payload = {
+                "operationName": "GetPremade",
+                "variables": {
+                    "regionId": regionId,
+                    "riotUserName": summonerName,
+                    "riotTagLine" : tagline,
+                },
+                "query": """query GetPremade($riotUserName: String, $riotTagLine:String, $regionId: String) {
+    fetchPlayedWith(riotUserName: $riotUserName, riotTagLine: $riotTagLine,  regionId: $regionId) {
+        riotIds {tagLine, username}
+        }
+        }"""}
+        
+    headers = {
+            "Accept-Encoding":"gzip, deflate, br",
+            "Accept":"*/*",
+            "Content-Type": "application/json",
+            "Connection": "keep-alive",
+            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+          }
+
+        # response = requests.post(url, headers=headers, json=payload)
+
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        response = await session_match_detail.json()  # detail du match sélectionné
+        
+    return response
 
 
 async def get_winrates(summonerName: str, session : ClientSession):
@@ -445,9 +593,70 @@ async def getRankings(session : ClientSession, summonerName, tagline, regionId='
         # response = requests.post(url, headers=headers, json=payload)
 
     async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
+        try:
+            response = await session_match_detail.json()  # detail du match sélectionné
+        except:
+            print(session_match_detail.reason)
+            if session_match_detail.status == 503: # Serveur indisponible
+                return 'Service indisponible'
+
         
     return response
+
+
+async def get_mobalytics(pseudo : str, session: ClientSession, match_id):
+    json_data = {
+        'operationName': 'LolMatchDetailsQuery',
+        'variables': {
+            'region': 'EUW',
+            'summonerName': pseudo,
+            'matchId': match_id,
+        },
+        'extensions': {
+            'persistedQuery': {
+                'version': 1,
+                'sha256Hash': api_moba,
+            },
+        },
+    }
+    async with session.post(url_api_moba, headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
+        match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
+
+    df_moba = pd.DataFrame(match_detail_stats['data']['lol']['player']['match']['participants'])
+
+    return df_moba, match_detail_stats
+
+
+async def update_ugg(session, summonerName, tagline, regionId="euw1"):
+    
+    url = "https://u.gg/api"
+    headers = {
+                "Accept-Encoding":"gzip, deflate, br",
+                "Accept":"*/*",
+                "Content-Type": "application/json",
+                "Connection": "keep-alive",
+                "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+            }
+    
+    payload = {
+            "operationName": "UpdatePlayerProfile",
+            "variables": {
+                "regionId": regionId,
+                "riotUserName": summonerName,
+                "riotTagLine" : tagline,
+            },
+            "query": "query UpdatePlayerProfile($regionId: String!, $riotUserName: String!, $riotTagLine : String!) {  updatePlayerProfile(region_id: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine) {    success    errorReason    __typename  }}"
+           }
+    
+    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+        response = await session_match_detail.json()  # detail du match sélectionné
+        
+    response = response['data']['updatePlayerProfile']['success']
+        
+    return response
+
+
+
 
 
 

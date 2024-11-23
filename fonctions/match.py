@@ -12,6 +12,7 @@ import aiohttp
 import asyncio
 import pickle
 import sqlalchemy.exc
+from fonctions.api_calls import get_mobalytics, getPlayerStats, getRanks, update_ugg, get_role
 
 # TODO : rajouter temps en vie
 
@@ -322,8 +323,7 @@ async def get_image(type, name, session: aiohttp.ClientSession, resize_x=80, res
 
 api_key_lol = os.environ.get('API_LOL')
 
-api_moba = os.environ.get('API_moba')
-url_api_moba = os.environ.get('url_moba')
+
 
 
 my_region = 'euw1'
@@ -446,107 +446,6 @@ async def get_masteries_old(summonerName: str, championIds, session : aiohttp.Cl
 
 
 
-async def get_mobalytics(pseudo : str, session: aiohttp.ClientSession, match_id):
-    json_data = {
-        'operationName': 'LolMatchDetailsQuery',
-        'variables': {
-            'region': 'EUW',
-            'summonerName': pseudo,
-            'matchId': match_id,
-        },
-        'extensions': {
-            'persistedQuery': {
-                'version': 1,
-                'sha256Hash': api_moba,
-            },
-        },
-    }
-    async with session.post(url_api_moba, headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
-        match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
-  
-    df_moba = pd.DataFrame(match_detail_stats['data']['lol']['player']['match']['participants'])
-
-    return df_moba, match_detail_stats
-
-
-async def update_ugg(session, summonerName, tagline, regionId="euw1"):
-    
-    url = "https://u.gg/api"
-    headers = {
-                "Accept-Encoding":"gzip, deflate, br",
-                "Accept":"*/*",
-                "Content-Type": "application/json",
-                "Connection": "keep-alive",
-                "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
-            }
-    
-    payload = {
-            "operationName": "UpdatePlayerProfile",
-            "variables": {
-                "regionId": regionId,
-                "riotUserName": summonerName,
-                "riotTagLine" : tagline,
-            },
-            "query": "query UpdatePlayerProfile($regionId: String!, $riotUserName: String!, $riotTagLine : String!) {  updatePlayerProfile(region_id: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine) {    success    errorReason    __typename  }}"
-           }
-    
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
-        
-    response = response['data']['updatePlayerProfile']['success']
-        
-    return response
-
-
-async def getRanks(session : aiohttp.ClientSession, summonerName, tagline, regionId='euw1', season=24):
-    url = "https://u.gg/api"
-    """Avopir le rank et le tier d'un joueur"""
-    payload = {
-                "operationName": "fetchProfileRanks",
-                "variables": {
-                    "regionId": regionId,
-                    "riotUserName": summonerName,
-                    "riotTagLine" : tagline,
-                    "seasonId": season,
-                },
-                "query": """query fetchProfileRanks($regionId: String!, $riotUserName: String!, $riotTagLine : String!, $seasonId: Int!) { fetchProfileRanks(regionId: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine, seasonId: $seasonId) { rankScores {lastUpdatedAt
-                        losses
-                        lp
-                        promoProgress
-                        queueType
-                        rank
-                        role
-                        tier
-                        seasonId
-                        wins
-                        }
-                    }
-                    }"""
-                #  "query": "query getPlayerStats($queueType: [Int!], $regionId: String!, $role: [Int!], $seasonId: Int!, $riotUserName: String!, $riotTagLine : String!) {\n  fetchPlayerStatistics(\n    queueType: $queueType\n    riotUserName: $riotUserName\n    riotTagLine: $riotTagLine\n      regionId: $regionId\n    role: $role\n    tier: $tier\n    rank : $rank\n     seasonId: $seasonId\n  ) {\n    basicChampionPerformances {\n  assists\n      championId\n      cs\n      damage\n      damageTaken\n      deaths\n      gold\n      kills\n      totalMatches\n      wins\n      lpAvg\n    }\n    exodiaUuid\n    puuid\n    queueType\n    regionId\n    role\n    seasonId\n    __typename\n  }\n}"
-            }
-        
-    headers = {
-            "Accept-Encoding":"gzip, deflate, br",
-            "Accept":"*/*",
-            "Content-Type": "application/json",
-            "Connection": "keep-alive",
-            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
-          }
-
-        # response = requests.post(url, headers=headers, json=payload)
-
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        try:
-            response = await session_match_detail.json()  # detail du match sélectionné
-        except:
-            try:
-                response = await session_match_detail.json(content_type=None)
-            except:
-                print(session_match_detail.text)
-                response = ''
-        
-    return response
-
 async def get_version(session: aiohttp.ClientSession):
 
     async with session.get("https://ddragon.leagueoflegends.com/realms/euw.json") as session_version:
@@ -582,6 +481,9 @@ async def get_summoner_by_name(session: aiohttp.ClientSession, key):
 async def get_summonerinfo_by_puuid(puuid, session):
     async with session.get(f'https://{my_region}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}', params={'api_key': api_key_lol}) as session_summoner:
         me = await session_summoner.json()
+
+        if session_summoner.status != 200:
+            print(session_summoner.reason)
     return me
 
 
@@ -600,18 +502,29 @@ async def get_league_by_summoner(session: aiohttp.ClientSession, me):
 async def get_list_matchs_with_me(session: aiohttp.ClientSession, me, params):
     async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{me["puuid"]}/ids?', params=params) as session_match:
         my_matches = await session_match.json()
+
+        my_matches = await session_match.json()
+
+        if session_match.status != 200:
+            print(session_match.reason)
     return my_matches
 
 
 async def get_list_matchs_with_puuid(session: aiohttp.ClientSession, puuid, params):
     async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?', params=params) as session_match:
         my_matches = await session_match.json()
+
+        if session_match.status != 200:
+            print(session_match.reason)
     return my_matches
 
 
 async def get_match_detail(session: aiohttp.ClientSession, match_id, params):
     async with session.get(f'https://{region}.api.riotgames.com/lol/match/v5/matches/{match_id}', params=params) as session_match_detail:
         match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
+
+        if session_match_detail.status != 200:
+            print(session_match_detail.reason)
     return match_detail_stats
 
 
@@ -768,10 +681,18 @@ async def getId_with_puuid(puuid : str, session : aiohttp.ClientSession):
         return str(data.loc[data['puuid'] == puuid]['id'].values[0])
     except asyncio.exceptions.TimeoutError:
         print('error')
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        traceback_msg = ''.join(traceback_details)
+        print(traceback_msg)
         data = lire_bdd('tracker').transpose()
         return str(data.loc[data['puuid'] == puuid]['id'].values[0])
     except Exception:
         print('error')
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        traceback_msg = ''.join(traceback_details)
+        print(traceback_msg)
         data = lire_bdd('tracker').transpose()
         return str(data.loc[data['puuid'] == puuid]['id'].values[0])
     
@@ -830,67 +751,9 @@ def charger_font(size):
 
     return font
 
-async def getPlayerStats(session : aiohttp.ClientSession, summonerName, tagline, regionId='euw1', role=7, season=22, queueType=420):
-    url = "https://u.gg/api"
-    payload = {
-                "operationName": "getPlayerStats",
-                "variables": {
-                    "riotUserName": summonerName,
-                    "riotTagLine" : tagline,
-                    "regionId": regionId,
-                    "role": role,
-                    "seasonId": season,
-                    "queueType": [queueType],
-                },
-                "query": "query getPlayerStats($queueType: [Int!], $regionId: String!, $role: [Int!], $seasonId: Int!, $riotUserName: String!, $riotTagLine : String!) {\n  fetchPlayerStatistics(\n    queueType: $queueType\n    riotUserName: $riotUserName\n    riotTagLine: $riotTagLine\n      regionId: $regionId\n    role: $role\n    seasonId: $seasonId\n  ) {\n    basicChampionPerformances {\n      assists\n      championId\n      cs\n      damage\n      damageTaken\n      deaths\n      gold\n      kills\n      totalMatches\n      wins\n      lpAvg\n    }\n    exodiaUuid\n    puuid\n    queueType\n    regionId\n    role\n    seasonId\n    __typename\n  }\n}"
-            }
-        
-    headers = {
-            "Accept-Encoding":"gzip, deflate, br",
-            "Accept":"*/*",
-            "Content-Type": "application/json",
-            "Connection": "keep-alive",
-            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
-          }
-
-        # response = requests.post(url, headers=headers, json=payload)
-
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        try:
-            response = await session_match_detail.json()  # detail du match sélectionné
-        except:
-            try:
-                response = await session_match_detail.json(content_type=None)  # detail du match sélectionné
-            except:
-                print(session_match_detail.text)
-                response = ''
-        
-    return response
-
-async def getLiveGame(session : aiohttp.ClientSession, riot_id, riot_tag, region='euw1'):
-    url = "https://u.gg/api"
 
 
-    payload = {
-            "operationName": "GetLiveGame",
-            "variables": {"riotUserName": riot_id,
-                          "riotTagLine" : riot_tag,
-                          "regionId": region},
-            "query": "query GetLiveGame($regionId: String!, $riotUserName: String!, $riotTagLine : String!) {\n  getLiveGame(regionId: $regionId, riotUserName: $riotUserName, riotTagLine: $riotTagLine) {\n    gameLengthSeconds\n    gameType\n    teamA {\n      banId\n      championId\n      championLosses\n      championWins\n      championStats {\n        kills\n        deaths\n        assists\n        __typename\n      }\n      currentRole\n      onRole\n      partyNumber\n      previousSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      currentSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      roleDatas {\n        games\n        roleName\n        wins\n        __typename\n      }\n      summonerIconId\n      riotUserName\n      riotTagLine\n   summonerRuneA\n      summonerRuneB\n      summonerRuneData\n      summonerSpellA\n      summonerSpellB\n      threatLevel\n      __typename\n    }\n    teamB {\n      banId\n      championId\n      championLosses\n      championWins\n      championStats {\n        kills\n        deaths\n        assists\n        __typename\n      }\n      currentRole\n      onRole\n      partyNumber\n      previousSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      currentSeasonRankScore {\n        lastUpdatedAt\n        losses\n        lp\n        promoProgress\n        queueType\n        rank\n        role\n        seasonId\n        tier\n        wins\n        __typename\n      }\n      roleDatas {\n        games\n        roleName\n        wins\n        __typename\n      }\n      summonerIconId\n      riotUserName\n      riotTagLine\n     summonerRuneA\n      summonerRuneB\n      summonerRuneData\n      summonerSpellA\n      summonerSpellB\n      threatLevel\n      __typename\n    }\n    __typename\n  }\n}\n",
-        }
 
-    headers = {
-            "Accept-Encoding":"gzip, deflate, br",
-            "Accept":"*/*",
-            "Content-Type": "application/json",
-            "Connection": "keep-alive",
-            "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
-          }
-
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
-        
-        return response
     
     
 def load_timeline(timeline):
@@ -986,6 +849,8 @@ async def get_stat_champion_by_player(session, champ_dict, riot_id, riot_tag, se
     
     return df_data_stat
 
+
+
 class matchlol():
 
     def __init__(self,
@@ -1041,6 +906,7 @@ class matchlol():
         self.last_season = params['last_season']['value']
         self.split = int(params['split']['value'])
         self.season_ugg = int(params['season_ugg']['value'])
+        self.activate_mobalytics = params['data_mobalytics']['value']
         
 
     async def get_data_riot(self):
@@ -1750,12 +1616,17 @@ class matchlol():
         
     async def prepare_data_moba(self):
 
-        try:
-            self.data_mobalytics, self.data_mobalytics_complete = await get_mobalytics(self.summonerName, self.session, int(self.last_match[5:]))
-            self.moba_ok = True
-        except:
+        if self.activate_mobalytics == 'True':
+            try:
+                self.data_mobalytics, self.data_mobalytics_complete = await get_mobalytics(self.summonerName, self.session, int(self.last_match[5:]))
+                self.moba_ok = True
+            except:
+                self.moba_ok = False
+                self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))
+            
+        else:
             self.moba_ok = False
-            self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))
+            self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))            
 
 
         if self.moba_ok:
@@ -1851,7 +1722,10 @@ class matchlol():
         self.winrate_champ_joueur = {}
         
         
-
+        
+        self.role_pref = {}
+        self.all_role = {}
+        self.role_count = {}
         
         for i in range(self.nb_joueur):
             
@@ -1876,6 +1750,7 @@ class matchlol():
                     self.df_rank = ''
             
             self.df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), [22,23,24])
+
            
             if isinstance(self.df_data_stat, pd.DataFrame):
 
@@ -1941,6 +1816,24 @@ class matchlol():
                 except:
                     self.liste_rank.append('')
                     self.liste_tier.append('')
+
+            ###
+
+            self.data_pref_role = await get_role(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
+
+            if isinstance(self.data_pref_role, dict):
+
+                self.df_pref_role = pd.DataFrame(self.data_pref_role).T
+                self.df_pref_role['poids'] = (self.df_pref_role['gameCount'] / self.df_pref_role['gameCount'].sum() * 100).astype(int)
+                self.df_pref_role.sort_values('poids', ascending=False, inplace=True)
+
+                self.role_pref[self.thisRiotIdListe[i].lower()] = {'main_role' : self.df_pref_role.index[0], 'poids_role' : self.df_pref_role.iloc[0]['poids']}
+
+                self.all_role[self.thisRiotIdListe[i].lower()] = self.df_pref_role.to_dict('index')
+
+                self.role_count[self.thisRiotIdListe[i].lower()] = self.df_pref_role['gameCount'].sum()
+
+            
 
                     
         # if not self.moba_ok: # si moba n'est pas dispo, nous allons calculer nous-même l'avg des tier et rank
@@ -2818,6 +2711,17 @@ class matchlol():
     async def detection_first_time(self):
 
         self.first_time = ''
+
+        dict_pos = {0 : 'top',
+                        1 : 'jungle',
+                        2 : 'mid',
+                        3 : 'adc',
+                        4 : 'supp',
+                        5 : 'top',
+                        6 : 'jungle',
+                        7 : 'mid',
+                        8 : 'adc',
+                        9 : 'supp'}
                 
         for num, (joueur, stat) in enumerate(self.winrate_champ_joueur.items()):
             if isinstance(stat, dict):
@@ -2829,6 +2733,26 @@ class matchlol():
                     emote_champ = emote_champ_discord.get(stat["championId"].capitalize(), stat["championId"])
 
                     self.first_time += f'{emote} **{joueur.split("#")[0]}** : {stat["totalMatches"]} games sur {emote_champ} \n'
+
+
+
+
+            if len(self.all_role.keys()) > 0: # on vérifie qu'il y a bien de la data
+
+                pseudo = joueur.split("#")[0]
+                if num <= 4:
+                    emote = ':blue_circle:'
+                else:
+                    emote = ':red_circle:'
+                if pseudo in self.all_role.keys():
+                    role = dict_pos[num]
+                    main_role = self.role_pref[pseudo]['main_role']
+                    poids_main_role = self.role_pref[pseudo]['poids_role']
+
+                    if self.all_role[pseudo][role]['poids'] <= 15 and self.role_count[pseudo] > 30:
+
+                        # self.first_time += f'{emote} **{pseudo}** : Autofill ({role.upper()}) : Main {main_role.upper()} ({poids_main_role}%) \n'
+                        self.first_time += f'{emote} **{pseudo}** : Autofill : Main {main_role.upper()} ({poids_main_role}%) \n'
 
 
     async def detection_otp(self):
@@ -2846,6 +2770,10 @@ class matchlol():
                     
 
                     self.otp += f'{emote} **{joueur.split("#")[0]}** : {emote_champ} {stat["poids_games"]}% pick | {stat["winrate"]}% WR \n'
+
+
+
+
 
 
 
