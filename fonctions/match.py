@@ -2724,6 +2724,7 @@ class matchlol():
                         9 : 'supp'}
                 
         for num, (joueur, stat) in enumerate(self.winrate_champ_joueur.items()):
+            
             if isinstance(stat, dict):
                 if joueur != f'{self.riot_id.lower()}#{self.riot_tag.upper()}' and stat['totalMatches'] <= 5:
                     if num <= 4:
@@ -2735,24 +2736,24 @@ class matchlol():
                     self.first_time += f'{emote} **{joueur.split("#")[0]}** : {stat["totalMatches"]} games sur {emote_champ} \n'
 
 
+            pseudo = joueur.split("#")[0]
 
 
-            if len(self.all_role.keys()) > 0: # on vérifie qu'il y a bien de la data
-
-                pseudo = joueur.split("#")[0]
+            if pseudo in self.all_role.keys():
                 if num <= 4:
                     emote = ':blue_circle:'
                 else:
                     emote = ':red_circle:'
-                if pseudo in self.all_role.keys():
-                    role = dict_pos[num]
-                    main_role = self.role_pref[pseudo]['main_role']
-                    poids_main_role = self.role_pref[pseudo]['poids_role']
 
-                    if self.all_role[pseudo][role]['poids'] <= 15 and self.role_count[pseudo] > 30:
+                role = dict_pos[num]
+                main_role = self.role_pref[pseudo]['main_role']
+                poids_main_role = self.role_pref[pseudo]['poids_role']
+                emote_champ = self.thisChampNameListe[num].capitalize()
 
-                        # self.first_time += f'{emote} **{pseudo}** : Autofill ({role.upper()}) : Main {main_role.upper()} ({poids_main_role}%) \n'
-                        self.first_time += f'{emote} **{pseudo}** : Autofill : Main {main_role.upper()} ({poids_main_role}%) \n'
+                if self.all_role[pseudo][role]['poids'] <= 15 and self.role_count[pseudo] > 30:
+
+                    self.first_time += f'{emote} **{pseudo}** {emote_champ} Autofill ({role.upper()}) : Main {main_role.upper()} ({poids_main_role}%) \n'
+
 
 
     async def detection_otp(self):

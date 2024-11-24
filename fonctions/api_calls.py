@@ -335,12 +335,12 @@ async def get_role(session : ClientSession, summonerName, tagline, regionId='euw
         # response = requests.post(url, headers=headers, json=payload)
 
     async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
+        try:
+            response = await session_match_detail.json()  # detail du match sélectionné
+            response = response['data']['recentRoleRates']
 
-    try:
-        response = response['data']['recentRoleRates']
-    except:
-        response = ''
+        except:
+            response = ''
         
     return response
 
@@ -554,7 +554,10 @@ async def getRanks(session : ClientSession, summonerName, tagline, regionId='euw
         # response = requests.post(url, headers=headers, json=payload)
 
     async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
+        try:
+            response = await session_match_detail.json()  # detail du match sélectionné
+        except:
+            response = ''
         
     return response
 
