@@ -470,7 +470,7 @@ class AnalyseLoLSeason(Extension):
 
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
-        cmap = ListedColormap(['#6A5054', '#D8A797', '#CAD5E8', '#DEBF8B', '#96E1F5', '#7EE3AD', '#96E1F5', '#ECCFFC', '#EE9460', '#72AAC8'])
+        cmap = ListedColormap(['#6A5054', '#D8A797', '#CAD5E8', '#DEBF8B', '#96E1F5', '#7EE3AD', '#A0E1F0', '#ECCFFC', '#EE9460', '#72AAC8'])
         norm = BoundaryNorm([50, dict_points['B'], dict_points['S'], dict_points['G'], dict_points['P'], dict_points['E'], dict_points['D'], dict_points['M'], dict_points['GM'], dict_points['C'], 12000], cmap.N)
         lc = LineCollection(segments, cmap=cmap, norm=norm)
         lc.set_array(y)
@@ -508,35 +508,35 @@ class AnalyseLoLSeason(Extension):
         # # Ajout des étiquettes
             for i, level in enumerate(y_levels_fer):
                 ax.axhline(y=level, color='#6A5054', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(50, level, f'F{liste_order[i]}', color='#6A5054', fontsize=8, va='bottom')
+                ax.text(50, level, f'F{liste_order[i]}', color='#6A5054', fontsize=15, va='bottom')
 
             ax.axhspan(50, dict_points['B'], facecolor='#423437', alpha=0.3)
 
         if not df[df['points'].between(dict_points['B'], dict_points['S'])].empty:
             for i, level in enumerate(y_levels_bronze):
                 ax.axhline(y=level, color='#D8A797', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(50, level, f'B{liste_order[i]}', color='#D8A797', fontsize=8, va='bottom')
+                ax.text(50, level, f'B{liste_order[i]}', color='#D8A797', fontsize=15, va='bottom')
 
             ax.axhspan(dict_points['B'], dict_points['S'], facecolor='#96685F', alpha=0.3)
 
         if not df[df['points'].between(dict_points['S'], dict_points['G'])].empty:
             for i, level in enumerate(y_levels_silver):
                 ax.axhline(y=level, color='#CAD5E8', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(50, level, f'S{liste_order[i]}', color='#CAD5E8', fontsize=8, va='bottom')
+                ax.text(50, level, f'S{liste_order[i]}', color='#CAD5E8', fontsize=15, va='bottom')
 
             ax.axhspan(dict_points['S'], dict_points['G'], facecolor='#7C98B1', alpha=0.3)
 
         if not df[df['points'].between(dict_points['G'], dict_points['P'])].empty:
             for i, level in enumerate(y_levels_gold):
                 ax.axhline(y=level, color='#DEBF8B', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(50, level, f'G{liste_order[i]}', color='#DEBF8B', fontsize=8, va='bottom')
+                ax.text(50, level, f'G{liste_order[i]}', color='#DEBF8B', fontsize=15, va='bottom')
 
             ax.axhspan(dict_points['G'], dict_points['P'], facecolor='#9C7A58', alpha=0.3)
 
         if not df[df['points'].between(dict_points['P'], dict_points['E'])].empty:
             for i, level in enumerate(y_levels_plat):
                 ax.axhline(y=level, color='#96E1F5', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(50, level, f'P{liste_order[i]}', color='#96E1F5', fontsize=8, va='bottom')
+                ax.text(50, level, f'P{liste_order[i]}', color='#96E1F5', fontsize=15, va='bottom')
 
             ax.axhspan(dict_points['P'], dict_points['E'], facecolor='#5A8FB4', alpha=0.3)
 
@@ -544,15 +544,15 @@ class AnalyseLoLSeason(Extension):
 
             for i, level in enumerate(y_levels_emeraude):
                 ax.axhline(y=level, color='#7EE3AD', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(50, level, f'E{liste_order[i]}', color='#7EE3AD', fontsize=8, va='bottom')
+                ax.text(50, level, f'E{liste_order[i]}', color='#7EE3AD', fontsize=15, va='bottom')
 
             ax.axhspan(dict_points['E'], dict_points['D'], facecolor='#4B9A7D', alpha=0.3)
 
         if not df[df['points'].between(dict_points['D'], dict_points['M'])].empty:
 
             for i, level in enumerate(y_levels_diamant):
-                ax.axhline(y=level, color='#96E1F5', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(50, level, f'D{liste_order[i]}', color='#96E1F5', fontsize=8, va='bottom')
+                ax.axhline(y=level, color='#A0E1F0', linestyle='--', linewidth=0.8)  # Ligne pointillée
+                ax.text(50, level, f'D{liste_order[i]}', color='#A0E1F0', fontsize=15, va='bottom')
 
             ax.axhspan(dict_points['D'], dict_points['M'], facecolor='#5A8DB9', alpha=0.3)
 
@@ -560,7 +560,7 @@ class AnalyseLoLSeason(Extension):
 
             for i, level in enumerate(y_levels_master):
                 ax.axhline(y=level, color='#ECCFFC', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(50, level, f'M', color='#ECCFFC', fontsize=8, va='bottom')
+                ax.text(50, level, f'M', color='#ECCFFC', fontsize=15, va='bottom')
 
             ax.axhspan(dict_points['M'], dict_points['GM'], facecolor='#B39AC6', alpha=0.3)
 
@@ -569,14 +569,14 @@ class AnalyseLoLSeason(Extension):
 
             for i, level in enumerate(y_levels_gm):
                 ax.axhline(y=level, color='#EE9460', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(50, level, f'GM', color='#EE9460', fontsize=8, va='bottom')
+                ax.text(50, level, f'GM', color='#EE9460', fontsize=15, va='bottom')
 
             ax.axhspan(dict_points['GM'], dict_points['C'], facecolor='#D2733F', alpha=0.3)
 
         if not df[df['points'].between(dict_points['C'], 11000)].empty:
             for i, level in enumerate(y_levels_chal):
                 ax.axhline(y=level, color='#72AAC8', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(50, level, f'C', color='#72AAC8', fontsize=8, va='bottom')
+                ax.text(50, level, f'C', color='#72AAC8', fontsize=15, va='bottom')
 
             ax.axhspan(dict_points['C'], 11000, facecolor='#4E7A97', alpha=0.3)
 
