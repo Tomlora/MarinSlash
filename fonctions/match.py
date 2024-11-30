@@ -631,7 +631,8 @@ async def match_by_puuid_with_puuid(puuid,
                          session,
                          index=0,
                          queue=0,
-                         count=20):
+                         count=20,
+                         id_game = None):
     params_me = {'api_key': api_key_lol}
     if queue == 0:
         params_my_match = {'start': index,
@@ -640,9 +641,14 @@ async def match_by_puuid_with_puuid(puuid,
         params_my_match = {'queue': queue, 'start': index,
                            'count': count, 'api_key': api_key_lol}
 
-    my_matches = await get_list_matchs_with_puuid(session, puuid, params_my_match)
-    last_match = my_matches[idgames]  # match n° idgames
+    if id_game == None:
+        my_matches = await get_list_matchs_with_puuid(session, puuid, params_my_match)
+        last_match = my_matches[idgames]  # match n° idgames
     # detail du match sélectionné
+    else:
+        last_match = str(id_game)
+        if 'EUW' not in last_match:
+            last_match = f'EUW1_{last_match}' 
     match_detail_stats = await get_match_detail(session, last_match, params_me)
 
     return last_match, match_detail_stats
@@ -1823,15 +1829,20 @@ class matchlol():
 
             if isinstance(self.data_pref_role, dict):
 
-                self.df_pref_role = pd.DataFrame(self.data_pref_role).T
-                self.df_pref_role['poids'] = (self.df_pref_role['gameCount'] / self.df_pref_role['gameCount'].sum() * 100).astype(int)
-                self.df_pref_role.sort_values('poids', ascending=False, inplace=True)
+                try:
 
-                self.role_pref[self.thisRiotIdListe[i].lower()] = {'main_role' : self.df_pref_role.index[0], 'poids_role' : self.df_pref_role.iloc[0]['poids']}
+                    self.df_pref_role = pd.DataFrame(self.data_pref_role).T
+                    self.df_pref_role['poids'] = (self.df_pref_role['gameCount'] / self.df_pref_role['gameCount'].sum() * 100).astype(int)
+                    self.df_pref_role.sort_values('poids', ascending=False, inplace=True)
 
-                self.all_role[self.thisRiotIdListe[i].lower()] = self.df_pref_role.to_dict('index')
+                    self.role_pref[self.thisRiotIdListe[i].lower()] = {'main_role' : self.df_pref_role.index[0], 'poids_role' : self.df_pref_role.iloc[0]['poids']}
 
-                self.role_count[self.thisRiotIdListe[i].lower()] = self.df_pref_role['gameCount'].sum()
+                    self.all_role[self.thisRiotIdListe[i].lower()] = self.df_pref_role.to_dict('index')
+
+                    self.role_count[self.thisRiotIdListe[i].lower()] = self.df_pref_role['gameCount'].sum()
+                
+                except pd.errors.IntCastingNaNError:
+                    continue
 
             
 
@@ -2748,7 +2759,7 @@ class matchlol():
                 role = dict_pos[num]
                 main_role = self.role_pref[pseudo]['main_role']
                 poids_main_role = self.role_pref[pseudo]['poids_role']
-                emote_champ = self.thisChampNameListe[num].capitalize()
+                emote_champ = emote_champ_discord.get(self.thisChampNameListe[num].capitalize(), self.thisChampNameListe[num].capitalize())
 
                 if self.all_role[pseudo][role]['poids'] <= 15 and self.role_count[pseudo] > 30:
 
@@ -3248,7 +3259,7 @@ class matchlol():
                                        'match_id' : self.last_match,
                                        'joueur' : self.id_compte})
                 
-            color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (67,89,232), 10 : (220,20,60)}
+            color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (191,64,191), 8 : (220,20,60), 9 : (220,20,60), 10 : (220,20,60)}
 
 
             d.text((x_score+20, initial_y),

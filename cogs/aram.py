@@ -1,16 +1,16 @@
 import pandas as pd
 from fonctions.gestion_bdd import (lire_bdd,
+                                   sauvegarde_bdd,
                                    requete_perso_bdd,
                                    lire_bdd_perso,
                                    get_data_bdd)
-import datetime
+from datetime import datetime
 from fonctions.channels_discord import chan_discord
 import interactions
 from interactions import listen, Task, TimeTrigger
 from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command
 from fonctions.permissions import isOwner_slash
 from fonctions.params import Version, saison, heure_aram
-from fonctions.permissions import isOwner_slash
 from fonctions.match import label_tier, emote_rank_discord
 from interactions.ext.paginators import Paginator
 
@@ -326,9 +326,8 @@ class Aram(Extension):
             """
             await ctx.defer(ephemeral=False)
             
-            season = 14
              
-            nb_row = requete_perso_bdd(f'''UPDATE ranked_aram_s{season}
+            nb_row = requete_perso_bdd(f'''UPDATE ranked_aram_s{saison}
                 SET wins = wins + :wins, lp = lp + :lp, losses = losses + :losses, games = wins + losses
                 WHERE index = (SELECT id_compte from tracker where riot_id = :riot_id and riot_tagline = :riot_tag);''',
                 {'wins': victoire, 'lp': lp, 'losses': defaite, 'riot_id': riot_id.lower(), 'riot_tag': riot_tag.upper()},
@@ -336,7 +335,17 @@ class Aram(Extension):
             
             
             if nb_row > 0:
+                df_log = pd.DataFrame([{'riot_id' : riot_id.lower(),
+                            'riot_tagline' : riot_tag.upper(),
+                            'lp' : lp,
+                            'victoire' : victoire,
+                            'defaite' : defaite,
+                            'date' : datetime.now()}])
+                
+                sauvegarde_bdd(df_log, 'log_aram', 'append')
+                
                 await ctx.send(f"Compte ARAM modifié pour {riot_id}#{riot_tag}")
+
             else:
                 await ctx.send('Compte introuvable :(')
         

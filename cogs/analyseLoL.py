@@ -179,25 +179,25 @@ def get_data_matchs(columns, season, server_id, view='global', datetime=None):
     if datetime == None:
         if view == 'global':
             df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
+                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, tracker.discord from matchs
             INNER JOIN tracker ON tracker.id_compte = matchs.joueur
             where season = {season}''', index_col='id').transpose()
         else:
             df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, tracker.discord from matchs
+                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, tracker.discord from matchs
                 INNER JOIN tracker ON tracker.id_compte = matchs.joueur
                 where season = {season}
                 AND server_id = {server_id}''', index_col='id').transpose()
     else:
         if view == 'global':
             df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, matchs.datetime tracker.discord from matchs
+                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, matchs.datetime tracker.discord from matchs
             INNER JOIN tracker ON tracker.id_compte = matchs.joueur
             where season = {season}
             and datetime >= :date''', index_col='id').transpose()
         else:
             df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, {columns}, matchs.datetime tracker.discord from matchs
+                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, matchs.datetime tracker.discord from matchs
                 INNER JOIN tracker ON tracker.id_compte = matchs.joueur
                 where season = {season}
                 AND server_id = {server_id}
@@ -395,14 +395,21 @@ class analyseLoL(Extension):
                                     type=interactions.OptionType.INTEGER,
                                     required=False,
                                     min_value=0,
-                                    max_value=10)])
+                                    max_value=10),
+                                SlashCommandOption(
+                                    name='id_game',
+                                    description='Identifiant de la game',
+                                    type=interactions.OptionType.STRING,
+                                    required=False
+                                )])
     async def analyse(self,
                       ctx: SlashContext,
                       riot_id: str,
                       riot_tag:str,
                       stat: str,
                       stat2: str = "no",
-                      game: int = 0):
+                      game: int = 0,
+                      id_game : str = None):
 
         stat = [stat, stat2]
         liste_graph = list()
@@ -434,8 +441,17 @@ class analyseLoL(Extension):
         except KeyError:
             me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
             puuid = me['puuid']
-                                                     
-        last_match, match_detail = await match_by_puuid_with_puuid(puuid, game, session)
+
+        
+
+
+        if id_game == None:                                                  
+            last_match, match_detail = await match_by_puuid_with_puuid(puuid, game, session)
+        else:
+            last_match = str(id_game)
+            if 'EUW' not in last_match:
+                last_match = f'EUW1_{last_match}'   
+
         timeline = await get_match_timeline(session, last_match)
 
         # timestamp à diviser par 60000
@@ -720,7 +736,13 @@ class analyseLoL(Extension):
                                     type=interactions.OptionType.INTEGER,
                                     required=False,
                                     min_value=0,
-                                    max_value=10)])
+                                    max_value=10),
+                                SlashCommandOption(
+                                    name='id_game',
+                                    description='Identifiant de la game',
+                                    type=interactions.OptionType.STRING,
+                                    required=False
+                                )])
     async def var(self,
                   ctx: SlashContext,
                   riot_id: str,
@@ -728,7 +750,8 @@ class analyseLoL(Extension):
                   stat: str,
                   stat2: str = 'no',
                   stat3: str = 'no',
-                  game: int = 0):
+                  game: int = 0,
+                  id_game : str = None):
 
         stat = [stat, stat2, stat3]
 
@@ -747,13 +770,20 @@ class analyseLoL(Extension):
         riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper()
         
-        puuid = lire_bdd_perso('''SELECT index, puuid from tracker where riot_id = :riot_id and riot_tagline = :riot_tag''',
-                                     params={'riot_id' : riot_id,
-                                             'riot_tag' : riot_tag})\
-                                                 .T\
-                                                     .loc[riot_id, 'puuid']
+        try:
+            puuid = lire_bdd_perso('''SELECT index, puuid from tracker where riot_id = :riot_id and riot_tagline = :riot_tag''',
+                                        params={'riot_id' : riot_id,
+                                                'riot_tag' : riot_tag})\
+                                                    .T\
+                                                        .loc[riot_id, 'puuid']
+        except KeyError: # pas dans la bdd
+            me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+            puuid = me['puuid']
 
-        last_match, match_detail_stats = await match_by_puuid_with_puuid(puuid, game, session)
+        if id_game == None:
+            last_match, match_detail_stats = await match_by_puuid_with_puuid(puuid, game, session)
+        else:
+            last_match, match_detail_stats = await match_by_puuid_with_puuid(puuid, game, session, id_game=id_game)
 
         match_detail = pd.DataFrame(match_detail_stats)
 
@@ -874,173 +904,173 @@ class analyseLoL(Extension):
     async def stats_lol(self, ctx: SlashContext):
         pass
 
-    @stats_lol.subcommand('items',
-                          sub_cmd_description="Stats sur les items",
-                          options=[SlashCommandOption(
-                              name='calcul',
-                              description='quel type de calcul ?',
-                              type=interactions.OptionType.STRING,
-                              required=True,
-                              choices=[choice_comptage, choice_winrate]),
-                              SlashCommandOption(
-                              name='nb_parties',
-                              description='Combien de parties minimum ?',
-                              type=interactions.OptionType.INTEGER,
-                              min_value=1,
-                              required=False
-                          )
-                          ] + parameters_commun_stats_lol)
-    async def stats_lol_items(self,
-                              ctx: SlashContext,
-                              calcul: str,
-                              season: int = saison,
-                              riot_id: str = None,
-                              riot_tag: str = None,
-                              role: str = None,
-                              champion: str = None,
-                              mode_de_jeu: str = None,
-                              nb_parties: int = 1,
-                              top: int = 20,
-                              view: str = 'global'
-                              ):
+    # @stats_lol.subcommand('items',
+    #                       sub_cmd_description="Stats sur les items",
+    #                       options=[SlashCommandOption(
+    #                           name='calcul',
+    #                           description='quel type de calcul ?',
+    #                           type=interactions.OptionType.STRING,
+    #                           required=True,
+    #                           choices=[choice_comptage, choice_winrate]),
+    #                           SlashCommandOption(
+    #                           name='nb_parties',
+    #                           description='Combien de parties minimum ?',
+    #                           type=interactions.OptionType.INTEGER,
+    #                           min_value=1,
+    #                           required=False
+    #                       )
+    #                       ] + parameters_commun_stats_lol)
+    # async def stats_lol_items(self,
+    #                           ctx: SlashContext,
+    #                           calcul: str,
+    #                           season: int = saison,
+    #                           riot_id: str = None,
+    #                           riot_tag: str = None,
+    #                           role: str = None,
+    #                           champion: str = None,
+    #                           mode_de_jeu: str = None,
+    #                           nb_parties: int = 1,
+    #                           top: int = 20,
+    #                           view: str = 'global'
+    #                           ):
 
-        await ctx.defer(ephemeral=False)
+    #     await ctx.defer(ephemeral=False)
 
-        session = aiohttp.ClientSession()
-        column = 'matchs.item1, matchs.item2, matchs.item3, matchs.item4, matchs.item5, matchs.item6, matchs.victoire'
-        column_list = ['item1', 'item2',
-                       'item3', 'item4', 'item5', 'item6']
+    #     session = aiohttp.ClientSession()
+    #     column = 'matchs.item1, matchs.item2, matchs.item3, matchs.item4, matchs.item5, matchs.item6, matchs.victoire'
+    #     column_list = ['item1', 'item2',
+    #                    'item3', 'item4', 'item5', 'item6']
 
-        df = get_data_matchs(column, saison, int(ctx.guild_id), view)
-        # with open('./obj/item.json', encoding='utf-8') as mon_fichier:
-        #     data = json.load(mon_fichier)
+    #     df = get_data_matchs(column, saison, int(ctx.guild_id), view)
+    #     # with open('./obj/item.json', encoding='utf-8') as mon_fichier:
+    #     #     data = json.load(mon_fichier)
 
-        version = await get_version(session)
-        async with session.get(f"https://ddragon.leagueoflegends.com/cdn/{version['n']['item']}/data/fr_FR/item.json") as itemlist:
-            data = await itemlist.json()
+    #     version = await get_version(session)
+    #     async with session.get(f"https://ddragon.leagueoflegends.com/cdn/{version['n']['item']}/data/fr_FR/item.json") as itemlist:
+    #         data = await itemlist.json()
 
-        for column_item in column_list:
-            df[column_item] = df[column_item].apply(
-                lambda x: 0 if x == 0 else data['data'][str(x)]['name'])
+    #     for column_item in column_list:
+    #         df[column_item] = df[column_item].apply(
+    #             lambda x: 0 if x == 0 else data['data'][str(x)]['name'])
 
-        await session.close()
+    #     await session.close()
 
-        title = f'Items'
+    #     title = f'Items'
 
-        df[df['season'] == season]
+    #     df[df['season'] == season]
 
-        if riot_id != None and riot_tag != None:
-            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
+    #     if riot_id != None and riot_tag != None:
+    #         riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
 
-        if champion != None:
-            champion, df, title = tri_champion(champion, df, title)
+    #     if champion != None:
+    #         champion, df, title = tri_champion(champion, df, title)
 
-        if mode_de_jeu != None:
-            df = df[df['mode'] == mode_de_jeu]
-            title += f' en {mode_de_jeu}'
+    #     if mode_de_jeu != None:
+    #         df = df[df['mode'] == mode_de_jeu]
+    #         title += f' en {mode_de_jeu}'
 
-        if role != None:
-            df = df[df['role'] == role]
-            title += f' ({role})'
+    #     if role != None:
+    #         df = df[df['role'] == role]
+    #         title += f' ({role})'
 
-        occurences = df['champion'].value_counts()
+    #     occurences = df['champion'].value_counts()
 
-        mask = df['champion'].isin(occurences.index[occurences >= nb_parties])
+    #     mask = df['champion'].isin(occurences.index[occurences >= nb_parties])
 
-        df = df[mask]
+    #     df = df[mask]
 
-        title += f' ({calcul})'
+    #     title += f' ({calcul})'
 
-        options = [
-            interactions.StringSelectOption(
-                label="item1", value="item1", emoji=interactions.PartialEmoji(name='1️⃣')),
-            interactions.StringSelectOption(
-                label="item2", value="item2", emoji=interactions.PartialEmoji(name='2️⃣')),
-            interactions.StringSelectOption(
-                label="item3", value="item3", emoji=interactions.PartialEmoji(name='3️⃣')),
-            interactions.StringSelectOption(
-                label="item4", value="item4", emoji=interactions.PartialEmoji(name='4️⃣')),
-            interactions.StringSelectOption(
-                label="item5", value="item5", emoji=interactions.PartialEmoji(name='5️⃣')),
-            interactions.StringSelectOption(
-                label="item6", value="item6", emoji=interactions.PartialEmoji(name='6️⃣'))
-        ]
-        select = interactions.StringSelectMenu(
-            *options,
-            custom_id='items',
-            placeholder="Ordre d'item",
-            min_values=1,
-            max_values=1
-        )
+    #     options = [
+    #         interactions.StringSelectOption(
+    #             label="item1", value="item1", emoji=interactions.PartialEmoji(name='1️⃣')),
+    #         interactions.StringSelectOption(
+    #             label="item2", value="item2", emoji=interactions.PartialEmoji(name='2️⃣')),
+    #         interactions.StringSelectOption(
+    #             label="item3", value="item3", emoji=interactions.PartialEmoji(name='3️⃣')),
+    #         interactions.StringSelectOption(
+    #             label="item4", value="item4", emoji=interactions.PartialEmoji(name='4️⃣')),
+    #         interactions.StringSelectOption(
+    #             label="item5", value="item5", emoji=interactions.PartialEmoji(name='5️⃣')),
+    #         interactions.StringSelectOption(
+    #             label="item6", value="item6", emoji=interactions.PartialEmoji(name='6️⃣'))
+    #     ]
+    #     select = interactions.StringSelectMenu(
+    #         *options,
+    #         custom_id='items',
+    #         placeholder="Ordre d'item",
+    #         min_values=1,
+    #         max_values=1
+    #     )
 
-        title += f' | Top {top}'
+    #     title += f' | Top {top}'
 
-        message = await ctx.send("Pour quel slot d'item ?",
-                                 components=select)
+    #     message = await ctx.send("Pour quel slot d'item ?",
+    #                              components=select)
 
-        async def check(button_ctx: interactions.api.events.internal.Component):
-            if int(button_ctx.ctx.author_id) == int(ctx.author.user.id):
-                return True
-            await ctx.send("I wasn't asking you!", ephemeral=True)
-            return False
+    #     async def check(button_ctx: interactions.api.events.internal.Component):
+    #         if int(button_ctx.ctx.author_id) == int(ctx.author.user.id):
+    #             return True
+    #         await ctx.send("I wasn't asking you!", ephemeral=True)
+    #         return False
 
-        if calcul == 'count':
-            while True:
-                try:
-                    button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
-                        components=select, check=check, timeout=30
-                    )
-                    fig = transformation_top(
-                        df, button_ctx.ctx.values[0], title, top)
-                    embed, file = get_embed(fig, 'stats')
-                    # On envoie
+    #     if calcul == 'count':
+    #         while True:
+    #             try:
+    #                 button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+    #                     components=select, check=check, timeout=30
+    #                 )
+    #                 fig = transformation_top(
+    #                     df, button_ctx.ctx.values[0], title, top)
+    #                 embed, file = get_embed(fig, 'stats')
+    #                 # On envoie
 
-                    await message.edit(embeds=embed, files=file)
+    #                 await message.edit(embeds=embed, files=file)
 
-                except asyncio.TimeoutError:
-                    # When it times out, edit the original message and remove the button(s)
-                    return await message.edit(components=[])
+    #             except asyncio.TimeoutError:
+    #                 # When it times out, edit the original message and remove the button(s)
+    #                 return await message.edit(components=[])
 
-        elif calcul == 'winrate':
-            while True:
-                try:
-                    button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
-                        components=select, check=check, timeout=30
-                    )
-                    df['victoire'] = df['victoire'].replace(
-                        {True: 'Victoire', False: 'Defaite'})
+    #     elif calcul == 'winrate':
+    #         while True:
+    #             try:
+    #                 button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
+    #                     components=select, check=check, timeout=30
+    #                 )
+    #                 df['victoire'] = df['victoire'].replace(
+    #                     {True: 'Victoire', False: 'Defaite'})
 
-                    df_item = df[df[button_ctx.ctx.values[0]] != 0]
+    #                 df_item = df[df[button_ctx.ctx.values[0]] != 0]
 
-                    df_item = df_item[[
-                        'riot_id', button_ctx.ctx.values[0], 'victoire']]
-                    # On compte le nombre d'occurences
-                    df_group = df_item.groupby(['riot_id', button_ctx.ctx.values[0]]).agg([
-                        'count']).reset_index()
-                    df_group = df_group.droplevel(1, axis=1)
-                    df_group.rename(
-                        columns={'victoire': 'count'}, inplace=True)
-                    df_item = df_item.merge(df_group, how='left', on=[
-                        'riot_id', button_ctx.ctx.values[0]])
-                    # df_item.drop_duplicates(inplace=True)
-                    df_item = df_item.sort_values(
-                        ['count'], ascending=False)
-                    df_item = df_item.head(top)
-                    # On fait le graphique
-                    fig = px.histogram(df_item, button_ctx.ctx.values[0], 'victoire', pattern_shape='victoire',
-                                       color=button_ctx.ctx.values[0], title=title, text_auto=True, histfunc='count').update_xaxes(categoryorder='total descending')
-                    # On enlève la légende et l'axe y
-                    fig.update_layout(showlegend=False)
-                    fig.update_yaxes(visible=False)
-                    embed, file = get_embed(fig, 'stats')
+    #                 df_item = df_item[[
+    #                     'riot_id', button_ctx.ctx.values[0], 'victoire']]
+    #                 # On compte le nombre d'occurences
+    #                 df_group = df_item.groupby(['riot_id', button_ctx.ctx.values[0]]).agg([
+    #                     'count']).reset_index()
+    #                 df_group = df_group.droplevel(1, axis=1)
+    #                 df_group.rename(
+    #                     columns={'victoire': 'count'}, inplace=True)
+    #                 df_item = df_item.merge(df_group, how='left', on=[
+    #                     'riot_id', button_ctx.ctx.values[0]])
+    #                 # df_item.drop_duplicates(inplace=True)
+    #                 df_item = df_item.sort_values(
+    #                     ['count'], ascending=False)
+    #                 df_item = df_item.head(top)
+    #                 # On fait le graphique
+    #                 fig = px.histogram(df_item, button_ctx.ctx.values[0], 'victoire', pattern_shape='victoire',
+    #                                    color=button_ctx.ctx.values[0], title=title, text_auto=True, histfunc='count').update_xaxes(categoryorder='total descending')
+    #                 # On enlève la légende et l'axe y
+    #                 fig.update_layout(showlegend=False)
+    #                 fig.update_yaxes(visible=False)
+    #                 embed, file = get_embed(fig, 'stats')
 
-                    embed.add_field(
-                        name='description', value='Non-grisé : Victoire | Grisé : Défaite')
-                    # On envoie
-                    await message.edit(embeds=embed, files=file)
-                except asyncio.TimeoutError:
-                    # When it times out, edit the original message and remove the button(s)
-                    return await message.edit(components=[])
+    #                 embed.add_field(
+    #                     name='description', value='Non-grisé : Victoire | Grisé : Défaite')
+    #                 # On envoie
+    #                 await message.edit(embeds=embed, files=file)
+    #             except asyncio.TimeoutError:
+    #                 # When it times out, edit the original message and remove the button(s)
+    #                 return await message.edit(components=[])
 
     @stats_lol.subcommand('champions',
                           sub_cmd_description='Statistiques sur les champions',
@@ -1375,172 +1405,6 @@ class analyseLoL(Extension):
 
             await ctx.send(embeds=embed, files=files)
 
-    @stats_lol.subcommand('lp',
-                          sub_cmd_description='Statistiques sur les LP',
-                          options=[SlashCommandOption(
-                              name='calcul',
-                              description='quel type de calcul ?',
-                              type=interactions.OptionType.STRING,
-                              required=True,
-                              choices=[choice_progression, choice_ecart]),
-                          ] + parameters_commun_stats_lol)
-    async def stats_lol_lp(self,
-                           ctx: SlashContext,
-                           calcul: str,
-                           season: int = saison,
-                           riot_id: str = None,
-                           riot_tag: str = None,
-                           role: str = None,
-                           champion: str = None,
-                           mode_de_jeu: str = None,
-                           top: int = 20,
-                           view: str = 'global'
-                           ):
-
-        await ctx.defer(ephemeral=False)
-
-        df = get_data_matchs(
-            'matchs.date, matchs.lp, matchs.tier, matchs.rank, matchs.ecart_lp, matchs.victoire', saison, int(ctx.guild_id), view)
-
-        title = f'LP'
-
-        df[df['season'] == season]
-
-        if riot_id != None and riot_tag != None:
-            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
-
-        if champion != None:
-            champion, df, title = tri_champion(champion, df, title)
-
-        if mode_de_jeu != None:
-            df = df[df['mode'] == mode_de_jeu]
-            title += f' en {mode_de_jeu}'
-
-        if role != None:
-            df = df[df['role'] == role]
-            title += f' ({role})'
-
-        title += f' ({calcul})'
-
-        if calcul == 'progression':
-            if mode_de_jeu != None:  # on impose un mode de jeu, sinon les lp vont s'entremeler, ce qui n'a aucun sens
-
-                dict_points = {'F': 0,
-                               'B': 1000,
-                               'S': 2000,
-                               'G': 3000,
-                               'P': 4000,
-                               'D': 5000,
-                               'M': 6000,
-                               'G': 7000,
-                               'C': 8000,
-                               'I': 100,
-                               'II': 200,
-                               'III': 300,
-                               'IV': 400,
-                               ' ': 0,
-                               '': 0}
-
-                def transfo_points(x, mode):
-                    if mode == 'RANKED':
-                        value = x['ladder'].split(' ')[1]
-                        points = dict_points[x['ladder'][0]
-                                             ] + dict_points[value] + x['lp']
-                    elif mode == 'ARAM':
-                        points = dict_points[x['tier'][0]] + x['lp']
-                    return points
-
-                if mode_de_jeu == 'RANKED':
-                    df['ladder'] = df['tier'].str[0] + ' ' + \
-                        df['rank'] + ' / ' + df['lp'].astype('str') + ' LP'
-
-                    df['date'] = df['date'].apply(
-                        lambda x: datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
-                    df['datetime'] = pd.to_datetime(
-                        df['date'], infer_datetime_format=True)
-
-                    df.sort_values(['date'], ascending=False, inplace=True)
-
-                    df['date'] = df['datetime'].dt.strftime('%d %m')
-
-                    df = df.groupby(['riot_id', 'riot_tagline', 'date', 'ladder']).agg(
-                        {'lp': 'max'}).reset_index()
-
-                    df['jour'] = df['date'].astype('str').str[:2]
-                    df['mois'] = df['date'].astype('str').str[3:]
-
-                    df.sort_values(['mois', 'jour'], ascending=[
-                                   True, True], inplace=True)
-
-                    df['points'] = df.apply(
-                        transfo_points, axis=1, mode='RANKED')
-
-                    fig = px.line(df, x='date', y='points',
-                                  color='riot_id', text='ladder', title=title)
-
-                    fig.update_yaxes(visible=False)
-
-                    # on ré-order l'axe des dates.
-                    fig.update_xaxes(categoryorder='array',
-                                     categoryarray=df['date'].to_xarray().values)
-
-                elif mode_de_jeu == 'ARAM':
-                    df['date'] = df['date'].apply(
-                        lambda x: datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
-                    df['datetime'] = pd.to_datetime(
-                        df['date'], infer_datetime_format=True)
-                    df.sort_values(['datetime'], ascending=True, inplace=True)
-
-                    df['date'] = df['datetime'].dt.strftime('%d %m')
-
-                    df['ladder'] = df['tier'].str[0] + \
-                        ' / ' + df['lp'].astype('str') + ' LP'
-
-                    df = df.groupby(['riot_id', 'riot_tagline', 'date', 'tier']).agg(
-                        {'lp': 'max'}).reset_index()
-
-                    df['jour'] = df['date'].astype('str').str[:2]
-                    df['mois'] = df['date'].astype('str').str[3:]
-
-                    df.sort_values(['mois', 'jour'], ascending=[
-                                   True, True], inplace=True)
-
-                    df['points'] = df.apply(
-                        transfo_points, axis=1, mode='ARAM')
-
-                    fig = px.line(df, x='date', y='points',
-                                  color='riot_id', text='tier', title=title)
-
-                    fig.update_yaxes(visible=False)
-
-                    # on ré-order l'axe des dates.
-                    fig.update_xaxes(categoryorder='array',
-                                     categoryarray=df['date'].to_xarray().values)
-
-                embed, files = get_embed(fig, 'evo')
-
-                await ctx.send(embeds=embed, files=files)
-            else:
-                await ctx.send('Tu dois selectionner un mode de jeu pour cette analyse.')
-
-        elif calcul == 'ecart':
-            if champion != None:
-                df = df.groupby('riot_id').agg(
-                    {'ecart_lp': 'sum', 'champion': 'count', 'victoire': 'sum'})
-                df.rename(columns={'champion': 'nbgames'}, inplace=True)
-                df['percent'] = df['victoire'] / df['nbgames']
-
-                df.sort_values('ecart_lp', ascending=False, inplace=True)
-
-                txt = f'{title} : '
-
-                for joueur, data in df.iterrows():
-                    txt += f'''\n{joueur} : **{data['nbgames']}** games, **{data['victoire']}** wins, **{data['percent']:.2%}** winrate, **{data['ecart_lp']}** LP'''
-
-                await ctx.send(txt)
-
-            else:
-                await ctx.send('Tu dois selectionner un champion pour cette analyse.')
 
     @stats_lol.subcommand('games',
                           sub_cmd_description='Analyse des games',

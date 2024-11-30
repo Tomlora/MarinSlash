@@ -355,6 +355,11 @@ class AnalyseLoLSeason(Extension):
                                     name="nbgames",
                                     description="Nombre de games",
                                     type=interactions.OptionType.INTEGER,
+                                    required=False),
+                                SlashCommandOption(
+                                    name="nbjours",
+                                    description="Nombre de jours précédents",
+                                    type=interactions.OptionType.INTEGER,
                                     required=False)
                                 ])
     async def analyse_lp(self,
@@ -364,16 +369,26 @@ class AnalyseLoLSeason(Extension):
                     #   mode:str,
                       saison = saison,
                       split = None,
-                      nbgames = None):
+                      nbgames = None,
+                      nbjours = None):
         
         
-        df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, 
-                matchs.date, matchs.lp, matchs.tier, matchs.rank, matchs.ecart_lp, matchs.victoire, tracker.discord from matchs
-            INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-            where season = {saison}
-            ORDER BY match_id DESC ''', index_col='id').transpose()
+        if nbjours == None:
+            df = lire_bdd_perso(
+                    f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, 
+                    matchs.date, matchs.lp, matchs.tier, matchs.rank, matchs.ecart_lp, matchs.victoire, tracker.discord from matchs
+                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+                where season = {saison}
+                ORDER BY match_id DESC ''', index_col='id').transpose()
         
+        else:
+            df = lire_bdd_perso(
+                    f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, 
+                    matchs.date, matchs.lp, matchs.tier, matchs.rank, matchs.ecart_lp, matchs.victoire, tracker.discord from matchs
+                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+                where season = {saison}
+                and datetime > '{(datetime.now() - timedelta(days=nbjours)):%Y-%m-%d}'
+                ORDER BY match_id DESC ''', index_col='id').transpose()
 
         await ctx.defer(ephemeral=False)
 

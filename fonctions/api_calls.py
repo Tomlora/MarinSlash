@@ -262,15 +262,23 @@ async def getPlayerStats(session : ClientSession, summonerName, tagline, regionI
 
         # response = requests.post(url, headers=headers, json=payload)
 
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+    attempts = 0
+
+    while attempts < 5:
         try:
-            response = await session_match_detail.json()  # detail du match sélectionné
+            async with session.post(url, headers=headers, json=payload) as session_match_detail:
+                response = await session_match_detail.json()  # detail du match sélectionné
+                break
         except:
             try:
-                response = await session_match_detail.json(content_type=None)  # detail du match sélectionné
+                async with session.post(url, headers=headers, json=payload) as session_match_detail:
+                    response = await session_match_detail.json(content_type=None)  # detail du match sélectionné
+                    break
             except:
-                print(session_match_detail.text)
-                response = ''
+                attempts += 1
+
+                if attempts >= 5:
+                    response = ''
         
     return response
 
@@ -296,10 +304,24 @@ async def getLiveGame(session : ClientSession, riot_id, riot_tag, region='euw1')
             "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
           }
 
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
+
+    attempts = 0
+
+    while attempts < 5: # 
+        try:
+                
+            async with session.post(url, headers=headers, json=payload) as session_match_detail:
+                response = await session_match_detail.json()  # detail du match sélectionné
+                break
+        except:
+            attempts += 1
+
+            if attempts >= 5:
+                response = ''
+
+
         
-        return response
+    return response
     
 
 
@@ -334,14 +356,33 @@ async def get_role(session : ClientSession, summonerName, tagline, regionId='euw
 
         # response = requests.post(url, headers=headers, json=payload)
 
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+    attempts = 0
+
+
+    while attempts < 5:
         try:
-            response = await session_match_detail.json()  # detail du match sélectionné
-            response = response['data']['recentRoleRates']
+            async with session.post(url, headers=headers, json=payload) as session_match_detail:
+                response = await session_match_detail.json()  # detail du match sélectionné
+                response = response['data']['recentRoleRates']
+                break
 
         except:
-            response = ''
+            attempts += 1
+
+            if attempts >= 5:
+                response = ''
         
+        # attempts = 0
+
+        # while attempts < 5: # 
+        #     try:
+        #         response = await session_match_detail.json()  # detail du match sélectionné
+        #         break
+        #     except:
+        #         attempts += 1
+
+        #         if attempts >= 5:
+        #             print(session_match_detail.reason)
     return response
 
 
@@ -371,8 +412,18 @@ async def get_recent_players(session : ClientSession, summonerName, tagline, reg
 
         # response = requests.post(url, headers=headers, json=payload)
 
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
+    attempts = 0
+
+    while attempts < 5: # 
+        try:
+            async with session.post(url, headers=headers, json=payload) as session_match_detail:
+                response = await session_match_detail.json()  # detail du match sélectionné
+                break
+        except:
+            attempts += 1
+
+            if attempts >= 5:
+                    response = ''
         
     return response
 
@@ -505,8 +556,18 @@ async def get_player_match_history(session, summonerName, tagline,  role=[], reg
             "User-Agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
           }
     
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
-        response = await session_match_detail.json()  # detail du match sélectionné
+    attempts = 0
+
+    while attempts < 5: # 
+        try:
+            async with session.post(url, headers=headers, json=payload) as session_match_detail:
+                response = await session_match_detail.json()  # detail du match sélectionné
+                break
+        except:
+            attempts += 1
+
+            if attempts >= 5:
+                response = ''
         
     return response
 
@@ -553,11 +614,18 @@ async def getRanks(session : ClientSession, summonerName, tagline, regionId='euw
 
         # response = requests.post(url, headers=headers, json=payload)
 
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+    attempts = 0
+
+    while attempts < 5: # 
         try:
-            response = await session_match_detail.json()  # detail du match sélectionné
+            async with session.post(url, headers=headers, json=payload) as session_match_detail:
+                response = await session_match_detail.json()  # detail du match sélectionné
+                break
         except:
-            response = ''
+            attempts += 1
+
+            if attempts >= 5:
+                response = ''
         
     return response
 
@@ -595,13 +663,27 @@ async def getRankings(session : ClientSession, summonerName, tagline, regionId='
 
         # response = requests.post(url, headers=headers, json=payload)
 
-    async with session.post(url, headers=headers, json=payload) as session_match_detail:
+
+    attempts = 0
+
+    while attempts < 5: # 
         try:
-            response = await session_match_detail.json()  # detail du match sélectionné
+            async with session.post(url, headers=headers, json=payload) as session_match_detail:
+                response = await session_match_detail.json()  # detail du match sélectionné
+                break
         except:
-            print(session_match_detail.reason)
-            if session_match_detail.status == 503: # Serveur indisponible
+            attempts += 1
+
+            if attempts >= 5:
                 return 'Service indisponible'
+
+
+        # try:
+        #     response = await session_match_detail.json()  # detail du match sélectionné
+        # except:
+        #     print(session_match_detail.reason)
+        #     if session_match_detail.status == 503: # Serveur indisponible
+        #         return 'Service indisponible'
 
         
     return response
@@ -622,10 +704,20 @@ async def get_mobalytics(pseudo : str, session: ClientSession, match_id):
             },
         },
     }
-    async with session.post(url_api_moba, headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
-        match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
 
-    df_moba = pd.DataFrame(match_detail_stats['data']['lol']['player']['match']['participants'])
+    attempts = 0
+    while attempts < 5:
+        try:
+            async with session.post(url_api_moba, headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
+                match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
+                df_moba = pd.DataFrame(match_detail_stats['data']['lol']['player']['match']['participants'])
+        except:
+            attempts += 1
+
+            if attempts >= 5:
+                async with session.post(url_api_moba, headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
+                    match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
+                    df_moba = pd.DataFrame(match_detail_stats['data']['lol']['player']['match']['participants'])
 
     return df_moba, match_detail_stats
 

@@ -1325,10 +1325,17 @@ class LeagueofLegends(Extension):
                     #     success = await update_ugg(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'])
                     # except:
                     #     pass
+                    attempts = 0
                     try:
-                        stats_rankings = await getRankings(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'], 'euw1', saison, 420)
+                        while attempts < 5: # max 5 tentatives
+                            stats_rankings = await getRankings(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'], 'euw1', saison, 420)
                         
-                        if stats_rankings == 'Service indisponible':
+                            if stats_rankings != 'Service indisponible':
+                                break
+                            else:
+                                attempts += 1
+
+                        if stats_rankings == 'Service indisponible': # si c'est toujours le cas...
                             rank_euw = rank_euw_old
                             percent_rank_euw = percent_rank_old
                         else:
