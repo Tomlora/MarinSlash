@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
+import random
 
 saison = int(lire_bdd_perso('select * from settings', format='dict', index_col='parametres')['saison']['value'])
 
@@ -97,8 +98,18 @@ class AnalyseLoLSeason(Extension):
                                     type=interactions.OptionType.INTEGER,
                                     required=False),
                                 SlashCommandOption(
-                                    name="champion",
+                                    name="split",
+                                    description="Quelle saison?",
+                                    type=interactions.OptionType.INTEGER,
+                                    required=False),
+                                SlashCommandOption(
+                                    name="champion_joue",
                                     description="Champion joué",
+                                    type=interactions.OptionType.STRING,
+                                    required=False),
+                                SlashCommandOption(
+                                    name="champion_rencontre",
+                                    description="Champion allié ou affronté",
                                     type=interactions.OptionType.STRING,
                                     required=False),
                                 SlashCommandOption(
@@ -111,7 +122,15 @@ class AnalyseLoLSeason(Extension):
                                         SlashCommandChoice(name='jungle', value='JUNGLE'),
                                         SlashCommandChoice(name='mid', value='MID'),
                                         SlashCommandChoice(name='adc', value='ADC'),
-                                        SlashCommandChoice(name='support', value='SUPPORT')])
+                                        SlashCommandChoice(name='support', value='SUPPORT')]),
+                                SlashCommandOption(
+                                    name='tri',
+                                    description='Quel tri ?',
+                                    type=interactions.OptionType.STRING,
+                                    required=False,
+                                    choices=[
+                                        SlashCommandChoice(name='Par apparition', value='count'),
+                                        SlashCommandChoice(name='Par nom', value='count')])
                                 ])
     async def analyse_champion(self,
                       ctx: SlashContext,
@@ -119,27 +138,35 @@ class AnalyseLoLSeason(Extension):
                       riot_tag:str,
                       mode:str,
                       saison = saison,
-                      champion = None,
-                      role = None):
+                      split = None,
+                      champion_joue = None,
+                      champion_rencontre = None,
+                      role = None,
+                      tri = 'count'):
         
         riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper() 
         
         await ctx.defer(ephemeral=False)     
         
-        df = lire_bdd_perso(f'''SELECT matchs_joueur.*, matchs.champion, matchs.role, matchs.victoire from tracker
+        df = lire_bdd_perso(f'''SELECT matchs_joueur.*, matchs.champion, matchs.role, matchs.split, matchs.victoire from tracker
         INNER JOIN matchs ON tracker.id_compte = matchs.joueur
         INNER JOIN matchs_joueur ON matchs.match_id = matchs_joueur.match_id
         WHERE tracker.riot_id = '{riot_id}'
         AND tracker.riot_tagline = '{riot_tag}'
         AND matchs.season = {saison}
         AND matchs.mode = '{mode}' ''', index_col='match_id').T
+
+        df['champion'] = df['champion'].str.capitalize()
         
-        if champion != None:
-            df = df[df['champion'] == champion.replace(' ', '').capitalize()]
+        if champion_joue != None:
+            df = df[df['champion'] == champion_joue.replace(' ', '').capitalize()]
         
         if role != None:
             df = df[df['role'] == role]
+        
+        if split != None:
+            df = df[df['split'] == split]
         
         nbgames = df.shape[0]
         
@@ -160,10 +187,10 @@ class AnalyseLoLSeason(Extension):
                 victory.append(data['victoire'])
                 
                 if name_allie in dict_allie.keys():
-                    name_allie = f'{name_allie} + {match_id}'
+                    name_allie = f'{name_allie} + {match_id} + {random.randint(1,10000)}'
                 dict_allie[name_allie] = champ_allie
-                if name_ennemi in dict_ennemi:
-                    name_ennemi = f'{name_ennemi} + {match_id}'
+                if name_ennemi in dict_ennemi.keys():
+                    name_ennemi = f'{name_ennemi} + {match_id} + {random.randint(1,10000)}'
                 dict_ennemi[name_ennemi] = champ_ennemi
 
         def count_champion(dict):
@@ -173,8 +200,11 @@ class AnalyseLoLSeason(Extension):
             df_champion = df_champion[~df_champion.index.str.contains(f'{riot_id}#{riot_tag.lower()}')]
             df_count = df_champion.groupby('champion').agg(count=('champion', 'count'),
                                                         victory=('victoire', 'sum'))
-            df_count.sort_values('count', ascending=False, inplace=True)
+            df_count.sort_values(tri, ascending=False, inplace=True)
             df_count.index = df_count.index.str.capitalize()
+
+            if champion_rencontre != None:
+                df_count = df_count[df_count.index == champion_rencontre.replace(' ', '').capitalize()]
             df_count['%'] = np.int8((df_count['count'] / df_count['count'].sum())*100)
             df_count['%_victoire'] = np.int8(df_count['victory'] / df_count['count'] * 100)
             
@@ -192,7 +222,9 @@ class AnalyseLoLSeason(Extension):
                 count = data['count']
                 pick_percent = data['%']
                 victory_percent = data['%_victoire']
-                txt += f'{emote_champ_discord.get(champion, champion)} Pick **{count}** fois ({pick_percent}%) -> WR : **{victory_percent}%** \n'
+                txt += f'{emote_champ_discord.get(champion, champion)} Pick **{count}** fois -> WR : **{victory_percent}%** \n'
+
+
             
             embed.add_field(name=f'{mode} PARTIE {part}', value=txt)    
             
@@ -205,8 +237,12 @@ class AnalyseLoLSeason(Extension):
         embed_ennemi_top10 = embedding(df_ennemi.iloc[:10], 'ENNEMI', 1)
         embed_ennemi_top20 = embedding(df_ennemi.iloc[10:20], 'ENNEMI', 2)
         embed_ennemi_top30 = embedding(df_ennemi.iloc[20:30], 'ENNEMI', 3)
-        
-        embeds = [embed_allie_top10, embed_allie_top20, embed_allie_top30, embed_ennemi_top10, embed_ennemi_top20, embed_ennemi_top30]
+
+        embeds = []
+
+        for each_embed in [embed_allie_top10, embed_allie_top20, embed_allie_top30, embed_ennemi_top10, embed_ennemi_top20, embed_ennemi_top30]:
+            if len(each_embed.fields[0].value) > 20:
+                embeds.append(each_embed)
     
 
         paginator = Paginator.create_from_embeds(
@@ -504,12 +540,33 @@ class AnalyseLoLSeason(Extension):
         # traçage(dict_points['GM'], dict_points['C'], '#EE9460')
         # traçage(dict_points['C'], 12000, '#72AAC8')
 
+        dict_color = {'fer' : {'background' : '#252430', 'courbe' : '#7c6f71'},
+                      'bronze' : {'background' : '#332a31', 'courbe' : '#785d4f'},
+                      'silver' : {'background' : '#323440', 'courbe' : '#727879'},
+                      'gold' : {'background' : '#352e31', 'courbe' : '#c88c3d'},
+                      'platine' : {'background' : '#213041', 'courbe' : '#43a9d4'},
+                      'emeraude' : {'background' : '#1d292b', 'courbe' : '#399a3f'},
+                      'diamant' : {'background' : '#332a52', 'courbe' : '#7b3fe8'},
+                      'master' : {'background' : '#58363c', 'courbe' : '#9f5c4f'},
+                      'gm' : {'background' : '#342631', 'courbe' : '#bb4e45'},
+                      'challenger' : {'background' : '#38353a', 'courbe' : '#f0cb78'}}
+
 
         points = np.array([x, y]).T.reshape(-1, 1, 2)
 
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
-        cmap = ListedColormap(['#6A5054', '#D8A797', '#CAD5E8', '#DEBF8B', '#96E1F5', '#7EE3AD', '#A0E1F0', '#ECCFFC', '#EE9460', '#72AAC8'])
+        cmap = ListedColormap([dict_color['fer']['courbe'],
+                                dict_color['bronze']['courbe'],
+                                dict_color['silver']['courbe'],
+                                dict_color['gold']['courbe'],
+                                dict_color['platine']['courbe'],
+                                dict_color['emeraude']['courbe'],
+                                dict_color['diamant']['courbe'],
+                                dict_color['master']['courbe'],
+                                dict_color['gm']['courbe'],
+                                dict_color['challenger']['courbe']])
+        
         norm = BoundaryNorm([50, dict_points['B'], dict_points['S'], dict_points['G'], dict_points['P'], dict_points['E'], dict_points['D'], dict_points['M'], dict_points['GM'], dict_points['C'], 12000], cmap.N)
         lc = LineCollection(segments, cmap=cmap, norm=norm)
         lc.set_array(y)
@@ -546,78 +603,78 @@ class AnalyseLoLSeason(Extension):
         if not df[df['points'].between(50, dict_points['B'])].empty:
         # # Ajout des étiquettes
             for i, level in enumerate(y_levels_fer):
-                ax.axhline(y=level, color='#6A5054', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'F{liste_order[i]}', color='#6A5054', fontsize=20, va='bottom')
+                ax.axhline(y=level, color=dict_color['fer']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                ax.text(gap, level, f'F{liste_order[i]}', color=dict_color['fer']['courbe'], fontsize=20, va='bottom')
 
-            ax.axhspan(50, dict_points['B'], facecolor='#423437', alpha=0.3)
+            ax.axhspan(50, dict_points['B'], facecolor=dict_color['fer']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['B'], dict_points['S'])].empty:
             for i, level in enumerate(y_levels_bronze):
-                ax.axhline(y=level, color='#D8A797', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'B{liste_order[i]}', color='#D8A797', fontsize=20, va='bottom')
+                ax.axhline(y=level, color=dict_color['bronze']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                ax.text(gap, level, f'B{liste_order[i]}', color=dict_color['bronze']['courbe'], fontsize=20, va='bottom')
 
-            ax.axhspan(dict_points['B'], dict_points['S'], facecolor='#96685F', alpha=0.3)
+            ax.axhspan(dict_points['B'], dict_points['S'], facecolor=dict_color['bronze']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['S'], dict_points['G'])].empty:
             for i, level in enumerate(y_levels_silver):
-                ax.axhline(y=level, color='#CAD5E8', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'S{liste_order[i]}', color='#CAD5E8', fontsize=20, va='bottom')
+                ax.axhline(y=level, color=dict_color['silver']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                ax.text(gap, level, f'S{liste_order[i]}', color=dict_color['silver']['courbe'], fontsize=20, va='bottom')
 
-            ax.axhspan(dict_points['S'], dict_points['G'], facecolor='#7C98B1', alpha=0.3)
+            ax.axhspan(dict_points['S'], dict_points['G'], facecolor=dict_color['silver']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['G'], dict_points['P'])].empty:
             for i, level in enumerate(y_levels_gold):
-                ax.axhline(y=level, color='#DEBF8B', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'G{liste_order[i]}', color='#DEBF8B', fontsize=20, va='bottom')
+                ax.axhline(y=level, color=dict_color['gold']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                ax.text(gap, level, f'G{liste_order[i]}', color=dict_color['gold']['courbe'], fontsize=20, va='bottom')
 
-            ax.axhspan(dict_points['G'], dict_points['P'], facecolor='#9C7A58', alpha=0.3)
+            ax.axhspan(dict_points['G'], dict_points['P'], facecolor=dict_color['gold']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['P'], dict_points['E'])].empty:
             for i, level in enumerate(y_levels_plat):
-                ax.axhline(y=level, color='#96E1F5', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'P{liste_order[i]}', color='#96E1F5', fontsize=20, va='bottom')
+                ax.axhline(y=level, color=dict_color['platine']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                ax.text(gap, level, f'P{liste_order[i]}', color=dict_color['platine']['courbe'], fontsize=20, va='bottom')
 
-            ax.axhspan(dict_points['P'], dict_points['E'], facecolor='#5A8FB4', alpha=0.3)
+            ax.axhspan(dict_points['P'], dict_points['E'], facecolor=dict_color['platine']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['E'], dict_points['D'])].empty:
 
             for i, level in enumerate(y_levels_emeraude):
-                ax.axhline(y=level, color='#7EE3AD', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'E{liste_order[i]}', color='#7EE3AD', fontsize=20, va='bottom')
+                ax.axhline(y=level, color=dict_color['emeraude']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                ax.text(gap, level, f'E{liste_order[i]}', color=dict_color['emeraude']['courbe'], fontsize=20, va='bottom')
 
-            ax.axhspan(dict_points['E'], dict_points['D'], facecolor='#4B9A7D', alpha=0.3)
+            ax.axhspan(dict_points['E'], dict_points['D'], facecolor=dict_color['emeraude']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['D'], dict_points['M'])].empty:
 
             for i, level in enumerate(y_levels_diamant):
-                ax.axhline(y=level, color='#A0E1F0', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'D{liste_order[i]}', color='#A0E1F0', fontsize=20, va='bottom')
+                ax.axhline(y=level, color=dict_color['diamant']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                ax.text(gap, level, f'D{liste_order[i]}', color=dict_color['diamant']['courbe'], fontsize=20, va='bottom')
 
-            ax.axhspan(dict_points['D'], dict_points['M'], facecolor='#5A8DB9', alpha=0.3)
+            ax.axhspan(dict_points['D'], dict_points['M'], facecolor=dict_color['diamant']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['M'], dict_points['GM'])].empty:
 
             for i, level in enumerate(y_levels_master):
-                ax.axhline(y=level, color='#ECCFFC', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'M', color='#ECCFFC', fontsize=20, va='bottom')
+                ax.axhline(y=level, color=dict_color['master']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                ax.text(gap, level, f'M', color=dict_color['master']['courbe'], fontsize=20, va='bottom')
 
-            ax.axhspan(dict_points['M'], dict_points['GM'], facecolor='#B39AC6', alpha=0.3)
+            ax.axhspan(dict_points['M'], dict_points['GM'], facecolor=dict_color['master']['background'], alpha=0.3)
 
 
         if not df[df['points'].between(dict_points['GM'], dict_points['C'])].empty:
 
-            for i, level in enumerate(y_levels_gm):
-                ax.axhline(y=level, color='#EE9460', linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'GM', color='#EE9460', fontsize=20, va='bottom')
+            # for i, level in enumerate(y_levels_gm):
+            ax.axhline(y=dict_points['GM'], color=dict_color['gm']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+            ax.text(gap, dict_points['GM'], f'GM', color=dict_color['gm']['courbe'], fontsize=20, va='bottom')
 
-            ax.axhspan(dict_points['GM'], dict_points['C'], facecolor='#D2733F', alpha=0.3)
+            ax.axhspan(dict_points['GM'], dict_points['C'], facecolor=dict_color['gm']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['C'], 11000)].empty:
             # for i, level in enumerate(y_levels_chal):
-            ax.axhline(y=dict_points['C'], color='#72AAC8', linestyle='--', linewidth=0.8)  # Ligne pointillée
-            ax.text(gap, dict_points['C'], f'C', color='#72AAC8', fontsize=20, va='bottom')
+            ax.axhline(y=dict_points['C'], color=dict_color['challenger']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+            ax.text(gap, dict_points['C'], f'C', color=dict_color['challenger']['courbe'], fontsize=20, va='bottom')
 
-            ax.axhspan(dict_points['C'], 11000, facecolor='#4E7A97', alpha=0.3)
+            ax.axhspan(dict_points['C'], 11000, facecolor=dict_color['challenger']['background'], alpha=0.3)
 
             for index, data in df[df['points'] > dict_points['M']].iloc[::10].iterrows():
 
