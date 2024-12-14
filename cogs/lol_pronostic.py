@@ -22,8 +22,8 @@ class LolPronostic(Extension):
     @config_competition_lol.subcommand("maj",
                                sub_cmd_description="Met à jour le calendrier des matchs")
     
-    async def maitrise_champion(self,
-                                ctx: SlashContext):
+    async def maj(self,
+                ctx: SlashContext):
         
         session = ClientSession()
         
@@ -44,7 +44,7 @@ class LolPronostic(Extension):
                 'format' : "json",
                 'limit' : "2000"}   
 
-            response = await session.get(self.url, params=params)
+            response = await session.get(self.url_api, params=params)
             data = await response.json()
 
             data = data['cargoquery']
@@ -120,13 +120,13 @@ class LolPronostic(Extension):
         for competition in df['Competition'].unique():
             df_filter = df[df['Competition'] == competition]
 
-            txt += f'{df_filter.iloc[0]["Ligue"]} \n :'
+            txt += f'{df_filter.iloc[0]["Ligue"]} : \n '
 
             for index, data in df_filter.iterrows():
                 team1 = data['Team1']
                 team2 = data['Team2']
                 date_match = data['DateTime UTC']
-                txt += f'{date_match} - {team1} vs {team2}' 
+                txt += f'{date_match} - {team1} vs {team2}\n' 
 
         await ctx.send(txt)
 def setup(bot):
