@@ -130,7 +130,7 @@ class AnalyseLoLSeason(Extension):
                                     required=False,
                                     choices=[
                                         SlashCommandChoice(name='Par apparition', value='count'),
-                                        SlashCommandChoice(name='Par nom', value='count')])
+                                        SlashCommandChoice(name='Par nom', value='champion')])
                                 ])
     async def analyse_champion(self,
                       ctx: SlashContext,
@@ -200,7 +200,12 @@ class AnalyseLoLSeason(Extension):
             df_champion = df_champion[~df_champion.index.str.contains(f'{riot_id}#{riot_tag.lower()}')]
             df_count = df_champion.groupby('champion').agg(count=('champion', 'count'),
                                                         victory=('victoire', 'sum'))
-            df_count.sort_values(tri, ascending=False, inplace=True)
+
+            if tri == 'count':
+                ascending = False
+            elif tri == 'champion':
+                ascending = True                                           
+            df_count.sort_values(tri, ascending=ascending, inplace=True)
             df_count.index = df_count.index.str.capitalize()
 
             if champion_rencontre != None:
@@ -717,7 +722,7 @@ class AnalyseLoLSeason(Extension):
 
         fig.savefig('lp.jpg')
 
-        await ctx.send(file=interactions.File('lp.jpg'))
+        await ctx.send(content=f'{riot_id}#{riot_tag}', file=interactions.File('lp.jpg'))
 
         os.remove('lp.jpg')
   

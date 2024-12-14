@@ -13,6 +13,7 @@ from fonctions.gestion_bdd import (lire_bdd,
                                    requete_perso_bdd)
 from fonctions.match import dict_rankid, emote_rank_discord, emote_champ_discord
 import aiohttp
+import re
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -294,7 +295,7 @@ class tft(Extension):
 
         # [0] est l'index
         for set in df_traits.iterrows():
-            name = set[1]['name'].replace('Set9_', '').replace('Set10_', '')
+            name = re.sub(r'Set\d+_', '', set[1]['name'])  # Remplace Set suivi de chiffres
             tier_current = set[1]['tier_current']
             tier_total = set[1]['tier_total']
             nb_units = set[1]['num_units']
@@ -315,9 +316,7 @@ class tft(Extension):
         
         inline=False
         for mob in df_mobs.iterrows():
-            monster_name = mob[1]['character_id']\
-                .replace('tft9_', '').replace('TFT9_', '')\
-                    .replace('tft10_', '').replace('TFT10_', '')
+            monster_name = re.sub(r'tft\d+_', '', mob[1]['character_id'], flags=re.IGNORECASE)  # Remplace TFT suivi de chiffres (insensible à la casse)
                     
             monster_tier = mob[1]['tier']
             

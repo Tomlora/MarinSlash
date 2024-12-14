@@ -458,8 +458,21 @@ class analyseLoL(Extension):
 
         dict_joueur = []
         for i in range(0, 10):
-            summoner = await get_summoner_by_puuid(timeline['metadata']['participants'][i], session)
-            dict_joueur.append(summoner['gameName'].lower())
+            attempt = 0
+
+            while attempt < 5:
+                try:
+                    summoner = await get_summoner_by_puuid(timeline['metadata']['participants'][i], session)
+                    dict_joueur.append(summoner['gameName'].lower())
+                    break
+                except:
+                    attempt += 1
+
+                    if attempt >= 5:
+                        msg = await ctx.send(f'Trop de demandes à Riot Games... Réessai dans 10 secondes. Tentative {attempt}/5 ')
+                        await asyncio.sleep(10)
+                        await msg.delete()
+
 
         await session.close()
 
@@ -1082,7 +1095,7 @@ class analyseLoL(Extension):
                               choices=[choice_comptage, choice_winrate]),
                               SlashCommandOption(
                               name='nb_parties',
-                              description='Combien de parties minimum ? (Debloque un graph détaillé pour winrate)',
+                              description='Combien de parties minimum ? (Debloque un graph détaillé pour winrate si supérieur à 1)',
                               required=False,
                               type=interactions.OptionType.INTEGER,
                               min_value=1

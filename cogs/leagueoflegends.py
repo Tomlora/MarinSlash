@@ -1090,17 +1090,25 @@ class LeagueofLegends(Extension):
                     {'id': id_last_game, 'id_compte': id_compte, 'spec': False},
                 )
 
-                me = await get_summoner_by_puuid(puuid, session)
-                
-                # si maj pseudo ou tag
-                if riot_id != me['gameName'].replace(" ", "").lower() or riot_tag != me['tagLine']:
+                try:
+                    me = await get_summoner_by_puuid(puuid, session)
+                        
+                        # si maj pseudo ou tag
+                    if riot_id != me['gameName'].replace(" ", "").lower() or riot_tag != me['tagLine']:
+                        requete_perso_bdd(
+                                'UPDATE tracker SET riot_id = :riot_id, riot_tagline = :riot_tag WHERE id_compte = :id_compte',
+                                {'id_compte': id_compte, 'riot_id': me['gameName'].lower().replace(" ", ""), 'riot_tag': me['tagLine'].upper()},
+                            )
+                            
+                        riot_id = me['gameName'].lower().replace(" ", "")
+                        riot_tag = me['tagLine'].upper()
+
+                except KeyError:
+                    print(f'Erreur de maj de pseudo {riot_id}')
                     requete_perso_bdd(
-                        'UPDATE tracker SET riot_id = :riot_id, riot_tagline = :riot_tag WHERE id_compte = :id_compte',
-                        {'id_compte': id_compte, 'riot_id': me['gameName'].lower().replace(" ", ""), 'riot_tag': me['tagLine'].upper()},
-                    )
-                    
-                    riot_id = me['gameName'].lower().replace(" ", "")
-                    riot_tag = me['tagLine'].upper()                    
+                        'UPDATE tracker SET id = :id WHERE id_compte = :id_compte',
+                        {'id': last_game, 'id_compte': id_compte})
+                    continue             
 
                 try:
                     # identification du channel
@@ -1127,8 +1135,7 @@ class LeagueofLegends(Extension):
                     # on recommence dans 1 minute
                     requete_perso_bdd(
                         'UPDATE tracker SET id = :id WHERE id_compte = :id_compte',
-                        {'id': last_game, 'id_compte': id_compte},
-                    )
+                        {'id': last_game, 'id_compte': id_compte})
                     # joueur qui a posé pb
                     print(f"erreur TypeError {riot_id}")
                     exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -1398,6 +1405,7 @@ class LeagueofLegends(Extension):
                     elif dict_rankid[classement_old] == dict_rankid[classement_new]:
                         if difLP > 0:
                             emote = "<:frogUp:1205933878540238868>"
+                            difLP = f'+{difLP}'
                         elif difLP < 0:
                             emote = ":arrow_down:"
                         elif difLP == 0:
@@ -1405,7 +1413,7 @@ class LeagueofLegends(Extension):
 
                     embed.add_field(
                         name=f"{suivi[key]['riot_id']} ( {emote_rank_discord[tier]} {rank} ) #{rank_euw_format}({diff_rank_euw}) | {percent_rank_euw}%",
-                        value=f"V : {suivi[key]['wins']} ({difwins}) | D : {suivi[key]['losses']} ({diflosses}) | LP :  {suivi[key]['LP']}({difLP})   {emote}", inline=False)
+                        value=f"V : {suivi[key]['wins']} ({difwins}) | D : {suivi[key]['losses']} ({diflosses}) | LP :  {suivi[key]['LP']} ({difLP})   {emote}", inline=False)
                     
                     if (difwins + diflosses > 0):  # si supérieur à 0, le joueur a joué
                         sql += f'''UPDATE suivi_s{saison}

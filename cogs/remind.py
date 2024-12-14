@@ -12,7 +12,7 @@ from fonctions.date import heure_actuelle
 reminders = {}
 
 
-class Divers(Extension):
+class Remind(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
         self.database_handler = DatabaseHandler()
@@ -288,4 +288,4 @@ class Divers(Extension):
 
 
 def setup(bot):
-    Divers(bot)
+    Remind(bot)

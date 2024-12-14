@@ -255,19 +255,23 @@ class Divers(Extension):
         await ctx.send(embeds=embed)
 
     @slash_command(name='my_cool_modal')
-    async def my_cool_modal(self, ctx):
-        modal = interactions.Modal(
-            title="Application Form",
-            custom_id="mod_app_form",
-            components=[interactions.TextInput(
-                style=interactions.TextStyleType.SHORT,
-                label='Combien font 1+1 ?',
-                custom_id='math',
-                min_length=1,
-                max_length=3)],
+    async def my_cool_modal(self, ctx : SlashContext):
+        my_modal = interactions.Modal(
+            interactions.ShortText(label="Short Input Text", custom_id="short_text"),
+            interactions.ParagraphText(label="Long Input Text", custom_id="long_text"),
+            title="My Modal",
+            custom_id="my_modal",
         )
-        await ctx.popup(modal)
+        await ctx.send_modal(modal=my_modal)
+        modal_ctx: interactions.ModalContext = await ctx.bot.wait_for_modal(my_modal)
 
+        # extract the answers from the responses dictionary
+        short_text = modal_ctx.responses["short_text"]
+        long_text = modal_ctx.responses["long_text"]
+
+        await modal_ctx.send(f"Short text: {short_text}, Paragraph text: {long_text}", ephemeral=True)
+
+        
     # @interactions.extension_modal('mod_app_form')
     # async def modal_response(self,
     #                          ctx,
