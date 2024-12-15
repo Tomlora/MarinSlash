@@ -519,7 +519,7 @@ class analyseLoL(Extension):
 
             df_events_joueur.dropna(subset=['position'], inplace=True)
 
-            df_events_joueur = df_events_joueur[['timestamp', 'type', 'position', 'killerId', 'victimId', 'assistingParticipantIds']]
+            df_events_joueur = df_events_joueur[['timestamp', 'type', 'position', 'killerId', 'victimId', 'assistingParticipantIds', 'multiKillLength']]
 
             df_events_joueur[['killerId', 'victimId']] = df_events_joueur[['killerId', 'victimId']].astype(int, errors='ignore')
 
@@ -572,6 +572,17 @@ class analyseLoL(Extension):
                     
                     else:
                          timestamp = f'{timestamp}(A)'
+                         
+                
+                elif type == 'CHAMPION_SPECIAL_KILL':
+                    if df_timeline['killerId'][i] == index_timeline:
+                        color = 'gold'
+                        try:
+                            multikill = int(df_timeline['multiKillLength'][i])
+                            timestamp = f'{timestamp}({multikill}K)'
+                        except:
+                            timestamp = f'{timestamp}(K)'
+                            pass
                 
                 elif type == 'BUILDING_KILL':
                       color = 'yellow'
