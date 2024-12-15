@@ -471,7 +471,7 @@ class analyseLoL(Extension):
                 except:
                     attempt += 1
 
-                    if attempt >= 5:
+                    if attempt <= 5:
                         msg = await ctx.send(f'Trop de demandes à Riot Games... Réessai dans 10 secondes. Tentative {attempt}/5 ')
                         await asyncio.sleep(10)
                         await msg.delete()
@@ -527,7 +527,7 @@ class analyseLoL(Extension):
                         
             df_events_joueur['timestamp'] = df_events_joueur['timestamp'].apply(fix_temps)
 
-            df_events_joueur.drop_duplicates(subset=['timestamp'], inplace=True, keep='first')
+            df_events_joueur.drop_duplicates(subset=['timestamp'], inplace=True, keep='last')
 
             df_timeline = pd.concat([df_timeline, df_events_joueur]).sort_values('timestamp').reset_index(drop=True)
 
