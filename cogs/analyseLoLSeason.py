@@ -2,7 +2,7 @@
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, Task, IntervalTrigger, slash_command
 import interactions
 import pandas as pd
-from fonctions.gestion_bdd import lire_bdd_perso
+from fonctions.gestion_bdd import lire_bdd_perso, get_tag
 from fonctions.match import emote_champ_discord
 import numpy as np
 from interactions.ext.paginators import Paginator
@@ -374,7 +374,7 @@ class AnalyseLoLSeason(Extension):
                                     name="riot_tag",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
-                                    required=True),
+                                    required=False),
                                 # SlashCommandOption(
                                 #     name="mode",
                                 #     description="Mode de jeu",
@@ -406,7 +406,7 @@ class AnalyseLoLSeason(Extension):
     async def analyse_lp(self,
                       ctx: SlashContext,
                       riot_id: str,
-                      riot_tag:str,
+                      riot_tag:str = None,
                     #   mode:str,
                       saison = saison,
                       split = None,
@@ -434,6 +434,11 @@ class AnalyseLoLSeason(Extension):
         await ctx.defer(ephemeral=False)
 
 
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
 
         riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper()

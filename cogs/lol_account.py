@@ -9,7 +9,7 @@ from fonctions.channels_discord import verif_module
 from fonctions.permissions import isOwner_slash
 import traceback
 import psycopg2.errors
-from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso
+from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, get_tag
 from fonctions.match import getId_with_puuid, get_summonerinfo_by_puuid, get_summoner_by_riot_id
 
 
@@ -143,7 +143,7 @@ class LolAccount(Extension):
                                SlashCommandOption(name='riot_tag',
                                                   description="tag",
                                                   type=interactions.OptionType.STRING,
-                                                  required=True),
+                                                  required=False),
                                SlashCommandOption(name="tracker_fin",
                                                   description="Tracker qui affiche le recap de la game en fin de partie",
                                                   type=interactions.OptionType.BOOLEAN,
@@ -177,7 +177,7 @@ class LolAccount(Extension):
     async def tracker_config(self,
                              ctx: SlashContext,
                              riot_id: str,
-                             riot_tag: str,
+                             riot_tag: str = None,
                              tracker_fin: bool = None,
                              tracker_debut: bool = None,
                              tracker_challenges: bool = None,
@@ -185,6 +185,13 @@ class LolAccount(Extension):
                              insights: bool = None,
                              nb_challenges: int = None,
                              records: bool = None):
+        
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
 
         riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper()

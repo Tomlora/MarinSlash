@@ -25,7 +25,8 @@ from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
                                    get_data_bdd,
                                    requete_perso_bdd,
-                                   lire_bdd_perso)
+                                   lire_bdd_perso,
+                                   get_tag)
 
 from fonctions.match import (matchlol,
                              get_summoner_by_puuid,
@@ -784,11 +785,12 @@ class LeagueofLegends(Extension):
                                           type=interactions.OptionType.STRING, required=True),
                        SlashCommandOption(name="riot_tag",
                                           description="Tag",
-                                          type=interactions.OptionType.STRING, required=True),
+                                          type=interactions.OptionType.STRING,
+                                          required=False),
                        SlashCommandOption(name="numerogame",
                                           description="Numero de la game, de 0 à 100",
                                           type=interactions.OptionType.INTEGER,
-                                          required=True,
+                                          required=False,
                                           min_value=0,
                                           max_value=100),
                        SlashCommandOption(name='identifiant_game',
@@ -806,13 +808,19 @@ class LeagueofLegends(Extension):
     async def game(self,
                    ctx: SlashContext,
                    riot_id: str,
-                   riot_tag:str,
-                   numerogame: int,
+                   riot_tag:str = None,
+                   numerogame: int = 0,
                    identifiant_game=None,
                    ce_channel=False,
                    check_doublon=True):
 
         await ctx.defer(ephemeral=False)
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
         
         server_id = int(ctx.guild_id)
         discord_server_id = chan_discord(int(server_id))
@@ -882,17 +890,18 @@ class LeagueofLegends(Extension):
                                           type=interactions.OptionType.STRING, required=True),
                        SlashCommandOption(name="riot_tag",
                                           description="Tag",
-                                          type=interactions.OptionType.STRING, required=True),
+                                          type=interactions.OptionType.STRING,
+                                           required=False),
                        SlashCommandOption(name="numero_avant",
                                           description="Numero de la game, de 0 à 100",
                                           type=interactions.OptionType.INTEGER,
-                                          required=True,
+                                          required=False,
                                           min_value=0,
                                           max_value=100),
                        SlashCommandOption(name="numero_apres",
                                           description="Numero de la game, de 0 à 100",
                                           type=interactions.OptionType.INTEGER,
-                                          required=True,
+                                          required=False,
                                           min_value=0,
                                           max_value=100),
                        SlashCommandOption(name="attente",
@@ -916,9 +925,9 @@ class LeagueofLegends(Extension):
     async def game_multi(self,
                    ctx: SlashContext,
                    riot_id: str,
-                   riot_tag:str,
-                   numero_avant: int,
-                   numero_apres: int,
+                   riot_tag:str = None,
+                   numero_avant: int = 0,
+                   numero_apres: int = 5,
                    attente:int = 30,
                    identifiant_game=None,
                    ce_channel=False,
@@ -926,6 +935,12 @@ class LeagueofLegends(Extension):
 
         await ctx.defer(ephemeral=False)
         
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
+                
         server_id = int(ctx.guild_id)
         discord_server_id = chan_discord(int(server_id))
 
@@ -1478,7 +1493,7 @@ class LeagueofLegends(Extension):
                            name='riot_tag',
                            description='tag',
                            type=interactions.OptionType.STRING,
-                           required=True),
+                           required=False),
                        SlashCommandOption(
                            name='mode',
                            description='mode de jeu',
@@ -1514,7 +1529,7 @@ class LeagueofLegends(Extension):
     async def my_recap(self,
                        ctx: SlashContext,
                        riot_id: str,
-                       riot_tag: str,
+                       riot_tag: str = None,
                        mode: str = None,
                        observation: str = '24h'):
 
@@ -1529,6 +1544,12 @@ class LeagueofLegends(Extension):
                           'Mois': timedelta(days=30)}
 
         await ctx.defer(ephemeral=False)
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
         
         riot_tag = riot_tag.upper()
 

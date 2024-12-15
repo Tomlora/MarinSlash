@@ -31,7 +31,7 @@ class LolPronostic(Extension):
 
         liste_matchs = []
 
-        liste_championnat = ['LoL EMEA Championship', 'La Ligue Française', 'League of Legends Championship Series', 'LTA North', 'LTA South']
+        liste_championnat = ['LoL EMEA Championship', 'La Ligue Française', 'League of Legends Championship Series', 'LTA North', 'LTA South', 'LoL Champions Korea']
 
         for championnat in liste_championnat:
 
@@ -78,6 +78,8 @@ class LolPronostic(Extension):
                 return 'LTA'
             elif 'LCS' in x:
                 return 'LCS'
+            elif 'LCK' in x:
+                return 'LCK'
             else:
                 return None
             
@@ -115,10 +117,13 @@ class LolPronostic(Extension):
 
         df = df[df['Semaine'] == df['Semaine'].min()]
 
+
         txt = ''
 
         for competition in df['Competition'].unique():
             df_filter = df[df['Competition'] == competition]
+
+            # df_filter = df_filter[df_filter['Semaine'] == df_filter['Semaine'].min()]
 
             txt += f'{df_filter.iloc[0]["Ligue"]} : \n '
 

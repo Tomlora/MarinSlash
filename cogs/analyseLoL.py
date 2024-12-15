@@ -174,6 +174,14 @@ parameters_nbgames = [
 ]
 
 
+def fix_temps(duree):
+    '''Convertit le temps en secondes en minutes et secondes'''
+    minutes = int(duree)
+    secondes = int((duree - minutes) * 60)/100
+    
+    return minutes + secondes
+
+
 def get_data_matchs(columns, season, server_id, view='global', datetime=None):
 
     if datetime == None:
@@ -357,15 +365,23 @@ def format_graph_var(thisId, match_detail, info : str, pseudo : list, champ_name
                     
     return fig 
 
+
+def graphique(fig, name, liste_delete, liste_graph):
+    fig.write_image(name)
+    liste_delete.append(name)
+    liste_graph.append(interactions.File(name))
+
+    return liste_delete, liste_graph
+
 class analyseLoL(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
 
-    @slash_command(name='lol_analyse', description='analyse lol')
+    @slash_command(name='lol_analyse_durant_la_game', description='analyse lol')
     async def analyse_lol(self, ctx: SlashContext):
         pass
 
-    @analyse_lol.subcommand("en_cours_de_game",
+    @analyse_lol.subcommand("position",
                             sub_cmd_description="Permet d'afficher des statistiques durant la game",
                             options=[
                                 SlashCommandOption(
@@ -379,16 +395,10 @@ class analyseLoL(Extension):
                                     type=interactions.OptionType.STRING,
                                     required=True),
                                 SlashCommandOption(
-                                    name="stat",
-                                    description="Quel stat ?",
-                                    type=interactions.OptionType.STRING,
-                                    required=True,
-                                    choices=choice_analyse),
-                                SlashCommandOption(name="stat2",
-                                                   description="Quel stat ?",
-                                                   type=interactions.OptionType.STRING,
-                                                   required=False,
-                                                   choices=choice_analyse),
+                                    name='detail',
+                                    description="Ajout d'actions durant la game",
+                                    type=interactions.OptionType.BOOLEAN,
+                                    required=False),
                                 SlashCommandOption(
                                     name="game",
                                     description="Numero Game",
@@ -402,27 +412,20 @@ class analyseLoL(Extension):
                                     type=interactions.OptionType.STRING,
                                     required=False
                                 )])
-    async def analyse(self,
+    async def analyse_position(self,
                       ctx: SlashContext,
                       riot_id: str,
                       riot_tag:str,
-                      stat: str,
-                      stat2: str = "no",
+                      detail : bool = False,
                       game: int = 0,
                       id_game : str = None):
 
-        stat = [stat, stat2]
         liste_graph = list()
         liste_delete = list()
 
         riot_id_origin = riot_id.lower()
         riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper()
-
-        def graphique(fig, name):
-            fig.write_image(name)
-            liste_delete.append(name)
-            liste_graph.append(interactions.File(name))
 
         await ctx.defer(ephemeral=False)
 
@@ -486,234 +489,121 @@ class analyseLoL(Extension):
         elif thisId >= 5:
             team = ['Team adverse', 'Team alliée']
 
-        if "vision" in stat:
 
-            df_timeline = pd.DataFrame(timeline['info']['frames'][1]['events'])
 
+        df_timeline, minute = load_timeline(timeline)
+
+        df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
+           
+        df_timeline = df_timeline[(df_timeline['riot_id'] == riot_id)]
+
+        df_timeline['type'] = 'position'
+
+        if detail:
+            df_events = pd.DataFrame(timeline['info']['frames'][1]['events'])
             minute = len(timeline['info']['frames']) - 1
 
-            for i in range(2, minute):
-                df_timeline2 = pd.DataFrame(
-                    timeline['info']['frames'][i]['events'])
-                df_timeline = df_timeline.append(df_timeline2)
+            index_timeline = df_timeline['participantId'][0]
 
-            df_timeline['timestamp'] = df_timeline['timestamp'] / \
-                60000  # arrondir à l'inférieur ou au supérieur ?
+            for i in range(1, minute):
+                        df_timeline2 = pd.DataFrame(
+                            timeline['info']['frames'][i]['events'])
+                        df_events = df_events.append(df_timeline2)
 
-            df_ward = df_timeline[(df_timeline['type'] == 'WARD_PLACED') | (
-                df_timeline['type'] == 'WARD_KILL')]
 
-            df_ward['creatorId'].fillna(0, inplace=True)
-            df_ward['killerId'].fillna(0, inplace=True)
-            df_ward = df_ward.astype(
-                {"creatorId": 'int32', "killerId": 'int32'})
+            df_events_joueur = df_events[(df_events['participantId'] == index_timeline) |
+                                                    (df_events['creatorId'] == index_timeline) |
+                                                    (df_events['killerId'] == index_timeline) |
+                                                    (df_events['victimId'] == index_timeline) |
+                                                    df_events['assistingParticipantIds'].apply(lambda x: isinstance(x, list) and index_timeline in x)]
 
-            df_ward['riot_id'] = df_ward['creatorId']
+            df_events_joueur.dropna(subset=['position'], inplace=True)
 
-            df_ward['riot_id'] = np.where(
-                df_ward['riot_id'] == 0, df_ward.killerId, df_ward['riot_id'])
-            
-            df_ward = mapping_joueur(df_ward, 'riot_id', dict_joueur)
+            df_events_joueur = df_events_joueur[['timestamp', 'type', 'position', 'killerId', 'victimId', 'assistingParticipantIds']]
 
-            df_ward['points'] = df_ward['wardType'].map(label_ward).fillna(1)
+            df_events_joueur[['killerId', 'victimId']] = df_events_joueur[['killerId', 'victimId']].astype(int, errors='ignore')
 
-            df_ward['size'] = 4
+            df_events_joueur['timestamp'] = np.round(df_events_joueur['timestamp'] / 60000,2)
+                        
+            df_events_joueur['timestamp'] = df_events_joueur['timestamp'].apply(fix_temps)
 
-            df_ward['type'] = df_ward['type'].map({'WARD_PLACED': 'POSEES',
-                                                   'WARD_KILL': 'DETRUITES'})
+            df_events_joueur.drop_duplicates(subset=['timestamp'], inplace=True, keep='first')
 
-            df_ward['wardType'] = df_ward['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
-                                                           'UNDEFINED': 'Balise Zombie',
-                                                           'CONTROL_WARD': 'Pink',
-                                                           'SIGHT_WARD': 'Ward support',
-                                                           'BLUE_TRINKET': 'Trinket bleu'
-                                                           })
+            df_timeline = pd.concat([df_timeline, df_events_joueur]).sort_values('timestamp').reset_index(drop=True)
 
-            # df_ward = df_ward[(df_ward['riot_id'] == riot_id) & (df_ward['riot_tagline'] == riot_tag)]
-            
-            df_ward = df_ward[(df_ward['riot_id'] == riot_id)]
+        img = io.imread('./img/map2.jpg')
 
-            illustrative_var = np.array(df_ward['wardType'])
-            illustrative_type = np.array(df_ward['type'])
+        # 3750 taille optimale et 4 en diviseur
+        x_pos = 468.75
+        y_pos = 468.75
+        diviseur = 32
 
-            fig = px.scatter(x=df_ward['timestamp'], y=df_ward['points'], color=illustrative_var, range_y=[0, 6],
-                             size=df_ward['size'], symbol=illustrative_type, title='Warding', width=1600,
-                             height=800)
-            fig.update_yaxes(showticklabels=False)
-            fig.update_layout(xaxis_title='Temps',
-                              font_size=18)
+        img = resize(img, (x_pos, y_pos), anti_aliasing=False)
 
-            graphique(fig, 'vision.png')
+        fig = px.imshow(img)
 
-        if 'gold' in stat:
-            
-            df_timeline, minute = load_timeline(timeline)
-
-            df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
-
-            fig = px.line(df_timeline, x='timestamp', y='totalGold', color='riot_id', markers=True, title='Gold',
-                          height=1000, width=1800)
-            fig.update_layout(xaxis_title='Temps',
-                              font_size=18)
-
-            graphique(fig, 'gold.png')
-            
-
-        if 'cs' in stat:
-            
-            df_timeline, minute = load_timeline(timeline)
-
-            df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
-            
-            df_timeline['cs'] = df_timeline['jungleMinionsKilled'] + df_timeline['minionsKilled']
-
-            fig = px.line(df_timeline, x='timestamp', y='cs', color='riot_id', markers=True, title='CS',
-                          height=1000, width=1800)
-            fig.update_layout(xaxis_title='Temps',
-                              font_size=18)
-
-            graphique(fig, 'cs.png')
-            
-
-        if 'level' in stat:
-            
-            df_timeline, minute = load_timeline(timeline)
-
-            df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
-            
-            fig = px.line(df_timeline, x='timestamp', y='level', color='riot_id', markers=True, title='CS',
-                          height=1000, width=1800)
-            fig.update_layout(xaxis_title='Temps',
-                              font_size=18)
-
-            graphique(fig, 'cs.png')
-
-        if 'gold_team' in stat:
-
-            df_timeline, minute = load_timeline(timeline)
-
-            df_timeline['riot_id'] = df_timeline['participantId']
-
-            df_timeline['team'] = np.where(
-                df_timeline['riot_id'] <= 5, team[0], team[1])
-
-            df_timeline = df_timeline.groupby(['team', 'timestamp'], as_index=False)[
-                'totalGold'].sum()
-
-            df_timeline_adverse = df_timeline[df_timeline['team'] == 'Team adverse'].reset_index(
-                drop=True)
-            df_timeline_alliee = df_timeline[df_timeline['team'] == 'Team alliée'].reset_index(
-                drop=True)
-
-            df_timeline_diff = pd.DataFrame(columns=['timestamp', 'ecart'])
-
-            df_timeline_diff['timestamp'] = df_timeline['timestamp']
-
-            df_timeline_diff['ecart'] = df_timeline_alliee['totalGold'] - \
-                (df_timeline_adverse['totalGold'])
-
-            # Cela applique deux fois le timestamp (un pour les adversaires, un pour les alliés...) On supprime la moitié :
-
-            df_timeline_diff.dropna(axis=0, inplace=True)
-
-            df_timeline_diff['signe'] = np.where(
-                df_timeline_diff.ecart < 0, 'negatif', 'positif')
-
-            # Graphique
-            # Src : https://matplotlib.org/stable/gallery/lines_bars_and_markers/multicolored_line.html
-
-            val_min = df_timeline_diff['ecart'].min()
-            val_max = df_timeline_diff['ecart'].max()
-
-            x = df_timeline_diff['timestamp']
-            y = df_timeline_diff['ecart']
-
-            points = np.array([x, y]).T.reshape(-1, 1, 2)
-
-            segments = np.concatenate([points[:-1], points[1:]], axis=1)
-
-            fig, ax = plt.figure(figsize=(25, 10)), plt.axes()
-
-            df_timeline_diff.iloc[0, 2] = df_timeline_diff.iloc[1, 2]
-
-            plt.title(f'Ecart gold {riot_id}')
-
-            cmap = ListedColormap(['r', 'b'])
-            norm = BoundaryNorm([val_min, 0, val_max], cmap.N)
-            lc = LineCollection(segments, cmap=cmap, norm=norm)
-            lc.set_array(y)
-            lc.set_linewidth(2)
-            line = ax.add_collection(lc)
-
-            def add_value_label(x_list, y_list):
-                for i in range(1, len(x_list)+1):
-                    plt.text(i, y_list[i-1], y_list[i-1])
-
-            add_value_label(x, y)
-            ax.set_xlim(x.min(), x.max())
-            ax.set_ylim(y.min(), y.max())
-
-            plt.savefig('gold_team.png')
-            liste_delete.append('gold_team.png')
-            liste_graph.append(interactions.File('gold_team.png'))
-
-        if 'position' in stat:
-
-            df_timeline, minute = load_timeline(timeline)
-
-            df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
-
-            # df_timeline = df_timeline[(df_timeline['riot_id'] == riot_id) & (df_timeline['riot_tagline'] == riot_tag)]
-            
-            df_timeline = df_timeline[(df_timeline['riot_id'] == riot_id)]
-
-            img = io.imread('./img/map2.jpg')
-
-            # 3750 taille optimale et 4 en diviseur
-            x_pos = 468.75
-            y_pos = 468.75
-            diviseur = 32
-
-            img = resize(img, (x_pos, y_pos), anti_aliasing=False)
-
-            fig = px.imshow(img)
-
-            for i in range(0, minute - 1):
+        for i in range(0, df_timeline.shape[0]):
                 x = [df_timeline['position'][i]['x'] / diviseur]
                 y = [y_pos - (df_timeline['position'][i]['y'] / diviseur)]
+                timestamp = df_timeline['timestamp'][i]
+                type = df_timeline['type'][i]
 
-                if i < 10:
-                    color = 'red'
-                elif 10 <= i < 20:
-                    color = 'cyan'
-                elif 20 <= i < 30:
-                    color = 'lightgreen'
-                else:
-                    color = 'goldenrod'
+                if type == 'position':
+
+                    timestamp = int(timestamp)
+
+                    if timestamp < 10:
+                        color = 'red'
+                    elif 10 <= timestamp < 20:
+                        color = 'cyan'
+                    elif 20 <= timestamp < 30:
+                        color = 'lightgreen'
+                    else:
+                        color = 'goldenrod'
+
+
+                elif type == 'CHAMPION_KILL':
+                    color = 'violet'
+                    if df_timeline['victimId'][i] == index_timeline:
+                        timestamp = f'{timestamp}(D)'
+                    
+                    elif df_timeline['killerId'][i] == index_timeline:
+                        timestamp = f'{timestamp}(K)'
+                    
+                    else:
+                         timestamp = f'{timestamp}(A)'
+                
+                elif type == 'BUILDING_KILL':
+                      color = 'yellow'
+                      timestamp = f'{timestamp}(B)'
+                    
+                elif type == 'ELITE_MONSTER_KILL':
+                      color = 'orange'
+                      timestamp = f'{timestamp}(M)'
 
                 fig.add_trace(
-                    go.Scatter(x=x, y=y, mode="markers+text", text=str(i + 1), marker=dict(color=color, size=20),
+                    go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
                                textposition='top center', textfont=dict(size=35, color=color)))
 
-            fig.update_layout(width=1200,
+        fig.update_layout(width=1200,
                               height=1200,
                               coloraxis_showscale=False,
                               showlegend=False)
 
-            fig.update_xaxes(showticklabels=False,
+        fig.update_xaxes(showticklabels=False,
                              automargin=True)
-            fig.update_yaxes(showticklabels=False,
+        fig.update_yaxes(showticklabels=False,
                              automargin=True)
 
-            graphique(fig, 'position.png')
+        liste_delete, liste_graph = graphique(fig, 'position.png', liste_delete, liste_graph)
 
         await ctx.send(files=liste_graph)
 
         for graph in liste_delete:
             os.remove(graph)
 
-    @analyse_lol.subcommand("fin_de_game",
-                            sub_cmd_description="Voir des stats de fin de game",
+    @analyse_lol.subcommand("vision",
+                            sub_cmd_description="Permet d'afficher des statistiques durant la game",
                             options=[
                                 SlashCommandOption(
                                     name="riot_id",
@@ -726,26 +616,8 @@ class analyseLoL(Extension):
                                     type=interactions.OptionType.STRING,
                                     required=True),
                                 SlashCommandOption(
-                                    name="stat",
-                                    description="Quel stat ?",
-                                    type=interactions.OptionType.STRING,
-                                    required=True,
-                                    choices=choice_var),
-                                SlashCommandOption(
-                                    name="stat2",
-                                    description="Quel stat ?",
-                                    type=interactions.OptionType.STRING,
-                                    required=False,
-                                    choices=choice_var),
-                                SlashCommandOption(
-                                    name="stat3",
-                                    description="Quel stat ?",
-                                    type=interactions.OptionType.STRING,
-                                    required=False,
-                                    choices=choice_var),
-                                SlashCommandOption(
                                     name="game",
-                                    description="Game de 0 à 10 (0 étant la dernière)",
+                                    description="Numero Game",
                                     type=interactions.OptionType.INTEGER,
                                     required=False,
                                     min_value=0,
@@ -756,32 +628,27 @@ class analyseLoL(Extension):
                                     type=interactions.OptionType.STRING,
                                     required=False
                                 )])
-    async def var(self,
-                  ctx: SlashContext,
-                  riot_id: str,
-                  riot_tag : str,
-                  stat: str,
-                  stat2: str = 'no',
-                  stat3: str = 'no',
-                  game: int = 0,
-                  id_game : str = None):
+    async def analyse_vision(self,
+                      ctx: SlashContext,
+                      riot_id: str,
+                      riot_tag:str,
+                      game: int = 0,
+                      id_game : str = None):
 
-        stat = [stat, stat2, stat3]
+        liste_graph = list()
+        liste_delete = list()
+
+        riot_id_origin = riot_id.lower()
+        riot_id = riot_id.lower().replace(' ', '')
+        riot_tag = riot_tag.upper()
 
         await ctx.defer(ephemeral=False)
 
-        liste_delete = list()
-        liste_graph = list()
-
-        def graphique(fig, name):
-            fig.write_image(name)
-            liste_delete.append(name)
-            liste_graph.append(interactions.File(name))
-
+        global thisId, team
+        # supprime les FutureWarnings dû à l'utilisation de pandas (.append/.drop)
+        warnings.simplefilter(action='ignore', category=FutureWarning)
+        pd.options.mode.chained_assignment = None  # default='warn'
         session = aiohttp.ClientSession()
-        
-        riot_id = riot_id.lower().replace(' ', '')
-        riot_tag = riot_tag.upper()
         
         try:
             puuid = lire_bdd_perso('''SELECT index, puuid from tracker where riot_id = :riot_id and riot_tagline = :riot_tag''',
@@ -789,119 +656,420 @@ class analyseLoL(Extension):
                                                 'riot_tag' : riot_tag})\
                                                     .T\
                                                         .loc[riot_id, 'puuid']
-        except KeyError: # pas dans la bdd
+        except KeyError:
             me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
             puuid = me['puuid']
 
-        if id_game == None:
-            last_match, match_detail_stats = await match_by_puuid_with_puuid(puuid, game, session)
+        
+
+
+        if id_game == None:                                                  
+            last_match, match_detail = await match_by_puuid_with_puuid(puuid, game, session)
         else:
-            last_match, match_detail_stats = await match_by_puuid_with_puuid(puuid, game, session, id_game=id_game)
+            last_match = str(id_game)
+            if 'EUW' not in last_match:
+                last_match = f'EUW1_{last_match}'   
 
-        match_detail = pd.DataFrame(match_detail_stats)
+        timeline = await get_match_timeline(session, last_match)
 
-        version = await get_version(session)
+        # timestamp à diviser par 60000
 
-        current_champ_list = await get_champ_list(session, version)
+        dict_joueur = []
+        for i in range(0, 10):
+            attempt = 0
+
+            while attempt < 5:
+                try:
+                    summoner = await get_summoner_by_puuid(timeline['metadata']['participants'][i], session)
+                    dict_joueur.append(summoner['gameName'].lower())
+                    break
+                except:
+                    attempt += 1
+
+                    if attempt >= 5:
+                        msg = await ctx.send(f'Trop de demandes à Riot Games... Réessai dans 10 secondes. Tentative {attempt}/5 ')
+                        await asyncio.sleep(10)
+                        await msg.delete()
+
 
         await session.close()
 
-        champ_dict = {}
-        for key in current_champ_list['data']:
-            row = current_champ_list['data'][key]
-            champ_dict[row['key']] = row['id']
+        if riot_id_origin in dict_joueur:
+            thisId = list(dict_joueur).index(riot_id_origin)
+        else:
+            return await ctx.send(f'Erreur. Joueur introuvable parmi **{dict_joueur}**')
 
-        dic = {
-            (match_detail['info']['participants'][0]['riotIdGameName']).lower().replace(" ", ""): 0,
-            (match_detail['info']['participants'][1]['riotIdGameName']).lower().replace(" ", ""): 1,
-            (match_detail['info']['participants'][2]['riotIdGameName']).lower().replace(" ", ""): 2,
-            (match_detail['info']['participants'][3]['riotIdGameName']).lower().replace(" ", ""): 3,
-            (match_detail['info']['participants'][4]['riotIdGameName']).lower().replace(" ", ""): 4,
-            (match_detail['info']['participants'][5]['riotIdGameName']).lower().replace(" ", ""): 5,
-            (match_detail['info']['participants'][6]['riotIdGameName']).lower().replace(" ", ""): 6,
-            (match_detail['info']['participants'][7]['riotIdGameName']).lower().replace(" ", ""): 7,
-            (match_detail['info']['participants'][8]['riotIdGameName']).lower().replace(" ", ""): 8,
-            (match_detail['info']['participants'][9]['riotIdGameName']).lower().replace(" ", ""): 9
-        }
+        if thisId <= 4:
+            team = ['Team alliée', 'Team adverse']
+        elif thisId >= 5:
+            team = ['Team adverse', 'Team alliée']
 
-        thisId = dic[riot_id]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
 
-        pseudo = dict_data(thisId, match_detail, 'riotIdGameName')
-        thisChamp = dict_data(thisId, match_detail, 'championId')
 
-        champ_names = []
-        for i in range(len(thisChamp)):
-            champ_names.append(champ_dict[str(thisChamp[i])])
+        df_timeline = pd.DataFrame(timeline['info']['frames'][1]['events'])
 
+        minute = len(timeline['info']['frames']) - 1
+
+        for i in range(2, minute):
+            df_timeline2 = pd.DataFrame(
+                    timeline['info']['frames'][i]['events'])
+            df_timeline = df_timeline.append(df_timeline2)
+
+        df_timeline['timestamp'] = df_timeline['timestamp'] / \
+                60000  # arrondir à l'inférieur ou au supérieur ?
+
+        df_ward = df_timeline[(df_timeline['type'] == 'WARD_PLACED') | (
+                df_timeline['type'] == 'WARD_KILL')]
+
+        df_ward['creatorId'].fillna(0, inplace=True)
+        df_ward['killerId'].fillna(0, inplace=True)
+        df_ward = df_ward.astype(
+                {"creatorId": 'int32', "killerId": 'int32'})
+
+        df_ward['riot_id'] = df_ward['creatorId']
+
+        df_ward['riot_id'] = np.where(
+                df_ward['riot_id'] == 0, df_ward.killerId, df_ward['riot_id'])
+            
+        df_ward = mapping_joueur(df_ward, 'riot_id', dict_joueur)
+
+        df_ward['points'] = df_ward['wardType'].map(label_ward).fillna(1)
+
+        df_ward['size'] = 4
+
+        df_ward['type'] = df_ward['type'].map({'WARD_PLACED': 'POSEES',
+                                                   'WARD_KILL': 'DETRUITES'})
+
+        df_ward['wardType'] = df_ward['wardType'].map({'YELLOW_TRINKET': 'Trinket jaune',
+                                                           'UNDEFINED': 'Balise Zombie',
+                                                           'CONTROL_WARD': 'Pink',
+                                                           'SIGHT_WARD': 'Ward support',
+                                                           'BLUE_TRINKET': 'Trinket bleu'
+                                                           })
+
+
+            
+        df_ward = df_ward[(df_ward['riot_id'] == riot_id)]
+
+        illustrative_var = np.array(df_ward['wardType'])
+        illustrative_type = np.array(df_ward['type'])
+
+        fig = px.scatter(x=df_ward['timestamp'], y=df_ward['points'], color=illustrative_var, range_y=[0, 6],
+                             size=df_ward['size'], symbol=illustrative_type, title='Warding', width=1600,
+                             height=800)
+        fig.update_yaxes(showticklabels=False)
+        fig.update_layout(xaxis_title='Temps',
+                              font_size=18)
+
+        liste_delete, liste_graph = graphique(fig, 'vision.png', liste_delete, liste_graph)
+
+        
+
+
+        await ctx.send(files=liste_graph)
+
+        for graph in liste_delete:
+            os.remove(graph)
+
+
+    @analyse_lol.subcommand("gold_team",
+                            sub_cmd_description="Permet d'afficher des statistiques durant la game",
+                            options=[
+                                SlashCommandOption(
+                                    name="riot_id",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=True),
+                                SlashCommandOption(
+                                    name="riot_tag",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=True),
+                                SlashCommandOption(
+                                    name="game",
+                                    description="Numero Game",
+                                    type=interactions.OptionType.INTEGER,
+                                    required=False,
+                                    min_value=0,
+                                    max_value=10),
+                                SlashCommandOption(
+                                    name='id_game',
+                                    description='Identifiant de la game',
+                                    type=interactions.OptionType.STRING,
+                                    required=False
+                                )])
+    async def analyse_gold_team(self,
+                      ctx: SlashContext,
+                      riot_id: str,
+                      riot_tag:str,
+                      game: int = 0,
+                      id_game : str = None):
+
+        liste_graph = list()
+        liste_delete = list()
+
+        riot_id_origin = riot_id.lower()
+        riot_id = riot_id.lower().replace(' ', '')
+        riot_tag = riot_tag.upper()
+
+        await ctx.defer(ephemeral=False)
+
+        global thisId, team
+        # supprime les FutureWarnings dû à l'utilisation de pandas (.append/.drop)
+        warnings.simplefilter(action='ignore', category=FutureWarning)
+        pd.options.mode.chained_assignment = None  # default='warn'
+        session = aiohttp.ClientSession()
+        
         try:
-            if "dmg" in stat:
-                            
-                fig = format_graph_var(thisId, match_detail, 'totalDamageDealtToChampions', pseudo, champ_names, 'dmg', 'Total DMG')
+            puuid = lire_bdd_perso('''SELECT index, puuid from tracker where riot_id = :riot_id and riot_tagline = :riot_tag''',
+                                        params={'riot_id' : riot_id,
+                                                'riot_tag' : riot_tag})\
+                                                    .T\
+                                                        .loc[riot_id, 'puuid']
+        except KeyError:
+            me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+            puuid = me['puuid']
 
-                graphique(fig, 'dmg.png')
+        
 
-            if "gold" in stat:
-                
-                fig = format_graph_var(thisId, match_detail, 'goldEarned', pseudo, champ_names, 'gold', 'Total Gold')
 
-                graphique(fig, 'gold.png')
+        if id_game == None:                                                  
+            last_match, match_detail = await match_by_puuid_with_puuid(puuid, game, session)
+        else:
+            last_match = str(id_game)
+            if 'EUW' not in last_match:
+                last_match = f'EUW1_{last_match}'   
 
-            if "vision" in stat:
-                
-                fig = format_graph_var(thisId, match_detail, 'visionScore', pseudo, champ_names, 'vision', 'Total Vision')
+        timeline = await get_match_timeline(session, last_match)
 
-                graphique(fig, 'vision.png')
+        # timestamp à diviser par 60000
 
-            if "tank" in stat:
+        dict_joueur = []
+        for i in range(0, 10):
+            attempt = 0
 
-                totalDamageTaken = dict_data(
-                    thisId, match_detail, 'totalDamageTaken')
-                damageSelfMitigated = dict_data(
-                    thisId, match_detail, 'damageSelfMitigated')
+            while attempt < 5:
+                try:
+                    summoner = await get_summoner_by_puuid(timeline['metadata']['participants'][i], session)
+                    dict_joueur.append(summoner['gameName'].lower())
+                    break
+                except:
+                    attempt += 1
 
-                dict_score = {
-                    pseudo[i] + "(" + champ_names[i] + ")": [totalDamageTaken[i], [damageSelfMitigated[i]]] for i in range(len(pseudo))}
+                    if attempt >= 5:
+                        msg = await ctx.send(f'Trop de demandes à Riot Games... Réessai dans 10 secondes. Tentative {attempt}/5 ')
+                        await asyncio.sleep(10)
+                        await msg.delete()
 
-                # print(dict_score)
-                df = pd.DataFrame.from_dict(dict_score, orient='index')
-                df = df.reset_index()
-                df = df.rename(
-                    columns={"index": "pseudo", 0: 'dmg_tank', 1: 'dmg_reduits'})
 
-                fig = go.Figure()
-                fig.add_trace(go.Bar(y=df['dmg_reduits'].values, x=df['pseudo'].values, text=df['dmg_reduits'].values,
-                                     marker_color='rgb(55,83,109)', name="Dmg reduits"))
-                fig.add_trace(go.Bar(y=df['dmg_tank'].values, x=df['pseudo'].values, text=df['dmg_tank'].values,
-                                     marker_color='rgb(26,118,255)', name='Dmg tank'))
+        await session.close()
 
-                fig.update_traces(
-                    texttemplate='%{text:.2s}', textposition='auto')
-                fig.update_layout(title='Dmg encaissés',
-                                  uniformtext_minsize=8, uniformtext_mode='hide')
-                fig.update_layout(barmode='stack')
+        if riot_id_origin in dict_joueur:
+            thisId = list(dict_joueur).index(riot_id_origin)
+        else:
+            return await ctx.send(f'Erreur. Joueur introuvable parmi **{dict_joueur}**')
 
-                graphique(fig, 'tank.png')
+        if thisId <= 4:
+            team = ['Team alliée', 'Team adverse']
+        elif thisId >= 5:
+            team = ['Team adverse', 'Team alliée']
 
-            if "heal_allies" in stat:
-                
-                fig = format_graph_var(thisId, match_detail, 'totalHealsOnTeammates', pseudo, champ_names, 'heal_allies', 'Total Heal allies')
+       
 
-                graphique(fig, 'heal_allies.png')
 
-            if "solokills" in stat:
-                
-                fig = format_graph_var(thisId, match_detail, 'soloKills', pseudo, champ_names, 'SoloKiils', 'Total SoloKills')
 
-                graphique(fig, 'solokills.png')
+        df_timeline, minute = load_timeline(timeline)
 
-            await ctx.send(files=liste_graph)
+        df_timeline['riot_id'] = df_timeline['participantId']
 
-            for graph in liste_delete:
-                os.remove(graph)
+        df_timeline['team'] = np.where(
+                df_timeline['riot_id'] <= 5, team[0], team[1])
 
-        except asyncio.TimeoutError:
-            await stat.delete()
-            await ctx.send("Annulé")
+        df_timeline = df_timeline.groupby(['team', 'timestamp'], as_index=False)[
+                'totalGold'].sum()
+
+        df_timeline_adverse = df_timeline[df_timeline['team'] == 'Team adverse'].reset_index(
+                drop=True)
+        df_timeline_alliee = df_timeline[df_timeline['team'] == 'Team alliée'].reset_index(
+                drop=True)
+
+        df_timeline_diff = pd.DataFrame(columns=['timestamp', 'ecart'])
+
+        df_timeline_diff['timestamp'] = df_timeline['timestamp']
+
+        df_timeline_diff['ecart'] = df_timeline_alliee['totalGold'] - \
+                (df_timeline_adverse['totalGold'])
+
+            # Cela applique deux fois le timestamp (un pour les adversaires, un pour les alliés...) On supprime la moitié :
+        df_timeline_diff.dropna(axis=0, inplace=True)
+
+        df_timeline_diff['signe'] = np.where(
+                df_timeline_diff.ecart < 0, 'negatif', 'positif')
+
+            # Graphique
+            # Src : https://matplotlib.org/stable/gallery/lines_bars_and_markers/multicolored_line.html
+
+        val_min = df_timeline_diff['ecart'].min()
+        val_max = df_timeline_diff['ecart'].max()
+
+        x = df_timeline_diff['timestamp']
+        y = df_timeline_diff['ecart']
+
+        points = np.array([x, y]).T.reshape(-1, 1, 2)
+
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+
+        fig, ax = plt.figure(figsize=(25, 10)), plt.axes()
+
+        df_timeline_diff.iloc[0, 2] = df_timeline_diff.iloc[1, 2]
+
+        plt.title(f'Ecart gold {riot_id}')
+
+        cmap = ListedColormap(['r', 'b'])
+        norm = BoundaryNorm([val_min, 0, val_max], cmap.N)
+        lc = LineCollection(segments, cmap=cmap, norm=norm)
+        lc.set_array(y)
+        lc.set_linewidth(2)
+        line = ax.add_collection(lc)
+
+        def add_value_label(x_list, y_list):
+            for i in range(1, len(x_list)+1):
+                plt.text(i, y_list[i-1], y_list[i-1])
+
+        add_value_label(x, y)
+        ax.set_xlim(x.min(), x.max())
+        ax.set_ylim(y.min(), y.max())
+
+        plt.savefig('gold_team.png')
+        liste_delete.append('gold_team.png')
+        liste_graph.append(interactions.File('gold_team.png'))
+
+
+        await ctx.send(files=liste_graph)
+
+        for graph in liste_delete:
+            os.remove(graph)
+
+
+    @analyse_lol.subcommand("gold",
+                            sub_cmd_description="Permet d'afficher des statistiques durant la game",
+                            options=[
+                                SlashCommandOption(
+                                    name="riot_id",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=True),
+                                SlashCommandOption(
+                                    name="riot_tag",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=True),
+                                SlashCommandOption(
+                                    name="game",
+                                    description="Numero Game",
+                                    type=interactions.OptionType.INTEGER,
+                                    required=False,
+                                    min_value=0,
+                                    max_value=10),
+                                SlashCommandOption(
+                                    name='id_game',
+                                    description='Identifiant de la game',
+                                    type=interactions.OptionType.STRING,
+                                    required=False
+                                )])
+    async def analyse(self,
+                      ctx: SlashContext,
+                      riot_id: str,
+                      riot_tag:str,
+                      game: int = 0,
+                      id_game : str = None):
+
+        liste_graph = list()
+        liste_delete = list()
+
+        riot_id_origin = riot_id.lower()
+        riot_id = riot_id.lower().replace(' ', '')
+        riot_tag = riot_tag.upper()
+
+
+        await ctx.defer(ephemeral=False)
+
+        global thisId, team
+        # supprime les FutureWarnings dû à l'utilisation de pandas (.append/.drop)
+        warnings.simplefilter(action='ignore', category=FutureWarning)
+        pd.options.mode.chained_assignment = None  # default='warn'
+        session = aiohttp.ClientSession()
+        
+        try:
+            puuid = lire_bdd_perso('''SELECT index, puuid from tracker where riot_id = :riot_id and riot_tagline = :riot_tag''',
+                                        params={'riot_id' : riot_id,
+                                                'riot_tag' : riot_tag})\
+                                                    .T\
+                                                        .loc[riot_id, 'puuid']
+        except KeyError:
+            me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+            puuid = me['puuid']
+
+        
+
+
+        if id_game == None:                                                  
+            last_match, match_detail = await match_by_puuid_with_puuid(puuid, game, session)
+        else:
+            last_match = str(id_game)
+            if 'EUW' not in last_match:
+                last_match = f'EUW1_{last_match}'   
+
+        timeline = await get_match_timeline(session, last_match)
+
+        # timestamp à diviser par 60000
+
+        dict_joueur = []
+        for i in range(0, 10):
+            attempt = 0
+
+            while attempt < 5:
+                try:
+                    summoner = await get_summoner_by_puuid(timeline['metadata']['participants'][i], session)
+                    dict_joueur.append(summoner['gameName'].lower())
+                    break
+                except:
+                    attempt += 1
+
+                    if attempt >= 5:
+                        msg = await ctx.send(f'Trop de demandes à Riot Games... Réessai dans 10 secondes. Tentative {attempt}/5 ')
+                        await asyncio.sleep(10)
+                        await msg.delete()
+
+
+        await session.close()
+
+        if riot_id_origin in dict_joueur:
+            thisId = list(dict_joueur).index(riot_id_origin)
+        else:
+            return await ctx.send(f'Erreur. Joueur introuvable parmi **{dict_joueur}**')
+
+        if thisId <= 4:
+            team = ['Team alliée', 'Team adverse']
+        elif thisId >= 5:
+            team = ['Team adverse', 'Team alliée']
+            
+        df_timeline, minute = load_timeline(timeline)
+
+        df_timeline = mapping_joueur(df_timeline, 'riot_id', dict_joueur)
+
+        fig = px.line(df_timeline, x='timestamp', y='totalGold', color='riot_id', markers=True, title='Gold',
+                          height=1000, width=1800)
+        fig.update_layout(xaxis_title='Temps',
+                              font_size=18)
+
+        liste_delete, liste_graph = graphique(fig, 'gold.png', liste_delete, liste_graph)
+            
+
+        await ctx.send(files=liste_graph)
+
+        for graph in liste_delete:
+            os.remove(graph)
 
     choice_comptage = SlashCommandChoice(name='comptage', value='count')
     choice_time_joue = SlashCommandChoice(name='temps_joué', value='time')
@@ -917,173 +1085,6 @@ class analyseLoL(Extension):
     async def stats_lol(self, ctx: SlashContext):
         pass
 
-    # @stats_lol.subcommand('items',
-    #                       sub_cmd_description="Stats sur les items",
-    #                       options=[SlashCommandOption(
-    #                           name='calcul',
-    #                           description='quel type de calcul ?',
-    #                           type=interactions.OptionType.STRING,
-    #                           required=True,
-    #                           choices=[choice_comptage, choice_winrate]),
-    #                           SlashCommandOption(
-    #                           name='nb_parties',
-    #                           description='Combien de parties minimum ?',
-    #                           type=interactions.OptionType.INTEGER,
-    #                           min_value=1,
-    #                           required=False
-    #                       )
-    #                       ] + parameters_commun_stats_lol)
-    # async def stats_lol_items(self,
-    #                           ctx: SlashContext,
-    #                           calcul: str,
-    #                           season: int = saison,
-    #                           riot_id: str = None,
-    #                           riot_tag: str = None,
-    #                           role: str = None,
-    #                           champion: str = None,
-    #                           mode_de_jeu: str = None,
-    #                           nb_parties: int = 1,
-    #                           top: int = 20,
-    #                           view: str = 'global'
-    #                           ):
-
-    #     await ctx.defer(ephemeral=False)
-
-    #     session = aiohttp.ClientSession()
-    #     column = 'matchs.item1, matchs.item2, matchs.item3, matchs.item4, matchs.item5, matchs.item6, matchs.victoire'
-    #     column_list = ['item1', 'item2',
-    #                    'item3', 'item4', 'item5', 'item6']
-
-    #     df = get_data_matchs(column, saison, int(ctx.guild_id), view)
-    #     # with open('./obj/item.json', encoding='utf-8') as mon_fichier:
-    #     #     data = json.load(mon_fichier)
-
-    #     version = await get_version(session)
-    #     async with session.get(f"https://ddragon.leagueoflegends.com/cdn/{version['n']['item']}/data/fr_FR/item.json") as itemlist:
-    #         data = await itemlist.json()
-
-    #     for column_item in column_list:
-    #         df[column_item] = df[column_item].apply(
-    #             lambda x: 0 if x == 0 else data['data'][str(x)]['name'])
-
-    #     await session.close()
-
-    #     title = f'Items'
-
-    #     df[df['season'] == season]
-
-    #     if riot_id != None and riot_tag != None:
-    #         riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
-
-    #     if champion != None:
-    #         champion, df, title = tri_champion(champion, df, title)
-
-    #     if mode_de_jeu != None:
-    #         df = df[df['mode'] == mode_de_jeu]
-    #         title += f' en {mode_de_jeu}'
-
-    #     if role != None:
-    #         df = df[df['role'] == role]
-    #         title += f' ({role})'
-
-    #     occurences = df['champion'].value_counts()
-
-    #     mask = df['champion'].isin(occurences.index[occurences >= nb_parties])
-
-    #     df = df[mask]
-
-    #     title += f' ({calcul})'
-
-    #     options = [
-    #         interactions.StringSelectOption(
-    #             label="item1", value="item1", emoji=interactions.PartialEmoji(name='1️⃣')),
-    #         interactions.StringSelectOption(
-    #             label="item2", value="item2", emoji=interactions.PartialEmoji(name='2️⃣')),
-    #         interactions.StringSelectOption(
-    #             label="item3", value="item3", emoji=interactions.PartialEmoji(name='3️⃣')),
-    #         interactions.StringSelectOption(
-    #             label="item4", value="item4", emoji=interactions.PartialEmoji(name='4️⃣')),
-    #         interactions.StringSelectOption(
-    #             label="item5", value="item5", emoji=interactions.PartialEmoji(name='5️⃣')),
-    #         interactions.StringSelectOption(
-    #             label="item6", value="item6", emoji=interactions.PartialEmoji(name='6️⃣'))
-    #     ]
-    #     select = interactions.StringSelectMenu(
-    #         *options,
-    #         custom_id='items',
-    #         placeholder="Ordre d'item",
-    #         min_values=1,
-    #         max_values=1
-    #     )
-
-    #     title += f' | Top {top}'
-
-    #     message = await ctx.send("Pour quel slot d'item ?",
-    #                              components=select)
-
-    #     async def check(button_ctx: interactions.api.events.internal.Component):
-    #         if int(button_ctx.ctx.author_id) == int(ctx.author.user.id):
-    #             return True
-    #         await ctx.send("I wasn't asking you!", ephemeral=True)
-    #         return False
-
-    #     if calcul == 'count':
-    #         while True:
-    #             try:
-    #                 button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
-    #                     components=select, check=check, timeout=30
-    #                 )
-    #                 fig = transformation_top(
-    #                     df, button_ctx.ctx.values[0], title, top)
-    #                 embed, file = get_embed(fig, 'stats')
-    #                 # On envoie
-
-    #                 await message.edit(embeds=embed, files=file)
-
-    #             except asyncio.TimeoutError:
-    #                 # When it times out, edit the original message and remove the button(s)
-    #                 return await message.edit(components=[])
-
-    #     elif calcul == 'winrate':
-    #         while True:
-    #             try:
-    #                 button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
-    #                     components=select, check=check, timeout=30
-    #                 )
-    #                 df['victoire'] = df['victoire'].replace(
-    #                     {True: 'Victoire', False: 'Defaite'})
-
-    #                 df_item = df[df[button_ctx.ctx.values[0]] != 0]
-
-    #                 df_item = df_item[[
-    #                     'riot_id', button_ctx.ctx.values[0], 'victoire']]
-    #                 # On compte le nombre d'occurences
-    #                 df_group = df_item.groupby(['riot_id', button_ctx.ctx.values[0]]).agg([
-    #                     'count']).reset_index()
-    #                 df_group = df_group.droplevel(1, axis=1)
-    #                 df_group.rename(
-    #                     columns={'victoire': 'count'}, inplace=True)
-    #                 df_item = df_item.merge(df_group, how='left', on=[
-    #                     'riot_id', button_ctx.ctx.values[0]])
-    #                 # df_item.drop_duplicates(inplace=True)
-    #                 df_item = df_item.sort_values(
-    #                     ['count'], ascending=False)
-    #                 df_item = df_item.head(top)
-    #                 # On fait le graphique
-    #                 fig = px.histogram(df_item, button_ctx.ctx.values[0], 'victoire', pattern_shape='victoire',
-    #                                    color=button_ctx.ctx.values[0], title=title, text_auto=True, histfunc='count').update_xaxes(categoryorder='total descending')
-    #                 # On enlève la légende et l'axe y
-    #                 fig.update_layout(showlegend=False)
-    #                 fig.update_yaxes(visible=False)
-    #                 embed, file = get_embed(fig, 'stats')
-
-    #                 embed.add_field(
-    #                     name='description', value='Non-grisé : Victoire | Grisé : Défaite')
-    #                 # On envoie
-    #                 await message.edit(embeds=embed, files=file)
-    #             except asyncio.TimeoutError:
-    #                 # When it times out, edit the original message and remove the button(s)
-    #                 return await message.edit(components=[])
 
     @stats_lol.subcommand('champions',
                           sub_cmd_description='Statistiques sur les champions',
