@@ -27,7 +27,7 @@ from fonctions.match import (get_summoner_by_puuid,
                              emote_rank_discord,
                              get_summoner_by_riot_id)
 from fonctions.channels_discord import get_embed
-from fonctions.gestion_bdd import lire_bdd_perso
+from fonctions.gestion_bdd import lire_bdd_perso, get_tag
 
 
 saison = int(lire_bdd_perso('select * from settings', format='dict', index_col='parametres')['saison']['value'])
@@ -393,7 +393,7 @@ class analyseLoL(Extension):
                                     name="riot_tag",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
-                                    required=True),
+                                    required=False),
                                 SlashCommandOption(
                                     name='detail',
                                     description="Ajout d'actions durant la game",
@@ -415,7 +415,7 @@ class analyseLoL(Extension):
     async def analyse_position(self,
                       ctx: SlashContext,
                       riot_id: str,
-                      riot_tag:str,
+                      riot_tag:str = None,
                       detail : bool = False,
                       game: int = 0,
                       id_game : str = None):
@@ -425,6 +425,13 @@ class analyseLoL(Extension):
 
         riot_id_origin = riot_id.lower()
         riot_id = riot_id.lower().replace(' ', '')
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
+            
         riot_tag = riot_tag.upper()
 
         await ctx.defer(ephemeral=False)
@@ -542,6 +549,11 @@ class analyseLoL(Extension):
 
         fig = px.imshow(img)
 
+        if detail:
+            fig_kills = px.imshow(img)
+            fig_assists = px.imshow(img)
+            fig_building = px.imshow(img)
+
         for i in range(0, df_timeline.shape[0]):
                 x = [df_timeline['position'][i]['x'] / diviseur]
                 y = [y_pos - (df_timeline['position'][i]['y'] / diviseur)]
@@ -561,17 +573,35 @@ class analyseLoL(Extension):
                     else:
                         color = 'goldenrod'
 
+                    fig.add_trace(
+                        go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
+                                textposition='top center', textfont=dict(size=35, color=color)))
+
 
                 elif type == 'CHAMPION_KILL':
-                    color = 'violet'
+                    color = 'orange'
                     if df_timeline['victimId'][i] == index_timeline:
                         timestamp = f'{timestamp}(D)'
+
+                        fig_kills.add_trace(
+                            go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
+                                    textposition='top center', textfont=dict(size=35, color=color)))
                     
                     elif df_timeline['killerId'][i] == index_timeline:
+                        color = 'red'
                         timestamp = f'{timestamp}(K)'
+
+                        fig_kills.add_trace(
+                            go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
+                                    textposition='top center', textfont=dict(size=35, color=color)))
                     
                     else:
-                         timestamp = f'{timestamp}(A)'
+                        color = 'lightgreen'
+                        timestamp = f'{timestamp}(A)'
+
+                        fig_kills.add_trace(
+                            go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
+                                    textposition='top center', textfont=dict(size=35, color=color)))
                          
                 
                 elif type == 'CHAMPION_SPECIAL_KILL':
@@ -583,18 +613,28 @@ class analyseLoL(Extension):
                         except:
                             timestamp = f'{timestamp}(K)'
                             pass
+
+                        fig_kills.add_trace(
+                            go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
+                                    textposition='top center', textfont=dict(size=35, color=color)))
                 
                 elif type == 'BUILDING_KILL':
-                      color = 'yellow'
-                      timestamp = f'{timestamp}(B)'
+                    color = 'yellow'
+                    timestamp = f'{timestamp}(B)'
+
+                    fig_building.add_trace(
+                        go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
+                                textposition='top center', textfont=dict(size=35, color=color)))
                     
                 elif type == 'ELITE_MONSTER_KILL':
-                      color = 'orange'
-                      timestamp = f'{timestamp}(M)'
+                    color = 'orange'
+                    timestamp = f'{timestamp}(M)'
 
-                fig.add_trace(
-                    go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
-                               textposition='top center', textfont=dict(size=35, color=color)))
+                    fig.add_trace(
+                            go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
+                                    textposition='top center', textfont=dict(size=35, color=color)))
+
+
 
         fig.update_layout(width=1200,
                               height=1200,
@@ -607,6 +647,43 @@ class analyseLoL(Extension):
                              automargin=True)
 
         liste_delete, liste_graph = graphique(fig, 'position.png', liste_delete, liste_graph)
+
+        if detail:
+
+            fig_kills.update_layout(width=1200,
+                                height=1200,
+                                coloraxis_showscale=False,
+                                showlegend=False)
+
+            fig_kills.update_xaxes(showticklabels=False,
+                                automargin=True)
+            fig_kills.update_yaxes(showticklabels=False,
+                                automargin=True)
+
+            # fig_assists.update_layout(width=1200,
+            #                     height=1200,
+            #                     coloraxis_showscale=False,
+            #                     showlegend=False)
+
+            # fig_assists.update_xaxes(showticklabels=False,
+            #                     automargin=True)
+            # fig_assists.update_yaxes(showticklabels=False,
+            #                     automargin=True)
+
+
+            fig_building.update_layout(width=1200,
+                                height=1200,
+                                coloraxis_showscale=False,
+                                showlegend=False)
+
+            fig_building.update_xaxes(showticklabels=False,
+                                automargin=True)
+            fig_building.update_yaxes(showticklabels=False,
+                                automargin=True)
+
+            liste_delete, liste_graph = graphique(fig_kills, 'kills.png', liste_delete, liste_graph)
+            # liste_delete, liste_graph = graphique(fig_assists, 'assists.png', liste_delete, liste_graph)
+            liste_delete, liste_graph = graphique(fig_building, 'building.png', liste_delete, liste_graph)
 
         await ctx.send(files=liste_graph)
 
@@ -625,7 +702,7 @@ class analyseLoL(Extension):
                                     name="riot_tag",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
-                                    required=True),
+                                    required=False),
                                 SlashCommandOption(
                                     name="game",
                                     description="Numero Game",
@@ -642,7 +719,7 @@ class analyseLoL(Extension):
     async def analyse_vision(self,
                       ctx: SlashContext,
                       riot_id: str,
-                      riot_tag:str,
+                      riot_tag:str = None,
                       game: int = 0,
                       id_game : str = None):
 
@@ -651,6 +728,12 @@ class analyseLoL(Extension):
 
         riot_id_origin = riot_id.lower()
         riot_id = riot_id.lower().replace(' ', '')
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
         riot_tag = riot_tag.upper()
 
         await ctx.defer(ephemeral=False)
@@ -697,7 +780,7 @@ class analyseLoL(Extension):
                 except:
                     attempt += 1
 
-                    if attempt >= 5:
+                    if attempt <= 5:
                         msg = await ctx.send(f'Trop de demandes à Riot Games... Réessai dans 10 secondes. Tentative {attempt}/5 ')
                         await asyncio.sleep(10)
                         await msg.delete()
@@ -795,7 +878,7 @@ class analyseLoL(Extension):
                                     name="riot_tag",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
-                                    required=True),
+                                    required=False),
                                 SlashCommandOption(
                                     name="game",
                                     description="Numero Game",
@@ -812,7 +895,7 @@ class analyseLoL(Extension):
     async def analyse_gold_team(self,
                       ctx: SlashContext,
                       riot_id: str,
-                      riot_tag:str,
+                      riot_tag:str = None,
                       game: int = 0,
                       id_game : str = None):
 
@@ -821,6 +904,12 @@ class analyseLoL(Extension):
 
         riot_id_origin = riot_id.lower()
         riot_id = riot_id.lower().replace(' ', '')
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
         riot_tag = riot_tag.upper()
 
         await ctx.defer(ephemeral=False)
@@ -867,7 +956,7 @@ class analyseLoL(Extension):
                 except:
                     attempt += 1
 
-                    if attempt >= 5:
+                    if attempt <= 5:
                         msg = await ctx.send(f'Trop de demandes à Riot Games... Réessai dans 10 secondes. Tentative {attempt}/5 ')
                         await asyncio.sleep(10)
                         await msg.delete()
@@ -974,7 +1063,7 @@ class analyseLoL(Extension):
                                     name="riot_tag",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
-                                    required=True),
+                                    required=False),
                                 SlashCommandOption(
                                     name="game",
                                     description="Numero Game",
@@ -991,7 +1080,7 @@ class analyseLoL(Extension):
     async def analyse(self,
                       ctx: SlashContext,
                       riot_id: str,
-                      riot_tag:str,
+                      riot_tag:str = None,
                       game: int = 0,
                       id_game : str = None):
 
@@ -1000,6 +1089,12 @@ class analyseLoL(Extension):
 
         riot_id_origin = riot_id.lower()
         riot_id = riot_id.lower().replace(' ', '')
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
         riot_tag = riot_tag.upper()
 
 
@@ -1047,7 +1142,7 @@ class analyseLoL(Extension):
                 except:
                     attempt += 1
 
-                    if attempt >= 5:
+                    if attempt <= 5:
                         msg = await ctx.send(f'Trop de demandes à Riot Games... Réessai dans 10 secondes. Tentative {attempt}/5 ')
                         await asyncio.sleep(10)
                         await msg.delete()
