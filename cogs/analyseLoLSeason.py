@@ -375,13 +375,16 @@ class AnalyseLoLSeason(Extension):
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
                                     required=False),
-                                # SlashCommandOption(
-                                #     name="mode",
-                                #     description="Mode de jeu",
-                                #     type=interactions.OptionType.STRING,
-                                #     required=True,
-                                #     choices=[SlashCommandChoice(name='RANKED', value='RANKED'),
-                                #              SlashCommandChoice(name='ARAM', value='ARAM')]),
+                                SlashCommandOption(    
+                                    name="riot_id2",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=False),
+                                SlashCommandOption(
+                                    name="riot_tag2",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=False),
                                 SlashCommandOption(
                                     name="saison",
                                     description="Quelle saison?",
@@ -407,111 +410,140 @@ class AnalyseLoLSeason(Extension):
                       ctx: SlashContext,
                       riot_id: str,
                       riot_tag:str = None,
+                      riot_id2: str= None,
+                      riot_tag2: str=None,
                     #   mode:str,
                       saison = saison,
                       split = None,
                       nbgames = None,
                       nbjours = None):
-        
-        
-        if nbjours == None:
-            df = lire_bdd_perso(
-                    f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, 
-                    matchs.date, matchs.lp, matchs.tier, matchs.rank, matchs.ecart_lp, matchs.victoire, tracker.discord from matchs
-                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-                where season = {saison}
-                ORDER BY match_id DESC ''', index_col='id').transpose()
-        
-        else:
-            df = lire_bdd_perso(
-                    f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, 
-                    matchs.date, matchs.lp, matchs.tier, matchs.rank, matchs.ecart_lp, matchs.victoire, tracker.discord from matchs
-                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-                where season = {saison}
-                and datetime > '{(datetime.now() - timedelta(days=nbjours)):%Y-%m-%d}'
-                ORDER BY match_id DESC ''', index_col='id').transpose()
-
-        await ctx.defer(ephemeral=False)
-
-
-        if riot_tag == None:
-            try:
-                riot_tag = get_tag(riot_id)
-            except ValueError:
-                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
-
-        riot_id = riot_id.lower().replace(' ', '')
-        riot_tag = riot_tag.upper()
-        df = df[(df['riot_id'] == riot_id) & (df['riot_tagline'] == riot_tag)]
-
-
-        df = df[df['mode'] == 'RANKED']
-
-        if split != None:
-            df = df[df['split'] == split]
-
-        if nbgames != None:
-            df = df.head(nbgames)
-
 
 
         dict_points = {'F': 0,
-                                    'B': 400,
-                                    'S': 800,
-                                    'G': 1200,
-                                    'P': 1600,
-                                    'E' : 2000,
-                                    'D': 2400,
-                                    'M': 2800,
-                                    'GM': 3200,
-                                    'C': 5000,
-                                    'I': 300,
-                                    'II': 200,
-                                    'III': 100,
-                                    'IV': 0,
-                                    ' ': 0,
-                                    '': 0}
+                                        'B': 400,
+                                        'S': 800,
+                                        'G': 1200,
+                                        'P': 1600,
+                                        'E' : 2000,
+                                        'D': 2400,
+                                        'M': 2800,
+                                        'GM': 3200,
+                                        'C': 5000,
+                                        'I': 300,
+                                        'II': 200,
+                                        'III': 100,
+                                        'IV': 0,
+                                        ' ': 0,
+                                        '': 0}
+        
+        dict_color = {'fer' : {'background' : '#252430', 'courbe' : '#7c6f71'},
+                        'bronze' : {'background' : '#332a31', 'courbe' : '#785d4f'},
+                        'silver' : {'background' : '#323440', 'courbe' : '#727879'},
+                        'gold' : {'background' : '#352e31', 'courbe' : '#c88c3d'},
+                        'platine' : {'background' : '#213041', 'courbe' : '#43a9d4'},
+                        'emeraude' : {'background' : '#1d292b', 'courbe' : '#399a3f'},
+                        'diamant' : {'background' : '#332a52', 'courbe' : '#7b3fe8'},
+                        'master' : {'background' : '#58363c', 'courbe' : '#9f5c4f'},
+                        'gm' : {'background' : '#342631', 'courbe' : '#bb4e45'},
+                        'challenger' : {'background' : '#38353a', 'courbe' : '#f0cb78'}}
+        
+        await ctx.defer(ephemeral=False)
 
-        def transfo_points(x):
-
-            value = x['ladder'].split(' ')[1]
-            if x['lp'] > 101 and x['ladder'][0] == 'G':
-                    value = 'GM'
-            points = dict_points[x['ladder'][0]
-                                             ] + dict_points[value] + x['lp']
-            return points
-
-
-        df['ladder'] = df['tier'].str[0] + ' ' + \
-                                df['rank'] + ' / ' + df['lp'].astype('str') + ' LP'
-
-        df['date'] = df['date'].apply(
-                                lambda x: datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
-        df['datetime'] = pd.to_datetime(
-                                df['date'], infer_datetime_format=True)
-
-        df.sort_values(['date'], ascending=False, inplace=True)
-
-                # df['datetime'] = df['datetime'].dt.strftime('%d/%m/%Y')
-
-        df = df.groupby(['match_id', 'datetime', 'ladder'], as_index=False).agg(
-                                {'lp': 'max'}).reset_index()
-
-
-        df['points'] = df.apply(transfo_points, axis=1)
-                
-                # df = df.groupby(['riot_id', 'riot_tagline', 'datetime'], as_index=False)[['points']].apply(lambda x : x.nlargest(3, 'points'))
-
-
-        df = df[df['points'] > 50]
+        async def creation_df(riot_id1, riot_tag1, saison1, nbjours1, nbgames1, split1):
+            if nbjours == None:
+                df = lire_bdd_perso(
+                        f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, 
+                        matchs.date, matchs.lp, matchs.tier, matchs.rank, matchs.ecart_lp, matchs.victoire, tracker.discord from matchs
+                    INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+                    where season = {saison1}
+                    ORDER BY match_id DESC ''', index_col='id').transpose()
+            
+            else:
+                df = lire_bdd_perso(
+                        f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, 
+                        matchs.date, matchs.lp, matchs.tier, matchs.rank, matchs.ecart_lp, matchs.victoire, tracker.discord from matchs
+                    INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+                    where season = {saison1}
+                    and datetime > '{(datetime.now() - timedelta(days=nbjours1)):%Y-%m-%d}'
+                    ORDER BY match_id DESC ''', index_col='id').transpose()
 
 
-        df.sort_values('match_id', inplace=True)
 
 
+            if riot_tag1 == None:
+                try:
+                    riot_tag1 = get_tag(riot_id1)
+                except ValueError:
+                    return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
+
+            riot_id1 = riot_id1.lower().replace(' ', '')
+            riot_tag1 = riot_tag1.upper()
+            df = df[(df['riot_id'] == riot_id1) & (df['riot_tagline'] == riot_tag1)]
+
+
+            df = df[df['mode'] == 'RANKED']
+
+            if split1 != None:
+                df = df[df['split'] == split1]
+
+            if nbgames != None:
+                df = df.head(nbgames1)
+
+
+            def transfo_points(x):
+
+                value = x['ladder'].split(' ')[1]
+                if x['lp'] > 101 and x['ladder'][0] == 'G':
+                        value = 'GM'
+                points = dict_points[x['ladder'][0]
+                                                ] + dict_points[value] + x['lp']
+                return points
+
+
+            df['ladder'] = df['tier'].str[0] + ' ' + \
+                                    df['rank'] + ' / ' + df['lp'].astype('str') + ' LP'
+
+            df['date'] = df['date'].apply(
+                                    lambda x: datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
+            df['datetime'] = pd.to_datetime(
+                                    df['date'], infer_datetime_format=True)
+
+            df.sort_values(['date'], ascending=False, inplace=True)
+
+                    # df['datetime'] = df['datetime'].dt.strftime('%d/%m/%Y')
+
+            df = df.groupby(['match_id', 'datetime', 'ladder'], as_index=False).agg(
+                                    {'lp': 'max'}).reset_index()
+
+
+            df['points'] = df.apply(transfo_points, axis=1)
+                    
+                    # df = df.groupby(['riot_id', 'riot_tagline', 'datetime'], as_index=False)[['points']].apply(lambda x : x.nlargest(3, 'points'))
+
+
+            df = df[df['points'] > 50]
+
+
+            df.sort_values('match_id', inplace=True)
+
+            return df, riot_id1, riot_tag1
+
+
+        df, riot_id, riot_tag = await creation_df(riot_id, riot_tag, saison, nbjours, nbgames, split)
 
 
         nb_games = df.shape[0]
+
+        if riot_id2 != None:
+            df2, riot_id2, riot_tag2 = await creation_df(riot_id2, riot_tag2, saison, nbjours, nbgames, split)
+            nb_games2 = df2.shape[0]
+            gap2 = 50
+
+            if nb_games2 < 50:
+                gap2 = 10
+            
+            elif nb_games2 < 100:
+                gap2 = 20
 
         gap = 50
 
@@ -523,70 +555,56 @@ class AnalyseLoLSeason(Extension):
             
         def creation_rank(value):
             return [value + 0, value + 100, value + 200, value + 300]
-
-        # dates =np.linspace(0, 10000, 500)  pd.date_range(start="2023-01-01", end="2023-12-31", periods=500)  # Axe X : de janvier à décembre
-        x =  np.arange(gap, nb_games + gap, 1)
-        y = np.array(df['points'].tolist())               # Exemple de courbe : y = log(x + 1)
-
-        # Création de la figure
-        fig, ax = plt.subplots(figsize=(20, 10))
-
-        # Traçage de la courbe en segments colorés
-        # Segment 1 : entre 100 et 2000 (orange)
-
-        # def traçage(min_value, max_value, couleur):
-        #     x1 = x[(y >= min_value) & (y <= max_value)]
-        #     y1 = y[(y >= min_value) & (y <= max_value)]
-        #     ax.plot(x1, y1, color=couleur)
-
-        # traçage(50, dict_points['B'], '#6A5054')
-        # traçage(dict_points['B'], dict_points['S'], '#D8A797')
-        # traçage(dict_points['S'], dict_points['G'], '#CAD5E8')
-        # traçage(dict_points['G'], dict_points['P'], '#DEBF8B')
-        # traçage(dict_points['P'], dict_points['E'], '#96E1F5')
-        # traçage(dict_points['E'], dict_points['D'], '#7EE3AD')
-        # traçage(dict_points['D'], dict_points['M'], '#96E1F5')
-        # traçage(dict_points['M'], dict_points['GM'], '#ECCFFC')
-        # traçage(dict_points['GM'], dict_points['C'], '#EE9460')
-        # traçage(dict_points['C'], 12000, '#72AAC8')
-
-        dict_color = {'fer' : {'background' : '#252430', 'courbe' : '#7c6f71'},
-                      'bronze' : {'background' : '#332a31', 'courbe' : '#785d4f'},
-                      'silver' : {'background' : '#323440', 'courbe' : '#727879'},
-                      'gold' : {'background' : '#352e31', 'courbe' : '#c88c3d'},
-                      'platine' : {'background' : '#213041', 'courbe' : '#43a9d4'},
-                      'emeraude' : {'background' : '#1d292b', 'courbe' : '#399a3f'},
-                      'diamant' : {'background' : '#332a52', 'courbe' : '#7b3fe8'},
-                      'master' : {'background' : '#58363c', 'courbe' : '#9f5c4f'},
-                      'gm' : {'background' : '#342631', 'courbe' : '#bb4e45'},
-                      'challenger' : {'background' : '#38353a', 'courbe' : '#f0cb78'}}
-
-
-        points = np.array([x, y]).T.reshape(-1, 1, 2)
-
-        segments = np.concatenate([points[:-1], points[1:]], axis=1)
-
-        cmap = ListedColormap([dict_color['fer']['courbe'],
-                                dict_color['bronze']['courbe'],
-                                dict_color['silver']['courbe'],
-                                dict_color['gold']['courbe'],
-                                dict_color['platine']['courbe'],
-                                dict_color['emeraude']['courbe'],
-                                dict_color['diamant']['courbe'],
-                                dict_color['master']['courbe'],
-                                dict_color['gm']['courbe'],
-                                dict_color['challenger']['courbe']])
         
-        norm = BoundaryNorm([50, dict_points['B'], dict_points['S'], dict_points['G'], dict_points['P'], dict_points['E'], dict_points['D'], dict_points['M'], dict_points['GM'], dict_points['C'], 12000], cmap.N)
-        lc = LineCollection(segments, cmap=cmap, norm=norm)
-        lc.set_array(y)
-        lc.set_linewidth(2)
+        fig, ax = plt.subplots(figsize=(20, 10))
+        
+        def creation_ligne(df, nb_games, gap, ax):
+
+
+            # dates =np.linspace(0, 10000, 500)  pd.date_range(start="2023-01-01", end="2023-12-31", periods=500)  # Axe X : de janvier à décembre
+            x =  np.arange(gap, nb_games + gap, 1)
+            y = np.array(df['points'].tolist())               # Exemple de courbe : y = log(x + 1)
+
+
+
+            points = np.array([x, y]).T.reshape(-1, 1, 2)
+
+            segments = np.concatenate([points[:-1], points[1:]], axis=1)
+
+            cmap = ListedColormap([dict_color['fer']['courbe'],
+                                    dict_color['bronze']['courbe'],
+                                    dict_color['silver']['courbe'],
+                                    dict_color['gold']['courbe'],
+                                    dict_color['platine']['courbe'],
+                                    dict_color['emeraude']['courbe'],
+                                    dict_color['diamant']['courbe'],
+                                    dict_color['master']['courbe'],
+                                    dict_color['gm']['courbe'],
+                                    dict_color['challenger']['courbe']])
+            
+            norm = BoundaryNorm([50, dict_points['B'], dict_points['S'], dict_points['G'], dict_points['P'], dict_points['E'], dict_points['D'], dict_points['M'], dict_points['GM'], dict_points['C'], 12000], cmap.N)
+            lc = LineCollection(segments, cmap=cmap, norm=norm)
+            lc.set_array(y)
+            lc.set_linewidth(2)
+
+            return x, ax, lc
+        
+        if riot_id2 == None:
+            x, ax, lc = creation_ligne(df, nb_games, gap, ax)
+        else:
+            x, ax, lc = creation_ligne(df, nb_games, max(gap, gap2), ax)
+
         line = ax.add_collection(lc)
 
-        # # Segment 2 : entre 2000 et 5000 (cyan)
-        # x2 = x[(y > 2000) & (y <= 10000)]
-        # y2 = y[(y > 2000) & (y <= 10000)]
-        # ax.plot(x2, y2, color='cyan', label='2000 à 5000')
+        if riot_id2 != None:
+            x2, ax, lc2 = creation_ligne(df2, nb_games2, max(gap, gap2), ax)
+            lc2.set_linestyle('dashed')
+            line2 = ax.add_collection(lc2)
+            nb_games = max(nb_games, nb_games2)
+            gap = max(gap, gap2)
+
+            if nb_games2 > nb_games:
+                x = x2
 
 
         # Personnalisation du graphique
@@ -609,99 +627,208 @@ class AnalyseLoLSeason(Extension):
 
         liste_order = [4,3,2,1]
 
-
-        if not df[df['points'].between(50, dict_points['B'])].empty:
-        # # Ajout des étiquettes
-            for i, level in enumerate(y_levels_fer):
-                ax.axhline(y=level, color=dict_color['fer']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'F{liste_order[i]}', color=dict_color['fer']['courbe'], fontsize=20, va='bottom')
-
-            ax.axhspan(50, dict_points['B'], facecolor=dict_color['fer']['background'], alpha=0.3)
-
-        if not df[df['points'].between(dict_points['B'], dict_points['S'])].empty:
-            for i, level in enumerate(y_levels_bronze):
-                ax.axhline(y=level, color=dict_color['bronze']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'B{liste_order[i]}', color=dict_color['bronze']['courbe'], fontsize=20, va='bottom')
-
-            ax.axhspan(dict_points['B'], dict_points['S'], facecolor=dict_color['bronze']['background'], alpha=0.3)
-
-        if not df[df['points'].between(dict_points['S'], dict_points['G'])].empty:
-            for i, level in enumerate(y_levels_silver):
-                ax.axhline(y=level, color=dict_color['silver']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'S{liste_order[i]}', color=dict_color['silver']['courbe'], fontsize=20, va='bottom')
-
-            ax.axhspan(dict_points['S'], dict_points['G'], facecolor=dict_color['silver']['background'], alpha=0.3)
-
-        if not df[df['points'].between(dict_points['G'], dict_points['P'])].empty:
-            for i, level in enumerate(y_levels_gold):
-                ax.axhline(y=level, color=dict_color['gold']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'G{liste_order[i]}', color=dict_color['gold']['courbe'], fontsize=20, va='bottom')
-
-            ax.axhspan(dict_points['G'], dict_points['P'], facecolor=dict_color['gold']['background'], alpha=0.3)
-
-        if not df[df['points'].between(dict_points['P'], dict_points['E'])].empty:
-            for i, level in enumerate(y_levels_plat):
-                ax.axhline(y=level, color=dict_color['platine']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'P{liste_order[i]}', color=dict_color['platine']['courbe'], fontsize=20, va='bottom')
-
-            ax.axhspan(dict_points['P'], dict_points['E'], facecolor=dict_color['platine']['background'], alpha=0.3)
-
-        if not df[df['points'].between(dict_points['E'], dict_points['D'])].empty:
-
-            for i, level in enumerate(y_levels_emeraude):
-                ax.axhline(y=level, color=dict_color['emeraude']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'E{liste_order[i]}', color=dict_color['emeraude']['courbe'], fontsize=20, va='bottom')
-
-            ax.axhspan(dict_points['E'], dict_points['D'], facecolor=dict_color['emeraude']['background'], alpha=0.3)
-
-        if not df[df['points'].between(dict_points['D'], dict_points['M'])].empty:
-
-            for i, level in enumerate(y_levels_diamant):
-                ax.axhline(y=level, color=dict_color['diamant']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'D{liste_order[i]}', color=dict_color['diamant']['courbe'], fontsize=20, va='bottom')
-
-            ax.axhspan(dict_points['D'], dict_points['M'], facecolor=dict_color['diamant']['background'], alpha=0.3)
-
-        if not df[df['points'].between(dict_points['M'], dict_points['GM'])].empty:
-
-            for i, level in enumerate(y_levels_master):
-                ax.axhline(y=level, color=dict_color['master']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, level, f'M', color=dict_color['master']['courbe'], fontsize=20, va='bottom')
-
-            ax.axhspan(dict_points['M'], dict_points['GM'], facecolor=dict_color['master']['background'], alpha=0.3)
+        if riot_id2 == None:
 
 
-        if not df[df['points'].between(dict_points['GM'], dict_points['C'])].empty:
+            if not df[df['points'].between(50, dict_points['B'])].empty:
+            # # Ajout des étiquettes
+                for i, level in enumerate(y_levels_fer):
+                    ax.axhline(y=level, color=dict_color['fer']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                    ax.text(gap, level, f'F{liste_order[i]}', color=dict_color['fer']['courbe'], fontsize=20, va='bottom')
 
-            # for i, level in enumerate(y_levels_gm):
-            ax.axhline(y=dict_points['GM'], color=dict_color['gm']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-            ax.text(gap, dict_points['GM'], f'GM', color=dict_color['gm']['courbe'], fontsize=20, va='bottom')
+                ax.axhspan(50, dict_points['B'], facecolor=dict_color['fer']['background'], alpha=0.3)
 
-            ax.axhspan(dict_points['GM'], dict_points['C'], facecolor=dict_color['gm']['background'], alpha=0.3)
+            if not df[df['points'].between(dict_points['B'], dict_points['S'])].empty:
+                for i, level in enumerate(y_levels_bronze):
+                    ax.axhline(y=level, color=dict_color['bronze']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                    ax.text(gap, level, f'B{liste_order[i]}', color=dict_color['bronze']['courbe'], fontsize=20, va='bottom')
 
-        if not df[df['points'].between(dict_points['C'], 11000)].empty:
-            # for i, level in enumerate(y_levels_chal):
-            ax.axhline(y=dict_points['C'], color=dict_color['challenger']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-            ax.text(gap, dict_points['C'], f'C', color=dict_color['challenger']['courbe'], fontsize=20, va='bottom')
+                ax.axhspan(dict_points['B'], dict_points['S'], facecolor=dict_color['bronze']['background'], alpha=0.3)
 
-            ax.axhspan(dict_points['C'], 11000, facecolor=dict_color['challenger']['background'], alpha=0.3)
+            if not df[df['points'].between(dict_points['S'], dict_points['G'])].empty:
+                for i, level in enumerate(y_levels_silver):
+                    ax.axhline(y=level, color=dict_color['silver']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                    ax.text(gap, level, f'S{liste_order[i]}', color=dict_color['silver']['courbe'], fontsize=20, va='bottom')
 
-            for index, data in df[df['points'] > dict_points['M']].iloc[::10].iterrows():
+                ax.axhspan(dict_points['S'], dict_points['G'], facecolor=dict_color['silver']['background'], alpha=0.3)
 
-                plt.annotate(f'{data["lp"]:.0f}', 
-                            (index+gap, data['points']), 
-                            ha='center', 
-                            fontsize=15,
-                            color='white')
+            if not df[df['points'].between(dict_points['G'], dict_points['P'])].empty:
+                for i, level in enumerate(y_levels_gold):
+                    ax.axhline(y=level, color=dict_color['gold']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                    ax.text(gap, level, f'G{liste_order[i]}', color=dict_color['gold']['courbe'], fontsize=20, va='bottom')
+
+                ax.axhspan(dict_points['G'], dict_points['P'], facecolor=dict_color['gold']['background'], alpha=0.3)
+
+            if not df[df['points'].between(dict_points['P'], dict_points['E'])].empty:
+                for i, level in enumerate(y_levels_plat):
+                    ax.axhline(y=level, color=dict_color['platine']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                    ax.text(gap, level, f'P{liste_order[i]}', color=dict_color['platine']['courbe'], fontsize=20, va='bottom')
+
+                ax.axhspan(dict_points['P'], dict_points['E'], facecolor=dict_color['platine']['background'], alpha=0.3)
+
+            if not df[df['points'].between(dict_points['E'], dict_points['D'])].empty:
+
+                for i, level in enumerate(y_levels_emeraude):
+                    ax.axhline(y=level, color=dict_color['emeraude']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                    ax.text(gap, level, f'E{liste_order[i]}', color=dict_color['emeraude']['courbe'], fontsize=20, va='bottom')
+
+                ax.axhspan(dict_points['E'], dict_points['D'], facecolor=dict_color['emeraude']['background'], alpha=0.3)
+
+            if not df[df['points'].between(dict_points['D'], dict_points['M'])].empty:
+
+                for i, level in enumerate(y_levels_diamant):
+                    ax.axhline(y=level, color=dict_color['diamant']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                    ax.text(gap, level, f'D{liste_order[i]}', color=dict_color['diamant']['courbe'], fontsize=20, va='bottom')
+
+                ax.axhspan(dict_points['D'], dict_points['M'], facecolor=dict_color['diamant']['background'], alpha=0.3)
+
+            if not df[df['points'].between(dict_points['M'], dict_points['GM'])].empty:
+
+                for i, level in enumerate(y_levels_master):
+                    ax.axhline(y=level, color=dict_color['master']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                    ax.text(gap, level, f'M', color=dict_color['master']['courbe'], fontsize=20, va='bottom')
+
+                ax.axhspan(dict_points['M'], dict_points['GM'], facecolor=dict_color['master']['background'], alpha=0.3)
+
+
+            if not df[df['points'].between(dict_points['GM'], dict_points['C'])].empty:
+
+                # for i, level in enumerate(y_levels_gm):
+                ax.axhline(y=dict_points['GM'], color=dict_color['gm']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                ax.text(gap, dict_points['GM'], f'GM', color=dict_color['gm']['courbe'], fontsize=20, va='bottom')
+
+                ax.axhspan(dict_points['GM'], dict_points['C'], facecolor=dict_color['gm']['background'], alpha=0.3)
+
+            if not df[df['points'].between(dict_points['C'], 11000)].empty:
+                # for i, level in enumerate(y_levels_chal):
+                ax.axhline(y=dict_points['C'], color=dict_color['challenger']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                ax.text(gap, dict_points['C'], f'C', color=dict_color['challenger']['courbe'], fontsize=20, va='bottom')
+
+                ax.axhspan(dict_points['C'], 11000, facecolor=dict_color['challenger']['background'], alpha=0.3)
+
+                for index, data in df[df['points'] > dict_points['M']].iloc[::10].iterrows():
+
+                    plt.annotate(f'{data["lp"]:.0f}', 
+                                (index+gap, data['points']), 
+                                ha='center', 
+                                fontsize=15,
+                                color='white')
+    
+        else:
+                    if not (df[df['points'].between(50, dict_points['B'])].empty and df2[df2['points'].between(50, dict_points['B'])].empty):
+                    # # Ajout des étiquettes
+                        for i, level in enumerate(y_levels_fer):
+                            ax.axhline(y=level, color=dict_color['fer']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                            ax.text(gap, level, f'F{liste_order[i]}', color=dict_color['fer']['courbe'], fontsize=20, va='bottom')
+
+                        ax.axhspan(50, dict_points['B'], facecolor=dict_color['fer']['background'], alpha=0.3)
+
+                    if not (df[df['points'].between(dict_points['B'], dict_points['S'])].empty and df2[df2['points'].between(dict_points['B'], dict_points['S'])].empty):
+                        for i, level in enumerate(y_levels_bronze):
+                            ax.axhline(y=level, color=dict_color['bronze']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                            ax.text(gap, level, f'B{liste_order[i]}', color=dict_color['bronze']['courbe'], fontsize=20, va='bottom')
+
+                        ax.axhspan(dict_points['B'], dict_points['S'], facecolor=dict_color['bronze']['background'], alpha=0.3)
+
+                    if not (df[df['points'].between(dict_points['S'], dict_points['G'])].empty and df2[df2['points'].between(dict_points['S'], dict_points['G'])].empty):
+                        for i, level in enumerate(y_levels_silver):
+                            ax.axhline(y=level, color=dict_color['silver']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                            ax.text(gap, level, f'S{liste_order[i]}', color=dict_color['silver']['courbe'], fontsize=20, va='bottom')
+
+                        ax.axhspan(dict_points['S'], dict_points['G'], facecolor=dict_color['silver']['background'], alpha=0.3)
+
+                    if not (df[df['points'].between(dict_points['G'], dict_points['P'])].empty and df2[df2['points'].between(dict_points['G'], dict_points['P'])].empty):
+                        for i, level in enumerate(y_levels_gold):
+                            ax.axhline(y=level, color=dict_color['gold']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                            ax.text(gap, level, f'G{liste_order[i]}', color=dict_color['gold']['courbe'], fontsize=20, va='bottom')
+
+                        ax.axhspan(dict_points['G'], dict_points['P'], facecolor=dict_color['gold']['background'], alpha=0.3)
+
+                    if not (df[df['points'].between(dict_points['P'], dict_points['E'])].empty and df2[df2['points'].between(dict_points['P'], dict_points['E'])].empty):
+                        for i, level in enumerate(y_levels_plat):
+                            ax.axhline(y=level, color=dict_color['platine']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                            ax.text(gap, level, f'P{liste_order[i]}', color=dict_color['platine']['courbe'], fontsize=20, va='bottom')
+
+                        ax.axhspan(dict_points['P'], dict_points['E'], facecolor=dict_color['platine']['background'], alpha=0.3)
+
+                    if not (df[df['points'].between(dict_points['E'], dict_points['D'])].empty and df2[df2['points'].between(dict_points['E'], dict_points['D'])].empty):
+
+                        for i, level in enumerate(y_levels_emeraude):
+                            ax.axhline(y=level, color=dict_color['emeraude']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                            ax.text(gap, level, f'E{liste_order[i]}', color=dict_color['emeraude']['courbe'], fontsize=20, va='bottom')
+
+                        ax.axhspan(dict_points['E'], dict_points['D'], facecolor=dict_color['emeraude']['background'], alpha=0.3)
+
+                    if not (df[df['points'].between(dict_points['D'], dict_points['M'])].empty and df2[df2['points'].between(dict_points['D'], dict_points['M'])].empty):
+
+                        for i, level in enumerate(y_levels_diamant):
+                            ax.axhline(y=level, color=dict_color['diamant']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                            ax.text(gap, level, f'D{liste_order[i]}', color=dict_color['diamant']['courbe'], fontsize=20, va='bottom')
+
+                        ax.axhspan(dict_points['D'], dict_points['M'], facecolor=dict_color['diamant']['background'], alpha=0.3)
+
+                    if not (df[df['points'].between(dict_points['M'], dict_points['GM'])].empty and df2[df2['points'].between(dict_points['M'], dict_points['GM'])].empty):
+
+                        for i, level in enumerate(y_levels_master):
+                            ax.axhline(y=level, color=dict_color['master']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                            ax.text(gap, level, f'M', color=dict_color['master']['courbe'], fontsize=20, va='bottom')
+
+                        ax.axhspan(dict_points['M'], dict_points['GM'], facecolor=dict_color['master']['background'], alpha=0.3)
+
+
+                    if not (df[df['points'].between(dict_points['GM'], dict_points['C'])].empty and df2[df2['points'].between(dict_points['GM'], dict_points['C'])].empty):
+
+                        # for i, level in enumerate(y_levels_gm):
+                        ax.axhline(y=dict_points['GM'], color=dict_color['gm']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                        ax.text(gap, dict_points['GM'], f'GM', color=dict_color['gm']['courbe'], fontsize=20, va='bottom')
+
+                        ax.axhspan(dict_points['GM'], dict_points['C'], facecolor=dict_color['gm']['background'], alpha=0.3)
+
+                    if not (df[df['points'].between(dict_points['C'], 11000)].empty and df2[df2['points'].between(dict_points['C'], 11000)].empty):
+                        # for i, level in enumerate(y_levels_chal):
+                        ax.axhline(y=dict_points['C'], color=dict_color['challenger']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
+                        ax.text(gap, dict_points['C'], f'C', color=dict_color['challenger']['courbe'], fontsize=20, va='bottom')
+
+                        ax.axhspan(dict_points['C'], 11000, facecolor=dict_color['challenger']['background'], alpha=0.3)
+
+                        for index, data in df[df['points'] > dict_points['M']].iloc[::10].iterrows():
+
+                            plt.annotate(f'{data["lp"]:.0f}', 
+                                        (index+gap, data['points']), 
+                                        ha='center', 
+                                        fontsize=15,
+                                        color='white')
+
+
+                        for index2, data2 in df2[df2['points'] > dict_points['M']].iloc[::10].iterrows():
+
+                            plt.annotate(f'{data2["lp"]:.0f}', 
+                                        (index2+gap, data2['points']), 
+                                        ha='center', 
+                                        fontsize=15,
+                                        color='white')
 
 
         ax.set_xlim([gap, nb_games + gap])
 
         # Trouver le multiple de 400 le plus proche pour le minimum (vers 0)
-        min_multiple_400 = np.floor(df[df['points'] > 50]['points'].min() / 400) * 400
+
+        if riot_id2 == None:
+            min_multiple_400 = np.floor(df[df['points'] > 50]['points'].min() / 400) * 400
+        
+        else:
+            points1 = df[df['points'] > 50]['points'].min()
+            points2 = df2[df2['points'] > 50]['points'].min()
+            points = min(points1, points2)
+            min_multiple_400 = np.floor(points / 400) * 400
+
 
         # Trouver le multiple de 400 le plus proche pour le maximum (vers 12000)
-        max_multiple_400 = np.ceil(df['points'].max() / 400) * 400
+        if riot_id2 == None:
+            max_multiple_400 = np.ceil(df['points'].max() / 400) * 400
+        else:
+            points = max(df['points'].max(), df2['points'].max())
+            max_multiple_400 = np.ceil(points / 400) * 400
 
 
         ax.set_ylim([min_multiple_400, max_multiple_400])
@@ -727,7 +854,12 @@ class AnalyseLoLSeason(Extension):
 
         fig.savefig('lp.jpg')
 
-        await ctx.send(content=f'{riot_id}#{riot_tag}', file=interactions.File('lp.jpg'))
+        texte = f'{riot_id}#{riot_tag}'
+
+        if riot_id2 != None:
+            texte = f'Ligne complète : {riot_id}#{riot_tag} | Pointillés : {riot_id2}#{riot_tag2}'
+
+        await ctx.send(content=texte, file=interactions.File('lp.jpg'))
 
         os.remove('lp.jpg')
   

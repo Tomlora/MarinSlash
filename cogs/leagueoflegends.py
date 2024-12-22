@@ -671,7 +671,7 @@ class LeagueofLegends(Extension):
 
             # Detection First Time
 
-            if match_info.thisQ != 'ARAM':
+            if match_info.thisQ != 'ARAM' and match_info.thisQ != 'CLASH ARAM':
                 await match_info.detection_first_time()
 
                 if match_info.first_time != '':
@@ -1457,6 +1457,18 @@ class LeagueofLegends(Extension):
                 if totalgames > 0:  # s'il n'y a pas de game, on ne va pas afficher le récap
                     await channel_tracklol.send(embeds=embed)
                     await channel_tracklol.send(f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites.')
+
+                
+                df_journalier = lire_bdd_perso(f'''select index, wins, losses, "LP", tier, rank, classement_euw from suivi_s{saison} where tier != 'Non-classe' ''', index_col=None).T
+
+                date = datetime.now()
+                df_journalier['datetime'] = pd.to_datetime(f'{date.day}/{date.month}/{date.year}', format='%d/%m/%Y')
+                df_journalier['classement_euw'] = df['classement_euw'].astype(int)
+                df_journalier['saison'] = saison
+
+                sauvegarde_bdd(df, 'suivi_rank', 'append', index=False)
+
+                ### Faire graphique
 
     @Task.create(TimeTrigger(hour=4))
     async def lolsuivi(self):
