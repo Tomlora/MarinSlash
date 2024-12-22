@@ -1463,10 +1463,10 @@ class LeagueofLegends(Extension):
 
                 date = datetime.now()
                 df_journalier['datetime'] = pd.to_datetime(f'{date.day}/{date.month}/{date.year}', format='%d/%m/%Y')
-                df_journalier['classement_euw'] = df['classement_euw'].astype(int)
+                df_journalier['classement_euw'] = df_journalier['classement_euw'].astype(int)
                 df_journalier['saison'] = saison
 
-                sauvegarde_bdd(df, 'suivi_rank', 'append', index=False)
+                sauvegarde_bdd(df_journalier, 'suivi_rank', 'append', index=False)
 
                 ### Faire graphique
 
