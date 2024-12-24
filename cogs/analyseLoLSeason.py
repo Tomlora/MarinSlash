@@ -1068,49 +1068,49 @@ class AnalyseLoLSeason(Extension):
         if not df[df['points'].between(dict_points['B'], dict_points['S'])].empty:
                 for i, level in enumerate(y_levels_bronze):
                     ax.axhline(y=level, color=dict_color['bronze']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                    ax.text(gap, level, f'B{liste_order[i]}', color=dict_color['bronze']['courbe'], fontsize=20, va='bottom')
+                    ax.text(0, level, f'B{liste_order[i]}', color=dict_color['bronze']['courbe'], fontsize=20, va='bottom')
 
                 ax.axhspan(dict_points['B'], dict_points['S'], facecolor=dict_color['bronze']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['S'], dict_points['G'])].empty:
                 for i, level in enumerate(y_levels_silver):
                     ax.axhline(y=level, color=dict_color['silver']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                    ax.text(gap, level, f'S{liste_order[i]}', color=dict_color['silver']['courbe'], fontsize=20, va='bottom')
+                    ax.text(0, level, f'S{liste_order[i]}', color=dict_color['silver']['courbe'], fontsize=20, va='bottom')
 
                 ax.axhspan(dict_points['S'], dict_points['G'], facecolor=dict_color['silver']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['G'], dict_points['P'])].empty:
                 for i, level in enumerate(y_levels_gold):
                     ax.axhline(y=level, color=dict_color['gold']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                    ax.text(gap, level, f'G{liste_order[i]}', color=dict_color['gold']['courbe'], fontsize=20, va='bottom')
+                    ax.text(0, level, f'G{liste_order[i]}', color=dict_color['gold']['courbe'], fontsize=20, va='bottom')
 
                 ax.axhspan(dict_points['G'], dict_points['P'], facecolor=dict_color['gold']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['P'], dict_points['E'])].empty:
                 for i, level in enumerate(y_levels_plat):
                     ax.axhline(y=level, color=dict_color['platine']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                    ax.text(gap, level, f'P{liste_order[i]}', color=dict_color['platine']['courbe'], fontsize=20, va='bottom')
+                    ax.text(0, level, f'P{liste_order[i]}', color=dict_color['platine']['courbe'], fontsize=20, va='bottom')
 
                 ax.axhspan(dict_points['P'], dict_points['E'], facecolor=dict_color['platine']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['E'], dict_points['D'])].empty:
                 for i, level in enumerate(y_levels_emeraude):
                     ax.axhline(y=level, color=dict_color['emeraude']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                    ax.text(gap, level, f'E{liste_order[i]}', color=dict_color['emeraude']['courbe'], fontsize=20, va='bottom')
+                    ax.text(0, level, f'E{liste_order[i]}', color=dict_color['emeraude']['courbe'], fontsize=20, va='bottom')
 
                 ax.axhspan(dict_points['E'], dict_points['D'], facecolor=dict_color['emeraude']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['D'], dict_points['M'])].empty:
                 for i, level in enumerate(y_levels_diamant):
                     ax.axhline(y=level, color=dict_color['diamant']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                    ax.text(gap, level, f'D{liste_order[i]}', color=dict_color['diamant']['courbe'], fontsize=20, va='bottom')
+                    ax.text(0, level, f'D{liste_order[i]}', color=dict_color['diamant']['courbe'], fontsize=20, va='bottom')
 
                 ax.axhspan(dict_points['D'], dict_points['M'], facecolor=dict_color['diamant']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['M'], dict_points['GM'])].empty:
                 for i, level in enumerate(y_levels_master):
                     ax.axhline(y=level, color=dict_color['master']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                    ax.text(gap, level, f'M', color=dict_color['master']['courbe'], fontsize=20, va='bottom')
+                    ax.text(0, level, f'M', color=dict_color['master']['courbe'], fontsize=20, va='bottom')
 
                 ax.axhspan(dict_points['M'], dict_points['GM'], facecolor=dict_color['master']['background'], alpha=0.3)
 
@@ -1118,26 +1118,26 @@ class AnalyseLoLSeason(Extension):
         if not df[df['points'].between(dict_points['GM'], dict_points['C'])].empty:
                         # for i, level in enumerate(y_levels_gm):
                 ax.axhline(y=dict_points['GM'], color=dict_color['gm']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, dict_points['GM'], f'GM', color=dict_color['gm']['courbe'], fontsize=20, va='bottom')
+                ax.text(0, dict_points['GM'], f'GM', color=dict_color['gm']['courbe'], fontsize=20, va='bottom')
 
                 ax.axhspan(dict_points['GM'], dict_points['C'], facecolor=dict_color['gm']['background'], alpha=0.3)
 
         if not df[df['points'].between(dict_points['C'], 11000)].empty:
                         # for i, level in enumerate(y_levels_chal):
                 ax.axhline(y=dict_points['C'], color=dict_color['challenger']['courbe'], linestyle='--', linewidth=0.8)  # Ligne pointillée
-                ax.text(gap, dict_points['C'], f'C', color=dict_color['challenger']['courbe'], fontsize=20, va='bottom')
+                ax.text(0, dict_points['C'], f'C', color=dict_color['challenger']['courbe'], fontsize=20, va='bottom')
 
                 ax.axhspan(dict_points['C'], 11000, facecolor=dict_color['challenger']['background'], alpha=0.3)
 
-                for index, data in df[df['points'] > dict_points['M']].iloc[::10].iterrows():
+        for index, data in df[df['points'] > dict_points['M']].iloc[::10].iterrows():
 
-                    plt.annotate(f'{data["LP"]:.0f}', 
-                                        (index+gap, data['points']), 
+            ax.annotate(f'{data["LP"]:.0f}', 
+                                        (data['datetime_id'], data['points']), 
                                         ha='center', 
                                         fontsize=15,
                                         color='white')    
 
-        ax.set_xlim([gap, df['datetime_id'].max() + gap])
+        ax.set_xlim([0, df['datetime_id'].max() + gap])
 
         # Trouver le multiple de 400 le plus proche pour le minimum (vers 0)
 
@@ -1156,11 +1156,10 @@ class AnalyseLoLSeason(Extension):
                 # Désactiver les valeurs de l'axe Y
         ax.yaxis.set_ticks([])
 
-
                 # Ajouter des annotations toutes les 50 valeurs de x
-        for i in range(gap, len(x), gap):  # On prend tous les 50 indices
-            plt.annotate(f'{x[i]-gap:.0f}', 
-                (x[i], min_multiple_400+10), 
+        for i in range(0, df['datetime_id'].max()+10, 5):  # On prend tous les 50 indices
+            ax.annotate(f'{i}', 
+                (i, min_multiple_400+10), 
                                 ha='center', 
                                 fontsize=15,
                                 color='white')
