@@ -20,6 +20,7 @@ import traceback
 import ast
 import humanize
 from asyncio import sleep
+import numpy as np
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -1568,8 +1569,9 @@ class LeagueofLegends(Extension):
         if mode is None:
             df = (
                 lire_bdd_perso(
-                    f'''SELECT matchs.id, match_id, champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, datetime from matchs
+                    f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team, prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime from matchs
                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
+						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
                                    where datetime >= :date
                                    and tracker.riot_id ='{riot_id.lower().replace(" ", "")}' 
                                    and tracker.riot_tagline = '{riot_tag}' ''',
@@ -1581,8 +1583,9 @@ class LeagueofLegends(Extension):
                 ).transpose()
                 if observation != 'today'
                 else lire_bdd_perso(
-                    f'''SELECT matchs.id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, datetime from matchs
+                    f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team,  prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime from matchs
                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
+						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
                                 where EXTRACT(DAY FROM datetime) = :jour
                                 AND EXTRACT(MONTH FROM datetime) = :mois
                                 AND EXTRACT(YEAR FROM datetime) = :annee
@@ -1597,8 +1600,9 @@ class LeagueofLegends(Extension):
                 ).transpose()
             )
         elif observation != 'today':
-            df = lire_bdd_perso(f'''SELECT matchs.id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, victoire, kda, ecart_lp, ecart_gold, datetime from matchs
-                                   INNER JOIN tracker on tracker.id_compte = matchs.joueur
+            df = lire_bdd_perso(f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team,  prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime from matchs
+                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
                                    where datetime >= :date
                                 and tracker.riot_id ='{riot_id.lower().replace(" ", "")}' 
                                 and tracker.riot_tagline = '{riot_tag}'
@@ -1609,8 +1613,9 @@ class LeagueofLegends(Extension):
 
         else:
 
-            df = lire_bdd_perso(f'''SELECT matchs.id, match_id, id_participant, champion, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, victoire, kda, ecart_lp, ecart_gold, datetime from matchs
-                                INNER JOIN tracker on tracker.id_compte = matchs.joueur
+            df = lire_bdd_perso(f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team, prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime from matchs
+                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
                                 where EXTRACT(DAY FROM datetime) = :jour
                                 AND EXTRACT(MONTH FROM datetime) = :mois
                                 AND EXTRACT(YEAR FROM datetime) = :annee
@@ -1635,24 +1640,54 @@ class LeagueofLegends(Extension):
             df['victoire'] = df['victoire'].map(
                 {True: 'Victoire', False: 'Défaite'})
 
+            df['victory_predicted'] = df['victory_predicted'].map(
+                {True: 'Victoire', False: 'Défaite'})
+
             # Total
             total_kda = f'Total : **{df["kills"].sum()}**/**{df["deaths"].sum()}**/**{df["assists"].sum()}**  | Moyenne : **{df["kills"].mean():.2f}**/**{df["deaths"].mean():.2f}**/**{df["assists"].mean():.1f}** (**{df["kda"].mean():.2f}**) | KP : **{df["kp"].mean():.2f}**% '
             total_lp = f'**{df["ecart_lp"].sum()}**'
+
+            gold_moyen = f'**{df["ecart_gold"].mean():.0f}**'
+            gold_moyen_v = f'**{df[df["victoire"] == "Victoire"]["ecart_gold"].mean():.0f}**'
+            gold_moyen_d = f'**{df[df["victoire"] == "Défaite"]["ecart_gold"].mean():.0f}**'
+
+            gold_moyen_v = f'**0**' if gold_moyen_v == '**nan**' else gold_moyen_v
+            gold_moyen_d = f'**0**' if gold_moyen_d == '**nan**' else gold_moyen_d
 
             # Serie de kills
             total_quadra = df['quadra'].sum()
             total_penta = df['penta'].sum()
 
+            solokills = df['solokills'].sum()
+
             # Moyenne
             duree_moyenne = df['time'].mean()
             mvp_moyenne = df['mvp'].mean()
+
+
 
             # Victoire
             nb_victoire_total = df['victoire'].value_counts().get(
                 'Victoire', 0)
             nb_defaite_total = df['victoire'].value_counts().get('Défaite', 0)
 
-            total_victoire = f'Victoire : **{nb_victoire_total}** | Défaite : **{nb_defaite_total}** '
+
+            total_victoire = f'Victoire : **{nb_victoire_total}** | Défaite : **{nb_defaite_total}** ({nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%) | LP {total_lp}' 
+
+            # Victoire (model)
+            nb_victoire_total_model = df['victory_predicted'].value_counts().get(
+                'Victoire', 0)
+            nb_defaite_total_model = df['victory_predicted'].value_counts().get('Défaite', 0)
+
+            # Ajouter une phrase dans total_victoire s'il y a des données
+
+            if (nb_victoire_total_model + nb_defaite_total_model) > 0:
+                total_victoire += f'\n __Prediction__ Victoire : **{nb_victoire_total_model}** | Défaite : **{nb_defaite_total_model}** '
+
+                if df['victory_predicted'].isna().sum() > 0:
+                    total_victoire += f' | NA : **{df["victory_predicted"].isna().sum()}**'
+
+
 
             champion_counts = df['champion'].sort_values(
                 ascending=False).value_counts()
@@ -1677,7 +1712,15 @@ class LeagueofLegends(Extension):
             embeds = []
             
             emote_status_match = {'Victoire' : ':green_circle:', 'Défaite' : ':red_circle:'}
+
+            df['mode'] = df['mode'].replace({'ARAM': 'A',
+                                             'RANKED': 'R'})
             
+            df['proba1'].fillna(-1, inplace=True)
+            df['proba2'].fillna(-1, inplace=True)
+            df['team'].fillna('BLUE', inplace=True)
+
+            df['proba_win'] = df.apply(lambda x : x['proba2'] if x['team'] == 'BLUE' else x['proba1'], axis=1)
            
             
             # On affiche les résultats des matchs
@@ -1685,16 +1728,30 @@ class LeagueofLegends(Extension):
             for index, match in df.iterrows():
                 rank_img = emote_rank_discord[match["tier"]]
                 champ_img = emote_champ_discord.get(match["champion"].capitalize(), 'inconnu')
-                txt += f'[{match["datetime"]}](https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | KDA : **{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%) | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} \n'
+                url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}'
+                kda = f'**{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%)'
+
+                if match['proba_win'] == -1:
+                    txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} \n'
+                else:
+                    txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} | Proba : {match["proba_win"]}% \n'
 
                 if embed.fields and len(txt) + sum(len(field.value) for field in embed.fields) > 4000:
                     embed.add_field(name='KDA', value=total_kda)
+                    embed.add_field(name='Gold', value=f'Moyenne : {gold_moyen} (V : {gold_moyen_v} | D : {gold_moyen_d})' )
                     embed.add_field(name='Champions', value=txt_champ)
                     embed.add_field(
-                        name='Ratio', value=f'{total_victoire} ({nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%) | LP {total_lp}')
-                    embed.add_field(
-                        name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}**')
+                        name='Ratio', value=f'{total_victoire}')
+
+                    if solokills > 0:
+
+                        embed.add_field(
+                        name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}** | Solo kills : **{solokills}**')
                 
+                    else:
+                        embed.add_field(
+                        name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}**')
+
                     if (total_quadra + total_penta) > 0:
                         embed.add_field(
                             name='Série', value=f'Quadra : **{total_quadra}** | Penta : **{total_penta}**')
@@ -1704,7 +1761,7 @@ class LeagueofLegends(Extension):
                         title=f" Recap **{riot_id.upper()} #{riot_tag} ** {observation.upper()} Part {part}", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
                     part = part + 1
 
-                # Vérifier si l'index est un multiple de 8
+                # Vérifier si l'index est un multiple de 3
                 if count % 3 == 0 and count != 0:
 
                     if n == 1:
@@ -1728,11 +1785,19 @@ class LeagueofLegends(Extension):
             if not embeds:  # si il n'y a qu'un seul embed, on l'envoie normalement
                 # on ajoute ces champs dans le premier embed
                 embed.add_field(name='KDA', value=total_kda)
+                embed.add_field(name='Gold', value=f'Moyenne : {gold_moyen} (V : {gold_moyen_v} | D : {gold_moyen_d})' )
                 embed.add_field(name='Champions', value=txt_champ)
                 embed.add_field(
-                    name='Ratio', value=f'{total_victoire} ({nb_victoire_total/(nb_victoire_total+nb_defaite_total)*100:.2f}%) | LP {total_lp}')
-                embed.add_field(
-                    name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : {mvp_moyenne:.1f}')
+                    name='Ratio', value=f'{total_victoire}')
+                if solokills > 0:
+
+                    embed.add_field(
+                        name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}** | Solo kills : **{solokills}**')
+                
+                else:
+                    embed.add_field(
+                        name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}**')
+
                 if (total_quadra + total_penta) > 0:
                     embed.add_field(
                         name='Série de kills', value=f'Quadra : **{total_quadra}** | Penta : **{total_penta}**')
