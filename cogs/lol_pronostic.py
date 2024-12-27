@@ -96,7 +96,7 @@ class LolPronostic(Extension):
 
         liste_matchs = []
 
-        liste_championnat = ['LoL EMEA Championship', 'La Ligue Française', 'League of Legends Championship Series', 'LTA North', 'LTA South', 'LoL Champions Korea']
+        liste_championnat = ['LoL EMEA Championship', 'La Ligue Française', 'League of Legends Championship Series', 'LTA North', 'LTA South', 'LoL Champions Korea'] #https://lol.fandom.com/wiki/Metadata:Leagues
 
         for championnat in liste_championnat:
 

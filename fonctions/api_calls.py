@@ -146,7 +146,9 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
     if indice != -1:
         summonerName_url = summonerName_url[:indice]
         riot_id = summonerNameTag[:indice].lower().replace(' ', '+')
+        riot_id_api = summonerNameTag[:indice].lower()
         riot_tag = summonerNameTag[indice+1:].lower()
+        riot_tag_api = summonerNameTag[indice+1:].upper()
         
     try: # si le tag est EUW, championmastery fonctionne bien. En revanche, si ce n'est pas le cas, il peut se tromper de joueur.
         
@@ -193,7 +195,7 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
             
         except AttributeError:
             try:
-                me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+                me = await get_summoner_by_riot_id(session, riot_id_api, riot_tag_api)
                 puuid = me['puuid']
                 
                 data_masteries : dict = await get_champion_masteries(session, puuid)
@@ -207,16 +209,15 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
                     
                 
             except Exception:
-                print(summonerName)
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
                 traceback_msg = ''.join(traceback_details)
-                print(traceback_msg)
+                print(summonerName, ' masteries ', traceback_msg, url)
     
     except:
         print(f"Erreur Masteries {summonerName_url} : Retour à l'API")
         mastery_list = []
-        me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+        me = await get_summoner_by_riot_id(session, riot_id_api, riot_tag_api)
         puuid = me['puuid']
                 
         data_masteries : dict = await get_champion_masteries(session, puuid)

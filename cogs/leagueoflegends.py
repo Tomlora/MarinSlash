@@ -13,6 +13,7 @@ from fonctions.api_calls import getRankings
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import challengeslol
+from fonctions.gestion_bdd import autocomplete_riotid
 from datetime import datetime, timedelta
 from dateutil import tz
 from interactions.ext.paginators import Paginator
@@ -783,7 +784,9 @@ class LeagueofLegends(Extension):
                    options=[
                        SlashCommandOption(name="riot_id",
                                           description="Nom du joueur",
-                                          type=interactions.OptionType.STRING, required=True),
+                                          type=interactions.OptionType.STRING,
+                                            required=True,
+                                            autocomplete=True),
                        SlashCommandOption(name="riot_tag",
                                           description="Tag",
                                           type=interactions.OptionType.STRING,
@@ -881,6 +884,15 @@ class LeagueofLegends(Extension):
         else:
             await ctx.send("Tu n'as pas l'autorisation d'utiliser cette commande.")
 
+    
+    @game.autocomplete("riot_id")
+
+    async def autocomplete_game(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
+
 
     @slash_command(name="game_multi",
                    description="Voir les statistiques de plusieurs games",
@@ -888,7 +900,9 @@ class LeagueofLegends(Extension):
                    options=[
                        SlashCommandOption(name="riot_id",
                                           description="Nom du joueur",
-                                          type=interactions.OptionType.STRING, required=True),
+                                          type=interactions.OptionType.STRING,
+                                            required=True,
+                                            autocomplete=True),
                        SlashCommandOption(name="riot_tag",
                                           description="Tag",
                                           type=interactions.OptionType.STRING,
@@ -1018,6 +1032,12 @@ class LeagueofLegends(Extension):
             await ctx.send("Tu n'as pas l'autorisation d'utiliser cette commande.")
 
 
+    @game_multi.autocomplete("riot_id")
+    async def autocomplete_multigame(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
 
     async def printLive(self,
                         id_compte,
@@ -1501,7 +1521,8 @@ class LeagueofLegends(Extension):
                            name='riot_id',
                            description='pseudo lol',
                            type=interactions.OptionType.STRING,
-                           required=True),
+                           required=True,
+                           autocomplete=True),
                        SlashCommandOption(
                            name='riot_tag',
                            description='tag',
@@ -1814,7 +1835,15 @@ class LeagueofLegends(Extension):
 
         else:
             await ctx.send('Pas de game enregistré sur les dernières 24h pour ce joueur')
-            
+
+
+    @my_recap.autocomplete('riot_id')
+
+    async def autocomplete_recap(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
 
     @slash_command(name="history_game",
                    description="Deroulement d'une game",

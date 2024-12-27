@@ -2,7 +2,7 @@
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, Task, IntervalTrigger, slash_command
 import interactions
 import pandas as pd
-from fonctions.gestion_bdd import lire_bdd_perso
+from fonctions.gestion_bdd import lire_bdd_perso, get_tag
 from fonctions.match import fix_temps
 import numpy as np
 import dataframe_image as dfi
@@ -41,7 +41,7 @@ class AnalyseLoLTimeline(Extension):
                                     name="riot_tag",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
-                                    required=True),
+                                    required=False),
                                 SlashCommandOption(
                                         name='role',
                                         description='Role LoL. Remplir ce role retire les stats aram',
@@ -57,10 +57,16 @@ class AnalyseLoLTimeline(Extension):
     async def analyse_timeline_mort(self, 
                                     ctx : SlashContext,
                                     riot_id,
-                                    riot_tag,
+                                    riot_tag = None,
                                     role='None'):
 
         riot_id = riot_id.replace(' ', '').lower()
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
         riot_tag = riot_tag.upper()
 
         await ctx.defer(ephemeral=False)          

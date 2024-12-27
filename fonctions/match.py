@@ -857,6 +857,32 @@ async def get_stat_champion_by_player(session, champ_dict, riot_id, riot_tag, se
 
 
 
+async def detect_duos(session, riot_id, riot_tag, count=10):
+    summoner_data = await get_summoner_by_riot_id(session, riot_id, riot_tag)
+    match_ids = await get_list_matchs_with_puuid(session, summoner_data['puuid'], {'start': 0,
+                                                                                  'count': count, 'api_key': api_key_lol})
+
+    duo_tracker = {}
+
+    for match_id in match_ids:
+        match_details = await get_match_detail(session, match_id, {'api_key': api_key_lol})
+        participants = match_details['info']['participants']
+        
+        team = {p['summonerName']: p['teamId'] for p in participants}
+
+        # Parcourir tous les joueurs
+        for player1 in team:
+            for player2 in team:
+                if player1 != player2 and team[player1] == team[player2]:
+                    duo_key = tuple(sorted([player1, player2]))
+                    if duo_key not in duo_tracker:
+                        duo_tracker[duo_key] = 0
+                    duo_tracker[duo_key] += 1
+
+    return {duo: count for duo, count in duo_tracker.items() if count > 5}
+
+
+
 class matchlol():
 
     def __init__(self,

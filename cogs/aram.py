@@ -342,7 +342,7 @@ class Aram(Extension):
                             'defaite' : defaite,
                             'date' : datetime.now()}])
                 
-                sauvegarde_bdd(df_log, 'log_aram', 'append')
+                sauvegarde_bdd(df_log, 'log_aram', 'append', index=False)
                 
                 await ctx.send(f"Compte ARAM modifié pour {riot_id}#{riot_tag}")
 

@@ -9,7 +9,7 @@ from fonctions.channels_discord import verif_module
 from fonctions.permissions import isOwner_slash
 import traceback
 import psycopg2.errors
-from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, get_tag
+from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, get_tag, autocomplete_riotid
 from fonctions.match import getId_with_puuid, get_summonerinfo_by_puuid, get_summoner_by_riot_id
 
 
@@ -56,33 +56,34 @@ class LolAccount(Extension):
                 me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
                 puuid = me['puuid']
                 info_account = await get_summonerinfo_by_puuid(puuid, session)
-                requete_perso_bdd(f'''
-                                INSERT INTO tracker(index, id, discord, server_id, puuid, riot_id, riot_tagline, id_league) VALUES (:riot_id, :id, :discord, :guilde, :puuid, :riot_id, :riot_tagline, :id_league); 
-                                ''',
-                                  {'riot_id' : riot_id,
-                                    'id': await getId_with_puuid(puuid, session),
-                                   'discord': int(ctx.author.id),
-                                   'guilde': int(ctx.guild.id),
-                                   'puuid': puuid,
-                                   'riot_id' : riot_id,
-                                   'riot_tagline' : riot_tag,
-                                   'id_league' : info_account['id']})
-                
-                requete_perso_bdd(f'''
-                                INSERT INTO suivi_s{saison}(
-                                index, wins, losses, "LP", tier, rank, serie, wins_jour, losses_jour, "LP_jour", tier_jour, rank_jour)
-                                VALUES ( (SELECT id_compte from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ), 0, 0, 0, 'Non-classe', 0, 0, 0, 0, 0, 'Non-classe', 0);
-                                                       
-                                INSERT INTO ranked_aram_s{saison}(
-                                index, wins, losses, lp, games, k, d, a, activation, rank, serie, wins_jour, losses_jour, lp_jour, rank_jour)
-                                VALUES ( (SELECT id_compte from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}'), 0, 0, 0, 0, 0, 0, 0, True, 'IRON', 0, 0, 0, 0, 'IRON'); ''')
+                if lire_bdd_perso(f'''select * from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''').empty:
+                    requete_perso_bdd(f'''
+                                    INSERT INTO tracker(index, id, discord, server_id, puuid, riot_id, riot_tagline, id_league) VALUES (:riot_id, :id, :discord, :guilde, :puuid, :riot_id, :riot_tagline, :id_league); 
+                                    ''',
+                                    {'riot_id' : riot_id,
+                                        'id': await getId_with_puuid(puuid, session),
+                                    'discord': int(ctx.author.id),
+                                    'guilde': int(ctx.guild.id),
+                                    'puuid': puuid,
+                                    'riot_id' : riot_id,
+                                    'riot_tagline' : riot_tag,
+                                    'id_league' : info_account['id']})
+                    
+                    requete_perso_bdd(f'''
+                                    INSERT INTO suivi_s{saison}(
+                                    index, wins, losses, "LP", tier, rank, serie, wins_jour, losses_jour, "LP_jour", tier_jour, rank_jour)
+                                    VALUES ( (SELECT id_compte from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' and server_id = {int(ctx.guild.id)} ), 0, 0, 0, 'Non-classe', 0, 0, 0, 0, 0, 'Non-classe', 0);
+                                                        
+                                    INSERT INTO ranked_aram_s{saison}(
+                                    index, wins, losses, lp, games, k, d, a, activation, rank, serie, wins_jour, losses_jour, lp_jour, rank_jour)
+                                    VALUES ( (SELECT id_compte from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' and server_id = {int(ctx.guild.id)}), 0, 0, 0, 0, 0, 0, 0, True, 'IRON', 0, 0, 0, 0, 'IRON'); ''')
 
-                await ctx.send(f"{riot_id} #{riot_tag} a été ajouté avec succès au live-feed!")
-                await session.close()
+                    await ctx.send(f"{riot_id} #{riot_tag} a été ajouté avec succès au live-feed!")
+                    await session.close()
+                else:
+                    await ctx.send('Ce compte est déjà inscrit sur ce serveur')
             else:
                 await ctx.send("Module désactivé pour ce serveur ou tu n'as pas l'autorisation")
-        except psycopg2.errors.CardinalityViolation:
-            await ctx.send('Ce compte est déjà inscrit')
         except Exception:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
@@ -139,7 +140,8 @@ class LolAccount(Extension):
                                SlashCommandOption(name='riot_id',
                                                   description="nom ingame",
                                                   type=interactions.OptionType.STRING,
-                                                  required=True),
+                                                  required=True,
+                                                  autocomplete=True),
                                SlashCommandOption(name='riot_tag',
                                                   description="tag",
                                                   type=interactions.OptionType.STRING,
@@ -301,6 +303,13 @@ class LolAccount(Extension):
         
         else:
             ctx.send("Tu tentes de modifier un compte dont tu n'as pas l'autorisation")
+
+    @tracker_config.autocomplete("riot_id")
+    async def autocomplete_trackerconfig(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
 
     @lol_compte.subcommand("color",
                            sub_cmd_description="Modifier la couleur du recap",

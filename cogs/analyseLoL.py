@@ -400,6 +400,16 @@ class analyseLoL(Extension):
                                     type=interactions.OptionType.BOOLEAN,
                                     required=False),
                                 SlashCommandOption(
+                                    name='kills_only',
+                                    description="Detail doit être activé",
+                                    type=interactions.OptionType.BOOLEAN,
+                                    required=False),
+                                SlashCommandOption(
+                                    name='deaths_only',
+                                    description="Detail doit être activé",
+                                    type=interactions.OptionType.BOOLEAN,
+                                    required=False),
+                                SlashCommandOption(
                                     name="game",
                                     description="Numero Game",
                                     type=interactions.OptionType.INTEGER,
@@ -417,6 +427,8 @@ class analyseLoL(Extension):
                       riot_id: str,
                       riot_tag:str = None,
                       detail : bool = False,
+                      kills_only : bool = False,
+                      deaths_only : bool = False,
                       game: int = 0,
                       id_game : str = None):
 
@@ -579,29 +591,34 @@ class analyseLoL(Extension):
 
 
                 elif type == 'CHAMPION_KILL':
+                    
                     color = 'orange'
                     if df_timeline['victimId'][i] == index_timeline:
                         timestamp = f'{timestamp}(D)'
 
-                        fig_kills.add_trace(
-                            go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
-                                    textposition='top center', textfont=dict(size=35, color=color)))
+
+                        if not kills_only:
+                            fig_kills.add_trace(
+                                go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
+                                        textposition='top center', textfont=dict(size=35, color=color)))
                     
                     elif df_timeline['killerId'][i] == index_timeline:
-                        color = 'red'
+                        color = 'cyan'
                         timestamp = f'{timestamp}(K)'
 
-                        fig_kills.add_trace(
-                            go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
-                                    textposition='top center', textfont=dict(size=35, color=color)))
+                        if not deaths_only:
+                            fig_kills.add_trace(
+                                go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
+                                        textposition='top center', textfont=dict(size=35, color=color)))
                     
                     else:
                         color = 'lightgreen'
                         timestamp = f'{timestamp}(A)'
 
-                        fig_kills.add_trace(
-                            go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
-                                    textposition='top center', textfont=dict(size=35, color=color)))
+                        if not deaths_only:
+                            fig_kills.add_trace(
+                                go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
+                                        textposition='top center', textfont=dict(size=35, color=color)))
                          
                 
                 elif type == 'CHAMPION_SPECIAL_KILL':
@@ -614,9 +631,11 @@ class analyseLoL(Extension):
                             timestamp = f'{timestamp}(K)'
                             pass
 
-                        fig_kills.add_trace(
-                            go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
-                                    textposition='top center', textfont=dict(size=35, color=color)))
+                        if not deaths_only:
+
+                            fig_kills.add_trace(
+                                go.Scatter(x=x, y=y, mode="markers+text", text=str(timestamp), marker=dict(color=color, size=20),
+                                        textposition='top center', textfont=dict(size=35, color=color)))
                 
                 elif type == 'BUILDING_KILL':
                     color = 'yellow'
@@ -646,7 +665,8 @@ class analyseLoL(Extension):
         fig.update_yaxes(showticklabels=False,
                              automargin=True)
 
-        liste_delete, liste_graph = graphique(fig, 'position.png', liste_delete, liste_graph)
+        if not (kills_only or deaths_only):
+            liste_delete, liste_graph = graphique(fig, 'position.png', liste_delete, liste_graph)
 
         if detail:
 
@@ -683,7 +703,8 @@ class analyseLoL(Extension):
 
             liste_delete, liste_graph = graphique(fig_kills, 'kills.png', liste_delete, liste_graph)
             # liste_delete, liste_graph = graphique(fig_assists, 'assists.png', liste_delete, liste_graph)
-            liste_delete, liste_graph = graphique(fig_building, 'building.png', liste_delete, liste_graph)
+            if not (kills_only or deaths_only):
+                liste_delete, liste_graph = graphique(fig_building, 'building.png', liste_delete, liste_graph)
 
         await ctx.send(files=liste_graph)
 

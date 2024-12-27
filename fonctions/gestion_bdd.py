@@ -211,3 +211,27 @@ def requete_perso_bdd(request: text,
 def get_guild_data():
     return get_data_bdd(f'''SELECT server_id from channels_module where activation = true ''')
 
+
+
+def get_tag(riot_id : str):
+    dict_tag = lire_bdd_perso(f'''select riot_tagline from tracker where riot_id = '{riot_id.lower().replace(" ", "")}' ''', index_col=None, format='dict')
+
+    if len(dict_tag) > 1:
+        raise ValueError('Plusieurs comptes avec ce riot_id')
+    
+    tagline = dict_tag[0]['riot_tagline']
+
+    return tagline
+
+async def autocomplete_riotid(serverid,input_txt):
+    df = lire_bdd_perso(f'''select riot_id from tracker where server_id = '{serverid}' ''', index_col=None).T
+
+    df['riot_id'] = df['riot_id'].str.lower()
+    input_txt = input_txt.lower()
+
+    liste_id = []
+    for i in df['riot_id'].unique().tolist():
+        if input_txt in i:
+            liste_id.append({"name": f'{i}', "value": f'{i}'})
+    
+    return liste_id[:25]

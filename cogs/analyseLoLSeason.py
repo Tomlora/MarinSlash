@@ -2,7 +2,7 @@
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, Task, IntervalTrigger, slash_command
 import interactions
 import pandas as pd
-from fonctions.gestion_bdd import lire_bdd_perso, get_tag
+from fonctions.gestion_bdd import lire_bdd_perso, get_tag, autocomplete_riotid
 from fonctions.match import emote_champ_discord
 import numpy as np
 from interactions.ext.paginators import Paginator
@@ -14,6 +14,7 @@ import numpy as np
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import random
+
 
 saison = int(lire_bdd_perso('select * from settings', format='dict', index_col='parametres')['saison']['value'])
 
@@ -369,7 +370,8 @@ class AnalyseLoLSeason(Extension):
                                     name="riot_id",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
-                                    required=True),
+                                    required=True,
+                                    autocomplete=True),
                                 SlashCommandOption(
                                     name="riot_tag",
                                     description="Nom du joueur",
@@ -864,6 +866,16 @@ class AnalyseLoLSeason(Extension):
         os.remove('lp.jpg')
 
 
+
+    @analyse_lp.autocomplete("riot_id")
+    async def autocomplete(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
+
+
+
     @lol_analyse_season.subcommand("lp_par_jour",
                             sub_cmd_description="Permet d'afficher des statistiques sur ses LP",
                             options=[
@@ -871,7 +883,8 @@ class AnalyseLoLSeason(Extension):
                                     name="riot_id",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
-                                    required=True),
+                                    required=True,
+                                    autocomplete=True),
                                 SlashCommandOption(
                                     name="riot_tag",
                                     description="Nom du joueur",
@@ -1180,6 +1193,15 @@ class AnalyseLoLSeason(Extension):
 
         os.remove('lp.jpg')
 
+
+    @analyse_lp_par_jour.autocomplete("riot_id")
+
+    async def autocomplete_lp_jour(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
+        
 def setup(bot):
     AnalyseLoLSeason(bot)
 

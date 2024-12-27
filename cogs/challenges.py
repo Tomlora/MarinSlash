@@ -1,7 +1,7 @@
 import pandas as pd
 import aiohttp
 import os
-from fonctions.gestion_bdd import (lire_bdd, lire_bdd_perso, requete_perso_bdd)
+from fonctions.gestion_bdd import (lire_bdd, lire_bdd_perso, requete_perso_bdd, get_tag)
 from fonctions.gestion_challenge import (get_data_joueur_challenges,
                                          challengeslol)
 from fonctions.match import emote_rank_discord
@@ -141,18 +141,31 @@ class Challenges(Extension):
                        SlashCommandOption(name="riot_id",
                                           description="Nom du joueur",
                                           type=interactions.OptionType.STRING,
-                                          required=True)])
+                                          required=True),
+                        SlashCommandOption(name="riot_tag",
+                                          description="Nom du joueur",
+                                          type=interactions.OptionType.STRING,
+                                          required=False),
+                                          ])
     async def challenges_profil(self,
                                 ctx: SlashContext,
-                                riot_id: str):
+                                riot_id: str,
+                                riot_tag = None):
 
         session = aiohttp.ClientSession()
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
         
         riot_id = riot_id.replace(' ', '').lower()
+        riot_tag = riot_tag.upper()
         
-        bdd = lire_bdd('tracker')[riot_id]
-        id_compte = bdd['id_compte'] 
-        puuid = bdd['puuid']
+        bdd = lire_bdd_perso(f'''select id_compte, puuid from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''', index_col=None).T
+        id_compte = bdd.iloc[0]['id_compte']
+        puuid = bdd.iloc[0]['puuid']
         
         total_user, total_category, total_challenges, total_to_save = await get_data_joueur_challenges(id_compte, session, puuid)
 
@@ -216,7 +229,7 @@ class Challenges(Extension):
                             SlashCommandOption(name="riot_tag",
                                                description="Tag du joueur",
                                                type=interactions.OptionType.STRING,
-                                               required=True),
+                                               required=False),
                             SlashCommandOption(name='minimum',
                                                description='Position minimum',
                                                type=interactions.OptionType.INTEGER,
@@ -226,11 +239,17 @@ class Challenges(Extension):
     async def challenges_best(self,
                               ctx: SlashContext,
                               riot_id: str,
-                              riot_tag: str,
+                              riot_tag: str = None,
                               minimum: int = 1000000):
 
         # tous les summonername sont en minuscule :
         riot_id = riot_id.lower().replace(' ', '')
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
         riot_tag = riot_tag.upper()
         # charge la data
         data = lire_bdd_perso(f'''SELECT "Joueur", value, percentile, level, level_number, position, challenges.*, tracker.riot_id
@@ -282,10 +301,14 @@ class Challenges(Extension):
                                                                    SlashCommandChoice(name='inclure', value='inclure'),
                                                                    SlashCommandChoice(name='exclure', value='exclure')
                                                                    ]
-                                                               )
+                                                               ),
+                                            SlashCommandOption(name='riot_tag',
+                                                               description='Tag du joueur',
+                                                               type=interactions.OptionType.STRING,
+                                                               required=False)
                                             ]
                                     )
-    async def modifier_challenges(self, ctx: SlashContext, riot_id, nom_challenge:str, action:str):
+    async def modifier_challenges(self, ctx: SlashContext, riot_id, nom_challenge:str, action:str, riot_tag:str = None):
 
         # traitement des variables :
 
@@ -298,7 +321,17 @@ class Challenges(Extension):
         df['name'] = df['name'].str.lower()
         df.set_index('name', inplace=True)
         
-        id_compte = lire_bdd('tracker')[riot_id]['id_compte']
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
+        
+        riot_id = riot_id.replace(' ', '').lower()
+        riot_tag = riot_tag.upper()
+        
+        bdd = lire_bdd_perso(f'''select id_compte, puuid from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''', index_col=None).T
+        id_compte = bdd.iloc[0]['id_compte']
 
         try:
             df.loc[nom_challenge, 'challengeId']
