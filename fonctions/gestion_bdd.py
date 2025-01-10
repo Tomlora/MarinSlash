@@ -223,11 +223,14 @@ def get_tag(riot_id : str):
 
     return tagline
 
-async def autocomplete_riotid(serverid,input_txt):
+async def autocomplete_riotid(serverid,
+                              input_txt):
     df = lire_bdd_perso(f'''select riot_id from tracker where server_id = '{serverid}' ''', index_col=None).T
 
     df['riot_id'] = df['riot_id'].str.lower()
     input_txt = input_txt.lower()
+
+    df.sort_values(by='riot_id', inplace=True)
 
     liste_id = []
     for i in df['riot_id'].unique().tolist():

@@ -24,110 +24,6 @@ def option_stats_records(name, params, description='type de recherche'):
     return option
 
 
-emote = {
-    "KDA": ":star:",
-    "KP": ":trophy:",
-    "CS": ":ghost:",
-    "CS/MIN": ":ghost:",
-    "KILLS": ":dagger:",
-    "DEATHS": ":skull:",
-    "ASSISTS": ":crossed_swords:",
-    'WARDS_SCORE': ":eye:",
-    'WARDS_POSEES': ":eyes:",
-    'WARDS_DETRUITES': ":mag:",
-    'WARDS_PINKS': ":red_circle:",
-    "AVANTAGE_VISION": ":eyes:",
-    "AVANTAGE_VISION_SUPPORT": ":eyes:",
-    "VISION/MIN": ":eyes:",
-    'DEGATS_INFLIGES': ":dart:",
-    'DAMAGE_RATIO': ":dart:",
-    'DMG_TOTAL': ":dart:",
-    "% DMG": ":magic_wand:",
-    'DOUBLE': ":two:",
-    'TRIPLE': ":three:",
-    'QUADRA': ":four:",
-    'PENTA': ":five:",
-    'DUREE_GAME': ":timer:",
-    'SPELLS_USED': ":gun:",
-    'BUFFS_VOLEES': "<:PandaWow:732316840495415398>",
-    'SPELLS_EVITES': ":white_check_mark:",
-    'CS_AVANTAGE': ":ghost:",
-    'CS_AVANTAGES': ":ghost:",
-    'SOLOKILLS': ":karate_uniform:",
-    'CS_APRES_10_MIN': ":ghost:",
-    'CS/MIN': ":ghost:",
-    'SERIES_DE_KILLS': ":crossed_swords:",
-    'NB_SERIES_DE_KILLS': ":crossed_swords:",
-    'DOMMAGES_TANK': ":shield:",
-    'DOMMAGES_TANK%': ":shield:",
-    'DOMMAGES_REDUITS': ":shield:",
-    'DOMMAGES_TOWER': ":hook:",
-    'DAMAGE_RATIO_ENCAISSE': ":shield:",
-    'GOLDS_GAGNES': ":euro:",
-    'TOTAL_HEALS': ":sparkling_heart:",
-    'HEALS_SUR_ALLIES': ":two_hearts:",
-    'NBGAMES': ":star:",
-    "KILLS_MOYENNE": ":dagger:",
-    "DEATHS_MOYENNE": ":skull:",
-    "ASSISTS_MOYENNE": ":crossed_swords:",
-    'WARDS_MOYENNE': ":eye:",
-    "EARLY_DRAKE": ":timer:",
-    "EARLY_BARON": ":timer:",
-    "SKILLSHOTS_HIT": ":dart:",
-    "SKILLSHOTS_DODGES": ":dash:",
-    "TOWER_PLATES": ":ticket:",
-    "ECART_LEVEL": ":wave:",
-    "NB_COURONNE_1_GAME": ":crown:",
-    "SERIE_VICTOIRE": ":fire:",
-    "SHIELD": ":shield:",
-    "ALLIE_FEEDER": ":monkey_face:",
-    "KDA_ARAM": ":star:",
-    "KP_ARAM": ":trophy:",
-    "CS_ARAM": ":ghost:",
-    "CS/MIN_ARAM": ":ghost:",
-    "KILLS_ARAM": ":dagger:",
-    "DEATHS_ARAM": ":skull:",
-    "ASSISTS_ARAM": ":crossed_swords:",
-    "AVANTAGE_VISION": ":eyes:",
-    "AVANTAGE_VISION_SUPPORT": ":eyes:",
-    "VISION/MIN": ":eyes:",
-    "DEGATS_INFLIGES_ARAM": ":dart:",
-    "DAMAGE_RATIO_ARAM": ":dart:",
-    "DMG_TOTAL_ARAM": ":dart:",
-    "% DMG_ARAM": ":magic_wand:",
-    "DOUBLE_ARAM": ":two:",
-    "TRIPLE_ARAM": ":three:",
-    "QUADRA_ARAM": ":four:",
-    "PENTA_ARAM": ":five:",
-    "DUREE_GAME_ARAM": ":timer:",
-    "SPELLS_USED_ARAM": ":gun:",
-    "BUFFS_VOLEES_ARAM": "<:PandaWow:732316840495415398>",
-    "SPELLS_EVITES_ARAM": ":white_check_mark:",
-    "CS_AVANTAGE_ARAM": ":ghost:",
-    "CS_AVANTAGES_ARAM": ":ghost:",
-    "SOLOKILLS_ARAM": ":karate_uniform:",
-    "CS_APRES_10_MIN_ARAM": ":ghost:",
-    "CS/MIN_ARAM": ":ghost:",
-    "SERIES_DE_KILLS_ARAM": ":crossed_swords:",
-    "NB_SERIES_DE_KILLS_ARAM": ":crossed_swords:",
-    "DOMMAGES_TANK_ARAM": ":shield:",
-    "DOMMAGES_TANK%_ARAM": ":shield:",
-    "DOMMAGES_REDUITS_ARAM": ":shield:",
-    "DOMMAGES_TOWER_ARAM": ":hook:",
-    "DAMAGE_RATIO_ENCAISSE_ARAM": ":shield:",
-    "GOLDS_GAGNES_ARAM": ":euro:",
-    "TOTAL_HEALS_ARAM": ":sparkling_heart:",
-    "HEALS_SUR_ALLIES_ARAM": ":two_hearts:",
-    "NBGAMES_ARAM": ":star:",
-    "KILLS_MOYENNE_ARAM": ":dagger:",
-    "DEATHS_MOYENNE_ARAM": ":skull:",
-    "ASSISTS_MOYENNE_ARAM": ":crossed_swords:",
-    "SKILLSHOTS_HIT_ARAM": ":dart:",
-    "SKILLSHOTS_DODGES_ARAM": ":dash:",
-    "NB_COURONNE_1_GAME_ARAM": ":crown:",
-    "SHIELD_ARAM": ":shield:",
-    "ALLIE_FEEDER_ARAM": ":monkey_face:"
-}
 
 emote_v2 = {
     "kda": ":star:",
@@ -217,7 +113,10 @@ emote_v2 = {
     'first_blood' : ':dagger:',
     'kills_min' : ':dagger:',
     'deaths_min' : ':skull:',
-    'assists_min' : ':crossed_swords:'
+    'assists_min' : ':crossed_swords:',
+    'petales_sanglants' : ':rose:',
+    'crit_dmg' : ':dart:',
+    'immobilisation' : ':stop_sign:',
 }
 
 
@@ -238,12 +137,12 @@ class Recordslol(Extension):
         self.time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20} # minutes minimum pour compter dans les records
         
         self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_blood', 'kills_min', 'deaths_min', 'assists_min'] 
-        self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold']
+        self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold', 'crit_dmg']
         self.fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
         self.fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
         self.fichier_tank_heal = ['dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
-        self.fichier_objectif = ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde']
-        self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles']
+        self.fichier_objectif = ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants']
+        self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation']
         self.fichier_stats = ['abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'first_niveau_max']
         self.fichier_timer = ["ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
                                         "BUILDING_KILL_20", "BUILDING_KILL_30",
@@ -990,9 +889,9 @@ class Recordslol(Extension):
             'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
             'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage', 'kills_min', 'deaths_min', 'assists_min',
             'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
-            'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
+            'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'petales_sanglants',
             'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold', 
-            'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles',
+            'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles', 'crit_dmg', 'immobilisation',
             'abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'fourth_dragon',
             'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood',
             "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
@@ -1011,7 +910,7 @@ class Recordslol(Extension):
             'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min',
             'cs', 'cs_min', 'cs_dix_min', 'cs_max_avantage', 'kills_min', 'deaths_min', 'assists_min',
             'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
-            'baron', 'drake', 'dmg_tower',
+            'baron', 'drake', 'dmg_tower', 'crit_dmg', 'immobilisation',
             'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort',
             'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used']
 
@@ -1226,6 +1125,7 @@ class Recordslol(Extension):
 
             # on récupère les champions
 
+        await ctx.defer()
 
         stat = stat.lower()
         # data
@@ -1418,6 +1318,10 @@ class Recordslol(Extension):
                         mode:str = 'RANKED',
                         view : str = 'global'):
         
+
+        await ctx.defer()
+
+        
         # data
         if view == 'global':
             fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
@@ -1482,7 +1386,7 @@ class Recordslol(Extension):
                                          index_col='id').transpose()
 
             
-        await ctx.defer()
+        
             
 
         fichier = fichier[['match_id', 'id_participant', 'riot_id', 'discord', 'champion','datetime'] + self.liste_complete]

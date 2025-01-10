@@ -301,6 +301,7 @@ async def get_image(type, name, session: aiohttp.ClientSession, resize_x=80, res
         "items": f'https://ddragon.leagueoflegends.com/cdn/{profil_version}/img/item/{name}.png',
         "monsters": f'./img/monsters/{name}.png',
         "epee": f'./img/epee/{name}.png',
+        "timer" : f'./img/timer/{name}.png',
         "gold": './img/money.png',
         "autre": f'{name}.png',
         "kda": f'./img/rectangle/{name}.png',
@@ -1054,6 +1055,7 @@ class matchlol():
         self.thisTime = fix_temps(round(
             (int(self.match_detail['info']['gameDuration']) / 60), 2))
         self.time_CC = self.match_detail_participants['timeCCingOthers']
+        self.largest_crit = self.match_detail_participants['largestCriticalStrike']
                 
         # si le joueur n'est pas mort, le temps est à 0
         if self.thisTimeLiving == 0:
@@ -1261,6 +1263,11 @@ class matchlol():
         self.thisTurretsKillsTeam = self.team_stats['tower']['kills']
         self.thisHordeTeam = self.team_stats['horde']['kills']
 
+        try:
+            self.thisAtakhanTeam = self.team_stats['atakhan']['kills']
+        except:
+            self.thisAtakhanTeam = 0
+
 
         try:
             self.thisCSAdvantageOnLane = round(
@@ -1317,6 +1324,14 @@ class matchlol():
                 (self.thisTurretsKillsPerso / self.thisTurretsKillsTeam)*100, 2)
         except Exception:
             self.participation_tower = 0
+
+        try:
+            self.petales_sanglants = self.match_detail_challenges['InfernalScalePickup']
+        except:
+            self.petales_sanglants = 0
+
+
+        self.enemy_immobilisation = self.match_detail_challenges['enemyChampionImmobilizations']
 
 
 
@@ -1547,11 +1562,18 @@ class matchlol():
 
         self.adversaire_direct = {"TOP": self.ecart_top_gold, "JUNGLE": self.ecart_jgl_gold,
                                   "MID": self.ecart_mid_gold, "ADC": self.ecart_adc_gold, "SUPPORT": self.ecart_supp_gold}
+        
+        self.adversaire_direct_cs = {"TOP": self.ecart_top_cs, "JUNGLE": self.ecart_jgl_cs, "MID": self.ecart_mid_cs, "ADC": self.ecart_adc_cs, "SUPPORT": self.ecart_supp_cs}
 
         try:
             self.ecart_gold = self.adversaire_direct[self.thisPosition]
         except KeyError:
             self.ecart_gold = "Indisponible"
+
+        try:
+            self.ecart_cs = self.adversaire_direct_cs[self.thisPosition]
+        except KeyError:
+            self.ecart_cs = "Indisponible"
 
         # mise en forme
 
@@ -1562,6 +1584,11 @@ class matchlol():
                      self.ecart_mid_gold,
                      self.ecart_adc_gold,
                      self.ecart_supp_gold,
+                     self.ecart_top_cs,
+                     self.ecart_jgl_cs,
+                    self.ecart_mid_cs,
+                    self.ecart_adc_cs,
+                    self.ecart_supp_cs,
                      self.thisGold,
                      self.thisDamage,
                      self.thisDamageAD,
@@ -1584,6 +1611,17 @@ class matchlol():
         else:
             self.ecart_gold_noformat = 0
             self.ecart_gold_permin = 0
+
+
+
+        if self.ecart_cs != "Indisponible":  # si nombre
+            self.ecart_cs_noformat = self.ecart_cs
+            self.ecart_cs = "{:,}".format(
+                self.ecart_cs).replace(',', ' ').replace('.', ',')
+            self.ecart_cs_permin = round((self.ecart_cs_noformat / self.thisTime), 2)
+        else:
+            self.ecart_cs_noformat = 0
+            self.ecart_cs_permin = 0
 
         self.thisDamageSelfMitigatedFormat = "{:,}".format(
             self.thisDamageSelfMitigated).replace(',', ' ').replace('.', ',')
@@ -1781,7 +1819,7 @@ class matchlol():
                 except TypeError:
                     self.df_rank = ''
             
-            self.df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), [22,23,24])
+            self.df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), [22,23,24,25])
 
            
             if isinstance(self.df_data_stat, pd.DataFrame):
@@ -1910,14 +1948,14 @@ class matchlol():
             baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
             item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
-            split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min)
+            split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min, ecart_cs, petales_sanglants, atakhan, crit_dmg, immobilisation, skillshot_hit)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
             :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
-            :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min);
+            :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
             UPDATE prev_lol SET match_id = :match_id where riot_id = :riot_id and riot_tag = :riot_tagline and match_id = '' ''',
                 {
@@ -2015,7 +2053,14 @@ class matchlol():
                     'moba' : self.moba_ok,
                     'kills_min' : self.kills_min,
                     'deaths_min' : self.deaths_min,
-                    'assists_min' : self.assists_min
+                    'assists_min' : self.assists_min,
+                    'ecart_cs' : self.ecart_cs_noformat,
+                    'petales_sanglants' : self.petales_sanglants,
+                    'atakhan' : self.thisAtakhanTeam,
+                    'crit_dmg' : self.largest_crit,
+                    'immobilisation' : self.enemy_immobilisation,
+                    'skillshot_hit' : self.thisSkillshot_hit 
+
                 },
             )
             
@@ -2298,6 +2343,14 @@ class matchlol():
             self.timestamp_first_horde = 999.0
         else:
             self.timestamp_first_horde = self.df_events_horde['timestamp'].min()
+
+        
+        # self.df_events_atakhan = self.df_events_team[self.df_events_team['monsterType'] == 'ATAKHAN']
+
+        # if self.df_events_atakhan.empty:
+        #     self.timestamp_first_atakhan = 999.0
+        # else:
+        #     self.timestamp_first_atakhan = self.df_events_atakhan['timestamp'].min()
             
         # Autres  
         
@@ -2827,17 +2880,26 @@ class matchlol():
         name_img : nom de l'image enregistré'''
 
 
+        mode_couleur = {'light' : {'principal' : (255, 255, 255), # blanc
+                                   'secondaire' : (230, 230, 230), # gris
+                                   'texte' : (0, 0, 0)}} # noir
+        
+        
+        mode = 'light'
 
+        principal = mode_couleur[mode]['principal']
+        secondaire = mode_couleur[mode]['secondaire']
+        fill = mode_couleur[mode]['texte']
  
 
         # Gestion de l'image 2
-        lineX = 2600
+        lineX = 3050
         lineY = 100
 
         x_name = 350
         
         x_ecart = x_name - 200
-        x_kills = 1000 + 300
+        x_kills = 1000 + 280
         x_score = x_kills - 160
         x_deaths = x_kills + 100
         x_assists = x_deaths + 100
@@ -2856,15 +2918,13 @@ class matchlol():
         x_dmg_taken = x_dmg_percent + 260
 
         x_kill_total = 1000
-        x_objectif = 1600
+        x_objectif = 1800
 
-        lineX = 2600
-        lineY = 100
 
         x_name = 290
         y = 120
         y_name = y - 60
-        x_rank = 1750
+        x_rank = 2250
 
         x_metric = 120
         y_metric = 400
@@ -2874,13 +2934,12 @@ class matchlol():
 
 
         im = Image.new("RGBA", (lineX, lineY * 13 + 190),
-                       (255, 255, 255))  # Ligne blanche
+                       principal)  # Ligne blanche
         d = ImageDraw.Draw(im)
 
-        line = Image.new("RGB", (lineX, 190), (230, 230, 230))  # Ligne grise
+        line = Image.new("RGB", (lineX, 190), secondaire)  # Ligne grise
         im.paste(line, (0, 0))
 
-        fill = (0, 0, 0)
         d.text((x_name, y_name), self.riot_id, font=font, fill=fill)
 
         im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
@@ -2889,7 +2948,7 @@ class matchlol():
         im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100, self.version['n']['profileicon']),
                  box=(x_name-120, y_name-20))
 
-        d.text((x_name+700, y_name-20),
+        d.text((x_name+1000, y_name-20),
                f"Niveau {self.level_summoner}", font=font_little, fill=fill)
 
 
@@ -2905,9 +2964,9 @@ class matchlol():
 
             img_tier_last_season = await get_image("tier", self.tier_last_season, self.session, 100, 100)
 
-            im.paste(img_tier_last_season,(x_name+950, y_name-50), img_tier_last_season.convert('RGBA'))
+            im.paste(img_tier_last_season,(x_name+1250, y_name-50), img_tier_last_season.convert('RGBA'))
             if not self.thisQ in ['ARAM', 'CLASH ARAM']:
-                d.text((x_name+1050, y_name-30), f'{self.rank_last_season}', font=font, fill=fill)   
+                d.text((x_name+1350, y_name-30), f'{self.rank_last_season}', font=font, fill=fill)   
 
         except Exception:
             pass  
@@ -3080,7 +3139,7 @@ class matchlol():
                                                                                                                         'match_id': self.last_match,
                                                                                                                         'joueur': self.id_compte})     
 
-        line = Image.new("RGB", (lineX, lineY), (230, 230, 230))  # Ligne grise
+        line = Image.new("RGB", (lineX, lineY), secondaire)  # Ligne grise
 
         dict_position = {"TOP": 2, "JUNGLE": 3,
                          "MID": 4, "ADC": 5, "SUPPORT": 6}
@@ -3118,15 +3177,15 @@ class matchlol():
         draw_black_line()
 
         # match
-        d.text((10, 20 + 190), self.thisQ, font=font, fill=(0, 0, 0))
+        d.text((10, 20 + 190), self.thisQ, font=font, fill=fill)
 
         money = await get_image('gold', 'dragon', self.session, 60, 60)
 
         im.paste(money, (10, 120 + 190), money.convert('RGBA'))
         d.text((83, 120 + 190), f'{self.thisGold_team1}',
-               font=font, fill=(255, 255, 255))
+               font=font, fill=principal)
         im.paste(money, (10, 720 + 190), money.convert('RGBA'))
-        d.text((83, 720 + 190), f'{self.thisGold_team2}', font=font, fill=(0, 0, 0))
+        d.text((83, 720 + 190), f'{self.thisGold_team2}', font=font, fill=fill)
 
         if self.moba_ok:
             try:
@@ -3135,7 +3194,7 @@ class matchlol():
                 im.paste(self.img_ally_avg, (x_name+200, 120-20 + 190), self.img_ally_avg.convert('RGBA'))
 
                 d.text((x_name+300, 120 + 190), str(
-                            self.avgrank_ally), font=font, fill=(255, 255, 255))
+                            self.avgrank_ally), font=font, fill=principal)
 
             except FileNotFoundError:
                 self.img_ally_avg = 'UNRANKED'
@@ -3148,26 +3207,26 @@ class matchlol():
                 self.img_enemy_avg = 'UNRANKED'
 
             d.text((x_name+300, 720 + 190), str(
-                        self.avgrank_enemy), font=font, fill=(0, 0, 0))
+                        self.avgrank_enemy), font=font, fill=fill)
 
         for y in range(123 + 190, 724 + 190, 600):
-            fill = (255, 255, 255) if y == 123 + 190 else (0, 0, 0)
-            d.text((x_level-10, y), 'LVL', font=font, fill=fill)
-            d.text((x_name, y), 'Name', font=font, fill=fill)
+            color = principal if y == 123 + 190 else fill
+            d.text((x_level-10, y), 'LVL', font=font, fill=color)
+            d.text((x_name, y), 'Name', font=font, fill=color)
 
 
-            d.text((x_kills, y), 'K', font=font, fill=fill)
-            d.text((x_deaths, y), 'D', font=font, fill=fill)
-            d.text((x_assists, y), 'A', font=font, fill=fill)
-            d.text((x_kda, y), 'KDA', font=font, fill=fill)
-            d.text((x_kp+10, y), 'KP', font=font, fill=fill)
-            d.text((x_cs, y), 'CS', font=font, fill=fill)
-            d.text((x_dmg_percent+30, y), "DMG", font=font, fill=fill)
-            d.text((x_dmg_taken+10, y), 'TANK', font=font, fill=fill)
-            d.text((x_score-20, y), 'MVP', font=font, fill=fill)
+            d.text((x_kills, y), 'K', font=font, fill=color)
+            d.text((x_deaths, y), 'D', font=font, fill=color)
+            d.text((x_assists, y), 'A', font=font, fill=color)
+            d.text((x_kda, y), 'KDA', font=font, fill=color)
+            d.text((x_kp+10, y), 'KP', font=font, fill=color)
+            d.text((x_cs, y), 'CS', font=font, fill=color)
+            d.text((x_dmg_percent+30, y), "DMG", font=font, fill=color)
+            d.text((x_dmg_taken+10, y), 'TANK', font=font, fill=color)
+            d.text((x_score-20, y), 'MVP', font=font, fill=color)
 
             if not self.thisQ in ["ARAM", "CLASH ARAM"]:
-                d.text((x_vision, y), 'VS', font=font, fill=fill)
+                d.text((x_vision, y), 'VS', font=font, fill=color)
 
         # participants
         initial_y = 223 + 190
@@ -3205,7 +3264,7 @@ class matchlol():
                 font_mastery = font
 
             d.text((x_mastery, initial_y),
-                   str(self.mastery_level[i]), font=font_mastery, fill=(255, 255, 255))
+                   str(self.mastery_level[i]), font=font_mastery, fill=principal)
             
             # couleur
             if i <= 4:
@@ -3216,9 +3275,9 @@ class matchlol():
                 elif ecart_level < 0:
                     fill_level = (255, 0, 0)
                 else:
-                    fill_level = (0, 0, 0)
+                    fill_level = fill
             else:
-                fill_level = (0, 0, 0)
+                fill_level = fill
 
             d.text((x_level, initial_y),
                    str(self.thisLevelListe[i]), font=font, fill=fill_level)
@@ -3226,10 +3285,10 @@ class matchlol():
 
             if self.thisRiotIdListe[i] == '' or self.thisRiotIdListe[i] == ' ':
                 d.text((x_name, initial_y),
-                    self.thisPseudoListe[i], font=font, fill=(0, 0, 0))
+                    self.thisPseudoListe[i], font=font, fill=fill)
             else:
                 d.text((x_name, initial_y),
-                    self.thisRiotIdListe[i], font=font, fill=(0, 0, 0))
+                    self.thisRiotIdListe[i], font=font, fill=fill)
 
             # rank
 
@@ -3263,7 +3322,7 @@ class matchlol():
                 im.paste(img_rank_joueur, (x_score-320, initial_y-20), img_rank_joueur.convert('RGBA'))
 
                 d.text((x_score-220, initial_y), str(
-                        tier_joueur), font=font, fill=(0, 0, 0))
+                        tier_joueur), font=font, fill=fill)
 
             if self.moba_ok:
                 try:
@@ -3291,28 +3350,28 @@ class matchlol():
             d.text((x_score+20, initial_y),
                     str(scoring),
                     font=font,
-                    fill=color_scoring.get(scoring, (0,0,0)))
+                    fill=color_scoring.get(scoring, fill))
 
             if len(str(self.thisKillsListe[i])) == 1:
                 d.text((x_kills, initial_y), str(
-                    self.thisKillsListe[i]), font=font, fill=(0, 0, 0))
+                    self.thisKillsListe[i]), font=font, fill=fill)
             else:
                 d.text((x_kills - 20, initial_y),
-                       str(self.thisKillsListe[i]), font=font, fill=(0, 0, 0))
+                       str(self.thisKillsListe[i]), font=font, fill=fill)
 
             if len(str(self.thisDeathsListe[i])) == 1:
                 d.text((x_deaths, initial_y), str(
-                    self.thisDeathsListe[i]), font=font, fill=(0, 0, 0))
+                    self.thisDeathsListe[i]), font=font, fill=fill)
             else:
                 d.text((x_deaths - 20, initial_y),
-                       str(self.thisDeathsListe[i]), font=font, fill=(0, 0, 0))
+                       str(self.thisDeathsListe[i]), font=font, fill=fill)
 
             if len(str(self.thisAssistsListe[i])) == 1:
                 d.text((x_assists, initial_y), str(
-                    self.thisAssistsListe[i]), font=font, fill=(0, 0, 0))
+                    self.thisAssistsListe[i]), font=font, fill=fill)
             else:
                 d.text((x_assists - 20, initial_y),
-                       str(self.thisAssistsListe[i]), font=font, fill=(0, 0, 0))
+                       str(self.thisAssistsListe[i]), font=font, fill=fill)
 
             fill = range_value(i, self.thisKDAListe, True)
 
@@ -3356,6 +3415,14 @@ class matchlol():
 
             d.text((x_dmg_taken + 25, initial_y),
                    f'{int(self.thisDamageTakenListe[i]/1000) + int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font, fill=fill)
+            
+
+            n = 0
+            for image in self.allitems[i]:
+                if image != 0:
+                    im.paste(await get_image("items", image, self.session, resize_x=65, resize_y=65, profil_version=self.version['n']['item']),
+                            box=(x_dmg_taken + 150 + n, initial_y))
+                    n += 80
 
             initial_y += 200 if i == 4 else 100
         if not self.thisQ in ["ARAM", "CLASH ARAM"]:
@@ -3370,12 +3437,12 @@ class matchlol():
 
                 y_ecart = y_ecart + 100
 
-        n = 0
-        for image in self.thisItems:
-            if image != 0:
-                im.paste(await get_image("items", image, self.session, profil_version=self.version['n']['item']),
-                         box=(350 + n, 10 + 190))
-                n += 100
+        # n = 0
+        # for image in self.thisItems:
+        #     if image != 0:
+        #         im.paste(await get_image("items", image, self.session, profil_version=self.version['n']['item']),
+        #                  box=(350 + n, 10 + 190))
+        #         n += 100
 
         if not self.thisQ in ["ARAM", "CLASH ARAM"]:
 
@@ -3384,39 +3451,50 @@ class matchlol():
             herald = await get_image('monsters', 'herald', self.session)
             nashor = await get_image('monsters', 'nashor', self.session)
             horde = await get_image('monsters', 'horde', self.session)
+            atakhan = await get_image('monsters', 'atakhan', self.session)
 
             im.paste(drk, (x_objectif, 10 + 190), drk.convert('RGBA'))
             d.text((x_objectif + 100, 25 + 190), str(self.thisDragonTeam),
-                   font=font, fill=(0, 0, 0))
+                   font=font, fill=fill)
 
             im.paste(elder, (x_objectif + 200, 10 + 190), elder.convert('RGBA'))
             d.text((x_objectif + 200 + 100, 25 + 190),
-                   str(self.thisElderPerso), font=font, fill=(0, 0, 0))
+                   str(self.thisElderPerso), font=font, fill=fill)
 
             im.paste(herald, (x_objectif + 400, 10 + 190), herald.convert('RGBA'))
             d.text((x_objectif + 400 + 100, 25 + 190),
-                   str(self.thisHeraldTeam), font=font, fill=(0, 0, 0))
+                   str(self.thisHeraldTeam), font=font, fill=fill)
 
             im.paste(nashor, (x_objectif + 600, 10 + 190), nashor.convert('RGBA'))
             d.text((x_objectif + 600 + 100, 25 + 190),
-                   str(self.thisBaronTeam), font=font, fill=(0, 0, 0))
+                   str(self.thisBaronTeam), font=font, fill=fill)
             
             im.paste(horde, (x_objectif + 800, 10 + 190), horde.convert('RGBA'))
             d.text((x_objectif + 800 + 100, 25 + 190),
-                   str(self.thisHordeTeam), font=font, fill=(0, 0, 0))
+                   str(self.thisHordeTeam), font=font, fill=fill)
+            
+            im.paste(atakhan, (x_objectif + 1000, 10 + 190), atakhan.convert('RGBA'))
+            d.text((x_objectif + 1000 + 100, 25 + 190),
+                   str(self.thisAtakhanTeam), font=font, fill=fill)
 
+        img_timer = await get_image('timer', 'timer', self.session)
         img_blue_epee = await get_image('epee', 'blue', self.session)
         img_red_epee = await get_image('epee', 'red', self.session)
+
+        im.paste(img_timer, (x_kill_total-500, 10 + 190),
+                 img_timer.convert('RGBA'))
+        d.text((x_kill_total -500 + 100, 23 + 190), f'{(int(self.thisTime))}m',
+               font=font, fill=fill)
 
         im.paste(img_blue_epee, (x_kill_total, 10 + 190),
                  img_blue_epee.convert('RGBA'))
         d.text((x_kill_total + 100, 23 + 190), str(self.thisTeamKills),
-               font=font, fill=(0, 0, 0))
+               font=font, fill=fill)
 
-        im.paste(img_red_epee, (x_kill_total + 300, 10 + 190),
+        im.paste(img_red_epee, (x_kill_total + 350, 10 + 190),
                  img_red_epee.convert('RGBA'))
-        d.text((x_kill_total + 300 + 100, 23 + 190),
-               str(self.thisTeamKillsOp), font=font, fill=(0, 0, 0))
+        d.text((x_kill_total + 350 + 100, 23 + 190),
+               str(self.thisTeamKillsOp), font=font, fill=fill)
 
         # Stat du jour
         if self.thisQ in ['ARAM', 'CLASH ARAM']:
@@ -3432,10 +3510,10 @@ class matchlol():
                         int(suivi_24h[self.id_compte]["losses_jour"])
 
             if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
-                d.text((x_metric + 650, y_name+50),
-                           f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))
-                d.text((x_metric + 1120, y_name+50),
-                           f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
+                d.text((x_metric + 850, y_name+50),
+                           f'Victoires 24h : {difwin}', font=font_little, fill=fill)
+                d.text((x_metric + 1460, y_name+50),
+                           f'Defaites 24h : {diflos}', font=font_little, fill=fill)
 
 
         elif self.thisQ in ['ARAM', 'CLASH ARAM'] and activation:
@@ -3447,15 +3525,15 @@ class matchlol():
 
             if (difwin + diflos) > 0:  # si pas de ranked aujourd'hui, inutile
                 if serie_wins > 0:
-                    d.text((x_metric + 650, y_name+50),
+                    d.text((x_metric + 850, y_name+50),
                        
-                           f'Victoires 24h : {difwin} (S : {serie_wins})', font=font_little, fill=(0, 0, 0))
+                           f'Victoires 24h : {difwin} (S : {serie_wins})', font=font_little, fill=fill)
                 else:
-                    d.text((x_metric + 650, y_name+50),
+                    d.text((x_metric + 850, y_name+50),
                        
-                           f'Victoires 24h : {difwin}', font=font_little, fill=(0, 0, 0))                    
-                d.text((x_metric + 1120, y_name+50),
-                           f'Defaites 24h : {diflos}', font=font_little, fill=(0, 0, 0))
+                           f'Victoires 24h : {difwin}', font=font_little, fill=fill)                    
+                d.text((x_metric + 1460, y_name+50),
+                           f'Defaites 24h : {diflos}', font=font_little, fill=fill)
 
 
         im.save(f'{name_img}.png')
@@ -3804,8 +3882,8 @@ class matchlol():
         im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100, self.version['n']['profileicon']),
                  box=(x_name-120, y_name-20))
 
-        d.text((x_name+700, y_name-20),
-               f"Niveau {self.level_summoner}", font=font_little, fill=fill)
+        d.text((x_name+2000, y_name-20),
+               f"Niveau{self.level_summoner}", font=font_little, fill=fill)
             
         
         line = Image.new("RGB", (lineX, lineY), (230, 230, 230))  # Ligne grise

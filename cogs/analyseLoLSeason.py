@@ -894,7 +894,8 @@ class AnalyseLoLSeason(Extension):
                                     name="riot_id2",
                                     description="Nom du joueur",
                                     type=interactions.OptionType.STRING,
-                                    required=False),
+                                    required=False,
+                                    autocomplete=True),
                                 SlashCommandOption(
                                     name="riot_tag2",
                                     description="Nom du joueur",
@@ -1197,6 +1198,15 @@ class AnalyseLoLSeason(Extension):
     @analyse_lp_par_jour.autocomplete("riot_id")
 
     async def autocomplete_lp_jour(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
+
+
+    @analyse_lp_par_jour.autocomplete("riot_id2")
+
+    async def autocomplete_lp_jour2(self, ctx: interactions.AutocompleteContext):
 
         liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
 

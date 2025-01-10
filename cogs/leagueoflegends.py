@@ -339,7 +339,9 @@ class LeagueofLegends(Extension):
                              'spells_used' : match_info.thisSpellUsed,
                              'kills_min' : match_info.kills_min,
                              'deaths_min' : match_info.deaths_min,
-                             'assists_min' : match_info.assists_min}
+                             'assists_min' : match_info.assists_min,
+                             'crit_dmg' : match_info.largest_crit,
+                             'immobilisation' : match_info.enemy_immobilisation}
             
 
             if match_info.thisQ in ['RANKED', 'FLEX']:
@@ -355,6 +357,7 @@ class LeagueofLegends(Extension):
                                             'jgl_dix_min': match_info.thisJUNGLEafter10min,
                                             'baron': match_info.thisBaronTeam,
                                             'drake': match_info.thisDragonTeam,
+                                            'petales_sanglants' : match_info.petales_sanglants,
                                             'cs_jungle': match_info.thisJungleMonsterKilled,
                                             'buffs_voles' : match_info.thisbuffsVolees,
                                             'abilityHaste' : match_info.max_abilityHaste,
@@ -552,7 +555,7 @@ class LeagueofLegends(Extension):
                     and split = {match_info.split}
                     GROUP BY tracker.id_compte''', index_col='id_compte').transpose()
 
-        def stats_joueur(df, embed, id_compte, titre, inline=True):
+        def stats_joueur(df, embed, id_compte, titre=None, inline=True):
 
             k = round(
                 df.loc[id_compte, 'kills'], 1)
@@ -571,20 +574,29 @@ class LeagueofLegends(Extension):
             nb_games = int(
                 df.loc[id_compte, 'nb_games'])
             
-            if mvp == 0:
-                embed.add_field(
-                    name=f"{titre} : {nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
+            if titre != None:
+                if mvp == 0:
+                    embed.add_field(
+                        name=f"{titre} : {nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
+                else:
+                    embed.add_field(
+                        name=f"{titre} : {nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
+            
             else:
-                embed.add_field(
-                    name=f"{titre} : {nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
+                if mvp == 0:
+                    embed.add_field(
+                        name=f"{nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
+                else:
+                    embed.add_field(
+                        name=f"{nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
                 
             return embed 
 
-        if not stats_joueur_saison.empty and match_info.split != 1:
-            embed = stats_joueur(stats_joueur_saison, embed, id_compte, 'Saison', False)
+        # if not stats_joueur_saison.empty and match_info.split != 1:
+        #     embed = stats_joueur(stats_joueur_saison, embed, id_compte, 'Saison')
         
         if not stats_joueur_split.empty:
-            embed = stats_joueur(stats_joueur_split, embed, id_compte, 'Split')
+            embed = stats_joueur(stats_joueur_split, embed, id_compte)
 
 
 
@@ -594,7 +606,7 @@ class LeagueofLegends(Extension):
 
         if exploits == '':  # si l'exploit est vide, il n'y a aucun exploit
             embed.add_field(
-                name=f":timer: {str(int(match_info.thisTime))} minutes",
+                name=f"Exploits",
                 value=f'Aucun exploit',
                 inline=False,
             )
@@ -602,12 +614,12 @@ class LeagueofLegends(Extension):
         elif len(exploits) <= chunk_size:
             exploits = exploits.replace('#', '').replace(' #', '')
             embed.add_field(
-                name=f":timer: {str(int(match_info.thisTime))} minutes",
+                name=f"Exploits",
                 value=exploits,
                 inline=False,
             )
 
-        elif len(exploits) > max_len or ((len(embed) + len(exploits)) > 5000):
+        elif len(exploits) > max_len or ((len(embed) + len(exploits)) > 4500):
             records_emoji = {':boom:': 0, ':medal:': 0,
                              ':military_medal:': 0, ':rocket:': 0}
 
@@ -629,14 +641,14 @@ class LeagueofLegends(Extension):
                         exploits += f'{emoji} Tu as battu **{count}** records \n'
 
             embed.add_field(
-                name=f':timer: {int(match_info.thisTime)} minutes', value=exploits)
+                name=f'Exploits', value=exploits)
 
         else:  # si l'embed nécessite plusieurs fields, et est inférieur à la longueur max de l'embed
             exploits = exploits.split('#')  # on split sur notre mot clé
 
             for i in range(len(exploits)):
                 field_name = (
-                    f":timer: {str(int(match_info.thisTime))} minutes"
+                    f"Exploits"
                     if i == 0
                     else f"Records {i + 1}"
                 )
@@ -1558,6 +1570,7 @@ class LeagueofLegends(Extension):
                                    name='Mois', value='Mois'),
                                SlashCommandChoice(
                                    name="Aujourd'hui", value='today')
+                                
                            ]
                        )])
     async def my_recap(self,
