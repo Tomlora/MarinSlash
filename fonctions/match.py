@@ -1262,6 +1262,10 @@ class matchlol():
         self.thisHeraldTeam = self.team_stats['riftHerald']['kills']
         self.thisTurretsKillsTeam = self.team_stats['tower']['kills']
         self.thisHordeTeam = self.team_stats['horde']['kills']
+        self.thisTowerTeam = self.team_stats['tower']['kills']
+        self.thisInhibTeam = self.team_stats['inhibitor']['kills']
+
+
 
         try:
             self.thisAtakhanTeam = self.team_stats['atakhan']['kills']
@@ -1332,6 +1336,8 @@ class matchlol():
 
 
         self.enemy_immobilisation = self.match_detail_challenges['enemyChampionImmobilizations']
+        self.totaltimeCCdealt = fix_temps(round(
+            (int(self.match_detail_participants['totalTimeCCDealt']) / 60), 2))
 
 
 
@@ -1948,14 +1954,14 @@ class matchlol():
             baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
             item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
-            split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min, ecart_cs, petales_sanglants, atakhan, crit_dmg, immobilisation, skillshot_hit)
+            split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min, ecart_cs, petales_sanglants, atakhan, crit_dmg, immobilisation, skillshot_hit, temps_cc_inflige, tower, inhib)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
             :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
-            :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit);
+            :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit, :temps_cc_inflige, :tower, :inhib);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
             UPDATE prev_lol SET match_id = :match_id where riot_id = :riot_id and riot_tag = :riot_tagline and match_id = '' ''',
                 {
@@ -2059,7 +2065,10 @@ class matchlol():
                     'atakhan' : self.thisAtakhanTeam,
                     'crit_dmg' : self.largest_crit,
                     'immobilisation' : self.enemy_immobilisation,
-                    'skillshot_hit' : self.thisSkillshot_hit 
+                    'skillshot_hit' : self.thisSkillshot_hit,
+                    'temps_cc_inflige' : self.totaltimeCCdealt,
+                    'tower' : self.thisTowerTeam,
+                    'inhib' : self.thisInhibTeam
 
                 },
             )
@@ -2917,7 +2926,7 @@ class matchlol():
 
         x_dmg_taken = x_dmg_percent + 260
 
-        x_kill_total = 1000
+        x_kill_total = 850
         x_objectif = 1800
 
 
@@ -3373,48 +3382,48 @@ class matchlol():
                 d.text((x_assists - 20, initial_y),
                        str(self.thisAssistsListe[i]), font=font, fill=fill)
 
-            fill = range_value(i, self.thisKDAListe, True)
+            fill_color = range_value(i, self.thisKDAListe, True)
 
             # Recentrer le résultat quand chiffre rond
             if len(str(round(self.thisKDAListe[i], 2))) == 1:
                 d.text((x_kda + 35, initial_y),
-                       str(round(self.thisKDAListe[i], 2)), font=font, fill=fill)
+                       str(round(self.thisKDAListe[i], 2)), font=font, fill=fill_color)
             else:
                 d.text((x_kda, initial_y), str(
-                    round(self.thisKDAListe[i], 2)), font=font, fill=fill)
+                    round(self.thisKDAListe[i], 2)), font=font, fill=fill_color)
 
-            fill = range_value(i, self.thisKPListe, True)
+            fill_color = range_value(i, self.thisKPListe, True)
 
             d.text((x_kp, initial_y), str(
-                self.thisKPListe[i]) + "%", font=font, fill=fill)
+                self.thisKPListe[i]) + "%", font=font, fill=fill_color)
 
-            fill = range_value(i, np.array(self.thisMinionListe) +
+            fill_color = range_value(i, np.array(self.thisMinionListe) +
                                np.array(self.thisJungleMonsterKilledListe))
 
             if len(str(self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i])) != 2:
                 d.text((x_cs, initial_y), str(
-                    self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill)
+                    self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill_color)
             else:
                 d.text((x_cs + 10, initial_y), str(
-                    self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill)
+                    self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill_color)
 
             if not self.thisQ in ["ARAM", "CLASH ARAM"]:
 
-                fill = range_value(i, self.thisVisionListe)
+                fill_color = range_value(i, self.thisVisionListe)
 
                 d.text((x_vision, initial_y), str(
-                    self.thisVisionListe[i]), font=font, fill=fill)
+                    self.thisVisionListe[i]), font=font, fill=fill_color)
 
-            fill = range_value(i, self.thisDamageListe)
+            fill_color = range_value(i, self.thisDamageListe)
 
             d.text((x_dmg_percent, initial_y),
-                   f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font, fill=fill)
+                   f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font, fill=fill_color)
 
-            fill = range_value(i, np.array(
+            fill_color = range_value(i, np.array(
                 self.thisDamageTakenListe) + np.array(self.thisDamageSelfMitigatedListe))
 
             d.text((x_dmg_taken + 25, initial_y),
-                   f'{int(self.thisDamageTakenListe[i]/1000) + int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font, fill=fill)
+                   f'{int(self.thisDamageTakenListe[i]/1000) + int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font, fill=fill_color)
             
 
             n = 0
@@ -3446,12 +3455,23 @@ class matchlol():
 
         if not self.thisQ in ["ARAM", "CLASH ARAM"]:
 
+
+            tower = await get_image('monsters', 'tower', self.session)
+            inhibiteur = await get_image('monsters', 'inhibitor', self.session)
             drk = await get_image('monsters', 'dragon', self.session)
             elder = await get_image('monsters', 'elder', self.session)
             herald = await get_image('monsters', 'herald', self.session)
             nashor = await get_image('monsters', 'nashor', self.session)
             horde = await get_image('monsters', 'horde', self.session)
             atakhan = await get_image('monsters', 'atakhan', self.session)
+
+            im.paste(tower, (x_objectif - 400, 10 + 190), tower.convert('RGBA'))
+            d.text((x_objectif - 400 + 100, 25 + 190), str(self.thisTowerTeam),
+                   font=font, fill=fill)
+            
+            im.paste(inhibiteur, (x_objectif - 200, 10 + 190), inhibiteur.convert('RGBA'))
+            d.text((x_objectif - 200 + 100, 25 + 190), str(self.thisInhibTeam),
+                   font=font, fill=fill)
 
             im.paste(drk, (x_objectif, 10 + 190), drk.convert('RGBA'))
             d.text((x_objectif + 100, 25 + 190), str(self.thisDragonTeam),
@@ -3486,14 +3506,14 @@ class matchlol():
         d.text((x_kill_total -500 + 100, 23 + 190), f'{(int(self.thisTime))}m',
                font=font, fill=fill)
 
-        im.paste(img_blue_epee, (x_kill_total, 10 + 190),
+        im.paste(img_blue_epee, (x_kill_total - 100, 10 + 190),
                  img_blue_epee.convert('RGBA'))
-        d.text((x_kill_total + 100, 23 + 190), str(self.thisTeamKills),
+        d.text((x_kill_total - 100 + 100, 23 + 190), str(self.thisTeamKills),
                font=font, fill=fill)
 
-        im.paste(img_red_epee, (x_kill_total + 350, 10 + 190),
+        im.paste(img_red_epee, (x_kill_total + 200, 10 + 190),
                  img_red_epee.convert('RGBA'))
-        d.text((x_kill_total + 350 + 100, 23 + 190),
+        d.text((x_kill_total + 200 + 100, 23 + 190),
                str(self.thisTeamKillsOp), font=font, fill=fill)
 
         # Stat du jour
