@@ -2951,13 +2951,21 @@ class matchlol():
         line = Image.new("RGB", (lineX, 190), secondaire)  # Ligne grise
         im.paste(line, (0, 0))
 
-        d.text((x_name, y_name), self.riot_id, font=font, fill=fill)
+        if len(self.riot_id) <= 12: # Sinon trop long et écrase le kda
+            d.text((x_name-240, y_name+60), self.riot_id, font=font, fill=fill)
 
-        im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
-                 box=(x_name-240, y_name-20))
 
-        im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100, self.version['n']['profileicon']),
-                 box=(x_name-120, y_name-20))
+            im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
+                    box=(x_name-240, y_name-50))
+
+            im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100, self.version['n']['profileicon']),
+                    box=(x_name-120, y_name-50))
+        else:
+            im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
+                    box=(x_name-240, y_name-20))
+
+            im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100, self.version['n']['profileicon']),
+                    box=(x_name-120, y_name-20))
 
         d.text((x_name+1000, y_name-20),
                f"Niveau {self.level_summoner}", font=font_little, fill=fill)
@@ -3606,7 +3614,7 @@ class matchlol():
                            f' {nb_games} P | {mvp} MVP', font=font_little, fill=fill)
                 
             if ratio_victoire >= 60:
-                color_victoire = (225, 141, 39)
+                color_victoire = (255, 140, 0)
             elif ratio_victoire >= 50:
                 color_victoire = (85, 85, 255)
             else:
@@ -3617,7 +3625,7 @@ class matchlol():
             
 
             if kda >= 5:
-                color_kda = (225, 141, 39)
+                color_kda = (255, 140, 0)
             elif kda >= 4:
                 color_kda = (85, 85, 255)
             elif kda >= 3:
