@@ -45,6 +45,7 @@ class LolAccount(Extension):
                      riot_id,
                      riot_tag):
 
+        await ctx.defer(ephemeral=True)
         discord_id = int(ctx.author.id)
         df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col=None)
         
@@ -97,10 +98,11 @@ class LolAccount(Extension):
     async def tracker_mes_parametres(self,
                                      ctx: SlashContext):
 
+        await ctx.defer(ephemeral=True)
         df = lire_bdd_perso(
             f'''SELECT index, activation, spec_tracker, challenges, insights, server_id, nb_challenges, affichage, riot_id, riot_tagline, save_records FROM tracker WHERE discord = '{int(ctx.author.id)}' and banned = false ''').transpose()
 
-        await ctx.defer(ephemeral=True)
+        
         if df.empty:
             await ctx.send("Tu n'as pas encore ajouté de compte ou tu es banni", ephemeral=True)
         else:

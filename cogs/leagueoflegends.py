@@ -341,7 +341,8 @@ class LeagueofLegends(Extension):
                              'deaths_min' : match_info.deaths_min,
                              'assists_min' : match_info.assists_min,
                              'crit_dmg' : match_info.largest_crit,
-                             'immobilisation' : match_info.enemy_immobilisation}
+                             'immobilisation' : match_info.enemy_immobilisation,
+                             'temps_cc_inflige' : match_info.totaltimeCCdealt}
             
 
             if match_info.thisQ in ['RANKED', 'FLEX']:
@@ -376,7 +377,9 @@ class LeagueofLegends(Extension):
                                             'first_quadra' : match_info.timestamp_quadrakill,
                                             'first_penta' : match_info.timestamp_pentakill,
                                             'first_niveau_max' : match_info.timestamp_niveau_max,
-                                            'first_blood' : match_info.timestamp_first_blood}
+                                            'first_blood' : match_info.timestamp_first_blood,
+                                            'tower' : match_info.thisTowerTeam,
+                                            'inhib' : match_info.thisInhibTeam}
             else:
                 param_records_only_ranked = {}
             
@@ -525,78 +528,65 @@ class LeagueofLegends(Extension):
 
         # on va chercher les stats du joueur:
 
-        time = 10 if match_info.thisQ == 'ARAM' else 15
-        stats_joueur_saison = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
-                    (count(victoire) filter (where victoire = True)) as victoire,
-                    avg(kp) as kp,
-                    count(victoire) as nb_games,
-                    (avg(mvp) filter (where mvp != 0)) as mvp
-                    from matchs
-                    INNER JOIN tracker on matchs.joueur = tracker.id_compte
-                    WHERE tracker.id_compte = {id_compte}
-                    and champion = '{match_info.thisChampName}'
-                    and season = {saison}
-                    and mode = '{match_info.thisQ}'
-                    and time > {time}
-                    GROUP BY tracker.id_compte''', index_col='id_compte').transpose()
+        # time = 10 if match_info.thisQ == 'ARAM' else 15
         
-        stats_joueur_split = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
-                    (count(victoire) filter (where victoire = True)) as victoire,
-                    avg(kp) as kp,
-                    count(victoire) as nb_games,
-                    (avg(mvp) filter (where mvp != 0)) as mvp
-                    from matchs
-                    INNER JOIN tracker on matchs.joueur = tracker.id_compte
-                    WHERE tracker.id_compte = {id_compte}
-                    and champion = '{match_info.thisChampName}'
-                    and season = {saison}
-                    and mode = '{match_info.thisQ}'
-                    and time > {time}
-                    and split = {match_info.split}
-                    GROUP BY tracker.id_compte''', index_col='id_compte').transpose()
+        # stats_joueur_split = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
+        #             (count(victoire) filter (where victoire = True)) as victoire,
+        #             avg(kp) as kp,
+        #             count(victoire) as nb_games,
+        #             (avg(mvp) filter (where mvp != 0)) as mvp
+        #             from matchs
+        #             INNER JOIN tracker on matchs.joueur = tracker.id_compte
+        #             WHERE tracker.id_compte = {id_compte}
+        #             and champion = '{match_info.thisChampName}'
+        #             and season = {saison}
+        #             and mode = '{match_info.thisQ}'
+        #             and time > {time}
+        #             and split = {match_info.split}
+        #             GROUP BY tracker.id_compte''', index_col='id_compte').transpose()
 
-        def stats_joueur(df, embed, id_compte, titre=None, inline=True):
+        # def stats_joueur(df, embed, id_compte, titre=None, inline=True):
 
-            k = round(
-                df.loc[id_compte, 'kills'], 1)
-            d = round(
-                df.loc[id_compte, 'deaths'], 1)
-            a = round(
-                df.loc[id_compte, 'assists'], 1)
-            kp = int(df.loc[id_compte, 'kp'])
+        #     k = round(
+        #         df.loc[id_compte, 'kills'], 1)
+        #     d = round(
+        #         df.loc[id_compte, 'deaths'], 1)
+        #     a = round(
+        #         df.loc[id_compte, 'assists'], 1)
+        #     kp = int(df.loc[id_compte, 'kp'])
             
-            try:
-                mvp = round(
-                    df.loc[id_compte, 'mvp'], 1)
-            except TypeError:
-                mvp = 0
-            ratio_victoire = int((df.loc[id_compte, 'victoire'] / df.loc[id_compte, 'nb_games'])*100)
-            nb_games = int(
-                df.loc[id_compte, 'nb_games'])
+        #     try:
+        #         mvp = round(
+        #             df.loc[id_compte, 'mvp'], 1)
+        #     except TypeError:
+        #         mvp = 0
+        #     ratio_victoire = int((df.loc[id_compte, 'victoire'] / df.loc[id_compte, 'nb_games'])*100)
+        #     nb_games = int(
+        #         df.loc[id_compte, 'nb_games'])
             
-            if titre != None:
-                if mvp == 0:
-                    embed.add_field(
-                        name=f"{titre} : {nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
-                else:
-                    embed.add_field(
-                        name=f"{titre} : {nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
+        #     if titre != None:
+        #         if mvp == 0:
+        #             embed.add_field(
+        #                 name=f"{titre} : {nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
+        #         else:
+        #             embed.add_field(
+        #                 name=f"{titre} : {nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
             
-            else:
-                if mvp == 0:
-                    embed.add_field(
-                        name=f"{nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
-                else:
-                    embed.add_field(
-                        name=f"{nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
+        #     else:
+        #         if mvp == 0:
+        #             embed.add_field(
+        #                 name=f"{nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
+        #         else:
+        #             embed.add_field(
+        #                 name=f"{nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
                 
-            return embed 
+        #     return embed 
 
-        # if not stats_joueur_saison.empty and match_info.split != 1:
-        #     embed = stats_joueur(stats_joueur_saison, embed, id_compte, 'Saison')
+        # # if not stats_joueur_saison.empty and match_info.split != 1:
+        # #     embed = stats_joueur(stats_joueur_saison, embed, id_compte, 'Saison')
         
-        if not stats_joueur_split.empty:
-            embed = stats_joueur(stats_joueur_split, embed, id_compte)
+        # if not stats_joueur_split.empty:
+        #     embed = stats_joueur(stats_joueur_split, embed, id_compte)
 
 
 

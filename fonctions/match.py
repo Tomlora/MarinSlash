@@ -2508,6 +2508,8 @@ class matchlol():
                                 LEFT JOIN data_proplayers ON data_acc_proplayers.joueur = data_proplayers.plug
                                      WHERE region = 'EUW' ''', index_col=None).T
         
+        df_data_pro['compte'] = df_data_pro['compte'].apply(lambda x: x.split('#')[0])
+        
         self.observations_proplayers = ''
         for num_joueur, joueur in enumerate(self.thisPseudoListe):
             if joueur in df_data_pro['compte'].tolist():
@@ -3456,7 +3458,7 @@ class matchlol():
         if not self.thisQ in ["ARAM", "CLASH ARAM"]:
 
 
-            tower = await get_image('monsters', 'tower', self.session)
+            tower = await get_image('monsters', 'tower', self.session, resize_y=100)
             inhibiteur = await get_image('monsters', 'inhibitor', self.session)
             drk = await get_image('monsters', 'dragon', self.session)
             elder = await get_image('monsters', 'elder', self.session)
@@ -3465,7 +3467,7 @@ class matchlol():
             horde = await get_image('monsters', 'horde', self.session)
             atakhan = await get_image('monsters', 'atakhan', self.session)
 
-            im.paste(tower, (x_objectif - 400, 10 + 190), tower.convert('RGBA'))
+            im.paste(tower, (x_objectif - 400, 190), tower.convert('RGBA'))
             d.text((x_objectif - 400 + 100, 25 + 190), str(self.thisTowerTeam),
                    font=font, fill=fill)
             
@@ -3554,6 +3556,93 @@ class matchlol():
                            f'Victoires 24h : {difwin}', font=font_little, fill=fill)                    
                 d.text((x_metric + 1460, y_name+50),
                            f'Defaites 24h : {diflos}', font=font_little, fill=fill)
+                
+
+        time = 10 if self.thisQ == 'ARAM' else 15
+        
+        stats_joueur_split = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
+                    (count(victoire) filter (where victoire = True)) as victoire,
+                    avg(kp) as kp,
+                    avg(kda) as kda,
+                    count(victoire) as nb_games,
+                    (avg(mvp) filter (where mvp != 0)) as mvp
+                    from matchs
+                    INNER JOIN tracker on matchs.joueur = tracker.id_compte
+                    WHERE tracker.id_compte = {self.id_compte}
+                    and champion = '{self.thisChampName}'
+                    and season = {self.season}
+                    and mode = '{self.thisQ}'
+                    and time > {time}
+                    and split = {self.split}
+                    GROUP BY tracker.id_compte''', index_col='id_compte').transpose()
+
+        if not stats_joueur_split.empty:
+            k = round(
+                    stats_joueur_split.loc[self.id_compte, 'kills'], 1)
+            deaths = round(
+                    stats_joueur_split.loc[self.id_compte, 'deaths'], 1)
+            a = round(
+                    stats_joueur_split.loc[self.id_compte, 'assists'], 1)
+            kp = int(stats_joueur_split.loc[self.id_compte, 'kp'])
+
+            kda = round(stats_joueur_split.loc[self.id_compte, 'kda'], 2)
+                
+            try:
+                mvp = round(stats_joueur_split.loc[self.id_compte, 'mvp'], 1)
+            except TypeError:
+                mvp = 0
+
+            ratio_victoire = int((stats_joueur_split.loc[self.id_compte, 'victoire'] / stats_joueur_split.loc[self.id_compte, 'nb_games'])*100)
+            nb_games = int(stats_joueur_split.loc[self.id_compte, 'nb_games'])
+                
+
+
+            if mvp == 0:
+                d.text((x_metric + 300, y_name-50),
+                           f' {nb_games} P', font=font_little, fill=fill)
+            else:
+
+                d.text((x_metric + 300, y_name-50),
+                           f' {nb_games} P | {mvp} MVP', font=font_little, fill=fill)
+                
+            if ratio_victoire >= 60:
+                color_victoire = (225, 141, 39)
+            elif ratio_victoire >= 50:
+                color_victoire = (85, 85, 255)
+            else:
+                color_victoire = fill
+                
+            d.text((x_metric + 300, y_name+10),
+                           f' {ratio_victoire}% V', font=font_little, fill=color_victoire)    
+            
+
+            if kda >= 5:
+                color_kda = (225, 141, 39)
+            elif kda >= 4:
+                color_kda = (85, 85, 255)
+            elif kda >= 3:
+                color_kda = (0, 128, 0)
+            else:
+                color_kda = fill
+            
+
+
+            
+            d.text((x_metric + 300, y_name+70),
+                           f' {kda}', font=font_little, fill=color_kda)     
+
+            d.text((x_metric + 410, y_name+70),
+                           f'({k} /', font=font_little, fill=fill)     
+
+            d.text((x_metric + 515, y_name+70),
+                           f' {deaths} /', font=font_little, fill=fill)      
+
+            d.text((x_metric + 615, y_name+70),
+                           f' {a})', font=font_little, fill=fill)  
+
+            # d.text((x_metric + 570, y_name+60),
+            #                f'({kp}% KP)', font=font_little, fill=fill)  
+                
 
 
         im.save(f'{name_img}.png')
