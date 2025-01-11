@@ -3614,9 +3614,11 @@ class matchlol():
                            f' {nb_games} P | {mvp} MVP', font=font_little, fill=fill)
                 
             if ratio_victoire >= 60:
-                color_victoire = (255, 140, 0)
+                color_victoire = (255, 119, 0)
             elif ratio_victoire >= 50:
                 color_victoire = (85, 85, 255)
+            elif ratio_victoire <= 30 and nb_games >= 10:
+                color_victoire = (220, 20, 60)
             else:
                 color_victoire = fill
                 
@@ -3625,11 +3627,13 @@ class matchlol():
             
 
             if kda >= 5:
-                color_kda = (255, 140, 0)
+                color_kda = (255, 119, 0) # (255, 140, 0)
             elif kda >= 4:
                 color_kda = (85, 85, 255)
             elif kda >= 3:
                 color_kda = (0, 128, 0)
+            elif kda < 1:
+                color_kda = (220, 20, 60)
             else:
                 color_kda = fill
             
