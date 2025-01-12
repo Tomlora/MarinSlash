@@ -954,6 +954,8 @@ class AnalyseLoLSeason(Extension):
         if nbjours != None:
             df = df[df['datetime'] >= datetime.now() - timedelta(days=nbjours)]
 
+        df = df.sort_values(by='datetime', ascending=True).reset_index(drop=True)
+
         df['datetime_id'] = pd.factorize(df['datetime'])[0]
 
 
@@ -1016,7 +1018,6 @@ class AnalyseLoLSeason(Extension):
             # dates =np.linspace(0, 10000, 500)  pd.date_range(start="2023-01-01", end="2023-12-31", periods=500)  # Axe X : de janvier à décembre
             # x =  np.arange(gap, nb_games + gap, 1)
             x = np.array(df['datetime_id'].tolist())
-            x = x[::-1]
             y = np.array(df['points'].tolist())               # Exemple de courbe : y = log(x + 1)
 
 
@@ -1046,7 +1047,7 @@ class AnalyseLoLSeason(Extension):
         x = [0]      
         for i, joueur in enumerate(df['riot_id'].unique()):
             df_filter = df[df['riot_id'] == joueur]
-            df_filter.sort_values(by='datetime_id', ascending=False, inplace=True)
+            # df_filter.sort_values(by='datetime_id', ascending=False, inplace=True)
             ax, lc = creation_ligne(df_filter, ax)
 
             if i == 1:
