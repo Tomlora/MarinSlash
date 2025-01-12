@@ -342,8 +342,15 @@ class LeagueofLegends(Extension):
                              'assists_min' : match_info.assists_min,
                              'crit_dmg' : match_info.largest_crit,
                              'immobilisation' : match_info.enemy_immobilisation,
-                             'temps_cc_inflige' : match_info.totaltimeCCdealt}
-            
+                             'temps_cc_inflige' : match_info.totaltimeCCdealt,
+                             'dmg_true_all' : match_info.thisDamageTrueAllNoFormat,
+                            'dmg_true_all_min' : match_info.thisDamageTrueAllPerMinute,
+                            'dmg_ad_all' : match_info.thisDamageADAllNoFormat,
+                            'dmg_ad_all_min' : match_info.thisDamageADAllPerMinute,
+                            'dmg_ap_all' : match_info.thisDamageAPAllNoFormat,
+                            'dmg_ap_all_min' : match_info.thisDamageAPAllPerMinute,
+                            'dmg_all' : match_info.thisDamageAllNoFormat,
+                            'dmg_all_min' : match_info.thisDamageAllPerMinute}
 
             if match_info.thisQ in ['RANKED', 'FLEX']:
                 param_records_only_ranked = {'vision_score': match_info.thisVision,

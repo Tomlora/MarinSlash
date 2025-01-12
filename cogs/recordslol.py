@@ -119,7 +119,15 @@ emote_v2 = {
     'immobilisation' : ':stop_sign:',
     'temps_CC_inflige' : ':timer:',
     'tower' : ':tokyo_tower:',
-    'inhib' : ':tokyo_tower:'
+    'inhib' : ':tokyo_tower:',
+    'dmg_true_all' : ':dart:',
+    'dmg_true_all_min' : ':dart:',
+    'dmg_ad_all' : ':dart:',
+    'dmg_ad_all_min' : ':dart:',
+    'dmg_ap_all' : ':dart:',
+    'dmg_ap_all_min' : ':dart:',
+    'dmg_all' : ':dart:',
+    'dmg_all_min' : ':dart:'
 }
 
 
@@ -140,12 +148,12 @@ class Recordslol(Extension):
         self.time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20} # minutes minimum pour compter dans les records
         
         self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_blood', 'kills_min', 'deaths_min', 'assists_min'] 
-        self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold', 'crit_dmg']
+        self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold', 'crit_dmg', 'dmg_true_all', 'dmg_true_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min', 'dmg_all', 'dmg_all_min']
         self.fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
         self.fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
         self.fichier_tank_heal = ['dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
         self.fichier_objectif = ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib']
-        self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation', 'temps_CC_inflige']
+        self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation', 'temps_cc_inflige']
         self.fichier_stats = ['abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'first_niveau_max']
         self.fichier_timer = ["ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
                                         "BUILDING_KILL_20", "BUILDING_KILL_30",
@@ -890,11 +898,11 @@ class Recordslol(Extension):
         if mode in ['RANKED', 'FLEX']:
             liste_records = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills', 
             'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
-            'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage', 'kills_min', 'deaths_min', 'assists_min',
+            'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage', 'kills_min', 'deaths_min', 'assists_min', 'dmg_all', 'dmg_all_min',
             'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
             'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'petales_sanglants',
             'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold', 
-            'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles', 'crit_dmg', 'immobilisation',
+            'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles', 'crit_dmg', 'immobilisation', 'dmg_true_all', 'dmg_true_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min',
             'abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'fourth_dragon',
             'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'tower', 'inhib', 'temps_cc_inflige',
             "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
@@ -912,8 +920,8 @@ class Recordslol(Extension):
             liste_records = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills', 
             'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min',
             'cs', 'cs_min', 'cs_dix_min', 'cs_max_avantage', 'kills_min', 'deaths_min', 'assists_min',
-            'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
-            'baron', 'drake', 'dmg_tower', 'crit_dmg', 'immobilisation', 'temps_cc_inflige',
+            'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min', 'dmg_all', 'dmg_all_min',
+            'baron', 'drake', 'dmg_tower', 'crit_dmg', 'immobilisation', 'temps_cc_inflige', 'dmg_true_all', 'dmg_true_all_min',
             'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort',
             'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used']
 

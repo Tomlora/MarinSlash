@@ -1071,6 +1071,13 @@ class matchlol():
         self.thisDamageTrue = self.match_detail_participants['trueDamageDealtToChampions']
         self.thisDamageTrueNoFormat = self.match_detail_participants['trueDamageDealtToChampions']
 
+        self.thisDamageTrueAllNoFormat = self.match_detail_participants['trueDamageDealt']
+
+        self.thisDamageADAllNoFormat = self.match_detail_participants['physicalDamageDealt']
+        self.thisDamageAPAllNoFormat = self.match_detail_participants['magicDamageDealt']
+
+        self.thisDamageAllNoFormat = self.match_detail_participants['totalDamageDealt']
+
         self.thisDoubleListe = dict_data(
             self.thisId, self.match_detail, 'doubleKills')
         self.thisTripleListe = dict_data(
@@ -1146,6 +1153,22 @@ class matchlol():
         self.thisGoldPerMinute = round((self.thisGold / self.thisTime), 2)
         self.thisDamagePerMinute = round(
             int(self.match_detail_participants['totalDamageDealtToChampions']) / self.thisTime, 0)
+
+        self.thisDamageTrueAllPerMinute = round(
+            int(self.match_detail_participants['trueDamageDealt']) / self.thisTime, 0)
+        
+
+        self.thisDamageADAllPerMinute = round(
+            int(self.match_detail_participants['physicalDamageDealt']) / self.thisTime, 0)
+        
+        self.thisDamageAPAllPerMinute = round(
+            int(self.match_detail_participants['magicDamageDealt']) / self.thisTime, 0)
+        
+
+        self.thisDamageAllPerMinute = round(
+            int(self.match_detail_participants['totalDamageDealt']) / self.thisTime, 0)
+        
+
 
         async with self.session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{self.info_account['id']}",
                                     params=self.params_me) as session4:
@@ -1954,14 +1977,16 @@ class matchlol():
             baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
             item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
-            split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min, ecart_cs, petales_sanglants, atakhan, crit_dmg, immobilisation, skillshot_hit, temps_cc_inflige, tower, inhib)
+            split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min, ecart_cs, petales_sanglants, atakhan, crit_dmg, immobilisation, skillshot_hit, temps_cc_inflige, tower, inhib,
+            dmg_true_all, dmg_true_all_min, dmg_ad_all, dmg_ad_all_min, dmg_ap_all, dmg_ap_all_min, dmg_all, dmg_all_min)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
             :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
-            :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit, :temps_cc_inflige, :tower, :inhib);
+            :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit, :temps_cc_inflige, :tower, :inhib,
+            :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
             UPDATE prev_lol SET match_id = :match_id where riot_id = :riot_id and riot_tag = :riot_tagline and match_id = '' ''',
                 {
@@ -2068,7 +2093,15 @@ class matchlol():
                     'skillshot_hit' : self.thisSkillshot_hit,
                     'temps_cc_inflige' : self.totaltimeCCdealt,
                     'tower' : self.thisTowerTeam,
-                    'inhib' : self.thisInhibTeam
+                    'inhib' : self.thisInhibTeam,
+                    'dmg_true_all' : self.thisDamageTrueAllNoFormat,
+                    'dmg_true_all_min' : self.thisDamageTrueAllPerMinute,
+                    'dmg_ad_all' : self.thisDamageADAllNoFormat,
+                    'dmg_ad_all_min' : self.thisDamageADAllPerMinute,
+                    'dmg_ap_all' : self.thisDamageAPAllNoFormat,
+                    'dmg_ap_all_min' : self.thisDamageAPAllPerMinute,
+                    'dmg_all' : self.thisDamageAllNoFormat,
+                    'dmg_all_min' : self.thisDamageAllPerMinute,
 
                 },
             )
@@ -3571,7 +3604,6 @@ class matchlol():
         stats_joueur_split = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
                     (count(victoire) filter (where victoire = True)) as victoire,
                     avg(kp) as kp,
-                    avg(kda) as kda,
                     count(victoire) as nb_games,
                     (avg(mvp) filter (where mvp != 0)) as mvp
                     from matchs
@@ -3593,7 +3625,10 @@ class matchlol():
                     stats_joueur_split.loc[self.id_compte, 'assists'], 1)
             kp = int(stats_joueur_split.loc[self.id_compte, 'kp'])
 
-            kda = round(stats_joueur_split.loc[self.id_compte, 'kda'], 2)
+            if deaths == 0:
+                kda = round((k+a),2)
+            else:
+                kda = round((k+a)/deaths,2)
                 
             try:
                 mvp = round(stats_joueur_split.loc[self.id_compte, 'mvp'], 1)
@@ -3611,7 +3646,7 @@ class matchlol():
             else:
 
                 d.text((x_metric + 300, y_name-50),
-                           f' {nb_games} P | {mvp} MVP', font=font_little, fill=fill)
+                           f' {nb_games} Parties | {mvp} MVP', font=font_little, fill=fill)
                 
             if ratio_victoire >= 60:
                 color_victoire = (255, 119, 0)
@@ -3644,13 +3679,13 @@ class matchlol():
                            f' {kda}', font=font_little, fill=color_kda)     
 
             d.text((x_metric + 410, y_name+70),
-                           f'({k} /', font=font_little, fill=fill)     
+                           f'({k} / {deaths} / {a})', font=font_little, fill=fill)     
 
-            d.text((x_metric + 515, y_name+70),
-                           f' {deaths} /', font=font_little, fill=fill)      
+            # d.text((x_metric + 515, y_name+70),
+            #                f' {deaths} /', font=font_little, fill=fill)      
 
-            d.text((x_metric + 615, y_name+70),
-                           f' {a})', font=font_little, fill=fill)  
+            # d.text((x_metric + 615, y_name+70),
+            #                f' {a})', font=font_little, fill=fill)  
 
             # d.text((x_metric + 570, y_name+60),
             #                f'({kp}% KP)', font=font_little, fill=fill)  
