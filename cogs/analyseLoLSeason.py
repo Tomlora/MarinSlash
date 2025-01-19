@@ -1214,7 +1214,186 @@ class AnalyseLoLSeason(Extension):
         liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
 
         await ctx.send(choices=liste_choix)
+
+    @lol_analyse_season.subcommand("gold_max_min",
+                            sub_cmd_description="Ecart maximal sur chaque role",
+                            options=[
+                                SlashCommandOption(
+                                    name="riot_id",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=True,
+                                    autocomplete=True),
+                                SlashCommandOption(
+                                    name="riot_tag",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=False),
+                                SlashCommandOption(
+                                    name="saison",
+                                    description="Quelle saison?",
+                                    type=interactions.OptionType.INTEGER,
+                                    required=False)])
+    async def gold_max_min(self,
+                      ctx: SlashContext,
+                      riot_id: str,
+                      riot_tag:str = None,
+                      saison = saison):
+
+    
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
+
+        riot_id = riot_id.lower().replace(' ', '')
+        riot_tag = riot_tag.upper()
+
+        req_sql = f'''WITH extremes AS (
+        SELECT 
+            matchs.match_id, 
+            matchs_autres.ecart_gold_top, 
+            matchs_autres.ecart_gold_jgl, 
+            matchs_autres.ecart_gold_mid, 
+            matchs_autres.ecart_gold_adc, 
+            matchs_autres.ecart_gold_supp
+        FROM 
+            matchs_autres
+        INNER JOIN 
+            matchs 
+            ON matchs.match_id = matchs_autres.match_id
+        WHERE 
+            joueur = (select id_compte from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}') AND season = {saison} AND mode = 'RANKED'
+    ),
+    max_values AS (
+        SELECT 
+            MAX(ecart_gold_top) AS max_top,
+            MAX(ecart_gold_jgl) AS max_jgl,
+            MAX(ecart_gold_mid) AS max_mid,
+            MAX(ecart_gold_adc) AS max_adc,
+            MAX(ecart_gold_supp) AS max_supp,
+            MIN(ecart_gold_top) AS min_top,
+            MIN(ecart_gold_jgl) AS min_jgl,
+            MIN(ecart_gold_mid) AS min_mid,
+            MIN(ecart_gold_adc) AS min_adc,
+            MIN(ecart_gold_supp) AS min_supp
+        FROM 
+            extremes
+    )
+    SELECT 
+        'ecart_gold_top' AS column_name,
+        max_values.max_top AS max_value,
+        (SELECT match_id FROM extremes WHERE ecart_gold_top = max_values.max_top LIMIT 1) AS max_match_id,
+        (SELECT champ1 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_top = max_values.max_top LIMIT 1)) AS champ_allie_max,
+        (SELECT champ6 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_top = max_values.max_top LIMIT 1)) AS champ_ennemi_max,
+        max_values.min_top AS min_value,
+        (SELECT match_id FROM extremes WHERE ecart_gold_top = max_values.min_top LIMIT 1) AS min_match_id,
+        (SELECT champ1 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_top = max_values.min_top LIMIT 1)) AS champ_allie_min,
+        (SELECT champ6 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_top = max_values.min_top LIMIT 1)) AS champ_ennemi_min
+    FROM 
+        max_values
+    UNION ALL
+    SELECT 
+        'ecart_gold_jgl' AS column_name,
+        max_values.max_jgl,
+        (SELECT match_id FROM extremes WHERE ecart_gold_jgl = max_values.max_jgl LIMIT 1),
+        (SELECT champ2 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_jgl = max_values.max_jgl LIMIT 1)) AS champ_allie_max,
+        (SELECT champ7 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_jgl = max_values.max_jgl LIMIT 1)) AS champ_ennemi_max,
+        max_values.min_jgl,
+        (SELECT match_id FROM extremes WHERE ecart_gold_jgl = max_values.min_jgl LIMIT 1),
+        (SELECT champ2 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_jgl = max_values.min_jgl LIMIT 1)) AS champ_allie_min,
+        (SELECT champ7 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_jgl = max_values.min_jgl LIMIT 1)) AS champ_ennemi_min
+    FROM 
+        max_values
+    UNION ALL
+    SELECT 
+        'ecart_gold_mid' AS column_name,
+        max_values.max_mid,
+        (SELECT match_id FROM extremes WHERE ecart_gold_mid = max_values.max_mid LIMIT 1),
+        (SELECT champ3 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_mid = max_values.max_mid LIMIT 1)) AS champ_allie_max,
+        (SELECT champ8 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_mid = max_values.max_mid LIMIT 1)) AS champ_ennemi_max,
+        max_values.min_mid,
+        (SELECT match_id FROM extremes WHERE ecart_gold_mid = max_values.min_mid LIMIT 1),
+        (SELECT champ3 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_mid = max_values.min_mid LIMIT 1)) AS champ_allie_min,
+        (SELECT champ8 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_mid = max_values.min_mid LIMIT 1)) AS champ_ennemi_min
+    FROM 
+        max_values
+    UNION ALL
+    SELECT 
+        'ecart_gold_adc' AS column_name,
+        max_values.max_adc,
+        (SELECT match_id FROM extremes WHERE ecart_gold_adc = max_values.max_adc LIMIT 1),
+        (SELECT champ4 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_adc = max_values.max_adc LIMIT 1)) AS champ_allie_max,
+        (SELECT champ9 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_adc = max_values.max_adc LIMIT 1)) AS champ_ennemi_max,
+        max_values.min_adc,
+        (SELECT match_id FROM extremes WHERE ecart_gold_adc = max_values.min_adc LIMIT 1),
+        (SELECT champ4 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_adc = max_values.min_adc LIMIT 1)) AS champ_allie_min,
+        (SELECT champ9 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_adc = max_values.min_adc LIMIT 1)) AS champ_ennemi_min
+    FROM 
+        max_values
+    UNION ALL
+    SELECT 
+        'ecart_gold_supp' AS column_name,
+        max_values.max_supp,
+        (SELECT match_id FROM extremes WHERE ecart_gold_supp = max_values.max_supp LIMIT 1),
+        (SELECT champ5 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_supp = max_values.max_supp LIMIT 1)) AS champ_allie_max,
+        (SELECT champ10 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_supp = max_values.max_supp LIMIT 1)) AS champ_ennemi_max,
+        max_values.min_supp,
+        (SELECT match_id FROM extremes WHERE ecart_gold_supp = max_values.min_supp LIMIT 1),
+        (SELECT champ1 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_supp = max_values.min_supp LIMIT 1)) AS champ_allie_min,
+        (SELECT champ6 FROM matchs_joueur where match_id =  (SELECT match_id FROM extremes WHERE ecart_gold_supp = max_values.min_supp LIMIT 1)) AS champ_ennemi_min
+    FROM 
+        max_values;
+        '''
+
+        emote_champ_discord = lire_bdd_perso('SELECT * from data_champion', index_col='nom')\
+                                                                                    .T\
+                                                                                        .to_dict()\
+                                                                                            ['icon_identifiant']
         
+        df = lire_bdd_perso(req_sql, index_col=None).T 
+
+        embed = interactions.Embed(title=f'Ecart Min/Max en SoloQ :', color=0x00FF00)
+
+        for index, data in df.iterrows():
+
+            match_id1 = data[2]
+            match_id2 = data[6]
+    
+
+            url1 = f'https://www.leagueofgraphs.com/fr/match/euw/{match_id1[5:]}#participant3'
+            url2 = f'https://www.leagueofgraphs.com/fr/match/euw/{match_id2[5:]}#participant3'
+
+
+            champ_allie_max = data[3]
+            champ_ennemi_max = data[4]
+
+            champ_allie_min = data[7]
+            champ_ennemi_min = data[8]
+
+            emote_allie_max = emote_champ_discord.get(champ_allie_max.capitalize(), 'inconnu')
+            emote_ennemi_max = emote_champ_discord.get(champ_ennemi_max.capitalize(), 'inconnu')
+
+            emote_allie_min = emote_champ_discord.get(champ_allie_min.capitalize(), 'inconnu')
+            emote_ennemi_min = emote_champ_discord.get(champ_ennemi_min.capitalize(), 'inconnu')
+
+            
+
+            embed.add_field(name=f'{data[0]} :', value=f'  - max : {data[1]} ([G]({url1})) {emote_allie_max} vs {emote_ennemi_max}\n- min : {data[5]} ([G]({url2})) {emote_allie_min} vs {emote_ennemi_min}', inline=False)
+
+        await ctx.send(embed=embed)
+
+
+
+    
+    @gold_max_min.autocomplete("riot_id")
+    async def autocomplete_gold_min_max(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
+
 def setup(bot):
     AnalyseLoLSeason(bot)
 
