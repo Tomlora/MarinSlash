@@ -1557,11 +1557,15 @@ class Recordslol(Extension):
                 txt = ''
                 
                 
-                
-                for row, data in fichier.iterrows():
-                    champion = data['champion']
-                    txt += f'[{data[stat]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} S {data["season"]}\n'
-                
+                if saison != 0:
+                    for row, data in fichier.iterrows():
+                        champion = data['champion']
+                        txt += f'[{data[stat]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} \n'
+                else:
+                    for row, data in fichier.iterrows():
+                        champion = data['champion']
+                        txt += f'[{data[stat]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} (S{data["season"]})\n'
+                    
                 embed = interactions.Embed(title=f'Palmarès {stat} ({mode}) S{saison}', description=txt)
                 embed.set_footer(text=f"{nb_row} matchs analysés")
                 

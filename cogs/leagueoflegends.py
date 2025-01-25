@@ -129,6 +129,13 @@ def records_check2(fichier,
         ):
             embed += f"\n ** :first_place: Record Toute Saison - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_all} par {joueur_all})"
 
+        # en cas d'égalité
+        if (
+            float(record_all) == float(result_category_match)
+            and category not in category_exclusion_egalite
+        ):
+            embed += f"\n ** :first_place: Egalisation record toute saison - {emote_v2.get(category, ':star:')}__{category}__ **"
+
     return embed
 
 
