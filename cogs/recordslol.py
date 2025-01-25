@@ -145,7 +145,7 @@ choice_pantheon = [SlashCommandChoice(name="KDA", value="KDA"),
 class Recordslol(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        self.time_mini = {'RANKED' : 20, 'ARAM' : 10, 'FLEX' : 20} # minutes minimum pour compter dans les records
+        self.time_mini = {'RANKED' : 15, 'ARAM' : 10, 'FLEX' : 15} # minutes minimum pour compter dans les records
         
         self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_blood', 'kills_min', 'deaths_min', 'assists_min'] 
         self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold', 'crit_dmg', 'dmg_true_all', 'dmg_true_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min', 'dmg_all', 'dmg_all_min']
@@ -187,10 +187,10 @@ class Recordslol(Extension):
                 SlashCommandChoice(name='flex', value='FLEX')]),
         SlashCommandOption(
             name='saison',
-            description='saison league of legends',
+            description='saison league of legends. Si 0 alors toutes les saisons',
             type=interactions.OptionType.INTEGER,
             required=False,
-            min_value=12,
+            min_value=0,
             max_value=saison),
         SlashCommandOption(
             name='champion',
@@ -231,10 +231,10 @@ class Recordslol(Extension):
         ),
         SlashCommandOption(
             name='saison',
-            description='saison league of legends',
+            description='saison league of legends. Si 0 alors toutes les saisons. Si 0 alors toutes les saisons',
             type=interactions.OptionType.INTEGER,
             required=False,
-            min_value=13,
+            min_value=0,
             max_value=saison),
         SlashCommandOption(
             name='champion',
@@ -249,75 +249,137 @@ class Recordslol(Extension):
     async def records_list_general(self, ctx:SlashContext,
                                    saison:int=saison,
                                    mode:str = 'ranked',
-                                   joueur=None,
-                                   compte_discord:interactions.User=None,
                                    champion:str=None,
                                    view='global'):
         
         await ctx.defer(ephemeral=False)
         
         methode_pseudo = 'discord'
-        
-        if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
-                                        max_data_timeline."abilityHaste" AS "abilityHaste",
-                                        max_data_timeline."abilityPower" AS "abilityPower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackDamage",
-                                        max_data_timeline."currentGold" AS "currentGold",
-                                        max_data_timeline."healthMax" AS "healthMax",
-                                        max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed",
-                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
-                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10",
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
-                                                                             
-                                     from matchs
-                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
-                                     where season = {saison}
-                                     and mode = '{mode}'
-                                     and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false
-                                     and tracker.save_records = true ''', index_col='id').transpose()
-        elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
-                                        max_data_timeline."abilityHaste" AS "abilityHaste",
-                                        max_data_timeline."abilityPower" AS "abilityPower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackDamage",
-                                        max_data_timeline."currentGold" AS "currentGold",
-                                        max_data_timeline."healthMax" AS "healthMax",
-                                        max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed",
-                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
-                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10", 
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
-                                                                             
-                                     from matchs
-                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
-                                     where season = {saison}
-                                     and mode = '{mode}'
-                                     and server_id = {int(ctx.guild_id)}
-                                     and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false
-                                     and tracker.save_records = true ''', index_col='id').transpose()
 
+        if saison != 0:
+        
+            if view == 'global':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10",
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                                                                
+                                        from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where season = {saison}
+                                        and mode = '{mode}'
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''', index_col='id').transpose()
+            elif view == 'serveur':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10", 
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                                                                
+                                        from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where season = {saison}
+                                        and mode = '{mode}'
+                                        and server_id = {int(ctx.guild_id)}
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''', index_col='id').transpose()
+
+        else:
+            if view == 'global':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10",
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                                                                
+                                        from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where mode = '{mode}'
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''', index_col='id').transpose()
+            elif view == 'serveur':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10", 
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                                                                
+                                        from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where mode = '{mode}'
+                                        and server_id = {int(ctx.guild_id)}
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''', index_col='id').transpose()
         if champion != None:
             
             champion = champion.capitalize()
@@ -360,12 +422,24 @@ class Recordslol(Extension):
                 else:
                     text += f'**__{j}__** [{c}]({u}) \n'
             return text
+
+        def format_value_season(joueur, champion, url, liste_season, short=False):
+            text = ''
+            for j, c, u, s in zip(joueur, champion, url, liste_season):
+                if short:
+                    text += f'**__ {j} __ {c} S{s} ** \n'
+                else:
+                    text += f'**__{j}__** [{c}]({u}) S{s}\n'
+            return text
         
-        def creation_embed(fichier, column, methode_pseudo, embed, methode='max'):
-                joueur, champion, record, url = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo)
+        def creation_embed(fichier, column, methode_pseudo, embed, methode='max', saison=saison):
+                joueur, champion, record, url, season = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo)
                 # on montre l'image du champ uniquement quand le record appartient à une seule personne sinon on dépasse la limite de caractères
                 
-                value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"**{joueur[0]}** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]})\n"
+                if saison != 0:
+                    value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"**{joueur[0]}** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]})\n"
+                else:
+                    value_text = format_value_season(joueur, champion, url, season, short=False) if len(joueur) > 1 else f"**{joueur[0]}** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]}) S{season[0]}\n"
                 # value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"**{joueur[0]}** [{champion[0]}]({url[0]})\n"
                 
                 embed.add_field(
@@ -384,7 +458,7 @@ class Recordslol(Extension):
             if column in self.records_min:
                 methode = 'min'
             
-            embed1 = creation_embed(fichier, column, methode_pseudo, embed1, methode)
+            embed1 = creation_embed(fichier, column, methode_pseudo, embed1, methode, saison=saison)
           
 
         embed2 = interactions.Embed(
@@ -392,28 +466,28 @@ class Recordslol(Extension):
 
         for column in self.fichier_dmg:
             
-            embed2 = creation_embed(fichier, column, methode_pseudo, embed2)
+            embed2 = creation_embed(fichier, column, methode_pseudo, embed2, saison=saison)
 
         embed5 = interactions.Embed(
             title=title + " Farming", color=interactions.Color.random())
 
         for column in fichier_farming:
             
-            embed5 = creation_embed(fichier, column, methode_pseudo, embed5)
+            embed5 = creation_embed(fichier, column, methode_pseudo, embed5, saison=saison)
 
         embed6 = interactions.Embed(
             title=title + " Tank/Heal", color=interactions.Color.random())
 
         for column in self.fichier_tank_heal:
             
-            embed6 = creation_embed(fichier, column, methode_pseudo, embed6)
+            embed6 = creation_embed(fichier, column, methode_pseudo, embed6, saison=saison)
 
         embed7 = interactions.Embed(
             title=title + " Divers", color=interactions.Color.random())
 
         for column in fichier_divers:
             
-            embed7 = creation_embed(fichier, column, methode_pseudo, embed7)
+            embed7 = creation_embed(fichier, column, methode_pseudo, embed7, saison=saison)
             
 
         if mode != 'ARAM':
@@ -423,7 +497,7 @@ class Recordslol(Extension):
 
             for column in self.fichier_vision:
                 
-                embed3 = creation_embed(fichier, column, methode_pseudo, embed3)
+                embed3 = creation_embed(fichier, column, methode_pseudo, embed3, saison=saison)
 
                 
             embed4 = interactions.Embed(
@@ -434,7 +508,7 @@ class Recordslol(Extension):
                 if column in self.records_min:
                     methode = 'min'
                 
-                embed4 = creation_embed(fichier, column, methode_pseudo, embed4, methode)
+                embed4 = creation_embed(fichier, column, methode_pseudo, embed4, methode, saison=saison)
                 
             embed8 = interactions.Embed(
             title=title + " Stats", color=interactions.Color.random())
@@ -444,14 +518,14 @@ class Recordslol(Extension):
                 if column in self.records_min:
                     methode = 'min'
                 
-                embed8 = creation_embed(fichier, column, methode_pseudo, embed8, methode)
+                embed8 = creation_embed(fichier, column, methode_pseudo, embed8, methode, saison=saison)
                 
             embed9 = interactions.Embed(
                 title=title + " Timer", color=interactions.Color.random())
 
             for column in fichier_timer:
                 
-                embed9 = creation_embed(fichier, column, methode_pseudo, embed9)
+                embed9 = creation_embed(fichier, column, methode_pseudo, embed9, saison=saison)
 
         embed1.set_footer(text=f'Version {Version} by Tomlora')
         embed2.set_footer(text=f'Version {Version} by Tomlora')
@@ -495,66 +569,129 @@ class Recordslol(Extension):
         
         methode_pseudo = 'discord'
         
-        if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
-                                        max_data_timeline."abilityHaste" AS "abilityHaste",
-                                        max_data_timeline."abilityPower" AS "abilityPower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackDamage",
-                                        max_data_timeline."currentGold" AS "currentGold",
-                                        max_data_timeline."healthMax" AS "healthMax",
-                                        max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed",
-                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
-                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10", 
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
-                                        
-                                     from matchs
-                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
-                                     where season = {saison}
-                                     and mode = '{mode}'
-                                     and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false
-                                     and tracker.save_records = true ''', index_col='id').transpose()
-        elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
-                                        max_data_timeline."abilityHaste" AS "abilityHaste",
-                                        max_data_timeline."abilityPower" AS "abilityPower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackDamage",
-                                        max_data_timeline."currentGold" AS "currentGold",
-                                        max_data_timeline."healthMax" AS "healthMax",
-                                        max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed",
-                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
-                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10",
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
-                                                                             
-                                     from matchs
-                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
-                                     where season = {saison}
-                                     and mode = '{mode}'
-                                     and server_id = {int(ctx.guild_id)}
-                                     and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false
-                                     and tracker.save_records = true ''', index_col='id').transpose()
-            
+        if saison != 0:
+            if view == 'global':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10", 
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
+                                            
+                                        from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where season = {saison}
+                                        and mode = '{mode}'
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''', index_col='id').transpose()
+            elif view == 'serveur':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10",
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
+                                                                                
+                                        from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where season = {saison}
+                                        and mode = '{mode}'
+                                        and server_id = {int(ctx.guild_id)}
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''', index_col='id').transpose()
+        
+        else:
+            if view == 'global':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10", 
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
+                                            
+                                        from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where mode = '{mode}'
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''', index_col='id').transpose()
+            elif view == 'serveur':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10",
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
+                                                                                
+                                        from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where mode = '{mode}'
+                                        and server_id = {int(ctx.guild_id)}
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''', index_col='id').transpose()
         fichier['early_drake'] = fichier['early_drake'].replace({0 : 999})    
         fichier['early_baron'] = fichier['early_baron'].replace({0 : 999}) 
         
@@ -651,18 +788,33 @@ class Recordslol(Extension):
 
         def format_value(joueur, champion, url, short=False):
             text = ''
+
             for j, c, u in zip(joueur, champion, url):
                 if short:
                     text += f'**__ {j} __ {c} ** \n'
                 else:
                     text += f'**__{j}__** {emote_champ_discord.get(c.capitalize(), "inconnu")} [G]({u}) \n'
             return text
+
+        def format_value_season(joueur, champion, url, liste_season, short=False):
+            text = ''
+
+            for j, c, u, s in zip(joueur, champion, url, liste_season):
+                if short:
+                    text += f'**__ {j} __ {c} S{s} ** \n'
+                else:
+                    text += f'**__{j}__** {emote_champ_discord.get(c.capitalize(), "inconnu")} [G]({u}) S{s} \n'
+            return text
         
-        def creation_embed(fichier, column, methode_pseudo, embed, methode='max'):
-                joueur, champion, record, url, rank = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo, rank=True)
-            
-                value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"** {joueur[0]} ** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]})\n"
-                
+        def creation_embed(fichier, column, methode_pseudo, embed, methode='max', saison=saison):
+                joueur, champion, record, url, rank, season = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo, rank=True)
+
+                if saison != 0:
+                    value_text = format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"** {joueur[0]} ** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]})\n"
+                else:
+                    value_text = format_value_season(joueur, champion, url, season, short=False) if len(joueur) > 1 else f"** {joueur[0]} ** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]}) S{season[0]}\n"
+
+
                 embed.add_field(
                     name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
                     value=f"Records : __{record}__ (#{rank}) \n {value_text}",
@@ -679,7 +831,7 @@ class Recordslol(Extension):
             if column in self.records_min:
                 methode = 'min'
             
-            embed1 = creation_embed(fichier, column, methode_pseudo, embed1, methode)
+            embed1 = creation_embed(fichier, column, methode_pseudo, embed1, methode, saison=saison)
           
 
         embed2 = interactions.Embed(
@@ -687,28 +839,28 @@ class Recordslol(Extension):
 
         for column in self.fichier_dmg:
             
-            embed2 = creation_embed(fichier, column, methode_pseudo, embed2)
+            embed2 = creation_embed(fichier, column, methode_pseudo, embed2, saison=saison)
 
         embed5 = interactions.Embed(
             title=title + " Farming", color=interactions.Color.random())
 
         for column in fichier_farming:
             
-            embed5 = creation_embed(fichier, column, methode_pseudo, embed5)
+            embed5 = creation_embed(fichier, column, methode_pseudo, embed5, saison=saison)
 
         embed6 = interactions.Embed(
             title=title + " Tank/Heal", color=interactions.Color.random())
 
         for column in self.fichier_tank_heal:
             
-            embed6 = creation_embed(fichier, column, methode_pseudo, embed6)
+            embed6 = creation_embed(fichier, column, methode_pseudo, embed6, saison=saison)
 
         embed7 = interactions.Embed(
             title=title + " Divers", color=interactions.Color.random())
 
         for column in fichier_divers:
             
-            embed7 = creation_embed(fichier, column, methode_pseudo, embed7)
+            embed7 = creation_embed(fichier, column, methode_pseudo, embed7, saison=saison)
             
 
         if mode != 'ARAM':
@@ -718,7 +870,7 @@ class Recordslol(Extension):
 
             for column in self.fichier_vision:
                 
-                embed3 = creation_embed(fichier, column, methode_pseudo, embed3)
+                embed3 = creation_embed(fichier, column, methode_pseudo, embed3, saison=saison)
 
                 
             embed4 = interactions.Embed(
@@ -729,7 +881,7 @@ class Recordslol(Extension):
                 if column in self.records_min:
                     methode = 'min'
                 
-                embed4 = creation_embed(fichier, column, methode_pseudo, embed4, methode)
+                embed4 = creation_embed(fichier, column, methode_pseudo, embed4, methode, saison=saison)
                 
             embed8 = interactions.Embed(
             title=title + " Stats", color=interactions.Color.random())
@@ -739,14 +891,14 @@ class Recordslol(Extension):
                 if column in self.records_min:
                     methode = 'min'
                 
-                embed8 = creation_embed(fichier, column, methode_pseudo, embed8, methode)
+                embed8 = creation_embed(fichier, column, methode_pseudo, embed8, methode, saison=saison)
                 
             embed9 = interactions.Embed(
                 title=title + " Timer", color=interactions.Color.random())
 
             for column in fichier_timer:
                 
-                embed9 = creation_embed(fichier, column, methode_pseudo, embed9)
+                embed9 = creation_embed(fichier, column, methode_pseudo, embed9, saison=saison)
 
         embed1.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
         embed2.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
@@ -777,10 +929,10 @@ class Recordslol(Extension):
                                     options=[
                                         SlashCommandOption(
                                             name="saison",
-                                            description="saison lol ?",
+                                            description="saison lol ? Si 0 toutes les saisons",
                                             type=interactions.OptionType.INTEGER,
                                             required=False,
-                                            min_value=12,
+                                            min_value=0,
                                             max_value=saison),
                                         SlashCommandOption(
                                             name='mode',
@@ -832,66 +984,131 @@ class Recordslol(Extension):
 
         await session.close()
 
+        if saison != 0:
         # data
-        if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id,
-                                        max_data_timeline."abilityHaste" AS "abilityHaste",
-                                        max_data_timeline."abilityPower" AS "abilityPower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackDamage",
-                                        max_data_timeline."currentGold" AS "currentGold",
-                                        max_data_timeline."healthMax" AS "healthMax",
-                                        max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed",
-                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
-                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10",
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
-                                     
-                                     from matchs
-                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
-                                     where season = {saison}
-                                     and mode = '{mode}'
-                                     and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false
-                                     and tracker.save_records = true ''', index_col='id').transpose()
-        elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id,
-                                        max_data_timeline."abilityHaste" AS "abilityHaste",
-                                        max_data_timeline."abilityPower" AS "abilityPower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackDamage",
-                                        max_data_timeline."currentGold" AS "currentGold",
-                                        max_data_timeline."healthMax" AS "healthMax",
-                                        max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed",
-                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
-                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10", 
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
-                                     
-                                     from matchs
-                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
-                                     where season = {saison}
-                                     and mode = '{mode}'
-                                     and server_id = '{int(ctx.guild_id)}'
-                                     and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false
-                                     and tracker.save_records = true ''', index_col='id').transpose()
+            if view == 'global':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10",
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
+                                        
+                                        from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where season = {saison}
+                                        and mode = '{mode}'
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''', index_col='id').transpose()
+            elif view == 'serveur':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10", 
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
+                                        
+                                        from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where season = {saison}
+                                        and mode = '{mode}'
+                                        and server_id = '{int(ctx.guild_id)}'
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''', index_col='id').transpose()
+        
+        else:
+
+            if view == 'global':
+                        fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id,
+                                                    max_data_timeline."abilityHaste" AS "abilityHaste",
+                                                    max_data_timeline."abilityPower" AS "abilityPower",
+                                                    max_data_timeline.armor AS armor,
+                                                    max_data_timeline."attackDamage" AS "attackDamage",
+                                                    max_data_timeline."currentGold" AS "currentGold",
+                                                    max_data_timeline."healthMax" AS "healthMax",
+                                                    max_data_timeline."magicResist" AS "magicResist",
+                                                    max_data_timeline."movementSpeed" AS "movementSpeed",
+                                                    "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                                    "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                                    "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                                    "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                                    "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                                    "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                                    "TURRET_PLATE_DESTROYED_10",
+                                                    "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
+                                                
+                                                from matchs
+                                                INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                                LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                                LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                                where mode = '{mode}'
+                                                and time >= {self.time_mini[mode]}
+                                                and tracker.banned = false
+                                                and tracker.save_records = true
+                                                and matchs.records = true ''', index_col='id').transpose()
+            elif view == 'serveur':
+                        fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.discord, tracker.riot_id,
+                                                    max_data_timeline."abilityHaste" AS "abilityHaste",
+                                                    max_data_timeline."abilityPower" AS "abilityPower",
+                                                    max_data_timeline.armor AS armor,
+                                                    max_data_timeline."attackDamage" AS "attackDamage",
+                                                    max_data_timeline."currentGold" AS "currentGold",
+                                                    max_data_timeline."healthMax" AS "healthMax",
+                                                    max_data_timeline."magicResist" AS "magicResist",
+                                                    max_data_timeline."movementSpeed" AS "movementSpeed",
+                                                    "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                                    "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                                    "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                                    "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                                    "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                                    "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                                    "TURRET_PLATE_DESTROYED_10", 
+                                                    "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
+                                                
+                                                from matchs
+                                                INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                                LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                                LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                                where mode = '{mode}'
+                                                and server_id = '{int(ctx.guild_id)}'
+                                                and time >= {self.time_mini[mode]}
+                                                and tracker.banned = false
+                                                and tracker.save_records = true
+                                                and matchs.records = true ''', index_col='id').transpose()
 
         # liste records
 
@@ -937,7 +1154,7 @@ class Recordslol(Extension):
                     methode = 'min'
 
                 # Appel de la fonction trouver_records_multiples
-                joueur, champion, record, url_game = trouver_records_multiples(
+                joueur, champion, record, url_game, saison = trouver_records_multiples(
                     fichier, records, methode)
                 
                 # Ajout des joueurs dans la liste_joueurs_general
@@ -950,7 +1167,7 @@ class Recordslol(Extension):
                         fichier_champion = fichier[fichier['champion'] == champion]
 
                         # Appel de la fonction trouver_records_multiples
-                        joueur, champion, record, url_game = trouver_records_multiples(
+                        joueur, champion, record, url_game, saison = trouver_records_multiples(
                             fichier_champion, records, methode)
 
                         # Ajout des joueurs dans la liste_joueurs_champion
@@ -1033,7 +1250,7 @@ class Recordslol(Extension):
                     methode = 'min'
 
                 # Appel de la fonction trouver_records_multiples
-                joueur, champion, record, url_game = trouver_records_multiples(
+                joueur, champion, record, url_game, saison = trouver_records_multiples(
                     fichier, records, methode)
 
                 # Ajout des joueurs dans la liste_joueurs_champion
@@ -1066,10 +1283,10 @@ class Recordslol(Extension):
                                         ),
                                         SlashCommandOption(
                                             name="saison",
-                                            description="saison lol ?",
+                                            description="saison lol ? Si 0 alors toutes les saisons",
                                             type=interactions.OptionType.INTEGER,
                                             required=False,
-                                            min_value=12,
+                                            min_value=0,
                                             max_value=saison),
                                         SlashCommandOption(
                                             name='mode',
@@ -1139,70 +1356,137 @@ class Recordslol(Extension):
         await ctx.defer()
 
         stat = stat.lower()
-        # data
-        if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
-                                        max_data_timeline."abilityHaste" AS "abilityhaste",
-                                        max_data_timeline."abilityPower" AS "abilitypower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackdamage",
-                                        max_data_timeline."currentGold" AS "currentgold",
-                                        max_data_timeline."healthMax" AS "healthmax",
-                                        max_data_timeline."magicResist" AS "magicresist",
-                                        max_data_timeline."movementSpeed" AS "movementspeed",
-                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
-                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10",
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
-                                        
-                                        from matchs
-                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
-                                     where season = {saison}
-                                     and mode = '{mode}'
-                                     and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false
-                                     and tracker.save_records = true ''',
-                                     index_col='id').transpose()
 
-        elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
-                                        max_data_timeline."abilityHaste" AS "abilityhaste",
-                                        max_data_timeline."abilityPower" AS "abilitypower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackdamage",
-                                        max_data_timeline."currentGold" AS "currentgold",
-                                        max_data_timeline."healthMax" AS "healthmax",
-                                        max_data_timeline."magicResist" AS "magicresist",
-                                        max_data_timeline."movementSpeed" AS "movementspeed",
-                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
-                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30"
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10",
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
-                                                                             
-                                     from matchs, tracker
-                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                         LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
-                                         where season = {saison}
-                                         and mode = '{mode}'
-                                         and server_id = '{int(ctx.guild_id)}'
-                                         and time >= {self.time_mini[mode]}
-                                         and tracker.banned = false
-                                         and tracker.save_records = true ''',
-                                         index_col='id').transpose()
+        if saison != 0:
+        # data
+            if view == 'global':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityhaste",
+                                            max_data_timeline."abilityPower" AS "abilitypower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackdamage",
+                                            max_data_timeline."currentGold" AS "currentgold",
+                                            max_data_timeline."healthMax" AS "healthmax",
+                                            max_data_timeline."magicResist" AS "magicresist",
+                                            max_data_timeline."movementSpeed" AS "movementspeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10",
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                            
+                                            from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where season = {saison}
+                                        and mode = '{mode}'
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''',
+                                        index_col='id').transpose()
+
+            elif view == 'serveur':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityhaste",
+                                            max_data_timeline."abilityPower" AS "abilitypower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackdamage",
+                                            max_data_timeline."currentGold" AS "currentgold",
+                                            max_data_timeline."healthMax" AS "healthmax",
+                                            max_data_timeline."magicResist" AS "magicresist",
+                                            max_data_timeline."movementSpeed" AS "movementspeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30"
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10",
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                                                                
+                                        from matchs, tracker
+                                            INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                            LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                            LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                            where season = {saison}
+                                            and mode = '{mode}'
+                                            and server_id = '{int(ctx.guild_id)}'
+                                            and time >= {self.time_mini[mode]}
+                                            and tracker.banned = false
+                                            and tracker.save_records = true
+                                            and matchs.records = true ''',
+                                            index_col='id').transpose()
         
+        else:
+            if view == 'global':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityhaste",
+                                            max_data_timeline."abilityPower" AS "abilitypower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackdamage",
+                                            max_data_timeline."currentGold" AS "currentgold",
+                                            max_data_timeline."healthMax" AS "healthmax",
+                                            max_data_timeline."magicResist" AS "magicresist",
+                                            max_data_timeline."movementSpeed" AS "movementspeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10",
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                            
+                                            from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where mode = '{mode}'
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''',
+                                        index_col='id').transpose()
+
+            elif view == 'serveur':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityhaste",
+                                            max_data_timeline."abilityPower" AS "abilitypower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackdamage",
+                                            max_data_timeline."currentGold" AS "currentgold",
+                                            max_data_timeline."healthMax" AS "healthmax",
+                                            max_data_timeline."magicResist" AS "magicresist",
+                                            max_data_timeline."movementSpeed" AS "movementspeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30"
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10",
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                                                                
+                                        from matchs, tracker
+                                            INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                            LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                            LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                            where mode = '{mode}'
+                                            and server_id = '{int(ctx.guild_id)}'
+                                            and time >= {self.time_mini[mode]}
+                                            and tracker.banned = false
+                                            and tracker.save_records = true
+                                            and matchs.records = true ''',
+                                            index_col='id').transpose()
         
         fichier.columns = [col.lower() for col in fichier.columns]
             
@@ -1252,7 +1536,7 @@ class Recordslol(Extension):
         else:
             
             try:
-                fichier = fichier[['match_id', 'id_participant', 'discord', 'champion', stat, 'datetime']]
+                fichier = fichier[['match_id', 'id_participant', 'discord', 'champion', stat, 'datetime', 'season']]
                 
                 nb_row = fichier.shape[0]
                 
@@ -1276,7 +1560,7 @@ class Recordslol(Extension):
                 
                 for row, data in fichier.iterrows():
                     champion = data['champion']
-                    txt += f'[{data[stat]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month}\n'
+                    txt += f'[{data[stat]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} S {data["season"]}\n'
                 
                 embed = interactions.Embed(title=f'Palmarès {stat} ({mode}) S{saison}', description=txt)
                 embed.set_footer(text=f"{nb_row} matchs analysés")
@@ -1294,10 +1578,10 @@ class Recordslol(Extension):
                                     options=[
                                         SlashCommandOption(
                                             name="saison",
-                                            description="saison lol ?",
+                                            description="saison lol",
                                             type=interactions.OptionType.INTEGER,
                                             required=False,
-                                            min_value=12,
+                                            min_value=13,
                                             max_value=saison),
                                         SlashCommandOption(
                                             name='mode',
@@ -1332,75 +1616,140 @@ class Recordslol(Extension):
 
         await ctx.defer()
 
-        
+        if saison != 0:
         # data
-        if view == 'global':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
-                                        max_data_timeline."abilityHaste" AS "abilityHaste",
-                                        max_data_timeline."abilityPower" AS "abilityPower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackDamage",
-                                        max_data_timeline."currentGold" AS "currentGold",
-                                        max_data_timeline."healthMax" AS "healthMax",
-                                        max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed",
-                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
-                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10",
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
-                                                                                  
-                                     from matchs
-                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                     LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                     LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
-                                     where season = {saison}
-                                     and mode = '{mode}'
-                                     and time >= {self.time_mini[mode]}
-                                     and tracker.banned = false
-                                     and tracker.save_records = true ''',
-                                     index_col='id').transpose()
+            if view == 'global':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10",
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                                                                    
+                                        from matchs
+                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        where season = {saison}
+                                        and mode = '{mode}'
+                                        and time >= {self.time_mini[mode]}
+                                        and tracker.banned = false
+                                        and tracker.save_records = true
+                                        and matchs.records = true ''',
+                                        index_col='id').transpose()
 
-        elif view == 'serveur':
-            fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
-                                        max_data_timeline."abilityHaste" AS "abilityHaste",
-                                        max_data_timeline."abilityPower" AS "abilityPower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackDamage",
-                                        max_data_timeline."currentGold" AS "currentGold",
-                                        max_data_timeline."healthMax" AS "healthMax",
-                                        max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed",
-                                        "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-                                        "BUILDING_KILL_20", "BUILDING_KILL_30",
-                                        "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-                                        "DEATHS_10", "DEATHS_20", "DEATHS_30",
-                                        "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-                                        "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10",
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
-                                                                             
-                                     from matchs, tracker
-                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                         LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
-                                         where season = {saison}
-                                         and mode = '{mode}'
-                                         and time >= {self.time_mini[mode]}
-                                         and tracker.banned = false
-                                         and tracker.save_records = true ''',
-                                         index_col='id').transpose()
+            elif view == 'serveur':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                            max_data_timeline."abilityHaste" AS "abilityHaste",
+                                            max_data_timeline."abilityPower" AS "abilityPower",
+                                            max_data_timeline.armor AS armor,
+                                            max_data_timeline."attackDamage" AS "attackDamage",
+                                            max_data_timeline."currentGold" AS "currentGold",
+                                            max_data_timeline."healthMax" AS "healthMax",
+                                            max_data_timeline."magicResist" AS "magicResist",
+                                            max_data_timeline."movementSpeed" AS "movementSpeed",
+                                            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                            "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                            "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                            "TURRET_PLATE_DESTROYED_10",
+                                            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                                                                
+                                        from matchs, tracker
+                                            INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                            LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                            LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                            where season = {saison}
+                                            and mode = '{mode}'
+                                            and time >= {self.time_mini[mode]}
+                                            and tracker.banned = false
+                                            and tracker.save_records = true
+                                            and matchs.records = true ''',
+                                            index_col='id').transpose()
 
-            
+        else:
+            if view == 'global':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                                    max_data_timeline."abilityHaste" AS "abilityHaste",
+                                                    max_data_timeline."abilityPower" AS "abilityPower",
+                                                    max_data_timeline.armor AS armor,
+                                                    max_data_timeline."attackDamage" AS "attackDamage",
+                                                    max_data_timeline."currentGold" AS "currentGold",
+                                                    max_data_timeline."healthMax" AS "healthMax",
+                                                    max_data_timeline."magicResist" AS "magicResist",
+                                                    max_data_timeline."movementSpeed" AS "movementSpeed",
+                                                    "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                                    "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                                    "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                                    "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                                    "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                                    "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                                    "TURRET_PLATE_DESTROYED_10",
+                                                    "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                                                                            
+                                                from matchs
+                                                INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                                LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                                LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                                where mode = '{mode}'
+                                                and time >= {self.time_mini[mode]}
+                                                and tracker.banned = false
+                                                and tracker.save_records = true
+                                                and matchs.records = true ''',
+                                                index_col='id').transpose()
+
+            elif view == 'serveur':
+                fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.discord,
+                                                    max_data_timeline."abilityHaste" AS "abilityHaste",
+                                                    max_data_timeline."abilityPower" AS "abilityPower",
+                                                    max_data_timeline.armor AS armor,
+                                                    max_data_timeline."attackDamage" AS "attackDamage",
+                                                    max_data_timeline."currentGold" AS "currentGold",
+                                                    max_data_timeline."healthMax" AS "healthMax",
+                                                    max_data_timeline."magicResist" AS "magicResist",
+                                                    max_data_timeline."movementSpeed" AS "movementSpeed",
+                                                    "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
+                                                    "BUILDING_KILL_20", "BUILDING_KILL_30",
+                                                    "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
+                                                    "DEATHS_10", "DEATHS_20", "DEATHS_30",
+                                                    "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
+                                                    "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
+                                                    "TURRET_PLATE_DESTROYED_10",
+                                                    "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
+                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                                                                        
+                                                from matchs, tracker
+                                                    INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                                    LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                                    LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                                    where mode = '{mode}'
+                                                    and time >= {self.time_mini[mode]}
+                                                    and tracker.banned = false
+                                                    and tracker.save_records = true
+                                                    and matchs.records = true ''',
+                                                    index_col='id').transpose()    
         
             
-
-        fichier = fichier[['match_id', 'id_participant', 'riot_id', 'discord', 'champion','datetime'] + self.liste_complete]
+        if saison != 0:
+            fichier = fichier[['match_id', 'id_participant', 'riot_id', 'discord', 'champion','datetime'] + self.liste_complete]
+        else:
+            fichier = fichier[['match_id', 'id_participant', 'riot_id', 'discord', 'champion','datetime', 'season'] + self.liste_complete]
         
 
         fichier.columns = [col.lower() for col in fichier.columns]
@@ -1431,9 +1780,14 @@ class Recordslol(Extension):
         
         txt = ''
 
-        for id, data in df_complet.iterrows():
-            record = data["record"]
-            txt += f' **{record}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {emote_champ_discord.get(data["champion"].capitalize(), data["champion"]) } : **{data[record]}** \n'
+        if saison != 0:
+            for id, data in df_complet.iterrows():
+                record = data["record"]
+                txt += f' **{record}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {emote_champ_discord.get(data["champion"].capitalize(), data["champion"]) } : **{data[record]}** \n'
+        else:
+            for id, data in df_complet.iterrows():
+                record = data["record"]
+                txt += f' **{record}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {emote_champ_discord.get(data["champion"].capitalize(), data["champion"]) } : **{data[record]}** (S{data["season"]}) \n'
         
         paginator = Paginator.create_from_string(self.bot, txt, page_size=2000, timeout=120)
 

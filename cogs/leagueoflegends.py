@@ -50,6 +50,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 def records_check2(fichier,
                    fichier_joueur=None,
                    fichier_champion=None,
+                   fichier_all = None,
                    category=None,
                    result_category_match=None,
                    methode='max') -> str:
@@ -115,6 +116,19 @@ def records_check2(fichier,
         ):
             embed += f"\n ** :rocket: Record sur {emote_champ_discord.get(champion_champion.capitalize(), 'inconnu')} - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_champion} par {joueur_champion})"
 
+    # Record sur tous les joueurs
+    if isinstance(fichier_all, pd.DataFrame) and fichier_all.shape[0] > 0 and len(fichier_all['season'].unique()) > 1: # si une seule saison, inutile
+        joueur_all, champion_all, record_all, url = trouver_records(
+            fichier_all, category, methode, identifiant='discord')
+    
+        if (
+            methode == 'max'
+            and float(record_all) < float(result_category_match)
+            or methode != 'max'
+            and float(record_all) > float(result_category_match)
+        ):
+            embed += f"\n ** :first_place: Record Toute Saison - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_all} par {joueur_all})"
+
     return embed
 
 
@@ -156,8 +170,8 @@ class LeagueofLegends(Extension):
             await match_info.prepare_data_moba()
             await match_info.prepare_data_ugg()
         
-        elif match_info.thisQId in [1820, 1830, 1840]:
-            await match_info.prepare_data_swarm()
+        # elif match_info.thisQId in [1820, 1830, 1840]:
+        #     await match_info.prepare_data_swarm()
         else:
             pass
 
@@ -179,7 +193,28 @@ class LeagueofLegends(Extension):
                          where season = {match_info.season}
                          and mode = '{match_info.thisQ}'
                          and server_id = {guild_id}
-                         and tracker.save_records = True ''',
+                         and tracker.save_records = True
+                         and matchs.records = true ''',
+                                 index_col='id'
+                                 ).transpose()
+
+        fichier_all = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord, 
+                                 max_data_timeline."abilityHaste" AS "abilityHaste",
+                                max_data_timeline."abilityPower" AS "abilityPower",
+                                max_data_timeline.armor AS armor,
+                                max_data_timeline."attackDamage" AS "attackDamage",
+                                max_data_timeline."currentGold" AS "currentGold",
+                                max_data_timeline."healthMax" AS "healthMax",
+                                max_data_timeline."magicResist" AS "magicResist",
+                                max_data_timeline."movementSpeed" AS "movementSpeed"
+                                 
+                                 from matchs
+                         INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                         where mode = '{match_info.thisQ}'
+                         and server_id = {guild_id}
+                         and tracker.save_records = True
+                         and matchs.records = true ''',
                                  index_col='id'
                                  ).transpose()
 
@@ -200,7 +235,8 @@ class LeagueofLegends(Extension):
                                         and mode = '{match_info.thisQ}'
                                         and discord = (SELECT tracker.discord from tracker WHERE tracker.id_compte = {id_compte})
                                         and server_id = {guild_id}
-                                        and tracker.save_records = True ''',
+                                        and tracker.save_records = True 
+                                        and matchs.records = true ''',
                                         index_col='id',
                                         ).transpose()
 
@@ -220,7 +256,8 @@ class LeagueofLegends(Extension):
                                         and mode = '{match_info.thisQ}'
                                         and champion = '{match_info.thisChampName}'
                                         and server_id = {guild_id}
-                                        and tracker.save_records = True ''',
+                                        and tracker.save_records = True
+                                         and matchs.records = true ''',
                                           index_col='id',
                                           ).transpose()
 
@@ -241,10 +278,10 @@ class LeagueofLegends(Extension):
             requete_perso_bdd(f'''DELETE from prev_lol WHERE riot_id = '{riot_id.lower()}' and riot_tag = '{riot_tag.upper()}' and match_id = '' ''')
 
 
-        if sauvegarder and match_info.thisQ == 'SWARM':
-            await match_info.save_data_swarm()
+        # if sauvegarder and match_info.thisQ == 'SWARM':
+        #     await match_info.save_data_swarm()
             
-        if match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime > 20:
+        if match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime >= 15:
             await match_info.save_timeline()
             await match_info.save_timeline_event()
 
@@ -290,7 +327,7 @@ class LeagueofLegends(Extension):
             suivi[id_compte]['LP'] = match_info.thisLP
 
         # on ne prend que les ranked > 20 min ou aram > 10 min + Ceux qui veulent checker les records
-        if ((match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime > 20) or (match_info.thisQ == "ARAM" and match_info.thisTime > 10)) and check_records:
+        if ((match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime >= 15) or (match_info.thisQ == "ARAM" and match_info.thisTime >= 10)) and check_records:
 
             # pour le nouveau système de records
             param_records = {'kda': match_info.thisKDA,
@@ -415,13 +452,13 @@ class LeagueofLegends(Extension):
                     # on ne peut pas comparer à un perfect kda
                     if int(match_info.thisDeaths) >= 1:
                         exploits += records_check2(fichier, fichier_joueur,
-                                                   fichier_champion, 'kda', match_info.thisKDA)
+                                                   fichier_champion, fichier_all, 'kda', match_info.thisKDA)
                     else:
-                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, 'kda', float(
+                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all, 'kda', float(
                             round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1), 2)))
                 else:
                     exploits += records_check2(fichier, fichier_joueur,
-                                               fichier_champion, parameter, value)
+                                               fichier_champion, fichier_all, parameter, value)
 
             if match_info.thisQ in ['RANKED', 'FLEX']:  # seulement en ranked
                 for parameter, value in param_records_only_ranked.items():
@@ -437,10 +474,10 @@ class LeagueofLegends(Extension):
                     # on ne veut pas les records par champion sur ces stats.
                     if parameter in ['baron', 'drake', 'herald']:
                         exploits += records_check2(fichier, fichier_joueur,
-                                                   None, parameter, value, methode)
+                                                   None, fichier_all, parameter, value, methode)
                     else:
                         exploits += records_check2(fichier, fichier_joueur,
-                                                   fichier_champion, parameter, value, methode)
+                                                   fichier_champion, fichier_all, parameter, value, methode)
 
             if match_info.thisQ in ['ARAM', 'CLASH ARAM']:  # seulement en aram
                 for parameter, value in param_records_only_aram.items():
@@ -450,7 +487,7 @@ class LeagueofLegends(Extension):
                     methode = 'max'
 
                     exploits += records_check2(fichier, fichier_joueur,
-                                               fichier_champion, parameter, value, methode)
+                                               fichier_champion, fichier_all, parameter, value, methode)
 
         try:
         # on le fait après sinon ça flingue les records
@@ -708,10 +745,10 @@ class LeagueofLegends(Extension):
                 embed = await match_info.resume_general('resume', embed, difLP)
 
 
-        elif match_info.thisQ == 'SWARM':
-            embed.add_field(name='Augment', value=match_info.descriptionAugment)
-            embed.add_field(name='Level', value=f'{match_info.thisLevel}')
-            embed = await match_info.resume_swarm('resume', embed)
+        # elif match_info.thisQ == 'SWARM':
+        #     embed.add_field(name='Augment', value=match_info.descriptionAugment)
+        #     embed.add_field(name='Level', value=f'{match_info.thisLevel}')
+        #     embed = await match_info.resume_swarm('resume', embed)
 
         else:
             pass
@@ -1108,7 +1145,7 @@ class LeagueofLegends(Extension):
                 
             
 
-    @Task.create(IntervalTrigger(minutes=2))
+    @Task.create(IntervalTrigger(minutes=3))
     async def update(self):
         data = get_data_bdd(
             '''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, tracker.id, tracker.server_id,
@@ -1132,8 +1169,7 @@ class LeagueofLegends(Extension):
 
                 requete_perso_bdd(
                     'UPDATE tracker SET id = :id, spec_send = :spec WHERE id_compte = :id_compte',
-                    {'id': id_last_game, 'id_compte': id_compte, 'spec': False},
-                )
+                    {'id': id_last_game, 'id_compte': id_compte, 'spec': False})
 
                 try:
                     me = await get_summoner_by_puuid(puuid, session)

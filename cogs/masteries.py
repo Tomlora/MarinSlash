@@ -1,7 +1,7 @@
 import pandas as pd
 import aiohttp
 from fonctions.match import get_version, get_champ_list, get_champion_masteries, emote_champ_discord
-from fonctions.gestion_bdd import lire_bdd_perso, sauvegarde_bdd
+from fonctions.gestion_bdd import lire_bdd_perso, sauvegarde_bdd, get_tag, autocomplete_riotid
 from fonctions.channels_discord import get_embed
 from time import sleep
 import interactions
@@ -114,7 +114,10 @@ class Masteries(Extension):
         df['championId'] = df['championId'].str.replace(' ', '')
 
         df = await extraire_variables_imbriquees(df, 'nextSeasonMilestone')
-        df.drop(columns='rewardConfig', inplace=True)
+
+        if 'rewardConfig' in df.columns:
+            df.drop(columns='rewardConfig', inplace=True)
+
         df = await extraire_variables_imbriquees(df, 'requireGradeCounts')
 
         df['update'] = datetime.now(timezone)
@@ -176,17 +179,19 @@ class Masteries(Extension):
                        SlashCommandOption(name="riot_id",
                                           description="Joueur",
                                           type=interactions.OptionType.STRING,
-                                          required=True),
-                        SlashCommandOption(name="riot_tag",
-                                          description="Joueur",
-                                          type=interactions.OptionType.STRING,
-                                          required=True),
+                                          required=True,
+                                          autocomplete=True),
+
                         SlashCommandOption(name="affichage",
                                             description="Affichage",
                                             type=interactions.OptionType.STRING,
                                             required=True,
                                             choices=[SlashCommandChoice(name="Points", value='championPoints'),
                                                            SlashCommandChoice(name="Level", value='championLevel')]),
+                        SlashCommandOption(name="riot_tag",
+                                          description="Joueur",
+                                          type=interactions.OptionType.STRING,
+                                          required=True),
                        SlashCommandOption(name='top',
                                           description='top combien ?',
                                           type=interactions.OptionType.INTEGER,
@@ -196,13 +201,20 @@ class Masteries(Extension):
     async def maitrise_joueur(self,
                                 ctx: SlashContext,
                                 riot_id: str,
-                                riot_tag: str,
-                                affichage:str,
+                                affichage : str,
+                                riot_tag: str = None,
                                 top:int=20):
        
        
        
         riot_id = riot_id.lower().replace(' ', '')
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
+            
         riot_tag = riot_tag.upper()
         
         await ctx.defer(ephemeral=False)
@@ -226,6 +238,15 @@ class Masteries(Extension):
         embed, file = get_embed(fig, 'masteries')
         
         await ctx.send(embeds=embed, files=file)
+
+    @maitrise_joueur.autocomplete("riot_id")
+
+
+    async def autocomplete_maitrise(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
         
     @lol_maitrise.subcommand("best",
                                sub_cmd_description="Best pour un joueur",
@@ -309,20 +330,32 @@ class Masteries(Extension):
                    options=[
                        SlashCommandOption(name="riot_id",
                                           description="Nom du joueur",
-                                          type=interactions.OptionType.STRING, required=True),
+                                          type=interactions.OptionType.STRING,
+                                            required=True,
+                                            autocomplete=True),
                        SlashCommandOption(name="riot_tag",
                                           description="Tag",
-                                          type=interactions.OptionType.STRING, required=True)
+                                          type=interactions.OptionType.STRING,
+                                            required=False)
                        ]
                    )
     async def lastplay(self,
                    ctx: SlashContext,
                    riot_id: str,
-                   riot_tag:str):
+                   riot_tag:str=None):
 
         await ctx.defer(ephemeral=False)
         
         riot_id = riot_id.lower().replace(' ', '')
+
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
+            
+        riot_tag = riot_tag.upper()
 
         df = await champion_lastplay(riot_id, riot_tag)
         
@@ -355,63 +388,24 @@ class Masteries(Extension):
         response = ''
         response_count = 'Champions joués chaque année : \n'
 
-        for annee in [2023, 2024]:
+        for annee in [2023, 2024, 2025]:
             for mode in ['RANKED', 'ARAM']:
                 response, response_count = count_champion_per_year(df_champion_unique, response, response_count, mode, annee )
         
         del df, df_champion_unique        
         await ctx.send(response_count)
-        
-    # @slash_command(name="lol_coffre",
-    #                description="Champions où le coffre est disponible",
-    #             #    default_member_permissions=interactions.Permissions.MANAGE_GUILD,
-    #                options=[
-    #                    SlashCommandOption(name="riot_id",
-    #                                       description="Nom du joueur",
-    #                                       type=interactions.OptionType.STRING, required=True),
-    #                    SlashCommandOption(name="riot_tag",
-    #                                       description="Tag",
-    #                                       type=interactions.OptionType.STRING, required=True)
-    #                    ]
-    #                )
-    # async def coffre(self,
-    #                ctx: SlashContext,
-    #                riot_id: str,
-    #                riot_tag:str):
 
-    #     await ctx.defer(ephemeral=False)
+    @lastplay.autocomplete("riot_id")
 
-    #     riot_id = riot_id.lower().replace(' ', '')
 
-    #     df = lire_bdd_perso(f'''SELECT "championId" from data_masteries WHERE 
-    #                         id = (SELECT id_compte from tracker WHERE riot_id = :riot_id and riot_tagline = :riot_tag)
-    #                         and "chestGranted" = :chest''',
-    #                         index_col=None,
-    #                         params={'riot_id' : riot_id,
-    #                                 'riot_tag' : riot_tag.upper(),
-    #                                 'chest' : False}).T
-        
-        
-    #     df.sort_values('championId', inplace=True)
-        
-    #     response = ''
-        
-    #     nb_coffre = len(df['championId'])
-        
-    #     espace = 0
-    #     for index, data in df.iterrows():
-    #         response += f'{emote_champ_discord.get(data["championId"].capitalize(), data["championId"].capitalize())}' 
-            
-    #         espace += 1
-    #         if (espace) % 10 == 0:
-    #             response += '\n'
-    #         else:
-    #             response += ' | '
-        
-    #     paginator = Paginator.create_from_string(self.bot, response, page_size=4000, timeout=60)
+    async def autocomplete_lastplay(self, ctx: interactions.AutocompleteContext):
 
-    #     paginator.default_title = f'{nb_coffre} Coffres disponibles pour {riot_id} #{riot_tag} '
-    #     await paginator.send(ctx)
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
+        
+
+
         
         
 def setup(bot):
