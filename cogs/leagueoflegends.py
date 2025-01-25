@@ -61,7 +61,7 @@ def records_check2(fichier,
     None à la place du fichier pour désactiver un check.                                                                                                                                 
     '''
     embed = ''
-    category_exclusion_egalite = ['baron', 'herald', 'drake', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_horde', 'first_niveau_max', 'first_blood']
+    category_exclusion_egalite = ['baron', 'herald', 'drake', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_horde', 'first_niveau_max', 'first_blood', 'tower', 'inhib']
 
     if result_category_match == 0:  # si le score est de 0, inutile
         return embed
@@ -156,7 +156,7 @@ def records_check2(fichier,
             float(record_champion_all) == float(result_category_match)
             and category not in category_exclusion_egalite
         ):
-            embed += f"\n ** :first_place: Egalisation Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')} toute saison - {emote_v2.get(category, ':star:')}__{category}__ **"
+            embed += f"\n ** :first_place: Egalisation Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')} - {emote_v2.get(category, ':star:')}__{category}__ **"
     return embed
 
 
@@ -520,12 +520,10 @@ class LeagueofLegends(Extension):
                         methode = 'min'
 
                     # on ne veut pas les records par champion sur ces stats.
-                    if parameter in ['baron', 'drake', 'herald']:
-                        exploits += records_check2(fichier, fichier_joueur,
-                                                   None, fichier_all, None, parameter, value, methode)
+                    if parameter in ['baron', 'drake', 'herald', 'tower', 'inhib']:
+                        exploits += records_check2(fichier, fichier_joueur, None, fichier_all, None, parameter, value, methode)
                     else:
-                        exploits += records_check2(fichier, fichier_joueur,
-                                                   fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
+                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
 
             if match_info.thisQ in ['ARAM', 'CLASH ARAM']:  # seulement en aram
                 for parameter, value in param_records_only_aram.items():
@@ -534,13 +532,11 @@ class LeagueofLegends(Extension):
 
                     methode = 'max'
 
-                    exploits += records_check2(fichier, fichier_joueur,
-                                               fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
+                    exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
 
         try:
         # on le fait après sinon ça flingue les records
-            match_info.thisDamageTurrets = "{:,}".format(
-                match_info.thisDamageTurrets).replace(',', ' ').replace('.', ',')
+            match_info.thisDamageTurrets = "{:,}".format(match_info.thisDamageTurrets).replace(',', ' ').replace('.', ',')
         
         except AttributeError:
             match_info.thisDamageTurrets = 0
