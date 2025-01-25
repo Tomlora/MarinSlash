@@ -51,6 +51,7 @@ def records_check2(fichier,
                    fichier_joueur=None,
                    fichier_champion=None,
                    fichier_all = None,
+                   fichier_champion_all = None,
                    category=None,
                    result_category_match=None,
                    methode='max') -> str:
@@ -127,15 +128,35 @@ def records_check2(fichier,
             or methode != 'max'
             and float(record_all) > float(result_category_match)
         ):
-            embed += f"\n ** :first_place: Record Toute Saison - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_all} par {joueur_all})"
+            embed += f"\n ** :first_place: Record All Time - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_all} par {joueur_all})"
 
         # en cas d'égalité
         if (
             float(record_all) == float(result_category_match)
             and category not in category_exclusion_egalite
         ):
-            embed += f"\n ** :first_place: Egalisation record toute saison - {emote_v2.get(category, ':star:')}__{category}__ **"
+            embed += f"\n ** :first_place: Egalisation Record All Time - {emote_v2.get(category, ':star:')}__{category}__ **"
 
+    # Record sur les champions
+
+    if isinstance(fichier_champion_all, pd.DataFrame) and fichier_champion_all.shape[0] > 0 and len(fichier_champion_all['season'].unique()) > 1: # si une seule saison, inutile
+        joueur_champion_all, champion_champion_all, record_champion_all, url = trouver_records(
+            fichier_champion_all, category, methode, identifiant='discord')
+        
+        if (
+            methode == 'max'
+            and float(record_champion_all) < float(result_category_match)
+            or methode != 'max'
+            and float(record_champion_all) > float(result_category_match)
+        ):
+            embed += f"\n ** :first_place: Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')}  - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_champion_all} par {joueur_champion_all})"
+
+        # en cas d'égalité
+        if (
+            float(record_champion_all) == float(result_category_match)
+            and category not in category_exclusion_egalite
+        ):
+            embed += f"\n ** :first_place: Egalisation Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')} toute saison - {emote_v2.get(category, ':star:')}__{category}__ **"
     return embed
 
 
@@ -261,6 +282,26 @@ class LeagueofLegends(Extension):
                                           LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                         where season = {match_info.season}
                                         and mode = '{match_info.thisQ}'
+                                        and champion = '{match_info.thisChampName}'
+                                        and server_id = {guild_id}
+                                        and tracker.save_records = True
+                                         and matchs.records = true ''',
+                                          index_col='id',
+                                          ).transpose()
+        
+        fichier_champion_all = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
+                                        max_data_timeline."abilityHaste" AS "abilityHaste",
+                                        max_data_timeline."abilityPower" AS "abilityPower",
+                                        max_data_timeline.armor AS armor,
+                                        max_data_timeline."attackDamage" AS "attackDamage",
+                                        max_data_timeline."currentGold" AS "currentGold",
+                                        max_data_timeline."healthMax" AS "healthMax",
+                                        max_data_timeline."magicResist" AS "magicResist",
+                                        max_data_timeline."movementSpeed" AS "movementSpeed"
+                                        from matchs
+                                          INNER JOIN tracker on tracker.id_compte = matchs.joueur
+                                          LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
+                                        where mode = '{match_info.thisQ}'
                                         and champion = '{match_info.thisChampName}'
                                         and server_id = {guild_id}
                                         and tracker.save_records = True
@@ -459,13 +500,13 @@ class LeagueofLegends(Extension):
                     # on ne peut pas comparer à un perfect kda
                     if int(match_info.thisDeaths) >= 1:
                         exploits += records_check2(fichier, fichier_joueur,
-                                                   fichier_champion, fichier_all, 'kda', match_info.thisKDA)
+                                                   fichier_champion, fichier_all, fichier_champion_all, 'kda', match_info.thisKDA)
                     else:
-                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all, 'kda', float(
+                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all,  'kda', float(
                             round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1), 2)))
                 else:
                     exploits += records_check2(fichier, fichier_joueur,
-                                               fichier_champion, fichier_all, parameter, value)
+                                               fichier_champion, fichier_all,  fichier_champion_all, parameter, value)
 
             if match_info.thisQ in ['RANKED', 'FLEX']:  # seulement en ranked
                 for parameter, value in param_records_only_ranked.items():
@@ -481,10 +522,10 @@ class LeagueofLegends(Extension):
                     # on ne veut pas les records par champion sur ces stats.
                     if parameter in ['baron', 'drake', 'herald']:
                         exploits += records_check2(fichier, fichier_joueur,
-                                                   None, fichier_all, parameter, value, methode)
+                                                   None, fichier_all, None, parameter, value, methode)
                     else:
                         exploits += records_check2(fichier, fichier_joueur,
-                                                   fichier_champion, fichier_all, parameter, value, methode)
+                                                   fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
 
             if match_info.thisQ in ['ARAM', 'CLASH ARAM']:  # seulement en aram
                 for parameter, value in param_records_only_aram.items():
@@ -494,7 +535,7 @@ class LeagueofLegends(Extension):
                     methode = 'max'
 
                     exploits += records_check2(fichier, fichier_joueur,
-                                               fichier_champion, fichier_all, parameter, value, methode)
+                                               fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
 
         try:
         # on le fait après sinon ça flingue les records
