@@ -2285,7 +2285,9 @@ class matchlol():
         
         self.df_timeline_joueur = df_timeline_load[df_timeline_load['riot_id'] == self.index_timeline]  
         
-        self.df_timeline_position = self.df_timeline_joueur[['position', 'timestamp', 'totalGold', 'xp', 'jungleMinionsKilled', 'currentGold', 'level']]
+        self.df_timeline_position = self.df_timeline_joueur[['position', 'timestamp', 'totalGold', 'xp', 'jungleMinionsKilled', 'currentGold', 'level', 'minionsKilled']]
+
+        self.df_timeline_position['total_cs'] = self.df_timeline_position['minionsKilled'] + self.df_timeline_position['jungleMinionsKilled']
 
         self.df_timeline_position['riot_id'] = self.id_compte
         self.df_timeline_position['match_id'] = self.last_match
@@ -2312,6 +2314,48 @@ class matchlol():
         self.max_hp = self.df_timeline_position['healthMax'].max()
         self.max_mr = self.df_timeline_position['magicResist'].max()
         self.movement_speed = self.df_timeline_position['movementSpeed'].max()
+
+        try:
+            self.total_cs_20 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 20, 'total_cs'].values[0]
+        except:
+            self.total_cs_20 = 0
+        
+        try:
+            self.total_cs_30 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 30, 'total_cs'].values[0]
+        except:
+            self.total_cs_30 = 0
+
+        try:
+            self.total_gold_20 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 20, 'totalGold'].values[0]
+        except:
+            self.total_gold_20 = 0
+        
+        try:
+            self.total_gold_30 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 30, 'totalGold'].values[0]
+        except:
+            self.total_gold_30 = 0
+        
+        try:
+            self.minions_20 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 20, 'minionsKilled'].values[0]
+        except:
+            self.minions_20 = 0
+        
+        try:
+            self.minions_30 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 30, 'minionsKilled'].values[0]
+        except:
+            self.minions_30 = 0
+        
+        try:
+            self.jgl_killed_20 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 20, 'jungleMinionsKilled'].values[0]
+        except:
+            self.jgl_killed_20 = 0
+
+        try:
+            self.jgl_killed_30 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 30, 'jungleMinionsKilled'].values[0]
+        except:
+            self.jgl_killed_30 = 0
+
+        
         
         try:
             sauvegarde_bdd(self.df_timeline_position,
@@ -2515,11 +2559,22 @@ class matchlol():
             df_filtre_timeline.rename(columns={'timestamp' : 'value'}, inplace=True )
             return df_filtre_timeline[['type', 'riot_id', 'match_id', 'value']]
 
-        df_10min = filtre_timeline(10)
-        df_20min = filtre_timeline(20)
-        df_30min = filtre_timeline(30)
+        self.df_10min = filtre_timeline(10)
+        self.df_20min = filtre_timeline(20)
+        self.df_30min = filtre_timeline(30)
 
-        self.df_time = pd.concat([df_10min, df_20min, df_30min])
+        self.df_20min.loc[len(self.df_20min)] = ['TOTAL_CS_20', self.id_compte, self.last_match, self.total_cs_20]
+        self.df_20min.loc[len(self.df_20min)] = ['TOTAL_GOLD_20', self.id_compte, self.last_match, self.total_gold_20]
+        self.df_20min.loc[len(self.df_20min)] = ['CS_20', self.id_compte, self.last_match, self.minions_20]
+        self.df_20min.loc[len(self.df_20min)] = ['JGL_20', self.id_compte, self.last_match, self.jgl_killed_20]
+
+        self.df_20min.loc[len(self.df_20min)] = ['TOTAL_CS_30', self.id_compte, self.last_match, self.total_cs_30]
+        self.df_20min.loc[len(self.df_20min)] = ['TOTAL_GOLD_30', self.id_compte, self.last_match, self.total_gold_30]
+        self.df_20min.loc[len(self.df_20min)] = ['CS_30', self.id_compte, self.last_match, self.minions_30]
+        self.df_20min.loc[len(self.df_20min)] = ['JGL_30', self.id_compte, self.last_match, self.jgl_killed_30]
+
+
+        self.df_time = pd.concat([self.df_10min, self.df_20min, self.df_30min])
 
         self.df_time_pivot = self.df_time.pivot_table(index=['riot_id', 'match_id'],
                                                       columns='type', values='value',

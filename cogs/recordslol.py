@@ -164,8 +164,10 @@ class Recordslol(Extension):
                                         "TURRET_PLATE_DESTROYED_10",
                                         "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
                                         "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"]
+        
+        self.fichier_timer2 = ["TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"]
 
-        self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers + self.fichier_stats + self.fichier_timer
+        self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers + self.fichier_stats + self.fichier_timer + self.fichier_timer2
 
 
         self.records_min = ['early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']
@@ -276,7 +278,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"
                                                                                 
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -306,7 +309,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10", 
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"
                                                                                 
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -339,7 +343,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"
                                                                                 
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -368,7 +373,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10", 
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"
                                                                                 
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -395,6 +401,7 @@ class Recordslol(Extension):
         fichier_divers = self.fichier_divers.copy()
         fichier_kills = self.fichier_kills.copy()
         fichier_timer = self.fichier_timer.copy()
+        fichier_timer2 = self.fichier_timer2.copy()
 
         # on rajoute quelques éléments sur d'autres pages...
 
@@ -527,6 +534,12 @@ class Recordslol(Extension):
                 
                 embed9 = creation_embed(fichier, column, methode_pseudo, embed9, saison=saison)
 
+            embed10 = interactions.Embed(title=title + " Timer2", color=interactions.Color.random())
+
+            for column in fichier_timer2:
+                
+                embed10 = creation_embed(fichier, column, methode_pseudo, embed10, saison=saison)
+
         embed1.set_footer(text=f'Version {Version} by Tomlora')
         embed2.set_footer(text=f'Version {Version} by Tomlora')
         embed5.set_footer(text=f'Version {Version} by Tomlora')
@@ -539,7 +552,8 @@ class Recordslol(Extension):
             embed4.set_footer(text=f'Version {Version} by Tomlora')
             embed8.set_footer(text=f'Version {Version} by Tomlora')
             embed9.set_footer(text=f'Version {Version} by Tomlora')
-            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9]
+            embed10.set_footer(text=f'Version {Version} by Tomlora')
+            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9, embed10]
 
         else:
             pages=[embed1, embed2, embed5, embed6, embed7]
@@ -588,7 +602,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10", 
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"   
                                             
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -618,7 +633,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"  
                                                                                 
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -651,7 +667,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10", 
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"   
                                             
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -680,7 +697,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"   
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"   
                                                                                 
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -770,6 +788,7 @@ class Recordslol(Extension):
         fichier_farming = self.fichier_farming.copy()
         fichier_divers = self.fichier_divers.copy()
         fichier_timer = self.fichier_timer.copy()
+        fichier_timer2 = self.fichier_timer2.copy()
 
         # on rajoute quelques éléments sur d'autres pages...
 
@@ -784,6 +803,9 @@ class Recordslol(Extension):
             
             for stat in ["WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30", "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30", "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30", "TURRET_PLATE_DESTROYED_10"]:
                 fichier_timer.remove(stat)
+
+            for stat in ["TOTAL_CS_20", "TOTAL_CS_30", 'JGL_20', 'JGL_30']:
+                fichier_timer2.remove(stat)
 
 
         def format_value(joueur, champion, url, short=False):
@@ -900,6 +922,12 @@ class Recordslol(Extension):
                 
                 embed9 = creation_embed(fichier, column, methode_pseudo, embed9, saison=saison)
 
+            embed10 = interactions.Embed(title=title + " Timer2", color=interactions.Color.random())
+
+            for column in fichier_timer2:
+
+                embed10 = creation_embed(fichier, column, methode_pseudo, embed10, saison=saison)
+
         embed1.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
         embed2.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
         embed5.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
@@ -911,7 +939,8 @@ class Recordslol(Extension):
             embed4.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
             embed8.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
             embed9.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
-            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9]
+            embed10.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
+            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9, embed10]
 
         else:
             pages=[embed1, embed2, embed5, embed6, embed7]
@@ -1004,7 +1033,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"                                     
                                         
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -1034,7 +1064,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10", 
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"                                     
                                         
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -1068,7 +1099,8 @@ class Recordslol(Extension):
                                                     "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                                     "TURRET_PLATE_DESTROYED_10",
                                                     "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
+                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                                 "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"                                    
                                                 
                                                 from matchs
                                                 INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -1097,7 +1129,8 @@ class Recordslol(Extension):
                                                     "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                                     "TURRET_PLATE_DESTROYED_10", 
                                                     "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"                                     
+                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                                 "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"                                     
                                                 
                                                 from matchs
                                                 INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -1130,7 +1163,7 @@ class Recordslol(Extension):
                                         "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                         "TURRET_PLATE_DESTROYED_10", 
                                         "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"]
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30", "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"]
 
 
         if mode == 'ARAM':
@@ -1140,7 +1173,7 @@ class Recordslol(Extension):
             'dmg_tank', 'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min', 'dmg_all', 'dmg_all_min',
             'baron', 'drake', 'dmg_tower', 'crit_dmg', 'immobilisation', 'temps_cc_inflige', 'dmg_true_all', 'dmg_true_all_min',
             'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort',
-            'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used']
+            'dmg/gold', 'skillshot_dodged', 'temps_cc', 'spells_used',  "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30"]
 
         if champion == None:
             # Initialisation des listes
@@ -1377,7 +1410,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"     
                                             
                                             from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -1409,7 +1443,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"     
                                                                                 
                                         from matchs, tracker
                                             INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -1443,7 +1478,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"     
                                             
                                             from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -1474,7 +1510,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"     
                                                                                 
                                         from matchs, tracker
                                             INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -1640,7 +1677,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"
                                                                                     
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -1672,7 +1710,8 @@ class Recordslol(Extension):
                                             "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"     
                                                                                 
                                         from matchs, tracker
                                             INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -1705,7 +1744,8 @@ class Recordslol(Extension):
                                                     "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                                     "TURRET_PLATE_DESTROYED_10",
                                                     "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"
+                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"
                                                                                             
                                                 from matchs
                                                 INNER JOIN tracker on tracker.id_compte = matchs.joueur
@@ -1736,7 +1776,8 @@ class Recordslol(Extension):
                                                     "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                                     "TURRET_PLATE_DESTROYED_10",
                                                     "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"     
+                                                    "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"    
                                                                                         
                                                 from matchs, tracker
                                                     INNER JOIN tracker on tracker.id_compte = matchs.joueur
