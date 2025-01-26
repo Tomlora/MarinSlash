@@ -97,12 +97,12 @@ def records_check2(fichier,
             or methode != 'max'
             and float(record_perso) > float(result_category_match)
         ):
-            embed += f"\n ** :military_medal: Record personnel - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_perso})"
+            embed += f"\n ** <:boss:1333120152983834726> Record personnel - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_perso})"
         if (
             float(record_perso) == float(result_category_match)
             and category not in category_exclusion_egalite
         ):
-            embed += f"\n ** :medal: Egalisation record personnel - {emote_v2.get(category, ':star:')}__{category}__ **"
+            embed += f"\n ** :military_medal: Egalisation record personnel - {emote_v2.get(category, ':star:')}__{category}__ **"
 
     # Record sur les champions
     if isinstance(fichier_champion, pd.DataFrame) and fichier_champion.shape[0] > 0:
@@ -128,14 +128,14 @@ def records_check2(fichier,
             or methode != 'max'
             and float(record_all) > float(result_category_match)
         ):
-            embed += f"\n ** :first_place: Record All Time - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_all} par {joueur_all})"
+            embed += f"\n ** <:world_emoji:1333120623613841489> Record All Time - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_all} par {joueur_all})"
 
         # en cas d'égalité
         if (
             float(record_all) == float(result_category_match)
             and category not in category_exclusion_egalite
         ):
-            embed += f"\n ** :first_place: Egalisation Record All Time - {emote_v2.get(category, ':star:')}__{category}__ **"
+            embed += f"\n ** <:platinum_trophy:1333119009226489907> Egalisation Record All Time - {emote_v2.get(category, ':star:')}__{category}__ **"
 
     # Record sur les champions
 
@@ -149,14 +149,14 @@ def records_check2(fichier,
             or methode != 'max'
             and float(record_champion_all) > float(result_category_match)
         ):
-            embed += f"\n ** :first_place: Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')}  - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_champion_all} par {joueur_champion_all})"
+            embed += f"\n ** <:trophy_world:1333117173731819520> Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')}  - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_champion_all} par {joueur_champion_all})"
 
         # en cas d'égalité
         if (
             float(record_champion_all) == float(result_category_match)
             and category not in category_exclusion_egalite
         ):
-            embed += f"\n ** :first_place: Egalisation Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')} - {emote_v2.get(category, ':star:')}__{category}__ **"
+            embed += f"\n ** <:silver_trophy:1333118174526308402> Egalisation Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')} - {emote_v2.get(category, ':star:')}__{category}__ **"
     return embed
 
 
@@ -614,69 +614,6 @@ class LeagueofLegends(Extension):
         embed.add_field(
             name='Champion', value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)", inline=True)
 
-        # on va chercher les stats du joueur:
-
-        # time = 10 if match_info.thisQ == 'ARAM' else 15
-        
-        # stats_joueur_split = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
-        #             (count(victoire) filter (where victoire = True)) as victoire,
-        #             avg(kp) as kp,
-        #             count(victoire) as nb_games,
-        #             (avg(mvp) filter (where mvp != 0)) as mvp
-        #             from matchs
-        #             INNER JOIN tracker on matchs.joueur = tracker.id_compte
-        #             WHERE tracker.id_compte = {id_compte}
-        #             and champion = '{match_info.thisChampName}'
-        #             and season = {saison}
-        #             and mode = '{match_info.thisQ}'
-        #             and time > {time}
-        #             and split = {match_info.split}
-        #             GROUP BY tracker.id_compte''', index_col='id_compte').transpose()
-
-        # def stats_joueur(df, embed, id_compte, titre=None, inline=True):
-
-        #     k = round(
-        #         df.loc[id_compte, 'kills'], 1)
-        #     d = round(
-        #         df.loc[id_compte, 'deaths'], 1)
-        #     a = round(
-        #         df.loc[id_compte, 'assists'], 1)
-        #     kp = int(df.loc[id_compte, 'kp'])
-            
-        #     try:
-        #         mvp = round(
-        #             df.loc[id_compte, 'mvp'], 1)
-        #     except TypeError:
-        #         mvp = 0
-        #     ratio_victoire = int((df.loc[id_compte, 'victoire'] / df.loc[id_compte, 'nb_games'])*100)
-        #     nb_games = int(
-        #         df.loc[id_compte, 'nb_games'])
-            
-        #     if titre != None:
-        #         if mvp == 0:
-        #             embed.add_field(
-        #                 name=f"{titre} : {nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
-        #         else:
-        #             embed.add_field(
-        #                 name=f"{titre} : {nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
-            
-        #     else:
-        #         if mvp == 0:
-        #             embed.add_field(
-        #                 name=f"{nb_games} P ({ratio_victoire}% V)", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
-        #         else:
-        #             embed.add_field(
-        #                 name=f"{nb_games} P ({ratio_victoire}% V) | {mvp} MVP ", value=f"{k} / {d} / {a} ({kp}% KP)", inline=inline)
-                
-        #     return embed 
-
-        # # if not stats_joueur_saison.empty and match_info.split != 1:
-        # #     embed = stats_joueur(stats_joueur_saison, embed, id_compte, 'Saison')
-        
-        # if not stats_joueur_split.empty:
-        #     embed = stats_joueur(stats_joueur_split, embed, id_compte)
-
-
 
         # on découpe le texte embed
         chunk_size = 1024
@@ -698,8 +635,15 @@ class LeagueofLegends(Extension):
             )
 
         elif len(exploits) > max_len or ((len(embed) + len(exploits)) > 4500):
-            records_emoji = {':boom:': 0, ':medal:': 0,
-                             ':military_medal:': 0, ':rocket:': 0}
+            records_emoji = {':boom:': 0,
+                              ':medal:': 0,
+                              '<:boss:1333120152983834726>' : 0,
+                             ':military_medal:': 0,
+                               ':rocket:': 0,
+                               '<:world_emoji:1333120623613841489>' : 0, 
+                               '<:platinum_trophy:1333119009226489907>' : 0,
+                               '<:trophy_world:1333117173731819520>' : 0,
+                               '<:silver_trophy:1333118174526308402>' : 0}
 
             # on compte par emoji
             for emoji in records_emoji:
@@ -712,9 +656,19 @@ class LeagueofLegends(Extension):
                     if emoji == ':rocket:':
                         exploits += f'{emoji} Tu as battu **{count}** records sur {match_info.thisChampName} \n'
                     elif emoji == ':medal:':
-                        exploits += f'{emoji} Tu as égalé **{count}** records généraux ou personnels \n'
-                    elif emoji == ':military_medal:':
+                        exploits += f'{emoji} Tu as égalé **{count}** records généraux \n'
+                    elif emoji == '<:boss:1333120152983834726>':
                         exploits += f'{emoji} Tu as battu **{count}** records personnels \n'
+                    elif emoji == ':military_medal:':
+                        exploits += f'{emoji} Tu as égalé **{count}** records personnels \n'
+                    elif emoji == '<:world_emoji:1333120623613841489>':
+                        exploits += f'{emoji} Tu as battu **{count}** records All Time \n'
+                    elif emoji == '<:platinum_trophy:1333119009226489907>':
+                        exploits += f'{emoji} Tu as égalé **{count}** records All Time \n'
+                    elif emoji == '<:trophy_world:1333117173731819520>' :
+                        exploits += f'{emoji} Tu as battu **{count} records All time sur {match_info.thisChampName} \n'
+                    elif emoji == '<:silver_trophy:1333118174526308402>':
+                        exploits += f'{emoji} Tu as égalé **{count} records All time sur {match_info.thisChampName} \n'
                     else:
                         exploits += f'{emoji} Tu as battu **{count}** records \n'
 
