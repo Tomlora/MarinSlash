@@ -156,7 +156,7 @@ def records_check2(fichier,
             float(record_champion_all) == float(result_category_match)
             and category not in category_exclusion_egalite
         ):
-            embed += f"\n ** <:silver_trophy:1333118174526308402> Egalisation Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')} - {emote_v2.get(category, ':star:')}__{category}__ **"
+            embed += f"\n ** <:trophyplatinum48:1333175944835498044> Egalisation Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')} - {emote_v2.get(category, ':star:')}__{category}__ **"
     return embed
 
 
@@ -616,7 +616,7 @@ class LeagueofLegends(Extension):
 
 
         # on découpe le texte embed
-        chunk_size = 1024
+        chunk_size = 850
         max_len = 4000
 
         if exploits == '':  # si l'exploit est vide, il n'y a aucun exploit
@@ -643,7 +643,7 @@ class LeagueofLegends(Extension):
                                '<:world_emoji:1333120623613841489>' : 0, 
                                '<:platinum_trophy:1333119009226489907>' : 0,
                                '<:trophy_world:1333117173731819520>' : 0,
-                               '<:silver_trophy:1333118174526308402>' : 0}
+                               '<:trophyplatinum48:1333175944835498044>' : 0}
 
             # on compte par emoji
             for emoji in records_emoji:
@@ -666,9 +666,9 @@ class LeagueofLegends(Extension):
                     elif emoji == '<:platinum_trophy:1333119009226489907>':
                         exploits += f'{emoji} Tu as égalé **{count}** records All Time \n'
                     elif emoji == '<:trophy_world:1333117173731819520>' :
-                        exploits += f'{emoji} Tu as battu **{count} records All time sur {match_info.thisChampName} \n'
+                        exploits += f'{emoji} Tu as battu **{count}** records All time sur {match_info.thisChampName} \n'
                     elif emoji == '<:silver_trophy:1333118174526308402>':
-                        exploits += f'{emoji} Tu as égalé **{count} records All time sur {match_info.thisChampName} \n'
+                        exploits += f'{emoji} Tu as égalé **{count}** records All time sur {match_info.thisChampName} \n'
                     else:
                         exploits += f'{emoji} Tu as battu **{count}** records \n'
 
