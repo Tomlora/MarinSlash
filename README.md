@@ -66,13 +66,13 @@ Il existe deux formats de présentation :
   <br>
   <img width="550" height="1100" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese7.png?raw=true">
   <br>
- Format Colonne <b>(En beta)</b> : 
+ Format ligne <b>(Recap détaillé)</b> : 
  <br>
- <img width="900" height="600" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese5.png?raw=true">
+ <img width="550" height="1100" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese_detaille.png?raw=true">
   <br>
-  <b> Mode SWARM</b>
+  <b> Detection des joueurs débutants / OTP / important ou faible winrate </b>
   <br>
-  <img width="900" height="600" src="https://github.com/Tomlora/MarinSlash/blob/main/img/swarm.png">
+  <img width="900" height="600" src="https://github.com/Tomlora/MarinSlash/blob/main/img/otp.png">
 </p>
  
 
