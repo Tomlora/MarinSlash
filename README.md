@@ -56,23 +56,28 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
 - Affiche une notation / 10 de sa partie. Le joueur peut voir comment le score est calculé en affichant les corrélations entre les variables et le score final.
 - Le score final est prédit sur la base du calcul d'op.gg, à partir d'une régression linéaire
 
-Il existe deux formats de présentation :
+
  <p align="center">
- Format ligne (Abrégé) : 
+Image générée<b>du recap de la game</b> : 
  <br>
-  <img width="550" height="1000" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese3.png?raw=true">
+ <img width="1100" height="650" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese_detaille.png?raw=true">
+  <br>
+</p>
+
+
+<p align="center">
+ Recap complet sur Discord :
  <br>
-  Format ligne (toutes options activées) :
-  <br>
-  <img width="550" height="1100" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese7.png?raw=true">
-  <br>
- Format ligne <b>(Recap détaillé)</b> : 
  <br>
- <img width="550" height="1100" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese_detaille.png?raw=true">
+ <br>
+  <img src="https://github.com/Tomlora/MarinSlash/blob/main/synthese3.png?raw=true" width="45%" style="margin-right: 10px;">
+  <img src="https://github.com/Tomlora/MarinSlash/blob/main/synthese7.png?raw=true" width="45%">
+</p>
+
+<p align="center">
+  Détection des joueurs <b>débutants / OTP / important ou faible winrate</b> :
   <br>
-  <b> Detection des joueurs débutants / OTP / important ou faible winrate </b>
-  <br>
-  <img width="900" height="600" src="https://github.com/Tomlora/MarinSlash/blob/main/img/otp.png">
+  <img src="https://raw.githubusercontent.com/Tomlora/MarinSlash/main/otp.png" width="50%">
 </p>
  
 
@@ -129,15 +134,14 @@ Ai-je fait beaucoup de dégats sur les ennemis ?
 
 Ai-je amassé beaucoup de gold, me permettant d'être plus forts, par rapport aux autres ?
 
-Où étais-je à 15 minutes de jeu sur la carte ? 
+Analyse de la position :  
 
- <p align="center">
-  <img width="580" height="490" src="https://cdn.discordapp.com/attachments/534111278923513887/962433559077982278/plot.png">
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Tomlora/MarinSlash/main/position.png" width="45%" style="margin-right: 10px;">
+  <img src="https://raw.githubusercontent.com/Tomlora/MarinSlash/main/position_kills.png" width="45%">
 </p>
 
-Comment notre équipe a évolué au cours de la partie ?
 
-A quel moment ai-je utilisé mon item ?
 
 __Le bot peut répondre à toutes ces questions.__
 
