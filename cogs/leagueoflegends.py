@@ -331,7 +331,10 @@ class LeagueofLegends(Extension):
             
         if match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime >= 15:
             await match_info.save_timeline()
-            await match_info.save_timeline_event()
+            try:
+                await match_info.save_timeline_event()
+            except:
+                print('Erreur save timeline event')
 
         if match_info.thisQId == 900:  # urf
             return {}, 'URF', 0,
@@ -435,7 +438,8 @@ class LeagueofLegends(Extension):
                             'dmg_ap_all' : match_info.thisDamageAPAllNoFormat,
                             'dmg_ap_all_min' : match_info.thisDamageAPAllPerMinute,
                             'dmg_all' : match_info.thisDamageAllNoFormat,
-                            'dmg_all_min' : match_info.thisDamageAllPerMinute}
+                            'dmg_all_min' : match_info.thisDamageAllPerMinute,
+                            'longue_serie_kills' : match_info.thisKillsSeries}
 
             if match_info.thisQ in ['RANKED', 'FLEX']:
                 param_records_only_ranked = {'vision_score': match_info.thisVision,
@@ -667,7 +671,7 @@ class LeagueofLegends(Extension):
                         exploits += f'{emoji} Tu as égalé **{count}** records All Time \n'
                     elif emoji == '<:trophy_world:1333117173731819520>' :
                         exploits += f'{emoji} Tu as battu **{count}** records All time sur {match_info.thisChampName} \n'
-                    elif emoji == '<:silver_trophy:1333118174526308402>':
+                    elif emoji == '<:trophyplatinum48:1333175944835498044>':
                         exploits += f'{emoji} Tu as égalé **{count}** records All time sur {match_info.thisChampName} \n'
                     else:
                         exploits += f'{emoji} Tu as battu **{count}** records \n'
@@ -692,7 +696,7 @@ class LeagueofLegends(Extension):
          
         
 
-        if match_info.thisQ != 'ARENA 2v2' and match_info.thisQ != 'SWARM':
+        if match_info.thisQ in ['RANKED', 'FLEX']:
 
             # Detection joueurs pro 
             await match_info.detection_joueurs_pro()    
@@ -731,16 +735,16 @@ class LeagueofLegends(Extension):
 
             # Insights
             
-            if match_info.observations != '':
+        if match_info.observations != '':
                 embed.add_field(name='Insights', value=match_info.observations)
             
-            if match_info.observations2 != '':
+        if match_info.observations2 != '':
                 embed.add_field(name='Insights 2', value=match_info.observations2)
 
             # Gestion de l'image
 
-            if affichage == 1:
-                embed = await match_info.resume_general('resume', embed, difLP)
+
+        embed = await match_info.resume_general('resume', embed, difLP)
 
 
         # elif match_info.thisQ == 'SWARM':
@@ -748,8 +752,7 @@ class LeagueofLegends(Extension):
         #     embed.add_field(name='Level', value=f'{match_info.thisLevel}')
         #     embed = await match_info.resume_swarm('resume', embed)
 
-        else:
-            pass
+
 
         # on charge les img
 

@@ -1090,6 +1090,8 @@ class matchlol():
             (int(self.match_detail['info']['gameDuration']) / 60), 2))
         self.time_CC = self.match_detail_participants['timeCCingOthers']
         self.largest_crit = self.match_detail_participants['largestCriticalStrike']
+
+        self.teamId = self.match_detail_participants['teamId']
                 
         # si le joueur n'est pas mort, le temps est à 0
         if self.thisTimeLiving == 0:
@@ -1176,9 +1178,17 @@ class matchlol():
 
         self.data_item = []
 
-        for item in self.thisItems:
-            if item != 0:  # si = 0, il n'y a pas d'items
-                self.data_item.append(self.data['data'][str(item)]['name'])
+        try:
+            for item in self.thisItems:
+                if item != 0:  # si = 0, il n'y a pas d'items
+                    self.data_item.append(self.data['data'][str(item)]['name'])
+        except KeyError:
+
+            async with self.session.get(f"https://ddragon.leagueoflegends.com/cdn/14.6.1/data/fr_FR/item.json") as itemlist:
+                self.data = await itemlist.json()      
+                for item in self.thisItems:
+                    if item != 0:  # si = 0, il n'y a pas d'items
+                        self.data_item.append(self.data['data'][str(item)]['name'])      
 
         self.data_item = (' | '.join(self.data_item))
 
@@ -1729,10 +1739,13 @@ class matchlol():
                 self.thisId, self.match_detail, 'riotIdTagline')
         
         for id, tag in zip(self.thisRiotIdListe, self.thisRiotTagListe  ):
-            id_tag = f'{id}#{tag}'
-            masteries_data = await get_masteries_old(id_tag, self.champ_dict, self.session)
-            masteries_data.set_index('championId', inplace=True)
-            self.mastery_list.append(masteries_data)
+            try:
+                id_tag = f'{id}#{tag}'
+                masteries_data = await get_masteries_old(id_tag, self.champ_dict, self.session)
+                masteries_data.set_index('championId', inplace=True)
+                self.mastery_list.append(masteries_data)
+            except:
+                self.mastery_list.append(pd.DataFrame())
 
         self.mastery_level = []
         for masteries_df, championid in zip(self.mastery_list, self.thisChampListe):
@@ -2012,7 +2025,7 @@ class matchlol():
             item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
             split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min, ecart_cs, petales_sanglants, atakhan, crit_dmg, immobilisation, skillshot_hit, temps_cc_inflige, tower, inhib,
-            dmg_true_all, dmg_true_all_min, dmg_ad_all, dmg_ad_all_min, dmg_ap_all, dmg_ap_all_min, dmg_all, dmg_all_min, records)
+            dmg_true_all, dmg_true_all_min, dmg_ad_all, dmg_ad_all_min, dmg_ap_all, dmg_ap_all_min, dmg_all, dmg_all_min, records, longue_serie_kills)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
@@ -2020,8 +2033,10 @@ class matchlol():
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
             :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit, :temps_cc_inflige, :tower, :inhib,
-            :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min, :records);
+            :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min, :records, :longue_serie_kills);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
+            INSERT INTO public.matchs_updated(match_id, joueur, updated)
+	        VALUES (:match_id, :joueur, true);
             UPDATE prev_lol SET match_id = :match_id where riot_id = :riot_id and riot_tag = :riot_tagline and match_id = '' ''',
                 {
                     'match_id': self.last_match,
@@ -2136,7 +2151,8 @@ class matchlol():
                     'dmg_ap_all_min' : self.thisDamageAPAllPerMinute,
                     'dmg_all' : self.thisDamageAllNoFormat,
                     'dmg_all_min' : self.thisDamageAllPerMinute,
-                    'records' : True
+                    'records' : True,
+                    'longue_serie_kills' : self.thisKillsSeries
 
                 },
             )
@@ -2385,10 +2401,9 @@ class matchlol():
                                         (self.df_events['killerId'] == self.index_timeline) |
                                         (self.df_events['victimId'] == self.index_timeline) |
                                         self.df_events['assistingParticipantIds'].apply(lambda x: isinstance(x, list) and self.index_timeline in x)]
+
         
-        self.events_teamid = self.df_events_joueur['teamId'].unique()[-1]
-        
-        self.df_events_team = self.df_events[(self.df_events['teamId'] == self.events_teamid) | (self.df_events['killerTeamId'] == self.events_teamid)]
+        self.df_events_team = self.df_events[(self.df_events['teamId'] == self.teamId) | (self.df_events['killerTeamId'] == self.teamId)]
         
         def format_df_events(df):
 
@@ -2431,9 +2446,12 @@ class matchlol():
         self.df_events_joueur = format_df_events(self.df_events_joueur)
         self.df_events_team = format_df_events(self.df_events_team)
  
+        if not 'monsterSubType' in self.df_events_team.columns:
+            self.df_events_team['monsterSubType'] = ''
  
         # Records
         
+
         self.df_events_monster_kill = self.df_events_team[self.df_events_team['type'] == 'ELITE_MONSTER_KILL'][['type', 'timestamp', 'monsterType', 'monsterSubType']]
         self.df_events_dragon = self.df_events_monster_kill[self.df_events_monster_kill['monsterType'] == 'DRAGON']
         
@@ -2466,12 +2484,12 @@ class matchlol():
             self.timestamp_first_horde = self.df_events_horde['timestamp'].min()
 
         
-        # self.df_events_atakhan = self.df_events_team[self.df_events_team['monsterType'] == 'ATAKHAN']
+        self.df_events_atakhan = self.df_events_team[self.df_events_team['monsterType'] == 'ATAKHAN']
 
-        # if self.df_events_atakhan.empty:
-        #     self.timestamp_first_atakhan = 999.0
-        # else:
-        #     self.timestamp_first_atakhan = self.df_events_atakhan['timestamp'].min()
+        if self.df_events_atakhan.empty:
+            self.timestamp_first_atakhan = 999.0
+        else:
+            self.timestamp_first_atakhan = self.df_events_atakhan['timestamp'].min()
             
         # Autres  
         
@@ -2516,7 +2534,8 @@ class matchlol():
                           first_quadra = :first_quadra,
                           first_penta = :first_penta,
                           first_niveau_max = :first_niveau_max,
-                          first_blood = :first_blood
+                          first_blood = :first_blood,
+                          early_atakhan = :first_atakhan
                         WHERE match_id = :match_id AND joueur = :joueur''',
                     {'fourth_dragon': self.timestamp_fourth_dragon,
                     'first_elder' : self.timestamp_first_elder,
@@ -2527,6 +2546,7 @@ class matchlol():
                     'first_penta' : self.timestamp_pentakill,
                     'first_niveau_max' : self.timestamp_niveau_max,
                     'first_blood' : self.timestamp_first_blood,
+                    'first_atakhan' : self.timestamp_first_atakhan,
                     'match_id': self.last_match,
                     'joueur': self.id_compte})
         
@@ -2826,7 +2846,7 @@ class matchlol():
 
 
             if int(self.thisDeaths) == int(settings['Ne_pas_mourir']['score']):
-                self.observations += "\n **:green_circle: :heart: N'est pas mort de la game ** \n ** :crown: :star: PERFECT KDA **"
+                self.observations += "\n **:green_circle: :heart: N'est pas mort de la game ** \n "
                 txt_sql += add_sql(txt_sql, 'ne_pas_mourir', [0], self.last_match, self.id_compte)
 
 
