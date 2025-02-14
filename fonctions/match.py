@@ -1039,18 +1039,21 @@ class matchlol():
         # Detail de chaque champion...
 
         try:
+
             self.dic = {(self.match_detail['info']['participants'][i]['riotIdGameName']).lower(
-            ).replace(" ", ""): i for i in range(self.nb_joueur)}
+            ).replace(" ", "") + "#" + (self.match_detail['info']['participants'][i]['riotIdTagline'].upper()): i for i in range(self.nb_joueur)}
         except KeyError: # game ancienne, où le riotid n'existait pas
+
             self.dic = {(self.match_detail['info']['participants'][i]['summonerName']).lower(
             ).replace(" ", ""): i for i in range(self.nb_joueur)}
             
         # stats
         try:
+
             self.thisId = self.dic[
-                self.riot_id.lower().replace(" ", "")]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
+                self.riot_id.lower().replace(" ", "") + "#" + self.riot_tag.upper()]  # cherche le pseudo dans le dico et renvoie le nombre entre 0 et 9
         except KeyError: # changement de pseudo ? On va faire avec le puuid
-            
+
             self.dic = {(self.match_detail['metadata']['participants'][i]) : i for i in range(self.nb_joueur)}
             self.thisId = self.dic[self.puuid]
 
@@ -3050,9 +3053,9 @@ class matchlol():
         lineX = 3050
         lineY = 100
 
-        x_name = 350
+
         
-        x_ecart = x_name - 200
+        x_ecart = 125
         x_kills = 1000 + 280
         x_score = x_kills - 160
         x_deaths = x_kills + 100
@@ -3075,7 +3078,7 @@ class matchlol():
         x_objectif = 1800
 
 
-        x_name = 290
+        x_name = 260
         y = 120
         y_name = y - 60
         x_rank = 2250
@@ -3474,6 +3477,11 @@ class matchlol():
                     df_rank = pd.DataFrame(data_rank['data']['fetchProfileRanks']['rankScores'])
                     rank_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
                     tier_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
+
+
+                    if rank_joueur.upper() in ['MASTER', 'GRANDMASTER', 'CHALLENGER']:
+                        tier_joueur = df_rank.loc[df_rank['queueType'] == 'ranked_solo_5x5']['lp'].values[0]
+
                 except:
                     rank_joueur = ''
                     tier_joueur = ''
@@ -3481,9 +3489,9 @@ class matchlol():
             if rank_joueur != '':
                 img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 100, 100)
 
-                im.paste(img_rank_joueur, (x_score-320, initial_y-20), img_rank_joueur.convert('RGBA'))
+                im.paste(img_rank_joueur, (x_score-365, initial_y-20), img_rank_joueur.convert('RGBA'))
 
-                d.text((x_score-220, initial_y), str(
+                d.text((x_score-265, initial_y), str(
                         tier_joueur), font=font, fill=fill)
 
             if self.moba_ok:
