@@ -57,7 +57,7 @@ class LolAccount(Extension):
                 me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
                 puuid = me['puuid']
                 info_account = await get_summonerinfo_by_puuid(puuid, session)
-                if lire_bdd_perso(f'''select * from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''').empty:
+                if lire_bdd_perso(f'''select * from tracker where puuid = '{puuid}' ''').empty:
                     requete_perso_bdd(f'''
                                     INSERT INTO tracker(index, id, discord, server_id, puuid, riot_id, riot_tagline, id_league) VALUES (:riot_id, :id, :discord, :guilde, :puuid, :riot_id, :riot_tagline, :id_league); 
                                     ''',

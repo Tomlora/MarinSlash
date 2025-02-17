@@ -129,7 +129,7 @@ emote_v2 = {
     'dmg_all' : ':dart:',
     'dmg_all_min' : ':dart:',
     'longue_serie_kills' : ":crossed_swords:",
-    'early_atakhan' : 'alien:',
+    'early_atakhan' : ':alien:',
 }
 
 

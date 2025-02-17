@@ -2505,7 +2505,60 @@ class matchlol():
         self.df_niveau_max = self.df_events_joueur[self.df_events_joueur['level'] == 18.0]
         
         self.df_first_blood = self.df_events_joueur[self.df_events_joueur['killType'] == 'KILL_FIRST_BLOOD']
+
+
+        self.df_kills = self.df_events_joueur[self.df_events_joueur['type'].isin(['CHAMPION_KILL', 'CHAMPION_SPECIAL_KILL'])]
+        self.df_deaths = self.df_events_joueur[self.df_events_joueur['type'] == 'DEATHS']
+
+ 
+
+        self.df_kills_with_jgl_early = self.df_events_joueur[(self.df_events_joueur['type'].isin(['CHAMPION_KILL', 'CHAMPION_SPECIAL_KILL'])) & 
+                                                             (self.df_events_joueur['assistingParticipantIds'].apply(lambda x: isinstance(x, list) and (7 in x or 2 in x)))
+                                                             & (self.df_events_joueur['timestamp'].between(2, 10))]
+
+        self.df_deaths_with_jgl_early = self.df_events_joueur[(self.df_events_joueur['type'].isin(['DEATHS'])) & 
+                                                             (self.df_events_joueur['assistingParticipantIds'].apply(lambda x: isinstance(x, list) and (7 in x or 2 in x)))
+                                                             & (self.df_events_joueur['timestamp'].between(2, 10))]
+
+        if not self.df_deaths.empty:
+
+            self.df_deaths['nb_participants'] = self.df_deaths['assistingParticipantIds'].apply(lambda x : len(x) + 1 if isinstance(x, list) else 1)
+            self.get_solokilled = self.df_deaths[self.df_deaths['nb_participants'] == 1].shape[0]
+
+        else:
+            self.get_solokilled = 0
+
+        if not self.df_kills.empty:
+
+            self.df_kills['nb_participants'] = self.df_kills['assistingParticipantIds'].apply(lambda x : len(x) + 1 if isinstance(x, list) else 1)
+
+            self.df_kills_self = self.df_kills[self.df_kills['killerId'] == self.index_timeline]
+
+            self.gold_with_kills = self.df_kills_self['bounty'].sum() + self.df_kills_self['shutdownBounty'].sum()
+            self.bounty_recupere = self.df_kills_self['shutdownBounty'].sum()
         
+        else:
+            self.gold_with_kills = 0
+            self.bounty_recupere = 0
+
+        
+        if not self.df_kills_with_jgl_early.empty and self.thisPosition != 'JUNGLE':
+            self.kills_with_jgl_early = self.df_kills_with_jgl_early.shape[0]
+        
+        else:
+            self.kills_with_jgl_early = 0
+
+    
+        if not self.df_deaths_with_jgl_early.empty and self.thisPosition != 'JUNGLE':
+            self.deaths_with_jgl_early = self.df_deaths_with_jgl_early.shape[0]
+
+        else:
+            self.deaths_with_jgl_early = 0
+        
+
+        
+
+
         self.timestamp_niveau_max = timestamp_killmulti(self.df_niveau_max)
         self.timestamp_first_blood = timestamp_killmulti(self.df_first_blood)
 
@@ -2538,7 +2591,12 @@ class matchlol():
                           first_penta = :first_penta,
                           first_niveau_max = :first_niveau_max,
                           first_blood = :first_blood,
-                          early_atakhan = :first_atakhan
+                          early_atakhan = :first_atakhan,
+                          solokilled = :solokilled,
+                          gold_avec_kills = :gold_avec_kills,
+                          kills_avec_jgl_early = :kills_avec_jgl_early,
+                          deaths_with_jgl_early = :deaths_with_jgl_early,
+                          shutdown_bounty = :shutdown_bounty
                         WHERE match_id = :match_id AND joueur = :joueur''',
                     {'fourth_dragon': self.timestamp_fourth_dragon,
                     'first_elder' : self.timestamp_first_elder,
@@ -2550,6 +2608,11 @@ class matchlol():
                     'first_niveau_max' : self.timestamp_niveau_max,
                     'first_blood' : self.timestamp_first_blood,
                     'first_atakhan' : self.timestamp_first_atakhan,
+                    'solokilled' : self.get_solokilled,
+                    'gold_avec_kills' : self.gold_with_kills,
+                    'kills_avec_jgl_early' : self.kills_with_jgl_early,
+                    'deaths_with_jgl_early' : self.deaths_with_jgl_early,
+                    'shutdown_bounty' : self.bounty_recupere,
                     'match_id': self.last_match,
                     'joueur': self.id_compte})
         
@@ -2573,11 +2636,17 @@ class matchlol():
         
         def filtre_timeline(time):
             df_filtre_timeline = self.df_events_joueur[self.df_events_joueur['timestamp'] <= time]
+            # Nombre de kills
             df_filtre_timeline.loc[(df_filtre_timeline['type'] == 'CHAMPION_SPECIAL_KILL') & (df_filtre_timeline['killerId'] == self.index_timeline), 'type'] = 'CHAMPION_KILL'
+            # Impliqué mais pas le killer, donc assists
             df_filtre_timeline.loc[(df_filtre_timeline['type'] == 'CHAMPION_KILL') & (df_filtre_timeline['killerId'] != self.index_timeline), 'type'] = 'ASSISTS'
+            # On enlève les doublons
             df_filtre_timeline.drop_duplicates(subset=['timestamp', 'killerId', 'type'], inplace=True)
+            # On enlève les balises zombies
             df_filtre_timeline = df_filtre_timeline[df_filtre_timeline['wardType'] != 'Balise Zombie']
+            # On compte
             df_filtre_timeline = df_filtre_timeline.groupby(['type', 'riot_id', 'match_id'], as_index=False).count()
+            
             df_filtre_timeline['type'] = df_filtre_timeline.apply(lambda x : x['type'] + '_' + str(time), axis=1)
             df_filtre_timeline.rename(columns={'timestamp' : 'value'}, inplace=True )
             return df_filtre_timeline[['type', 'riot_id', 'match_id', 'value']]

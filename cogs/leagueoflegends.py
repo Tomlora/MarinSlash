@@ -721,18 +721,34 @@ class LeagueofLegends(Extension):
 
             # Detection First Time
 
-            if match_info.thisQ != 'ARAM' and match_info.thisQ != 'CLASH ARAM':
-                await match_info.detection_first_time()
 
-                if match_info.first_time != '':
-                    embed.add_field(name='<:worryschool:1307745643996905519> Débutant', value=match_info.first_time)       
+            await match_info.detection_first_time()
+
+            if match_info.first_time != '':
+                embed.add_field(name='<:worryschool:1307745643996905519> Débutant', value=match_info.first_time)       
 
             # OTP
             await match_info.detection_otp()
 
             if match_info.otp != '':
-                embed.add_field(name=':one: OTP', value=match_info.otp)         
+                embed.add_field(name=':one: OTP', value=match_info.otp)   
 
+
+
+            # Detection Participation jgl
+
+            if match_info.thisTime >= 15:
+                text_jgl = ''
+                kills_mini = 3 if match_info.thisPosition in ['TOP', 'MID'] else 4
+                kills_jgl_early = getattr(match_info, 'kills_with_jgl_early', 0)
+                morts_jgl_early = getattr(match_info, 'deaths_with_jgl_early', 0)
+
+                if kills_jgl_early >= kills_mini:
+                    text_jgl += f':blue_circle: {kills_jgl_early} Kills avec son jgl en early\n'
+                if morts_jgl_early >= 3:
+                    text_jgl += f':red_circle: {morts_jgl_early} morts par le jgl adverse en early'
+                if text_jgl != '':
+                    embed.add_field(name=':evergreen_tree: Activité Jungle', value=text_jgl)
             # Insights
             
         if match_info.observations != '':
@@ -740,6 +756,8 @@ class LeagueofLegends(Extension):
             
         if match_info.observations2 != '':
                 embed.add_field(name='Insights 2', value=match_info.observations2)
+
+
 
             # Gestion de l'image
 
@@ -1494,7 +1512,7 @@ class LeagueofLegends(Extension):
                             emote = ":arrow_right:"
 
                     embed.add_field(
-                        name=f"{suivi[key]['riot_id']} ( {emote_rank_discord[tier]} {rank} ) #{rank_euw_format}({diff_rank_euw}) | {percent_rank_euw}%",
+                        name=f"{suivi[key]['riot_id']}#{suivi[key]['riot_tagline']} ( {emote_rank_discord[tier]} {rank} ) #{rank_euw_format}({diff_rank_euw}) | {percent_rank_euw}%",
                         value=f"V : {suivi[key]['wins']} ({difwins}) | D : {suivi[key]['losses']} ({diflosses}) | LP :  {suivi[key]['LP']} ({difLP})   {emote}", inline=False)
                     
                     if (difwins + diflosses > 0):  # si supérieur à 0, le joueur a joué
