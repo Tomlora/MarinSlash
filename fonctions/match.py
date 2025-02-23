@@ -515,6 +515,7 @@ async def get_list_matchs_with_me(session: aiohttp.ClientSession, me, params):
                     print(session_match.reason)
 
                 my_matches = await session_match.json()
+                
                 break
         except:
             attemps += 1
@@ -1018,6 +1019,7 @@ class matchlol():
 
 
 
+
         self.avatar = self.info_account['profileIconId']
         self.level_summoner = self.info_account['summonerLevel']
 
@@ -1037,6 +1039,14 @@ class matchlol():
             self.nb_joueur = 3
         else:
             self.nb_joueur = 10
+
+        # Event du match selectionné
+        if self.thisQ in ['RANKED', 'FLEX']:
+            self.data_timeline = await get_match_timeline(self.session, self.last_match)
+            self.index_timeline = self.data_timeline['metadata']['participants'].index(self.puuid) + 1
+        else:
+            self.data_timeline = ''  
+            self.index_timeline = 0
 
         self.liste_puuid = self.match_detail['metadata']['participants']
         self.liste_account_id = [self.match_detail['info']['participants'][i]['summonerId'] for i in range(self.nb_joueur)]
@@ -1215,19 +1225,15 @@ class matchlol():
         self.thisDamagePerMinute = round(
             int(self.match_detail_participants['totalDamageDealtToChampions']) / self.thisTime, 0)
 
-        self.thisDamageTrueAllPerMinute = round(
-            int(self.match_detail_participants['trueDamageDealt']) / self.thisTime, 0)
+        self.thisDamageTrueAllPerMinute = round(int(self.match_detail_participants['trueDamageDealt']) / self.thisTime, 0)
         
 
-        self.thisDamageADAllPerMinute = round(
-            int(self.match_detail_participants['physicalDamageDealt']) / self.thisTime, 0)
+        self.thisDamageADAllPerMinute = round(int(self.match_detail_participants['physicalDamageDealt']) / self.thisTime, 0)
         
-        self.thisDamageAPAllPerMinute = round(
-            int(self.match_detail_participants['magicDamageDealt']) / self.thisTime, 0)
+        self.thisDamageAPAllPerMinute = round(int(self.match_detail_participants['magicDamageDealt']) / self.thisTime, 0)
         
 
-        self.thisDamageAllPerMinute = round(
-            int(self.match_detail_participants['totalDamageDealt']) / self.thisTime, 0)
+        self.thisDamageAllPerMinute = round(int(self.match_detail_participants['totalDamageDealt']) / self.thisTime, 0)
         
 
 
@@ -1257,10 +1263,8 @@ class matchlol():
         self.thisSoloKills = self.match_detail_challenges['soloKills']
         self.thisDanceHerald = self.match_detail_challenges['dancedWithRiftHerald']
         self.thisPerfectGame = self.match_detail_challenges['perfectGame']
-        self.thisJUNGLEafter10min = int(
-            self.match_detail_challenges['jungleCsBefore10Minutes'])
-        self.thisCSafter10min = self.match_detail_challenges[
-            'laneMinionsFirst10Minutes'] + self.thisJUNGLEafter10min
+        self.thisJUNGLEafter10min = int(self.match_detail_challenges['jungleCsBefore10Minutes'])
+        self.thisCSafter10min = self.match_detail_challenges['laneMinionsFirst10Minutes'] + self.thisJUNGLEafter10min
         self.thisKillingSprees = self.match_detail_participants['killingSprees']
         self.thisDamageSelfMitigated = self.match_detail_participants['damageSelfMitigated']
         self.thisDamageTurrets = self.match_detail_participants['damageDealtToTurrets']
@@ -1550,109 +1554,55 @@ class matchlol():
             return (self.thisMinionListe[ally] + self.thisJungleMonsterKilledListe[ally]) - (
                 self.thisMinionListe[ally+5] + self.thisJungleMonsterKilledListe[ally+5])
 
-        if self.team == 0:
-            self.ecart_top_gold = self.thisGoldListe[0] - self.thisGoldListe[5]
-            self.ecart_jgl_gold = self.thisGoldListe[1] - self.thisGoldListe[6]
-            self.ecart_mid_gold = self.thisGoldListe[2] - self.thisGoldListe[7]
-            self.ecart_adc_gold = self.thisGoldListe[3] - self.thisGoldListe[8]
-            self.ecart_supp_gold = self.thisGoldListe[4] - \
-                    self.thisGoldListe[9]
 
-            self.ecart_top_gold_affiche = self.thisGoldListe[0] - \
-                    self.thisGoldListe[5]
-            self.ecart_jgl_gold_affiche = self.thisGoldListe[1] - \
-                    self.thisGoldListe[6]
-            self.ecart_mid_gold_affiche = self.thisGoldListe[2] - \
-                    self.thisGoldListe[7]
-            self.ecart_adc_gold_affiche = self.thisGoldListe[3] - \
-                    self.thisGoldListe[8]
-            self.ecart_supp_gold_affiche = self.thisGoldListe[4] - \
-                    self.thisGoldListe[9]
+        for i, role in enumerate(['top', 'jgl', 'mid', 'adc', 'supp']):
+            setattr(self, f'ecart_{role}_cs', ecart_role_cs(i))
+            setattr(self, f'ecart_{role}_gold', self.thisGoldListe[i] - self.thisGoldListe[i+5])
+            setattr(self, f'ecart_{role}_gold_affiche', self.thisGoldListe[i] - self.thisGoldListe[i+5])
+            setattr(self, f'ecart_{role}_vision', self.thisVisionListe[i] - self.thisVisionListe[i+5])
 
-            self.ecart_top_vision = self.thisVisionListe[0] - \
-                    self.thisVisionListe[5]
-            self.ecart_jgl_vision = self.thisVisionListe[1] - \
-                    self.thisVisionListe[6]
-            self.ecart_mid_vision = self.thisVisionListe[2] - \
-                    self.thisVisionListe[7]
-            self.ecart_adc_vision = self.thisVisionListe[3] - \
-                    self.thisVisionListe[8]
-            self.ecart_supp_vision = self.thisVisionListe[4] - \
-                    self.thisVisionListe[9]
 
-            self.ecart_top_cs = ecart_role_cs(0)
-            self.ecart_jgl_cs = ecart_role_cs(1)
-            self.ecart_mid_cs = ecart_role_cs(2)
-            self.ecart_adc_cs = ecart_role_cs(3)
-            self.ecart_supp_cs = ecart_role_cs(4)
+        # self.ecart_top_gold = self.thisGoldListe[0] - self.thisGoldListe[5]
+        # self.ecart_jgl_gold = self.thisGoldListe[1] - self.thisGoldListe[6]
+        # self.ecart_mid_gold = self.thisGoldListe[2] - self.thisGoldListe[7]
+        # self.ecart_adc_gold = self.thisGoldListe[3] - self.thisGoldListe[8]
+        # self.ecart_supp_gold = self.thisGoldListe[4] - \
+        #             self.thisGoldListe[9]
+
+        # self.ecart_top_gold_affiche = self.thisGoldListe[0] - self.thisGoldListe[5]
+        # self.ecart_jgl_gold_affiche = self.thisGoldListe[1] - self.thisGoldListe[6]
+        # self.ecart_mid_gold_affiche = self.thisGoldListe[2] - self.thisGoldListe[7]
+        # self.ecart_adc_gold_affiche = self.thisGoldListe[3] - self.thisGoldListe[8]
+        # self.ecart_supp_gold_affiche = self.thisGoldListe[4] - self.thisGoldListe[9]
+
+        # self.ecart_top_vision = self.thisVisionListe[0] - self.thisVisionListe[5]
+        # self.ecart_jgl_vision = self.thisVisionListe[1] - self.thisVisionListe[6]
+        # self.ecart_mid_vision = self.thisVisionListe[2] - self.thisVisionListe[7]
+        # self.ecart_adc_vision = self.thisVisionListe[3] - self.thisVisionListe[8]
+        # self.ecart_supp_vision = self.thisVisionListe[4] - self.thisVisionListe[9]
+
+        # self.ecart_top_cs = ecart_role_cs(0)
+        # self.ecart_jgl_cs = ecart_role_cs(1)
+        # self.ecart_mid_cs = ecart_role_cs(2)
+        # self.ecart_adc_cs = ecart_role_cs(3)
+        # self.ecart_supp_cs = ecart_role_cs(4)
 
             # on crée des variables temporaires pour le kpliste, car si une team ne fait pas de kills, on va diviser par 0, ce qui n'est pas possible
-            temp_team_kills = self.thisTeamKills
-            temp_team_kills_op = self.thisTeamKillsOp
+        temp_team_kills = self.thisTeamKills
+        temp_team_kills_op = self.thisTeamKillsOp
 
-            if temp_team_kills == 0:
-                temp_team_kills = 1
-            if temp_team_kills_op == 0:
-                temp_team_kills_op = 1            
+        if temp_team_kills == 0:
+            temp_team_kills = 1
+        if temp_team_kills_op == 0:
+            temp_team_kills_op = 1            
 
 
-            self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (temp_team_kills if i < 5
+        self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (temp_team_kills if i < 5
                                                                                                  else temp_team_kills_op), 2) * 100)
                                 for i in range(self.nb_joueur)]
 
-        elif self.team == 1:
 
-            self.ecart_top_gold = self.thisGoldListe[0] - self.thisGoldListe[5]
-            self.ecart_jgl_gold = self.thisGoldListe[1] - self.thisGoldListe[6]
-            self.ecart_mid_gold = self.thisGoldListe[2] - self.thisGoldListe[7]
-            self.ecart_adc_gold = self.thisGoldListe[3] - self.thisGoldListe[8]
-            self.ecart_supp_gold = self.thisGoldListe[4] - \
-                    self.thisGoldListe[9]
-
-            self.ecart_top_gold_affiche = self.thisGoldListe[0] - \
-                    self.thisGoldListe[5]
-            self.ecart_jgl_gold_affiche = self.thisGoldListe[1] - \
-                    self.thisGoldListe[6]
-            self.ecart_mid_gold_affiche = self.thisGoldListe[2] - \
-                    self.thisGoldListe[7]
-            self.ecart_adc_gold_affiche = self.thisGoldListe[3] - \
-                    self.thisGoldListe[8]
-            self.ecart_supp_gold_affiche = self.thisGoldListe[4] - \
-                    self.thisGoldListe[9]
-
-            self.ecart_top_vision = self.thisVisionListe[0] - \
-                    self.thisVisionListe[5]
-            self.ecart_jgl_vision = self.thisVisionListe[1] - \
-                    self.thisVisionListe[6]
-            self.ecart_mid_vision = self.thisVisionListe[2] - \
-                    self.thisVisionListe[7]
-            self.ecart_adc_vision = self.thisVisionListe[3] - \
-                    self.thisVisionListe[8]
-            self.ecart_supp_vision = self.thisVisionListe[4] - \
-                    self.thisVisionListe[9]
-
-            self.ecart_top_cs = ecart_role_cs(0)
-            self.ecart_jgl_cs = ecart_role_cs(1)
-            self.ecart_mid_cs = ecart_role_cs(2)
-            self.ecart_adc_cs = ecart_role_cs(3)
-            self.ecart_supp_cs = ecart_role_cs(4)
-
-            # on crée des variables temporaires pour le kpliste, car si une team ne fait pas de kills, on va diviser par 0, ce qui n'est pas possible
-            temp_team_kills = self.thisTeamKills
-            temp_team_kills_op = self.thisTeamKillsOp
-
-            if temp_team_kills == 0:
-                temp_team_kills = 1
-            if temp_team_kills_op == 0:
-                temp_team_kills_op = 1            
-
-
-            self.thisKPListe = [int(round((self.thisKillsListe[i] + self.thisAssistsListe[i]) / (temp_team_kills if i < 5
-                                                                                                 else temp_team_kills_op), 2) * 100)
-                                for i in range(self.nb_joueur)]
-
-        self.adversaire_direct = {"TOP": self.ecart_top_gold, "JUNGLE": self.ecart_jgl_gold,
-                                  "MID": self.ecart_mid_gold, "ADC": self.ecart_adc_gold, "SUPPORT": self.ecart_supp_gold}
+        self.adversaire_direct = {"TOP": self.ecart_top_gold, "JUNGLE": self.ecart_jgl_gold, "MID": self.ecart_mid_gold, "ADC": self.ecart_adc_gold, "SUPPORT": self.ecart_supp_gold}
         
         self.adversaire_direct_cs = {"TOP": self.ecart_top_cs, "JUNGLE": self.ecart_jgl_cs, "MID": self.ecart_mid_cs, "ADC": self.ecart_adc_cs, "SUPPORT": self.ecart_supp_cs}
 
@@ -1739,12 +1689,7 @@ class matchlol():
         
         self.DamageGoldRatio = round((self.thisDamageNoFormat/self.thisGoldNoFormat)*100,2)
         
-        if self.thisQ in ['RANKED', 'FLEX']:
-            self.data_timeline = await get_match_timeline(self.session, self.last_match)
-            self.index_timeline = self.data_timeline['metadata']['participants'].index(self.puuid) + 1
-        else:
-            self.data_timeline = ''  
-            self.index_timeline = 0
+
 
 
 
