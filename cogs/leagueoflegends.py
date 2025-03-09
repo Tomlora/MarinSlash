@@ -329,7 +329,7 @@ class LeagueofLegends(Extension):
         # if sauvegarder and match_info.thisQ == 'SWARM':
         #     await match_info.save_data_swarm()
             
-        if match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime >= 15:
+        if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY'] and match_info.thisTime >= 15:
             await match_info.save_timeline()
             try:
                 await match_info.save_timeline_event()
@@ -378,7 +378,7 @@ class LeagueofLegends(Extension):
             suivi[id_compte]['LP'] = match_info.thisLP
 
         # on ne prend que les ranked > 20 min ou aram > 10 min + Ceux qui veulent checker les records
-        if ((match_info.thisQ in ['RANKED', 'FLEX'] and match_info.thisTime >= 15) or (match_info.thisQ == "ARAM" and match_info.thisTime >= 10)) and check_records:
+        if ((match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY'] and match_info.thisTime >= 15) or (match_info.thisQ == "ARAM" and match_info.thisTime >= 10)) and check_records:
 
             # pour le nouveau système de records
             param_records = {'kda': match_info.thisKDA,
@@ -441,7 +441,7 @@ class LeagueofLegends(Extension):
                             'dmg_all_min' : match_info.thisDamageAllPerMinute,
                             'longue_serie_kills' : match_info.thisKillsSeries}
 
-            if match_info.thisQ in ['RANKED', 'FLEX']:
+            if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:
                 param_records_only_ranked = {'vision_score': match_info.thisVision,
                                             'vision_wards': match_info.thisWards,
                                             'vision_wards_killed': match_info.thisWardsKilled,
@@ -512,7 +512,7 @@ class LeagueofLegends(Extension):
                     exploits += records_check2(fichier, fichier_joueur,
                                                fichier_champion, fichier_all,  fichier_champion_all, parameter, value)
 
-            if match_info.thisQ in ['RANKED', 'FLEX']:  # seulement en ranked
+            if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:  # seulement en ranked
                 for parameter, value in param_records_only_ranked.items():
 
                     exploits, chunk = check_chunk(exploits, chunk, chunk_size)
@@ -735,20 +735,20 @@ class LeagueofLegends(Extension):
 
 
 
-            # Detection Participation jgl
+            # # Detection Participation jgl
 
-            if match_info.thisTime >= 15:
-                text_jgl = ''
-                kills_mini = 3 if match_info.thisPosition in ['TOP', 'MID'] else 4
-                kills_jgl_early = getattr(match_info, 'kills_with_jgl_early', 0)
-                morts_jgl_early = getattr(match_info, 'deaths_with_jgl_early', 0)
+            # if match_info.thisTime >= 15:
+            #     text_jgl = ''
+            #     kills_mini = 3 if match_info.thisPosition in ['TOP', 'MID'] else 4
+            #     kills_jgl_early = getattr(match_info, 'kills_with_jgl_early', 0)
+            #     morts_jgl_early = getattr(match_info, 'deaths_with_jgl_early', 0)
 
-                if kills_jgl_early >= kills_mini:
-                    text_jgl += f':blue_circle: {kills_jgl_early} Kills avec son jgl en early\n'
-                if morts_jgl_early >= 3:
-                    text_jgl += f':red_circle: {morts_jgl_early} morts par le jgl adverse en early'
-                if text_jgl != '':
-                    embed.add_field(name=':evergreen_tree: Activité Jungle', value=text_jgl)
+            #     if kills_jgl_early >= kills_mini:
+            #         text_jgl += f':blue_circle: {kills_jgl_early} Kills avec son jgl en early\n'
+            #     if morts_jgl_early >= 3:
+            #         text_jgl += f':red_circle: {morts_jgl_early} morts par le jgl adverse en early'
+            #     if text_jgl != '':
+            #         embed.add_field(name=':evergreen_tree: Activité Jungle', value=text_jgl)
             # Insights
             
         if match_info.observations != '':
@@ -763,13 +763,6 @@ class LeagueofLegends(Extension):
 
 
         embed = await match_info.resume_general('resume', embed, difLP)
-
-
-        # elif match_info.thisQ == 'SWARM':
-        #     embed.add_field(name='Augment', value=match_info.descriptionAugment)
-        #     embed.add_field(name='Level', value=f'{match_info.thisLevel}')
-        #     embed = await match_info.resume_swarm('resume', embed)
-
 
 
         # on charge les img
@@ -1340,7 +1333,7 @@ class LeagueofLegends(Extension):
 
         paginator.default_title = f'Live feed list Split {season}'
         await paginator.send(ctx)
-        # await ctx.send(embeds=embed)
+
 
     async def update_24h(self):
         data = get_data_bdd(
@@ -1383,9 +1376,13 @@ class LeagueofLegends(Extension):
                 df['tier_pts'] = df['tier'].apply(label_tier)
                 df['rank_pts'] = df['rank'].apply(label_rank)
 
-                df.sort_values(by=['tier_pts', 'rank_pts', 'LP'],
+                df['LP_pts'] = df['LP'].astype(int)
+
+                df.sort_values(by=['tier_pts', 'rank_pts', 'LP_pts'],
                                ascending=[False, False, False],
                                inplace=True)
+                
+
 
                 sql = ''
 
@@ -1598,9 +1595,9 @@ class LeagueofLegends(Extension):
                            type=interactions.OptionType.STRING,
                            required=False,
                            choices=[
-                               SlashCommandChoice(name='Ranked',
-                                                  value='RANKED'),
-                               SlashCommandChoice(name='Aram', value='ARAM')]
+                               SlashCommandChoice(name='Ranked', value='RANKED'),
+                               SlashCommandChoice(name='Aram', value='ARAM'),
+                               SlashCommandChoice(name='Swiftplay', value='SWIFTPLAY')]
                        ),
                        SlashCommandOption(
                            name='observation',
@@ -1608,20 +1605,13 @@ class LeagueofLegends(Extension):
                            type=interactions.OptionType.STRING,
                            required=False,
                            choices=[
-                               SlashCommandChoice(
-                                   name='24h', value='24h'),
-                               SlashCommandChoice(
-                                   name='48h', value='48h'),
-                               SlashCommandChoice(
-                                   name='72h', value='72h'),
-                               SlashCommandChoice(
-                                   name='96h', value='96h'),
-                               SlashCommandChoice(
-                                   name='Semaine', value='Semaine'),
-                               SlashCommandChoice(
-                                   name='Mois', value='Mois'),
-                               SlashCommandChoice(
-                                   name="Aujourd'hui", value='today')
+                               SlashCommandChoice(name='24h', value='24h'),
+                               SlashCommandChoice(name='48h', value='48h'),
+                               SlashCommandChoice(name='72h', value='72h'),
+                               SlashCommandChoice(name='96h', value='96h'),
+                               SlashCommandChoice(name='Semaine', value='Semaine'),
+                               SlashCommandChoice(name='Mois', value='Mois'),
+                               SlashCommandChoice(name="Aujourd'hui", value='today')
                                 
                            ]
                        )])
@@ -1730,7 +1720,7 @@ class LeagueofLegends(Extension):
                 {True: 'Victoire', False: 'Défaite'})
 
             # Total
-            total_kda = f'Total : **{df["kills"].sum()}**/**{df["deaths"].sum()}**/**{df["assists"].sum()}**  | Moyenne : **{df["kills"].mean():.2f}**/**{df["deaths"].mean():.2f}**/**{df["assists"].mean():.1f}** (**{df["kda"].mean():.2f}**) | KP : **{df["kp"].mean():.2f}**% '
+            total_kda = f'**{df["kills"].sum()}**/**{df["deaths"].sum()}**/**{df["assists"].sum()}**  | Moyenne : **{df["kills"].mean():.2f}**/**{df["deaths"].mean():.2f}**/**{df["assists"].mean():.1f}** (**{df["kda"].mean():.2f}**) | KP : **{df["kp"].mean():.2f}**% '
             total_lp = f'**{df["ecart_lp"].sum()}**'
 
             gold_moyen = f'**{df["ecart_gold"].mean():.0f}**'
@@ -1775,12 +1765,21 @@ class LeagueofLegends(Extension):
 
 
 
+            df['champion'] = df['champion'].str.capitalize()
             champion_counts = df['champion'].sort_values(
                 ascending=False).value_counts()
+            
+            champion_lp = df.groupby('champion')[['ecart_lp']].sum()
+            
+
             txt_champ = ''.join(
-                f'{emote_champ_discord.get(champ.capitalize(), "inconnu")} : **{number}** | '
+                f'{emote_champ_discord.get(champ, "inconnu")} : **{number}**'
+                + (f' ({lp} LP)' if (lp := champion_lp.loc[champ].values[0]) != 0 else '')
+                + ' | '
                 for champ, number in champion_counts.items()
             )
+
+            
             # On prépare l'embed
             data = get_data_bdd(
                 'SELECT "R", "G", "B" from tracker WHERE riot_id = :riot_id and riot_tagline = :riot_tag',
@@ -1800,7 +1799,8 @@ class LeagueofLegends(Extension):
             emote_status_match = {'Victoire' : ':green_circle:', 'Défaite' : ':red_circle:'}
 
             df['mode'] = df['mode'].replace({'ARAM': 'A',
-                                             'RANKED': 'R'})
+                                             'RANKED': 'R',
+                                             'SWIFTPLAY': 'S'})
             
             df['proba1'].fillna(-1, inplace=True)
             df['proba2'].fillna(-1, inplace=True)
@@ -1820,7 +1820,7 @@ class LeagueofLegends(Extension):
                 if match['proba_win'] == -1:
                     txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} \n'
                 else:
-                    txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} | Proba : {match["proba_win"]}% \n'
+                    txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} | P : {match["proba_win"]}% \n'
 
                 if embed.fields and len(txt) + sum(len(field.value) for field in embed.fields) > 4000:
                     embed.add_field(name='KDA', value=total_kda)

@@ -392,7 +392,7 @@ choice_pantheon = [SlashCommandChoice(name="KDA", value="KDA"),
 class Recordslol(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        self.time_mini = {'RANKED' : 15, 'ARAM' : 10, 'FLEX' : 15} # minutes minimum pour compter dans les records
+        self.time_mini = {'RANKED' : 15, 'ARAM' : 10, 'FLEX' : 15, 'SWIFTPLAY' : 15} # minutes minimum pour compter dans les records
         
         self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_blood', 'kills_min', 'deaths_min', 'assists_min', 'longue_serie_kills'] 
         self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold', 'crit_dmg', 'dmg_true_all', 'dmg_true_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min', 'dmg_all', 'dmg_all_min']
@@ -430,9 +430,9 @@ class Recordslol(Extension):
             description="Quel mode de jeu ?",
             type=interactions.OptionType.STRING,
             required=True, choices=[
-                SlashCommandChoice(name='ranked',
-                       value='RANKED'),
+                SlashCommandChoice(name='ranked',value='RANKED'),
                 SlashCommandChoice(name='aram', value='ARAM'),
+                SlashCommandChoice(name='swiftplay',value='SWIFTPLAY'),
                 SlashCommandChoice(name='flex', value='FLEX')]),
         SlashCommandOption(
             name='saison',
@@ -463,9 +463,9 @@ class Recordslol(Extension):
             description="Quel mode de jeu ?",
             type=interactions.OptionType.STRING,
             required=True, choices=[
-                SlashCommandChoice(name='ranked',
-                       value='RANKED'),
+                SlashCommandChoice(name='ranked',value='RANKED'),
                 SlashCommandChoice(name='aram', value='ARAM'),
+                SlashCommandChoice(name='swiftplay',value='SWIFTPLAY'),
                 SlashCommandChoice(name='flex', value='FLEX')]),
         SlashCommandOption(
             name="joueur",
@@ -527,7 +527,7 @@ class Recordslol(Extension):
         # on rajoute quelques éléments sur d'autres pages...
 
         
-        if mode == 'RANKED':
+        if mode in ['RANKED', 'FLEX', 'SWIFTPLAY']:
             fichier_divers.remove('snowball')
 
         if mode == 'ARAM':  # on vire les records qui ne doivent pas être comptés en aram
@@ -686,7 +686,7 @@ class Recordslol(Extension):
         # on rajoute quelques éléments sur d'autres pages...
 
         
-        if mode == 'RANKED':
+        if mode in ['RANKED', 'FLEX', 'SWIFTPLAY']:
             fichier_divers.remove('snowball')
 
         if mode == 'ARAM':  # on vire les records qui ne doivent pas être comptés en aram
@@ -753,12 +753,10 @@ class Recordslol(Extension):
                                             type=interactions.OptionType.STRING,
                                             required=False,
                                             choices=[
-                                                SlashCommandChoice(name='ranked',
-                                                       value='RANKED'),
-                                                SlashCommandChoice(name='aram',
-                                                       value='ARAM'),
-                                                SlashCommandChoice(name='flex',
-                                                       value='FLEX')
+                                                SlashCommandChoice(name='ranked', value='RANKED'),
+                                                SlashCommandChoice(name='aram', value='ARAM'),
+                                                SlashCommandChoice(name='flex', value='FLEX'),
+                                                SlashCommandChoice(name='swiftplay',value='SWIFTPLAY'),
                                             ]
                                         ),
                                         SlashCommandOption(
@@ -801,7 +799,7 @@ class Recordslol(Extension):
 
         # liste records
 
-        if mode in ['RANKED', 'FLEX']:
+        if mode in ['RANKED', 'FLEX', 'SWIFTPLAY']:
             liste_records = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'serie_kills', 
             'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
             'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage', 'kills_min', 'deaths_min', 'assists_min', 'dmg_all', 'dmg_all_min', 'longue_serie_kills',
@@ -983,12 +981,10 @@ class Recordslol(Extension):
                                             type=interactions.OptionType.STRING,
                                             required=False,
                                             choices=[
-                                                SlashCommandChoice(name='ranked',
-                                                       value='RANKED'),
-                                                SlashCommandChoice(name='aram',
-                                                       value='ARAM'),
-                                                SlashCommandChoice(name='flex',
-                                                       value='FLEX')
+                                                SlashCommandChoice(name='ranked', value='RANKED'),
+                                                SlashCommandChoice(name='aram', value='ARAM'),
+                                                SlashCommandChoice(name='swiftplay',value='SWIFTPLAY'),
+                                                SlashCommandChoice(name='flex', value='FLEX')
                                             ]
                                         ),
                                         SlashCommandOption(
@@ -1153,12 +1149,10 @@ class Recordslol(Extension):
                                             type=interactions.OptionType.STRING,
                                             required=False,
                                             choices=[
-                                                SlashCommandChoice(name='ranked',
-                                                       value='RANKED'),
-                                                SlashCommandChoice(name='aram',
-                                                       value='ARAM'),
-                                                SlashCommandChoice(name='flex',
-                                                       value='FLEX')]),
+                                                SlashCommandChoice(name='ranked', value='RANKED'),
+                                                SlashCommandChoice(name='aram', value='ARAM'),
+                                                SlashCommandChoice(name='swiftplay',value='SWIFTPLAY'),
+                                                SlashCommandChoice(name='flex', value='FLEX')]),
                                         SlashCommandOption(
                                             name='view',
                                             description='Global ou serveur ?',

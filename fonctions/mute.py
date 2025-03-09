@@ -1,7 +1,7 @@
 import os
 from sqlalchemy import *
-import datetime
-
+from datetime import datetime, timezone
+import pytz
 
 class DatabaseHandler():
     def __init__(self):
@@ -11,7 +11,7 @@ class DatabaseHandler():
     def add_tempmute(self,
                      user_id: int,
                      guild_id: int,
-                     expiration_date: datetime.datetime):
+                     expiration_date: datetime):
         con = self.engine.connect()
         query = text(
             "INSERT INTO Tempmute (user_id, guild_id, expiration_date) VALUES (:user_id, :guild_id, :expiration_date);")
@@ -24,7 +24,7 @@ class DatabaseHandler():
         query = text(
             f"SELECT * FROM Tempmute WHERE guild_id = :guild_id AND active = true AND expiration_date < :expiration_date;")
         cursor = con.execute(
-            query, {'guild_id': guild_id, 'expiration_date': datetime.datetime.utcnow()})
+            query, {'guild_id': guild_id, 'expiration_date': datetime.now(pytz.timezone('Europe/Paris'))})
         result = list(map(dict, cursor.fetchall()))
         con.close()
         return result

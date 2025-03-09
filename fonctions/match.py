@@ -1041,7 +1041,7 @@ class matchlol():
             self.nb_joueur = 10
 
         # Event du match selectionné
-        if self.thisQ in ['RANKED', 'FLEX']:
+        if self.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:
             self.data_timeline = await get_match_timeline(self.session, self.last_match)
             self.index_timeline = self.data_timeline['metadata']['participants'].index(self.puuid) + 1
         else:
@@ -1561,33 +1561,7 @@ class matchlol():
             setattr(self, f'ecart_{role}_gold_affiche', self.thisGoldListe[i] - self.thisGoldListe[i+5])
             setattr(self, f'ecart_{role}_vision', self.thisVisionListe[i] - self.thisVisionListe[i+5])
 
-
-        # self.ecart_top_gold = self.thisGoldListe[0] - self.thisGoldListe[5]
-        # self.ecart_jgl_gold = self.thisGoldListe[1] - self.thisGoldListe[6]
-        # self.ecart_mid_gold = self.thisGoldListe[2] - self.thisGoldListe[7]
-        # self.ecart_adc_gold = self.thisGoldListe[3] - self.thisGoldListe[8]
-        # self.ecart_supp_gold = self.thisGoldListe[4] - \
-        #             self.thisGoldListe[9]
-
-        # self.ecart_top_gold_affiche = self.thisGoldListe[0] - self.thisGoldListe[5]
-        # self.ecart_jgl_gold_affiche = self.thisGoldListe[1] - self.thisGoldListe[6]
-        # self.ecart_mid_gold_affiche = self.thisGoldListe[2] - self.thisGoldListe[7]
-        # self.ecart_adc_gold_affiche = self.thisGoldListe[3] - self.thisGoldListe[8]
-        # self.ecart_supp_gold_affiche = self.thisGoldListe[4] - self.thisGoldListe[9]
-
-        # self.ecart_top_vision = self.thisVisionListe[0] - self.thisVisionListe[5]
-        # self.ecart_jgl_vision = self.thisVisionListe[1] - self.thisVisionListe[6]
-        # self.ecart_mid_vision = self.thisVisionListe[2] - self.thisVisionListe[7]
-        # self.ecart_adc_vision = self.thisVisionListe[3] - self.thisVisionListe[8]
-        # self.ecart_supp_vision = self.thisVisionListe[4] - self.thisVisionListe[9]
-
-        # self.ecart_top_cs = ecart_role_cs(0)
-        # self.ecart_jgl_cs = ecart_role_cs(1)
-        # self.ecart_mid_cs = ecart_role_cs(2)
-        # self.ecart_adc_cs = ecart_role_cs(3)
-        # self.ecart_supp_cs = ecart_role_cs(4)
-
-            # on crée des variables temporaires pour le kpliste, car si une team ne fait pas de kills, on va diviser par 0, ce qui n'est pas possible
+        # on crée des variables temporaires pour le kpliste, car si une team ne fait pas de kills, on va diviser par 0, ce qui n'est pas possible
         temp_team_kills = self.thisTeamKills
         temp_team_kills_op = self.thisTeamKillsOp
 
@@ -1676,7 +1650,7 @@ class matchlol():
         except Exception:
             self.thisKP = 0
 
-        # thisDamageRatio = round((float(thisDamage) / float(thisTeamDamage)) * 100, 2)
+
         self.thisDamageRatio = round(
             (self.match_detail_challenges['teamDamagePercentage']) * 100, 2)
         self.thisDamageTakenRatio = round(
@@ -1701,7 +1675,7 @@ class matchlol():
         self.thisRiotTagListe = dict_data(
                 self.thisId, self.match_detail, 'riotIdTagline')
         
-        for id, tag in zip(self.thisRiotIdListe, self.thisRiotTagListe  ):
+        for id, tag in zip(self.thisRiotIdListe, self.thisRiotTagListe):
             try:
                 id_tag = f'{id}#{tag}'
                 masteries_data = await get_masteries_old(id_tag, self.champ_dict, self.session)
