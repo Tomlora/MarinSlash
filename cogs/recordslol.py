@@ -130,6 +130,10 @@ emote_v2 = {
     'dmg_all_min' : ':dart:',
     'longue_serie_kills' : ":crossed_swords:",
     'early_atakhan' : ':alien:',
+    'ecart_kills' : ':crossed_swords:',
+    'ecart_deaths' : ':skull:',
+    'ecart_assists' : ':crossed_swords:',
+    'ecart_dmg' : ':dart:',
 }
 
 
@@ -157,12 +161,16 @@ async def load_data(ctx, view, saison, mode, time_mini):
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
                                             "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
-                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"
-                                                                                
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30",
+                                        "l_ecart_cs", "l_ecart_gold", "l_ecart_gold_min_durant_game", "l_ecart_gold_max_durant_game", "l_kda", "l_cs", "l_cs_max_avantage",
+                                          "l_level_max_avantage", "l_ecart_gold_team", "l_ecart_kills_team", "l_temps_avant_premiere_mort",
+                                         "l_ecart_kills", "l_ecart_deaths", "l_ecart_assists", "l_ecart_dmg", "l_allie_feeder", "l_temps_vivant","l_time", "l_solokills"     
+
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                         LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        LEFT JOIN records_loser ON matchs.joueur = records_loser.joueur and matchs.match_id = records_loser.match_id 
                                         where season = {saison}
                                         and mode = '{mode}'
                                         and time >= {time_mini[mode]}
@@ -188,12 +196,16 @@ async def load_data(ctx, view, saison, mode, time_mini):
                                             "TURRET_PLATE_DESTROYED_10", 
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
                                             "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
-                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30",
+                                        "l_ecart_cs", "l_ecart_gold", "l_ecart_gold_min_durant_game", "l_ecart_gold_max_durant_game", "l_kda", "l_cs", "l_cs_max_avantage",
+                                        "l_level_max_avantage", "l_ecart_gold_team", "l_ecart_kills_team", "l_temps_avant_premiere_mort",
+                                          "l_ecart_kills", "l_ecart_deaths", "l_ecart_assists", "l_ecart_dmg", "l_allie_feeder", "l_temps_vivant","l_time", "l_solokills"  
                                                                                 
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                         LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        LEFT JOIN records_loser ON matchs.joueur = records_loser.joueur and matchs.match_id = records_loser.match_id 
                                         where season = {saison}
                                         and mode = '{mode}'
                                         and server_id = {int(ctx.guild_id)}
@@ -222,12 +234,16 @@ async def load_data(ctx, view, saison, mode, time_mini):
                                             "TURRET_PLATE_DESTROYED_10",
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
                                             "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
-                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30",
+                                         "l_ecart_cs", "l_ecart_gold", "l_ecart_gold_min_durant_game", "l_ecart_gold_max_durant_game", "l_kda", "l_cs", "l_cs_max_avantage",
+                                          "l_level_max_avantage", "l_ecart_gold_team", "l_ecart_kills_team", "l_temps_avant_premiere_mort",
+                                          "l_ecart_kills", "l_ecart_deaths", "l_ecart_assists", "l_ecart_dmg", "l_allie_feeder", "l_temps_vivant","l_time", "l_solokills"   
                                                                                 
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                         LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        LEFT JOIN records_loser ON matchs.joueur = records_loser.joueur and matchs.match_id = records_loser.match_id 
                                         where mode = '{mode}'
                                         and time >= {time_mini[mode]}
                                         and tracker.banned = false
@@ -252,12 +268,16 @@ async def load_data(ctx, view, saison, mode, time_mini):
                                             "TURRET_PLATE_DESTROYED_10", 
                                             "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
                                             "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
-                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"
+                                         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30",
+                                         "l_ecart_cs", "l_ecart_gold", "l_ecart_gold_min_durant_game", "l_ecart_gold_max_durant_game", "l_kda", "l_cs", "l_cs_max_avantage",
+                                          "l_level_max_avantage", "l_ecart_gold_team", "l_ecart_kills_team", "l_temps_avant_premiere_mort",
+                                          "l_ecart_kills", "l_ecart_deaths", "l_ecart_assists", "l_ecart_dmg", "l_allie_feeder", "l_temps_vivant","l_time", "l_solokills"  
                                                                                 
                                         from matchs
                                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
                                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
                                         LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id and matchs.match_id = data_timeline_palier.match_id
+                                        LEFT JOIN records_loser ON matchs.joueur = records_loser.joueur and matchs.match_id = records_loser.match_id 
                                         where mode = '{mode}'
                                         and server_id = {int(ctx.guild_id)}
                                         and time >= {time_mini[mode]}
@@ -394,13 +414,13 @@ class Recordslol(Extension):
         self.bot: interactions.Client = bot
         self.time_mini = {'RANKED' : 15, 'ARAM' : 10, 'FLEX' : 15, 'SWIFTPLAY' : 15} # minutes minimum pour compter dans les records
         
-        self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_blood', 'kills_min', 'deaths_min', 'assists_min', 'longue_serie_kills'] 
-        self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold', 'crit_dmg', 'dmg_true_all', 'dmg_true_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min', 'dmg_all', 'dmg_all_min']
+        self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta',  'kills_min', 'deaths_min', 'assists_min', 'longue_serie_kills', 'ecart_kills', 'ecart_deaths', 'ecart_assists'] 
+        self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold', 'crit_dmg', 'dmg_true_all', 'dmg_true_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min', 'dmg_all', 'dmg_all_min', 'ecart_dmg']
         self.fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
         self.fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
         self.fichier_tank_heal = ['dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies']
         self.fichier_objectif = ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib', 'early_atakhan']
-        self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation', 'temps_cc_inflige']
+        self.fichier_divers = ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball', 'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation', 'temps_cc_inflige', 'first_blood']
         self.fichier_stats = ['abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'first_niveau_max']
         self.fichier_timer = ["ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
                                         "BUILDING_KILL_20", "BUILDING_KILL_30",
@@ -414,10 +434,14 @@ class Recordslol(Extension):
         
         self.fichier_timer2 = ["TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"]
 
-        self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers + self.fichier_stats + self.fichier_timer + self.fichier_timer2
+
+        self.loser = ['l_ecart_cs', 'l_ecart_gold', 'l_ecart_gold_min_durant_game', 'l_ecart_gold_max_durant_game', 'l_kda', 'l_cs', 'l_cs_max_avantage', 'l_level_max_avantage', 'l_ecart_gold_team', 'l_ecart_kills_team', 'l_temps_avant_premiere_mort',
+                      'l_ecart_kills', 'l_ecart_deaths', 'l_ecart_assists', 'l_ecart_dmg', 'l_allie_feeder', 'l_temps_vivant', 'l_time', 'l_solokills']
+
+        self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers + self.fichier_stats + self.fichier_timer + self.fichier_timer2 + self.loser
 
 
-        self.records_min = ['early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'early_atakhan']
+        self.records_min = ['early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'early_atakhan', 'l_ecart_gold_min_durant_game']
         
     @slash_command(name='lol_records', description='records League of Legends')
     async def records_lol(self, ctx: SlashContext):
@@ -561,16 +585,17 @@ class Recordslol(Extension):
             embed8 = await calcul_record(fichier, self.fichier_stats, self.records_min, title, 'Stats', methode_pseudo, saison, False)
             embed9 = await calcul_record(fichier, fichier_timer, self.records_min, title, 'Timer', methode_pseudo, saison, False)
             embed10 = await calcul_record(fichier, fichier_timer2, self.records_min, title, 'Timer2', methode_pseudo, saison, False)
+            embed11 = await calcul_record(fichier, self.loser, self.records_min, title, 'Loser', methode_pseudo, saison, False)
 
             
         for embed in [embed1, embed2, embed5, embed6, embed7]:
             embed.set_footer(text=f'Version {Version} by Tomlora')
 
         if mode != 'ARAM':
-            for embed in [embed3, embed4, embed8, embed9, embed10]:
+            for embed in [embed3, embed4, embed8, embed9, embed10, embed11]:
                 embed.set_footer(text=f'Version {Version} by Tomlora')
 
-            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9, embed10]
+            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9, embed10, embed11]
 
         else:
             pages=[embed1, embed2, embed5, embed6, embed7]
@@ -715,16 +740,17 @@ class Recordslol(Extension):
             embed8 = await calcul_record(fichier, self.fichier_stats, self.records_min, title, 'Stats', methode_pseudo, saison, True)
             embed9 = await calcul_record(fichier, fichier_timer, self.records_min, title, 'Timer', methode_pseudo, saison, True)
             embed10 = await calcul_record(fichier, fichier_timer2, self.records_min, title, 'Timer2', methode_pseudo, saison, True)
+            embed11 = await calcul_record(fichier, self.loser, self.records_min, title, 'Loser', methode_pseudo, saison, True)
 
         for embed in [embed1, embed2, embed5, embed6, embed7]:
             embed.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
 
 
         if mode != 'ARAM':
-            for embed in [embed3, embed4, embed8, embed9, embed10]:
+            for embed in [embed3, embed4, embed8, embed9, embed10, embed11]:
                 embed.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
 
-            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9, embed10]
+            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9, embed10, embed11]
 
         else:
             pages=[embed1, embed2, embed5, embed6, embed7]
@@ -808,7 +834,7 @@ class Recordslol(Extension):
             'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'dmg/gold', 
             'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles', 'crit_dmg', 'immobilisation', 'dmg_true_all', 'dmg_true_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min',
             'abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'fourth_dragon',
-            'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'tower', 'inhib', 'temps_cc_inflige',
+            'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'tower', 'inhib', 'temps_cc_inflige', 'ecart_kills', 'ecart_deaths', 'ecart_assists', 'ecart_dmg',
             "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
                                         "BUILDING_KILL_20", "BUILDING_KILL_30",
                                         "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
@@ -817,7 +843,9 @@ class Recordslol(Extension):
                                         "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
                                         "TURRET_PLATE_DESTROYED_10", 
                                         "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30", "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"]
+                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30", "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30",
+                                        'l_ecart_cs', 'l_ecart_gold', 'l_ecart_gold_min_durant_game', 'l_ecart_gold_max_durant_game', 'l_kda', 'l_cs', 'l_cs_max_avantage', 'l_level_max_avantage', 'l_ecart_gold_team', 'l_ecart_kills_team', 'l_temps_avant_premiere_mort',
+                      "l_ecart_kills", "l_ecart_deaths", "l_ecart_assists", "l_ecart_dmg", "l_allie_feeder", "l_temps_vivant","l_time", "l_solokills"]
 
 
         if mode == 'ARAM':
@@ -1097,7 +1125,7 @@ class Recordslol(Extension):
                 nb_row = fichier.shape[0]
                 
                                 
-                if stat in ['early_baron', 'early_drake', 'early_atakhan']:
+                if stat in ['early_baron', 'early_drake', 'early_atakhan', 'l_ecart_gold_min_durant_game']:
                     ascending=True
                     fichier = fichier[fichier[stat] != 0]
                 elif stat in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']:
@@ -1189,7 +1217,7 @@ class Recordslol(Extension):
        
         for stat in self.liste_complete: 
             stat_lower = stat.lower()                       
-            if stat_lower in ['early_baron', 'early_drake']:
+            if stat_lower in ['early_baron', 'early_drake', 'l_ecart_gold_min_durant_game']:
                 ascending=True
                 fichier_filtre = fichier[fichier[stat_lower] != 0]
             elif stat_lower in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']:

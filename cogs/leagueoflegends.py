@@ -475,7 +475,11 @@ class LeagueofLegends(Extension):
                                             'first_niveau_max' : match_info.timestamp_niveau_max,
                                             'first_blood' : match_info.timestamp_first_blood,
                                             'tower' : match_info.thisTowerTeam,
-                                            'inhib' : match_info.thisInhibTeam}
+                                            'inhib' : match_info.thisInhibTeam,
+                                            'ecart_kills' : match_info.ecart_kills,
+                                            'ecart_deaths' : match_info.ecart_morts,
+                                            'ecart_assists' : match_info.ecart_assists,
+                                            'ecart_dmg' : match_info.ecart_dmg}
             else:
                 param_records_only_ranked = {}
             

@@ -1553,13 +1553,29 @@ class matchlol():
         def ecart_role_cs(ally):
             return (self.thisMinionListe[ally] + self.thisJungleMonsterKilledListe[ally]) - (
                 self.thisMinionListe[ally+5] + self.thisJungleMonsterKilledListe[ally+5])
-
+        
+        def ecart_kills(ally):
+            return self.thisKillsListe[ally] - self.thisKillsListe[ally+5]
+        
+        def ecart_morts(ally):
+            return self.thisDeathsListe[ally] - self.thisDeathsListe[ally+5]
+        
+        def ecart_assists(ally):
+            return self.thisAssistsListe[ally] - self.thisAssistsListe[ally+5]
+        
+        def ecart_dmg(ally):
+            return self.thisDamageListe[ally] - self.thisDamageListe[ally+5]
+        
 
         for i, role in enumerate(['top', 'jgl', 'mid', 'adc', 'supp']):
             setattr(self, f'ecart_{role}_cs', ecart_role_cs(i))
             setattr(self, f'ecart_{role}_gold', self.thisGoldListe[i] - self.thisGoldListe[i+5])
             setattr(self, f'ecart_{role}_gold_affiche', self.thisGoldListe[i] - self.thisGoldListe[i+5])
             setattr(self, f'ecart_{role}_vision', self.thisVisionListe[i] - self.thisVisionListe[i+5])
+            setattr(self, f'ecart_{role}_kills', ecart_kills(i))
+            setattr(self, f'ecart_{role}_morts', ecart_morts(i))
+            setattr(self, f'ecart_{role}_assists', ecart_assists(i))
+            setattr(self, f'ecart_{role}_dmg', ecart_dmg(i))
 
         # on crée des variables temporaires pour le kpliste, car si une team ne fait pas de kills, on va diviser par 0, ce qui n'est pas possible
         temp_team_kills = self.thisTeamKills
@@ -1580,6 +1596,14 @@ class matchlol():
         
         self.adversaire_direct_cs = {"TOP": self.ecart_top_cs, "JUNGLE": self.ecart_jgl_cs, "MID": self.ecart_mid_cs, "ADC": self.ecart_adc_cs, "SUPPORT": self.ecart_supp_cs}
 
+        self.adversaire_direct_kills = {"TOP": self.ecart_top_kills, "JUNGLE": self.ecart_jgl_kills, "MID": self.ecart_mid_kills, "ADC": self.ecart_adc_kills, "SUPPORT": self.ecart_supp_kills}
+
+        self.adversaire_direct_morts = {"TOP": self.ecart_top_morts, "JUNGLE": self.ecart_jgl_morts, "MID": self.ecart_mid_morts, "ADC": self.ecart_adc_morts, "SUPPORT": self.ecart_supp_morts}
+
+        self.adversaire_direct_assists = {"TOP": self.ecart_top_assists, "JUNGLE" : self.ecart_jgl_assists, "MID": self.ecart_mid_assists, "ADC": self.ecart_adc_assists, "SUPPORT": self.ecart_supp_assists}
+
+        self.adversaire_direct_dmg = {"TOP": self.ecart_top_dmg, "JUNGLE": self.ecart_jgl_dmg, "MID": self.ecart_mid_dmg, "ADC": self.ecart_adc_dmg, "SUPPORT": self.ecart_supp_dmg}
+
         try:
             self.ecart_gold = self.adversaire_direct[self.thisPosition]
         except KeyError:
@@ -1589,6 +1613,26 @@ class matchlol():
             self.ecart_cs = self.adversaire_direct_cs[self.thisPosition]
         except KeyError:
             self.ecart_cs = "Indisponible"
+
+        try:
+            self.ecart_kills = self.adversaire_direct_kills[self.thisPosition]
+        except KeyError:
+            self.ecart_kills = 0
+
+        try:
+            self.ecart_morts = self.adversaire_direct_morts[self.thisPosition]
+        except KeyError:
+            self.ecart_morts = 0
+
+        try:
+            self.ecart_assists = self.adversaire_direct_assists[self.thisPosition]
+        except KeyError:
+            self.ecart_assists = 0
+
+        try:
+            self.ecart_dmg = self.adversaire_direct_dmg[self.thisPosition]
+        except KeyError:
+            self.ecart_dmg = 0
 
         # mise en forme
 
@@ -1948,7 +1992,7 @@ class matchlol():
             item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
             split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min, ecart_cs, petales_sanglants, atakhan, crit_dmg, immobilisation, skillshot_hit, temps_cc_inflige, tower, inhib,
-            dmg_true_all, dmg_true_all_min, dmg_ad_all, dmg_ad_all_min, dmg_ap_all, dmg_ap_all_min, dmg_all, dmg_all_min, records, longue_serie_kills)
+            dmg_true_all, dmg_true_all_min, dmg_ad_all, dmg_ad_all_min, dmg_ap_all, dmg_ap_all_min, dmg_all, dmg_all_min, records, longue_serie_kills, ecart_kills, ecart_deaths, ecart_assists, ecart_dmg)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
@@ -1956,7 +2000,7 @@ class matchlol():
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
             :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit, :temps_cc_inflige, :tower, :inhib,
-            :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min, :records, :longue_serie_kills);
+            :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min, :records, :longue_serie_kills, :ecart_kills, :ecart_deaths, :ecart_assists, :ecart_dmg);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
             INSERT INTO public.matchs_updated(match_id, joueur, updated)
 	        VALUES (:match_id, :joueur, true);
@@ -2075,7 +2119,11 @@ class matchlol():
                     'dmg_all' : self.thisDamageAllNoFormat,
                     'dmg_all_min' : self.thisDamageAllPerMinute,
                     'records' : True,
-                    'longue_serie_kills' : self.thisKillsSeries
+                    'longue_serie_kills' : self.thisKillsSeries,
+                    'ecart_kills' : self.ecart_kills,
+                    'ecart_deaths' : self.ecart_morts,
+                    'ecart_assists' : self.ecart_assists,
+                    'ecart_dmg' : self.ecart_dmg,
 
                 },
             )
@@ -2220,9 +2268,9 @@ class matchlol():
         def unpack_dict_damageStats(row):
             return pd.Series(row['damageStats'])
         
-        df_timeline_load, self.minute = load_timeline(self.data_timeline)  
+        self.df_timeline_load, self.minute = load_timeline(self.data_timeline)  
         
-        self.df_timeline_joueur = df_timeline_load[df_timeline_load['riot_id'] == self.index_timeline]  
+        self.df_timeline_joueur = self.df_timeline_load[self.df_timeline_load['riot_id'] == self.index_timeline]  
         
         self.df_timeline_position = self.df_timeline_joueur[['position', 'timestamp', 'totalGold', 'xp', 'jungleMinionsKilled', 'currentGold', 'level', 'minionsKilled']]
 
@@ -2501,6 +2549,54 @@ class matchlol():
             self.timestamp_pentakill = 999           
         
 
+
+        ### Ecart Gold
+
+
+
+        if self.index_timeline <= 4:
+            team = ['Team alliée', 'Team adverse']
+        elif self.index_timeline >= 5:
+            team = ['Team adverse', 'Team alliée']
+
+
+        self.df_timeline_load['riot_id'] = self.df_timeline_load['participantId']
+
+        self.df_timeline_load['team'] = np.where(
+                        self.df_timeline_load['riot_id'] <= 5, team[0], team[1])
+
+        self.df_timeline_load = self.df_timeline_load.groupby(['team', 'timestamp'], as_index=False)[
+                        'totalGold'].sum()
+
+        self.df_timeline_adverse = self.df_timeline_load[self.df_timeline_load['team'] == 'Team adverse'].reset_index(
+                        drop=True)
+        self.df_timeline_alliee = self.df_timeline_load[self.df_timeline_load['team'] == 'Team alliée'].reset_index(
+                        drop=True)
+
+        self.df_timeline_diff = pd.DataFrame(columns=['timestamp', 'ecart'])
+
+        self.df_timeline_diff['timestamp'] = self.df_timeline_load['timestamp']
+
+        self.df_timeline_diff['ecart'] = self.df_timeline_alliee['totalGold'] - \
+                        (self.df_timeline_adverse['totalGold'])
+
+                    # Cela applique deux fois le timestamp (un pour les adversaires, un pour les alliés...) On supprime la moitié :
+        self.df_timeline_diff.dropna(axis=0, inplace=True)
+
+
+                    # Graphique
+                    # Src : https://matplotlib.org/stable/gallery/lines_bars_and_markers/multicolored_line.html
+
+        self.val_min_ecart_gold = self.df_timeline_diff['ecart'].min()
+        self.val_max_ecart_gold = self.df_timeline_diff['ecart'].max()
+
+
+        self.df_timeline_diff['match_id'] = self.last_match
+        self.df_timeline_diff['riot_id'] = self.id_compte
+
+        self.df_timeline_diff['gold_adv'] = self.df_timeline_adverse['totalGold']
+        self.df_timeline_diff['gold_allie'] = self.df_timeline_alliee['totalGold']
+
             
         requete_perso_bdd('''UPDATE matchs SET fourth_dragon = :fourth_dragon,
                           first_elder = :first_elder,
@@ -2516,7 +2612,9 @@ class matchlol():
                           gold_avec_kills = :gold_avec_kills,
                           kills_avec_jgl_early = :kills_avec_jgl_early,
                           deaths_with_jgl_early = :deaths_with_jgl_early,
-                          shutdown_bounty = :shutdown_bounty
+                          shutdown_bounty = :shutdown_bounty,
+                          ecart_gold_min_durant_game = :ecart_gold_min_durant_game,
+                            ecart_gold_max_durant_game = :ecart_gold_max_durant_game
                         WHERE match_id = :match_id AND joueur = :joueur''',
                     {'fourth_dragon': self.timestamp_fourth_dragon,
                     'first_elder' : self.timestamp_first_elder,
@@ -2533,6 +2631,8 @@ class matchlol():
                     'kills_avec_jgl_early' : self.kills_with_jgl_early,
                     'deaths_with_jgl_early' : self.deaths_with_jgl_early,
                     'shutdown_bounty' : self.bounty_recupere,
+                    'ecart_gold_min_durant_game' : self.val_min_ecart_gold,
+                    'ecart_gold_max_durant_game' : self.val_max_ecart_gold,
                     'match_id': self.last_match,
                     'joueur': self.id_compte})
         
@@ -2550,6 +2650,22 @@ class matchlol():
                                     index=False)  
             except sqlalchemy.exc.IntegrityError:
                 pass
+
+
+        df_exists = lire_bdd_perso(f'''SELECT match_id, riot_id FROM matchs_timestamp_gold WHERE
+        match_id = '{self.last_match}'
+        AND riot_id = {self.id_compte}  ''',
+        index_col=None)
+
+        if df_exists.empty:
+            try:
+                sauvegarde_bdd(self.df_timeline_diff,
+                        'matchs_timestamp_gold',
+                            methode_save='append',
+                            index=False)  
+            except sqlalchemy.exc.IntegrityError:
+                pass
+
 
 
         #####  
