@@ -1736,7 +1736,7 @@ class matchlol():
                 self.mastery_level.append(0)
 
 
-
+        self.url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(self.last_match)[5:]}#participant{int(self.thisId)+1}'
 
 
 
@@ -1839,7 +1839,7 @@ class matchlol():
                 
     async def prepare_data_ugg(self):                       
 
-        self.url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(self.last_match)[5:]}#participant{int(self.thisId)+1}'
+        
         
         self.liste_rank = []
         self.liste_tier = []
@@ -2554,9 +2554,9 @@ class matchlol():
 
 
 
-        if self.index_timeline <= 4:
+        if self.teamId == 100:
             team = ['Team alliée', 'Team adverse']
-        elif self.index_timeline >= 5:
+        elif self.teamId == 200:
             team = ['Team adverse', 'Team alliée']
 
 
@@ -2584,8 +2584,7 @@ class matchlol():
         self.df_timeline_diff.dropna(axis=0, inplace=True)
 
 
-                    # Graphique
-                    # Src : https://matplotlib.org/stable/gallery/lines_bars_and_markers/multicolored_line.html
+
 
         self.val_min_ecart_gold = self.df_timeline_diff['ecart'].min()
         self.val_max_ecart_gold = self.df_timeline_diff['ecart'].max()

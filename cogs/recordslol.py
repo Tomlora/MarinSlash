@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
+from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso, autocomplete_record
 from fonctions.word import suggestion_word
 import interactions
 from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, AutocompleteContext
@@ -414,7 +414,8 @@ class Recordslol(Extension):
         self.bot: interactions.Client = bot
         self.time_mini = {'RANKED' : 15, 'ARAM' : 10, 'FLEX' : 15, 'SWIFTPLAY' : 15} # minutes minimum pour compter dans les records
         
-        self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta',  'kills_min', 'deaths_min', 'assists_min', 'longue_serie_kills', 'ecart_kills', 'ecart_deaths', 'ecart_assists'] 
+        self.fichier_kills = ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta'] 
+        self.fichier_kills2 = ['kills_min', 'deaths_min', 'assists_min', 'longue_serie_kills', 'ecart_kills', 'ecart_deaths', 'ecart_assists']
         self.fichier_dmg = ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold', 'crit_dmg', 'dmg_true_all', 'dmg_true_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min', 'dmg_all', 'dmg_all_min', 'ecart_dmg']
         self.fichier_vision = ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage']
         self.fichier_farming = ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage']
@@ -428,17 +429,17 @@ class Recordslol(Extension):
                                         "DEATHS_10", "DEATHS_20", "DEATHS_30",
                                         "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
                                         "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-                                        "TURRET_PLATE_DESTROYED_10",
-                                        "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                                        "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30"]
+                                        
+                                       ]
         
-        self.fichier_timer2 = ["TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"]
+        self.fichier_timer2 = [ "TURRET_PLATE_DESTROYED_10", "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30", "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
+                                "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"]
 
 
         self.loser = ['l_ecart_cs', 'l_ecart_gold', 'l_ecart_gold_min_durant_game', 'l_ecart_gold_max_durant_game', 'l_kda', 'l_cs', 'l_cs_max_avantage', 'l_level_max_avantage', 'l_ecart_gold_team', 'l_ecart_kills_team', 'l_temps_avant_premiere_mort',
                       'l_ecart_kills', 'l_ecart_deaths', 'l_ecart_assists', 'l_ecart_dmg', 'l_allie_feeder', 'l_temps_vivant', 'l_time', 'l_solokills']
 
-        self.liste_complete = self.fichier_kills + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers + self.fichier_stats + self.fichier_timer + self.fichier_timer2 + self.loser
+        self.liste_complete = self.fichier_kills + self.fichier_kills2 + self.fichier_dmg + self.fichier_vision + self.fichier_farming + self.fichier_tank_heal + self.fichier_objectif + self.fichier_divers + self.fichier_stats + self.fichier_timer + self.fichier_timer2 + self.loser
 
 
         self.records_min = ['early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'early_atakhan', 'l_ecart_gold_min_durant_game']
@@ -545,6 +546,7 @@ class Recordslol(Extension):
         fichier_farming = self.fichier_farming.copy()
         fichier_divers = self.fichier_divers.copy()
         fichier_kills = self.fichier_kills.copy()
+        fichier_kills2 = self.fichier_kills2.copy()
         fichier_timer = self.fichier_timer.copy()
         fichier_timer2 = self.fichier_timer2.copy()
 
@@ -570,6 +572,7 @@ class Recordslol(Extension):
 
 
         embed1 = await calcul_record(fichier, fichier_kills, self.records_min, title, 'Kills', methode_pseudo, saison, False)
+        embed1_2 = await calcul_record(fichier, fichier_kills2, self.records_min, title, 'Kills2', methode_pseudo, saison, False)
         embed2 = await calcul_record(fichier, self.fichier_dmg, self.records_min, title, 'DMG', methode_pseudo, saison, False)
         embed5 = await calcul_record(fichier, fichier_farming, self.records_min, title, 'Farming', methode_pseudo, saison, False)
         embed6 = await calcul_record(fichier, self.fichier_tank_heal, self.records_min, title, 'Tank/Heal', methode_pseudo, saison, False)
@@ -588,17 +591,17 @@ class Recordslol(Extension):
             embed11 = await calcul_record(fichier, self.loser, self.records_min, title, 'Loser', methode_pseudo, saison, False)
 
             
-        for embed in [embed1, embed2, embed5, embed6, embed7]:
+        for embed in [embed1, embed1_2, embed2, embed5, embed6, embed7]:
             embed.set_footer(text=f'Version {Version} by Tomlora')
 
         if mode != 'ARAM':
             for embed in [embed3, embed4, embed8, embed9, embed10, embed11]:
                 embed.set_footer(text=f'Version {Version} by Tomlora')
 
-            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9, embed10, embed11]
+            pages=[embed1, embed1_2, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9, embed10, embed11]
 
         else:
-            pages=[embed1, embed2, embed5, embed6, embed7]
+            pages=[embed1, embed1_2, embed2, embed5, embed6, embed7]
             
         paginator = Paginator.create_from_embeds(
             self.bot,
@@ -726,6 +729,7 @@ class Recordslol(Extension):
 
 
         embed1 = await calcul_record(fichier, self.fichier_kills, self.records_min, title, 'Kills', methode_pseudo, saison, True)
+        embed1_2 = await calcul_record(fichier, self.fichier_kills2, self.records_min, title, 'Kills2', methode_pseudo, saison, True)
         embed2 = await calcul_record(fichier, self.fichier_dmg, self.records_min, title, 'DMG', methode_pseudo, saison, True)
         embed5 = await calcul_record(fichier, fichier_farming, self.records_min, title, 'Farming', methode_pseudo, saison, True)
         embed6 = await calcul_record(fichier, self.fichier_tank_heal, self.records_min, title, 'Tank/Heal', methode_pseudo, saison, True)
@@ -742,7 +746,7 @@ class Recordslol(Extension):
             embed10 = await calcul_record(fichier, fichier_timer2, self.records_min, title, 'Timer2', methode_pseudo, saison, True)
             embed11 = await calcul_record(fichier, self.loser, self.records_min, title, 'Loser', methode_pseudo, saison, True)
 
-        for embed in [embed1, embed2, embed5, embed6, embed7]:
+        for embed in [embed1, embed1_2, embed2, embed5, embed6, embed7]:
             embed.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
 
 
@@ -750,10 +754,10 @@ class Recordslol(Extension):
             for embed in [embed3, embed4, embed8, embed9, embed10, embed11]:
                 embed.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
 
-            pages=[embed1, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9, embed10, embed11]
+            pages=[embed1, embed1_2, embed2, embed3, embed4, embed5, embed6, embed7, embed8, embed9, embed10, embed11]
 
         else:
-            pages=[embed1, embed2, embed5, embed6, embed7]
+            pages=[embed1, embed1_2, embed2, embed5, embed6, embed7]
             
         paginator = Paginator.create_from_embeds(
             self.bot,
@@ -995,6 +999,7 @@ class Recordslol(Extension):
                                             description='Nom du record (voir records) ou écrire champion pour le nombre de champions joués',
                                             type=interactions.OptionType.STRING,
                                             required=True,
+                                            autocomplete=True
                                         ),
                                         SlashCommandOption(
                                             name="saison",
@@ -1160,6 +1165,14 @@ class Recordslol(Extension):
                 suggestion = suggestion_word(stat, fichier.columns.tolist())
                 await ctx.send(f"Ce record n'existe pas. Souhaitais-tu dire : **{suggestion}** ?")
                 
+
+    @palmares.autocomplete("stat")
+
+    async def autocomplete_game(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_record(ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
 
     @records_lol.subcommand("date_record",
                                     sub_cmd_description="Date des records",
