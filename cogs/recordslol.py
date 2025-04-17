@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
-from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso, autocomplete_record
+from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
+from fonctions.autocomplete import autocomplete_record
 from fonctions.word import suggestion_word
 import interactions
 from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, AutocompleteContext
@@ -564,7 +565,7 @@ class Recordslol(Extension):
             fichier_kills.remove('first_triple')
             fichier_kills.remove('first_quadra')
             fichier_kills.remove('first_penta')
-            fichier_kills.remove('first_blood')
+            # fichier_kills.remove('first_blood')
 
 
 

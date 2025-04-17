@@ -9,7 +9,8 @@ from fonctions.channels_discord import verif_module
 from fonctions.permissions import isOwner_slash
 import traceback
 import psycopg2.errors
-from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, get_tag, autocomplete_riotid
+from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, get_tag
+from fonctions.autocomplete import autocomplete_riotid
 from fonctions.match import getId_with_puuid, get_summonerinfo_by_puuid, get_summoner_by_riot_id
 
 

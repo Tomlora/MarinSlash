@@ -1,7 +1,8 @@
 import pandas as pd
 import aiohttp
 from fonctions.match import get_version, get_champ_list, get_champion_masteries, emote_champ_discord
-from fonctions.gestion_bdd import lire_bdd_perso, sauvegarde_bdd, get_tag, autocomplete_riotid
+from fonctions.gestion_bdd import lire_bdd_perso, sauvegarde_bdd, get_tag
+from fonctions.autocomplete import autocomplete_riotid
 from fonctions.channels_discord import get_embed
 from time import sleep
 import interactions

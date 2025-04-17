@@ -13,7 +13,7 @@ from fonctions.api_calls import getRankings
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import challengeslol
-from fonctions.gestion_bdd import autocomplete_riotid
+from fonctions.autocomplete import autocomplete_riotid
 from datetime import datetime, timedelta
 from dateutil import tz
 from interactions.ext.paginators import Paginator
@@ -1329,7 +1329,7 @@ class LeagueofLegends(Extension):
                                     inplace=True)
 
         response = ''.join(
-            f'''**{data['riot_id']} #{data['riot_tagline']}** : {emote_rank_discord[data['tier']]} {data['rank']} | {data['LP']} LP | {data['winrate']}% WR\n'''
+            f'''**{data['riot_id']} #{data['riot_tagline']}** : {emote_rank_discord[data['tier']]} {data['rank']} | {data['LP']} LP | {data['winrate']}% WR ({data['nb_games']} G)\n'''
             for lig, data in df.iterrows())
 
         
@@ -1599,6 +1599,7 @@ class LeagueofLegends(Extension):
                            type=interactions.OptionType.STRING,
                            required=False,
                            choices=[
+                               SlashCommandChoice(name='Normal', value='NORMAL'),
                                SlashCommandChoice(name='Ranked', value='RANKED'),
                                SlashCommandChoice(name='Aram', value='ARAM'),
                                SlashCommandChoice(name='Swiftplay', value='SWIFTPLAY')]
@@ -1820,11 +1821,18 @@ class LeagueofLegends(Extension):
                 champ_img = emote_champ_discord.get(match["champion"].capitalize(), 'inconnu')
                 url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(match["match_id"])[5:]}#participant{int(match["id_participant"])+1}'
                 kda = f'**{match["kills"]}**/**{match["deaths"]}**/**{match["assists"]}** ({match["kp"]}%)'
+                mode = match['mode']
 
-                if match['proba_win'] == -1:
-                    txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} \n'
+                if mode in ['NORMAL', 'S']:
+                    if match['proba_win'] == -1:
+                        txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{mode}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} \n'
+                    else:
+                        txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{mode}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} | P : {match["proba_win"]}% \n'
                 else:
-                    txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{match["mode"]} | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} | P : {match["proba_win"]}% \n'
+                    if match['proba_win'] == -1:
+                        txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{mode}] | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} \n'
+                    else:
+                        txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{mode}] | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} | P : {match["proba_win"]}% \n'
 
                 if embed.fields and len(txt) + sum(len(field.value) for field in embed.fields) > 4000:
                     embed.add_field(name='KDA', value=total_kda)

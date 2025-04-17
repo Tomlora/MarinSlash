@@ -51,6 +51,15 @@ async def get_matchs_details_tft(session, match_id):
         match_data = await matchs_details.json()  # informations sur le joueur
     return match_data
 
+async def get_data_trait(session):
+    url = 'https://raw.communitydragon.org/pbe/plugins/rcp-be-lol-game-data/global/fr_fr/v1/tfttraits.json'
+    async with session.get(url) as response:
+        if response.status == 200:
+            data = await response.json()
+        else:
+            data = None
+
+        return data
 
 async def matchtft_by_puuid(summonerName, idgames: int, session, puuid = None):
     
@@ -106,6 +115,7 @@ class tft(Extension):
         # classé ?
 
         thisQId = match_detail['info']['queue_id']
+        set_tft = match_detail['info']['tft_set_number']
 
         if thisQId == 1100:
             thisQ = "RANKED"
@@ -116,14 +126,17 @@ class tft(Extension):
 
         thisTime = int(round(match_detail['info']['game_length'] / 60, 0))
 
-        augments = stats_joueur['augments']
+        data_trait = await get_data_trait(session)
+        df_traits_data = pd.json_normalize(data_trait)
 
-        msg_augment = ''
+        # augments = stats_joueur['augments']
 
-        for augment in augments:
-            augment = augment.replace(
-                'TFT6_Augment_', '').replace('TFT7_Augment_', '').replace('TFT8_Augment_', '').replace('TFT9_Augment_', '').replace('TFT10_Augment_', '')
-            msg_augment = f'{msg_augment} | {augment}'
+        # msg_augment = ''
+
+        # for augment in augments:
+        #     augment = augment.replace(
+        #         'TFT6_Augment_', '').replace('TFT7_Augment_', '').replace('TFT8_Augment_', '').replace('TFT9_Augment_', '').replace('TFT10_Augment_', '')
+        #     msg_augment = f'{msg_augment} | {augment}'
 
         # Classement
 
@@ -137,10 +150,6 @@ class tft(Extension):
                                    index_col=None)
         
 
-        if thisQ == 'RANKED' and df_exists.empty:
-
-            requete_perso_bdd(f'''UPDATE suivitft
-                                SET top{classement} = top{classement} + 1 WHERE index = (SELECT id_compte from trackertft where index = '{summonername.lower()}') ''')
 
         # Stats
 
@@ -175,7 +184,7 @@ class tft(Extension):
         # Stats
 
         suivi_profil = lire_bdd_perso('''SELECT trackertft.index, suivitft."LP", suivitft.tier, 
-                                      suivitft.rank, suivitft.top1, suivitft.top2, suivitft.top3, suivitft.top4, suivitft.top5, suivitft.top6, suivitft.top7, suivitft.top8 from suivitft
+                                      suivitft.rank from suivitft
                                       INNER JOIN trackertft ON trackertft.id_compte = suivitft.index''', 'dict')
         
         try:
@@ -221,11 +230,13 @@ class tft(Extension):
             classement_new = tier + " " + rank
 
             if dict_rankid[classement_old] > dict_rankid[classement_new]:  # 19-18
-                difLP = 100 + lp - int(suivi_profil[summonername]['LP'])
+                difrank = dict_rankid[classement_old] - dict_rankid[classement_new]
+                difLP = (100 * difrank) + lp - int(suivi_profil[summonername]['LP'])
                 difLP = "Démote :arrow_down: / -" + str(difLP)
 
             elif dict_rankid[classement_old] < dict_rankid[classement_new]:
-                difLP = 100 - lp + int(suivi_profil[summonername]['LP'])
+                difrank = dict_rankid[classement_old] - dict_rankid[classement_new]
+                difLP = (100 * difrank) - lp + int(suivi_profil[summonername]['LP'])
                 difLP = "Promotion :arrow_up: / +" + str(difLP)
 
             requete_perso_bdd('''UPDATE suivitft
@@ -233,19 +244,7 @@ class tft(Extension):
                                                                                                           'rank': rank,
                                                                                                           'lp': lp,
                                                                                                           'summonername': summonername})
-            
-        # Moyenne classement
-        
-        nbgames = 0
-        somme_rank = 0
-        for i in range(1, 9):
-            nbgames += suivi_profil[summonername]['top' + str(i)]
-            somme_rank += suivi_profil[summonername]['top' + str(i)] * i
-        
-        if nbgames != 0:    
-            score_avg = round(somme_rank / nbgames, 1)  
-        else:
-            score_avg = classement
+
 
         # Embed
 
@@ -274,17 +273,13 @@ class tft(Extension):
         if ranked:
             embed.add_field(name=f'{emote_rank_discord[tier]} {rank} | {lp}LP ({difLP})',
                             value=f'Winrate : **{wr}%** \n', inline=False)
-            embed.add_field(name=f'Classement moyen : **{int(score_avg)}** ({nbgames} games)',
-                            value = f'Top 1 : **{suivi_profil[summonername][f"top1"]}** | Top 2 : **{suivi_profil[summonername][f"top2"]}** | \
-                            Top 3 : **{suivi_profil[summonername][f"top3"]}**  | Top 4 : **{suivi_profil[summonername][f"top4"]}**\n' +
-                            f'Top 5 : **{suivi_profil[summonername][f"top5"]}** | Top 6 : **{suivi_profil[summonername][f"top6"]}** | \
-                                Top 7 : **{suivi_profil[summonername][f"top7"]}** | Top 8 : **{suivi_profil[summonername][f"top8"]}**', inline=False)
+
         else:
             embed.add_field(name=f'Non-classe',
                             value=f'En placement', inline=False)
 
-        embed.add_field(name="Augments : ",
-                        value=msg_augment, inline=False)
+        # embed.add_field(name="Augments : ",
+        #                 value=msg_augment, inline=False)
 
         # on va créer un dataframe pour les sort plus facilement
 
@@ -295,19 +290,28 @@ class tft(Extension):
 
         # [0] est l'index
         for set in df_traits.iterrows():
-            name = re.sub(r'Set\d+_', '', set[1]['name'])  # Remplace Set suivi de chiffres
+            # Supprime 'Set' suivi de chiffres et '_' ainsi que 'TFT_' suivi de chiffres
+            name = re.sub(r'(Set\d+_|TFT\d+_)', '', set[1]['name'])
+
+            if df_traits_data is not None:
+                name_fr = df_traits_data.loc[df_traits_data['trait_id'] == set[1]['name'], 'display_name'].values[0]
+            else:
+                name_fr = name
+
             tier_current = set[1]['tier_current']
             tier_total = set[1]['tier_total']
             nb_units = set[1]['num_units']
 
             embed.add_field(
-                name=name, value=f"{tier_current} / {tier_total} \nUnités: {nb_units}", inline=True)
+                name=name_fr, value=f"{tier_current} / {tier_total} \nUnités: {nb_units}", inline=True)
 
         dic_rarity = {0: "1",
                       1: "2",
                       2: "3",
                       4: "4",
-                      6: "5"}
+                      6: "5",
+                      7 : "6",
+                      8: "6"}
 
         # pareil ici
 
@@ -337,8 +341,8 @@ class tft(Extension):
 
       
         if df_exists.empty:
-            requete_perso_bdd('''INSERT INTO trackertft_stats(joueur, match_id, mode, top, gold, level, dmg, last_round)
-        VALUES ( (SELECT id_compte FROM trackertft where index = :joueur), :match_id, :mode, :top, :gold, :level, :dmg, :last_round);''',
+            requete_perso_bdd('''INSERT INTO trackertft_stats(joueur, match_id, mode, top, gold, level, dmg, last_round, set)
+        VALUES ( (SELECT id_compte FROM trackertft where index = :joueur), :match_id, :mode, :top, :gold, :level, :dmg, :last_round, :set);''',
                 {'joueur': summonername.lower(),
                 'match_id': id_match,
                 'mode': thisQ,
@@ -346,7 +350,8 @@ class tft(Extension):
                 'gold' : gold_restants,
                 'level' : level,
                 'dmg' : dmg_total,
-                'last_round' : last_round})
+                'last_round' : last_round,
+                'set' : set_tft})
             
             id_compte = lire_bdd_perso(f'''SELECT id_compte FROM trackertft where index = '{summonername.lower()}' ''', index_col=None).loc['id_compte'][0]
             df_traits['joueur'] = id_compte
