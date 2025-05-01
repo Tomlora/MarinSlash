@@ -323,7 +323,8 @@ class LeagueofLegends(Extension):
         if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ != 'ARENA 2v2' and match_info.thisQ != 'SWARM' :
             await match_info.save_data()
         else:
-            requete_perso_bdd(f'''DELETE from prev_lol WHERE riot_id = '{riot_id.lower()}' and riot_tag = '{riot_tag.upper()}' and match_id = '' ''')
+            requete_perso_bdd(f'''DELETE from prev_lol WHERE riot_id = '{riot_id.lower()}' and riot_tag = '{riot_tag.upper()}' and match_id = '';
+                                  DELETE from prev_lol_features WHERE riot_id = '{riot_id.lower()}' and riot_tag = '{riot_tag.upper()}' and match_id = '' ''')
 
 
         # if sauvegarder and match_info.thisQ == 'SWARM':
@@ -738,6 +739,8 @@ class LeagueofLegends(Extension):
                 embed.add_field(name=':one: OTP', value=match_info.otp)   
 
 
+        if match_info.AFKTeamBool:
+            embed.add_field(name=':sleeping: AFK', value=' ')
 
             # # Detection Participation jgl
 

@@ -160,64 +160,64 @@ async def predict_match(match_id, match, champion, session : aiohttp.ClientSessi
     
     del model
 
-    return prediction, proba, txt_recap
+    return prediction, proba, txt_recap, dataset
 
 
 
-async def get_last_match_prediction(ctx : SlashContext, summonerName: str, match_id : str, session:aiohttp.ClientSession):
+# async def get_last_match_prediction(ctx : SlashContext, summonerName: str, match_id : str, session:aiohttp.ClientSession):
     
-    async def charger_champion(session):
-        version = await get_version(session)
-        current_champ_list = await get_champ_list(session, version)
-        return current_champ_list
+#     async def charger_champion(session):
+#         version = await get_version(session)
+#         current_champ_list = await get_champ_list(session, version)
+#         return current_champ_list
 
 
-    current_champ_list = await charger_champion(session)
+#     current_champ_list = await charger_champion(session)
 
-    champions = {}
-    for key in current_champ_list['data']:
-        row = current_champ_list['data'][key]
-        champions[row['key']] = row['id']
+#     champions = {}
+#     for key in current_champ_list['data']:
+#         row = current_champ_list['data'][key]
+#         champions[row['key']] = row['id']
         
-    # Get last match
+#     # Get last match
 
-    match_id = match_id[5:]
-    match = await api_calls.get_past_matches(summonerName, match_id, session)
-    prediction, proba, txt_recap = await predict_match(match_id, match, champions, session, ctx)
+#     match_id = match_id[5:]
+#     match = await api_calls.get_past_matches(summonerName, match_id, session)
+#     prediction, proba, txt_recap = await predict_match(match_id, match, champions, session, ctx)
 
 
-    teams_result = {
-        match["teams"][0]["teamId"]: match["teams"][0]["result"],
-        match["teams"][1]["teamId"]: match["teams"][1]["result"],
-    }
+#     teams_result = {
+#         match["teams"][0]["teamId"]: match["teams"][0]["result"],
+#         match["teams"][1]["teamId"]: match["teams"][1]["result"],
+#     }
 
-    if teams_result["BLUE"] == "WON":
-        result = 1
-    else:
-        result = 0
+#     if teams_result["BLUE"] == "WON":
+#         result = 1
+#     else:
+#         result = 0
 
-    response = {}
+#     response = {}
 
-    your_championId = match["subject"]["championId"]
-    your_team = match["subject"]["team"]
-    your_role = match["subject"]["role"]
+#     your_championId = match["subject"]["championId"]
+#     your_team = match["subject"]["team"]
+#     your_role = match["subject"]["role"]
 
-    response["team"] = your_team
-    response["role"] = your_role
-    response["champion"] = champions[str(your_championId)]
-    response['probability'] = proba
+#     response["team"] = your_team
+#     response["role"] = your_role
+#     response["champion"] = champions[str(your_championId)]
+#     response['probability'] = proba
 
-    if (result == 1 and your_team == "BLUE") or (result == 0 and your_team == "RED"):
-        response["won"] = True
-    else:
-        response["won"] = False
+#     if (result == 1 and your_team == "BLUE") or (result == 0 and your_team == "RED"):
+#         response["won"] = True
+#     else:
+#         response["won"] = False
 
-    if result == prediction:
-        response["correct"] = True
-    else:
-        response["correct"] = False
+#     if result == prediction:
+#         response["correct"] = True
+#     else:
+#         response["correct"] = False
 
-    return response, txt_recap
+#     return response, txt_recap
 
 
 async def get_current_match_prediction(ctx : SlashContext, summonerName: str, match_id : str, session:aiohttp.ClientSession):
@@ -241,7 +241,7 @@ async def get_current_match_prediction(ctx : SlashContext, summonerName: str, ma
     match = await api_calls.get_live_match(summonerName, session)
     if match == 'Aucun':
         return 'Aucun', 'Aucun'
-    prediction, proba, txt_recap = await predict_match(match_id, match, champions, session, ctx)
+    prediction, proba, txt_recap, dataset = await predict_match(match_id, match, champions, session, ctx)
 
     mode = match['gameType']
 
@@ -289,8 +289,8 @@ async def get_current_match_prediction_auto(summonerName: str, match_id : str, s
     match_id = match_id[5:]
     match = await api_calls.get_live_match(summonerName, session)
     if match == 'Aucun':
-        return 'Aucun', 'Aucun'
-    prediction, proba, txt_recap = await predict_match(match_id, match, champions, session, None)
+        return 'Aucun', 'Aucun', 'Aucun'
+    prediction, proba, txt_recap, dataset = await predict_match(match_id, match, champions, session, None)
 
     mode = match['gameType']
 
@@ -318,7 +318,7 @@ async def get_current_match_prediction_auto(summonerName: str, match_id : str, s
     response['probability'] = proba
     response['summonerName'] = summonerName
 
-    return response, txt_recap
+    return response, txt_recap, dataset
 
 class predict(Extension):
     def __init__(self, bot):
@@ -558,7 +558,7 @@ class predict(Extension):
 
 
 
-        data, txt_recap = await get_current_match_prediction_auto(f'{riot_id.lower()}#{riot_tag.lower()}', match_id, session)
+        data, txt_recap, dataset = await get_current_match_prediction_auto(f'{riot_id.lower()}#{riot_tag.lower()}', match_id, session)
 
         if data != 'Aucun':
 
@@ -595,6 +595,21 @@ class predict(Extension):
             df['riot_tag'] = df['riot_tag'].str.upper()
 
             sauvegarde_bdd(df, 'prev_lol', 'append', index=False)
+
+            df_features = pd.DataFrame([dataset])
+
+            df_features.columns = ["blue_masteries_0", "blue_masteries_1", "blue_masteries_2", "blue_masteries_3", "blue_masteries_4", "blue_masteries_moyenne",  "blue_masteries_mediane", "blue_masteries_kurt", "blue_masteries_skew", "blue_masteries_ecart_type", "blue_masteries_variance",
+                "blue_wr_0", "blue_wr_1", "blue_wr_2", "blue_wr_3", "blue_wr_4", "blue_wr_moyenne",  "blue_wr_mediane", "blue_wr_kurt", "blue_wr_skew", "blue_wr_ecart_type", "blue_wr_variance",
+            "red_masteries_0", "red_maste0ries_1", "red_masteries_2", "red_masteries_3", "red_masteries_4", "red_masteries_moyenne",  "red_masteries_mediane", "red_masteries_kurt", "red_masteries_skew", "red_masteries_ecart_type", "red_masteries_variance",
+                "red_wr_0", "red_wr_1", "red_wr_2", "red_wr_3", "red_wr_4", "red_wr_moyenne",  "red_wr_mediane", "red_wr_kurt", "red_wr_skew", "red_wr_ecart_type", "red_wr_variance"]
+
+            df_features['match_id'] = ''
+            df_features['summonerName'] = data['summonerName'].lower()
+            df_features[['riot_id', 'riot_tag']] = df_features['summonerName'].str.split('#', expand=True)
+            df_features['riot_tag'] = df_features['riot_tag'].str.upper()
+            df_features.drop(columns='summonerName', inplace=True)
+
+            sauvegarde_bdd(df_features, 'prev_lol_features', 'append', index=False)
 
 
 

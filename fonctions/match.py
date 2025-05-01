@@ -2004,7 +2004,8 @@ class matchlol():
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
             INSERT INTO public.matchs_updated(match_id, joueur, updated)
 	        VALUES (:match_id, :joueur, true);
-            UPDATE prev_lol SET match_id = :match_id where riot_id = :riot_id and riot_tag = :riot_tagline and match_id = '' ''',
+            UPDATE prev_lol SET match_id = :match_id where riot_id = :riot_id and riot_tag = :riot_tagline and match_id = '';
+            UPDATE prev_lol_features SET match_id = :match_id where riot_id = :riot_id and riot_tag = :riot_tagline and match_id = '' ''',
                 {
                     'match_id': self.last_match,
                     'joueur': self.id_compte,
@@ -3445,16 +3446,38 @@ class matchlol():
 
         draw_black_line()
 
+        # Ban 
+
+        x_ecart_ban = 90
+
+        for i, champ_ban in enumerate(self.liste_ban):
+        
+            if champ_ban != '-1':
+                if i <= 4:
+                    x_ban = 300 + (i * x_ecart_ban)
+                    y_ban = lineY + 200
+
+                    im.paste(im=await get_image("champion", champ_ban, self.session, 80, 80, self.version['n']['profileicon']),
+                                box=(x_ban, y_ban))
+                
+                else:
+
+                    x_ban = 300 + ((i-5) * x_ecart_ban)
+                    y_ban = 7* lineY + 200     
+
+                    im.paste(im=await get_image("champion", champ_ban, self.session, 80, 80, self.version['n']['profileicon']),
+                                box=(x_ban, y_ban))          
+
         # match
         d.text((10, 20 + 190), self.thisQ, font=font, fill=fill)
 
         money = await get_image('gold', 'dragon', self.session, 60, 60)
 
         im.paste(money, (10, 120 + 190), money.convert('RGBA'))
-        d.text((83, 120 + 190), f'{self.thisGold_team1}',
+        d.text((83, 120 + 190), f'{round(self.thisGold_team1/1000,1)}k',
                font=font, fill=principal)
         im.paste(money, (10, 720 + 190), money.convert('RGBA'))
-        d.text((83, 720 + 190), f'{self.thisGold_team2}', font=font, fill=fill)
+        d.text((83, 720 + 190), f'{round(self.thisGold_team2/1000,1)}k', font=font, fill=fill)
 
         if self.moba_ok:
             try:
@@ -3481,7 +3504,7 @@ class matchlol():
         for y in range(123 + 190, 724 + 190, 600):
             color = principal if y == 123 + 190 else fill
             d.text((x_level-10, y), 'LVL', font=font, fill=color)
-            d.text((x_name, y), 'Name', font=font, fill=color)
+            # d.text((x_name, y), 'Name', font=font, fill=color)
 
 
             d.text((x_kills, y), 'K', font=font, fill=color)
