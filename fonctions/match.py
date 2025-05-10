@@ -55,7 +55,8 @@ def label_tier(x):
     return dict_chg_tier.get(x,0)
 
 def label_rank(x):
-    dict_chg_rank = {'IV': 1,
+    dict_chg_rank = {'En placement': 0,
+                    'IV': 1,
                     'III': 2,
                     'II': 3,
                     'I': 4}
@@ -982,7 +983,10 @@ class matchlol():
         self.last_season = params['last_season']['value']
         self.split = int(params['split']['value'])
         self.season_ugg = int(params['season_ugg']['value'])
+        self.season_ugg_min = int(params['season_ugg_min']['value'])
         self.activate_mobalytics = params['data_mobalytics']['value']
+
+        self.list_season_ugg = list(range(self.season_ugg_min, self.season_ugg + 1))
         
 
     async def get_data_riot(self):
@@ -1876,7 +1880,7 @@ class matchlol():
                 except TypeError:
                     self.df_rank = ''
             
-            self.df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), [22,23,24,25])
+            self.df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), self.list_season_ugg)
 
            
             if isinstance(self.df_data_stat, pd.DataFrame):
@@ -3452,7 +3456,7 @@ class matchlol():
 
         for i, champ_ban in enumerate(self.liste_ban):
         
-            if champ_ban != '-1':
+            if champ_ban != '-1' and champ_ban != 'Aucun':
                 if i <= 4:
                     x_ban = 300 + (i * x_ecart_ban)
                     y_ban = lineY + 200

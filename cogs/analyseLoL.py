@@ -22,6 +22,8 @@ from fonctions.match import (get_summoner_by_puuid,
                              get_champ_list,
                              get_match_timeline,
                              label_ward,
+                             label_rank,
+                             label_tier,
                              emote_champ_discord,
                              match_by_puuid_with_puuid,
                              emote_rank_discord,
@@ -53,18 +55,8 @@ parameters_commun_stats_lol = [
         name='season',
         description='saison lol',
         type=interactions.OptionType.INTEGER,
-        min_value=12,
+        min_value=0,
         max_value=saison,
-        required=False),
-    SlashCommandOption(
-        name='riot_id',
-        description='se focaliser sur un joueur ? Incompatible avec grouper par personne',
-        type=interactions.OptionType.STRING,
-        required=False),
-    SlashCommandOption(
-        name='riot_tag',
-        description='se focaliser sur un joueur ? Incompatible avec grouper par personne',
-        type=interactions.OptionType.STRING,
         required=False),
     SlashCommandOption(
         name='role',
@@ -91,6 +83,11 @@ parameters_commun_stats_lol = [
             SlashCommandChoice(name='soloq',
                                value='RANKED'),
             SlashCommandChoice(name='aram', value='ARAM')]),
+    SlashCommandOption(
+        name='grouper',
+        description='Grouper par joueur ou personne ? (Fonctionne uniquement avec games)',
+        type=interactions.OptionType.BOOLEAN,  
+        required=False),
     SlashCommandOption(
         name='top',
         description='top x ?',
@@ -184,33 +181,34 @@ def fix_temps(duree):
 
 def get_data_matchs(columns, season, server_id, view='global', datetime=None):
 
-    if datetime == None:
-        if view == 'global':
-            df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, tracker.discord from matchs
-            INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-            where season = {season}''', index_col='id').transpose()
-        else:
-            df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, tracker.discord from matchs
-                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-                where season = {season}
-                AND server_id = {server_id}''', index_col='id').transpose()
-    else:
-        if view == 'global':
-            df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, matchs.datetime tracker.discord from matchs
-            INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-            where season = {season}
-            and datetime >= :date''', index_col='id').transpose()
-        else:
-            df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, matchs.datetime tracker.discord from matchs
-                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-                where season = {season}
-                AND server_id = {server_id}
-                AND datetime >= :date''', index_col='id').transpose()
+    # Construction de la clause WHERE
+    conditions = []
+    if season != 0:
+        conditions.append(f"season = {season}")
+    if view != 'global':
+        conditions.append(f"server_id = {server_id}")
+    if datetime is not None:
+        conditions.append("datetime >= :date")
+    
+    where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+    # Définition des colonnes
+    base_columns = f"matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}"
+    if datetime is not None:
+        base_columns += ", matchs.datetime"
+    base_columns += ", tracker.discord"
+
+    # Construction de la requête SQL
+    query = f'''
+        SELECT {base_columns}
+        FROM matchs
+        INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+        {where_clause}
+    '''
+
+    df = lire_bdd_perso(query, index_col='id').transpose()
     return df
+
 
 
 def transformation_top(df,
@@ -1198,7 +1196,6 @@ class analyseLoL(Extension):
         for graph in liste_delete:
             os.remove(graph)
 
-    choice_comptage = SlashCommandChoice(name='comptage', value='count')
     choice_time_joue = SlashCommandChoice(name='temps_joué', value='time')
     choice_winrate = SlashCommandChoice(name='winrate', value='winrate')
     choice_avg = SlashCommandChoice(name='avg', value='avg')
@@ -1212,114 +1209,6 @@ class analyseLoL(Extension):
     async def stats_lol(self, ctx: SlashContext):
         pass
 
-
-    @stats_lol.subcommand('champions',
-                          sub_cmd_description='Statistiques sur les champions',
-                          options=[SlashCommandOption(
-                              name='calcul',
-                              description='quel type de calcul ?',
-                              type=interactions.OptionType.STRING,
-                              required=True,
-                              choices=[choice_comptage, choice_winrate]),
-                              SlashCommandOption(
-                              name='nb_parties',
-                              description='Combien de parties minimum ? (Debloque un graph détaillé pour winrate si supérieur à 1)',
-                              required=False,
-                              type=interactions.OptionType.INTEGER,
-                              min_value=1
-                          )
-                          ] + parameters_commun_stats_lol)
-    async def stats_lol_champions(self,
-                                  ctx: SlashContext,
-                                  calcul: str,
-                                  season: int = saison,
-                                  riot_id: str = None,
-                                  riot_tag: str = None,
-                                  role: str = None,
-                                  champion: str = None,
-                                  mode_de_jeu: str = None,
-                                  nb_parties: int = 1,
-                                  top: int = 20,
-                                  view: str = 'global'
-                                  ):
-
-        await ctx.defer(ephemeral=False)
-
-        df = get_data_matchs('matchs.victoire', saison,
-                             int(ctx.guild_id), view)
-
-        title = f'Champion'
-
-        df[df['season'] == season]
-
-        if riot_id != None and riot_tag != None:
-            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
-
-        if champion != None:
-            champion, df, title = tri_champion(champion, df, title)
-
-
-        if mode_de_jeu != None:
-            df = df[df['mode'] == mode_de_jeu]
-            title += f' en {mode_de_jeu}'
-
-
-        if role != None:
-            df = df[df['role'] == role]
-            title += f' ({role})'
-
-        df = tri_occurence(df, 'champion', nb_parties)
-                
-        title += f' ({calcul})'
-
-        if calcul == 'count':
-            if riot_id != None:
-                showlegend = True
-            else:
-                showlegend = False
-            fig = transformation_top(
-                df, 'champion', title, top, showlegend=showlegend)
-            embed, files = get_embed(fig, 'champion')
-            await ctx.send(embeds=embed, files=files)
-
-        elif calcul == 'winrate':
-
-            df['victoire_int'] = df['victoire'].astype(int)
-            df['victoire'] = df['victoire'].map({True: 'Victoire',
-                                                 False: 'Défaite'})
-
-            values = df['victoire'].value_counts()
-            fig = go.Figure(
-                data=[go.Pie(labels=values.index, values=values)])
-            fig.update_layout(title=title)
-
-            embed, files = get_embed(fig, 'wr')
-
-            await ctx.send(embeds=embed, files=files)
-            
-            if nb_parties > 1: # on fait le détail de winrate par champ si ce champ est renseigné
-                df_grp = df.groupby('champion').agg(victoire_sum=('victoire_int', 'sum'),
-                                                    nb_games=('victoire', 'count'))
-                df_grp['winrate'] = np.round((df_grp['victoire_sum'] / df_grp['nb_games']) * 100,1)
-                
-                df_grp['champion_joues'] = df_grp.index + '(' + df_grp['nb_games'].astype(str) + ')'
-                
-                fig = px.histogram(df_grp, x='champion_joues',
-                                   y='winrate',
-                                   color='champion_joues',
-                                   text_auto=".i").update_xaxes(categoryorder='total descending')
-                
-                fig.update_layout(title=f'Winrate par champion ({nb_parties} parties minimum)',
-                                  showlegend=False)
-                
-                embed, files = get_embed(fig, 'wr')
-                
-                await ctx.send(embeds=embed, files=files)
-
-        else:
-            await ctx.send('Non disponible')
-            pass
-
     @stats_lol.subcommand('kills',
                           sub_cmd_description='Statistiques sur les kills',
                           options=[SlashCommandOption(
@@ -1327,7 +1216,7 @@ class analyseLoL(Extension):
                               description='quel type de calcul ?',
                               type=interactions.OptionType.STRING,
                               required=True,
-                              choices=[choice_comptage]),
+                              choices=[SlashCommandChoice(name='comptage', value='count')]),
                               SlashCommandOption(
                               name='nb_parties',
                               description='Combien de parties minimum ?',
@@ -1340,12 +1229,11 @@ class analyseLoL(Extension):
                               ctx: SlashContext,
                               calcul: str,
                               season: int = saison,
-                              riot_id: str = None,
-                              riot_tag : str = None,
                               role: str = None,
                               champion: str = None,
                               mode_de_jeu: str = None,
                               nb_parties: int = 1,
+                              grouper:bool = False,
                               top: int = 20,
                               view: str = 'global'
                               ):
@@ -1353,14 +1241,17 @@ class analyseLoL(Extension):
         await ctx.defer(ephemeral=False)
 
         df = get_data_matchs(
-            'matchs.kills, matchs.double, matchs.triple, matchs.quadra, matchs.penta, matchs.solokills', saison, int(ctx.guild_id), view)
+            'matchs.kills, matchs.double, matchs.triple, matchs.quadra, matchs.penta, matchs.solokills', season, int(ctx.guild_id), view)
 
         title = f'Kills'
 
-        df[df['season'] == season]
 
-        if riot_id != None and riot_tag != None:
-            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
+        if season != 0:
+            df[df['season'] == season]
+
+
+        grp_name = 'discord' if grouper else 'riot_id'    
+
 
         if champion != None:
             champion, df, title = tri_champion(champion, df, title)
@@ -1379,9 +1270,8 @@ class analyseLoL(Extension):
 
         if calcul == 'count':
 
-            df.drop('discord', axis=1, inplace=True)
 
-            df = df.groupby('riot_id').agg(
+            df = df.groupby(grp_name).agg(
                 {'double': ['sum', 'count'], 'triple': 'sum', 'quadra': 'sum', 'penta': 'sum', 'solokills' : 'sum'})
             df.columns = pd.Index([e[0] + "_" + e[1].upper()
                                   for e in df.columns.tolist()])
@@ -1391,109 +1281,77 @@ class analyseLoL(Extension):
             df.sort_values(['penta', 'quadra', 'triple', 'double', 'solokills'], ascending=[
                            False, False, False, False, False], inplace=True)
 
-            if riot_id == None:
 
-                txt = f'{title} :'
+        txt = ""
+        embeds = []
 
-                for joueur, data in df.iterrows():
-                    txt += f'\n**{joueur}** : **{data["penta"]}** penta, **{data["quadra"]}** quadra, **{data["triple"]}** triple, **{data["double"]}** double | **{data["solokills"]}** solokills | **{data["nbgames"]}** games'
+        for joueur, data in df.iterrows():
+            joueur = '<@' + str(joueur) + '>' if grouper else joueur
+            line = f'\n**{joueur}** : **{data["penta"]}** penta, **{data["quadra"]}** quadra, **{data["triple"]}** triple, **{data["double"]}** double | **{data["solokills"]}** solokills | **{data["nbgames"]}** games'
 
-                await ctx.send(txt)
+            if len(txt) + len(line) >= 2000:
+                embed = interactions.Embed(title="Stats des joueurs", description=txt, color=0x00ff00)
+                embeds.append(embed)
+                txt = ""
 
-            else:
-                
-                def format_data_graph(df, colonne: str):
-                    trace = go.Bar(
-                        x=df.index,
-                        y=df[colonne],
-                        name=colonne.capitalize(),
-                        orientation='v',
-                        text=df[colonne],
-                        textposition='inside',
-                        insidetextanchor='middle',
-                        textfont=dict(color='white')
-                    )
-                    return trace
+            txt += line
 
-                data = [format_data_graph(df, 'double'),
-                        format_data_graph(df, 'triple'),
-                        format_data_graph(df, 'quadra'),
-                        format_data_graph(df, 'penta')]
+        # Ajouter le dernier embed
+        if txt:
+            embed = interactions.Embed(title="Stats des joueurs", description=txt, color=0x00ff00)
+            embeds.append(embed)
 
-                layout = go.Layout(
-                    title='Graphique',
-                    xaxis=dict(title='Valeurs'),
-                    yaxis=dict(showticklabels=False)
-                )
+        paginator = Paginator.create_from_embeds(
+                    self.bot,
+                    *embeds)
 
-                fig = go.Figure(data=data, layout=layout)
+        paginator.show_select_menu = True
+        await paginator.send(ctx)
 
-                embed, files = get_embed(fig, 'kills')
 
-                await ctx.send(embeds=embed, files=files)
-
-    @stats_lol.subcommand('dmg_tank_kda',
-                          sub_cmd_description='Statistiques sur les dégats, tanking et les kda',
+    @stats_lol.subcommand('solokills',
+                          sub_cmd_description='Statistiques sur les solokills',
                           options=[SlashCommandOption(
-                              name='type',
-                              description='Quel type ?',
-                              type=interactions.OptionType.STRING,
-                              required=True,
-                              choices=[SlashCommandChoice(name='dmg', value='dmg'),
-                                       SlashCommandChoice(
-                                           name='tank', value='tank'),
-                                       SlashCommandChoice(name='kda', value='kda')]),
-                                   SlashCommandOption(
                               name='calcul',
                               description='quel type de calcul ?',
                               type=interactions.OptionType.STRING,
                               required=True,
-                              choices=[choice_avg]),
+                              choices=[SlashCommandChoice(name='comptage', value='count')]),
                               SlashCommandOption(
-                                  name='group_par_champion',
-                                  description='montrer un total global ou par champion ?',
-                                  type=interactions.OptionType.BOOLEAN,
-                                  required=False
-                          ),
-                              SlashCommandOption(
-                                  name='nb_parties',
-                                  description='combien de parties minimum ?',
-                                  type=interactions.OptionType.INTEGER,
-                                  required=False,
-                                  min_value=1
+                              name='nb_parties',
+                              description='Combien de parties minimum ?',
+                              type=interactions.OptionType.INTEGER,
+                              required=False,
+                              min_value=1
                           )
-                          ] + parameters_commun_stats_lol,)
-    async def stats_lol_dmg(self,
-                            ctx: SlashContext,
-                            type: str,
-                            calcul: str,
-                            season: int = saison,
-                            riot_id: str = None,
-                            riot_tag: str = None,
-                            role: str = None,
-                            champion: str = None,
-                            mode_de_jeu: str = None,
-                            group_par_champion: bool = False,
-                            nb_parties: int = 1,
-                            view: str = 'global'
-                            ):
+                          ] + parameters_commun_stats_lol)
+    async def stats_lol_solokills(self,
+                              ctx: SlashContext,
+                              calcul: str,
+                              season: int = saison,
+                              role: str = None,
+                              champion: str = None,
+                              mode_de_jeu: str = None,
+                              nb_parties: int = 1,
+                              grouper:bool = False,
+                              top: int = 20,
+                              view: str = 'global'
+                              ):
 
         await ctx.defer(ephemeral=False)
 
-        dict_type = {
-            'dmg': 'matchs.dmg, matchs.dmg_ad, matchs.dmg_ap, matchs.dmg_true, matchs.dmg_min',
-            'tank': 'matchs.dmg_reduit, matchs.dmg_tank',
-            'kda': 'matchs.kills, matchs.assists, matchs.deaths',
-        }
+        df = get_data_matchs(
+            'matchs.kills, matchs.double, matchs.triple, matchs.quadra, matchs.penta, matchs.solokills', season, int(ctx.guild_id), view)
 
-        df = get_data_matchs(dict_type[type], saison, int(ctx.guild_id), view)
+        title = f'Solokills'
 
-        title = f'{type.upper()}'
 
-        df[df['season'] == season]
+        if season != 0:
+            df[df['season'] == season]
 
-        if riot_id != None and riot_tag != None:
-            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
+
+        grp_name = 'discord' if grouper else 'riot_id'    
+
 
         if champion != None:
             champion, df, title = tri_champion(champion, df, title)
@@ -1510,368 +1368,254 @@ class analyseLoL(Extension):
 
         title += f' ({calcul})'
 
-        if calcul == 'avg':
-
-            dict_stats = {'dmg': {'dmg': 'total', 'dmg_ad': 'ad', 'dmg_ap': 'ap', 'dmg_true': 'true', 'dmg_min': 'dmg_min'},
-                          'tank': {'dmg_tank': 'tank', 'dmg_reduit': 'reduit'},
-                          'kda': {'kills': 'K', 'deaths': 'D', 'assists': 'A'}}
-
-            dict_stats_choose = dict_stats[type]
-
-            fig = go.Figure()
-            fig.update_layout(title=title)
-
-            nb_games = df.shape[0]
-
-            if group_par_champion:
-                dict_stat = {'dmg': 'dmg',
-                             'tank': 'dmg_tank',
-                             'kda': 'kills'}
-                df = df.groupby('champion', as_index=False).mean().sort_values(
-                    by=dict_stat[type], ascending=False).head(10)
-                fig.add_trace(go.Histogram(x=df['champion'], y=df[dict_stat[type]], name=dict_stat[type], histfunc='avg',
-                                           texttemplate="%{y:.0f}")).update_xaxes(categoryorder='total descending')
-
-            else:
-                for column, name in dict_stats_choose.items():
-
-                    fig.add_trace(go.Histogram(x=df['riot_id'], y=df[column], histfunc='avg', name=name,
-                                               texttemplate="%{y:.0f}")).update_xaxes(categoryorder='total descending')
-
-            fig.update_yaxes(visible=False)
-
-            embed, files = get_embed(fig, 'stats')
-
-            embed.set_footer(text=f'Calculé sur {nb_games} matchs')
-
-            await ctx.send(embeds=embed, files=files)
-
-
-    @stats_lol.subcommand('games',
-                          sub_cmd_description='Analyse des games',
-                          options=[SlashCommandOption(
-                              name='calcul',
-                              description='quel type de calcul ?',
-                              type=interactions.OptionType.STRING,
-                              required=True,
-                              choices=[choice_progression, choice_ecart]),
-                          ] + parameters_nbgames)
-    async def stats_lol_games(self,
-                              ctx: SlashContext,
-                              calcul: str,
-                              season: int = saison,
-                              riot_id: str = None,
-                              riot_tag: str = None,
-                              role: str = None,
-                              champion: str = None,
-                              mode_de_jeu: str = None,
-                              grouper: str = 'joueur',
-                              top: int = 20,
-                              view: str = 'global'
-                              ):
-
-        await ctx.defer(ephemeral=False)
-
-        df = get_data_matchs('matchs.victoire, matchs.time',
-                             saison, int(ctx.guild_id), view)
-
-        title = f'Games'
-
-        df[df['season'] == season]
-
-        if riot_id != None and riot_tag != None:
-            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
-
-        if champion != None:            
-            champion, df, title = tri_champion(champion, df, title)
-
-        if mode_de_jeu != None:
-            df = df[df['mode'] == mode_de_jeu]
-            title += f' en {mode_de_jeu}'
-
-        if role != None:
-            df = df[df['role'] == role]
-            title += f' ({role})'
-
-        title += f' ({calcul})'
-
         if calcul == 'count':
-            df = df.groupby('riot_id').count()
-            fig = px.histogram(x=df.index, y=df['victoire'], color=df.index, text_auto=True, title=title).update_xaxes(
-                categoryorder="total descending")
-            fig.update_layout(showlegend=False)
-            embed, files = get_embed(fig, 'games')
 
-            await ctx.send(embeds=embed, files=files)
 
-        elif calcul == 'time':
-            if grouper == 'discord':
-                df = df.groupby('discord').agg(
-                    {'time': 'sum', 'champion': 'count', 'riot_id': 'max'})
-                df.set_index('riot_id', inplace=True)
-            else:
-                df = df.groupby('riot_id').agg(
-                    {'time': 'sum', 'champion': 'count'})
-            df.rename(columns={'champion': 'nbgames'}, inplace=True)
+            df = df.groupby(grp_name).agg(
+                {'solokills': ['sum', 'count']})
+            df.columns = pd.Index([e[0] + "_" + e[1].upper()
+                                  for e in df.columns.tolist()])
+            df.rename(columns={'solokills_SUM' : 'solokills', 'solokills_COUNT' : 'nbgames'}, inplace=True) 
 
-            df.sort_values(by='time', ascending=False, inplace=True)
-            df['jour'] = df['time'] // 1440
-            df['heure'] = (df['time'] % 1440) // 60
-            df['minute'] = (df['time'] % 1440) % 60
+            # Supprimer ceux ayant 0
+            df = df[(df['solokills'] > 0) & (df['nbgames'] > 0)]
 
-            txt = f'{title} : '
 
-            for joueur, data in df.iterrows():
-                txt += f'\n**{joueur}** : **{int(data["jour"])}** jours, **{int(data["heure"])}** heures, **{int(data["minute"])}** minutes, **{int(data["nbgames"])}** parties.'
 
-            options = [
-                interactions.StringSelectOption(
-                    label="Nombre de games", value="nbgames", emoji=interactions.PartialEmoji(name='1️⃣')),
-                interactions.StringSelectOption(
-                    label="Temps joué", value="time", emoji=interactions.PartialEmoji(name='2️⃣')),
-            ],
+            # Éviter la division par zéro : remplacer 0 par np.nan temporairement pour éviter inf
+            df['solokills/games'] = df['solokills'] / df['nbgames']
 
-            select = interactions.StringSelectMenu(
-                *options,
-                custom_id='selection',
-                placeholder="Choix de la statistique",
-                min_values=1,
-                max_values=1)
 
-            message = await ctx.send("Quel stat ?",
-                                     components=select)
+            df.sort_values(['solokills', 'nbgames'], ascending=[False, False], inplace=True)
 
-            async def check(button_ctx):
-                if int(button_ctx.ctx.author_id) == int(ctx.author.user.id):
-                    return True
-                await ctx.send("I wasn't asking you!", ephemeral=True)
-                return False
 
-            while True:
-                try:
-                    button_ctx: interactions.ComponentContext = await self.bot.wait_for_component(
-                        components=select, check=check, timeout=30
-                    )
-
-                    if button_ctx.ctx.values[0] == 'nbgames':
-                        fig = px.histogram(
-                            df, x=df.index, y='nbgames', title='Nombre de parties jouées', color=df.index, text_auto=True)
-
-                    elif button_ctx.ctx.values[0] == 'time':
-                        fig = px.histogram(
-                            df, x=df.index, y='time', title='Temps de jeu', color=df.index)
-
-                    fig.update_xaxes(categoryorder="total descending")
-                    fig.update_layout(showlegend=False)
-                    embed, file = get_embed(fig, button_ctx.ctx.values[0])
-                    # On envoie
-
-                    await ctx.edit(content=txt, embeds=embed, files=file)
-
-                except asyncio.TimeoutError:
-                    # When it times out, edit the original message and remove the button(s)
-                    return await ctx.edit(components=[])
-
-        
-    @stats_lol.subcommand('ecart_gold',
-                          sub_cmd_description='Statistiques sur les Ecart gold',
-                          options=[SlashCommandOption(
-                              name='riot_id',
-                              description='Pseudo LoL',
-                              type=interactions.OptionType.STRING,
-                              required=True),
-                              SlashCommandOption(
-                                  name='riot_tag',
-                                  description='tag',
-                                  type=interactions.OptionType.STRING,
-                                  required=True),
-                              SlashCommandOption(
-                              name='nb_parties',
-                              description='Combien de parties minimum ?',
-                              type=interactions.OptionType.INTEGER,
-                              required=False,
-                              min_value=5
-                          ),
-                              SlashCommandOption(
-                              name='season',
-                              description='saison lol',
-                              type=interactions.OptionType.INTEGER,
-                              min_value=12,
-                              max_value=saison,
-                              required=False),
-                              SlashCommandOption(
-                              name='role',
-                              description='Role LoL. Remplir ce role retire les stats par role',
-                              type=interactions.OptionType.STRING,
-                              required=False,
-                              choices=[
-                                  SlashCommandChoice(name='top', value='TOP'),
-                                  SlashCommandChoice(
-                                      name='jungle', value='JUNGLE'),
-                                  SlashCommandChoice(name='mid', value='MID'),
-                                  SlashCommandChoice(name='adc', value='ADC'),
-                                  SlashCommandChoice(name='support', value='SUPPORT')]),
-                              SlashCommandOption(
-                              name='mode_de_jeu',
-                              description='se focaliser sur un mode de jeu ?',
-                              type=interactions.OptionType.STRING,
-                              required=False,
-                              choices=[
-                                  SlashCommandChoice(name='soloq',
-                                                     value='RANKED'),
-                                  SlashCommandChoice(name='flex', value='FLEX')]),
-                              SlashCommandOption(
-                                  name='tier',
-                                  description='se focaliser sur un tier ?',
-                                    type=interactions.OptionType.STRING,
-                                    required=False,
-                                    choices=[
-                                        SlashCommandChoice(name='fer', value='IRON'),
-                                        SlashCommandChoice(name='bronze', value='BRONZE'),
-                                        SlashCommandChoice(name='argent', value='SILVER'),
-                                        SlashCommandChoice(name='or', value='GOLD'),
-                                        SlashCommandChoice(name='platine', value='PLATINUM'),
-                                        SlashCommandChoice(name='emeraude', value='EMERALD'),
-                                        SlashCommandChoice(name='diamant', value='DIAMOND'),
-                                        SlashCommandChoice(name='master', value='MASTER'),
-                                        SlashCommandChoice(name='grandmaster', value='GRANDMASTER'),
-                                        SlashCommandChoice(name='challenger', value='CHALLENGER')]),
-                              SlashCommandOption(
-                                  name='resultat_partie',
-                                    description='se focaliser sur un type de partie ?',
-                                    type=interactions.OptionType.STRING,
-                                    required=False,
-                                    choices=[
-                                        SlashCommandChoice(name='victoire', value='True'), 
-                                        SlashCommandChoice(name='défaite', value='False')
-                                    ])
-                          ])
-    async def stats_lol_ecart_gold(self,
-                                   ctx: SlashContext,
-                                   season: int = saison,
-                                   riot_id: str = None,
-                                   riot_tag:str = None,
-                                   role: str = None,
-                                   mode_de_jeu: str = 'RANKED',
-                                   nb_parties: int = 5,
-                                   tier : str = None,
-                                   resultat_partie:str = None,
-                                   ):
-
-        await ctx.defer(ephemeral=False)
-
-        df = get_data_matchs(
-            'matchs.ecart_gold, matchs.victoire, matchs.tier, matchs.rank, matchs.ecart_gold_min', saison, int(ctx.guild_id))
-        
-        title = f'Ecart gold moyen'
-
-        df[df['season'] == season]
-
-        if riot_id != None and riot_tag != None:
-            riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
-
-        if mode_de_jeu != None:
-            df = df[df['mode'] == mode_de_jeu]
-            title += f' en {mode_de_jeu}'
-
-        if role != None:
-            df = df[df['role'] == role]
-            title += f' ({role})'
-        
-        if tier != None:
-            df = df[df['tier'] == tier]
-            title += f' ({tier})'
-            
-            
-        if resultat_partie == 'True':
-            df = df[df['victoire'] == True]
-            title += f' | victoire only |'
-        elif resultat_partie == 'False':
-            df = df[df['victoire'] == False]
-            title += f'  | défaite only |'
-
-           
-        df_grp = df.groupby('champion').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
-        
-        df_grp = df_grp[df_grp['riot_id'] >= nb_parties]
-        
-        df_grp.sort_values('ecart_gold', ascending=False, inplace=True)
-        
-        title += f' ({nb_parties} parties minimum)'
-        
-        
-        txt = ''
+        txt = ""
         embeds = []
-        for champion, data in df_grp.iterrows():
-            txt += f'\n{emote_champ_discord[champion.capitalize()]} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
-        
-        try:    
-            embed1 = interactions.Embed(title=title, color=interactions.Color.random())
-            embed1.add_field(name=f'Champion', value=txt, inline=False)
-        
-        except ValueError:
-            return await ctx.send(f'Tu as trop de champions, tu dois augmenter la limite de parties minimum (Actuellement {nb_parties} )')
-                    
-        embeds.append(embed1)
-        
-        if role == None:
-            df_role = df.groupby('role').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
-            
-            df_role = df_role[df_role['riot_id'] >= nb_parties]
-            df_role.sort_values('ecart_gold', ascending=False, inplace=True)
-            
-            txt_role = ''
-            for role, data in df_role.iterrows():
-                
-                txt_role += f'\n{role} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
-            
 
-                embed4 = interactions.Embed(title=title, color=interactions.Color.random())
-            embed4.add_field(name='Role', value=txt_role, inline=False)
-                
-            embeds.append(embed4)
-        
-        
-        if tier == None:
-            txt_tier = ''
-            df_tier = df.groupby('tier').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
-            
-            df_tier = df_tier[df_tier['riot_id'] >= nb_parties]
-            df_tier.sort_values('ecart_gold', ascending=False, inplace=True)
-            
-            for tier, data in df_tier.iterrows():
-                
-                txt_tier += f'\n{emote_rank_discord[tier]} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
-                
-            embed2 = interactions.Embed(title=title, color=interactions.Color.random())
-            embed2.add_field(name=f'Tier', value=txt_tier, inline=False)
-            
-            embeds.append(embed2)
-                
-            df_rank = df.groupby(['tier', 'rank']).agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
-            
-            df_rank = df_rank[df_rank['riot_id'] >= nb_parties]
-            df_rank.sort_values('ecart_gold', ascending=False, inplace=True)
-            
-            txt_rank = ''
-            for (tier, rank), data in df_rank.iterrows():
-                    
-                txt_rank += f'\n{emote_rank_discord[tier]} {rank} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
-                    
-            embed3 = interactions.Embed(title=title, color=interactions.Color.random())
-            embed3.add_field(name=f'Tier/Rank', value=txt_rank, inline=False)
-            
-            embeds.append(embed3)
-            
-            
-            
-        
-            paginator = Paginator.create_from_embeds(
+        for joueur, data in df.iterrows():
+            joueur = '<@' + str(joueur) + '>' if grouper else joueur
+            line = f'\n**{joueur}** : **{int(data["solokills"])}** solokills | **{int(data["nbgames"])}** parties ({round(data["solokills/games"],2)} solokills / games) '
+
+            if len(txt) + len(line) >= 2000:
+                embed = interactions.Embed(title="Stats des joueurs", description=txt, color=0x00ff00)
+                embeds.append(embed)
+                txt = ""
+
+            txt += line
+
+        # Ajouter le dernier embed
+        if txt:
+            embed = interactions.Embed(title="Stats des joueurs", description=txt, color=0x00ff00)
+            embeds.append(embed)
+
+        paginator = Paginator.create_from_embeds(
                     self.bot,
                     *embeds)
 
-            paginator.show_select_menu = True
-            await paginator.send(ctx)
+        paginator.show_select_menu = True
+        await paginator.send(ctx)
+
+        
+    # @stats_lol.subcommand('ecart_gold',
+    #                       sub_cmd_description='Statistiques sur les Ecart gold',
+    #                       options=[SlashCommandOption(
+    #                           name='riot_id',
+    #                           description='Pseudo LoL',
+    #                           type=interactions.OptionType.STRING,
+    #                           required=True),
+    #                           SlashCommandOption(
+    #                               name='riot_tag',
+    #                               description='tag',
+    #                               type=interactions.OptionType.STRING,
+    #                               required=True),
+    #                           SlashCommandOption(
+    #                           name='nb_parties',
+    #                           description='Combien de parties minimum ?',
+    #                           type=interactions.OptionType.INTEGER,
+    #                           required=False,
+    #                           min_value=5
+    #                       ),
+    #                           SlashCommandOption(
+    #                           name='season',
+    #                           description='saison lol',
+    #                           type=interactions.OptionType.INTEGER,
+    #                           min_value=12,
+    #                           max_value=saison,
+    #                           required=False),
+    #                           SlashCommandOption(
+    #                           name='role',
+    #                           description='Role LoL. Remplir ce role retire les stats par role',
+    #                           type=interactions.OptionType.STRING,
+    #                           required=False,
+    #                           choices=[
+    #                               SlashCommandChoice(name='top', value='TOP'),
+    #                               SlashCommandChoice(
+    #                                   name='jungle', value='JUNGLE'),
+    #                               SlashCommandChoice(name='mid', value='MID'),
+    #                               SlashCommandChoice(name='adc', value='ADC'),
+    #                               SlashCommandChoice(name='support', value='SUPPORT')]),
+    #                           SlashCommandOption(
+    #                           name='mode_de_jeu',
+    #                           description='se focaliser sur un mode de jeu ?',
+    #                           type=interactions.OptionType.STRING,
+    #                           required=False,
+    #                           choices=[
+    #                               SlashCommandChoice(name='soloq',
+    #                                                  value='RANKED'),
+    #                               SlashCommandChoice(name='flex', value='FLEX')]),
+    #                           SlashCommandOption(
+    #                               name='tier',
+    #                               description='se focaliser sur un tier ?',
+    #                                 type=interactions.OptionType.STRING,
+    #                                 required=False,
+    #                                 choices=[
+    #                                     SlashCommandChoice(name='fer', value='IRON'),
+    #                                     SlashCommandChoice(name='bronze', value='BRONZE'),
+    #                                     SlashCommandChoice(name='argent', value='SILVER'),
+    #                                     SlashCommandChoice(name='or', value='GOLD'),
+    #                                     SlashCommandChoice(name='platine', value='PLATINUM'),
+    #                                     SlashCommandChoice(name='emeraude', value='EMERALD'),
+    #                                     SlashCommandChoice(name='diamant', value='DIAMOND'),
+    #                                     SlashCommandChoice(name='master', value='MASTER'),
+    #                                     SlashCommandChoice(name='grandmaster', value='GRANDMASTER'),
+    #                                     SlashCommandChoice(name='challenger', value='CHALLENGER')]),
+    #                           SlashCommandOption(
+    #                               name='resultat_partie',
+    #                                 description='se focaliser sur un type de partie ?',
+    #                                 type=interactions.OptionType.STRING,
+    #                                 required=False,
+    #                                 choices=[
+    #                                     SlashCommandChoice(name='victoire', value='True'), 
+    #                                     SlashCommandChoice(name='défaite', value='False')
+    #                                 ])
+    #                       ])
+    # async def stats_lol_ecart_gold(self,
+    #                                ctx: SlashContext,
+    #                                season: int = saison,
+    #                                riot_id: str = None,
+    #                                riot_tag:str = None,
+    #                                role: str = None,
+    #                                mode_de_jeu: str = 'RANKED',
+    #                                nb_parties: int = 5,
+    #                                tier : str = None,
+    #                                resultat_partie:str = None,
+    #                                ):
+
+    #     await ctx.defer(ephemeral=False)
+
+    #     df = get_data_matchs(
+    #         'matchs.ecart_gold, matchs.victoire, matchs.tier, matchs.rank, matchs.ecart_gold_min', season, int(ctx.guild_id))
+        
+    #     title = f'Ecart gold moyen'
+
+    #     if season != 0:
+    #         df[df['season'] == season]
+
+    #     if riot_id != None and riot_tag != None:
+    #         riot_id, riot_tag, df, title = tri_riot_id(df, riot_id, riot_tag, title)
+
+    #     if mode_de_jeu != None:
+    #         df = df[df['mode'] == mode_de_jeu]
+    #         title += f' en {mode_de_jeu}'
+
+    #     if role != None:
+    #         df = df[df['role'] == role]
+    #         title += f' ({role})'
+        
+    #     if tier != None:
+    #         df = df[df['tier'] == tier]
+    #         title += f' ({tier})'
+            
+            
+    #     if resultat_partie == 'True':
+    #         df = df[df['victoire'] == True]
+    #         title += f' | victoire only |'
+    #     elif resultat_partie == 'False':
+    #         df = df[df['victoire'] == False]
+    #         title += f'  | défaite only |'
+
+           
+    #     df_grp = df.groupby('champion').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
+        
+    #     df_grp = df_grp[df_grp['riot_id'] >= nb_parties]
+        
+    #     df_grp.sort_values('ecart_gold', ascending=False, inplace=True)
+        
+    #     title += f' ({nb_parties} parties minimum)'
+        
+        
+    #     txt = ''
+    #     embeds = []
+    #     for champion, data in df_grp.iterrows():
+    #         txt += f'\n{emote_champ_discord[champion.capitalize()]} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
+        
+    #     try:    
+    #         embed1 = interactions.Embed(title=title, color=interactions.Color.random())
+    #         embed1.add_field(name=f'Champion', value=txt, inline=False)
+        
+    #     except ValueError:
+    #         return await ctx.send(f'Tu as trop de champions, tu dois augmenter la limite de parties minimum (Actuellement {nb_parties} )')
+                    
+    #     embeds.append(embed1)
+        
+    #     if role == None:
+    #         df_role = df.groupby('role').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
+            
+    #         df_role = df_role[df_role['riot_id'] >= nb_parties]
+    #         df_role.sort_values('ecart_gold', ascending=False, inplace=True)
+            
+    #         txt_role = ''
+    #         for role, data in df_role.iterrows():
+                
+    #             txt_role += f'\n{role} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
+            
+
+    #             embed4 = interactions.Embed(title=title, color=interactions.Color.random())
+    #         embed4.add_field(name='Role', value=txt_role, inline=False)
+                
+    #         embeds.append(embed4)
+        
+        
+    #     if tier == None:
+    #         txt_tier = ''
+    #         df_tier = df.groupby('tier').agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
+            
+    #         df_tier = df_tier[df_tier['riot_id'] >= nb_parties]
+    #         df_tier.sort_values('ecart_gold', ascending=False, inplace=True)
+            
+    #         for tier, data in df_tier.iterrows():
+                
+    #             txt_tier += f'\n{emote_rank_discord[tier]} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
+                
+    #         embed2 = interactions.Embed(title=title, color=interactions.Color.random())
+    #         embed2.add_field(name=f'Tier', value=txt_tier, inline=False)
+            
+    #         embeds.append(embed2)
+                
+    #         df_rank = df.groupby(['tier', 'rank']).agg({'ecart_gold': 'mean', 'ecart_gold_min' : 'mean', 'riot_id': 'count'})
+            
+    #         df_rank = df_rank[df_rank['riot_id'] >= nb_parties]
+    #         df_rank.sort_values('ecart_gold', ascending=False, inplace=True)
+            
+    #         txt_rank = ''
+    #         for (tier, rank), data in df_rank.iterrows():
+                    
+    #             txt_rank += f'\n{emote_rank_discord[tier]} {rank} : Moyenne : **{int(data["ecart_gold"])}** | **{int(data["ecart_gold_min"])}** / min | ({int(data["riot_id"])} games) \n'
+                    
+    #         embed3 = interactions.Embed(title=title, color=interactions.Color.random())
+    #         embed3.add_field(name=f'Tier/Rank', value=txt_rank, inline=False)
+            
+    #         embeds.append(embed3)
+            
+            
+            
+        
+    #         paginator = Paginator.create_from_embeds(
+    #                 self.bot,
+    #                 *embeds)
+
+    #         paginator.show_select_menu = True
+    #         await paginator.send(ctx)
             
     @stats_lol.subcommand('elo',
                           sub_cmd_description='Statistiques sur ton elo',
@@ -1941,7 +1685,21 @@ class analyseLoL(Extension):
                 FROM tracker
                 WHERE tracker.riot_id = '{riot_id}' AND tracker.riot_tagline = '{riot_tag}')) AND matchs.season = {season} AND matchs.mode = '{mode_de_jeu}'
         GROUP BY matchs.joueur, matchs.tier, matchs.rank, matchs.victoire
-        ORDER BY tier ASC, rank DESC, victoire ASC;''' , index_col=['tier', 'rank', 'victoire']).T
+        ORDER BY tier ASC, rank DESC, victoire ASC;''', index_col=None ).T
+
+
+        df['tier_pts'] = df['tier'].apply(label_tier)
+        df['rank_pts'] = df['rank'].apply(label_rank)
+
+
+        df.sort_values(by=['tier_pts', 'rank_pts'],
+                               ascending=[True, True],
+                               inplace=True)
+
+        df.drop(columns=['tier_pts', 'rank_pts'], inplace=True)
+
+
+        df.set_index(['tier', 'rank', 'victoire'], inplace=True)
         
         dfi.export(df, 'image.png', max_cols=-1,
                             max_rows=-1, table_conversion="matplotlib")
@@ -1950,6 +1708,7 @@ class analyseLoL(Extension):
 
         os.remove('image.png')
         
+
 
 
 

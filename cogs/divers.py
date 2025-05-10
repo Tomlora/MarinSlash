@@ -10,6 +10,9 @@ from fonctions.gestion_bdd import requete_perso_bdd
 from fonctions.permissions import isOwner_slash
 import re
 import pytz
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from fonctions.gestion_bdd import lire_bdd_perso
+
 
 
 class Divers(Extension):
@@ -247,6 +250,68 @@ class Divers(Extension):
             await ctx.send('Pas de compte associé')
 
 
+    @slash_command(name="solokilldawn",
+                   description='Commande personnalisée')
+    
+    async def solokilldawn(self, ctx: SlashContext):
+        df = lire_bdd_perso(f'''
+                SELECT sum(solokills)
+                FROM matchs
+                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+                and mode = 'RANKED'
+                where discord = '111147548760133632' ''',index_col=None).T
+
+        # 1. Ouvrir l'image
+        image = Image.open("./img/meme_oie.png").convert('RGBA')  # Remplace par le chemin de ton image
+
+        # Calque transparent pour l’ombre
+        shadow_layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        shadow_draw = ImageDraw.Draw(shadow_layer)
+
+        # 3. Texte, positions et police
+        texts = [
+            ("Combien de solokills ?", (50, 50)),
+            (str(df.iloc[0,0].astype(int)), (320, 430))
+        ]
+
+        # Police
+        try:
+            font = ImageFont.truetype("DejaVuSans.ttf", 40)  # Ubuntu 18.04
+        except OSError:
+            try:
+                font = ImageFont.truetype("arial.ttf", 40)  # Windows
+            except OSError:
+                font = ImageFont.truetype("AppleSDGothicNeo.ttc", 40)  # MacOS
+
+ 
+
+        # Couleur de l’ombre + décalages multiples
+        shadow_color = (0, 0, 0, 200)  # Plus opaque que 255 = trop si flou
+        offsets = [(4, 4), (5, 5), (6, 6)]  # Empilement d’ombres
+
+        # Dessiner l'ombre plusieurs fois pour la renforcer
+        for dx, dy in offsets:
+            for text, (x, y) in texts:
+                shadow_draw.text((x + dx, y + dy), text, font=font, fill=shadow_color)
+
+        # Flouter l'ombre (augmenter le radius la rend plus forte)
+        blurred_shadow = shadow_layer.filter(ImageFilter.GaussianBlur(radius=6))
+
+        # Combiner ombre + image d’origine
+        combined = Image.alpha_composite(image, blurred_shadow)
+
+        # Ajouter le texte principal en blanc
+        final_draw = ImageDraw.Draw(combined)
+        for text, (x, y) in texts:
+            final_draw.text((x, y), text, font=font, fill=(255, 255, 255, 255))
+
+        # Afficher ou enregistrer
+        combined.save('stats_dawn.png') # Affiche l'image
+
+        file = interactions.File(f'stats_dawn.png')
+
+        await ctx.send(files=file)
+                   
         
                     
 
