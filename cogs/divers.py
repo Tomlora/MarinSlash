@@ -10,7 +10,7 @@ from fonctions.gestion_bdd import requete_perso_bdd
 from fonctions.permissions import isOwner_slash
 import re
 import pytz
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageSequence
 from fonctions.gestion_bdd import lire_bdd_perso
 
 
@@ -312,7 +312,88 @@ class Divers(Extension):
 
         await ctx.send(files=file)
                    
-        
+
+    @slash_command(name="solokilldjingo",
+                   description='Commande personnalisée')
+    
+    async def solokilldjingo(self, ctx: SlashContext):
+        df = lire_bdd_perso(f'''
+                SELECT sum(solokills)
+                FROM matchs
+                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+                and mode = 'RANKED'
+                where discord = '267403725029507073' ''',index_col=None).T
+
+        # Charger le GIF
+        gif = Image.open("img/djingo.gif")
+
+        # Police
+        try:
+            font = ImageFont.truetype("DejaVuSans.ttf", 40)  # Ubuntu 18.04
+        except OSError:
+            try:
+                font = ImageFont.truetype("arial.ttf", 40)  # Windows
+            except OSError:
+                font = ImageFont.truetype("AppleSDGothicNeo.ttc", 40)  # MacOS
+
+        # Taille de l’image
+        width, height = gif.size
+        frames = []
+        background = Image.new("RGBA", gif.size)
+
+        # Nombre total de frames
+        frame_count = sum(1 for _ in ImageSequence.Iterator(gif))
+
+        # Déplacement total en x et y (du bas-droit vers haut-gauche)
+        start_x, start_y = width - 200, height - 80  # départ bas-droit (ajuste si besoin)
+        end_x, end_y = 50, 50                        # fin haut-gauche
+        dx = (end_x - start_x) / frame_count
+        dy = (end_y - start_y) / frame_count
+
+        for i, frame in enumerate(ImageSequence.Iterator(gif)):
+            # Frame complète pour éviter les superpositions
+            current = background.copy()
+            frame_rgba = frame.convert("RGBA")
+            current.paste(frame_rgba, (0, 0), frame_rgba)
+
+            # Position diagonale animée
+            x = start_x + dx * i
+            y = start_y + dy * i
+
+            # Ombre renforcée
+            shadow_layer = Image.new("RGBA", gif.size, (0, 0, 0, 0))
+            shadow_draw = ImageDraw.Draw(shadow_layer)
+            # for offset in [(4, 4), (5, 5), (6, 6)]:
+            #     shadow_draw.text((x + offset[0], y + offset[1]), str(df.iloc[0,0].astype(int)), font=font, fill=(0, 0, 0, 180))
+
+            blurred_shadow = shadow_layer.filter(ImageFilter.GaussianBlur(radius=3))
+
+            # Fusion ombre + image
+            combined = Image.alpha_composite(current, blurred_shadow)
+
+            # Ajouter texte blanc
+            draw = ImageDraw.Draw(combined)
+            draw.text((x, y), str(df.iloc[0,0].astype(int)), font=font, fill=(255, 255, 255, 255))
+
+            frames.append(combined)
+
+        # Enregistrer le GIF final
+        frames[0].save(
+            "stats_djingo.gif",
+            save_all=True,
+            append_images=frames[1:],
+            duration=gif.info.get("duration", 100),
+            loop=0,
+            disposal=2
+        )
+        file = interactions.File(f'stats_djingo.gif')
+
+        await ctx.send(files=file)
+
+
+
+
+
                     
 
             
