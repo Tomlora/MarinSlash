@@ -8,7 +8,7 @@ from interactions import SlashCommandOption, Extension, SlashContext, SlashComma
 from fonctions.params import Version, saison
 from fonctions.channels_discord import identifier_role_by_name
 from fonctions.match import trouver_records, get_version, emote_champ_discord, get_id_account_bdd
-from fonctions.match import emote_rank_discord, emote_champ_discord, fix_temps
+from fonctions.match import emote_rank_discord, emote_champ_discord, fix_temps, get_list_matchs_with_puuid
 from fonctions.api_calls import getRankings
 from cogs.recordslol import emote_v2
 from fonctions.permissions import isOwner_slash
@@ -440,7 +440,12 @@ class LeagueofLegends(Extension):
                             'dmg_ap_all_min' : match_info.thisDamageAPAllPerMinute,
                             'dmg_all' : match_info.thisDamageAllNoFormat,
                             'dmg_all_min' : match_info.thisDamageAllPerMinute,
-                            'longue_serie_kills' : match_info.thisKillsSeries}
+                            'longue_serie_kills' : match_info.thisKillsSeries,
+                            'trade_efficience' : match_info.trade_efficience,
+                            'skillshots_hit_min' : match_info.thisSkillshot_hit_per_min,
+                            'skillshots_dodge_min' : match_info.thisSkillshot_dodged_per_min,
+                            'dmg_par_kills' : match_info.damage_per_kills,
+                            'first_tower_time' : match_info.first_tower_time}
 
             if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:
                 param_records_only_ranked = {'vision_score': match_info.thisVision,
@@ -972,46 +977,17 @@ class LeagueofLegends(Extension):
                                           description="Tag",
                                           type=interactions.OptionType.STRING,
                                            required=False),
-                       SlashCommandOption(name="numero_avant",
-                                          description="Numero de la game, de 0 à 100",
-                                          type=interactions.OptionType.INTEGER,
-                                          required=False,
-                                          min_value=0,
-                                          max_value=100),
-                       SlashCommandOption(name="numero_apres",
-                                          description="Numero de la game, de 0 à 100",
-                                          type=interactions.OptionType.INTEGER,
-                                          required=False,
-                                          min_value=0,
-                                          max_value=100),
                        SlashCommandOption(name="attente",
                                           description="Attente entre 2 games",
                                           type=interactions.OptionType.INTEGER,
                                           required=False,
-                                          min_value=30,
-                                          max_value=100),
-                       SlashCommandOption(name='identifiant_game',
-                                          description="A ne pas utiliser",
-                                          type=interactions.OptionType.STRING,
-                                          required=False),
-                       SlashCommandOption(name='ce_channel',
-                                          description='Poster dans ce channel ?',
-                                          type=interactions.OptionType.BOOLEAN,
-                                          required=False),
-                       SlashCommandOption(name='check_doublon',
-                                          description='Verifier si la game a déjà été enregistrée ?',
-                                          type=interactions.OptionType.BOOLEAN,
-                                          required=False)])
+                                          min_value=45,
+                                          max_value=100)])
     async def game_multi(self,
                    ctx: SlashContext,
                    riot_id: str,
                    riot_tag:str = None,
-                   numero_avant: int = 0,
-                   numero_apres: int = 5,
-                   attente:int = 30,
-                   identifiant_game=None,
-                   ce_channel=False,
-                   check_doublon=True):
+                   attente:int = 45):
 
         await ctx.defer(ephemeral=False)
         
@@ -1028,9 +1004,14 @@ class LeagueofLegends(Extension):
         riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper()
         df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col='discord')
+        data_joueur = lire_bdd_perso(f'''SELECT riot_id, puuid, id_compte from tracker WHERE riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''', 
+                                                index_col='riot_id')
+
+        puuid = data_joueur.T.loc[riot_id]['puuid']
+        id_compte = data_joueur.T.loc[riot_id]['id_compte']
         
         try:
-            check_records = bool(lire_bdd_perso(f'''SELECT riot_id, save_records from tracker WHERE riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''', 
+            check_records = bool(lire_bdd_perso(f'''SELECT riot_id, save_records, from tracker WHERE riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''', 
                                                 index_col='riot_id')\
                                                     .T\
                                                         .loc[riot_id]['save_records'])
@@ -1046,51 +1027,68 @@ class LeagueofLegends(Extension):
             except IndexError:
                 return await ctx.send("Ce compte n'existe pas ou n'est pas enregistré")
             
-            for numero in range(numero_avant, numero_apres):
+            session = aiohttp.ClientSession()
+            liste_matchs_riot : list = await get_list_matchs_with_puuid(session, puuid)
+            await session.close()
+            liste_matchs_save : pd.DataFrame = lire_bdd_perso(f'''SELECT distinct match_id from matchs where joueur = {id_compte}''', index_col=None).T
+
+            matchs_manquants = pd.Series(liste_matchs_riot)[~pd.Series(liste_matchs_riot).isin(liste_matchs_save['match_id'].tolist())].tolist()
+
+
+            if len(matchs_manquants) == 0:
+                return await ctx.send("Aucune game à afficher")
+            else:
+                matchs_manquants.reverse() # ancienne à la plus récente
+                msg = await ctx.send(f"Il y a {len(matchs_manquants)} games à charger : {matchs_manquants}. Game {game} en cours...")
+
+            
+            for num, game in enumerate(matchs_manquants):
+
+                await msg.edit(content=f"Il y a {len(matchs_manquants)} games à charger : {matchs_manquants} : Game {game} en cours... ({num+1}/{len(matchs_manquants)})")
                 try:
                     embed, mode_de_jeu, resume = await self.printInfo(id_compte,
                                                                     riot_id,
                                                                     riot_tag,
-                                                                    idgames=numero,
+                                                                    idgames=0,
                                                                     sauvegarder=True,
-                                                                    identifiant_game=identifiant_game,
-                                                                    guild_id=int(
-                                                                        ctx.guild_id),
+                                                                    identifiant_game=game,
+                                                                    guild_id=int(ctx.guild_id),
                                                                     affichage=1,
-                                                                    check_doublon=check_doublon,
+                                                                    check_doublon=True,
                                                                     check_records=check_records)
                     
-                    if not ce_channel:
-                        if mode_de_jeu in ['RANKED', 'FLEX']:
-                            tracklol = discord_server_id.tracklol
-                        
-                        elif mode_de_jeu == 'ARENA 2v2':
-                            tracklol = discord_server_id.tft
-                        else:
-                            tracklol = discord_server_id.lol_others
 
-                        channel_tracklol = await self.bot.fetch_channel(tracklol)
+                    if mode_de_jeu in ['RANKED', 'FLEX']:
+                        tracklol = discord_server_id.tracklol
                         
-                        
+                    elif mode_de_jeu == 'ARENA 2v2':
+                        tracklol = discord_server_id.tft
                     else:
-                        channel_tracklol = ctx
+                        tracklol = discord_server_id.lol_others
+
+                    channel_tracklol = await self.bot.fetch_channel(tracklol)
+                        
+                        
 
 
                     if embed != {}:                
                         await channel_tracklol.send(embeds=embed, files=resume)
                         os.remove('resume.png')
-                
+
+                    
+
                 except Exception:
                     print(f"erreur {riot_id}")  # joueur qui a posé pb
                     exc_type, exc_value, exc_traceback = sys.exc_info()
                     traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
                     traceback_msg = ''.join(traceback_details)
                     print(traceback_msg)
-                    await ctx.send(f'Erreur game {numero}')
+                    await ctx.send(f'Erreur game {game}')
                     continue
 
                 await sleep(attente)
             
+            await msg.delete()
             await ctx.delete()
 
         else:

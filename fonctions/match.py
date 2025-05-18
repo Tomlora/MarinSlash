@@ -528,7 +528,11 @@ async def get_list_matchs_with_me(session: aiohttp.ClientSession, me, params):
     return my_matches
 
 
-async def get_list_matchs_with_puuid(session: aiohttp.ClientSession, puuid, params):
+async def get_list_matchs_with_puuid(session: aiohttp.ClientSession, puuid, params=None):
+
+    if params is None:
+        params = {'start': 0, 'count': 20, 'api_key': api_key_lol}
+        
     attemps = 0
 
     while attemps < 5:
@@ -1159,6 +1163,13 @@ class matchlol():
 
         self.thisTimeSpendAlive = fix_temps(round(
             self.thisTime - self.thisTimeSpendDead, 2))
+        
+        try:
+            self.first_tower_time = self.match_detail_challenges['firstTurretKilledTime']    
+            self.first_tower_time = fix_temps(round(
+                (self.first_tower_time / 60), 2)) 
+        except KeyError:
+            self.first_tower_time = 999
 
         self.thisDamageTaken = int(
             self.match_detail_participants['totalDamageTaken'])
@@ -1238,6 +1249,9 @@ class matchlol():
         
 
         self.thisDamageAllPerMinute = round(int(self.match_detail_participants['totalDamageDealt']) / self.thisTime, 0)
+
+        self.damage_per_kills = round(
+            (self.thisDamage / self.thisKills), 0) if self.thisKills != 0 else 0
         
 
 
@@ -1359,6 +1373,12 @@ class matchlol():
         self.thisInhibTeam = self.team_stats['inhibitor']['kills']
 
 
+        try:
+            self.trade_efficience = round(self.thisDamageNoFormat / self.thisDamageTakenNoFormat * 100,2)
+        except ZeroDivisionError:
+            self.trade_efficience = 0
+
+
 
         try:
             self.thisAtakhanTeam = self.team_stats['atakhan']['kills']
@@ -1386,6 +1406,13 @@ class matchlol():
 
         self.thisSkillshot_dodged = self.match_detail_challenges['skillshotsDodged']
         self.thisSkillshot_hit = self.match_detail_challenges['skillshotsHit']
+
+        self.thisSkillshot_dodged_per_min = round(
+            (self.thisSkillshot_dodged / self.thisTime), 2)
+
+
+        self.thisSkillshot_hit_per_min = round(
+            (self.thisSkillshot_hit / self.thisTime), 2)
 
         try:
             self.thisTurretPlatesTaken = self.match_detail_challenges['turretPlatesTaken']
@@ -1476,7 +1503,7 @@ class matchlol():
             
         # Correction d'un bug rito
 
-            
+
 
         # champ id
 
@@ -1996,7 +2023,8 @@ class matchlol():
             item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
             split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min, ecart_cs, petales_sanglants, atakhan, crit_dmg, immobilisation, skillshot_hit, temps_cc_inflige, tower, inhib,
-            dmg_true_all, dmg_true_all_min, dmg_ad_all, dmg_ad_all_min, dmg_ap_all, dmg_ap_all_min, dmg_all, dmg_all_min, records, longue_serie_kills, ecart_kills, ecart_deaths, ecart_assists, ecart_dmg)
+            dmg_true_all, dmg_true_all_min, dmg_ad_all, dmg_ad_all_min, dmg_ap_all, dmg_ap_all_min, dmg_all, dmg_all_min, records, longue_serie_kills, ecart_kills, ecart_deaths, ecart_assists, ecart_dmg, trade_efficience, skillshots_dodge_min, skillshots_hit_min, dmg_par_kills,
+            first_tower_time)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
@@ -2004,7 +2032,8 @@ class matchlol():
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
             :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit, :temps_cc_inflige, :tower, :inhib,
-            :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min, :records, :longue_serie_kills, :ecart_kills, :ecart_deaths, :ecart_assists, :ecart_dmg);
+            :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min, :records, :longue_serie_kills, :ecart_kills, :ecart_deaths, :ecart_assists, :ecart_dmg, :trade_efficience, :skillshots_dodge_min, :skillshot_hit_min, :dmg_par_kills,
+            :first_tower_time);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
             INSERT INTO public.matchs_updated(match_id, joueur, updated)
 	        VALUES (:match_id, :joueur, true);
@@ -2129,6 +2158,11 @@ class matchlol():
                     'ecart_deaths' : self.ecart_morts,
                     'ecart_assists' : self.ecart_assists,
                     'ecart_dmg' : self.ecart_dmg,
+                    'trade_efficience' : self.trade_efficience,
+                    'skillshots_dodge_min' : self.thisSkillshot_dodged_per_min,
+                    'skillshot_hit_min' : self.thisSkillshot_hit_per_min,
+                    'dmg_par_kills' : self.damage_per_kills,
+                    'first_tower_time' : self.first_tower_time
 
                 },
             )
@@ -2307,45 +2341,38 @@ class matchlol():
         self.max_mr = self.df_timeline_position['magicResist'].max()
         self.movement_speed = self.df_timeline_position['movementSpeed'].max()
 
-        try:
-            self.total_cs_20 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 20, 'total_cs'].values[0]
-        except:
-            self.total_cs_20 = 0
-        
-        try:
-            self.total_cs_30 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 30, 'total_cs'].values[0]
-        except:
-            self.total_cs_30 = 0
+        def get_value(df, timestamp, column):
+            try:
+                return df.loc[df['timestamp'] == timestamp, column].values[0]
+            except:
+                return 0
 
-        try:
-            self.total_gold_20 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 20, 'totalGold'].values[0]
-        except:
-            self.total_gold_20 = 0
-        
-        try:
-            self.total_gold_30 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 30, 'totalGold'].values[0]
-        except:
-            self.total_gold_30 = 0
-        
-        try:
-            self.minions_20 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 20, 'minionsKilled'].values[0]
-        except:
-            self.minions_20 = 0
-        
-        try:
-            self.minions_30 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 30, 'minionsKilled'].values[0]
-        except:
-            self.minions_30 = 0
-        
-        try:
-            self.jgl_killed_20 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 20, 'jungleMinionsKilled'].values[0]
-        except:
-            self.jgl_killed_20 = 0
+        # Usage
+        self.total_cs_20 = get_value(self.df_timeline_position, 20, 'total_cs')
+        self.total_cs_30 = get_value(self.df_timeline_position, 30, 'total_cs')
 
-        try:
-            self.jgl_killed_30 = self.df_timeline_position.loc[self.df_timeline_position['timestamp'] == 30, 'jungleMinionsKilled'].values[0]
-        except:
-            self.jgl_killed_30 = 0
+        self.total_gold_20 = get_value(self.df_timeline_position, 20, 'totalGold')
+        self.total_gold_30 = get_value(self.df_timeline_position, 30, 'totalGold')
+
+        self.minions_20 = get_value(self.df_timeline_position, 20, 'minionsKilled')
+        self.minions_30 = get_value(self.df_timeline_position, 30, 'minionsKilled')
+
+        self.jgl_killed_20 = get_value(self.df_timeline_position, 20, 'jungleMinionsKilled')
+        self.jgl_killed_30 = get_value(self.df_timeline_position, 30, 'jungleMinionsKilled')
+
+        self.totalDamageDone_10 = get_value(self.df_timeline_position, 10, 'totalDamageDoneToChampions')
+        self.totalDamageDone_20 = get_value(self.df_timeline_position, 20, 'totalDamageDoneToChampions')
+        self.totalDamageDone_30 = get_value(self.df_timeline_position, 30, 'totalDamageDoneToChampions')
+
+        self.totalDamageTaken_10 = get_value(self.df_timeline_position, 10, 'totalDamageTaken')
+        self.totalDamageTaken_20 = get_value(self.df_timeline_position, 20, 'totalDamageTaken')
+        self.totalDamageTaken_30 = get_value(self.df_timeline_position, 30, 'totalDamageTaken')
+
+        self.trade_efficience_10 = round(self.totalDamageDone_10 / (self.totalDamageTaken_10 + 1) * 100,2)
+        self.trade_efficience_20 = round(self.totalDamageDone_20 / (self.totalDamageTaken_20 + 1) * 100,2)
+        self.trade_efficience_30 = round(self.totalDamageDone_30 / (self.totalDamageTaken_30 + 1) * 100,2)
+
+        
 
         
         
@@ -2695,15 +2722,26 @@ class matchlol():
         self.df_20min = filtre_timeline(20)
         self.df_30min = filtre_timeline(30)
 
+        self.df_10min.loc[len(self.df_10min)] = ['TOTAL_DMG_10', self.id_compte, self.last_match, self.totalDamageDone_10]
+        self.df_10min.loc[len(self.df_10min)] = ['TOTAL_DMG_TAKEN_10', self.id_compte, self.last_match, self.totalDamageTaken_10]
+        self.df_10min.loc[len(self.df_10min)] = ['TRADE_EFFICIENCE_10', self.id_compte, self.last_match, self.trade_efficience_10]
+
+
         self.df_20min.loc[len(self.df_20min)] = ['TOTAL_CS_20', self.id_compte, self.last_match, self.total_cs_20]
         self.df_20min.loc[len(self.df_20min)] = ['TOTAL_GOLD_20', self.id_compte, self.last_match, self.total_gold_20]
         self.df_20min.loc[len(self.df_20min)] = ['CS_20', self.id_compte, self.last_match, self.minions_20]
         self.df_20min.loc[len(self.df_20min)] = ['JGL_20', self.id_compte, self.last_match, self.jgl_killed_20]
+        self.df_20min.loc[len(self.df_20min)] = ['TOTAL_DMG_20', self.id_compte, self.last_match, self.totalDamageDone_20]
+        self.df_20min.loc[len(self.df_20min)] = ['TOTAL_DMG_TAKEN_20', self.id_compte, self.last_match, self.totalDamageTaken_20]
+        self.df_20min.loc[len(self.df_20min)] = ['TRADE_EFFICIENCE_20', self.id_compte, self.last_match, self.trade_efficience_20]
 
         self.df_20min.loc[len(self.df_20min)] = ['TOTAL_CS_30', self.id_compte, self.last_match, self.total_cs_30]
         self.df_20min.loc[len(self.df_20min)] = ['TOTAL_GOLD_30', self.id_compte, self.last_match, self.total_gold_30]
         self.df_20min.loc[len(self.df_20min)] = ['CS_30', self.id_compte, self.last_match, self.minions_30]
         self.df_20min.loc[len(self.df_20min)] = ['JGL_30', self.id_compte, self.last_match, self.jgl_killed_30]
+        self.df_20min.loc[len(self.df_20min)] = ['TOTAL_DMG_30', self.id_compte, self.last_match, self.totalDamageDone_30]
+        self.df_20min.loc[len(self.df_20min)] = ['TOTAL_DMG_TAKEN_30', self.id_compte, self.last_match, self.totalDamageTaken_30]
+        self.df_20min.loc[len(self.df_20min)] = ['TRADE_EFFICIENCE_30', self.id_compte, self.last_match, self.trade_efficience_30]
 
 
         self.df_time = pd.concat([self.df_10min, self.df_20min, self.df_30min])
