@@ -38,7 +38,8 @@ from fonctions.match import (matchlol,
                              trouver_records,
                              label_rank,
                              label_tier,
-                             get_spectator_data
+                             get_spectator_data,
+                             top_records
                              )
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 
@@ -47,11 +48,11 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
 
-def records_check2(fichier,
-                   fichier_joueur=None,
-                   fichier_champion=None,
-                   fichier_all = None,
-                   fichier_champion_all = None,
+def records_check2(fichier :pd.DataFrame,
+                   fichier_joueur : pd.DataFrame =None,
+                   fichier_champion : pd.DataFrame =None,
+                   fichier_all : pd.DataFrame = None,
+                   fichier_champion_all : pd.DataFrame = None,
                    category=None,
                    result_category_match=None,
                    methode='max') -> str:
@@ -61,7 +62,7 @@ def records_check2(fichier,
     None à la place du fichier pour désactiver un check.                                                                                                                                 
     '''
     embed = ''
-    category_exclusion_egalite = ['baron', 'herald', 'drake', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_horde', 'first_niveau_max', 'first_blood', 'tower', 'inhib']
+    category_exclusion_egalite = ['baron', 'herald', 'drake', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_horde', 'first_niveau_max', 'first_blood', 'tower', 'inhib', 'first_tower_time']
 
     if result_category_match == 0:  # si le score est de 0, inutile
         return embed
@@ -160,6 +161,77 @@ def records_check2(fichier,
     return embed
 
 
+
+def records_check3(fichier: pd.DataFrame,
+                   fichier_joueur: pd.DataFrame = None,
+                   fichier_all: pd.DataFrame = None,
+                   category=None,
+                   result_category_match=None,
+                   methode='max') -> str:
+    '''
+    Vérifie si le score est dans le top 10 (général, perso, all-time), indique la position
+    et le record battu ou égalisé si applicable.
+    '''
+    embed = ''
+    category_exclusion_egalite = [
+        'baron', 'herald', 'drake', 'first_double', 'first_triple', 'first_quadra',
+        'first_penta', 'first_horde', 'first_niveau_max', 'first_blood',
+        'tower', 'inhib', 'first_tower_time'
+    ]
+
+    if result_category_match == 0:
+        return embed
+
+    def format_embed(scope_name, scope_name1, top_list):
+        for idx, (joueur, champion, record, url) in enumerate(top_list):
+            place = idx + 1
+            top_emoji = {1: "🥇", 2: "🥈", 3: "🥉"}.get(place, f"TOP {place}")
+            champ_emoji = emote_champ_discord.get(champion.capitalize(), 'inconnu')
+            cat_emoji = emote_v2.get(category, ':star:')
+
+            if float(result_category_match) == float(record):
+                if category not in category_exclusion_egalite:
+                    return (
+                        f"\n **{scope_name} {top_emoji} {scope_name1} - {cat_emoji}__{category}__ : {result_category_match}**"
+                        f" — :military_medal: Égalisation du record de {joueur} {champ_emoji}"
+                    )
+                else:
+                    return (
+                        f"\n **{scope_name} {top_emoji} {scope_name1} - {cat_emoji}__{category}__ : {result_category_match}**"
+                    )
+
+            if (
+                (methode == 'max' and float(result_category_match) > float(record)) or
+                (methode == 'min' and float(result_category_match) < float(record))
+            ):
+                return (
+                    f"\n **{scope_name} {top_emoji} {scope_name1} - {cat_emoji}__{category}__ : {result_category_match}**"
+                    f" (Ancien : {record} par {joueur} {champ_emoji})"
+                )
+        return ''
+
+
+    # TOP 10 Général
+    if fichier is not None and fichier.shape[0] > 0:
+        top_gen = top_records(fichier, category, methode, identifiant='discord', top_n=10)
+        embed += format_embed(":boom:", "Général", top_gen)
+
+    # TOP 10 Personnel
+    if isinstance(fichier_joueur, pd.DataFrame) and fichier_joueur.shape[0] > 0:
+        top_perso = top_records(fichier_joueur, category, methode, identifiant='riot_id', top_n=3)
+        embed += format_embed("<:boss:1333120152983834726>",  "Personnel", top_perso)
+
+    # TOP 10 All Time
+    if isinstance(fichier_all, pd.DataFrame) and fichier_all.shape[0] > 0 and len(fichier_all['season'].unique()) > 1:
+        top_all = top_records(fichier_all, category, methode, identifiant='discord', top_n=10)
+        embed += format_embed("<:world_emoji:1333120623613841489>", "All Time", top_all)
+
+    return embed
+
+
+
+
+
 class LeagueofLegends(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
@@ -204,110 +276,42 @@ class LeagueofLegends(Extension):
             pass
 
 
-        # pour nouveau système de record
-        fichier = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord, 
-                                 max_data_timeline."abilityHaste" AS "abilityHaste",
-                                max_data_timeline."abilityPower" AS "abilityPower",
-                                max_data_timeline.armor AS armor,
-                                max_data_timeline."attackDamage" AS "attackDamage",
-                                max_data_timeline."currentGold" AS "currentGold",
-                                max_data_timeline."healthMax" AS "healthMax",
-                                max_data_timeline."magicResist" AS "magicResist",
-                                max_data_timeline."movementSpeed" AS "movementSpeed"
-                                 
-                                 from matchs
-                         INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                         where season = {match_info.season}
-                         and mode = '{match_info.thisQ}'
-                         and server_id = {guild_id}
-                         and tracker.save_records = True
-                         and matchs.records = true ''',
-                                 index_col='id'
-                                 ).transpose()
+        def get_match_data(filters: str) -> pd.DataFrame:
+            base_query = f'''
+                SELECT DISTINCT matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
+                    max_data_timeline."abilityHaste" AS "abilityHaste",
+                    max_data_timeline."abilityPower" AS "abilityPower",
+                    max_data_timeline.armor AS armor,
+                    max_data_timeline."attackDamage" AS "attackDamage",
+                    max_data_timeline."currentGold" AS "currentGold",
+                    max_data_timeline."healthMax" AS "healthMax",
+                    max_data_timeline."magicResist" AS "magicResist",
+                    max_data_timeline."movementSpeed" AS "movementSpeed"
+                FROM matchs
+                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+                LEFT JOIN max_data_timeline 
+                    ON matchs.joueur = max_data_timeline.riot_id 
+                    AND matchs.match_id = max_data_timeline.match_id
+                WHERE mode = '{match_info.thisQ}'
+                AND server_id = {guild_id}
+                AND tracker.save_records = TRUE
+                AND matchs.records = TRUE
+                {filters}
+            '''
+            return lire_bdd_perso(base_query, index_col='id').transpose()
 
-        fichier_all = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord, 
-                                 max_data_timeline."abilityHaste" AS "abilityHaste",
-                                max_data_timeline."abilityPower" AS "abilityPower",
-                                max_data_timeline.armor AS armor,
-                                max_data_timeline."attackDamage" AS "attackDamage",
-                                max_data_timeline."currentGold" AS "currentGold",
-                                max_data_timeline."healthMax" AS "healthMax",
-                                max_data_timeline."magicResist" AS "magicResist",
-                                max_data_timeline."movementSpeed" AS "movementSpeed"
-                                 
-                                 from matchs
-                         INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-                         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                         where mode = '{match_info.thisQ}'
-                         and server_id = {guild_id}
-                         and tracker.save_records = True
-                         and matchs.records = true ''',
-                                 index_col='id'
-                                 ).transpose()
-
-        fichier_joueur = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
-                                        max_data_timeline."abilityHaste" AS "abilityHaste",
-                                        max_data_timeline."abilityPower" AS "abilityPower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackDamage",
-                                        max_data_timeline."currentGold" AS "currentGold",
-                                        max_data_timeline."healthMax" AS "healthMax",
-                                        max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed"
-                                        
-                                        from matchs
-                                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                        where season = {match_info.season}
-                                        and mode = '{match_info.thisQ}'
-                                        and discord = (SELECT tracker.discord from tracker WHERE tracker.id_compte = {id_compte})
-                                        and server_id = {guild_id}
-                                        and tracker.save_records = True 
-                                        and matchs.records = true ''',
-                                        index_col='id',
-                                        ).transpose()
-
-        fichier_champion = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
-                                        max_data_timeline."abilityHaste" AS "abilityHaste",
-                                        max_data_timeline."abilityPower" AS "abilityPower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackDamage",
-                                        max_data_timeline."currentGold" AS "currentGold",
-                                        max_data_timeline."healthMax" AS "healthMax",
-                                        max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed"
-                                        from matchs
-                                          INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                          LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                        where season = {match_info.season}
-                                        and mode = '{match_info.thisQ}'
-                                        and champion = '{match_info.thisChampName}'
-                                        and server_id = {guild_id}
-                                        and tracker.save_records = True
-                                         and matchs.records = true ''',
-                                          index_col='id',
-                                          ).transpose()
-        
-        fichier_champion_all = lire_bdd_perso(f'''SELECT distinct matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
-                                        max_data_timeline."abilityHaste" AS "abilityHaste",
-                                        max_data_timeline."abilityPower" AS "abilityPower",
-                                        max_data_timeline.armor AS armor,
-                                        max_data_timeline."attackDamage" AS "attackDamage",
-                                        max_data_timeline."currentGold" AS "currentGold",
-                                        max_data_timeline."healthMax" AS "healthMax",
-                                        max_data_timeline."magicResist" AS "magicResist",
-                                        max_data_timeline."movementSpeed" AS "movementSpeed"
-                                        from matchs
-                                          INNER JOIN tracker on tracker.id_compte = matchs.joueur
-                                          LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id and matchs.match_id = max_data_timeline.match_id
-                                        where mode = '{match_info.thisQ}'
-                                        and champion = '{match_info.thisChampName}'
-                                        and server_id = {guild_id}
-                                        and tracker.save_records = True
-                                         and matchs.records = true ''',
-                                          index_col='id',
-                                          ).transpose()
+        # Utilisations spécifiques
+        fichier = get_match_data(f"AND season = {match_info.season}")
+        fichier_all = get_match_data("")  # Pas de filtre saison
+        fichier_joueur = get_match_data(f'''
+            AND season = {match_info.season}
+            AND discord = (SELECT tracker.discord FROM tracker WHERE tracker.id_compte = {id_compte})
+        ''')
+        fichier_champion = get_match_data(f'''
+            AND season = {match_info.season}
+            AND champion = '{match_info.thisChampName}'
+        ''')
+        fichier_champion_all = get_match_data(f"AND champion = '{match_info.thisChampName}'")
 
 
         if check_doublon:
@@ -444,8 +448,7 @@ class LeagueofLegends(Extension):
                             'trade_efficience' : match_info.trade_efficience,
                             'skillshots_hit_min' : match_info.thisSkillshot_hit_per_min,
                             'skillshots_dodge_min' : match_info.thisSkillshot_dodged_per_min,
-                            'dmg_par_kills' : match_info.damage_per_kills,
-                            'first_tower_time' : match_info.first_tower_time}
+                            'dmg_par_kills' : match_info.damage_per_kills}
 
             if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:
                 param_records_only_ranked = {'vision_score': match_info.thisVision,
@@ -485,7 +488,8 @@ class LeagueofLegends(Extension):
                                             'ecart_kills' : match_info.ecart_kills,
                                             'ecart_deaths' : match_info.ecart_morts,
                                             'ecart_assists' : match_info.ecart_assists,
-                                            'ecart_dmg' : match_info.ecart_dmg}
+                                            'ecart_dmg' : match_info.ecart_dmg, 
+                                            'first_tower_time' : match_info.first_tower_time}
             else:
                 param_records_only_ranked = {}
             
@@ -505,48 +509,106 @@ class LeagueofLegends(Extension):
                     exploits += '#'
                 return exploits, chunk
 
-            for parameter, value in param_records.items():
-                # on ajoute les conditions
+            # for parameter, value in param_records.items():
+            #     # on ajoute les conditions
 
+            #     exploits, chunk = check_chunk(exploits, chunk, chunk_size)
+
+            #     if parameter == 'kda':
+            #         # on ne peut pas comparer à un perfect kda
+            #         if int(match_info.thisDeaths) >= 1:
+            #             exploits += records_check2(fichier, fichier_joueur,
+            #                                        fichier_champion, fichier_all, fichier_champion_all, 'kda', match_info.thisKDA)
+            #         else:
+            #             exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all,  'kda', float(
+            #                 round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1), 2)))
+            #     else:
+            #         exploits += records_check2(fichier, fichier_joueur,
+            #                                    fichier_champion, fichier_all,  fichier_champion_all, parameter, value)
+
+            # if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:  # seulement en ranked
+            #     for parameter, value in param_records_only_ranked.items():
+
+            #         exploits, chunk = check_chunk(exploits, chunk, chunk_size)
+
+            #         methode = 'max'
+
+            #         # si ce sont ces deux records, on veut le plus petit résultat
+            #         if parameter in ['early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time']:
+            #             methode = 'min'
+
+            #         # on ne veut pas les records par champion sur ces stats.
+            #         if parameter in ['baron', 'drake', 'herald', 'tower', 'inhib']:
+            #             exploits += records_check2(fichier, fichier_joueur, None, fichier_all, None, parameter, value, methode)
+            #         else:
+            #             exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
+
+            # if match_info.thisQ in ['ARAM', 'CLASH ARAM']:  # seulement en aram
+            #     for parameter, value in param_records_only_aram.items():
+
+            #         exploits, chunk = check_chunk(exploits, chunk, chunk_size)
+
+            #         methode = 'max'
+
+            #         exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
+
+            for parameter, value in param_records.items():
                 exploits, chunk = check_chunk(exploits, chunk, chunk_size)
 
-                if parameter == 'kda':
-                    # on ne peut pas comparer à un perfect kda
-                    if int(match_info.thisDeaths) >= 1:
-                        exploits += records_check2(fichier, fichier_joueur,
-                                                   fichier_champion, fichier_all, fichier_champion_all, 'kda', match_info.thisKDA)
-                    else:
-                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all,  'kda', float(
-                            round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1), 2)))
-                else:
-                    exploits += records_check2(fichier, fichier_joueur,
-                                               fichier_champion, fichier_all,  fichier_champion_all, parameter, value)
-
-            if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:  # seulement en ranked
-                for parameter, value in param_records_only_ranked.items():
-
-                    exploits, chunk = check_chunk(exploits, chunk, chunk_size)
-
-                    methode = 'max'
-
-                    # si ce sont ces deux records, on veut le plus petit résultat
-                    if parameter in ['early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood']:
+                methode = 'max'
+                if parameter in [
+                        'early_drake', 'early_baron', 'fourth_dragon', 'first_elder',
+                        'first_horde', 'first_double', 'first_triple', 'first_quadra',
+                        'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time'
+                    ]:
                         methode = 'min'
 
-                    # on ne veut pas les records par champion sur ces stats.
-                    if parameter in ['baron', 'drake', 'herald', 'tower', 'inhib']:
-                        exploits += records_check2(fichier, fichier_joueur, None, fichier_all, None, parameter, value, methode)
+                if parameter == 'kda':
+                    if int(match_info.thisDeaths) >= 1:
+                        exploits += records_check3(
+                            fichier, fichier_joueur, fichier_all, 'kda', match_info.thisKDA, methode
+                        )
                     else:
-                        exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
+                        kda_calculated = float(
+                            round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1), 2)
+                        )
+                        exploits += records_check3(
+                            fichier, fichier_joueur, fichier_all, 'kda', kda_calculated, methode
+                        )
+                else:
+                    exploits += records_check3(
+                        fichier, fichier_joueur, fichier_all, parameter, value, methode
+                    )
 
-            if match_info.thisQ in ['ARAM', 'CLASH ARAM']:  # seulement en aram
-                for parameter, value in param_records_only_aram.items():
-
+            if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:
+                for parameter, value in param_records_only_ranked.items():
                     exploits, chunk = check_chunk(exploits, chunk, chunk_size)
 
                     methode = 'max'
+                    if parameter in [
+                        'early_drake', 'early_baron', 'fourth_dragon', 'first_elder',
+                        'first_horde', 'first_double', 'first_triple', 'first_quadra',
+                        'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time'
+                    ]:
+                        methode = 'min'
 
-                    exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
+                    exploits += records_check3(
+                        fichier, fichier_joueur, fichier_all, parameter, value, methode
+                    )
+
+            if match_info.thisQ in ['ARAM', 'CLASH ARAM']:
+                for parameter, value in param_records_only_aram.items():
+                    methode = 'max'
+                    if parameter in [
+                        'early_drake', 'early_baron', 'fourth_dragon', 'first_elder',
+                        'first_horde', 'first_double', 'first_triple', 'first_quadra',
+                        'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time'
+                    ]:
+                        methode = 'min'
+                    exploits, chunk = check_chunk(exploits, chunk, chunk_size)
+                    exploits += records_check3(
+                        fichier, fichier_joueur, fichier_all, parameter, value, methode
+                    )
 
         try:
         # on le fait après sinon ça flingue les records

@@ -267,6 +267,38 @@ def trouver_records_multiples(df, category, methode='max', identifiant = 'riot_i
         return joueur, champion, record, url_game, rank_value, season
     else:
         return joueur, champion, record, url_game, season
+    
+
+def top_records(df, category, methode='max', identifiant='riot_id', top_n=10):
+    ### A tester
+    try:
+        df[category] = pd.to_numeric(df[category], errors='coerce')
+        df = df[df[category].notna()]
+        df = df[df[category] != 0]
+        df = df[df[category] != 999]
+
+        df_sorted = df.sort_values(by=category, ascending=(methode != 'max')).head(top_n)
+
+        records = []
+        for _, lig in df_sorted.iterrows():
+            if identifiant == 'riot_id':
+                joueur = lig.get('riot_id', 'inconnu')
+            elif identifiant == 'discord':
+                joueur = mention(lig.get('discord', ''), 'membre')
+            else:
+                joueur = 'inconnu'
+
+            champion = lig.get('champion', 'inconnu')
+            record = lig[category]
+            url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(lig.get("match_id", ""))[5:]}#participant{int(lig.get("id_participant", 0)) + 1}'
+
+            records.append((joueur, champion, record, url_game))
+
+        return records
+
+    except Exception:
+        return []
+
 
 
 def range_value(i, liste, min: bool = False, return_top: bool = False):

@@ -34,34 +34,29 @@ async def export_as_image(df, ctx : SlashContext, content=None):
 
 
 def get_data_matchs(columns, season, server_id, view='global', datetime=None):
+    base_columns = f"matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}"
+    
+    if datetime:
+        base_columns += ", matchs.datetime"
+    
+    base_columns += ", tracker.discord"
 
-    if datetime == None:
-        if view == 'global':
-            df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, tracker.discord from matchs
-            INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-            where season = {season}''', index_col='id').transpose()
-        else:
-            df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, tracker.discord from matchs
-                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-                where season = {season}
-                AND server_id = {server_id}''', index_col='id').transpose()
-    else:
-        if view == 'global':
-            df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, matchs.datetime tracker.discord from matchs
-            INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-            where season = {season}
-            and datetime >= :date''', index_col='id').transpose()
-        else:
-            df = lire_bdd_perso(
-                f'''SELECT matchs.id, tracker.riot_id, tracker.riot_tagline, matchs.role, matchs.champion, matchs.match_id, matchs.mode, matchs.season, matchs.split, {columns}, matchs.datetime tracker.discord from matchs
-                INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-                where season = {season}
-                AND server_id = {server_id}
-                AND datetime >= :date''', index_col='id').transpose()
+    query = f'''
+        SELECT {base_columns}
+        FROM matchs
+        INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+        WHERE season = {season}
+    '''
+
+    if view != 'global':
+        query += f"\nAND server_id = {server_id}"
+
+    if datetime:
+        query += "\nAND datetime >= :date"
+
+    df = lire_bdd_perso(query, index_col='id').transpose()
     return df
+
 
 class AnalyseLoLSeason(Extension):
     def __init__(self, bot):
