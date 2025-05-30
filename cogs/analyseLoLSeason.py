@@ -15,7 +15,9 @@ import numpy as np
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import random
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
 
 
 saison = int(lire_bdd_perso('select * from settings', format='dict', index_col='parametres')['saison']['value'])
@@ -1645,32 +1647,48 @@ class AnalyseLoLSeason(Extension):
 
 
 
-        model = LinearRegression()
-        model.fit(df['datetime'].values.reshape(-1, 1), df['points'].values.reshape(-1, 1))
-
-        ### Créer un DataFrame pour les prédictions
-        future_dates = pd.date_range(start=df['datetime'].max(), periods=nbjours, freq='D')
+        X = df['datetime'].astype('int64').values.reshape(-1, 1)
+        y = df['points'].values.reshape(-1, 1)
 
 
-        # Convertir en format utilisable par le modèle
+
+        # Liste des modèles
+        models = [
+            LinearRegression(),
+            Ridge(),
+            Lasso(),
+            DecisionTreeRegressor(),
+            RandomForestRegressor()
+        ]
+
+        # Entraîner les modèles
+        for model in models:
+            model.fit(X, y.ravel())
+
+        # Générer les dates futures
+        n = 10  # Par exemple 10 jours de prédiction
+        future_dates = pd.date_range(start=df['datetime'].max() + pd.Timedelta(days=1), periods=n, freq='D')
         X_future = future_dates.astype('int64').values.reshape(-1, 1)
 
-        # Prédictions
-        predictions = model.predict(X_future)
+        # Prédictions de chaque modèle
+        all_predictions = []
+        for model in models:
+            preds = model.predict(X_future)
+            all_predictions.append(preds)
 
+        # Moyenne des prédictions
+        avg_predictions = np.mean(all_predictions, axis=0).astype(int)
 
-        # DataFrame avec les résultats
+        # Résultat final dans un DataFrame
         pred_df = pd.DataFrame({
             'datetime': future_dates,
-            'predicted_points': predictions.flatten().astype(int)
+            'predicted_points_mean': avg_predictions
         })
 
-        pred_df['predicted_ladder'] = pred_df['predicted_points'].apply(reverse_transfo_points)
+        pred_df['predicted_ladder'] = pred_df['predicted_points_mean'].apply(reverse_transfo_points)
         pred_df['predicted_ladder'] = pred_df['predicted_ladder'].apply(
             lambda x: f"{x['ladder']} ({x['lp']} LP)"
         )
-
-
 
         date, rank = pred_df.iloc[-1][['datetime', 'predicted_ladder']]
 
