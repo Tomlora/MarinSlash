@@ -2242,8 +2242,8 @@ class matchlol():
                     'skillshot_hit_min' : self.thisSkillshot_hit_per_min,
                     'dmg_par_kills' : self.damage_per_kills,
                     'first_tower_time' : self.first_tower_time,
-                    'hardcarry' : self.carry_points,
-                    'teamcarry' : self.team_points,
+                    'hardcarry' : int(self.carry_points),
+                    'teamcarry' : int(self.team_points),
 
                 },
             )
@@ -4129,6 +4129,16 @@ class matchlol():
 
 
         im.save(f'{name_img}.png')
+
+        # si sauvegarde 
+
+        # buffer = BytesIO() 
+        # b.save(buffer, format='PNG')
+        # image_bytes = buffer.getvalue()
+
+        # requete_perso_bdd('''INSERT INTO match_images (match_id, image) VALUES (:match_id, :image)
+        #                 ON CONFLICT (match_id) DO NOTHING''',
+        #                 dict_params={'match_id': self.last_match, 'image': image_bytes})        
 
         await self.session.close()
 

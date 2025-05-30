@@ -23,6 +23,8 @@ import humanize
 from asyncio import sleep
 import numpy as np
 from collections import Counter
+from PIL import Image 
+import io
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -833,7 +835,7 @@ class LeagueofLegends(Extension):
 
             await match_info.detection_gap()
             if match_info.txt_gap != '':
-                embed.add_field(name=':chart_with_upwards_trend: Gap', value=match_info.txt_gap)
+                embed.add_field(name=f':chart_with_upwards_trend: {match_info.txt_gap}', value='')
 
 
         if match_info.AFKTeamBool:
@@ -2170,6 +2172,13 @@ class LeagueofLegends(Extension):
         paginator.show_select_menu = True
         
         await paginator.send(ctx)   
+
+    
+    # async def load_resume(match_id):
+
+    #     data = lire_bdd_perso(f'''SELECT * from match_images where match_id = '{match_id}' ''', index_col='match_id').T
+    #     image_bytes = data['image'].values[0]
+    #     image = Image.open(io.BytesIO(image_bytes))
 
 def setup(bot):
     LeagueofLegends(bot)
