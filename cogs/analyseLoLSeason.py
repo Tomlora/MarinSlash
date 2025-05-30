@@ -1563,32 +1563,32 @@ class AnalyseLoLSeason(Extension):
                 return points
 
 
+
+
         def reverse_transfo_points(total_points):
             dict_points = {
                 'F': 0, 'B': 400, 'S': 800, 'G': 1200, 'P': 1600,
-                'E': 2000, 'D': 2400, 'M': 2800, 'GM': 3200,
-                'C': 5000, 'I': 300, 'II': 200, 'III': 100, 'IV': 0,
-                ' ': 0, '': 0
+                'E': 2000, 'D': 2400, 'M': 2800,
+                'I': 300, 'II': 200, 'III': 100, 'IV': 0,
             }
 
-            grades = sorted(
-                [(k, v) for k, v in dict_points.items() if k in {'F', 'B', 'S', 'G', 'P', 'E', 'D', 'M', 'GM', 'C'}],
-                key=lambda x: x[1], reverse=True
-            )
+            grade_order = ['F', 'B', 'S', 'G', 'P', 'E', 'D', 'M']
+            palier_order = ['I', 'II', 'III', 'IV']
 
-            paliers = sorted(
-                [(k, v) for k, v in dict_points.items() if k in {'I', 'II', 'III', 'IV'}],
-                key=lambda x: x[1], reverse=True
-            )
+            for grade in grade_order:
+                grade_val = dict_points[grade]
 
-            for grade, grade_val in grades:
-                for palier, palier_val in paliers:
+                for palier in palier_order:
+                    palier_val = dict_points[palier]
                     base = grade_val + palier_val
-                    if base <= total_points <= base + 100:
+
+                    if base <= total_points < base + 100:
                         lp = total_points - base
-                        if grade == 'G' and palier == 'I' and lp > 101:
-                            return {'ladder': 'GM', 'lp': lp}
                         return {'ladder': f'{grade} {palier}', 'lp': lp}
+
+            # Si on dépasse M I + 100 (2800 + 300 + 100 = 3200)
+            if total_points >= dict_points['M'] + dict_points['I'] + 100:
+                return {'ladder': 'M+', 'lp': total_points - 2800 - 200}
 
             return {'ladder': 'F IV', 'lp': 0}
 
