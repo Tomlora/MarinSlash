@@ -12,7 +12,7 @@ import aiohttp
 import asyncio
 import pickle
 import sqlalchemy.exc
-from fonctions.api_calls import get_mobalytics, getPlayerStats, getRanks, update_ugg, get_role
+from fonctions.api_calls import get_mobalytics, getPlayerStats, getRanks, update_ugg, get_role, get_player_match_history
 
 # TODO : rajouter temps en vie
 
@@ -1916,6 +1916,7 @@ class matchlol():
         self.role_pref = {}
         self.all_role = {}
         self.role_count = {}
+        self.dict_serie = {}
         
         for i in range(self.nb_joueur):
             
@@ -2029,6 +2030,52 @@ class matchlol():
                     continue
 
 
+            
+            ## Detection Serie de Victoire / Defaite + Calcul Score
+
+            self.df_data = await get_player_match_history(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i], seasonIds=[self.season_ugg])
+
+            self.df_data_match_history = pd.DataFrame(self.df_data['data']['fetchPlayerMatchSummaries']['matchSummaries'])
+            self.df_data_match_history = self.df_data_match_history[self.df_data_match_history['queueType'] == 'ranked_solo_5x5'] # seuls les matchs classés
+            self.df_data_match_history['matchCreationTime'] = pd.to_datetime(self.df_data_match_history['matchCreationTime'], unit='ms')
+
+
+
+            #### Serie de wins/loses
+
+                # Première valeur
+            win_lose = self.df_data_match_history['win'].iloc[0]
+
+                # Compter combien de fois cette valeur apparaît consécutivement depuis le début
+            count = (self.df_data_match_history['win'] == win_lose).cumprod().sum()
+
+            mot =  "Victoire" if win_lose else "Defaite"
+
+            self.dict_serie[self.thisRiotIdListe[i].lower()] = {'mot' : mot, 'count' : count}
+
+
+            #### Points 
+
+            self.df_data_match = self.df_data_match_history[self.df_data_match_history['matchId'] == int(self.last_match[5:])]
+
+            if not self.df_data_match.empty:
+                self.carry_points = self.df_data_match['psHardCarry'].values[0] 
+                self.team_points = self.df_data_match['psTeamPlay'].values[0]
+            
+            else:
+                self.carry_points = -1
+                self.team_points = -1
+
+            
+            self.dict_serie[self.thisRiotIdListe[i].lower()]['carry_points'] = int(self.carry_points)
+            self.dict_serie[self.thisRiotIdListe[i].lower()]['team_points'] = int(self.team_points)
+            self.dict_serie[self.thisRiotIdListe[i].lower()]['points'] = (self.carry_points + self.team_points) / 2
+
+
+
+
+
+
 
         
         
@@ -2056,7 +2103,7 @@ class matchlol():
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
             split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min, ecart_cs, petales_sanglants, atakhan, crit_dmg, immobilisation, skillshot_hit, temps_cc_inflige, tower, inhib,
             dmg_true_all, dmg_true_all_min, dmg_ad_all, dmg_ad_all_min, dmg_ap_all, dmg_ap_all_min, dmg_all, dmg_all_min, records, longue_serie_kills, ecart_kills, ecart_deaths, ecart_assists, ecart_dmg, trade_efficience, skillshots_dodge_min, skillshots_hit_min, dmg_par_kills,
-            first_tower_time)
+            first_tower_time, hardcarry, teamcarry)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
@@ -2065,7 +2112,7 @@ class matchlol():
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
             :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit, :temps_cc_inflige, :tower, :inhib,
             :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min, :records, :longue_serie_kills, :ecart_kills, :ecart_deaths, :ecart_assists, :ecart_dmg, :trade_efficience, :skillshots_dodge_min, :skillshot_hit_min, :dmg_par_kills,
-            :first_tower_time);
+            :first_tower_time, :hardcarry, :teamcarry);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
             INSERT INTO public.matchs_updated(match_id, joueur, updated)
 	        VALUES (:match_id, :joueur, true);
@@ -2194,7 +2241,9 @@ class matchlol():
                     'skillshots_dodge_min' : self.thisSkillshot_dodged_per_min,
                     'skillshot_hit_min' : self.thisSkillshot_hit_per_min,
                     'dmg_par_kills' : self.damage_per_kills,
-                    'first_tower_time' : self.first_tower_time
+                    'first_tower_time' : self.first_tower_time,
+                    'hardcarry' : self.carry_points,
+                    'teamcarry' : self.team_points,
 
                 },
             )
@@ -2326,6 +2375,40 @@ class matchlol():
         'ecart_supp' : self.ecart_supp_gold_affiche
         }
         ) 
+            
+            requete_perso_bdd('''INSERT INTO matchs_points(
+            match_id, hardcarry1, hardcarry2, hardcarry3, hardcarry4, hardcarry5, hardcarry6, hardcarry7, hardcarry8, hardcarry9, hardcarry10,
+                         teamcarry1, teamcarry2, teamcarry3, teamcarry4, teamcarry5, teamcarry6, teamcarry7, teamcarry8, teamcarry9, teamcarry10)
+            VALUES (:match_id, :hardcarry1, :hardcarry2, :hardcarry3, :hardcarry4, :hardcarry5, :hardcarry6, :hardcarry7, :hardcarry8, :hardcarry9, :hardcarry10,
+                         :teamcarry1, :teamcarry2, :teamcarry3, :teamcarry4, :teamcarry5, :teamcarry6, :teamcarry7, :teamcarry8, :teamcarry9, :teamcarry10)
+
+        ON CONFLICT (match_id)
+        DO NOTHING;''',
+        {'match_id' : self.last_match,
+            'hardcarry1' : self.dict_serie[self.thisRiotIdListe[0].lower()]['carry_points'],
+            'hardcarry2' : self.dict_serie[self.thisRiotIdListe[1].lower()]['carry_points'],
+            'hardcarry3' : self.dict_serie[self.thisRiotIdListe[2].lower()]['carry_points'],
+            'hardcarry4' : self.dict_serie[self.thisRiotIdListe[3].lower()]['carry_points'],
+            'hardcarry5' : self.dict_serie[self.thisRiotIdListe[4].lower()]['carry_points'],
+            'hardcarry6' : self.dict_serie[self.thisRiotIdListe[5].lower()]['carry_points'],
+            'hardcarry7' : self.dict_serie[self.thisRiotIdListe[6].lower()]['carry_points'],
+            'hardcarry8' : self.dict_serie[self.thisRiotIdListe[7].lower()]['carry_points'],
+            'hardcarry9' : self.dict_serie[self.thisRiotIdListe[8].lower()]['carry_points'],
+            'hardcarry10' : self.dict_serie[self.thisRiotIdListe[9].lower()]['carry_points'],
+            'teamcarry1' : self.dict_serie[self.thisRiotIdListe[0].lower()]['team_points'],
+            'teamcarry2' : self.dict_serie[self.thisRiotIdListe[1].lower()]['team_points'],
+            'teamcarry3' : self.dict_serie[self.thisRiotIdListe[2].lower()]['team_points'],
+            'teamcarry4' : self.dict_serie[self.thisRiotIdListe[3].lower()]['team_points'],
+            'teamcarry5' : self.dict_serie[self.thisRiotIdListe[4].lower()]['team_points'],
+            'teamcarry6' : self.dict_serie[self.thisRiotIdListe[5].lower()]['team_points'],
+            'teamcarry7' : self.dict_serie[self.thisRiotIdListe[6].lower()]['team_points'],
+            'teamcarry8' : self.dict_serie[self.thisRiotIdListe[7].lower()]['team_points'],
+            'teamcarry9' : self.dict_serie[self.thisRiotIdListe[8].lower()]['team_points'],
+            'teamcarry10' : self.dict_serie[self.thisRiotIdListe[9].lower()]['team_points']
+
+,
+            })
+        
 
         df_data_champ = await get_data_champ_tags(self.session, self.version['n']['champion']) 
 
@@ -3199,6 +3282,50 @@ class matchlol():
                     self.otp += f'{emote} **{joueur.split("#")[0]}** : {emote_champ} {stat["poids_games"]}% pick | {stat["winrate"]}% WR \n'
 
 
+
+    async def detection_serie_victoire(self):
+
+        self.serie_victoire = ''
+        for joueur, stats in self.dict_serie.items():
+            if stats['count'] >= 5:
+                emote = ':green_circle:' if stats['mot'] == 'Victoire' else ':red_circle:'
+                mot = 'V' if  stats['mot'] == 'Victoire' else 'D'
+                self.serie_victoire += f'{emote} **{joueur}** : {mot} : {stats["count"]} consécutives  \n'
+
+        
+
+    async def detection_gap(self):
+
+        # Calcul des écarts de points entre les joueurs et leurs adversaires
+
+        self.txt_gap = ''
+        
+        roles = ['TOP', 'JGL', 'MID', 'ADC', 'SUPP']
+        ecarts = {}
+        self.max_ecart_role = None
+        self.max_ecart_valeur = 0
+
+        if not self.df_data_match.empty:
+            for i in range(5):
+                joueur = self.thisRiotIdListe[i].lower()
+                adversaire = self.thisRiotIdListe[i + 5].lower()
+
+                points_joueur = self.dict_serie[joueur]['points']
+                points_adversaire = self.dict_serie[adversaire]['points']
+
+                ecart = points_joueur - points_adversaire
+                role = roles[i]
+                ecarts[role] = abs(ecart)
+
+                # Vérifie si cet écart est le plus important en valeur absolue
+                if abs(ecart) > abs(self.max_ecart_valeur):
+                    self.max_ecart_valeur = ecart
+                    self.max_ecart_role = role
+
+        
+        if self.max_ecart_role is not None:
+            if self.max_ecart_valeur > 20:
+                self.txt_gap += f'**{self.max_ecart_role}** GAP \n'
 
 
 

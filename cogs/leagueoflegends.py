@@ -22,6 +22,7 @@ import ast
 import humanize
 from asyncio import sleep
 import numpy as np
+from collections import Counter
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -183,9 +184,25 @@ def records_check3(fichier: pd.DataFrame,
         return embed
 
     def format_embed(scope_name, scope_name1, top_list):
+
+        record_counts = Counter(str(record) for _, _, record, _ in top_list)
+
+
         for idx, (joueur, champion, record, url) in enumerate(top_list):
+        # Ignorer si le record apparaît plus de 7 fois
+            if record_counts[str(record)] >= 7:
+                return ''
             place = idx + 1
-            top_emoji = {1: "🥇", 2: "🥈", 3: "🥉"}.get(place, f"TOP {place}")
+            top_emoji = {1: "<:medal1:1377385116376105133>",
+                        2: "<:medal2:1377385148538163300>",
+                        3: "<:medal3:1377385160642793472>",
+                        4 : "<:medal4:1377386302994907247>",
+                        5 : "<:medal5:1377386313262698717>",
+                        6 : "<:medal6:1377386323651985429>",
+                        7 : "<:medal7:1377386333215002655>",
+                        8 : "<:medal8:1377386343172280381>",
+                        9 : "<:medal9:1377386352781299802>",
+                        10 : "<:medal10:1377386361698521249>"}.get(place, f"TOP {place}")
             champ_emoji = emote_champ_discord.get(champion.capitalize(), 'inconnu')
             cat_emoji = emote_v2.get(category, ':star:')
 
@@ -219,7 +236,7 @@ def records_check3(fichier: pd.DataFrame,
     # TOP 10 Personnel
     if isinstance(fichier_joueur, pd.DataFrame) and fichier_joueur.shape[0] > 0:
         top_perso = top_records(fichier_joueur, category, methode, identifiant='riot_id', top_n=3)
-        embed += format_embed("<:boss:1333120152983834726>",  "Personnel", top_perso)
+        embed += format_embed("<:boss:1333120152983834726>",  "Perso", top_perso)
 
     # TOP 10 All Time
     if isinstance(fichier_all, pd.DataFrame) and fichier_all.shape[0] > 0 and len(fichier_all['season'].unique()) > 1:
@@ -474,7 +491,7 @@ class LeagueofLegends(Extension):
                                             'healthMax' : match_info.max_hp,
                                             'magicResist' : match_info.max_mr,
                                             'movementSpeed' : match_info.movement_speed,
-                                            # 'fourth_dragon' : match_info.timestamp_fourth_dragon,
+                                            'fourth_dragon' : match_info.timestamp_fourth_dragon,
                                             'first_elder' : match_info.timestamp_first_elder,
                                             'first_horde' : match_info.timestamp_first_horde,
                                             'first_double' : match_info.timestamp_doublekill,
@@ -803,7 +820,20 @@ class LeagueofLegends(Extension):
             await match_info.detection_otp()
 
             if match_info.otp != '':
-                embed.add_field(name=':one: OTP', value=match_info.otp)   
+                embed.add_field(name=':one: OTP', value=match_info.otp)  
+
+            # Serie
+            await match_info.detection_serie_victoire()
+
+            if match_info.serie_victoire != '':
+                embed.add_field(name=':mag: Serie', value=match_info.serie_victoire)
+
+
+            # Gap 
+
+            await match_info.detection_gap()
+            if match_info.txt_gap != '':
+                embed.add_field(name=':chart_with_upwards_trend: Gap', value=match_info.txt_gap)
 
 
         if match_info.AFKTeamBool:
