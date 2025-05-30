@@ -3286,9 +3286,9 @@ class matchlol():
     async def detection_serie_victoire(self):
 
         self.serie_victoire = ''
-        for joueur, stats in self.dict_serie.items():
+        for i, (joueur, stats) in enumerate(self.dict_serie.items()):
             if stats['count'] >= 5:
-                emote = ':green_circle:' if stats['mot'] == 'Victoire' else ':red_circle:'
+                emote = ':green_circle:' if i <= 4 else ':red_circle:'
                 mot = 'V' if  stats['mot'] == 'Victoire' else 'D'
                 self.serie_victoire += f'{emote} **{joueur}** : {mot} : {stats["count"]} consécutives  \n'
 
@@ -3301,7 +3301,8 @@ class matchlol():
         self.txt_gap = ''
         
         roles = ['TOP', 'JGL', 'MID', 'ADC', 'SUPP']
-        ecarts = {}
+        self.ecarts_gap = {}
+        self.emote_gap = {}
         self.max_ecart_role = None
         self.max_ecart_valeur = 0
 
@@ -3315,17 +3316,23 @@ class matchlol():
 
                 ecart = points_joueur - points_adversaire
                 role = roles[i]
-                ecarts[role] = abs(ecart)
+                self.emote_gap[role] = ':green_circle:' if ecart > 0 else ':red_circle:'
+                self.ecarts_gap[role] = abs(ecart)
 
-                # Vérifie si cet écart est le plus important en valeur absolue
-                if abs(ecart) > abs(self.max_ecart_valeur):
-                    self.max_ecart_valeur = ecart
-                    self.max_ecart_role = role
+                # # Vérifie si cet écart est le plus important en valeur absolue
+                # if abs(ecart) > abs(self.max_ecart_valeur):
+                #     self.max_ecart_valeur = abs(ecart)
+                #     self.max_ecart_role = role
 
         
-        if self.max_ecart_role is not None:
-            if self.max_ecart_valeur > 20:
-                self.txt_gap += f'**{self.max_ecart_role}** GAP \n'
+        for key, value in self.ecarts_gap.items():
+            if value > 20:
+                emote = self.emote_gap[key]
+                self.txt_gap += f'{emote}**{key}** GAP | '
+
+        # if self.max_ecart_role is not None:
+        #     if self.max_ecart_valeur > 20:
+        #         self.txt_gap += f'**{self.max_ecart_role}** GAP \n'
 
 
 

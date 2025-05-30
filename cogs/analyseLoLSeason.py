@@ -15,6 +15,7 @@ import numpy as np
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import random
+from sklearn.linear_model import LinearRegression
 
 
 saison = int(lire_bdd_perso('select * from settings', format='dict', index_col='parametres')['saison']['value'])
@@ -1499,6 +1500,187 @@ class AnalyseLoLSeason(Extension):
     
     @gold_max_min.autocomplete("riot_id")
     async def autocomplete_gold_min_max(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
+
+
+    @lol_analyse_season.subcommand("predict_elo",
+                            sub_cmd_description="Predit mon elo",
+                            options=[
+                                SlashCommandOption(
+                                    name="riot_id",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=True,
+                                    autocomplete=True),
+                                SlashCommandOption(
+                                    name="riot_tag",
+                                    description="Nom du joueur",
+                                    type=interactions.OptionType.STRING,
+                                    required=False),
+                                SlashCommandOption(name="nbjours",
+                                    description="Mon elo dans X jours",
+                                    type=interactions.OptionType.INTEGER,
+                                    required=False)
+                                ])
+    async def predict_elo(self,
+                      ctx: SlashContext,
+                      riot_id: str,
+                      riot_tag:str = None,
+                      nbjours = 30):
+
+
+        
+        dict_points = {'F': 0,
+                                        'B': 400,
+                                        'S': 800,
+                                        'G': 1200,
+                                        'P': 1600,
+                                        'E' : 2000,
+                                        'D': 2400,
+                                        'M': 2800,
+                                        'GM': 3200,
+                                        'C': 5000,
+                                        'I': 300,
+                                        'II': 200,
+                                        'III': 100,
+                                        'IV': 0,
+                                        ' ': 0,
+                                        '': 0}
+
+        await ctx.defer()
+
+        def transfo_points(x):
+
+                value = x['ladder'].split(' ')[1]
+                if x['lp'] > 101 and x['ladder'][0] == 'G':
+                    value = 'GM'
+                points = dict_points[x['ladder'][0]] + dict_points[value] + x['lp']
+                return points
+
+
+        def reverse_transfo_points(total_points):
+            dict_points = {
+                'F': 0, 'B': 400, 'S': 800, 'G': 1200, 'P': 1600,
+                'E': 2000, 'D': 2400, 'M': 2800, 'GM': 3200,
+                'C': 5000, 'I': 300, 'II': 200, 'III': 100, 'IV': 0,
+                ' ': 0, '': 0
+            }
+
+            grades = sorted(
+                [(k, v) for k, v in dict_points.items() if k in {'F', 'B', 'S', 'G', 'P', 'E', 'D', 'M', 'GM', 'C'}],
+                key=lambda x: x[1], reverse=True
+            )
+
+            paliers = sorted(
+                [(k, v) for k, v in dict_points.items() if k in {'I', 'II', 'III', 'IV'}],
+                key=lambda x: x[1], reverse=True
+            )
+
+            for grade, grade_val in grades:
+                for palier, palier_val in paliers:
+                    base = grade_val + palier_val
+                    if base <= total_points <= base + 100:
+                        lp = total_points - base
+                        if grade == 'G' and palier == 'I' and lp > 101:
+                            return {'ladder': 'GM', 'lp': lp}
+                        return {'ladder': f'{grade} {palier}', 'lp': lp}
+
+            return {'ladder': 'F IV', 'lp': 0}
+
+
+
+
+        df = lire_bdd_perso(
+                                f'''SELECT matchs.id, match_id, tracker.riot_id, tracker.riot_tagline, 
+                                matchs.date, matchs.lp, matchs.tier, matchs.rank from matchs
+                            INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+                            where season = {saison}
+                            and mode = 'RANKED'
+                            ORDER BY match_id DESC ''', index_col='id').transpose()
+                    
+
+
+
+
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
+
+        riot_id = riot_id.lower().replace(' ', '')
+        riot_tag = riot_tag.upper()
+        df = df[(df['riot_id'] == riot_id) & (df['riot_tagline'] == riot_tag)]
+
+
+        df['ladder'] = df['tier'].str[0] + ' ' + \
+                                                df['rank'] + ' / ' + df['lp'].astype('str') + ' LP'
+
+        df['date'] = df['date'].apply(
+                                                lambda x: datetime.fromtimestamp(x).strftime('%d/%m/%Y'))
+        df['datetime'] = pd.to_datetime(
+                                                df['date'], infer_datetime_format=True)
+
+        df.sort_values(['date'], ascending=False, inplace=True)
+
+                                # df['datetime'] = df['datetime'].dt.strftime('%d/%m/%Y')
+
+        df = df.groupby(['match_id', 'datetime', 'ladder'], as_index=False).agg(
+                                                {'lp': 'max'}).reset_index()
+
+
+        df['points'] = df.apply(transfo_points, axis=1)
+                                
+                                # df = df.groupby(['riot_id', 'riot_tagline', 'datetime'], as_index=False)[['points']].apply(lambda x : x.nlargest(3, 'points'))
+
+
+        df = df[df['points'] > 50]
+
+
+        df.sort_values('match_id', inplace=True)
+
+
+
+        model = LinearRegression()
+        model.fit(df['datetime'].values.reshape(-1, 1), df['points'].values.reshape(-1, 1))
+
+        ### Créer un DataFrame pour les prédictions
+        future_dates = pd.date_range(start=df['datetime'].max(), periods=nbjours, freq='D')
+
+
+        # Convertir en format utilisable par le modèle
+        X_future = future_dates.astype('int64').values.reshape(-1, 1)
+
+        # Prédictions
+        predictions = model.predict(X_future)
+
+
+        # DataFrame avec les résultats
+        pred_df = pd.DataFrame({
+            'datetime': future_dates,
+            'predicted_points': predictions.flatten().astype(int)
+        })
+
+        pred_df['predicted_ladder'] = pred_df['predicted_points'].apply(reverse_transfo_points)
+        pred_df['predicted_ladder'] = pred_df['predicted_ladder'].apply(
+            lambda x: f"{x['ladder']} ({x['lp']} LP)"
+        )
+
+
+
+        date, rank = pred_df.iloc[-1][['datetime', 'predicted_ladder']]
+
+        # Format FR
+        date = date.date().strftime('%d/%m/%Y')
+
+        await ctx.send(f"Dans {nbjours} jours ({date}), tu devrais être {rank}.")
+
+    @predict_elo.autocomplete("riot_id")
+    async def autocomplete(self, ctx: interactions.AutocompleteContext):
 
         liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
 

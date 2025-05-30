@@ -835,7 +835,7 @@ class LeagueofLegends(Extension):
 
             await match_info.detection_gap()
             if match_info.txt_gap != '':
-                embed.add_field(name=f':chart_with_upwards_trend: {match_info.txt_gap}', value='')
+                embed.add_field(name=f':chart_with_upwards_trend: {match_info.txt_gap}', value=' ')
 
 
         if match_info.AFKTeamBool:
@@ -1133,7 +1133,7 @@ class LeagueofLegends(Extension):
                 return await ctx.send("Aucune game à afficher")
             else:
                 matchs_manquants.reverse() # ancienne à la plus récente
-                msg = await ctx.send(f"Il y a {len(matchs_manquants)} games à charger : {matchs_manquants}. Game {game} en cours...")
+                msg = await ctx.send(f"Il y a {len(matchs_manquants)} games à charger : {matchs_manquants}.")
 
             
             for num, game in enumerate(matchs_manquants):
