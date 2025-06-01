@@ -1005,9 +1005,9 @@ class LeagueofLegends(Extension):
                                                         .loc[riot_id]['save_records'])
             
             if check_records.empty: # cela veut dire que le compte n'a pas été trouvé
-                check_records = True
+                check_records = False
         except:
-            check_records = True
+            check_records = False
         
         if df_banned.empty:
             try:
@@ -1020,8 +1020,7 @@ class LeagueofLegends(Extension):
                                                             idgames=numerogame,
                                                             sauvegarder=True,
                                                             identifiant_game=identifiant_game,
-                                                            guild_id=int(
-                                                                ctx.guild_id),
+                                                            guild_id=int(ctx.guild_id),
                                                             affichage=1,
                                                             check_doublon=check_doublon,
                                                             check_records=check_records)

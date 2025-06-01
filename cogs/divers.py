@@ -254,20 +254,45 @@ class Divers(Extension):
                    description='Commande personnalisée')
     
     async def solokilldawn(self, ctx: SlashContext):
-        df = lire_bdd_perso(f'''
-                        SELECT sum(solokills),
-                        SUM(CASE 
-                                WHEN matchs.datetime >= date_trunc('day', NOW()) + INTERVAL '6 hours'
-                                                        AND matchs.datetime < date_trunc('day', NOW()) + INTERVAL '30 hours'
-                                THEN solokills 
-                                ELSE 0 
-                            END) AS solokills_24h
-                        FROM matchs
-                        INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-                        and mode = 'RANKED'
-                        where discord = '111147548760133632' ''',index_col=None).T
+        # df = lire_bdd_perso(f'''
+        #                 SELECT sum(solokills),
+        #                 SUM(CASE 
+        #                         WHEN matchs.datetime >= date_trunc('day', NOW()) + INTERVAL '6 hours'
+        #                                                 AND matchs.datetime < date_trunc('day', NOW()) + INTERVAL '30 hours'
+        #                         THEN solokills 
+        #                         ELSE 0 
+        #                     END) AS solokills_24h
+        #                 FROM matchs
+        #                 INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+        #                 and mode = 'RANKED'
+        #                 where discord = '111147548760133632' ''',index_col=None).T
 
-                # 1. Ouvrir l'image
+        df = lire_bdd_perso(f'''
+        SELECT 
+            SUM(solokills),
+            SUM(CASE 
+                    WHEN matchs.datetime >= 
+                         CASE 
+                             WHEN NOW()::time < time '06:00' 
+                                 THEN date_trunc('day', NOW()) - INTERVAL '18 hours'  -- hier 6h
+                             ELSE date_trunc('day', NOW()) + INTERVAL '6 hours'      -- aujourd’hui 6h
+                         END
+                     AND matchs.datetime < 
+                         CASE 
+                             WHEN NOW()::time < time '06:00' 
+                                 THEN date_trunc('day', NOW()) + INTERVAL '6 hours'  -- aujourd’hui 6h
+                             ELSE date_trunc('day', NOW()) + INTERVAL '30 hours'     -- demain 6h
+                         END
+                    THEN solokills 
+                    ELSE 0 
+                END) AS solokills_24h
+        FROM matchs
+        INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+            AND mode = 'RANKED'
+        WHERE discord = '111147548760133632' ''',index_col=None).T
+
+
+        # 1. Ouvrir l'image
         image = Image.open("./img/meme_oie.png").convert('RGBA')  # Remplace par le chemin de ton image
 
                 # Calque transparent pour l’ombre

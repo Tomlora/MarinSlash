@@ -2035,41 +2035,53 @@ class matchlol():
 
             self.df_data = await get_player_match_history(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i], seasonIds=[self.season_ugg])
 
-            self.df_data_match_history = pd.DataFrame(self.df_data['data']['fetchPlayerMatchSummaries']['matchSummaries'])
-            self.df_data_match_history = self.df_data_match_history[self.df_data_match_history['queueType'] == 'ranked_solo_5x5'] # seuls les matchs classés
-            self.df_data_match_history['matchCreationTime'] = pd.to_datetime(self.df_data_match_history['matchCreationTime'], unit='ms')
+            # Vérifie si self.df_data existe et contient les données attendues
+            try:
+                self.df_data_match_history = pd.DataFrame(self.df_data['data']['fetchPlayerMatchSummaries']['matchSummaries'])
+                self.df_data_match_history = self.df_data_match_history[self.df_data_match_history['queueType'] == 'ranked_solo_5x5'] # seuls les matchs classés
+                self.df_data_match_history['matchCreationTime'] = pd.to_datetime(self.df_data_match_history['matchCreationTime'], unit='ms')
 
-
-
-            #### Serie de wins/loses
+                #### Serie de wins/loses
 
                 # Première valeur
-            win_lose = self.df_data_match_history['win'].iloc[0]
+                win_lose = self.df_data_match_history['win'].iloc[0]
 
                 # Compter combien de fois cette valeur apparaît consécutivement depuis le début
-            count = (self.df_data_match_history['win'] == win_lose).cumprod().sum()
+                count = (self.df_data_match_history['win'] == win_lose).cumprod().sum()
 
-            mot =  "Victoire" if win_lose else "Defaite"
+                mot =  "Victoire" if win_lose else "Defaite"
 
-            self.dict_serie[self.thisRiotIdListe[i].lower()] = {'mot' : mot, 'count' : count}
+                self.dict_serie[self.thisRiotIdListe[i].lower()] = {'mot' : mot, 'count' : count}
+            except TypeError:
+                # Si pas de données, on met une valeur par défaut
+                self.dict_serie[self.thisRiotIdListe[i].lower()] = {'mot': '', 'count': 0}
 
 
             #### Points 
 
-            self.df_data_match = self.df_data_match_history[self.df_data_match_history['matchId'] == int(self.last_match[5:])]
+            try:
 
-            if not self.df_data_match.empty:
-                self.carry_points = self.df_data_match['psHardCarry'].values[0] 
-                self.team_points = self.df_data_match['psTeamPlay'].values[0]
-            
-            else:
+                self.df_data_match = self.df_data_match_history[self.df_data_match_history['matchId'] == int(self.last_match[5:])]
+
+                if not self.df_data_match.empty:
+                    self.carry_points = self.df_data_match['psHardCarry'].values[0] 
+                    self.team_points = self.df_data_match['psTeamPlay'].values[0]
+                
+                else:
+                    self.carry_points = -1
+                    self.team_points = -1
+
+                
+                self.dict_serie[self.thisRiotIdListe[i].lower()]['carry_points'] = int(self.carry_points)
+                self.dict_serie[self.thisRiotIdListe[i].lower()]['team_points'] = int(self.team_points)
+                self.dict_serie[self.thisRiotIdListe[i].lower()]['points'] = (self.carry_points + self.team_points) / 2
+
+            except:
                 self.carry_points = -1
                 self.team_points = -1
-
-            
-            self.dict_serie[self.thisRiotIdListe[i].lower()]['carry_points'] = int(self.carry_points)
-            self.dict_serie[self.thisRiotIdListe[i].lower()]['team_points'] = int(self.team_points)
-            self.dict_serie[self.thisRiotIdListe[i].lower()]['points'] = (self.carry_points + self.team_points) / 2
+                self.dict_serie[self.thisRiotIdListe[i].lower()]['carry_points'] = int(self.carry_points)
+                self.dict_serie[self.thisRiotIdListe[i].lower()]['team_points'] = int(self.team_points)
+                self.dict_serie[self.thisRiotIdListe[i].lower()]['points'] = (self.carry_points + self.team_points) / 2
 
 
 
@@ -2910,30 +2922,34 @@ class matchlol():
                                                  self.thisTankPerMinListe[i]]]))
             
             return score  
-        
+    
     async def detection_joueurs_pro(self):
-        df_data_pro = lire_bdd_perso('''SELECT data_acc_proplayers.*, data_proplayers.home, data_proplayers.role, data_proplayers.team_plug from data_acc_proplayers
-                                LEFT JOIN data_proplayers ON data_acc_proplayers.joueur = data_proplayers.plug
-                                     WHERE region = 'EUW' ''', index_col=None).T
-        
+        df_data_pro = lire_bdd_perso('''SELECT data_acc_proplayers.*, data_proplayers.home, data_proplayers.role, data_proplayers.team_plug 
+                                        FROM data_acc_proplayers
+                                        LEFT JOIN data_proplayers ON data_acc_proplayers.joueur = data_proplayers.plug
+                                        WHERE region = 'EUW' ''', index_col=None).T
+
+        df_data_pro['tag'] = df_data_pro['compte'].apply(lambda x: x.split('#')[1].upper() if '#' in x else '')
         df_data_pro['compte'] = df_data_pro['compte'].apply(lambda x: x.split('#')[0])
-        
+
         self.observations_proplayers = ''
-        for num_joueur, joueur in enumerate(self.thisPseudoListe):
-            if joueur in df_data_pro['compte'].tolist():
-                name_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'joueur'].values[0]
-                role_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'role'].values[0]
-                team_joueur = df_data_pro.loc[df_data_pro['compte'] == joueur, 'team_plug'].values[0]
+        for num_joueur, (joueur, riot_tag) in enumerate(zip(self.thisPseudoListe, self.thisRiotTagListe)):
+            riot_tag = riot_tag.upper()
+            match_df = df_data_pro[(df_data_pro['compte'] == joueur) & (df_data_pro['tag'] == riot_tag)]
+
+            if not match_df.empty:
+                name_joueur = match_df['joueur'].values[0]
+                role_joueur = match_df['role'].values[0]
+                team_joueur = match_df['team_plug'].values[0]
                 champ_joueur = self.thisChampNameListe[num_joueur]
                 emote_champ = emote_champ_discord.get(champ_joueur.capitalize(), f'({champ_joueur})')
-                if num_joueur <= 4:
-                    emote = ':blue_circle:'
-                else:
-                    emote = ':red_circle:'
+                emote = ':blue_circle:' if num_joueur <= 4 else ':red_circle:'
+
                 if team_joueur in ('', None):
                     self.observations_proplayers += f'{emote} **{name_joueur}** {emote_champ} : {role_joueur} \n'
-                else: 
+                else:
                     self.observations_proplayers += f'{emote} **{name_joueur}** {emote_champ} : {role_joueur} chez {team_joueur} \n'
+
                        
     async def calcul_badges(self, sauvegarder):
         # TODO : Faire une table qui récapitule si un badge a été obtenu par un joueur dans une game spécifique
@@ -3138,16 +3154,16 @@ class matchlol():
         # pour tous les modes
         if self.thisQ != 'ARENA 2v2':
 
-            if int(self.thisKP) >= settings['KP']['score']:
-                self.observations +=\
-                        f"\n **:green_circle: :dagger: {self.thisKP}% KP **"
-                txt_sql += add_sql(txt_sql, 'kp', [self.thisKP], self.last_match,self.id_compte)
+            # if int(self.thisKP) >= settings['KP']['score']:
+            #     self.observations +=\
+            #             f"\n **:green_circle: :dagger: {self.thisKP}% KP **"
+            #     txt_sql += add_sql(txt_sql, 'kp', [self.thisKP], self.last_match,self.id_compte)
 
 
-            if int(self.thisDamageRatio) >= settings['%_dmg_équipe']['score']:
-                self.observations +=\
-                        f"\n **:green_circle: :dart: {self.thisDamageRatio}% DMG de ton équipe **"
-                txt_sql += add_sql(txt_sql, 'damage_ratio', [self.thisDamageRatio], self.last_match, self.id_compte)
+            # if int(self.thisDamageRatio) >= settings['%_dmg_équipe']['score']:
+            #     self.observations +=\
+            #             f"\n **:green_circle: :dart: {self.thisDamageRatio}% DMG de ton équipe **"
+            #     txt_sql += add_sql(txt_sql, 'damage_ratio', [self.thisDamageRatio], self.last_match, self.id_compte)
 
 
             if int(self.thisDamageTakenRatio) >= settings['%_dmg_tank']['score']:
@@ -3315,6 +3331,7 @@ class matchlol():
                 points_adversaire = self.dict_serie[adversaire]['points']
 
                 ecart = points_joueur - points_adversaire
+                ecart = 0 if points_joueur == 0 or points_adversaire == 0 else ecart
                 role = roles[i]
                 self.emote_gap[role] = ':green_circle:' if ecart > 0 else ':red_circle:'
                 self.ecarts_gap[role] = abs(ecart)
