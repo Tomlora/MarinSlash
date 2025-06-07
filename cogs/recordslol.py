@@ -269,7 +269,7 @@ class Recordslol(Extension):
             'objectif': ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib', 'early_atakhan', 'first_tower_time'],
             'divers': ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball'],
             'fight': ['skillshot_dodged', 'skillshot_hit', 'skillshots_dodge_min', 'skillshots_hit_min', 'trade_efficience', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation', 'temps_cc_inflige', 'first_blood'],
-            'stats': ['abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'first_niveau_max'],
+            'stats': ['abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'first_niveau_max'],
             'timer': ["ASSISTS_10", "ASSISTS_20", "ASSISTS_30", "BUILDING_KILL_20", "BUILDING_KILL_30", "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30", "DEATHS_10", "DEATHS_20", "DEATHS_30", "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30", "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30"],
             'timer2': ["TURRET_PLATE_DESTROYED_10", "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30", "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30", "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"],
             'timer3' : ["TOTAL_DMG_10", "TOTAL_DMG_20", "TOTAL_DMG_30", "TOTAL_DMG_TAKEN_10", "TOTAL_DMG_TAKEN_20", "TOTAL_DMG_TAKEN_30", "TRADE_EFFICIENCE_10", "TRADE_EFFICIENCE_20", "TRADE_EFFICIENCE_30"],
@@ -1081,53 +1081,74 @@ class Recordslol(Extension):
         fichier = await load_data(ctx, view, saison, mode, self.time_mini) 
         
             
-        if saison != 0:
-            fichier = fichier[['match_id', 'id_participant', 'riot_id', 'discord', 'champion','datetime'] + self.liste_complete]
-        else:
-            fichier = fichier[['match_id', 'id_participant', 'riot_id', 'discord', 'champion','datetime', 'season'] + self.liste_complete]
-        
+        # Sélection ciblée des colonnes
+        base_cols = ['match_id', 'id_participant', 'riot_id', 'discord', 'champion', 'datetime']
+        if saison == 0:
+            base_cols.append('season')
+
+        all_cols = base_cols + self.liste_complete
+        fichier = fichier[all_cols]
 
         fichier.columns = [col.lower() for col in fichier.columns]
+
+        # Typage optimisé
+        fichier = fichier.astype({
+            'match_id': 'string',
+            'id_participant': 'int32',
+            'riot_id': 'string',
+            'discord': 'string',
+            'champion': 'category',
+            'datetime': 'datetime64[ns]',
+            **{col.lower(): 'float32' for col in self.liste_complete if col.lower() not in ['datetime', 'champion']}
+        })
+
         
-        df_complet = []
        
-        for stat in self.liste_complete: 
-            stat_lower = stat.lower()                       
+        df_complet = []
+
+        for stat in self.liste_complete:
+            stat_lower = stat.lower()
+
+            # Filtrage selon type de record
             if stat_lower in ['early_baron', 'early_drake', 'l_ecart_gold_min_durant_game']:
-                ascending=True
                 fichier_filtre = fichier[fichier[stat_lower] != 0]
-            elif stat_lower in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time']:
-                ascending=True
+                top_row = fichier_filtre.nsmallest(1, stat_lower)
+            elif stat_lower in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double',
+                                'first_triple', 'first_quadra', 'first_penta',
+                                'first_niveau_max', 'first_blood', 'first_tower_time']:
                 fichier_filtre = fichier[fichier[stat_lower] != 999]
+                top_row = fichier_filtre.nsmallest(1, stat_lower)
             else:
-                ascending=False
                 fichier_filtre = fichier[fichier[stat_lower] != 0]
-                        
-            fichier_filtre.sort_values(by=stat_lower, ascending=ascending, inplace=True)
-            fichier_filtre = fichier_filtre.head(1)
-            fichier_filtre['record'] = stat_lower
-            df_complet.append(fichier_filtre)
-            
-        df_complet = pd.concat(df_complet)    
-        
-        
-        df_complet.sort_values('datetime', ascending=False, inplace=True)
-        
-        txt = ''
+                top_row = fichier_filtre.nlargest(1, stat_lower)
 
-        if saison != 0:
-            for id, data in df_complet.iterrows():
-                record = data["record"]
-                txt += f'{emote_v2.get(record, ":star:")} **{record}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {emote_champ_discord.get(data["champion"].capitalize(), data["champion"]) } : **{data[record]}** \n'
-        else:
-            for id, data in df_complet.iterrows():
-                record = data["record"]
-                txt += f'{emote_v2.get(record, ":star:")} **{record}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {emote_champ_discord.get(data["champion"].capitalize(), data["champion"]) } : **{data[record]}** (S{data["season"]}) \n'
-        
+            if not top_row.empty:
+                top_row = top_row.copy()
+                top_row['record'] = stat_lower
+                df_complet.append(top_row)
+
+        # Fusion + tri
+        df_complet = (
+            pd.concat(df_complet, ignore_index=True)
+            .sort_values('datetime', ascending=False)
+        )
+
+        # Construction rapide du texte
+        lines = []
+        for _, data in df_complet.iterrows():
+            record = data["record"]
+            champ = emote_champ_discord.get(data["champion"].capitalize(), data["champion"])
+            base = f'{emote_v2.get(record, ":star:")} **{record}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {champ} : **{np.round(data[record],2)}**'
+            if saison == 0:
+                base += f' (S{data["season"]})'
+            lines.append(base)
+
+        txt = '\n'.join(lines)
+
         paginator = Paginator.create_from_string(self.bot, txt, page_size=2000, timeout=120)
-
         paginator.default_title = f'Date Records {mode}'
-        await paginator.send(ctx)            
+        await paginator.send(ctx)
+        
                 
 
 def setup(bot):
