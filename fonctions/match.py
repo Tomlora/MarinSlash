@@ -13,6 +13,7 @@ import asyncio
 import pickle
 import sqlalchemy.exc
 from fonctions.api_calls import get_mobalytics, getPlayerStats, getRanks, update_ugg, get_role, get_player_match_history
+import math
 
 # TODO : rajouter temps en vie
 
@@ -90,6 +91,7 @@ elo_lp = {'IRON': 0,
           'GRANDMASTER': 8,
           'CHALLENGER': 9,
           'FIRST_GAME': 0}
+
 
 
 emote_rank_discord = lire_bdd_perso('SELECT * from data_rank', index_col='nom')\
@@ -357,6 +359,17 @@ async def get_image(type, name, session: aiohttp.ClientSession, resize_x=80, res
     img = img.resize((resize_x, resize_y))
 
     return img
+
+
+
+def get_stat_null_rules():
+    query = "SELECT stat_name, champion FROM records_exclusion"
+    df = lire_bdd_perso(query, index_col=None).T
+
+    stat_null_rules = {}
+    for stat_name, group in df.groupby("stat_name"):
+        stat_null_rules[stat_name] = group["champion"].tolist()
+    return stat_null_rules
 
 api_key_lol = os.environ.get('API_LOL')
 
@@ -2052,7 +2065,7 @@ class matchlol():
                 mot =  "Victoire" if win_lose else "Defaite"
 
                 self.dict_serie[self.thisRiotIdListe[i].lower()] = {'mot' : mot, 'count' : count}
-            except TypeError:
+            except (TypeError, KeyError):
                 # Si pas de données, on met une valeur par défaut
                 self.dict_serie[self.thisRiotIdListe[i].lower()] = {'mot': '', 'count': 0}
 
@@ -2259,134 +2272,77 @@ class matchlol():
 
                 },
             )
-            
-        # pings et ban
-        
-        requete_perso_bdd('''INSERT INTO matchs_pings(
-            match_id, joueur, allin, assistsme, basics, command, danger, ennemy_missing, ennemy_vision, get_back, hold, onmyway)
-            VALUES (:match_id, :joueur, :allin, :assistsme, :basics, :command, :danger, :ennemy_missing, :ennemy_vision, :get_back, :hold, :onmyway);
-        INSERT INTO matchs_ban(
-        match_id, ban1, ban2, ban3, ban4, ban5, ban_adv1, ban_adv2, ban_adv3, ban_adv4, ban_adv5)
-        VALUES (:match_id, :ban1, :ban2, :ban3, :ban4, :ban5, :ban_adv1, :ban_adv2, :ban_adv3, :ban_adv4, :ban_adv5)
-        ON CONFLICT (match_id)
-        DO NOTHING;''',
-        {'match_id' : self.last_match,
-         'joueur' : self.id_compte,
-         'allin' : self.pings_allin,
-         'assistsme' : self.pings_assistsme,
-         'basics' : self.pings_basics,
-         'command' : self.pings_command,
-         'danger' : self.pings_danger,
-         'ennemy_missing' : self.pings_ennemymissing,
-         'ennemy_vision' : self.pings_ennemy_vision,
-         'get_back' : self.pings_get_back,
-         'hold' : self.pings_hold,
-         'onmyway' : self.pings_onmyway,
-        'ban1' : self.liste_ban[0],
-        'ban2' : self.liste_ban[1],
-        'ban3' : self.liste_ban[2],
-        'ban4' : self.liste_ban[3],
-        'ban5' : self.liste_ban[4],
-        'ban_adv1' : self.liste_ban[5],
-        'ban_adv2' : self.liste_ban[6],
-        'ban_adv3' : self.liste_ban[7],
-        'ban_adv4' : self.liste_ban[8],
-        'ban_adv5' : self.liste_ban[9],
-            })
-        
-        
-        if self.thisQ != 'ARENA 2v2' and self.thisQ != 'OTHER':
-            requete_perso_bdd('''INSERT INTO matchs_joueur(
-            match_id, allie1, allie2, allie3, allie4, allie5, ennemi1, ennemi2, ennemi3, ennemi4, ennemi5,
-        tier1, div1, tier2, div2, tier3, div3, tier4, div4, tier5, div5, tier6, div6, tier7, div7, tier8, div8, tier9, div9, tier10, div10,
-        tierallie_avg, divallie_avg, tierennemy_avg, divennemy_avg, champ1, champ2, champ3, champ4, champ5, champ6, champ7, champ8, champ9, champ10)
-            VALUES (:match_id, :allie1, :allie2, :allie3, :allie4, :allie5, :ennemi1, :ennemi2, :ennemi3, :ennemi4, :ennemi5,
-        :t1, :d1, :t2, :d2, :t3, :d3, :t4, :d4, :t5, :d5, :t6, :d6, :t7, :d7, :t8, :d8, :t9, :d9, :t10, :d10,
-        :tier_allie, :div_allie, :tier_ennemy, :div_ennemy,
-        :c1, :c2, :c3, :c4, :c5, :c6, :c7, :c8, :c9, :c10)
-        ON CONFLICT (match_id)
-        DO NOTHING;''',
-        {'match_id' : self.last_match,
-                'allie1' : f'{self.thisRiotIdListe[0]}#{self.thisRiotTagListe[0]}',
-            'allie2' : f'{self.thisRiotIdListe[1]}#{self.thisRiotTagListe[1]}',
-            'allie3' : f'{self.thisRiotIdListe[2]}#{self.thisRiotTagListe[2]}',
-            'allie4' : f'{self.thisRiotIdListe[3]}#{self.thisRiotTagListe[3]}',
-            'allie5' : f'{self.thisRiotIdListe[4]}#{self.thisRiotTagListe[4]}',
-            'ennemi1' : f'{self.thisRiotIdListe[5]}#{self.thisRiotTagListe[5]}',
-            'ennemi2' : f'{self.thisRiotIdListe[6]}#{self.thisRiotTagListe[6]}',
-            'ennemi3' : f'{self.thisRiotIdListe[7]}#{self.thisRiotTagListe[7]}',
-            'ennemi4' : f'{self.thisRiotIdListe[8]}#{self.thisRiotTagListe[8]}',
-            'ennemi5' : f'{self.thisRiotIdListe[9]}#{self.thisRiotTagListe[9]}',
-            't1' : self.liste_rank[0],
-            'd1' : self.liste_tier[0],
-            't2' : self.liste_rank[1],
-            'd2' : self.liste_tier[1],
-            't3' : self.liste_rank[2],
-            'd3' : self.liste_tier[2],
-            't4' : self.liste_rank[3],
-            'd4' : self.liste_tier[3],
-            't5' : self.liste_rank[4],
-            'd5' : self.liste_tier[4],
-            't6' : self.liste_rank[5],
-            'd6' : self.liste_tier[5],
-            't7' : self.liste_rank[6],
-            'd7' : self.liste_tier[6],
-            't8' : self.liste_rank[7],
-            'd8' : self.liste_tier[7],
-            't9' : self.liste_rank[8],
-            'd9' : self.liste_tier[8],
-            't10' : self.liste_rank[9],
-            'd10' : self.liste_tier[9],
-            'tier_allie' : self.avgtier_ally,
-            'div_allie' : self.avgrank_ally,
-            'tier_ennemy' : self.avgtier_enemy,
-            'div_ennemy' : self.avgrank_enemy,
-            'c1' : self.thisChampNameListe[0],
-            'c2' : self.thisChampNameListe[1],
-            'c3' : self.thisChampNameListe[2],
-            'c4' : self.thisChampNameListe[3],
-            'c5' : self.thisChampNameListe[4],
-            'c6' : self.thisChampNameListe[5],
-            'c7' : self.thisChampNameListe[6],
-            'c8' : self.thisChampNameListe[7],
-            'c9' : self.thisChampNameListe[8],
-            'c10' : self.thisChampNameListe[9],
-            })
 
-            requete_perso_bdd('''INSERT INTO matchs_autres(
-        match_id, vision1, vision2, vision3, vision4, vision5, vision6, vision7, vision8, vision9, vision10, pink1, pink2, pink3, pink4, pink5, pink6, pink7, pink8, pink9, pink10,
-        ecart_gold_top, ecart_gold_jgl, ecart_gold_mid, ecart_gold_adc, ecart_gold_supp)
-        VALUES (:match_id, :v1, :v2, :v3, :v4, :v5, :v6, :v7, :v8, :v9, :v10, :p1, :p2, :p3, :p4, :p5, :p6, :p7, :p8, :p9, :p10, :ecart_top, :ecart_jgl, :ecart_mid, :ecart_adc, :ecart_supp)
-        ON CONFLICT (match_id)
-        DO NOTHING;''',
-        {'match_id' : self.last_match,
-        'v1' : self.thisVisionListe[0],
-        'v2' : self.thisVisionListe[1],
-        'v3' : self.thisVisionListe[2],
-        'v4' : self.thisVisionListe[3],
-        'v5' : self.thisVisionListe[4],
-        'v6' : self.thisVisionListe[5],
-        'v7' : self.thisVisionListe[6],
-        'v8' : self.thisVisionListe[7],
-        'v9' : self.thisVisionListe[8],
-        'v10' : self.thisVisionListe[9],
-        'p1' : self.thisPinkListe[0],
-        'p2' : self.thisPinkListe[1],
-        'p3' : self.thisPinkListe[2],
-        'p4' : self.thisPinkListe[3],
-        'p5' : self.thisPinkListe[4],
-        'p6' : self.thisPinkListe[5],
-        'p7' : self.thisPinkListe[6],
-        'p8' : self.thisPinkListe[7],
-        'p9' : self.thisPinkListe[8],
-        'p10' : self.thisPinkListe[9],
-        'ecart_top' : self.ecart_top_gold_affiche,
-        'ecart_jgl' : self.ecart_jgl_gold_affiche,
-        'ecart_mid' : self.ecart_mid_gold_affiche,
-        'ecart_adc' : self.ecart_adc_gold_affiche,
-        'ecart_supp' : self.ecart_supp_gold_affiche
-        }
-        ) 
+
+                
+            if self.thisQ != 'ARENA 2v2' and self.thisQ != 'OTHER':
+                for i in range(10):
+                    try:
+                        team = 'allie' if i < 5 else 'ennemi'
+                        position = str(i % 5 + 1)
+                        joueur = f"{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}"
+                        tier = self.liste_rank[i]
+                        div = self.liste_tier[i]
+                        champion = self.thisChampNameListe[i]
+                        requete_perso_bdd('''INSERT INTO match_participant (
+                            match_id, team, position, joueur, tier, div, champion,
+                            tierallie_avg, divallie_avg, tierennemy_avg, divennemy_avg
+                        ) VALUES (
+                            :match_id, :team, :position, :joueur, :tier, :div, :champion,
+                            :tierallie_avg, :divallie_avg, :tierennemy_avg, :divennemy_avg
+                        );''',
+                        {
+                            'match_id': self.last_match,
+                            'team': team,
+                            'position': position,
+                            'joueur': joueur,
+                            'tier': tier,
+                            'div': div,
+                            'champion': champion,
+                            'tierallie_avg': self.avgtier_ally,
+                            'divallie_avg': self.avgrank_ally,
+                            'tierennemy_avg': self.avgtier_enemy,
+                            'divennemy_avg': self.avgrank_enemy
+                        })
+                    except sqlalchemy.exc.IntegrityError:
+                        # Si le joueur existe déjà, on ignore l'insertion
+                        continue
+
+
+                    requete_perso_bdd('''INSERT INTO matchs_autres(
+                match_id, vision1, vision2, vision3, vision4, vision5, vision6, vision7, vision8, vision9, vision10, pink1, pink2, pink3, pink4, pink5, pink6, pink7, pink8, pink9, pink10,
+                ecart_gold_top, ecart_gold_jgl, ecart_gold_mid, ecart_gold_adc, ecart_gold_supp)
+                VALUES (:match_id, :v1, :v2, :v3, :v4, :v5, :v6, :v7, :v8, :v9, :v10, :p1, :p2, :p3, :p4, :p5, :p6, :p7, :p8, :p9, :p10, :ecart_top, :ecart_jgl, :ecart_mid, :ecart_adc, :ecart_supp)
+                ON CONFLICT (match_id)
+                DO NOTHING;''',
+                {'match_id' : self.last_match,
+                'v1' : self.thisVisionListe[0],
+                'v2' : self.thisVisionListe[1],
+                'v3' : self.thisVisionListe[2],
+                'v4' : self.thisVisionListe[3],
+                'v5' : self.thisVisionListe[4],
+                'v6' : self.thisVisionListe[5],
+                'v7' : self.thisVisionListe[6],
+                'v8' : self.thisVisionListe[7],
+                'v9' : self.thisVisionListe[8],
+                'v10' : self.thisVisionListe[9],
+                'p1' : self.thisPinkListe[0],
+                'p2' : self.thisPinkListe[1],
+                'p3' : self.thisPinkListe[2],
+                'p4' : self.thisPinkListe[3],
+                'p5' : self.thisPinkListe[4],
+                'p6' : self.thisPinkListe[5],
+                'p7' : self.thisPinkListe[6],
+                'p8' : self.thisPinkListe[7],
+                'p9' : self.thisPinkListe[8],
+                'p10' : self.thisPinkListe[9],
+                'ecart_top' : self.ecart_top_gold_affiche,
+                'ecart_jgl' : self.ecart_jgl_gold_affiche,
+                'ecart_mid' : self.ecart_mid_gold_affiche,
+                'ecart_adc' : self.ecart_adc_gold_affiche,
+                'ecart_supp' : self.ecart_supp_gold_affiche
+                }
+                ) 
             
             requete_perso_bdd('''INSERT INTO matchs_points(
             match_id, hardcarry1, hardcarry2, hardcarry3, hardcarry4, hardcarry5, hardcarry6, hardcarry7, hardcarry8, hardcarry9, hardcarry10,
@@ -2397,34 +2353,36 @@ class matchlol():
         ON CONFLICT (match_id)
         DO NOTHING;''',
         {'match_id' : self.last_match,
-            'hardcarry1' : self.dict_serie[self.thisRiotIdListe[0].lower()]['carry_points'],
-            'hardcarry2' : self.dict_serie[self.thisRiotIdListe[1].lower()]['carry_points'],
-            'hardcarry3' : self.dict_serie[self.thisRiotIdListe[2].lower()]['carry_points'],
-            'hardcarry4' : self.dict_serie[self.thisRiotIdListe[3].lower()]['carry_points'],
-            'hardcarry5' : self.dict_serie[self.thisRiotIdListe[4].lower()]['carry_points'],
-            'hardcarry6' : self.dict_serie[self.thisRiotIdListe[5].lower()]['carry_points'],
-            'hardcarry7' : self.dict_serie[self.thisRiotIdListe[6].lower()]['carry_points'],
-            'hardcarry8' : self.dict_serie[self.thisRiotIdListe[7].lower()]['carry_points'],
-            'hardcarry9' : self.dict_serie[self.thisRiotIdListe[8].lower()]['carry_points'],
-            'hardcarry10' : self.dict_serie[self.thisRiotIdListe[9].lower()]['carry_points'],
-            'teamcarry1' : self.dict_serie[self.thisRiotIdListe[0].lower()]['team_points'],
-            'teamcarry2' : self.dict_serie[self.thisRiotIdListe[1].lower()]['team_points'],
-            'teamcarry3' : self.dict_serie[self.thisRiotIdListe[2].lower()]['team_points'],
-            'teamcarry4' : self.dict_serie[self.thisRiotIdListe[3].lower()]['team_points'],
-            'teamcarry5' : self.dict_serie[self.thisRiotIdListe[4].lower()]['team_points'],
-            'teamcarry6' : self.dict_serie[self.thisRiotIdListe[5].lower()]['team_points'],
-            'teamcarry7' : self.dict_serie[self.thisRiotIdListe[6].lower()]['team_points'],
-            'teamcarry8' : self.dict_serie[self.thisRiotIdListe[7].lower()]['team_points'],
-            'teamcarry9' : self.dict_serie[self.thisRiotIdListe[8].lower()]['team_points'],
-            'teamcarry10' : self.dict_serie[self.thisRiotIdListe[9].lower()]['team_points']
+            'hardcarry1' : self.dict_serie.get(self.thisRiotIdListe[0].lower(), {}).get('carry_points', -1),
+            'hardcarry2' : self.dict_serie.get(self.thisRiotIdListe[1].lower(), {}).get('carry_points', -1),
+            'hardcarry3' : self.dict_serie.get(self.thisRiotIdListe[2].lower(), {}).get('carry_points', -1),
+            'hardcarry4' : self.dict_serie.get(self.thisRiotIdListe[3].lower(), {}).get('carry_points', -1),
+            'hardcarry5' : self.dict_serie.get(self.thisRiotIdListe[4].lower(), {}).get('carry_points', -1),
+            'hardcarry6' : self.dict_serie.get(self.thisRiotIdListe[5].lower(), {}).get('carry_points', -1),
+            'hardcarry7' : self.dict_serie.get(self.thisRiotIdListe[6].lower(), {}).get('carry_points', -1),
+            'hardcarry8' : self.dict_serie.get(self.thisRiotIdListe[7].lower(), {}).get('carry_points', -1),
+            'hardcarry9' : self.dict_serie.get(self.thisRiotIdListe[8].lower(), {}).get('carry_points', -1),
+            'hardcarry10' : self.dict_serie.get(self.thisRiotIdListe[9].lower(), {}).get('carry_points', -1),
+            'teamcarry1' : self.dict_serie.get(self.thisRiotIdListe[0].lower(), {}).get('team_points', -1),
+            'teamcarry2' : self.dict_serie.get(self.thisRiotIdListe[1].lower(), {}).get('team_points', -1),
+            'teamcarry3' : self.dict_serie.get(self.thisRiotIdListe[2].lower(), {}).get('team_points', -1),
+            'teamcarry4' : self.dict_serie.get(self.thisRiotIdListe[3].lower(), {}).get('team_points', -1),
+            'teamcarry5' : self.dict_serie.get(self.thisRiotIdListe[4].lower(), {}).get('team_points', -1),
+            'teamcarry6' : self.dict_serie.get(self.thisRiotIdListe[5].lower(), {}).get('team_points', -1),
+            'teamcarry7' : self.dict_serie.get(self.thisRiotIdListe[6].lower(), {}).get('team_points', -1),
+            'teamcarry8' : self.dict_serie.get(self.thisRiotIdListe[7].lower(), {}).get('team_points', -1),
+            'teamcarry9' : self.dict_serie.get(self.thisRiotIdListe[8].lower(), {}).get('team_points', -1),
+            'teamcarry10' : self.dict_serie.get(self.thisRiotIdListe[9].lower(), {}).get('team_points', -1)
 
 ,
             })
-        
+
 
         df_data_champ = await get_data_champ_tags(self.session, self.version['n']['champion']) 
 
         sauvegarde_bdd(df_data_champ, 'data_champion_tag', index=False)     
+
+
     
     async def save_timeline(self):
         
@@ -2793,7 +2751,9 @@ class matchlol():
                     'ecart_gold_max_durant_game' : self.val_max_ecart_gold,
                     'match_id': self.last_match,
                     'joueur': self.id_compte})
-        
+
+
+
         
         df_exists = lire_bdd_perso(f'''SELECT match_id, riot_id FROM data_timeline_events WHERE 
         match_id = '{self.last_match}'
@@ -2891,10 +2851,598 @@ class matchlol():
             except sqlalchemy.exc.IntegrityError:
                 pass
        
+
+    # async def clutch_factor(self):
+    #     """
+    #     Retourne le nombre de participations clutch (baron/elder/tour nexus) pour le joueur de la partie.
+    #     Utilise la timeline déjà présente dans self.data_timeline.
+    #     """
+    #     if not self.data_timeline:
+    #         return 0
+
+    #     clutch_score = 0
+    #     player_id = self.thisId + 1  # participantId (1-indexed)
+    #     actions = []
+
+    #     # Cherche dans les events de la timeline
+    #     for frame in self.data_timeline['info']['frames']:
+    #         for event in frame.get('events', []):
+    #             # Baron/Elder kill
+    #             if event['type'] == 'ELITE_MONSTER_KILL' and event['monsterType'] in ['BARON_NASHOR', 'ELDER_DRAGON']:
+    #                 if event.get('killerId') == player_id:
+    #                     clutch_score += 3
+    #                     actions.append((event['monsterType'], event['timestamp']))
+    #             # Dernière tourelle (approche simplifiée, à affiner)
+    #             if event['type'] == 'BUILDING_KILL' and event.get('buildingType') == 'TOWER_BUILDING':
+    #                 if event.get('killerId') == player_id and event.get('timestamp', 0) > 1800000:
+    #                     clutch_score += 2
+    #                     actions.append(('TOWER', event['timestamp']))
+    #     return clutch_score, actions
+
+
+    # async def tilt_proof(self):
+    #     """
+    #     Retourne le KDA du joueur après avoir subi 3 deaths consécutives.
+    #     """
+    #     if not self.data_timeline:
+    #         return "No timeline"
+    #     player_id = self.thisId + 1
+
+    #     deaths, kills, assists = [], [], []
+    #     for frame in self.data_timeline['info']['frames']:
+    #         for event in frame.get('events', []):
+    #             # Death
+    #             if event['type'] == 'CHAMPION_KILL' and event.get('victimId') == player_id:
+    #                 deaths.append(event['timestamp'])
+    #             # Kill
+    #             if event['type'] == 'CHAMPION_KILL' and event.get('killerId') == player_id:
+    #                 kills.append(event['timestamp'])
+    #             # Assist
+    #             if event['type'] == 'CHAMPION_KILL' and 'assistingParticipantIds' in event:
+    #                 if player_id in event['assistingParticipantIds']:
+    #                     assists.append(event['timestamp'])
+
+    #     if len(deaths) < 3:
+    #         return "Pas assez de deaths"
+    #     pivot = deaths[2]
+    #     post_kills = len([k for k in kills if k > pivot])
+    #     post_deaths = len([d for d in deaths if d > pivot])
+    #     post_assists = len([a for a in assists if a > pivot])
+    #     if post_deaths == 0:
+    #         return post_kills + post_assists
+    #     return round((post_kills + post_assists) / post_deaths, 2)
         
+
+
+
+
+    async def perfect_farm_window(self, cs_min=10):
+        """
+        Calcule la plus longue période (en minutes) où le joueur maintient un CS/min > 10.
+        Utilise la timeline (self.data_timeline) et les minions à chaque minute.
+        """
+        if not self.data_timeline:
+            return 0
+
+        player_id = self.thisId + 1  # participantId (1-indexed)
+        cs_per_minute = []
+        total_minions = 0
+
+        # On parcourt chaque frame du timeline pour récupérer le farm cumulé
+        for minute, frame in enumerate(self.data_timeline['info']['frames'][1:], 1):
+            cs = frame['participantFrames'][str(player_id)]['minionsKilled'] + \
+                frame['participantFrames'][str(player_id)].get('jungleMinionsKilled', 0)
+            cs_per_minute.append(cs)
         
-        
-        
+        max_window = 0
+        window = 0
+
+        for i, cs in enumerate(cs_per_minute):
+            rate = cs / (i+1)
+            if rate >= cs_min:
+                window += 1
+                max_window = max(max_window, window)
+            else:
+                window = 0
+
+        return max_window  # en minutes consécutives
+    
+
+
+    async def clutch_deaths(self):
+        """
+        Compte le nombre de fois où le joueur meurt en dernier de son équipe (1vX).
+        Utilise la timeline.
+        """
+        if not self.data_timeline:
+            return 0
+
+        player_id = self.thisId + 1
+        team_id = self.teamId
+        participants = self.match_detail['info']['participants']
+        deaths = 0
+
+        for frame in self.data_timeline['info']['frames']:
+            for event in frame.get('events', []):
+                if event['type'] == 'CHAMPION_KILL' and event.get('victimId') == player_id:
+                    # On regarde combien de mates sont vivants à cet instant
+                    time = event['timestamp']
+                    alive = []
+                    for p in range(1, 11):
+                        # Cherche la dernière mort du mate avant ce death
+                        last_death = max([e['timestamp'] for f in self.data_timeline['info']['frames']
+                                        for e in f.get('events', [])
+                                        if e['type'] == 'CHAMPION_KILL'
+                                        and e.get('victimId') == p
+                                        and e['timestamp'] < time], default=-1)
+                        # Vivant s'il n'est pas mort dans les 30 dernières sec
+                        if p != player_id and participants[p-1]['teamId'] == team_id:
+                            if time - last_death > 30000:
+                                alive.append(p)
+                    if not alive:  # personne n'est vivant à part toi
+                        deaths += 1
+        return deaths
+
+    async def reverse_sweep(self):
+        """
+        Retourne True si l'équipe du joueur était derrière en gold, tours, dragons à 15min, mais gagne la partie.
+        """
+        participants = self.match_detail['info']['participants']
+        team_id = self.teamId
+        # Cherche gold/tour/dragon à 15min dans timeline
+        try:
+            frame_15 = self.data_timeline['info']['frames'][15]  # frame 15 = 15min
+        except (IndexError, KeyError, TypeError):
+            return False  # timeline trop courte
+
+        team_gold = sum([frame_15['participantFrames'][str(i+1)]['totalGold'] for i, p in enumerate(participants) if p['teamId'] == team_id])
+        opp_gold = sum([frame_15['participantFrames'][str(i+1)]['totalGold'] for i, p in enumerate(participants) if p['teamId'] != team_id])
+
+        my_team = [i+1 for i,p in enumerate(participants) if p['teamId']==team_id]
+        opp_team = [i+1 for i,p in enumerate(participants) if p['teamId']!=team_id]
+
+        # Towers à 15min
+        my_towers = frame_15['participantFrames'][str(my_team[0])].get('towerKills',0)
+        opp_towers = frame_15['participantFrames'][str(opp_team[0])].get('towerKills',0)
+        # Dragons (pas dans frame, donc check events)
+        drake_events = []
+        for f in self.data_timeline['info']['frames'][:16]:
+            for e in f.get('events', []):
+                if e['type']=='ELITE_MONSTER_KILL' and e['monsterType']=='DRAGON':
+                    drake_events.append(e)
+        my_drakes = len([d for d in drake_events if participants[d['killerId']-1]['teamId']==team_id])
+        opp_drakes = len([d for d in drake_events if participants[d['killerId']-1]['teamId']!=team_id])
+
+        # Condition : en retard sur tout à 15min, victoire finale
+        ahead = team_gold > opp_gold and my_towers > opp_towers and my_drakes > opp_drakes
+        behind = team_gold < opp_gold and my_towers < opp_towers and my_drakes < opp_drakes
+        win = self.thisWinBool
+        return behind and win
+
+    async def deep_vision(self):
+        """
+        Compte le nombre de pinks/wards posées par le joueur dans la moitié ennemie de la map.
+        (Nécessite que la timeline fournisse les events de ward avec position et team)
+        """
+        if not self.data_timeline:
+            return 0
+
+        player_id = self.thisId + 1
+        team_id = self.teamId
+        total_deep_wards = 0
+
+        for frame in self.data_timeline['info']['frames']:
+            for event in frame.get('events', []):
+                if event['type'] in ['WARD_PLACED'] and event.get('creatorId') == player_id:
+                    x = event.get('position', {}).get('x', 0)
+                    # Pour blue side, la moitié ennemie c'est x > 7500; pour red, x < 7500
+                    if (team_id == 100 and x > 7500) or (team_id == 200 and x < 7500):
+                        total_deep_wards += 1
+        return total_deep_wards
+
+    
+
+    # async def comeback_kda(self, deaths_threshold=5):
+    #     """
+    #     Retourne le KDA du joueur après avoir atteint 5 deaths (après un early très difficile).
+    #     """
+    #     if not self.data_timeline:
+    #         return "No timeline"
+    #     player_id = self.thisId + 1
+
+    #     deaths, kills, assists = [], [], []
+    #     for frame in self.data_timeline['info']['frames']:
+    #         for event in frame.get('events', []):
+    #             # Death
+    #             if event['type'] == 'CHAMPION_KILL' and event.get('victimId') == player_id:
+    #                 deaths.append(event['timestamp'])
+    #             # Kill
+    #             if event['type'] == 'CHAMPION_KILL' and event.get('killerId') == player_id:
+    #                 kills.append(event['timestamp'])
+    #             # Assist
+    #             if event['type'] == 'CHAMPION_KILL' and 'assistingParticipantIds' in event:
+    #                 if player_id in event['assistingParticipantIds']:
+    #                     assists.append(event['timestamp'])
+
+    #     if len(deaths) < deaths_threshold:
+    #         return "Pas assez de deaths"
+    #     pivot = deaths[deaths_threshold-1]
+    #     post_kills = len([k for k in kills if k > pivot])
+    #     post_deaths = len([d for d in deaths if d > pivot])
+    #     post_assists = len([a for a in assists if a > pivot])
+    #     if post_deaths == 0:
+    #         return post_kills + post_assists
+    #     return round((post_kills + post_assists) / post_deaths, 2)
+
+
+
+    async def fight_participation(self, min_fight_size=3, fight_radius=1200, fight_interval=10000):
+        """
+        Pourcentage de teamfights où le joueur a participé (kill, assist, ou présence physique dans le fight_radius).
+        """
+        if not self.data_timeline:
+            return 0
+        player_id = self.thisId + 1
+        participants = self.match_detail['info']['participants']
+        fights = []
+        last_fight_time = 0
+
+        # Construction des fights groupés (par fenêtre de fight_interval)
+        for frame in self.data_timeline['info']['frames']:
+            for event in frame.get('events', []):
+                if event['type'] == 'CHAMPION_KILL':
+                    time = event['timestamp']
+                    if fights and abs(time - last_fight_time) < fight_interval:
+                        fights[-1]['events'].append(event)
+                    else:
+                        fights.append({'events': [event]})
+                    last_fight_time = time
+
+        my_participation = 0
+        total_fights = 0
+
+        for fight in fights:
+            involved = set()
+            event_times = []
+            fight_positions = []
+            # On construit la liste des positions des kills du fight
+            for ev in fight['events']:
+                event_times.append(ev['timestamp'])
+                if 'position' in ev:
+                    fight_positions.append((ev['position']['x'], ev['position']['y']))
+                involved.add(ev['killerId'])
+                involved.add(ev['victimId'])
+                if 'assistingParticipantIds' in ev:
+                    involved.update(ev['assistingParticipantIds'])
+            if len(involved) < min_fight_size:
+                continue
+            total_fights += 1
+
+            # Participation directe : kill/assist
+            if player_id in involved:
+                my_participation += 1
+                continue
+
+            # Participation par présence : On prend le tick le plus proche du fight pour le joueur
+            participated = False
+            for fight_time, fight_pos in zip(event_times, fight_positions):
+                # Cherche la frame la plus proche en temps
+                closest_frame = min(
+                    self.data_timeline['info']['frames'],
+                    key=lambda f: abs(f['timestamp'] - fight_time)
+                )
+                pos = closest_frame['participantFrames'][str(player_id)].get('position', None)
+                if pos:
+                    dx = pos['x'] - fight_pos[0]
+                    dy = pos['y'] - fight_pos[1]
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist <= fight_radius:
+                        participated = True
+                        break
+            if participated:
+                my_participation += 1
+
+        if total_fights == 0:
+            return 0
+        return round(100 * my_participation / total_fights, 1)
+
+    
+
+    async def kills_from_behind(self):
+        """
+        Nombre de kills réalisés alors que l'équipe du joueur était derrière en gold.
+        """
+        if not self.data_timeline:
+            return 0
+        player_id = self.thisId + 1
+        team_id = self.teamId
+        participants = self.match_detail['info']['participants']
+        kills_behind = 0
+
+        # Calcul du gold de chaque team à chaque frame
+        team_gold_frames = []
+        for frame in self.data_timeline['info']['frames']:
+            my_gold = sum([frame['participantFrames'][str(i+1)]['totalGold'] for i, p in enumerate(participants) if p['teamId'] == team_id])
+            opp_gold = sum([frame['participantFrames'][str(i+1)]['totalGold'] for i, p in enumerate(participants) if p['teamId'] != team_id])
+            team_gold_frames.append((my_gold, opp_gold, frame['timestamp']))
+
+        # Pour chaque kill du joueur, regarde la situation gold au moment du kill
+        for frame in self.data_timeline['info']['frames']:
+            for event in frame.get('events', []):
+                if event['type'] == 'CHAMPION_KILL' and event.get('killerId') == player_id:
+                    # Cherche la frame la plus proche avant ce kill
+                    times = [abs(event['timestamp']-g[2]) for g in team_gold_frames]
+                    idx = times.index(min(times))
+                    my_gold, opp_gold, _ = team_gold_frames[idx]
+                    if my_gold < opp_gold:
+                        kills_behind += 1
+        return kills_behind
+
+    # async def objective_stealer(self):
+    #     """
+    #     Nombre de fois où le joueur a pris un drake/baron/herald contre la présence de membres adverses.
+    #     """
+    #     if not self.data_timeline:
+    #         return 0
+    #     player_id = self.thisId + 1
+    #     participants = self.match_detail['info']['participants']
+    #     team_id = self.teamId
+    #     objectives = 0
+
+    #     for frame in self.data_timeline['info']['frames']:
+    #         for event in frame.get('events', []):
+    #             if event['type'] == 'ELITE_MONSTER_KILL' and event.get('killerId') == player_id and event['monsterType'] in ['BARON_NASHOR', 'DRAGON', 'RIFTHERALD']:
+    #                 # Présence ennemie : au moins 1 adversaire vivant à ce moment
+    #                 time = event['timestamp']
+    #                 opp_alive = False
+    #                 for i, p in enumerate(participants):
+    #                     if p['teamId'] != team_id:
+    #                         # Cherche la dernière mort avant ce moment
+    #                         last_death = max([e['timestamp'] for f in self.data_timeline['info']['frames']
+    #                                         for e in f.get('events', [])
+    #                                         if e['type'] == 'CHAMPION_KILL' and e.get('victimId') == i+1 and e['timestamp'] < time], default=-1)
+    #                         # Si pas mort dans les 10 dernières sec, on considère vivant
+    #                         if time - last_death > 10000:
+    #                             opp_alive = True
+    #                 if opp_alive:
+    #                     objectives += 1
+    #     return objectives
+
+    async def roam_score(self):
+        """
+        Nombre de roams réussis avant 15min : kill/assist obtenu sur une lane différente de la sienne avant 900000ms.
+        """
+        if not self.data_timeline:
+            return 0
+        player_id = self.thisId + 1
+        participants = self.match_detail['info']['participants']
+        my_lane = self.match_detail_participants.get('individualPosition', None)
+        roams = 0
+
+        for frame in self.data_timeline['info']['frames']:
+            for event in frame.get('events', []):
+                if event['timestamp'] > 900000:
+                    continue
+                if event['type'] == 'CHAMPION_KILL':
+                    # Est-ce un kill/assist du joueur sur une autre lane ?
+                    if (event.get('killerId') == player_id or (player_id in event.get('assistingParticipantIds', []))):
+                        victim_id = event.get('victimId')
+                        if victim_id:
+                            victim = participants[victim_id-1]
+                            victim_lane = victim.get('individualPosition', None)
+                            if my_lane and victim_lane and my_lane != victim_lane:
+                                roams += 1
+        return roams
+
+    # async def lane_pressure(self):
+    #     """
+    #     % de frames (1/m) où le joueur est sur sa lane naturelle entre 3 et 15 min.
+    #     """
+    #     if not self.data_timeline:
+    #         return 0
+    #     player_id = self.thisId + 1
+    #     my_lane = self.match_detail_participants.get('individualPosition', None)
+    #     lane_zones = {
+    #         'TOP': lambda x, y: x < 4000 and y > 9500,
+    #         'MID': lambda x, y: 5200 < x < 11800 and 5200 < y < 11800,
+    #         'BOTTOM': lambda x, y: x > 11000 and y < 3300,
+    #     }
+    #     total_frames = 0
+    #     on_lane_frames = 0
+    #     for i, frame in enumerate(self.data_timeline['info']['frames']):
+    #         time = frame['timestamp']
+    #         if 180000 < time < 900000 and str(player_id) in frame['participantFrames']:
+    #             pos = frame['participantFrames'][str(player_id)].get('position', None)
+    #             if pos and my_lane in lane_zones:
+    #                 total_frames += 1
+    #                 if lane_zones[my_lane](pos['x'], pos['y']):
+    #                     on_lane_frames += 1
+    #     if total_frames == 0:
+    #         return 0
+    #     return round(100 * on_lane_frames / total_frames, 1)
+
+    async def engage_or_die(self):
+        """
+        Nombre de fois où le joueur a flash-in puis meurt dans les 5 secondes suivantes (engage fatal).
+        """
+        if not self.data_timeline:
+            return 0
+        player_id = self.thisId + 1
+        engages = 0
+        flash_spell_slot = 4  # Flash slot (4 ou 5, selon le mapping Riot)
+
+        # On repère les flashes utilisés, puis check mort dans les 5 sec
+        for frame in self.data_timeline['info']['frames']:
+            for event in frame.get('events', []):
+                if event['type'] == 'SKILL_CAST' and event.get('participantId') == player_id and event.get('skillSlot', None) == flash_spell_slot:
+                    flash_time = event['timestamp']
+                    # Check mort dans les 5 sec
+                    for f in self.data_timeline['info']['frames']:
+                        for e in f.get('events', []):
+                            if e['type'] == 'CHAMPION_KILL' and e.get('victimId') == player_id and 0 < e['timestamp'] - flash_time <= 5000:
+                                engages += 1
+        return engages
+
+    # async def flash_save(self):
+    #     """
+    #     Nombre de fois où le joueur flash puis a moins de 10% HP au tick suivant sans mourir dans les 10 sec.
+    #     """
+    #     if not self.data_timeline:
+    #         return 0
+    #     player_id = self.thisId + 1
+    #     saves = 0
+    #     flash_spell_slot = 4  # à adapter selon l'API
+    #     max_hp = self.match_detail_participants.get('stats', {}).get('championMaxHealth', 2000)
+
+    #     for i, frame in enumerate(self.data_timeline['info']['frames']):
+    #         for event in frame.get('events', []):
+    #             if event['type'] == 'SKILL_CAST' and event.get('participantId') == player_id and event.get('skillSlot', None) == flash_spell_slot:
+    #                 flash_time = event['timestamp']
+    #                 # On prend la frame suivante
+    #                 if i + 1 < len(self.data_timeline['info']['frames']):
+    #                     next_frame = self.data_timeline['info']['frames'][i+1]
+    #                     hp = next_frame['participantFrames'][str(player_id)].get('currentHealth', 1000)
+    #                     if hp < 0.1 * max_hp:
+    #                         # Check si mort dans les 10 sec
+    #                         died = False
+    #                         for f in self.data_timeline['info']['frames']:
+    #                             for e in f.get('events', []):
+    #                                 if e['type'] == 'CHAMPION_KILL' and e.get('victimId') == player_id and 0 < e['timestamp'] - flash_time < 10000:
+    #                                     died = True
+    #                         if not died:
+    #                             saves += 1
+    #     return saves
+
+    async def first_to_die(self):
+        """
+        True si le joueur est le premier à mourir dans la partie.
+        """
+        if not self.data_timeline:
+            return False
+        player_id = self.thisId + 1
+        deaths = []
+        for frame in self.data_timeline['info']['frames']:
+            for event in frame.get('events', []):
+                if event['type'] == 'CHAMPION_KILL':
+                    deaths.append((event['timestamp'], event['victimId']))
+        if not deaths:
+            return False
+        deaths.sort()
+        return deaths[0][1] == player_id
+
+    async def turning_point_minute(self):
+        """
+        Minute où l'équipe du joueur est passée devant au gold (ou plus grand comeback).
+        """
+        participants = self.match_detail['info']['participants']
+        team_id = self.teamId
+        gold_diff = []
+        for i, frame in enumerate(self.data_timeline['info']['frames']):
+            my_gold = sum([frame['participantFrames'][str(j+1)]['totalGold'] for j, p in enumerate(participants) if p['teamId'] == team_id])
+            opp_gold = sum([frame['participantFrames'][str(j+1)]['totalGold'] for j, p in enumerate(participants) if p['teamId'] != team_id])
+            gold_diff.append(my_gold - opp_gold)
+        for i in range(1, len(gold_diff)):
+            if gold_diff[i-1] < 0 and gold_diff[i] >= 0:
+                return i  # minute où lead gold devient positif
+        return None  # Jamais passé devant
+
+    async def worst_death(self):
+        """
+        Renvoie la mort du joueur qui a donné l'objectif le plus coûteux juste après (baron/tour).
+        """
+        if not self.data_timeline:
+            return None
+        player_id = self.thisId + 1
+        participants = self.match_detail['info']['participants']
+        deaths = []
+        for frame in self.data_timeline['info']['frames']:
+            for event in frame.get('events', []):
+                if event['type'] == 'CHAMPION_KILL' and event.get('victimId') == player_id:
+                    deaths.append(event['timestamp'])
+        worst_impact = 0
+        worst_death_time = None
+        for death in deaths:
+            impact = 0
+            # Check les 40 sec après la mort pour baron/tour
+            for frame in self.data_timeline['info']['frames']:
+                for event in frame.get('events', []):
+                    if death < event['timestamp'] < death + 40000:
+                        if event['type'] == 'ELITE_MONSTER_KILL' and event['monsterType'] == 'BARON_NASHOR':
+                            impact += 5
+                        if event['type'] == 'BUILDING_KILL' and event.get('buildingType') == 'TOWER_BUILDING':
+                            impact += 2
+            if impact > worst_impact:
+                worst_impact = impact
+                worst_death_time = death
+        if worst_death_time:
+            return worst_death_time // 60000, worst_impact
+        else:
+            return None
+
+
+
+
+    async def detect_2v2_skirmishes(self, window=0.2):
+        """
+        Détecte les skirmishes 2v2 dans le match à partir de self.df_events.
+        Retourne une liste de dicts avec infos sur chaque skirmish détecté.
+        """
+        df = self.df_events.copy()
+
+        df['timestamp'] = np.round(df['timestamp'] / 60000,2)
+            
+        # df['timestamp'] = df['timestamp'].apply(fix_temps)
+
+
+        # Filtre les kills seulement
+        df_kill = df[df['type'] == 'CHAMPION_KILL'].copy()
+        if df_kill.empty:
+            return []
+
+        # Mapping participantId -> teamId
+        participants = self.match_detail['info']['participants']
+        team_mapping = {p['participantId']: p['teamId'] for p in participants}
+
+        skirmishes = []
+        visited = set()
+
+        for idx, row in df_kill.iterrows():
+            t = row['timestamp']
+            # Fenêtre autour du kill
+            window_kills = df_kill[(df_kill['timestamp'] >= t - window) & (df_kill['timestamp'] <= t + window)]
+            kills_idx_tuple = tuple(sorted(window_kills.index))
+            if kills_idx_tuple in visited or len(window_kills) < 2:
+                continue
+            visited.add(kills_idx_tuple)
+
+            involved = set()
+            for _, kill in window_kills.iterrows():
+                involved.add(kill['killerId'])
+                involved.add(kill['victimId'])
+                # Ajoute les assists si présents
+                if 'assistingParticipantIds' in kill and isinstance(kill['assistingParticipantIds'], list):
+                    involved.update(kill['assistingParticipantIds'])
+            # Nettoie les non-joueurs
+            involved = {pid for pid in involved if pid in team_mapping}
+            # On veut 2 joueurs par équipe exactement
+            if len(involved) == 4:
+                teams = [team_mapping[pid] for pid in involved]
+                if teams.count(100) == 2 and teams.count(200) == 2:
+                    kills_100 = sum(team_mapping[kill['killerId']] == 100 for _, kill in window_kills.iterrows())
+                    kills_200 = sum(team_mapping[kill['killerId']] == 200 for _, kill in window_kills.iterrows())
+                    if kills_100 != kills_200:
+                        winner = 100 if kills_100 > kills_200 else 200
+                        skirmishes.append({
+                            "timestamp": int(t),
+                            "joueurs_100": [pid for pid in involved if team_mapping[pid] == 100],
+                            "joueurs_200": [pid for pid in involved if team_mapping[pid] == 200],
+                            "kills_100": kills_100,
+                            "kills_200": kills_200,
+                            "winner": winner
+                        })
+        return skirmishes
+
+
 
     async def add_couronnes(self, points):
         """Ajoute les couronnes dans la base de données"""
