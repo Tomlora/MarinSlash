@@ -7,7 +7,7 @@ import interactions
 from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, AutocompleteContext
 from interactions.ext.paginators import Paginator
 from fonctions.params import Version, saison
-from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples, emote_champ_discord
+from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples, emote_champ_discord, get_stat_null_rules
 from aiohttp import ClientSession
 import plotly.express as px
 import asyncio
@@ -139,39 +139,36 @@ emote_v2 = {
 
 
 
+
+
 async def load_data(ctx, view, saison, mode, time_mini):
-    
-    base_query = '''
-        SELECT DISTINCT matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
-            max_data_timeline."abilityHaste", max_data_timeline."abilityPower", max_data_timeline.armor,
-            max_data_timeline."attackDamage", max_data_timeline."currentGold", max_data_timeline."healthMax",
-            max_data_timeline."magicResist", max_data_timeline."movementSpeed",
-            "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-            "BUILDING_KILL_20", "BUILDING_KILL_30",
-            "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-            "DEATHS_10", "DEATHS_20", "DEATHS_30",
-            "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-            "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-            "TURRET_PLATE_DESTROYED_10",
-            "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-            "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
-            "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30",
-            "CS_20", "CS_30", "JGL_20", "JGL_30",
-            "TOTAL_DMG_10", "TOTAL_DMG_20", "TOTAL_DMG_30",
-            "TOTAL_DMG_TAKEN_10", "TOTAL_DMG_TAKEN_20", "TOTAL_DMG_TAKEN_30",
-            "TRADE_EFFICIENCE_10", "TRADE_EFFICIENCE_20", "TRADE_EFFICIENCE_30",
-            "l_ecart_cs", "l_ecart_gold", "l_ecart_gold_min_durant_game", "l_ecart_gold_max_durant_game",
-            "l_kda", "l_cs", "l_cs_max_avantage", "l_level_max_avantage",
-            "l_ecart_gold_team", "l_ecart_kills_team", "l_temps_avant_premiere_mort",
-            "l_ecart_kills", "l_ecart_deaths", "l_ecart_assists", "l_ecart_dmg",
-            "l_allie_feeder", "l_temps_vivant", "l_time", "l_solokills"
+    # Règles d’annulation dynamiques depuis records_exclusion
+    stat_null_rules = get_stat_null_rules()
+
+    # Colonnes à ne pas modifier explicitement (par exemple : stats avancées de timeline)
+    untouched_columns = [
+        'max_data_timeline."abilityHaste"', 'max_data_timeline."abilityPower"', 'max_data_timeline.armor',
+        'max_data_timeline."attackDamage"', 'max_data_timeline."currentGold"', 'max_data_timeline."healthMax"',
+        'max_data_timeline."magicResist"', 'max_data_timeline."movementSpeed"',
+        # Ajouter d'autres si nécessaire
+    ]
+
+    # Colonnes sélectionnées
+    all_columns = [
+        "matchs.*",
+        "tracker.riot_id", "tracker.riot_tagline", "tracker.discord"
+    ] + untouched_columns
+
+    # Construction de la requête SQL
+    base_query = f'''
+        SELECT DISTINCT {', '.join(all_columns)}
         FROM matchs
         INNER JOIN tracker ON tracker.id_compte = matchs.joueur
         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id AND matchs.match_id = max_data_timeline.match_id
         LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id AND matchs.match_id = data_timeline_palier.match_id
         LEFT JOIN records_loser ON matchs.joueur = records_loser.joueur AND matchs.match_id = records_loser.match_id
         WHERE mode = '{mode}'
-          AND time >= {time_mini}
+          AND time >= {time_mini[mode]}
           AND tracker.banned = false
           AND tracker.save_records = true
           AND matchs.records = true
@@ -180,16 +177,26 @@ async def load_data(ctx, view, saison, mode, time_mini):
     where_conditions = []
     if saison != 0:
         where_conditions.append(f"season = {saison}")
-
     if view == 'serveur':
         where_conditions.append(f"server_id = {int(ctx.guild_id)}")
-
-    full_query = base_query.format(mode=mode, time_mini=time_mini[mode])
     if where_conditions:
-        full_query += " AND " + " AND ".join(where_conditions)
+        base_query += " AND " + " AND ".join(where_conditions)
 
-    fichier = lire_bdd_perso(full_query, index_col='id').transpose()
+    # Chargement des données
+    fichier = lire_bdd_perso(base_query, index_col='id').transpose()
+
+    # Application des règles d'annulation dynamiques sur toutes les colonnes
+    if 'champion' in fichier.columns:
+        for col in fichier.columns:
+            if col == 'champion':
+                continue
+            if col in stat_null_rules:
+                champions = stat_null_rules[col]
+                fichier.loc[fichier['champion'].isin(champions), col] = None
+
     return fichier
+
+
 
 
 
@@ -1115,7 +1122,7 @@ class Recordslol(Extension):
                 top_row = fichier_filtre.nsmallest(1, stat_lower)
             elif stat_lower in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double',
                                 'first_triple', 'first_quadra', 'first_penta',
-                                'first_niveau_max', 'first_blood', 'first_tower_time']:
+                                'first_niveau_max', 'first_blood', 'first_tower_time', 'early_atakhan']:
                 fichier_filtre = fichier[fichier[stat_lower] != 999]
                 top_row = fichier_filtre.nsmallest(1, stat_lower)
             else:

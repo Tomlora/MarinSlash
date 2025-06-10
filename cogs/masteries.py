@@ -124,6 +124,8 @@ class Masteries(Extension):
         df['update'] = datetime.now(timezone)
 
         sauvegarde_bdd(df, 'data_masteries', 'replace')
+
+        await session.close()
         
         print('Masteries sauvegardés !')
 

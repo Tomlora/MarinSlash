@@ -23,85 +23,112 @@ class AnalyseLoLElo(Extension):
     async def analyse_vision(self,
                      ctx: SlashContext):
         
-        df = lire_bdd_perso('''SELECT matchs_autres.*, matchs_joueur.*, matchs.time, matchs.mode from matchs_autres
-                            INNER JOIN matchs_joueur on matchs_joueur.match_id = matchs_autres.match_id
-                            LEFT JOIN matchs on matchs_autres.match_id = matchs.match_id''', 
-                            index_col=None).T   
+
+        ### A verifier car changement de table 
         
-        await ctx.defer(ephemeral=False)     
-        
+        df = lire_bdd_perso('''
+            SELECT matchs_autres.*, 
+                match_participant.team, match_participant.position, 
+                match_participant.tierallie_avg, match_participant.tierennemy_avg, 
+                match_participant.divallie_avg, match_participant.divennemy_avg,
+                matchs.time, matchs.mode
+            FROM matchs_autres
+            INNER JOIN match_participant ON match_participant.match_id = matchs_autres.match_id
+            LEFT JOIN matchs ON matchs_autres.match_id = matchs.match_id
+        ''', index_col=None).T
 
-        df = df[(df['tierallie_avg'] != '') & (df['mode'] == 'RANKED')] # on supprime les parties sans rank et on veut only soloq
-        
-        # stats qu'on veut
-        
-        df['vision_avg'] = np.round(df[[f'vision{x}' for x in range(1,11)]].mean(axis=1),1)
-        df['pink_avg'] = np.round(df[[f'pink{x}' for x in range(1,11)]].mean(axis=1),1)
+        df.drop_duplicates(subset=['match_id', 'team'], inplace=True)
 
-        df['vision/min'] = df[[f'vision{x}' for x in range(1,11)]].sum(axis=1) / df['time']
-        df['pink/min'] = df[[f'pink{x}' for x in range(1,11)]].sum(axis=1) / df['time']
+        # Garde seulement les ranked avec un tier allié
+        df = df[(df['tierallie_avg'] != '') & (df['mode'] == 'RANKED')]
 
-        df['vision_sans_support'] = np.round(df[['vision1', 'vision2', 'vision3', 'vision4', 'vision6', 'vision7', 'vision8', 'vision9']].mean(axis=1),1)
-        df['vision_support'] = np.round(df[['vision5', 'vision10']].mean(axis=1),1)
+        def get_vision(row):
+            pos = int(row['position'])
+            if row['team'] == 'allie':
+                return float(row[f'vision{pos}'])
+            else:
+                return float(row[f'vision{pos + 5}'])
 
-        df['pink_sans_support'] = np.round(df[['pink1', 'pink2', 'pink3', 'pink4', 'pink6', 'pink7', 'pink8', 'pink9']].mean(axis=1),1)
-        df['pink_support'] = np.round(df[['pink5', 'pink10']].mean(axis=1),1)
+        def get_pink(row):
+            pos = int(row['position'])
+            if row['team'] == 'allie':
+                return float(row[f'pink{pos}'])
+            else:
+                return float(row[f'pink{pos + 5}'])
 
-        df['vision_sans_support/min'] = df[['vision1', 'vision2', 'vision3', 'vision4', 'vision6', 'vision7', 'vision8', 'vision9']].sum(axis=1) / df['time']
-        df['vision_support/min'] = df[['vision5', 'vision10']].sum(axis=1) / df['time']
+        df['vision'] = df.apply(get_vision, axis=1)
+        df['pink'] = df.apply(get_pink, axis=1)
+        df['time'] = df['time'].astype(float)
 
-        df['pink_sans_support/min'] = df[['pink1', 'pink2', 'pink3', 'pink4', 'pink6', 'pink7', 'pink8', 'pink9']].sum(axis=1) / df['time']
-        df['pink_support/min'] = df[['pink5', 'pink10']].sum(axis=1) / df['time']
+        # Vision/Pink par minute
+        df['vision/min'] = df['vision'] / df['time']
+        df['pink/min'] = df['pink'] / df['time']
 
-        ###############################
+        # Rôle support = position == '5'
+        df_support = df[df['position'] == '5']
+        df_no_support = df[df['position'] != '5']
 
-        df['vision/min'] = np.round(df['vision/min'].astype(float),1)
-        df['pink/min'] = np.round(df['pink/min'].astype(float),1)
+        grouped = df.groupby('tierallie_avg')
+        grouped_support = df_support.groupby('tierallie_avg')
+        grouped_no_support = df_no_support.groupby('tierallie_avg')
 
-        df['vision_sans_support/min'] = np.round(df['vision_sans_support/min'].astype(float),1)
-        df['vision_support/min'] = np.round(df['vision_support/min'].astype(float),1)
+        # Moyennes globales par tier
+        vision_avg = grouped['vision'].mean()
+        pink_avg = grouped['pink'].mean()
+        vision_min = grouped['vision/min'].mean()
+        pink_min = grouped['pink/min'].mean()
+        time_avg = grouped['time'].mean()
 
-        df['pink_sans_support/min'] = np.round(df['pink_sans_support/min'].astype(float),1)
-        df['pink_support/min'] = np.round(df['pink_support/min'].astype(float),1)
+        # Moyennes par rôle
+        vision_sans_support = grouped_no_support['vision'].mean()
+        vision_support = grouped_support['vision'].mean()
+        pink_sans_support = grouped_no_support['pink'].mean()
+        pink_support = grouped_support['pink'].mean()
 
-        df['time'] = np.round(df['time'].astype(float),2)
+        vision_sans_support_min = grouped_no_support['vision/min'].mean()
+        vision_support_min = grouped_support['vision/min'].mean()
+        pink_sans_support_min = grouped_no_support['pink/min'].mean()
+        pink_support_min = grouped_support['pink/min'].mean()
 
+        # Nombre de parties
+        nbgames = grouped['match_id'].nunique()
 
-        nbgames = df.groupby('tierallie_avg')['match_id'].count().iloc[:,1]
+        df_final = pd.DataFrame({
+            'V': vision_avg,
+            'P': pink_avg,
+            'V/m': vision_min,
+            'P/m': pink_min,
+            'V(Autre)': vision_sans_support,
+            'V(Sup)': vision_support,
+            'P(Autres)': pink_sans_support,
+            'P(Sup)': pink_support,
+            'V(Autre)/m': vision_sans_support_min,
+            'V(Sup)/m': vision_support_min,
+            'P(Autre)/m': pink_sans_support_min,
+            'P(Sup)/m': pink_support_min,
+            'T': time_avg,
+            'Parties': nbgames
+        })
 
-        df_mean = df.groupby('tierallie_avg')[['vision_avg', 'pink_avg',
-                                    'vision/min', 'pink/min', 
-                                    'vision_sans_support', 'vision_support',
-                                    'pink_sans_support', 'pink_support',
-                                    'vision_sans_support/min', 'vision_support/min',
-                                    'pink_sans_support/min', 'pink_support/min', 'time']].mean()
-        
-        df_mean['time'] = np.round(df_mean['time'].apply(fix_temps),2)
-        df_mean['time'] = np.round(df_mean['time'], 2)
-        df_mean['nbgames'] = nbgames.values
-        
-        columns = ['V', 'P', 'V/m', 'P/m', 'V(Autre)', 'V(Sup)', 'P(Autres)', 'P(Sup)', 'V(Autre)/m', 'V(Sup)/m', 'P(Autre)/m', 'P(Sup)/m', 'T', 'Parties']
+        # Optionnel : trier par ordre de tiers
+        ordre_tier = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER']
+        df_final = df_final.reindex(ordre_tier)
 
-        df_mean.columns = columns
+        df_final = df_final.round(2)
+        df_final.index.name = 'Tier'
 
-        df_mean[columns] = np.round(df_mean[columns], 2)
-        df_mean.index.name = 'Tier'
-        
-        df_mean = df_mean.reindex(['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'])
-        
-        dfi.export(df_mean, 'image.png',
-                   fontsize=9,
-                   max_cols=-1,
-                    max_rows=-1,
-                    table_conversion="matplotlib")
-
+        import dataframe_image as dfi
+        dfi.export(df_final, 'image.png',
+                fontsize=9,
+                max_cols=-1,
+                max_rows=-1,
+                table_conversion="matplotlib")
 
         content = '**V** : Score de Vision | **P** : Pink | **Autres** : Sans support | **m** : Minutes | **T** : Temps'
-        
-        await ctx.send(content=content,
-                       files=interactions.File('image.png'))
 
-        os.remove('image.png')    
+        await ctx.send(content=content, files=interactions.File('image.png'))
+        os.remove('image.png')
+
                 
 def setup(bot):
     AnalyseLoLElo(bot)

@@ -2924,14 +2924,14 @@ class matchlol():
         if not self.data_timeline:
             return 0
 
-        player_id = self.thisId + 1  # participantId (1-indexed)
+        
         cs_per_minute = []
         total_minions = 0
 
         # On parcourt chaque frame du timeline pour récupérer le farm cumulé
         for minute, frame in enumerate(self.data_timeline['info']['frames'][1:], 1):
-            cs = frame['participantFrames'][str(player_id)]['minionsKilled'] + \
-                frame['participantFrames'][str(player_id)].get('jungleMinionsKilled', 0)
+            cs = frame['participantFrames'][str(self.index_timeline)]['minionsKilled'] + \
+                frame['participantFrames'][str(self.index_timeline)].get('jungleMinionsKilled', 0)
             cs_per_minute.append(cs)
         
         max_window = 0
@@ -2949,39 +2949,39 @@ class matchlol():
     
 
 
-    async def clutch_deaths(self):
-        """
-        Compte le nombre de fois où le joueur meurt en dernier de son équipe (1vX).
-        Utilise la timeline.
-        """
-        if not self.data_timeline:
-            return 0
+    # async def clutch_deaths(self):
+    #     """
+    #     Compte le nombre de fois où le joueur meurt en dernier de son équipe (1vX).
+    #     Utilise la timeline.
+    #     """
+    #     if not self.data_timeline:
+    #         return 0
 
-        player_id = self.thisId + 1
-        team_id = self.teamId
-        participants = self.match_detail['info']['participants']
-        deaths = 0
+    #     player_id = self.thisId + 1
+    #     team_id = self.teamId
+    #     participants = self.match_detail['info']['participants']
+    #     deaths = 0
 
-        for frame in self.data_timeline['info']['frames']:
-            for event in frame.get('events', []):
-                if event['type'] == 'CHAMPION_KILL' and event.get('victimId') == player_id:
-                    # On regarde combien de mates sont vivants à cet instant
-                    time = event['timestamp']
-                    alive = []
-                    for p in range(1, 11):
-                        # Cherche la dernière mort du mate avant ce death
-                        last_death = max([e['timestamp'] for f in self.data_timeline['info']['frames']
-                                        for e in f.get('events', [])
-                                        if e['type'] == 'CHAMPION_KILL'
-                                        and e.get('victimId') == p
-                                        and e['timestamp'] < time], default=-1)
-                        # Vivant s'il n'est pas mort dans les 30 dernières sec
-                        if p != player_id and participants[p-1]['teamId'] == team_id:
-                            if time - last_death > 30000:
-                                alive.append(p)
-                    if not alive:  # personne n'est vivant à part toi
-                        deaths += 1
-        return deaths
+    #     for frame in self.data_timeline['info']['frames']:
+    #         for event in frame.get('events', []):
+    #             if event['type'] == 'CHAMPION_KILL' and event.get('victimId') == player_id:
+    #                 # On regarde combien de mates sont vivants à cet instant
+    #                 time = event['timestamp']
+    #                 alive = []
+    #                 for p in range(1, 11):
+    #                     # Cherche la dernière mort du mate avant ce death
+    #                     last_death = max([e['timestamp'] for f in self.data_timeline['info']['frames']
+    #                                     for e in f.get('events', [])
+    #                                     if e['type'] == 'CHAMPION_KILL'
+    #                                     and e.get('victimId') == p
+    #                                     and e['timestamp'] < time], default=-1)
+    #                     # Vivant s'il n'est pas mort dans les 30 dernières sec
+    #                     if p != player_id and participants[p-1]['teamId'] == team_id:
+    #                         if time - last_death > 30000:
+    #                             alive.append(p)
+    #                 if not alive:  # personne n'est vivant à part toi
+    #                     deaths += 1
+    #     return deaths
 
     async def reverse_sweep(self):
         """
@@ -3027,13 +3027,13 @@ class matchlol():
         if not self.data_timeline:
             return 0
 
-        player_id = self.thisId + 1
+        
         team_id = self.teamId
         total_deep_wards = 0
 
         for frame in self.data_timeline['info']['frames']:
             for event in frame.get('events', []):
-                if event['type'] in ['WARD_PLACED'] and event.get('creatorId') == player_id:
+                if event['type'] in ['WARD_PLACED'] and event.get('creatorId') == self.index_timeline:
                     x = event.get('position', {}).get('x', 0)
                     # Pour blue side, la moitié ennemie c'est x > 7500; pour red, x < 7500
                     if (team_id == 100 and x > 7500) or (team_id == 200 and x < 7500):
@@ -3082,7 +3082,7 @@ class matchlol():
         """
         if not self.data_timeline:
             return 0
-        player_id = self.thisId + 1
+        
         participants = self.match_detail['info']['participants']
         fights = []
         last_fight_time = 0
@@ -3119,7 +3119,7 @@ class matchlol():
             total_fights += 1
 
             # Participation directe : kill/assist
-            if player_id in involved:
+            if self.index_timeline in involved:
                 my_participation += 1
                 continue
 
@@ -3131,7 +3131,7 @@ class matchlol():
                     self.data_timeline['info']['frames'],
                     key=lambda f: abs(f['timestamp'] - fight_time)
                 )
-                pos = closest_frame['participantFrames'][str(player_id)].get('position', None)
+                pos = closest_frame['participantFrames'][str(self.index_timeline)].get('position', None)
                 if pos:
                     dx = pos['x'] - fight_pos[0]
                     dy = pos['y'] - fight_pos[1]
@@ -3154,7 +3154,7 @@ class matchlol():
         """
         if not self.data_timeline:
             return 0
-        player_id = self.thisId + 1
+        
         team_id = self.teamId
         participants = self.match_detail['info']['participants']
         kills_behind = 0
@@ -3169,7 +3169,7 @@ class matchlol():
         # Pour chaque kill du joueur, regarde la situation gold au moment du kill
         for frame in self.data_timeline['info']['frames']:
             for event in frame.get('events', []):
-                if event['type'] == 'CHAMPION_KILL' and event.get('killerId') == player_id:
+                if event['type'] == 'CHAMPION_KILL' and event.get('killerId') == self.index_timeline:
                     # Cherche la frame la plus proche avant ce kill
                     times = [abs(event['timestamp']-g[2]) for g in team_gold_frames]
                     idx = times.index(min(times))
@@ -3184,14 +3184,14 @@ class matchlol():
     #     """
     #     if not self.data_timeline:
     #         return 0
-    #     player_id = self.thisId + 1
+
     #     participants = self.match_detail['info']['participants']
     #     team_id = self.teamId
     #     objectives = 0
 
     #     for frame in self.data_timeline['info']['frames']:
     #         for event in frame.get('events', []):
-    #             if event['type'] == 'ELITE_MONSTER_KILL' and event.get('killerId') == player_id and event['monsterType'] in ['BARON_NASHOR', 'DRAGON', 'RIFTHERALD']:
+    #             if event['type'] == 'ELITE_MONSTER_KILL' and event.get('killerId') == self.index_timeline and event['monsterType'] in ['BARON_NASHOR', 'DRAGON', 'RIFTHERALD']:
     #                 # Présence ennemie : au moins 1 adversaire vivant à ce moment
     #                 time = event['timestamp']
     #                 opp_alive = False
@@ -3214,7 +3214,7 @@ class matchlol():
         """
         if not self.data_timeline:
             return 0
-        player_id = self.thisId + 1
+        
         participants = self.match_detail['info']['participants']
         my_lane = self.match_detail_participants.get('individualPosition', None)
         roams = 0
@@ -3225,7 +3225,7 @@ class matchlol():
                     continue
                 if event['type'] == 'CHAMPION_KILL':
                     # Est-ce un kill/assist du joueur sur une autre lane ?
-                    if (event.get('killerId') == player_id or (player_id in event.get('assistingParticipantIds', []))):
+                    if (event.get('killerId') == self.index_timeline or (self.index_timeline in event.get('assistingParticipantIds', []))):
                         victim_id = event.get('victimId')
                         if victim_id:
                             victim = participants[victim_id-1]
@@ -3234,54 +3234,54 @@ class matchlol():
                                 roams += 1
         return roams
 
-    # async def lane_pressure(self):
-    #     """
-    #     % de frames (1/m) où le joueur est sur sa lane naturelle entre 3 et 15 min.
-    #     """
-    #     if not self.data_timeline:
-    #         return 0
-    #     player_id = self.thisId + 1
-    #     my_lane = self.match_detail_participants.get('individualPosition', None)
-    #     lane_zones = {
-    #         'TOP': lambda x, y: x < 4000 and y > 9500,
-    #         'MID': lambda x, y: 5200 < x < 11800 and 5200 < y < 11800,
-    #         'BOTTOM': lambda x, y: x > 11000 and y < 3300,
-    #     }
-    #     total_frames = 0
-    #     on_lane_frames = 0
-    #     for i, frame in enumerate(self.data_timeline['info']['frames']):
-    #         time = frame['timestamp']
-    #         if 180000 < time < 900000 and str(player_id) in frame['participantFrames']:
-    #             pos = frame['participantFrames'][str(player_id)].get('position', None)
-    #             if pos and my_lane in lane_zones:
-    #                 total_frames += 1
-    #                 if lane_zones[my_lane](pos['x'], pos['y']):
-    #                     on_lane_frames += 1
-    #     if total_frames == 0:
-    #         return 0
-    #     return round(100 * on_lane_frames / total_frames, 1)
-
-    async def engage_or_die(self):
+    async def lane_pressure(self):
         """
-        Nombre de fois où le joueur a flash-in puis meurt dans les 5 secondes suivantes (engage fatal).
+        % de frames (1/m) où le joueur est sur sa lane naturelle entre 3 et 15 min.
         """
         if not self.data_timeline:
             return 0
-        player_id = self.thisId + 1
-        engages = 0
-        flash_spell_slot = 4  # Flash slot (4 ou 5, selon le mapping Riot)
+        
+        my_lane = self.match_detail_participants.get('individualPosition', None)
+        lane_zones = {
+            'TOP': lambda x, y: x < 4000 and y > 9500,
+            'MID': lambda x, y: 5200 < x < 11800 and 5200 < y < 11800,
+            'BOTTOM': lambda x, y: x > 11000 and y < 3300,
+        }
+        total_frames = 0
+        on_lane_frames = 0
+        for i, frame in enumerate(self.data_timeline['info']['frames']):
+            time = frame['timestamp']
+            if 180000 < time < 900000 and str(self.index_timeline) in frame['participantFrames']:
+                pos = frame['participantFrames'][str(self.index_timeline)].get('position', None)
+                if pos and my_lane in lane_zones:
+                    total_frames += 1
+                    if lane_zones[my_lane](pos['x'], pos['y']):
+                        on_lane_frames += 1
+        if total_frames == 0:
+            return 0
+        return round(100 * on_lane_frames / total_frames, 1)
 
-        # On repère les flashes utilisés, puis check mort dans les 5 sec
-        for frame in self.data_timeline['info']['frames']:
-            for event in frame.get('events', []):
-                if event['type'] == 'SKILL_CAST' and event.get('participantId') == player_id and event.get('skillSlot', None) == flash_spell_slot:
-                    flash_time = event['timestamp']
-                    # Check mort dans les 5 sec
-                    for f in self.data_timeline['info']['frames']:
-                        for e in f.get('events', []):
-                            if e['type'] == 'CHAMPION_KILL' and e.get('victimId') == player_id and 0 < e['timestamp'] - flash_time <= 5000:
-                                engages += 1
-        return engages
+    # async def engage_or_die(self):
+    #     """
+    #     Nombre de fois où le joueur a flash-in puis meurt dans les 5 secondes suivantes (engage fatal).
+    #     """
+    #     if not self.data_timeline:
+    #         return 0
+        
+    #     engages = 0
+    #     flash_spell_slot = 4  # Flash slot (4 ou 5, selon le mapping Riot)
+
+    #     # On repère les flashes utilisés, puis check mort dans les 5 sec
+    #     for frame in self.data_timeline['info']['frames']:
+    #         for event in frame.get('events', []):
+    #             if event['type'] == 'SKILL_CAST' and event.get('participantId') == self.index_timeline and event.get('skillSlot', None) == flash_spell_slot:
+    #                 flash_time = event['timestamp']
+    #                 # Check mort dans les 5 sec
+    #                 for f in self.data_timeline['info']['frames']:
+    #                     for e in f.get('events', []):
+    #                         if e['type'] == 'CHAMPION_KILL' and e.get('victimId') == self.index_timeline and 0 < e['timestamp'] - flash_time <= 5000:
+    #                             engages += 1
+    #     return engages
 
     # async def flash_save(self):
     #     """
@@ -3319,7 +3319,7 @@ class matchlol():
         """
         if not self.data_timeline:
             return False
-        player_id = self.thisId + 1
+
         deaths = []
         for frame in self.data_timeline['info']['frames']:
             for event in frame.get('events', []):
@@ -3328,7 +3328,7 @@ class matchlol():
         if not deaths:
             return False
         deaths.sort()
-        return deaths[0][1] == player_id
+        return deaths[0][1] == self.index_timeline
 
     async def turning_point_minute(self):
         """
@@ -3352,12 +3352,12 @@ class matchlol():
         """
         if not self.data_timeline:
             return None
-        player_id = self.thisId + 1
+
         participants = self.match_detail['info']['participants']
         deaths = []
         for frame in self.data_timeline['info']['frames']:
             for event in frame.get('events', []):
-                if event['type'] == 'CHAMPION_KILL' and event.get('victimId') == player_id:
+                if event['type'] == 'CHAMPION_KILL' and event.get('victimId') == self.index_timeline:
                     deaths.append(event['timestamp'])
         worst_impact = 0
         worst_death_time = None
@@ -3430,26 +3430,91 @@ class matchlol():
                 if teams.count(100) == 2 and teams.count(200) == 2:
                     kills_100 = sum(team_mapping[kill['killerId']] == 100 for _, kill in window_kills.iterrows())
                     kills_200 = sum(team_mapping[kill['killerId']] == 200 for _, kill in window_kills.iterrows())
-                    if kills_100 != kills_200:
-                        winner = 100 if kills_100 > kills_200 else 200
+                    if kills_100 > 0 or kills_200 > 0:
+                        winner = None
+                        if kills_100 > kills_200:
+                            winner = 100
+                        elif kills_200 > kills_100:
+                            winner = 200
                         skirmishes.append({
                             "timestamp": int(t),
-                            "joueurs_100": [pid for pid in involved if team_mapping[pid] == 100],
-                            "joueurs_200": [pid for pid in involved if team_mapping[pid] == 200],
+                            "joueurs_100": [self.thisChampNameListe[int(pid - 1)] for pid in involved if team_mapping[pid] == 100],
+                            "joueurs_200": [self.thisChampNameListe[int(pid - 1)] for pid in involved if team_mapping[pid] == 200],
                             "kills_100": kills_100,
                             "kills_200": kills_200,
                             "winner": winner
                         })
+
+
+        return skirmishes
+
+
+    async def detect_2v3_skirmishes(self, window=0.2):
+        """
+        Détecte les skirmishes 2v3 dans le match à partir de self.df_events.
+        Retourne une liste de dicts avec infos sur chaque skirmish détecté.
+        """
+        df = self.df_events.copy()
+        df['timestamp'] = np.round(df['timestamp'] / 60000, 2)
+
+        # Filtre les kills seulement
+        df_kill = df[df['type'] == 'CHAMPION_KILL'].copy()
+        if df_kill.empty:
+            return []
+
+        # Mapping participantId -> teamId
+        participants = self.match_detail['info']['participants']
+        team_mapping = {p['participantId']: p['teamId'] for p in participants}
+
+        skirmishes = []
+        visited = set()
+
+        for idx, row in df_kill.iterrows():
+            t = row['timestamp']
+            # Fenêtre autour du kill
+            window_kills = df_kill[(df_kill['timestamp'] >= t - window) & (df_kill['timestamp'] <= t + window)]
+            kills_idx_tuple = tuple(sorted(window_kills.index))
+            if kills_idx_tuple in visited or len(window_kills) < 2:
+                continue
+            visited.add(kills_idx_tuple)
+
+            involved = set()
+            for _, kill in window_kills.iterrows():
+                involved.add(kill['killerId'])
+                involved.add(kill['victimId'])
+                # Ajoute les assists si présents
+                if 'assistingParticipantIds' in kill and isinstance(kill['assistingParticipantIds'], list):
+                    involved.update(kill['assistingParticipantIds'])
+            # Nettoie les non-joueurs
+            involved = {pid for pid in involved if pid in team_mapping}
+            
+            # On veut 2 joueurs d'une team et 3 joueurs de l'autre team
+            team_100 = [pid for pid in involved if team_mapping[pid] == 100]
+            team_200 = [pid for pid in involved if team_mapping[pid] == 200]
+            sizes = (len(team_100), len(team_200))
+            
+            if sorted(sizes) == [2, 3]:  # 2 d'une équipe et 3 de l'autre
+                kills_100 = sum(team_mapping[kill['killerId']] == 100 for _, kill in window_kills.iterrows())
+                kills_200 = sum(team_mapping[kill['killerId']] == 200 for _, kill in window_kills.iterrows())
+                if kills_100 > 0 or kills_200 > 0:
+                    winner = None
+                    if kills_100 > kills_200:
+                        winner = 100
+                    elif kills_200 > kills_100:
+                        winner = 200
+                    skirmishes.append({
+                        "timestamp": int(t),
+                        "joueurs_100": [self.thisChampNameListe[int(pid - 1)] for pid in team_100],
+                        "joueurs_200": [self.thisChampNameListe[int(pid - 1)] for pid in team_200],
+                        "kills_100": kills_100,
+                        "kills_200": kills_200,
+                        "winner": winner
+                    })
         return skirmishes
 
 
 
-    async def add_couronnes(self, points):
-        """Ajoute les couronnes dans la base de données"""
-
-        requete_perso_bdd('''UPDATE matchs SET couronne = :points WHERE match_id = :match_id AND joueur = :joueur''', {'points': points,
-                                                                                                                       'match_id': self.last_match,
-                                                                                                                       'joueur': self.id_compte})
+      
 
     def calcul_scoring(self, i):
             """Calcule la performance d'un joueur
@@ -3901,6 +3966,78 @@ class matchlol():
 
 
 
+    async def traitement_objectif(self):
+        # 1. Récupérer les objectifs "en attente" (match_id IS NULL) pour ce joueur
+        objectifs_en_attente = lire_bdd_perso(f'''
+            SELECT * FROM objectifs_lol_suivi
+            WHERE id_compte = {self.id_compte}
+            AND match_id IS NULL
+        ''', index_col=None).transpose()
+
+        for _, obj in objectifs_en_attente.iterrows():
+            objectif_id = obj['objectif_id']
+            valeur_attendue = obj['valeur_attendue']
+
+            # 2. Check s'il existe déjà pour cette partie
+            check = lire_bdd_perso(f'''
+                SELECT 1 FROM objectifs_lol_suivi
+                WHERE id_compte = {self.id_compte}
+                AND match_id = '{self.last_match}'
+                AND objectif_id = {objectif_id}
+                LIMIT 1
+            ''', index_col=None)
+            if not check.empty:
+                continue  # On passe, déjà inséré
+
+            # 2. Sélectionne la stat réelle selon le type d’objectif
+            if objectif_id == 1:  # CS/min
+                valeur_obtenue = self.thisMinionPerMin
+                atteint = valeur_obtenue >= valeur_attendue
+            elif objectif_id == 2:  # KP%
+                valeur_obtenue = self.thisKP
+                atteint = valeur_obtenue >= valeur_attendue
+            elif objectif_id == 3:  # KDA
+                valeur_obtenue = self.thisKDA
+                atteint = valeur_obtenue >= valeur_attendue
+            else:
+                valeur_obtenue = 0
+                atteint = False
+
+            # 3. Insère le résultat dans la BDD (pour cette partie)
+            requete_perso_bdd("""
+                INSERT INTO objectifs_lol_suivi
+                (id_compte, match_id, objectif_id, valeur_attendue, valeur_obtenue, atteint, date_partie)
+                VALUES
+                (:id_compte, :match_id, :objectif_id, :valeur_attendue, :valeur_obtenue, :atteint, NOW())
+            """, {
+                'id_compte': self.id_compte,
+                'match_id': self.last_match,
+                'objectif_id': objectif_id,
+                'valeur_attendue': valeur_attendue,
+                'valeur_obtenue': valeur_obtenue,
+                'atteint': atteint,
+            })
+
+    async def show_objectifs(self):
+        objectifs = lire_bdd_perso(f'''
+            SELECT suiv.*, types.nom, types.description
+            FROM objectifs_lol_suivi suiv
+            JOIN objectifs_lol_types types ON suiv.objectif_id = types.id
+            WHERE suiv.id_compte = {self.id_compte}
+            AND suiv.match_id = '{self.last_match}'
+        ''', index_col=None).transpose()
+
+        if not objectifs.empty:
+            txt = ''
+            description = "🎯 Objectifs personnels :\n"
+            for _, data in objectifs.iterrows():
+                etat = "✅" if data['atteint'] else "❌"
+                txt += f"- {etat} {data['description']} ({data['valeur_attendue']}): {round(data['valeur_obtenue'],2)}\n"
+            
+            return description, txt
+        else:
+            return None, None
+    
 
 
     async def resume_general(self,

@@ -7,7 +7,7 @@ import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, listen, slash_command, Task, IntervalTrigger, TimeTrigger
 from fonctions.params import Version, saison
 from fonctions.channels_discord import identifier_role_by_name
-from fonctions.match import trouver_records, get_version, emote_champ_discord, get_id_account_bdd
+from fonctions.match import trouver_records, get_version, emote_champ_discord, get_id_account_bdd, get_stat_null_rules
 from fonctions.match import emote_rank_discord, emote_champ_discord, fix_temps, get_list_matchs_with_puuid
 from fonctions.api_calls import getRankings
 from cogs.recordslol import emote_v2
@@ -295,17 +295,25 @@ class LeagueofLegends(Extension):
             pass
 
 
+
+
         def get_match_data(filters: str) -> pd.DataFrame:
+            stat_null_rules = get_stat_null_rules()
+
+            # Colonnes max_data_timeline à récupérer
+            dynamic_stats = [
+                "abilityHaste", "abilityPower", "armor", "attackDamage", 
+                "currentGold", "healthMax", "magicResist", "movementSpeed"
+            ]
+
+            # Colonnes à récupérer
+            columns = [
+                "matchs.*", "tracker.riot_id", "tracker.riot_tagline", "tracker.discord"
+            ] + [f'max_data_timeline."{stat}"' for stat in dynamic_stats]
+
+            # Construction de la requête SQL finale (plus de CASE WHEN)
             base_query = f'''
-                SELECT DISTINCT matchs.*, tracker.riot_id, tracker.riot_tagline, tracker.discord,
-                    max_data_timeline."abilityHaste" AS "abilityHaste",
-                    max_data_timeline."abilityPower" AS "abilityPower",
-                    max_data_timeline.armor AS armor,
-                    max_data_timeline."attackDamage" AS "attackDamage",
-                    max_data_timeline."currentGold" AS "currentGold",
-                    max_data_timeline."healthMax" AS "healthMax",
-                    max_data_timeline."magicResist" AS "magicResist",
-                    max_data_timeline."movementSpeed" AS "movementSpeed"
+                SELECT DISTINCT {", ".join(columns)}
                 FROM matchs
                 INNER JOIN tracker ON tracker.id_compte = matchs.joueur
                 LEFT JOIN max_data_timeline 
@@ -317,7 +325,22 @@ class LeagueofLegends(Extension):
                 AND matchs.records = TRUE
                 {filters}
             '''
-            return lire_bdd_perso(base_query, index_col='id').transpose()
+
+            # Chargement des données
+            df = lire_bdd_perso(base_query, index_col='id').transpose()
+
+            # Application des règles d'annulation dynamiques
+            if 'champion' in df.columns:
+                for col in df.columns:
+                    if col == 'champion':
+                        continue
+                    if col in stat_null_rules:
+                        champions = stat_null_rules[col]
+                        df.loc[df['champion'].isin(champions), col] = None
+
+            return df
+
+
 
         # Utilisations spécifiques
         fichier = get_match_data(f"AND season = {match_info.season}")
@@ -528,48 +551,6 @@ class LeagueofLegends(Extension):
                     exploits += '#'
                 return exploits, chunk
 
-            # for parameter, value in param_records.items():
-            #     # on ajoute les conditions
-
-            #     exploits, chunk = check_chunk(exploits, chunk, chunk_size)
-
-            #     if parameter == 'kda':
-            #         # on ne peut pas comparer à un perfect kda
-            #         if int(match_info.thisDeaths) >= 1:
-            #             exploits += records_check2(fichier, fichier_joueur,
-            #                                        fichier_champion, fichier_all, fichier_champion_all, 'kda', match_info.thisKDA)
-            #         else:
-            #             exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all,  'kda', float(
-            #                 round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1), 2)))
-            #     else:
-            #         exploits += records_check2(fichier, fichier_joueur,
-            #                                    fichier_champion, fichier_all,  fichier_champion_all, parameter, value)
-
-            # if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:  # seulement en ranked
-            #     for parameter, value in param_records_only_ranked.items():
-
-            #         exploits, chunk = check_chunk(exploits, chunk, chunk_size)
-
-            #         methode = 'max'
-
-            #         # si ce sont ces deux records, on veut le plus petit résultat
-            #         if parameter in ['early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time']:
-            #             methode = 'min'
-
-            #         # on ne veut pas les records par champion sur ces stats.
-            #         if parameter in ['baron', 'drake', 'herald', 'tower', 'inhib']:
-            #             exploits += records_check2(fichier, fichier_joueur, None, fichier_all, None, parameter, value, methode)
-            #         else:
-            #             exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
-
-            # if match_info.thisQ in ['ARAM', 'CLASH ARAM']:  # seulement en aram
-            #     for parameter, value in param_records_only_aram.items():
-
-            #         exploits, chunk = check_chunk(exploits, chunk, chunk_size)
-
-            #         methode = 'max'
-
-            #         exploits += records_check2(fichier, fichier_joueur, fichier_champion, fichier_all,  fichier_champion_all, parameter, value, methode)
 
             for parameter, value in param_records.items():
                 exploits, chunk = check_chunk(exploits, chunk, chunk_size)
@@ -668,26 +649,6 @@ class LeagueofLegends(Extension):
                     title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une {match_info.thisQ} game ({match_info.thisPosition})", color=color)
 
 
-                if sauvegarder:
-                # Série de victoire
-                    if match_info.thisWinStreak == "True" and match_info.thisQ == "RANKED" and match_info.thisTime >= 15:
-                        # si égal à 0, le joueur commence une série avec 3 wins
-                        if suivi[id_compte]["serie"] == 0:
-                            suivi[id_compte]["serie"] = 3
-                        else:  # si pas égal à 0, la série a déjà commencé
-                            suivi[id_compte]["serie"] = suivi[id_compte]["serie"] + 1
-
-                        serie_victoire = round(
-                            suivi[id_compte]["serie"], 0)
-
-                        exploits = exploits + \
-                                f"\n ** :fire: Série de victoire avec {serie_victoire} victoires**"
-
-                    elif match_info.thisWinStreak == "False" and match_info.thisQ == "RANKED":  # si pas de série en soloq
-                        suivi[id_compte]["serie"] = 0
-                        serie_victoire = 0
-                    else:
-                        serie_victoire = 0
 
         sauvegarde_bdd(suivi, f'suivi_s{saison}')  # achievements + suivi       
 
@@ -789,6 +750,12 @@ class LeagueofLegends(Extension):
 
         if match_info.thisQ in ['RANKED', 'FLEX']:
 
+            await match_info.traitement_objectif()
+            name, txt = await match_info.show_objectifs() 
+
+            if name != None:
+                embed.add_field(name=name, value=txt)
+
             # Detection joueurs pro 
             await match_info.detection_joueurs_pro()    
                         
@@ -856,7 +823,9 @@ class LeagueofLegends(Extension):
             #     if text_jgl != '':
             #         embed.add_field(name=':evergreen_tree: Activité Jungle', value=text_jgl)
             # Insights
-            
+
+
+
         if match_info.observations != '':
                 embed.add_field(name='Insights', value=match_info.observations)
             
@@ -1744,7 +1713,8 @@ class LeagueofLegends(Extension):
         if mode is None:
             df = (
                 lire_bdd_perso(
-                    f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team, prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime from matchs
+                    f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team, prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
+                      from matchs
                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
 						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
                                    where datetime >= :date
@@ -1758,7 +1728,8 @@ class LeagueofLegends(Extension):
                 ).transpose()
                 if observation != 'today'
                 else lire_bdd_perso(
-                    f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team,  prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime from matchs
+                    f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team,  prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
+                      from matchs
                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
 						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
                                 where EXTRACT(DAY FROM datetime) = :jour
@@ -1775,7 +1746,8 @@ class LeagueofLegends(Extension):
                 ).transpose()
             )
         elif observation != 'today':
-            df = lire_bdd_perso(f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team,  prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime from matchs
+            df = lire_bdd_perso(f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team,  prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
+                                 from matchs
                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
 						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
                                    where datetime >= :date
@@ -1788,7 +1760,8 @@ class LeagueofLegends(Extension):
 
         else:
 
-            df = lire_bdd_perso(f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team, prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime from matchs
+            df = lire_bdd_perso(f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team, prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
+                                 from matchs
                         INNER JOIN tracker on tracker.id_compte = matchs.joueur
 						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
                                 where EXTRACT(DAY FROM datetime) = :jour
