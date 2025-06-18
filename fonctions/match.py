@@ -2090,6 +2090,7 @@ class matchlol():
                 self.dict_serie[self.thisRiotIdListe[i].lower()]['points'] = (self.carry_points + self.team_points) / 2
 
             except:
+                self.df_data_match = pd.DataFrame([])
                 self.carry_points = -1
                 self.team_points = -1
                 self.dict_serie[self.thisRiotIdListe[i].lower()]['carry_points'] = int(self.carry_points)
@@ -2097,6 +2098,144 @@ class matchlol():
                 self.dict_serie[self.thisRiotIdListe[i].lower()]['points'] = (self.carry_points + self.team_points) / 2
 
 
+
+    async def prepare_data_riot(self):
+        self.liste_rank = []
+        self.liste_tier = []
+        self.winrate_joueur = {}
+        self.winrate_champ_joueur = {}
+        self.role_pref = {}
+        self.all_role = {}
+        self.role_count = {}
+        self.dict_serie = {}
+
+        for i in range(self.nb_joueur):
+            puuid = self.liste_puuid[i]
+            riot_id = self.thisRiotIdListe[i]
+            riot_tag = self.thisRiotTagListe[i]
+
+            # 1. Récup rank solo
+            try:
+                data_rank = await get_data_rank(self.session, self.liste_account_id[i])
+                soloq = next((e for e in data_rank if e['queueType'] == 'RANKED_SOLO_5x5'), None)
+                if soloq:
+                    rank = soloq['tier']
+                    tier = soloq['rank']
+                    wins = soloq['wins']
+                    losses = soloq['losses']
+                    nbgames = wins + losses
+                    wr = round(wins / nbgames * 100) if nbgames > 0 else 0
+                else:
+                    rank = ''
+                    tier = ''
+                    nbgames = 0
+                    wr = 0
+            except:
+                rank = ''
+                tier = ''
+                nbgames = 0
+                wr = 0
+
+            self.liste_rank.append(rank)
+            self.liste_tier.append(tier)
+            self.winrate_joueur[f'{riot_id.lower()}#{riot_tag.upper()}'] = {'winrate': wr, 'nbgames': nbgames}
+
+            # --- FACTORISATION ici ---
+            try:
+                # Appel unique pour 50 ranked solo Q
+                match_ids = await get_list_matchs_with_puuid(
+                    self.session, puuid, {'queue': 420, 'count': 50, 'api_key': api_key_lol}
+                )
+            except Exception as e:
+                match_ids = []
+
+            champ_stats = {}
+            roles_counter = {}
+            streak_result = None
+            streak_count = 0
+
+            for idx, match_id in enumerate(match_ids):
+                try:
+                    match = await get_match_detail(self.session, match_id, {'api_key': api_key_lol})
+                    participant = next((p for p in match['info']['participants'] if p['puuid'] == puuid), None)
+                    if not participant:
+                        continue
+
+                    # --- Stats par champion joué
+                    champ_id = participant['championId']
+                    if champ_id not in champ_stats:
+                        champ_stats[champ_id] = {'kills': 0, 'deaths': 0, 'assists': 0, 'matches': 0, 'wins': 0}
+                    champ_stats[champ_id]['kills'] += participant['kills']
+                    champ_stats[champ_id]['deaths'] += participant['deaths']
+                    champ_stats[champ_id]['assists'] += participant['assists']
+                    champ_stats[champ_id]['matches'] += 1
+                    if participant['win']:
+                        champ_stats[champ_id]['wins'] += 1
+
+                    # --- Stat rôle joué
+                    role = participant.get('teamPosition', participant.get('role', 'UNKNOWN'))
+                    roles_counter[role] = roles_counter.get(role, 0) + 1
+
+                    # --- Série (streak) victoire/défaite sur les 10 premiers matchs
+                    if idx < 10:
+                        if streak_result is None:
+                            streak_result = participant['win']
+                            streak_count = 1
+                        elif participant['win'] == streak_result:
+                            streak_count += 1
+                        else:
+                            # On arrête dès que la série se casse
+                            pass
+                except Exception as e:
+                    continue
+
+            # --- Champion principal joué sur ce match
+            champ_id_main = self.thisChampListe[i]
+            stats = champ_stats.get(champ_id_main, None)
+            if stats:
+                deaths = stats['deaths'] if stats['deaths'] != 0 else 1
+                kda = round((stats['kills'] + stats['assists']) / deaths, 2)
+                poids_games = int(stats['matches'] / max(sum(v['matches'] for v in champ_stats.values()), 1) * 100)
+                dict_data_stat = {
+                    'kills': stats['kills'],
+                    'deaths': stats['deaths'],
+                    'assists': stats['assists'],
+                    'winrate': int(stats['wins'] / stats['matches'] * 100) if stats['matches'] > 0 else 0,
+                    'poids_games': poids_games,
+                    'kda': kda,
+                    'matches': stats['matches']
+                }
+            else:
+                dict_data_stat = ''
+            self.winrate_champ_joueur[f'{riot_id.lower()}#{riot_tag.upper()}'] = dict_data_stat
+
+            # --- Stats de rôles principaux
+            total_games = sum(roles_counter.values())
+            if total_games > 0:
+                df_pref_role = pd.DataFrame.from_dict(roles_counter, orient='index', columns=['gameCount'])
+                df_pref_role['poids'] = (df_pref_role['gameCount'] / total_games * 100).astype(int)
+                df_pref_role.sort_values('poids', ascending=False, inplace=True)
+                main_role = df_pref_role.index[0]
+                poids_role = df_pref_role.iloc[0]['poids']
+                self.role_pref[riot_id.lower()] = {'main_role': main_role, 'poids_role': poids_role}
+                self.all_role[riot_id.lower()] = df_pref_role.to_dict('index')
+                self.role_count[riot_id.lower()] = total_games
+            else:
+                self.role_pref[riot_id.lower()] = {}
+                self.all_role[riot_id.lower()] = {}
+                self.role_count[riot_id.lower()] = 0
+
+            # --- Streak win/lose
+            if streak_result is not None:
+                mot = "Victoire" if streak_result else "Defaite"
+                self.dict_serie[riot_id.lower()] = {'mot': mot, 'count': streak_count}
+            else:
+                self.dict_serie[riot_id.lower()] = {'mot': '', 'count': 0}
+
+            # --- Carry/team points (toujours -1 car non dispo)
+            self.dict_serie[riot_id.lower()]['carry_points'] = -1
+            self.dict_serie[riot_id.lower()]['team_points'] = -1
+            self.dict_serie[riot_id.lower()]['points'] = -1
 
 
 
@@ -2814,6 +2953,8 @@ class matchlol():
         self.df_10min.loc[len(self.df_10min)] = ['TRADE_EFFICIENCE_10', self.id_compte, self.last_match, self.trade_efficience_10]
 
 
+
+
         self.df_20min.loc[len(self.df_20min)] = ['TOTAL_CS_20', self.id_compte, self.last_match, self.total_cs_20]
         self.df_20min.loc[len(self.df_20min)] = ['TOTAL_GOLD_20', self.id_compte, self.last_match, self.total_gold_20]
         self.df_20min.loc[len(self.df_20min)] = ['CS_20', self.id_compte, self.last_match, self.minions_20]
@@ -2833,10 +2974,43 @@ class matchlol():
 
         self.df_time = pd.concat([self.df_10min, self.df_20min, self.df_30min])
 
+
         self.df_time_pivot = self.df_time.pivot_table(index=['riot_id', 'match_id'],
                                                       columns='type', values='value',
                                                       aggfunc='sum').reset_index()
         
+        def safe_get_first(df, column):
+            return int(df[column][0]) if column in df and not df[column].empty else 0
+
+        self.assists_10 = safe_get_first(self.df_time_pivot, 'ASSISTS_10')
+        self.assists_20 = safe_get_first(self.df_time_pivot, 'ASSISTS_20')
+        self.assists_30 = safe_get_first(self.df_time_pivot, 'ASSISTS_30')
+    
+        self.deaths_10 = safe_get_first(self.df_time_pivot, 'DEATHS_10')
+        self.deaths_20 = safe_get_first(self.df_time_pivot, 'DEATHS_20')
+        self.deaths_30 = safe_get_first(self.df_time_pivot, 'DEATHS_30')
+
+        self.champion_kill_10 = safe_get_first(self.df_time_pivot, 'CHAMPION_KILL_10')
+        self.champion_kill_20 = safe_get_first(self.df_time_pivot, 'CHAMPION_KILL_20')
+        self.champion_kill_30 = safe_get_first(self.df_time_pivot, 'CHAMPION_KILL_30')
+
+        self.level_10 = safe_get_first(self.df_time_pivot, 'LEVEL_UP_10')
+        self.level_20 = safe_get_first(self.df_time_pivot, 'LEVEL_UP_20')
+        self.level_30 = safe_get_first(self.df_time_pivot, 'LEVEL_UP_30')
+
+        self.jgl_20= safe_get_first(self.df_time_pivot, 'JGL_20')
+        self.jgl_30 = safe_get_first(self.df_time_pivot, 'JGL_30')
+
+        self.WARD_KILL_10 = safe_get_first(self.df_time_pivot, 'WARD_KILL_10')
+        self.WARD_KILL_20 = safe_get_first(self.df_time_pivot, 'WARD_KILL_20')
+        self.WARD_KILL_30 = safe_get_first(self.df_time_pivot, 'WARD_KILL_30')
+
+        self.WARD_PLACED_10 = safe_get_first(self.df_time_pivot, 'WARD_KILL_10')
+        self.WARD_PLACED_20 = safe_get_first(self.df_time_pivot, 'WARD_KILL_20')
+        self.WARD_PLACED_30 = safe_get_first(self.df_time_pivot, 'WARD_KILL_30')
+
+    
+
         df_exists = lire_bdd_perso(f'''SELECT match_id, riot_id FROM data_timeline_palier WHERE 
         match_id = '{self.last_match}'
         AND riot_id = {self.id_compte}  ''',
@@ -3999,6 +4173,10 @@ class matchlol():
             elif objectif_id == 3:  # KDA
                 valeur_obtenue = self.thisKDA
                 atteint = valeur_obtenue >= valeur_attendue
+            elif objectif_id == 4:  # Deaths max
+                valeur_obtenue = self.thisDeaths
+                atteint = valeur_obtenue <= valeur_attendue  # <= car c’est un max
+
             else:
                 valeur_obtenue = 0
                 atteint = False

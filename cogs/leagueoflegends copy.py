@@ -22,10 +22,9 @@ import ast
 import humanize
 from asyncio import sleep
 import numpy as np
-from collections import Counter, defaultdict
+from collections import Counter
 from PIL import Image 
 import io
-import re 
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -51,338 +50,141 @@ from fonctions.channels_discord import chan_discord, rgb_to_discord
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
-import re
-from collections import defaultdict, OrderedDict
-
-
-# def summarize_medals(parts):
-#     """Crée un résumé des records par type de contexte + médaille."""
-#     CONTEXT_LABELS = {
-#         ":boom:": "Record",
-#         ":rocket:": "Record champion",
-#         "<:boss:1333120152983834726>": "Record personnel",
-#         "<:world_emoji:1333120623613841489>": "Record All Time",
-#         "<:trophy_world:1333117173731819520>": "Record All Time Champion"
-#     }
-
-#     summary = defaultdict(int)
-
-#     for part in parts:
-#         lines = [line.strip() for line in part.split('\n') if line.strip()]
-#         for line in lines:
-#             # Cherche une médaille
-#             medal_match = re.search(r'(<:medal\d+:\d+>)', line)
-#             if not medal_match:
-#                 continue
-#             medal = medal_match.group(1)
-
-#             # Trouve le label de contexte
-#             label = "Autre"
-#             for emote, name in CONTEXT_LABELS.items():
-#                 if emote in line:
-#                     label = name
-#                     break
-
-#             key = f"{label} {medal}"
-#             summary[key] += 1
-
-#     summary_lines = [f"{label} : {count}" for label, count in sorted(summary.items(), key=lambda x: -x[1])]
-#     return "\n".join(summary_lines)
-
-
-# def add_chunked_field(embed, title, parts, max_len=1024, total_limit=4500):
-#     """Ajoute des fields à un embed Discord, ou un résumé si trop long."""
-#     total_content = "\n".join(parts).strip()
-
-#     if len(total_content) <= total_limit:
-#         # Affichage standard par chunks
-#         current = ""
-#         index = 1
-
-#         for part in parts:
-#             part = part.strip()
-#             if not part:
-#                 continue
-
-#             # Coupe proprement si une ligne est trop longue
-#             if len(part) > max_len:
-#                 part = part[:max_len - 3] + '...'
-
-#             # Nouveau field si on dépasse la limite d’un champ
-#             if len(current) + len(part) + 1 > max_len:
-#                 embed.add_field(
-#                     name=title if index == 1 else f"{title} {index}",
-#                     value=current.strip(),
-#                     inline=False
-#                 )
-#                 current = ""
-#                 index += 1
-
-#             current += part + "\n"
-
-#         # Ajouter le dernier bloc
-#         if current.strip():
-#             embed.add_field(
-#                 name=title if index == 1 else f"{title} {index}",
-#                 value=current.strip(),
-#                 inline=False
-#             )
-
-#     else:
-#         # Trop long : on résume les records
-#         summary = summarize_medals(parts)
-#         embed.add_field(
-#             name=f"{title} (résumé)",
-#             value=summary or "Aucun record trouvé.",
-#             inline=False
-#         )
-
-#     return embed
-
-
-# def summarize_medals(parts):
-#     """Résumé : groupé par (label, medal), total + noms de stats entre ()"""
-#     CONTEXT_LABELS = {
-#         ":boom:": "Record",
-#         # ":rocket:": "Record champion",
-#         "<:boss:1333120152983834726>": "Record personnel",
-#         "<:world_emoji:1333120623613841489>": "Record All Time",
-#         "<:trophy_world:1333117173731819520>": "Record All Time Champion"
-#     }
-
-#     summary = defaultdict(lambda: {"count": 0, "stats": set()})
-
-#     for part in parts:
-#         lines = [line.strip() for line in part.split('\n') if line.strip()]
-#         for line in lines:
-#             # 🎯 Médaille
-#             medal_match = re.search(r'(<:medal\d+:\d+>)', line)
-#             if not medal_match:
-#                 continue
-#             medal = medal_match.group(1)
-
-#             # 🎯 Contexte
-#             label = "Autre"
-#             for emote, name in CONTEXT_LABELS.items():
-#                 if emote in line:
-#                     label = name
-#                     break
-
-#             # 🎯 Stat name (facultatif)
-#             # stat_match = re.search(r'__([^_]+)__', line)
-#             stat_match = re.search(r'__(.+?)__', line)
-#             stat_name = f"__{stat_match.group(1)}__" if stat_match else "__?__"
-
-#             # 🔢 Ajout au résumé
-#             key = (label, medal)
-#             summary[key]["count"] += 1
-#             summary[key]["stats"].add(stat_name)
-
-#     # ✅ Format final du résumé
-#     summary_lines = [
-#         f"{label} {medal} : {data['count']} ({', '.join(sorted(data['stats']))})"
-#         for (label, medal), data in sorted(summary.items(), key=lambda x: -x[1]["count"])
-#     ]
-
-#     return "\n".join(summary_lines)
-
-
-# def add_chunked_field(embed, title, parts, max_len=1024, total_limit=4000):
-#     """Ajoute des champs à un embed Discord, ou un résumé si trop long."""
-#     total_content = "\n".join(parts).strip()
-
-#     if len(total_content) <= total_limit:
-#         # ✅ Mode normal : découpage en chunks
-#         current = ""
-#         index = 1
-
-#         for part in parts:
-#             part = part.strip()
-#             if not part:
-#                 continue
-
-#             if len(part) > max_len:
-#                 part = part[:max_len - 3] + '...'
-
-#             if len(current) + len(part) + 1 > max_len:
-#                 embed.add_field(
-#                     name=title if index == 1 else f"{title} {index}",
-#                     value=current.strip(),
-#                     inline=False
-#                 )
-#                 current = ""
-#                 index += 1
-
-#             current += part + "\n"
-
-#         if current.strip():
-#             embed.add_field(
-#                 name=title if index == 1 else f"{title} {index}",
-#                 value=current.strip(),
-#                 inline=False
-#             )
-
-#     else:
-#         summary = summarize_medals(parts)
-
-#         if not summary:
-#             embed.add_field(
-#                 name=f"{title} (résumé)",
-#                 value="Aucun record trouvé.",
-#                 inline=False
-#             )
-#         else:
-#             lines = summary.split('\n')
-#             current = ""
-#             index = 1
-
-#             for line in lines:
-#                 if len(current) + len(line) + 1 > 1024:
-#                     embed.add_field(
-#                         name=f"{title} (résumé {index})" if index > 1 else f"{title} (résumé)",
-#                         value=current.strip(),
-#                         inline=False
-#                     )
-#                     current = ""
-#                     index += 1
-#                 current += line + "\n"
-
-#             if current.strip():
-#                 embed.add_field(
-#                     name=f"{title} (résumé {index})" if index > 1 else f"{title} (résumé)",
-#                     value=current.strip(),
-#                     inline=False
-#                 )
-
-
-#     return embed
-
-def summarize_medals(parts):
-    """Résumé : groupé par (label, medal), total + noms de stats entre ()"""
-
-    # 🔤 Ordre de priorité pour l'affichage
-    CONTEXT_LABELS = OrderedDict([
-        (":boom:", "Record"),
-        ("<:boss:1333120152983834726>", "Record personnel"),
-        ("<:world_emoji:1333120623613841489>", "Record All Time"),
-        ("<:trophy_world:1333117173731819520>", "Record All Time Champion")
-    ])
-
-    label_order = {label: i for i, label in enumerate(CONTEXT_LABELS.values())}
-
-    summary = defaultdict(lambda: {"count": 0, "stats": set()})
+def add_chunked_field(embed, title, parts, max_len=1024):
+    current = ""
+    index = 1
 
     for part in parts:
-        lines = [line.strip() for line in part.split('\n') if line.strip()]
-        for line in lines:
-            # 🎯 Médaille
-            medal_match = re.search(r'(<:medal\d+:\d+>)', line)
-            if not medal_match:
-                continue
-            medal = medal_match.group(1)
+        part = part.strip()
+        if not part:
+            continue
 
-            # 🎯 Contexte
-            label = "Autre"
-            for emote, name in CONTEXT_LABELS.items():
-                if emote in line:
-                    label = name
-                    break
+        if len(part) > max_len:
+            part = part[:max_len - 3] + '...'
 
-            # 🎯 Stat name (facultatif)
-            stat_match = re.search(r'__(.+?)__', line)
-            stat_name = f"__{stat_match.group(1)}__" if stat_match else "__?__"
-
-            # 🔢 Ajout au résumé
-            key = (label, medal)
-            summary[key]["count"] += 1
-            summary[key]["stats"].add(stat_name)
-
-    # ✅ Format final du résumé, trié selon l’ordre du label puis nombre décroissant
-    summary_lines = [
-        f"{label} {medal} : {data['count']} ({', '.join(sorted(data['stats']))})"
-        for (label, medal), data in sorted(
-            summary.items(),
-            key=lambda x: (
-                label_order.get(x[0][0], 999),  # ordre du label
-                -x[1]["count"]                  # puis nombre décroissant
-            )
-        )
-    ]
-
-    return "\n".join(summary_lines)
-
-
-def add_chunked_field(embed, title, parts, max_len=1024, total_limit=4000):
-    """Ajoute des champs à un embed Discord, ou un résumé si trop long."""
-
-    total_content = "\n".join(parts).strip()
-
-    if len(total_content) <= total_limit:
-        # ✅ Mode normal : découpage en chunks
-        current = ""
-        index = 1
-
-        for part in parts:
-            part = part.strip()
-            if not part:
-                continue
-
-            if len(part) > max_len:
-                part = part[:max_len - 3] + '...'
-
-            if len(current) + len(part) + 1 > max_len:
-                embed.add_field(
-                    name=title if index == 1 else f"{title} {index}",
-                    value=current.strip(),
-                    inline=False
-                )
-                current = ""
-                index += 1
-
-            current += part + "\n"
-
-        if current.strip():
-            embed.add_field(
-                name=title if index == 1 else f"{title} {index}",
-                value=current.strip(),
-                inline=False
-            )
-
-    else:
-        # ❗Trop long : résumé global, découpé en blocs de 1024 caractères
-        summary = summarize_medals(parts)
-
-        if not summary:
-            embed.add_field(
-                name=f"{title} (résumé)",
-                value="Aucun record trouvé.",
-                inline=False
-            )
-        else:
-            lines = summary.split('\n')
+        if len(current) + len(part) + 1 > max_len:
+            embed.add_field(name=title if index == 1 else f"{title} {index}", value=current.strip(), inline=False)
             current = ""
-            index = 1
+            index += 1
 
-            for line in lines:
-                if len(current) + len(line) + 1 > max_len:
-                    embed.add_field(
-                        name=f"{title} (résumé {index})" if index > 1 else f"{title} (résumé)",
-                        value=current.strip(),
-                        inline=False
-                    )
-                    current = ""
-                    index += 1
-                current += line + "\n"
+        current += part + "\n"
 
-            if current.strip():
-                embed.add_field(
-                    name=f"{title} (résumé {index})" if index > 1 else f"{title} (résumé)",
-                    value=current.strip(),
-                    inline=False
-                )
+    if current.strip():
+        embed.add_field(name=title if index == 1 else f"{title} {index}", value=current.strip(), inline=False)
 
     return embed
 
+def records_check2(fichier :pd.DataFrame,
+                   fichier_joueur : pd.DataFrame =None,
+                   fichier_champion : pd.DataFrame =None,
+                   fichier_all : pd.DataFrame = None,
+                   fichier_champion_all : pd.DataFrame = None,
+                   category=None,
+                   result_category_match=None,
+                   methode='max') -> str:
+    '''Cherche s'il y a un record :
+    - Dans un premier temps, parmi tous les joueurs.
+    - Dans un second temps, parmi les stats du joueur.
+    None à la place du fichier pour désactiver un check.                                                                                                                                 
+    '''
+    embed = ''
+    category_exclusion_egalite = ['baron', 'herald', 'drake', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_horde', 'first_niveau_max', 'first_blood', 'tower', 'inhib', 'first_tower_time']
+
+    if result_category_match == 0:  # si le score est de 0, inutile
+        return embed
+
+    # Record sur tous les joueurs
+    if fichier.shape[0] > 0:  # s'il y a des données, sinon first record
+        joueur, champion, record, url = trouver_records(
+            fichier, category, methode, identifiant='discord')
+
+        if (
+            methode == 'max'
+            and float(record) < float(result_category_match)
+            or methode != 'max'
+            and float(record) > float(result_category_match)
+        ):
+            embed += f"\n ** :boom: Record - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} ** (Ancien : {record} par {joueur} {emote_champ_discord.get(champion.capitalize(), 'inconnu')})"
+        if (
+            float(record) == float(result_category_match)
+            and category not in category_exclusion_egalite
+        ):  # si égalité
+            embed += f"\n ** :medal: Egalisation record - {emote_v2.get(category, ':star:')}__{category}__ de {joueur} **"
+    else:
+        embed += f"\n ** :boom: Premier Record - {emote_v2.get(category, ':star:')}__{category}__ : {result_category_match} **"
+
+    # Record sur ses stats personnels
+    if isinstance(fichier_joueur, pd.DataFrame) and fichier_joueur.shape[0] > 0:
+        joueur_perso, champion_perso, record_perso, url = trouver_records(
+            fichier_joueur, category, methode)
+    
+        if (
+            methode == 'max'
+            and float(record_perso) < float(result_category_match)
+            or methode != 'max'
+            and float(record_perso) > float(result_category_match)
+        ):
+            embed += f"\n ** <:boss:1333120152983834726> Record personnel - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_perso})"
+        if (
+            float(record_perso) == float(result_category_match)
+            and category not in category_exclusion_egalite
+        ):
+            embed += f"\n ** :military_medal: Egalisation record personnel - {emote_v2.get(category, ':star:')}__{category}__ **"
+
+    # Record sur les champions
+    if isinstance(fichier_champion, pd.DataFrame) and fichier_champion.shape[0] > 0:
+        joueur_champion, champion_champion, record_champion, url = trouver_records(
+            fichier_champion, category, methode, identifiant='discord')
+    
+        if (
+            methode == 'max'
+            and float(record_champion) < float(result_category_match)
+            or methode != 'max'
+            and float(record_champion) > float(result_category_match)
+        ):
+            embed += f"\n ** :rocket: Record sur {emote_champ_discord.get(champion_champion.capitalize(), 'inconnu')} - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_champion} par {joueur_champion})"
+
+    # Record sur tous les joueurs
+    if isinstance(fichier_all, pd.DataFrame) and fichier_all.shape[0] > 0 and len(fichier_all['season'].unique()) > 1: # si une seule saison, inutile
+        joueur_all, champion_all, record_all, url = trouver_records(
+            fichier_all, category, methode, identifiant='discord')
+    
+        if (
+            methode == 'max'
+            and float(record_all) < float(result_category_match)
+            or methode != 'max'
+            and float(record_all) > float(result_category_match)
+        ):
+            embed += f"\n ** <:world_emoji:1333120623613841489> Record All Time - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_all} par {joueur_all})"
+
+        # en cas d'égalité
+        if (
+            float(record_all) == float(result_category_match)
+            and category not in category_exclusion_egalite
+        ):
+            embed += f"\n ** <:platinum_trophy:1333119009226489907> Egalisation Record All Time - {emote_v2.get(category, ':star:')}__{category}__ **"
+
+    # Record sur les champions
+
+    if isinstance(fichier_champion_all, pd.DataFrame) and fichier_champion_all.shape[0] > 0 and len(fichier_champion_all['season'].unique()) > 1: # si une seule saison, inutile
+        joueur_champion_all, champion_champion_all, record_champion_all, url = trouver_records(
+            fichier_champion_all, category, methode, identifiant='discord')
+        
+        if (
+            methode == 'max'
+            and float(record_champion_all) < float(result_category_match)
+            or methode != 'max'
+            and float(record_champion_all) > float(result_category_match)
+        ):
+            embed += f"\n ** <:trophy_world:1333117173731819520> Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')}  - {emote_v2.get(category, ':star:')}__{category.lower()}__ : {result_category_match} ** (Ancien : {record_champion_all} par {joueur_champion_all})"
+
+        # en cas d'égalité
+        if (
+            float(record_champion_all) == float(result_category_match)
+            and category not in category_exclusion_egalite
+        ):
+            embed += f"\n ** <:trophyplatinum48:1333175944835498044> Egalisation Record All Time sur {emote_champ_discord.get(champion_champion_all.capitalize(), 'inconnu')} - {emote_v2.get(category, ':star:')}__{category}__ **"
+    return embed
 
 
 
@@ -536,44 +338,6 @@ class LeagueofLegends(Extension):
                     "matchs.*", "tracker.riot_id", "tracker.riot_tagline", "tracker.discord"
                 ] + [f'max_data_timeline."{stat}"' for stat in dynamic_stats]
 
-                columns += [
-                    'data_timeline_palier."CS_20"',
-                    'data_timeline_palier."CS_30"',
-                    'data_timeline_palier."TOTAL_GOLD_20"',
-                    'data_timeline_palier."TOTAL_GOLD_30"',
-                    'data_timeline_palier."TOTAL_CS_20"',
-                    'data_timeline_palier."TOTAL_CS_30"',
-                    'data_timeline_palier."TOTAL_DMG_10"',
-                    'data_timeline_palier."TOTAL_DMG_20"',
-                    'data_timeline_palier."TOTAL_DMG_30"',
-                    'data_timeline_palier."TOTAL_DMG_TAKEN_10"',
-                    'data_timeline_palier."TOTAL_DMG_TAKEN_20"',
-                    'data_timeline_palier."TOTAL_DMG_TAKEN_30"',
-                    'data_timeline_palier."TRADE_EFFICIENCE_10"',
-                    'data_timeline_palier."TRADE_EFFICIENCE_20"',
-                    'data_timeline_palier."TRADE_EFFICIENCE_30"', 
-                    'data_timeline_palier."ASSISTS_10"',
-                    'data_timeline_palier."ASSISTS_20"',
-                    'data_timeline_palier."ASSISTS_30"',
-                    'data_timeline_palier."DEATHS_10"',
-                    'data_timeline_palier."DEATHS_20"',
-                    'data_timeline_palier."DEATHS_30"',
-                    'data_timeline_palier."CHAMPION_KILL_10"',
-                    'data_timeline_palier."CHAMPION_KILL_20"',
-                    'data_timeline_palier."CHAMPION_KILL_30"',
-                    'data_timeline_palier."LEVEL_UP_10"',
-                    'data_timeline_palier."LEVEL_UP_20"',
-                    'data_timeline_palier."LEVEL_UP_30"',
-                    'data_timeline_palier."JGL_20"',
-                    'data_timeline_palier."JGL_30"',
-                    'data_timeline_palier."WARD_KILL_10"',
-                    'data_timeline_palier."WARD_KILL_20"',
-                    'data_timeline_palier."WARD_KILL_30"',
-                    'data_timeline_palier."WARD_PLACED_10"',
-                    'data_timeline_palier."WARD_PLACED_20"',
-                    'data_timeline_palier."WARD_PLACED_30"',
-                ]
-
                 # Construction de la requête SQL finale (plus de CASE WHEN)
                 base_query = f'''
                     SELECT DISTINCT {", ".join(columns)}
@@ -582,9 +346,6 @@ class LeagueofLegends(Extension):
                     LEFT JOIN max_data_timeline 
                         ON matchs.joueur = max_data_timeline.riot_id 
                         AND matchs.match_id = max_data_timeline.match_id
-                    LEFT JOIN data_timeline_palier 
-                        ON matchs.joueur = data_timeline_palier.riot_id 
-                        AND matchs.match_id = data_timeline_palier.match_id
                     WHERE mode = '{match_info.thisQ}'
                     AND server_id = {guild_id}
                     AND tracker.save_records = TRUE
@@ -796,40 +557,7 @@ class LeagueofLegends(Extension):
                                                 'ecart_deaths' : match_info.ecart_morts,
                                                 'ecart_assists' : match_info.ecart_assists,
                                                 'ecart_dmg' : match_info.ecart_dmg, 
-                                                'first_tower_time' : match_info.first_tower_time,
-                                                'CS_20' : match_info.total_cs_20,
-                                                'CS_30' : match_info.total_cs_30,
-                                                'TOTAL_GOLD_20' : match_info.total_gold_20,
-                                                'TOTAL_GOLD_30' : match_info.total_gold_30,
-                                                'TOTAL_DMG_TAKEN_10' : match_info.totalDamageTaken_10,
-                                                'TOTAL_DMG_TAKEN_20' : match_info.totalDamageTaken_20,
-                                                'TOTAL_DMG_TAKEN_30' : match_info.totalDamageTaken_30,
-                                                'TRADE_EFFICIENCE_10' : match_info.trade_efficience_10,
-                                                'TRADE_EFFICIENCE_20' : match_info.trade_efficience_20,
-                                                'TRADE_EFFICIENCE_30' : match_info.trade_efficience_30,
-                                                'TOTAL_DMG_10' : match_info.totalDamageDone_10,
-                                                'TOTAL_DMG_20' : match_info.totalDamageDone_20,
-                                                'TOTAL_DMG_30' : match_info.totalDamageDone_30,
-                                                'ASSISTS_10' : match_info.assists_10,
-                                                'ASSISTS_20' : match_info.assists_20,
-                                                'ASSISTS_30' : match_info.assists_30,
-                                                'DEATHS_10' : match_info.deaths_10,
-                                                'DEATHS_20' : match_info.deaths_20,
-                                                'DEATHS_30' : match_info.deaths_30,
-                                                'CHAMPION_KILL_10' : match_info.champion_kill_10,
-                                                'CHAMPION_KILL_20' : match_info.champion_kill_20,
-                                                'CHAMPION_KILL_30' : match_info.champion_kill_30,
-                                                'LEVEL_UP_10' : match_info.level_10,
-                                                'LEVEL_UP_20' : match_info.level_20,
-                                                'LEVEL_UP_30' : match_info.level_30,
-                                                'JGL_20' : match_info.jgl_20,
-                                                'JGL_30' : match_info.jgl_30,
-                                                'WARD_KILL_10' : match_info.WARD_KILL_10,
-                                                'WARD_KILL_20' : match_info.WARD_KILL_20,
-                                                'WARD_KILL_30' : match_info.WARD_KILL_30,
-                                                'WARD_PLACED_10' : match_info.WARD_PLACED_10,
-                                                'WARD_PLACED_20' : match_info.WARD_PLACED_20,
-                                                'WARD_PLACED_30' : match_info.WARD_PLACED_30}
+                                                'first_tower_time' : match_info.first_tower_time}
                 else:
                     param_records_only_ranked = {}
                 
@@ -860,8 +588,6 @@ class LeagueofLegends(Extension):
                         records_parts.append(result)
 
 
-
-
                 if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:
                     for parameter, value in param_records_only_ranked.items():
                         methode = 'min' if parameter in [
@@ -874,7 +600,6 @@ class LeagueofLegends(Extension):
                             records_parts.append(result)
 
 
-
                 if match_info.thisQ in ['ARAM', 'CLASH ARAM']:
                     for parameter, value in param_records_only_aram.items():
                         methode = 'min' if parameter in [
@@ -885,10 +610,6 @@ class LeagueofLegends(Extension):
                         result = records_check3(fichier, fichier_joueur, fichier_all, parameter, value, methode)
                         if result:
                             records_parts.append(result)
-
-
-            del fichier, fichier_all, fichier_joueur
-
 
             try:
             # on le fait après sinon ça flingue les records

@@ -145,13 +145,39 @@ async def load_data(ctx, view, saison, mode, time_mini):
     # Règles d’annulation dynamiques depuis records_exclusion
     stat_null_rules = get_stat_null_rules()
 
-    # Colonnes à ne pas modifier explicitement (par exemple : stats avancées de timeline)
     untouched_columns = [
-        'max_data_timeline."abilityHaste"', 'max_data_timeline."abilityPower"', 'max_data_timeline.armor',
+        'max_data_timeline."abilityHaste"', 'max_data_timeline."abilityPower"', 'max_data_timeline."armor"',
         'max_data_timeline."attackDamage"', 'max_data_timeline."currentGold"', 'max_data_timeline."healthMax"',
         'max_data_timeline."magicResist"', 'max_data_timeline."movementSpeed"',
+        'data_timeline_palier."ASSISTS_10"', 'data_timeline_palier."ASSISTS_20"', 'data_timeline_palier."ASSISTS_30"',
+        'data_timeline_palier."BUILDING_KILL_10"', 'data_timeline_palier."BUILDING_KILL_20"', 'data_timeline_palier."BUILDING_KILL_30"',
+        'data_timeline_palier."CHAMPION_KILL_10"', 'data_timeline_palier."CHAMPION_KILL_20"', 'data_timeline_palier."CHAMPION_KILL_30"',
+        'data_timeline_palier."DEATHS_10"', 'data_timeline_palier."DEATHS_20"', 'data_timeline_palier."DEATHS_30"',
+        'data_timeline_palier."ELITE_MONSTER_KILL_10"', 'data_timeline_palier."ELITE_MONSTER_KILL_20"', 'data_timeline_palier."ELITE_MONSTER_KILL_30"',
+        'data_timeline_palier."ITEM_DESTROYED_10"', 'data_timeline_palier."ITEM_DESTROYED_20"', 'data_timeline_palier."ITEM_DESTROYED_30"',
+        'data_timeline_palier."ITEM_PURCHASED_10"', 'data_timeline_palier."ITEM_PURCHASED_20"', 'data_timeline_palier."ITEM_PURCHASED_30"',
+        'data_timeline_palier."ITEM_SOLD_10"', 'data_timeline_palier."ITEM_SOLD_20"', 'data_timeline_palier."ITEM_SOLD_30"',
+        'data_timeline_palier."ITEM_UNDO_10"', 'data_timeline_palier."ITEM_UNDO_20"', 'data_timeline_palier."ITEM_UNDO_30"',
+        'data_timeline_palier."LEVEL_UP_10"', 'data_timeline_palier."LEVEL_UP_20"', 'data_timeline_palier."LEVEL_UP_30"',
+        'data_timeline_palier."SKILL_LEVEL_UP_10"', 'data_timeline_palier."SKILL_LEVEL_UP_20"', 'data_timeline_palier."SKILL_LEVEL_UP_30"',
+        'data_timeline_palier."TURRET_PLATE_DESTROYED_10"', 'data_timeline_palier."TURRET_PLATE_DESTROYED_20"', 'data_timeline_palier."TURRET_PLATE_DESTROYED_30"',
+        'data_timeline_palier."WARD_KILL_10"', 'data_timeline_palier."WARD_KILL_20"', 'data_timeline_palier."WARD_KILL_30"',
+        'data_timeline_palier."WARD_PLACED_10"', 'data_timeline_palier."WARD_PLACED_20"', 'data_timeline_palier."WARD_PLACED_30"',
+        'data_timeline_palier."CHAMPION_TRANSFORM_10"', 'data_timeline_palier."CHAMPION_TRANSFORM_20"', 'data_timeline_palier."CHAMPION_TRANSFORM_30"',
+        'data_timeline_palier."TOTAL_CS_20"', 'data_timeline_palier."TOTAL_CS_30"', 'data_timeline_palier."TOTAL_GOLD_20"', 'data_timeline_palier."TOTAL_GOLD_30"',
+        'data_timeline_palier."CS_20"', 'data_timeline_palier."CS_30"', 'data_timeline_palier."JGL_20"', 'data_timeline_palier."JGL_30"',
+        'data_timeline_palier."TOTAL_DMG_10"', 'data_timeline_palier."TOTAL_DMG_20"', 'data_timeline_palier."TOTAL_DMG_30"',
+        'data_timeline_palier."TOTAL_DMG_TAKEN_10"', 'data_timeline_palier."TOTAL_DMG_TAKEN_20"', 'data_timeline_palier."TOTAL_DMG_TAKEN_30"',
+        'data_timeline_palier."TRADE_EFFICIENCE_10"', 'data_timeline_palier."TRADE_EFFICIENCE_20"', 'data_timeline_palier."TRADE_EFFICIENCE_30"',
+        'records_loser."l_ecart_cs"', 'records_loser."l_ecart_gold"', 'records_loser."l_ecart_gold_min_durant_game"',
+        'records_loser."l_ecart_gold_max_durant_game"', 'records_loser."l_kda"', 'records_loser."l_cs"', 'records_loser."l_cs_max_avantage"',
+        'records_loser."l_level_max_avantage"', 'records_loser."l_ecart_gold_team"', 'records_loser."l_ecart_kills_team"',
+        'records_loser."l_temps_avant_premiere_mort"', 'records_loser."l_ecart_kills"', 'records_loser."l_ecart_deaths"',
+        'records_loser."l_ecart_assists"', 'records_loser."l_ecart_dmg"', 'records_loser."l_allie_feeder"',
+        'records_loser."l_temps_vivant"', 'records_loser."l_time"', 'records_loser."l_solokills"',
         # Ajouter d'autres si nécessaire
     ]
+
 
     # Colonnes sélectionnées
     all_columns = [
