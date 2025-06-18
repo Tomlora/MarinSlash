@@ -12,7 +12,8 @@ import aiohttp
 import asyncio
 import pickle
 import sqlalchemy.exc
-from fonctions.api_calls import get_mobalytics, getPlayerStats, getRanks, update_ugg, get_role, get_player_match_history
+from fonctions.api_calls import getPlayerStats, getRanks, update_ugg, get_role, get_player_match_history
+from fonctions.api_moba import update_moba, get_mobalytics
 import math
 
 # TODO : rajouter temps en vie
@@ -1819,17 +1820,23 @@ class matchlol():
         
     async def prepare_data_moba(self):
 
+
         if self.activate_mobalytics == 'True':
+
+            for riot_id, riot_tag in zip(self.thisRiotIdListe, self.thisRiotTagListe):
+                await update_moba(self.session, riot_id, riot_tag)
+                
             try:
-                self.data_mobalytics, self.data_mobalytics_complete = await get_mobalytics(self.summonerName, self.session, int(self.last_match[5:]))
+                self.data_mobalytics_complete = await get_mobalytics(f'{self.riot_id}#{self.riot_tag}', self.session, int(self.last_match[5:]))
                 self.moba_ok = True
             except:
                 self.moba_ok = False
-                self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))
+
             
         else:
             self.moba_ok = False
-            self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))            
+
+        self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))            
 
 
         if self.moba_ok:
@@ -1839,16 +1846,11 @@ class matchlol():
             self.avgtier_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['tier']
             self.avgrank_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['division']
 
-            if self.thisId >= 5:
-                dict_id = {5 : 0, 6 : 1, 7: 2, 8: 3, 9 : 4 }
 
-                id_mobalytics = dict_id[self.thisId]
-            else:
-                id_mobalytics = self.thisId
 
-            self.mvp = int(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[id_mobalytics]}#{self.thisRiotTagListe[id_mobalytics]}']['mvpScore'].values[0])
+            self.mvp = 0
 
-            self.badges = self.data_mobalytics_complete['data']['lol']['player']['match']['subject']['badges']
+            self.badges = ''
         
         else:
             self.mvp = 0

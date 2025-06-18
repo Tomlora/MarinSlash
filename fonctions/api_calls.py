@@ -5,8 +5,6 @@ import traceback
 from aiohttp import ClientSession
 import pandas as pd
 
-api_moba = os.environ.get('API_moba')
-url_api_moba = os.environ.get('url_moba')
 
 api_key_lol = os.environ.get('API_LOL')
 my_region = 'euw1'
@@ -31,48 +29,6 @@ def wait(seconds):
         time.sleep(1)
 
 
-async def get_past_matches(summonerName: str, match_id : str, session : ClientSession):
-    url = "https://app.mobalytics.gg/api/lol/graphql/v1/query"
-    
-    payload = {
-            'operationName': "LolMatchDetailsQuery",
-            'variables': {
-                'region' : 'EUW',
-                'summonerName': summonerName,
-                'matchId' : match_id,
-            },
-            'extensions': {
-                'persistedQuery': {
-                    'version': 1,
-                    'sha256Hash': api_moba,
-                }
-            },
-        }
-
-    headers = {'authority':'app.mobalytics.gg',
-               'accept':'*/*',
-               'accept-language':'en_us',
-               'content-type':'application/json',
-               'origin':'https://app.mobalytics.gg',
-               'sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"',
-               'sec-fetch-dest':'empty','sec-fetch-mode':'cors',
-               'sec-fetch-site':'same-origin','sec-gpc':'1',
-               'x-moba-client':'mobalytics-web',
-               'x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}
-    try:
-        async with session.post(url, headers=headers, json=payload) as session_match_detail:
-            response = await session_match_detail.json()  # detail du match sélectionné
-            print(response)
-        data_match = response["data"]["lol"]["player"]["match"]
-    
-        return data_match
-    except Exception:
-        print('Erreur get_past_matches')
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
-        traceback_msg = ''.join(traceback_details)
-        print(traceback_msg)
-        return None
     
 async def get_live_match(summonerName: str, session:ClientSession):
 
@@ -690,37 +646,7 @@ async def getRankings(session : ClientSession, summonerName, tagline, regionId='
     return response
 
 
-async def get_mobalytics(pseudo : str, session: ClientSession, match_id):
-    json_data = {
-        'operationName': 'LolMatchDetailsQuery',
-        'variables': {
-            'region': 'EUW',
-            'summonerName': pseudo,
-            'matchId': match_id,
-        },
-        'extensions': {
-            'persistedQuery': {
-                'version': 1,
-                'sha256Hash': api_moba,
-            },
-        },
-    }
 
-    attempts = 0
-    while attempts < 5:
-        try:
-            async with session.post(url_api_moba, headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
-                match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
-                df_moba = pd.DataFrame(match_detail_stats['data']['lol']['player']['match']['participants'])
-        except:
-            attempts += 1
-
-            if attempts >= 5:
-                async with session.post(url_api_moba, headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
-                    match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
-                    df_moba = pd.DataFrame(match_detail_stats['data']['lol']['player']['match']['participants'])
-
-    return df_moba, match_detail_stats
 
 
 async def update_ugg(session, summonerName, tagline, regionId="euw1"):

@@ -285,7 +285,8 @@ def summarize_medals(parts):
             label = "Autre"
             for emote, name in CONTEXT_LABELS.items():
                 if emote in line:
-                    label = name
+                    # label = name
+                    label = f'{emote}{name}'
                     break
 
             # 🎯 Stat name (facultatif)
@@ -797,8 +798,8 @@ class LeagueofLegends(Extension):
                                                 'ecart_assists' : match_info.ecart_assists,
                                                 'ecart_dmg' : match_info.ecart_dmg, 
                                                 'first_tower_time' : match_info.first_tower_time,
-                                                'CS_20' : match_info.total_cs_20,
-                                                'CS_30' : match_info.total_cs_30,
+                                                'TOTAL_CS_20' : match_info.total_cs_20,
+                                                'TOTAL_CS_30' : match_info.total_cs_30,
                                                 'TOTAL_GOLD_20' : match_info.total_gold_20,
                                                 'TOTAL_GOLD_30' : match_info.total_gold_30,
                                                 'TOTAL_DMG_TAKEN_10' : match_info.totalDamageTaken_10,
