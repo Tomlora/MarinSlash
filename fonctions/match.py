@@ -13,7 +13,7 @@ import asyncio
 import pickle
 import sqlalchemy.exc
 from fonctions.api_calls import getPlayerStats, getRanks, update_ugg, get_role, get_player_match_history
-from fonctions.api_moba import update_moba, get_mobalytics
+from fonctions.api_moba import update_moba, get_mobalytics, get_player_match_history_moba, get_role_stats, get_wr_ranked, detect_win_streak, get_stat_champion_by_player_mobalytics, get_rank_moba
 import math
 
 # TODO : rajouter temps en vie
@@ -1815,60 +1815,178 @@ class matchlol():
 
         self.url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(self.last_match)[5:]}#participant{int(self.thisId)+1}'
 
+        self.mvp = 0
+
+        self.badges = ''
 
 
         
     async def prepare_data_moba(self):
 
 
-        if self.activate_mobalytics == 'True':
+        self.liste_rank = []
+        self.liste_tier = []
+        self.winrate_joueur = {}
+        self.winrate_champ_joueur = {}
+        self.role_pref = {}
+        self.all_role = {}
+        self.role_count = {}
+        self.dict_serie = {}
 
+        
+
+        if self.activate_mobalytics == 'True':
+            # On update le profil mobalytics pour chaque joueur
             for riot_id, riot_tag in zip(self.thisRiotIdListe, self.thisRiotTagListe):
                 await update_moba(self.session, riot_id, riot_tag)
-                
             try:
                 self.data_mobalytics_complete = await get_mobalytics(f'{self.riot_id}#{self.riot_tag}', self.session, int(self.last_match[5:]))
                 self.moba_ok = True
             except:
                 self.moba_ok = False
-
-            
         else:
             self.moba_ok = False
 
-        self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))            
-
+        self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))
 
         if self.moba_ok:
+
             self.avgtier_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['tier']
             self.avgrank_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['division']
 
             self.avgtier_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['tier']
             self.avgrank_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['division']
 
+            for i in range(self.nb_joueur):
+                riot_id = self.thisRiotIdListe[i].lower()
+                riot_tag = self.thisRiotTagListe[i].lower()
+                pseudo = f"{riot_id}#{riot_tag}"
 
+                # --- RANK ET TIER ---
+                try:
+                    tier, rank = await get_rank_moba(self.session, riot_id, riot_tag)
+                except Exception:
+                    rank = ''
+                    tier = ''
+                self.liste_rank.append(rank)
+                self.liste_tier.append(tier)
 
-            self.mvp = 0
+                # --- WINRATE GLOBAL ---
+                try:
+                    wr_res = await get_wr_ranked(self.session, riot_id, riot_tag)
+                    stats = wr_res['data']['lol']['player']['queuesStats']['items']
+                    ranked_stats = next((q for q in stats if q.get('virtualQueue', '') == 'RANKED_SOLO_5x5'), None)
+                    if ranked_stats:
+                        wr = int(round(ranked_stats.get('winrate', 0)))
+                        nbgames = ranked_stats.get('gamesCount', 0)
+                    else:
+                        wr, nbgames = 0, 0
+                except Exception:
+                    wr, nbgames = 0, 0
+                self.winrate_joueur[pseudo] = {'winrate': wr, 'nbgames': nbgames}
 
-            self.badges = ''
-        
-        else:
-            self.mvp = 0
-            self.badges = ''
-            self.avgtier_ally = ''
-            self.avgrank_ally = ''
-            self.avgtier_enemy = ''
-            self.avgrank_enemy = ''
+                # --- WINRATE CHAMPION & STATS PAR CHAMPION ---
+                try:
+                    self.df_data_stat = await get_stat_champion_by_player_mobalytics(self.session, riot_id, riot_tag)
+                    self.df_data_stat['championId'] = self.df_data_stat['championId'].astype(str)
+                    self.df_data_stat['championId'] = self.df_data_stat['championId'].replace(self.champ_dict)
 
+                    champ_name = self.thisChampNameListe[i]
+                    if champ_name and not self.df_data_stat.empty:
+                        filtered = self.df_data_stat[self.df_data_stat['championId'] == champ_name]
+                        self.df_data_stat['poids_games'] = (self.df_data_stat['totalMatches'] / self.df_data_stat['totalMatches'].sum() * 100).astype(int)
+                        if not filtered.empty:
+                            # Calcul winrate, KDA, poids_games...
+                            filtered = filtered.copy()
+                            filtered['winrate'] = (filtered['wins'] / filtered['totalMatches'] * 100).astype(int)
+                            filtered['poids_games'] = (filtered['totalMatches'] / self.df_data_stat['totalMatches'].sum() * 100).astype(int)
+                            try:
+                                filtered['kda'] = np.round((filtered['kills'] + filtered['assists']) / filtered['deaths'], 2)
+                            except ZeroDivisionError:
+                                filtered['kda'] = np.round((filtered['kills'] + filtered['assists']) / 1, 2)
+                            dict_data_stat = filtered.to_dict(orient='records')[0]
+                        else:
+                            dict_data_stat = {'championId' : self.thisChampNameListe[i], 'totalMatches' : 1, 'poids_games' : 0, 'winrate' : 50}
+                    else:
+                        dict_data_stat = ''
+                except Exception:
+                    dict_data_stat = ''
+                self.winrate_champ_joueur[pseudo] = dict_data_stat
+
+                # --- ROLE PREF ---
+                try:
+                    data_pref_role = await get_role_stats(self.session, self.thisRiotIdListe[i], self.thisRiotTagListe[i])
+                    if not data_pref_role.empty:
+                        data_pref_role = data_pref_role.sort_values('poids_role', ascending=False)
+                        self.role_pref[riot_id] = {
+                            'main_role': data_pref_role.iloc[0]['role'],
+                            'poids_role': int(data_pref_role.iloc[0]['poids_role'])
+                        }
+                        # self.all_role[riot_id] = data_pref_role.to_dict('index')
+                        # On ne garde que RANKED_SOLO
+                        role_df = data_pref_role.copy()
+                        # Normalise les noms de rôle et les mets en minuscule
+                        role_df['role'] = role_df['role'].str.lower()
+
+                        # Rôles de League standards
+                        roles_standard = ['top', 'jungle', 'mid', 'adc', 'support']
+
+                        # Construction du mapping
+                        role_dict = {}
+                        total_games = role_df['nbgames'].sum() if not role_df.empty else 0
+                        for role in roles_standard:
+                            if role in role_df['role'].values:
+                                row = role_df[role_df['role'] == role].iloc[0]
+                                game_count = int(row['nbgames'])
+                                win_count = int(row['wins'])
+                                poids = int(round((game_count / total_games * 100))) if total_games > 0 else 0
+                            else:
+                                game_count = 0
+                                win_count = 0
+                                poids = 0
+                            role_dict[role] = {
+                                'gameCount': game_count,
+                                'winCount': win_count,
+                                'poids': poids
+                            }
+
+                        self.all_role[riot_id] = role_dict
+
+                        self.role_count[riot_id] = int(data_pref_role['nbgames'].sum())
+                    else:
+                        self.role_pref[riot_id] = {'main_role': '', 'poids_role': 0}
+                        self.all_role[riot_id] = {}
+                        self.role_count[riot_id] = 0
+                except Exception:
+                    self.role_pref[riot_id] = {'main_role': '', 'poids_role': 0}
+                    self.all_role[riot_id] = {}
+                    self.role_count[riot_id] = 0
+
+                # --- SERIE WIN/LOSE ---
+                try:
+                    match_history = await get_player_match_history_moba(
+                        self.session,
+                        riot_id,
+                        riot_tag,
+                        top=20
+                    )
+                    serie = detect_win_streak(match_history, self.thisRiotIdListe[i], self.thisRiotTagListe[i])
+                    self.dict_serie[riot_id] = serie
+                except Exception:
+                    self.dict_serie[riot_id] = {'mot': '', 'count': 0}
+
+                # --- POINTS (pas dans Mobalytics, on laisse à -1 comme UGG) ---
+                self.dict_serie[riot_id]['carry_points'] = -1
+                self.dict_serie[riot_id]['team_points'] = -1
+                self.dict_serie[riot_id]['points'] = -1
+
+        # Variables principales du joueur (inchangées)
         stats_mode = "RANKED_FLEX_SR" if self.thisQ == 'FLEX' else "RANKED_SOLO_5x5"
         try:
-
-
             for i in range(len(self.thisStats)):
                 if str(self.thisStats[i]['queueType']) == stats_mode:
                     self.i = i
                     break
-
             self.thisWinrate = int(self.thisStats[self.i]['wins']) / (
                 int(self.thisStats[self.i]['wins']) + int(self.thisStats[self.i]['losses']))
             self.thisWinrateStat = str(int(self.thisWinrate * 100))
@@ -1878,7 +1996,7 @@ class matchlol():
             self.thisVictory = str(self.thisStats[self.i]['wins'])
             self.thisLoose = str(self.thisStats[self.i]['losses'])
             self.thisWinStreak = str(self.thisStats[self.i]['hotStreak'])
-        except (IndexError, AttributeError):  # on va avoir une index error si le joueur est en placement, car Riot ne fournit pas dans son api les données de placement
+        except (IndexError, AttributeError):
             self.thisWinrate = '0'
             self.thisWinrateStat = '0'
             self.thisRank = 'En placement'
@@ -1897,7 +2015,6 @@ class matchlol():
                 self.thisVictory = '0'
                 self.thisLoose = '0'
                 self.thisWinStreak = '0'
-                
             else:
                 data_joueur = lire_bdd_perso(f'SELECT * from suivi_s{self.season} where index = {self.id_compte}').T
                 self.thisWinrate = int(data_joueur['wins'].values[0]) / (
@@ -1908,10 +2025,11 @@ class matchlol():
                 self.thisLP = str(data_joueur['LP'].values[0])
                 self.thisVictory = str(data_joueur['wins'].values[0])
                 self.thisLoose = str(data_joueur['losses'].values[0])
-                self.thisWinStreak = str(data_joueur['serie'].values[0]) 
-                     
-                
+                self.thisWinStreak = str(data_joueur['serie'].values[0])
 
+
+        self.carry_points = -1
+        self.team_points = -1
 
                 
                 
@@ -1926,7 +2044,12 @@ class matchlol():
         
         self.winrate_champ_joueur = {}
         
-        
+
+        self.avgtier_ally = ''
+        self.avgrank_ally = ''
+
+        self.avgtier_enemy = ''
+        self.avgrank_enemy = ''       
         
         self.role_pref = {}
         self.all_role = {}
@@ -1997,31 +2120,16 @@ class matchlol():
             self.winrate_champ_joueur[f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].upper()}'] = dict_data_stat
             
 
-            if self.moba_ok:
 
-                try:
-                    self.liste_rank.append(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['tier'])
-                    self.liste_tier.append(self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['division'])
-                except IndexError:
-                    try:
-                        data_mobalytics_copy = self.data_mobalytics.copy()
-                        data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
-                        self.liste_rank.append(data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['tier'])
-                        self.liste_tier.append(data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['division'])
-                    except:
-                        self.liste_rank.append('')
-                        self.liste_tier.append('')
-            else:
-
-                try:
-                    rank_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
-                    tier_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
-                    self.liste_rank.append(rank_joueur)
-                    self.liste_tier.append(tier_joueur)
+            try:
+                rank_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
+                tier_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
+                self.liste_rank.append(rank_joueur)
+                self.liste_tier.append(tier_joueur)
                     
-                except:
-                    self.liste_rank.append('')
-                    self.liste_tier.append('')
+            except:
+                self.liste_rank.append('')
+                self.liste_tier.append('')
 
             ###
 
@@ -2101,143 +2209,143 @@ class matchlol():
 
 
 
-    async def prepare_data_riot(self):
-        self.liste_rank = []
-        self.liste_tier = []
-        self.winrate_joueur = {}
-        self.winrate_champ_joueur = {}
-        self.role_pref = {}
-        self.all_role = {}
-        self.role_count = {}
-        self.dict_serie = {}
+    # async def prepare_data_riot(self):
+    #     self.liste_rank = []
+    #     self.liste_tier = []
+    #     self.winrate_joueur = {}
+    #     self.winrate_champ_joueur = {}
+    #     self.role_pref = {}
+    #     self.all_role = {}
+    #     self.role_count = {}
+    #     self.dict_serie = {}
 
-        for i in range(self.nb_joueur):
-            puuid = self.liste_puuid[i]
-            riot_id = self.thisRiotIdListe[i]
-            riot_tag = self.thisRiotTagListe[i]
+    #     for i in range(self.nb_joueur):
+    #         puuid = self.liste_puuid[i]
+    #         riot_id = self.thisRiotIdListe[i]
+    #         riot_tag = self.thisRiotTagListe[i]
 
-            # 1. Récup rank solo
-            try:
-                data_rank = await get_data_rank(self.session, self.liste_account_id[i])
-                soloq = next((e for e in data_rank if e['queueType'] == 'RANKED_SOLO_5x5'), None)
-                if soloq:
-                    rank = soloq['tier']
-                    tier = soloq['rank']
-                    wins = soloq['wins']
-                    losses = soloq['losses']
-                    nbgames = wins + losses
-                    wr = round(wins / nbgames * 100) if nbgames > 0 else 0
-                else:
-                    rank = ''
-                    tier = ''
-                    nbgames = 0
-                    wr = 0
-            except:
-                rank = ''
-                tier = ''
-                nbgames = 0
-                wr = 0
+    #         # 1. Récup rank solo
+    #         try:
+    #             data_rank = await get_data_rank(self.session, self.liste_account_id[i])
+    #             soloq = next((e for e in data_rank if e['queueType'] == 'RANKED_SOLO_5x5'), None)
+    #             if soloq:
+    #                 rank = soloq['tier']
+    #                 tier = soloq['rank']
+    #                 wins = soloq['wins']
+    #                 losses = soloq['losses']
+    #                 nbgames = wins + losses
+    #                 wr = round(wins / nbgames * 100) if nbgames > 0 else 0
+    #             else:
+    #                 rank = ''
+    #                 tier = ''
+    #                 nbgames = 0
+    #                 wr = 0
+    #         except:
+    #             rank = ''
+    #             tier = ''
+    #             nbgames = 0
+    #             wr = 0
 
-            self.liste_rank.append(rank)
-            self.liste_tier.append(tier)
-            self.winrate_joueur[f'{riot_id.lower()}#{riot_tag.upper()}'] = {'winrate': wr, 'nbgames': nbgames}
+    #         self.liste_rank.append(rank)
+    #         self.liste_tier.append(tier)
+    #         self.winrate_joueur[f'{riot_id.lower()}#{riot_tag.upper()}'] = {'winrate': wr, 'nbgames': nbgames}
 
-            # --- FACTORISATION ici ---
-            try:
-                # Appel unique pour 50 ranked solo Q
-                match_ids = await get_list_matchs_with_puuid(
-                    self.session, puuid, {'queue': 420, 'count': 50, 'api_key': api_key_lol}
-                )
-            except Exception as e:
-                match_ids = []
+    #         # --- FACTORISATION ici ---
+    #         try:
+    #             # Appel unique pour 50 ranked solo Q
+    #             match_ids = await get_list_matchs_with_puuid(
+    #                 self.session, puuid, {'queue': 420, 'count': 50, 'api_key': api_key_lol}
+    #             )
+    #         except Exception as e:
+    #             match_ids = []
 
-            champ_stats = {}
-            roles_counter = {}
-            streak_result = None
-            streak_count = 0
+    #         champ_stats = {}
+    #         roles_counter = {}
+    #         streak_result = None
+    #         streak_count = 0
 
-            for idx, match_id in enumerate(match_ids):
-                try:
-                    match = await get_match_detail(self.session, match_id, {'api_key': api_key_lol})
-                    participant = next((p for p in match['info']['participants'] if p['puuid'] == puuid), None)
-                    if not participant:
-                        continue
+    #         for idx, match_id in enumerate(match_ids):
+    #             try:
+    #                 match = await get_match_detail(self.session, match_id, {'api_key': api_key_lol})
+    #                 participant = next((p for p in match['info']['participants'] if p['puuid'] == puuid), None)
+    #                 if not participant:
+    #                     continue
 
-                    # --- Stats par champion joué
-                    champ_id = participant['championId']
-                    if champ_id not in champ_stats:
-                        champ_stats[champ_id] = {'kills': 0, 'deaths': 0, 'assists': 0, 'matches': 0, 'wins': 0}
-                    champ_stats[champ_id]['kills'] += participant['kills']
-                    champ_stats[champ_id]['deaths'] += participant['deaths']
-                    champ_stats[champ_id]['assists'] += participant['assists']
-                    champ_stats[champ_id]['matches'] += 1
-                    if participant['win']:
-                        champ_stats[champ_id]['wins'] += 1
+    #                 # --- Stats par champion joué
+    #                 champ_id = participant['championId']
+    #                 if champ_id not in champ_stats:
+    #                     champ_stats[champ_id] = {'kills': 0, 'deaths': 0, 'assists': 0, 'matches': 0, 'wins': 0}
+    #                 champ_stats[champ_id]['kills'] += participant['kills']
+    #                 champ_stats[champ_id]['deaths'] += participant['deaths']
+    #                 champ_stats[champ_id]['assists'] += participant['assists']
+    #                 champ_stats[champ_id]['matches'] += 1
+    #                 if participant['win']:
+    #                     champ_stats[champ_id]['wins'] += 1
 
-                    # --- Stat rôle joué
-                    role = participant.get('teamPosition', participant.get('role', 'UNKNOWN'))
-                    roles_counter[role] = roles_counter.get(role, 0) + 1
+    #                 # --- Stat rôle joué
+    #                 role = participant.get('teamPosition', participant.get('role', 'UNKNOWN'))
+    #                 roles_counter[role] = roles_counter.get(role, 0) + 1
 
-                    # --- Série (streak) victoire/défaite sur les 10 premiers matchs
-                    if idx < 10:
-                        if streak_result is None:
-                            streak_result = participant['win']
-                            streak_count = 1
-                        elif participant['win'] == streak_result:
-                            streak_count += 1
-                        else:
-                            # On arrête dès que la série se casse
-                            pass
-                except Exception as e:
-                    continue
+    #                 # --- Série (streak) victoire/défaite sur les 10 premiers matchs
+    #                 if idx < 10:
+    #                     if streak_result is None:
+    #                         streak_result = participant['win']
+    #                         streak_count = 1
+    #                     elif participant['win'] == streak_result:
+    #                         streak_count += 1
+    #                     else:
+    #                         # On arrête dès que la série se casse
+    #                         pass
+    #             except Exception as e:
+    #                 continue
 
-            # --- Champion principal joué sur ce match
-            champ_id_main = self.thisChampListe[i]
-            stats = champ_stats.get(champ_id_main, None)
-            if stats:
-                deaths = stats['deaths'] if stats['deaths'] != 0 else 1
-                kda = round((stats['kills'] + stats['assists']) / deaths, 2)
-                poids_games = int(stats['matches'] / max(sum(v['matches'] for v in champ_stats.values()), 1) * 100)
-                dict_data_stat = {
-                    'kills': stats['kills'],
-                    'deaths': stats['deaths'],
-                    'assists': stats['assists'],
-                    'winrate': int(stats['wins'] / stats['matches'] * 100) if stats['matches'] > 0 else 0,
-                    'poids_games': poids_games,
-                    'kda': kda,
-                    'matches': stats['matches']
-                }
-            else:
-                dict_data_stat = ''
-            self.winrate_champ_joueur[f'{riot_id.lower()}#{riot_tag.upper()}'] = dict_data_stat
+    #         # --- Champion principal joué sur ce match
+    #         champ_id_main = self.thisChampListe[i]
+    #         stats = champ_stats.get(champ_id_main, None)
+    #         if stats:
+    #             deaths = stats['deaths'] if stats['deaths'] != 0 else 1
+    #             kda = round((stats['kills'] + stats['assists']) / deaths, 2)
+    #             poids_games = int(stats['matches'] / max(sum(v['matches'] for v in champ_stats.values()), 1) * 100)
+    #             dict_data_stat = {
+    #                 'kills': stats['kills'],
+    #                 'deaths': stats['deaths'],
+    #                 'assists': stats['assists'],
+    #                 'winrate': int(stats['wins'] / stats['matches'] * 100) if stats['matches'] > 0 else 0,
+    #                 'poids_games': poids_games,
+    #                 'kda': kda,
+    #                 'matches': stats['matches']
+    #             }
+    #         else:
+    #             dict_data_stat = ''
+    #         self.winrate_champ_joueur[f'{riot_id.lower()}#{riot_tag.upper()}'] = dict_data_stat
 
-            # --- Stats de rôles principaux
-            total_games = sum(roles_counter.values())
-            if total_games > 0:
-                df_pref_role = pd.DataFrame.from_dict(roles_counter, orient='index', columns=['gameCount'])
-                df_pref_role['poids'] = (df_pref_role['gameCount'] / total_games * 100).astype(int)
-                df_pref_role.sort_values('poids', ascending=False, inplace=True)
-                main_role = df_pref_role.index[0]
-                poids_role = df_pref_role.iloc[0]['poids']
-                self.role_pref[riot_id.lower()] = {'main_role': main_role, 'poids_role': poids_role}
-                self.all_role[riot_id.lower()] = df_pref_role.to_dict('index')
-                self.role_count[riot_id.lower()] = total_games
-            else:
-                self.role_pref[riot_id.lower()] = {}
-                self.all_role[riot_id.lower()] = {}
-                self.role_count[riot_id.lower()] = 0
+    #         # --- Stats de rôles principaux
+    #         total_games = sum(roles_counter.values())
+    #         if total_games > 0:
+    #             df_pref_role = pd.DataFrame.from_dict(roles_counter, orient='index', columns=['gameCount'])
+    #             df_pref_role['poids'] = (df_pref_role['gameCount'] / total_games * 100).astype(int)
+    #             df_pref_role.sort_values('poids', ascending=False, inplace=True)
+    #             main_role = df_pref_role.index[0]
+    #             poids_role = df_pref_role.iloc[0]['poids']
+    #             self.role_pref[riot_id.lower()] = {'main_role': main_role, 'poids_role': poids_role}
+    #             self.all_role[riot_id.lower()] = df_pref_role.to_dict('index')
+    #             self.role_count[riot_id.lower()] = total_games
+    #         else:
+    #             self.role_pref[riot_id.lower()] = {}
+    #             self.all_role[riot_id.lower()] = {}
+    #             self.role_count[riot_id.lower()] = 0
 
-            # --- Streak win/lose
-            if streak_result is not None:
-                mot = "Victoire" if streak_result else "Defaite"
-                self.dict_serie[riot_id.lower()] = {'mot': mot, 'count': streak_count}
-            else:
-                self.dict_serie[riot_id.lower()] = {'mot': '', 'count': 0}
+    #         # --- Streak win/lose
+    #         if streak_result is not None:
+    #             mot = "Victoire" if streak_result else "Defaite"
+    #             self.dict_serie[riot_id.lower()] = {'mot': mot, 'count': streak_count}
+    #         else:
+    #             self.dict_serie[riot_id.lower()] = {'mot': '', 'count': 0}
 
-            # --- Carry/team points (toujours -1 car non dispo)
-            self.dict_serie[riot_id.lower()]['carry_points'] = -1
-            self.dict_serie[riot_id.lower()]['team_points'] = -1
-            self.dict_serie[riot_id.lower()]['points'] = -1
+    #         # --- Carry/team points (toujours -1 car non dispo)
+    #         self.dict_serie[riot_id.lower()]['carry_points'] = -1
+    #         self.dict_serie[riot_id.lower()]['team_points'] = -1
+    #         self.dict_serie[riot_id.lower()]['points'] = -1
 
 
 
@@ -4030,12 +4138,12 @@ class matchlol():
                         1 : 'jungle',
                         2 : 'mid',
                         3 : 'adc',
-                        4 : 'supp',
+                        4 : 'support',
                         5 : 'top',
                         6 : 'jungle',
                         7 : 'mid',
                         8 : 'adc',
-                        9 : 'supp'}
+                        9 : 'support'}
                 
         for num, (joueur, stat) in enumerate(self.winrate_champ_joueur.items()):
             
@@ -4105,36 +4213,38 @@ class matchlol():
 
         self.txt_gap = ''
         
-        roles = ['TOP', 'JGL', 'MID', 'ADC', 'SUPP']
-        self.ecarts_gap = {}
-        self.emote_gap = {}
-        self.max_ecart_role = None
-        self.max_ecart_valeur = 0
+        if hasattr(self, 'df_data_match'):
+            roles = ['TOP', 'JGL', 'MID', 'ADC', 'SUPP']
+            self.ecarts_gap = {}
+            self.emote_gap = {}
+            self.max_ecart_role = None
+            self.max_ecart_valeur = 0
 
-        if not self.df_data_match.empty:
-            for i in range(5):
-                joueur = self.thisRiotIdListe[i].lower()
-                adversaire = self.thisRiotIdListe[i + 5].lower()
+            if not self.df_data_match.empty:
+                for i in range(5):
+                    joueur = self.thisRiotIdListe[i].lower()
+                    adversaire = self.thisRiotIdListe[i + 5].lower()
 
-                points_joueur = self.dict_serie[joueur]['points']
-                points_adversaire = self.dict_serie[adversaire]['points']
+                    points_joueur = self.dict_serie[joueur]['points']
+                    points_adversaire = self.dict_serie[adversaire]['points']
 
-                ecart = points_joueur - points_adversaire
-                ecart = 0 if points_joueur == 0 or points_adversaire == 0 else ecart
-                role = roles[i]
-                self.emote_gap[role] = ':green_circle:' if ecart > 0 else ':red_circle:'
-                self.ecarts_gap[role] = abs(ecart)
+                    ecart = points_joueur - points_adversaire
+                    ecart = 0 if points_joueur == 0 or points_adversaire == 0 else ecart
+                    role = roles[i]
+                    self.emote_gap[role] = ':green_circle:' if ecart > 0 else ':red_circle:'
+                    self.ecarts_gap[role] = abs(ecart)
 
-                # # Vérifie si cet écart est le plus important en valeur absolue
-                # if abs(ecart) > abs(self.max_ecart_valeur):
-                #     self.max_ecart_valeur = abs(ecart)
-                #     self.max_ecart_role = role
+                    # # Vérifie si cet écart est le plus important en valeur absolue
+                    # if abs(ecart) > abs(self.max_ecart_valeur):
+                    #     self.max_ecart_valeur = abs(ecart)
+                    #     self.max_ecart_role = role
 
-        
-        for key, value in self.ecarts_gap.items():
-            if value > 20:
-                emote = self.emote_gap[key]
-                self.txt_gap += f'{emote}**{key}** GAP | '
+            
+            for key, value in self.ecarts_gap.items():
+                if value > 20:
+                    emote = self.emote_gap[key]
+                    self.txt_gap += f'{emote}**{key}** GAP | '
+            
 
         # if self.max_ecart_role is not None:
         #     if self.max_ecart_valeur > 20:
@@ -4573,7 +4683,7 @@ class matchlol():
             try:
                 self.img_ally_avg = await get_image('tier', self.avgtier_ally.upper(), self.session, 100, 100)
 
-                im.paste(self.img_ally_avg, (x_name+200, 120-20 + 190), self.img_ally_avg.convert('RGBA'))
+                im.paste(self.img_ally_avg, (x_score-365, 120-20 + 190), self.img_ally_avg.convert('RGBA'))
 
                 d.text((x_name+300, 120 + 190), str(
                             self.avgrank_ally), font=font, fill=principal)
@@ -4583,7 +4693,7 @@ class matchlol():
             try:
                 self.img_enemy_avg = await get_image('tier', self.avgtier_enemy.upper(), self.session, 100, 100)
 
-                im.paste(self.img_enemy_avg, (x_name+200, 720-20 + 190), self.img_enemy_avg.convert('RGBA'))
+                im.paste(self.img_enemy_avg, (x_score-365, 720-20 + 190), self.img_enemy_avg.convert('RGBA'))
 
             except FileNotFoundError:
                 self.img_enemy_avg = 'UNRANKED'
@@ -4613,19 +4723,19 @@ class matchlol():
         # participants
         initial_y = 223 + 190
         
-        if self.moba_ok == False:
 
-            array_scoring = np.array([]) # qu'on va mettre du plus grand au plus petit
-            liste = []  # en ordre en fonction des joueurs
-            for i in range(0,10):
-                liste.append(self.calcul_scoring(i))
-                scoring_joueur = liste[i]
-                array_scoring = np.append(array_scoring, scoring_joueur)
 
-            array_scoring_trie = array_scoring.copy()
-            array_scoring_trie.sort()
+        array_scoring = np.array([]) # qu'on va mettre du plus grand au plus petit
+        liste = []  # en ordre en fonction des joueurs
+        for i in range(0,10):
+            liste.append(self.calcul_scoring(i))
+            scoring_joueur = liste[i]
+            array_scoring = np.append(array_scoring, scoring_joueur)
+
+        array_scoring_trie = array_scoring.copy()
+        array_scoring_trie.sort()
             
-            self.model = ''
+
 
 
             
@@ -4676,17 +4786,12 @@ class matchlol():
 
             if self.moba_ok:
                 try:
-                    rank_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['tier']
-                    tier_joueur = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['rank'].values[0]['division']
-                except IndexError:
-                    try:
-                        data_mobalytics_copy = self.data_mobalytics.copy()
-                        data_mobalytics_copy['summonerName'] = data_mobalytics_copy['summonerName'].apply(lambda x : x.lower())
-                        rank_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['tier']
-                        tier_joueur = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['rank'].values[0]['division']
-                    except:
-                        rank_joueur = ''
-                        tier_joueur = ''
+                    rank_joueur = self.liste_tier[i]
+                    tier_joueur = self.liste_rank[i]
+
+                except:
+                    rank_joueur = ''
+                    tier_joueur = ''
             else:
                 try:
                     
@@ -4711,19 +4816,10 @@ class matchlol():
                 d.text((x_score-265, initial_y), str(
                         tier_joueur), font=font, fill=fill)
 
-            if self.moba_ok:
-                try:
-                    scoring = self.data_mobalytics.loc[self.data_mobalytics['summonerName'] == f'{self.thisRiotIdListe[i]}#{self.thisRiotTagListe[i]}']['mvpScore'].values[0]
-                except IndexError:
-                    try:
-                        scoring = data_mobalytics_copy.loc[data_mobalytics_copy['summonerName'] == f'{self.thisRiotIdListe[i].lower()}#{self.thisRiotTagListe[i].lower()}']['mvpScore'].values[0]
-                    except IndexError:
-                        scoring = '?'    
 
-            else:
-                scoring = np.where(array_scoring_trie == liste[i])[0][0] + 1
-                if self.thisRiotIdListe[i].lower().replace(' ', '') == self.riot_id:
-                    requete_perso_bdd('''UPDATE matchs
+            scoring = np.where(array_scoring_trie == liste[i])[0][0] + 1
+            if self.thisRiotIdListe[i].lower().replace(' ', '') == self.riot_id:
+                requete_perso_bdd('''UPDATE matchs
                                       SET mvp = :mvp 
                                       WHERE match_id = :match_id
                                       AND joueur = :joueur''',

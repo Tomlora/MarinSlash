@@ -21,6 +21,41 @@ def split_riot_id(pseudo):
         game_name, tag_line = pseudo, ""
     return game_name, tag_line
 
+
+async def update_moba(session, gameName, tagLine, source="WEB"):
+    mutation = """
+    mutation LolRefreshProfilesMutation($input: LolRefreshProfilesInput!) {
+      lol {
+        refreshProfiles(input: $input) {
+          notificationsDetails
+          errors {
+            message
+          }
+        }
+      }
+    }
+    """
+    payload = {
+        "query": mutation,
+        "variables": {
+            "input": {
+                "source": source,
+                "inputs": [{
+                    "region": 'EUW',
+                    "gameName": gameName,
+                    "tagLine": tagLine
+                }]
+            }
+        }
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0"
+    }
+    async with session.post(url_api_moba, headers=headers, json=payload) as resp:
+        result = await resp.json()
+        return result
+
 async def get_mobalytics(pseudo: str, session, match_id):
     
 
@@ -101,40 +136,7 @@ query LolMatchDetailsQuery($region: Region!, $gameName: String!, $tagLine: Strin
 
 
 
-async def update_moba(session, gameName, tagLine, source="WEB"):
-    url = "https://stg.mobalytics.gg/api/lol/graphql/v1/query"
-    mutation = """
-    mutation LolRefreshProfilesMutation($input: LolRefreshProfilesInput!) {
-      lol {
-        refreshProfiles(input: $input) {
-          notificationsDetails
-          errors {
-            message
-          }
-        }
-      }
-    }
-    """
-    payload = {
-        "query": mutation,
-        "variables": {
-            "input": {
-                "source": source,
-                "inputs": [{
-                    "region": 'EUW',
-                    "gameName": gameName,
-                    "tagLine": tagLine
-                }]
-            }
-        }
-    }
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0"
-    }
-    async with session.post(url, headers=headers, json=payload) as resp:
-        result = await resp.json()
-        return result
+
 
 
 async def get_wr_ranked(session, riot_id, riot_tag):
@@ -215,6 +217,7 @@ async def get_role_stats(session, game_name, tag_line, region='EUW'):
 
 
         df = pd.DataFrame(roles)
+        df = df[df['queue'] == 'RANKED_SOLO']
         df['nbgames'] = df['wins'] + df['looses']
         df['poids_role'] = df['nbgames'] / df['nbgames'].sum() * 100
         return df
@@ -262,7 +265,7 @@ def detect_win_streak(match_list, pseudo, tag):
 
 
 # Appel asynchrone de l'API Mobalytics
-async def get_player_match_history(session, riot_id, riot_tag, top=20, skip=0, region="EUW"):
+async def get_player_match_history_moba(session, riot_id, riot_tag, top=20, skip=0, region="EUW"):
 
 
     query = """
@@ -310,3 +313,114 @@ query PlayerMatchHistory($region: Region!, $gameName: String!, $tagLine: String!
 
 # Exemple d'utilisation :
 # serie = detect_win_streak(matches, pseudo="Tomlora", tag="EUW")
+
+
+async def get_stat_champion_by_player_mobalytics(session, riot_id, riot_tag):
+    url_api_moba = "https://stg.mobalytics.gg/api/lol/graphql/v1/query"
+
+    query = """
+    query LolPlayerChampionsStats($region: Region!, $gameName: String!, $tagLine: String!) {
+      lol {
+        player(region: $region, gameName: $gameName, tagLine: $tagLine) {
+          championsMatchups(
+            filter: {},
+            sort: { items: [{ sort: DESC, field: GAMES }] },
+            mode: Best,
+            top: 1000,
+            skip: 0
+          ) {
+            items {
+              championId
+              role
+              wins
+              looses
+              kda { kills deaths assists }
+              csm
+              damagePerMinute
+              gpm
+              cs
+              wards
+              lp
+            }
+          }
+        }
+      }
+    }
+    """
+
+    variables = {
+        "region": "EUW",
+        "gameName": riot_id,
+        "tagLine": riot_tag
+    }
+    json_data = {
+        'query': query,
+        'variables': variables
+    }
+    headers = {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0',
+    }
+
+    async with session.post(url_api_moba, headers=headers, json=json_data) as resp:
+        result = await resp.json()
+        try:
+            items = result['data']['lol']['player']['championsMatchups']['items']
+            df = pd.DataFrame(items)
+            # Aplatir le dict kda
+            if not df.empty and 'kda' in df.columns:
+                df_kda = df['kda'].apply(pd.Series)
+                df = pd.concat([df.drop('kda', axis=1), df_kda], axis=1)
+            # Calcul colonne "totalMatches"
+            if not df.empty:
+                df["totalMatches"] = df["wins"] + df["looses"]
+            return df
+        except Exception as e:
+            # Tu peux log l'erreur ici si tu veux
+            return pd.DataFrame()
+
+# df_data_stat = await get_stat_champion_by_player_mobalytics(client, 'tomlora', 'EUW')
+
+
+
+async def get_rank_moba(session, riot_id, riot_tag):
+
+    query = """
+    query LolSearchQuery($region: Region!, $text: ID!) {
+      search(region: $region, text: $text) {
+        summoners {
+          gameName
+          tagLine
+          icon
+          region
+          queue {
+            tier
+            division
+          }
+        }
+      }
+    }
+    """
+
+    variables = {
+        "region": "EUW",    # Adapter la région si besoin
+        "text": f"{riot_id}#{riot_tag}"  # Adapter le nom du joueur
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "query": query,
+        "variables": variables
+    }
+
+    async with session.post(url_api_moba, headers=headers, json=payload) as resp:
+          result = await resp.json()
+
+    tier = result['data']['search']['summoners'][0]['queue']['tier']
+    rank = result['data']['search']['summoners'][0]['queue']['division']
+    
+    return tier, rank

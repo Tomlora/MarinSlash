@@ -513,7 +513,8 @@ class LeagueofLegends(Extension):
             if match_info.thisQId not in [1700, 1820, 1830, 1840, 1900]:  # urf
                 await match_info.prepare_data()
                 await match_info.prepare_data_moba()
-                await match_info.prepare_data_ugg()
+                if not match_info.moba_ok:
+                    await match_info.prepare_data_ugg()
             
             # elif match_info.thisQId in [1820, 1830, 1840]:
             #     await match_info.prepare_data_swarm()
@@ -1012,9 +1013,9 @@ class LeagueofLegends(Extension):
 
                 # Gap 
 
-                await match_info.detection_gap()
-                if match_info.txt_gap != '':
-                    embed.add_field(name=f':chart_with_upwards_trend: {match_info.txt_gap}', value=' ')
+                # await match_info.detection_gap()
+                # if match_info.txt_gap != '':
+                #     embed.add_field(name=f':chart_with_upwards_trend: {match_info.txt_gap}', value=' ')
 
 
             if match_info.AFKTeamBool:
