@@ -1826,6 +1826,7 @@ class matchlol():
 
         self.liste_rank = []
         self.liste_tier = []
+        self.liste_lp = []
         self.winrate_joueur = {}
         self.winrate_champ_joueur = {}
         self.role_pref = {}
@@ -1851,11 +1852,20 @@ class matchlol():
 
         if self.moba_ok:
 
-            self.avgtier_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['tier']
-            self.avgrank_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['division']
+            try:
+                self.avgtier_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['tier']
+                self.avgrank_ally = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.n_moba]['avgTier']['division']
 
-            self.avgtier_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['tier']
-            self.avgrank_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['division']
+                self.avgtier_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['tier']
+                self.avgrank_enemy = self.data_mobalytics_complete['data']['lol']['player']['match']['teams'][self.team]['avgTier']['division']
+
+
+            except TypeError:
+                self.avgtier_ally = ''
+                self.avgrank_ally = ''
+
+                self.avgtier_enemy = ''
+                self.avgrank_enemy = ''
 
             for i in range(self.nb_joueur):
                 riot_id = self.thisRiotIdListe[i].lower()
@@ -1864,20 +1874,22 @@ class matchlol():
 
                 # --- RANK ET TIER ---
                 try:
-                    tier, rank = await get_rank_moba(self.session, riot_id, riot_tag)
+                    tier, rank, lp = await get_rank_moba(self.session, riot_id, riot_tag)
                 except Exception:
                     rank = ''
                     tier = ''
+                    lp = 0
                 self.liste_rank.append(rank)
                 self.liste_tier.append(tier)
+                self.liste_lp.append(lp)
 
                 # --- WINRATE GLOBAL ---
                 try:
                     wr_res = await get_wr_ranked(self.session, riot_id, riot_tag)
                     stats = wr_res['data']['lol']['player']['queuesStats']['items']
-                    ranked_stats = next((q for q in stats if q.get('virtualQueue', '') == 'RANKED_SOLO_5x5'), None)
+                    ranked_stats = next((q for q in stats if q.get('virtualQueue', '') == 'RANKED_SOLO'), None)
                     if ranked_stats:
-                        wr = int(round(ranked_stats.get('winrate', 0)))
+                        wr = int(round(ranked_stats.get('winrate', 0) * 100))
                         nbgames = ranked_stats.get('gamesCount', 0)
                     else:
                         wr, nbgames = 0, 0
@@ -4172,9 +4184,11 @@ class matchlol():
                 poids_main_role = self.role_pref[pseudo]['poids_role']
                 emote_champ = emote_champ_discord.get(self.thisChampNameListe[num].capitalize(), self.thisChampNameListe[num].capitalize())
 
+
                 if self.all_role[pseudo][role]['poids'] <= 15 and self.role_count[pseudo] > 30:
 
                     self.first_time += f'{emote} **{pseudo}** {emote_champ} Autofill ({role.upper()}) : Main {main_role.upper()} ({poids_main_role}%) \n'
+
 
 
 
@@ -4789,6 +4803,9 @@ class matchlol():
                     rank_joueur = self.liste_tier[i]
                     tier_joueur = self.liste_rank[i]
 
+                    if rank_joueur in ['MASTER', 'GRANDMASTER', 'CHALLENGER']:
+                        tier_joueur = self.liste_lp[i]
+
                 except:
                     rank_joueur = ''
                     tier_joueur = ''
@@ -4808,7 +4825,7 @@ class matchlol():
                     rank_joueur = ''
                     tier_joueur = ''
 
-            if rank_joueur != '':
+            if rank_joueur != '' and rank_joueur != 'UNRANKED':
                 img_rank_joueur = await get_image('tier', rank_joueur.upper(), self.session, 100, 100)
 
                 im.paste(img_rank_joueur, (x_score-365, initial_y-20), img_rank_joueur.convert('RGBA'))

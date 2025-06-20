@@ -4,7 +4,7 @@ import os
 import traceback
 from aiohttp import ClientSession
 import pandas as pd
-
+import asyncio
 
 api_moba = os.environ.get('API_moba')
 url_api_moba = os.environ.get('url_moba')
@@ -112,27 +112,23 @@ query LolMatchDetailsQuery($region: Region!, $gameName: String!, $tagLine: Strin
 
     attempts = 0
 
-    async with session.post(url_api_moba, headers=headers, json=json_data) as resp:
-      result = await resp.json()
-
-      return result
-
-
-    attempts = 0
     while attempts < 5:
         try:
-            async with session.post(url_api_moba, headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
-                match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
-                df_moba = pd.DataFrame(match_detail_stats['data']['lol']['player']['match']['participants'])
+
+          async with session.post(url_api_moba, headers=headers, json=json_data) as resp:
+            result = await resp.json()
+            break 
+        
         except:
             attempts += 1
+            await asyncio.sleep(5) 
 
             if attempts >= 5:
-                async with session.post(url_api_moba, headers={'authority':'app.mobalytics.gg','accept':'*/*','accept-language':'en_us','content-type':'application/json','origin':'https://app.mobalytics.gg','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','sec-fetch-dest':'empty','sec-fetch-mode':'cors','sec-fetch-site':'same-origin','sec-gpc':'1','x-moba-client':'mobalytics-web','x-moba-proxy-gql-ops-name':'LolMatchDetailsQuery'}, json=json_data) as session_match_detail:
-                    match_detail_stats = await session_match_detail.json()  # detail du match sélectionné
-                    df_moba = pd.DataFrame(match_detail_stats['data']['lol']['player']['match']['participants'])
+                return ''
 
-    return df_moba, match_detail_stats
+    return result
+
+
 
 
 
@@ -208,19 +204,35 @@ async def get_role_stats(session, game_name, tag_line, region='EUW'):
         'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0',
     }
-    async with session.post(url, headers=headers, json=json_data) as resp:
-        res_json = await resp.json()
+
+    attemps = 0
+
+    while attemps < 5:
         try:
-            roles = res_json['data']['lol']['player']['rolesStats']['roles']
+          async with session.post(url, headers=headers, json=json_data) as resp:
+              res_json = await resp.json()
+
+              roles = res_json['data']['lol']['player']['rolesStats']['roles']
+
+
+
+              df = pd.DataFrame(roles)
+              df = df[df['queue'] == 'RANKED_SOLO']
+              df['nbgames'] = df['wins'] + df['looses']
+              df['poids_role'] = df['nbgames'] / df['nbgames'].sum() * 100
+
+              break
+        
         except (KeyError, TypeError):
-            return pd.DataFrame()  # Retourne un DF vide si problème
+            attemps += 1
+            await asyncio.sleep(5)
 
-
-        df = pd.DataFrame(roles)
-        df = df[df['queue'] == 'RANKED_SOLO']
-        df['nbgames'] = df['wins'] + df['looses']
-        df['poids_role'] = df['nbgames'] / df['nbgames'].sum() * 100
-        return df
+            if attemps >= 5:
+                return pd.DataFrame()
+            
+    
+    return df
+    
 
 
 
@@ -323,7 +335,7 @@ async def get_stat_champion_by_player_mobalytics(session, riot_id, riot_tag):
       lol {
         player(region: $region, gameName: $gameName, tagLine: $tagLine) {
           championsMatchups(
-            filter: {},
+            filter: {queue : RANKED_SOLO }
             sort: { items: [{ sort: DESC, field: GAMES }] },
             mode: Best,
             top: 1000,
@@ -383,19 +395,87 @@ async def get_stat_champion_by_player_mobalytics(session, riot_id, riot_tag):
 
 
 
+# async def get_rank_moba(session, riot_id, riot_tag):
+
+#     query = """
+#     query LolSearchQuery($region: Region!, $text: ID!) {
+#       search(region: $region, text: $text) {
+#         summoners {
+#           gameName
+#           tagLine
+#           icon
+#           region
+#           queue {
+#             tier
+#             division
+#             lp
+#           }
+#         }
+#       }
+#     }
+#     """
+
+#     variables = {
+#         "region": "EUW",    # Adapter la région si besoin
+#         "text": f"{riot_id}#{riot_tag}"  # Adapter le nom du joueur
+#     }
+
+#     headers = {
+#         "User-Agent": "Mozilla/5.0",
+#         "Content-Type": "application/json"
+#     }
+
+#     payload = {
+#         "query": query,
+#         "variables": variables
+#     }
+
+#     attemps = 0
+
+#     # while attemps < 5:
+#     #     try:
+#     async with session.post(url_api_moba, headers=headers, json=payload) as resp:
+#                 result = await resp.json()
+
+#     tier = result['data']['search']['summoners'][0]['queue']['tier']
+#     rank = result['data']['search']['summoners'][0]['queue']['division']
+
+#         #   break
+        
+#         # except:
+#         #     attemps += 1
+#         #     await asyncio.sleep(5)
+
+#         #     if attemps >= 5:
+#         #         tier = ''
+#         #         rank = ''
+    
+#     return tier, rank
+
+
 async def get_rank_moba(session, riot_id, riot_tag):
 
     query = """
-    query LolSearchQuery($region: Region!, $text: ID!) {
-      search(region: $region, text: $text) {
-        summoners {
-          gameName
-          tagLine
-          icon
-          region
-          queue {
-            tier
-            division
+    query GetPlayerQueuesStats(
+      $region: Region!,
+      $gameName: String!,
+      $tagLine: String!
+    ) {
+      lol {
+        player(region: $region, gameName: $gameName, tagLine: $tagLine) {
+          queuesStats {
+            items {
+              virtualQueue
+              rank {
+                tier
+                division
+              }
+              lp
+              wins
+              losses
+              winrate
+              gamesCount
+            }
           }
         }
       }
@@ -403,24 +483,63 @@ async def get_rank_moba(session, riot_id, riot_tag):
     """
 
     variables = {
-        "region": "EUW",    # Adapter la région si besoin
-        "text": f"{riot_id}#{riot_tag}"  # Adapter le nom du joueur
+        "region": "EUW",
+        "gameName": riot_id,
+        "tagLine":  riot_tag
     }
 
     headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Content-Type": "application/json"
-    }
+            "User-Agent": "Mozilla/5.0",
+            "Content-Type": "application/json"
+        }
 
     payload = {
-        "query": query,
-        "variables": variables
+            "query": query,
+            "variables": variables
+        }
+
+    attemps = 0
+
+
+    division_map = {
+        '1': 'I',
+        '2': 'II',
+        '3': 'III',
+        '4': 'IV'
     }
 
-    async with session.post(url_api_moba, headers=headers, json=payload) as resp:
-          result = await resp.json()
 
-    tier = result['data']['search']['summoners'][0]['queue']['tier']
-    rank = result['data']['search']['summoners'][0]['queue']['division']
-    
-    return tier, rank
+
+    while attemps < 5:
+      try:
+          async with session.post(url_api_moba, headers=headers, json=payload) as resp:
+                          result = await resp.json()
+
+
+
+          queues = result['data']['lol']['player']['queuesStats']['items']
+
+          # On filtre seulement RANKED_SOLO
+          solo = [q for q in queues if q['virtualQueue'] == 'RANKED_SOLO']
+
+
+
+          # Tu peux accéder au premier (si tu veux un seul dict)
+          if solo:
+              tier = solo[0]['rank']['tier']
+              division = str(solo[0]['rank']['division'])
+              rank = division_map.get(division, division)
+              lp = solo[0]['lp']
+
+
+        
+          break
+
+      except:
+          attemps += 1
+          await asyncio.sleep(5)
+
+          if attemps >= 5:
+            return '', '', 0
+        
+    return tier, rank, lp
