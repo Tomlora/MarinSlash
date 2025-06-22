@@ -16,21 +16,17 @@ import aiohttp
 from datetime import datetime
 from interactions.ext.paginators import Paginator
 import dataframe_image as dfi
+from utils.lol import label_rank, label_tier, label_ward
 
 from fonctions.match import (get_summoner_by_puuid,
                              get_version,
                              get_champ_list,
                              get_match_timeline,
-                             label_ward,
-                             label_rank,
-                             label_tier,
-                             emote_champ_discord,
                              match_by_puuid_with_puuid,
-                             emote_rank_discord,
                              get_summoner_by_riot_id)
 from fonctions.channels_discord import get_embed
 from fonctions.gestion_bdd import lire_bdd_perso, get_tag
-
+from utils.emoji import emote_champ_discord, emote_rank_discord
 
 saison = int(lire_bdd_perso('select * from settings', format='dict', index_col='parametres')['saison']['value'])
 

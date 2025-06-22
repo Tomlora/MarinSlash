@@ -3,7 +3,7 @@ from interactions import Extension, SlashContext, SlashCommandChoice, SlashComma
 from fonctions.gestion_bdd import get_guild_data, lire_bdd_perso
 from discord.utils import get
 from fonctions.channels_discord import identifier_role_by_name
-from fonctions.params import Version, saison
+from utils.params import Version, saison
 
 # Activity au lancement du bot
 

@@ -4,7 +4,7 @@ import os
 from fonctions.gestion_bdd import (lire_bdd, lire_bdd_perso, requete_perso_bdd, get_tag)
 from fonctions.gestion_challenge import (get_data_joueur_challenges,
                                          challengeslol)
-from fonctions.match import emote_rank_discord
+from utils.emoji import emote_rank_discord
 from fonctions.word import suggestion_word
 import time
 import plotly.express as px

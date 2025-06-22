@@ -6,13 +6,15 @@ from fonctions.word import suggestion_word
 import interactions
 from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, AutocompleteContext
 from interactions.ext.paginators import Paginator
-from fonctions.params import Version, saison
-from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples, emote_champ_discord, get_stat_null_rules
+from utils.params import Version, saison
+from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples, get_stat_null_rules
+from utils.emoji import emote_champ_discord
 from aiohttp import ClientSession
 import plotly.express as px
 import asyncio
 from fonctions.channels_discord import get_embed, mention
 import difflib
+from utils.emoji import emote_v2
 
 
 def option_stats_records(name, params, description='type de recherche'):
@@ -26,116 +28,6 @@ def option_stats_records(name, params, description='type de recherche'):
 
 
 
-emote_v2 = {
-    "kda": ":star:",
-    "kp": ":trophy:",
-    "cs": ":ghost:",
-    "cs_jungle": ":ghost:",
-    "jgl_dix_min": ":ghost:",
-    "cs_min": ":ghost:",
-    "cs_dix_min": ":ghost:",
-    "kills": ":dagger:",
-    "kills+assists" : ":dagger:",
-    "team_kills": ":dagger:",
-    "deaths": ":skull:",
-    "team_deaths": ":skull:",
-    "assists": ":crossed_swords:",
-    'vision_score': ":eye:",
-    'vision_wards': ":eyes:",
-    'vision_wards_killed': ":mag:",
-    'vision_pink': ":red_circle:",
-    "vision_avantage": ":eyes:",
-    "vision_min": ":eyes:",
-    'dmg': ":dart:",
-    'dmg_ad': ":dart:",
-    'dmg_ap': ":dart:",
-    'dmg_true': ":dart:",
-    'damageratio': ":dart:",
-    'dmg_min': ":dart:",
-    'dmg/gold' : ":dart:",
-    "% DMG": ":magic_wand:",
-    'double': ":two:",
-    'triple': ":three:",
-    'quadra': ":four:",
-    'penta': ":five:",
-    'time': ":timer:",
-    'SPELLS_USED': ":gun:",
-    'BUFFS_VOLEES': "<:PandaWow:732316840495415398>",
-    'SPELLS_EVITES': ":white_check_mark:",
-    'cs_max_avantage': ":ghost:",
-    'solokills': ":karate_uniform:",
-    'CS_APRES_10_MIN': ":ghost:",
-    'CS/MIN': ":ghost:",
-    'serie_kills': ":crossed_swords:",
-    'NB_SERIES_DE_KILLS': ":crossed_swords:",
-    'dmg_reduit': ":shield:",
-    'tankratio': ":shield:",
-    'dmg_tank': ":shield:",
-    'gold': ":euro:",
-    'gold_min': ":euro:",
-    'drake': ":dragon:",
-    'baron': ":space_invader:",
-    'herald': ":space_invader:",
-    'heal_total': ":sparkling_heart:",
-    'heal_allies': ":two_hearts:",
-    "early_drake": ":timer:",
-    "early_baron": ":timer:",
-    "temps_dead": ":timer:",
-    "level_max_avantage": ":wave:",
-    "couronne": ":crown:",
-    "shield": ":shield:",
-    "allie_feeder": ":monkey_face:",
-    "snowball" : ":baseball:",
-    "temps_vivant" : ":hourglass:",
-    "dmg_tower" : ":tokyo_tower:",
-    "gold_share" : ":dollar:",
-    "ecart_gold_team" : ":euro:",
-    "temps_avant_premiere_mort" : ":timer:",
-    "skillshot_dodged" : ":wind_face:",
-    "temps_cc" : ":timer:",
-    'spells_used' : ':archery:',
-    'buffs_voles' : ':spy:',
-    'abilityHaste' : ':timer:',
-    'abilityPower' : ':magic_wand:',
-    'armor' : ':shield:',
-    'attackDamage' : ':crossed_swords:',
-    'currentGold' : ':euro:',
-    'healthMax' : ':sparkling_heart:',
-    'magicResist' : ':shield:',
-    'movementSpeed' : ':wind_face:',
-    'fourth_dragon' : ':dragon:',
-    'first_elder' : ':dragon:',
-    'first_horde' : ':space_invader:',
-    'first_double' : ':two:',
-    'first_triple' : ':three:',
-    'first_quadra' : ':four:',
-    'first_penta' : ':five:',
-    'first_niveau_max' : ':star:',
-    'first_blood' : ':dagger:',
-    'kills_min' : ':dagger:',
-    'deaths_min' : ':skull:',
-    'assists_min' : ':crossed_swords:',
-    'petales_sanglants' : ':rose:',
-    'crit_dmg' : ':dart:',
-    'immobilisation' : ':stop_sign:',
-    'temps_CC_inflige' : ':timer:',
-    'tower' : ':tokyo_tower:',
-    'inhib' : ':tokyo_tower:',
-    'dmg_true_all' : ':dart:',
-    'dmg_true_all_min' : ':dart:',
-    'dmg_ad_all' : ':dart:',
-    'dmg_ad_all_min' : ':dart:',
-    'dmg_ap_all' : ':dart:',
-    'dmg_ap_all_min' : ':dart:',
-    'dmg_all' : ':dart:',
-    'dmg_all_min' : ':dart:',
-    'longue_serie_kills' : ":crossed_swords:",
-    'early_atakhan' : ':alien:',
-    'ecart_kills' : ':crossed_swords:',
-    'ecart_deaths' : ':skull:',
-    'ecart_assists' : ':crossed_swords:',
-    'ecart_dmg' : ':dart:',
-}
 
 
 

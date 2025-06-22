@@ -10,42 +10,15 @@ import interactions
 from interactions import listen, Task, TimeTrigger
 from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command
 from fonctions.permissions import isOwner_slash
-from fonctions.params import Version, saison, heure_aram
-from fonctions.match import label_tier, emote_rank_discord
+from utils.params import Version, saison, heure_aram
+from utils.emoji import emote_rank_discord
+from utils.lol import label_tier
 from interactions.ext.paginators import Paginator
+from utils.lol import elo_lp, dict_points
 
 
-dict_points = {41: [11, -19],
-               42: [12, -18],
-               43: [13, -17],
-               44: [14, -16],
-               45: [15, -15],
-               46: [16, -15],
-               47: [17, -15],
-               48: [18, -15],
-               49: [19, -15],
-               50: [20, -15],
-               51: [21, -15],
-               52: [22, -15],
-               53: [23, -15],
-               54: [24, -15],
-               55: [25, -15],
-               56: [26, -14],
-               57: [27, -13],
-               58: [28, -12],
-               59: [29, -11]}
 
-elo_lp = {'IRON': 0,
-          'BRONZE': 1,
-          'SILVER': 2,
-          'GOLD': 3,
-          'PLATINUM': 4,
-          'EMERALD' : 5,
-          'DIAMOND': 6,
-          'MASTER': 7,
-          'GRANDMASTER': 8,
-          'CHALLENGER': 9,
-          'FIRST_GAME': 0}
+
 
 
 class Aram(Extension):

@@ -1,7 +1,7 @@
 import interactions
 from interactions import SlashCommandOption, SlashCommandChoice, Extension, SlashContext, slash_command
 import pandas as pd
-from fonctions.params import Version
+from utils.params import Version
 import aiohttp
 
 

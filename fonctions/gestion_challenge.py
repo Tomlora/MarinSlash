@@ -1,5 +1,5 @@
 import ast
-from fonctions.match import get_summoner_by_name, my_region, get_challenges_config, api_key_lol
+from fonctions.match import get_summoner_by_name, my_region, get_challenges_config
 import pandas as pd
 import aiohttp
 from fonctions.gestion_bdd import lire_bdd_perso, sauvegarde_bdd, requete_perso_bdd
@@ -8,6 +8,8 @@ from interactions import Embed
 import humanize
 from datetime import datetime
 from dateutil import tz
+from utils.lol import dict_rankid_challenges
+from utils.params import api_key_lol
 
 
 async def get_challenges_data_joueur(session, puuid):
@@ -68,17 +70,7 @@ async def get_data_joueur_challenges(id_compte: int, session, puuid=None):
         data_challenges, left_on="challengeId", right_on='id')
     # on a besoin de savoir ce qui est le mieux dans les levels : on va donc créer une variable chiffrée représentatif de chaque niveau :
 
-    dict_rankid_challenges = {"NONE": 0,
-                              "IRON": 1,
-                              "BRONZE": 2,
-                              "SILVER": 3,
-                              "GOLD": 4,
-                              "PLATINUM": 5,
-                              "DIAMOND": 6,
-                              "MASTER": 7,
-                              "GRANDMASTER": 8,
-                              "CHALLENGER": 9
-                              }
+
     data_joueur_challenges['level_number'] = data_joueur_challenges['level'].map(
         dict_rankid_challenges)
 

@@ -4,7 +4,7 @@ import pandas as pd
 import warnings
 import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, slash_command
-from fonctions.params import saison
+from utils.params import saison
 from fonctions.channels_discord import verif_module
 from fonctions.permissions import isOwner_slash
 import traceback

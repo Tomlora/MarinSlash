@@ -5,13 +5,7 @@ import traceback
 from aiohttp import ClientSession
 import pandas as pd
 import asyncio
-
-api_moba = os.environ.get('API_moba')
-url_api_moba = os.environ.get('url_moba')
-
-api_key_lol = os.environ.get('API_LOL')
-my_region = 'euw1'
-region = "EUROPE"
+from utils.params import api_key_lol, my_region, region, api_moba, url_api_moba
 
 
 def split_riot_id(pseudo):
@@ -284,7 +278,11 @@ async def get_player_match_history_moba(session, riot_id, riot_tag, top=20, skip
 query PlayerMatchHistory($region: Region!, $gameName: String!, $tagLine: String!, $top: Int!, $skip: Int!) {
   lol {
     player(region: $region, gameName: $gameName, tagLine: $tagLine) {
-      matchesHistory(top: $top, skip: $skip) {
+      matchesHistory(
+        top: $top,
+        skip: $skip,
+        filter: { queue: RANKED_SOLO }
+      ) {
         matches {
           id
           startedAt
@@ -304,7 +302,6 @@ query PlayerMatchHistory($region: Region!, $gameName: String!, $tagLine: String!
     }
   }
 }
-
     """
     variables = {
         "region": region,

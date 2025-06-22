@@ -4,11 +4,7 @@ import os
 import traceback
 from aiohttp import ClientSession
 import pandas as pd
-
-
-api_key_lol = os.environ.get('API_LOL')
-my_region = 'euw1'
-region = "EUROPE"
+from utils.params import api_key_lol, my_region, region
 
 
 async def get_champion_masteries(session, puuid):

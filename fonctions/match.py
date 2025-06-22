@@ -15,6 +15,9 @@ import sqlalchemy.exc
 from fonctions.api_calls import getPlayerStats, getRanks, update_ugg, get_role, get_player_match_history
 from fonctions.api_moba import update_moba, get_mobalytics, get_player_match_history_moba, get_role_stats, get_wr_ranked, detect_win_streak, get_stat_champion_by_player_mobalytics, get_rank_moba
 import math
+from utils.lol import elo_lp, dict_points, dict_id_q
+from utils.emoji import emote_champ_discord, emote_rank_discord
+from utils.params import api_key_lol, region, my_region
 
 # TODO : rajouter temps en vie
 
@@ -44,92 +47,17 @@ def fix_temps(duree):
     
     return minutes + secondes
 
-def label_tier(x):
-    dict_chg_tier = lire_bdd_perso('SELECT * from data_rank', index_col='nom')\
-                                                                                    .T\
-                                                                                        .to_dict()['tier']
-                                                                                        
-    for key, value in dict_chg_tier.items():
-        try:
-            dict_chg_tier[key] = int(value)    
-        except:
-            continue   
-    return dict_chg_tier.get(x,0)
-
-def label_rank(x):
-    dict_chg_rank = {'En placement': 0,
-                    'IV': 1,
-                    'III': 2,
-                    'II': 3,
-                    'I': 4}
-    return dict_chg_rank[x]
-
 
 def get_id_account_bdd(riot_id, riot_tag):
     id_acc = lire_bdd_perso(f'''SELECT * from tracker where riot_id = '{riot_id.replace(' ', '')}' and riot_tagline = '{riot_tag}' ''').loc['id_compte'].values[0]
     return id_acc
 
 
-label_ward = {'YELLOW TRINKET': 1,
-                'UNDEFINED': 2,
-                'CONTROL_WARD': 3,
-                'SIGHT_WARD': 4,
-                'BLUE_TRINKET': 5}
-
-
-dict_rankid = lire_bdd_perso('SELECT * from data_rank_soloq', index_col='rank')\
-                                                                                    .T\
-                                                                                        .to_dict()['id']
-
-elo_lp = {'IRON': 0,
-          'BRONZE': 1,
-          'SILVER': 2,
-          'GOLD': 3,
-          'PLATINUM': 4,
-           'EMERALD' : 5,
-          'DIAMOND': 6,
-          'MASTER': 7,
-          'GRANDMASTER': 8,
-          'CHALLENGER': 9,
-          'FIRST_GAME': 0}
 
 
 
-emote_rank_discord = lire_bdd_perso('SELECT * from data_rank', index_col='nom')\
-                                                                                    .T\
-                                                                                        .to_dict()\
-                                                                                            ['icon_identifiant']
 
 
-emote_champ_discord = lire_bdd_perso('SELECT * from data_champion', index_col='nom')\
-                                                                                    .T\
-                                                                                        .to_dict()\
-                                                                                            ['icon_identifiant']
-
-dict_points = {41: [11, -19],
-               42: [12, -18],
-               43: [13, -17],
-               44: [14, -16],
-               45: [15, -15],
-               46: [16, -15],
-               47: [17, -15],
-               48: [18, -15],
-               49: [19, -15],
-               50: [20, -15],
-               51: [21, -15],
-               52: [22, -15],
-               53: [23, -15],
-               54: [24, -15],
-               55: [25, -15],
-               56: [26, -14],
-               57: [27, -13],
-               58: [28, -12],
-               59: [29, -11]}
-
-
-dict_id_q = lire_bdd_perso('SELECT * from data_queue', index_col='identifiant')\
-                                                                                    .T\
-                                                                                        .to_dict()['mode']
 
 
 def trouver_records(df, category, methode='max', identifiant='riot_id'):
@@ -372,13 +300,6 @@ def get_stat_null_rules():
         stat_null_rules[stat_name] = group["champion"].tolist()
     return stat_null_rules
 
-api_key_lol = os.environ.get('API_LOL')
-
-
-
-
-my_region = 'euw1'
-region = "EUROPE"
 
 async def get_masteries_old(summonerName: str, championIds, session : aiohttp.ClientSession) -> dict:
     
@@ -4297,7 +4218,10 @@ class matchlol():
                 valeur_obtenue = self.thisKP
                 atteint = valeur_obtenue >= valeur_attendue
             elif objectif_id == 3:  # KDA
-                valeur_obtenue = self.thisKDA
+                if self.thisDeaths != 0:
+                    valeur_obtenue = self.thisKDA
+                else:
+                    valeur_obtenue = self.thisKills + self.thisAssists
                 atteint = valeur_obtenue >= valeur_attendue
             elif objectif_id == 4:  # Deaths max
                 valeur_obtenue = self.thisDeaths

@@ -5,12 +5,13 @@ import pandas as pd
 import warnings
 import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, listen, slash_command, Task, IntervalTrigger, TimeTrigger
-from fonctions.params import Version, saison
+from utils.params import Version, saison
 from fonctions.channels_discord import identifier_role_by_name
-from fonctions.match import trouver_records, get_version, emote_champ_discord, get_id_account_bdd, get_stat_null_rules
-from fonctions.match import emote_rank_discord, emote_champ_discord, fix_temps, get_list_matchs_with_puuid
+from fonctions.match import trouver_records, get_version, get_id_account_bdd, get_stat_null_rules
+from utils.emoji import emote_champ_discord, emote_rank_discord
+from fonctions.match import emote_rank_discord, fix_temps, get_list_matchs_with_puuid
 from fonctions.api_calls import getRankings
-from cogs.recordslol import emote_v2
+from utils.emoji import emote_v2
 from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import challengeslol
 from fonctions.autocomplete import autocomplete_riotid
@@ -26,6 +27,7 @@ from collections import Counter, defaultdict
 from PIL import Image 
 import io
 import re 
+from utils.emoji import dict_place
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -37,14 +39,13 @@ from fonctions.gestion_bdd import (lire_bdd,
 from fonctions.match import (matchlol,
                              get_summoner_by_puuid,
                              getId_with_puuid,
-                             dict_rankid,
                              get_league_by_summoner,
                              trouver_records,
-                             label_rank,
-                             label_tier,
                              get_spectator_data,
                              top_records
                              )
+
+from utils.lol import label_rank, label_tier, dict_rankid
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 
 
@@ -54,208 +55,6 @@ pd.options.mode.chained_assignment = None  # default='warn'
 import re
 from collections import defaultdict, OrderedDict
 
-
-# def summarize_medals(parts):
-#     """Crée un résumé des records par type de contexte + médaille."""
-#     CONTEXT_LABELS = {
-#         ":boom:": "Record",
-#         ":rocket:": "Record champion",
-#         "<:boss:1333120152983834726>": "Record personnel",
-#         "<:world_emoji:1333120623613841489>": "Record All Time",
-#         "<:trophy_world:1333117173731819520>": "Record All Time Champion"
-#     }
-
-#     summary = defaultdict(int)
-
-#     for part in parts:
-#         lines = [line.strip() for line in part.split('\n') if line.strip()]
-#         for line in lines:
-#             # Cherche une médaille
-#             medal_match = re.search(r'(<:medal\d+:\d+>)', line)
-#             if not medal_match:
-#                 continue
-#             medal = medal_match.group(1)
-
-#             # Trouve le label de contexte
-#             label = "Autre"
-#             for emote, name in CONTEXT_LABELS.items():
-#                 if emote in line:
-#                     label = name
-#                     break
-
-#             key = f"{label} {medal}"
-#             summary[key] += 1
-
-#     summary_lines = [f"{label} : {count}" for label, count in sorted(summary.items(), key=lambda x: -x[1])]
-#     return "\n".join(summary_lines)
-
-
-# def add_chunked_field(embed, title, parts, max_len=1024, total_limit=4500):
-#     """Ajoute des fields à un embed Discord, ou un résumé si trop long."""
-#     total_content = "\n".join(parts).strip()
-
-#     if len(total_content) <= total_limit:
-#         # Affichage standard par chunks
-#         current = ""
-#         index = 1
-
-#         for part in parts:
-#             part = part.strip()
-#             if not part:
-#                 continue
-
-#             # Coupe proprement si une ligne est trop longue
-#             if len(part) > max_len:
-#                 part = part[:max_len - 3] + '...'
-
-#             # Nouveau field si on dépasse la limite d’un champ
-#             if len(current) + len(part) + 1 > max_len:
-#                 embed.add_field(
-#                     name=title if index == 1 else f"{title} {index}",
-#                     value=current.strip(),
-#                     inline=False
-#                 )
-#                 current = ""
-#                 index += 1
-
-#             current += part + "\n"
-
-#         # Ajouter le dernier bloc
-#         if current.strip():
-#             embed.add_field(
-#                 name=title if index == 1 else f"{title} {index}",
-#                 value=current.strip(),
-#                 inline=False
-#             )
-
-#     else:
-#         # Trop long : on résume les records
-#         summary = summarize_medals(parts)
-#         embed.add_field(
-#             name=f"{title} (résumé)",
-#             value=summary or "Aucun record trouvé.",
-#             inline=False
-#         )
-
-#     return embed
-
-
-# def summarize_medals(parts):
-#     """Résumé : groupé par (label, medal), total + noms de stats entre ()"""
-#     CONTEXT_LABELS = {
-#         ":boom:": "Record",
-#         # ":rocket:": "Record champion",
-#         "<:boss:1333120152983834726>": "Record personnel",
-#         "<:world_emoji:1333120623613841489>": "Record All Time",
-#         "<:trophy_world:1333117173731819520>": "Record All Time Champion"
-#     }
-
-#     summary = defaultdict(lambda: {"count": 0, "stats": set()})
-
-#     for part in parts:
-#         lines = [line.strip() for line in part.split('\n') if line.strip()]
-#         for line in lines:
-#             # 🎯 Médaille
-#             medal_match = re.search(r'(<:medal\d+:\d+>)', line)
-#             if not medal_match:
-#                 continue
-#             medal = medal_match.group(1)
-
-#             # 🎯 Contexte
-#             label = "Autre"
-#             for emote, name in CONTEXT_LABELS.items():
-#                 if emote in line:
-#                     label = name
-#                     break
-
-#             # 🎯 Stat name (facultatif)
-#             # stat_match = re.search(r'__([^_]+)__', line)
-#             stat_match = re.search(r'__(.+?)__', line)
-#             stat_name = f"__{stat_match.group(1)}__" if stat_match else "__?__"
-
-#             # 🔢 Ajout au résumé
-#             key = (label, medal)
-#             summary[key]["count"] += 1
-#             summary[key]["stats"].add(stat_name)
-
-#     # ✅ Format final du résumé
-#     summary_lines = [
-#         f"{label} {medal} : {data['count']} ({', '.join(sorted(data['stats']))})"
-#         for (label, medal), data in sorted(summary.items(), key=lambda x: -x[1]["count"])
-#     ]
-
-#     return "\n".join(summary_lines)
-
-
-# def add_chunked_field(embed, title, parts, max_len=1024, total_limit=4000):
-#     """Ajoute des champs à un embed Discord, ou un résumé si trop long."""
-#     total_content = "\n".join(parts).strip()
-
-#     if len(total_content) <= total_limit:
-#         # ✅ Mode normal : découpage en chunks
-#         current = ""
-#         index = 1
-
-#         for part in parts:
-#             part = part.strip()
-#             if not part:
-#                 continue
-
-#             if len(part) > max_len:
-#                 part = part[:max_len - 3] + '...'
-
-#             if len(current) + len(part) + 1 > max_len:
-#                 embed.add_field(
-#                     name=title if index == 1 else f"{title} {index}",
-#                     value=current.strip(),
-#                     inline=False
-#                 )
-#                 current = ""
-#                 index += 1
-
-#             current += part + "\n"
-
-#         if current.strip():
-#             embed.add_field(
-#                 name=title if index == 1 else f"{title} {index}",
-#                 value=current.strip(),
-#                 inline=False
-#             )
-
-#     else:
-#         summary = summarize_medals(parts)
-
-#         if not summary:
-#             embed.add_field(
-#                 name=f"{title} (résumé)",
-#                 value="Aucun record trouvé.",
-#                 inline=False
-#             )
-#         else:
-#             lines = summary.split('\n')
-#             current = ""
-#             index = 1
-
-#             for line in lines:
-#                 if len(current) + len(line) + 1 > 1024:
-#                     embed.add_field(
-#                         name=f"{title} (résumé {index})" if index > 1 else f"{title} (résumé)",
-#                         value=current.strip(),
-#                         inline=False
-#                     )
-#                     current = ""
-#                     index += 1
-#                 current += line + "\n"
-
-#             if current.strip():
-#                 embed.add_field(
-#                     name=f"{title} (résumé {index})" if index > 1 else f"{title} (résumé)",
-#                     value=current.strip(),
-#                     inline=False
-#                 )
-
-
-#     return embed
 
 def summarize_medals(parts):
     """Résumé : groupé par (label, medal), total + noms de stats entre ()"""
@@ -417,16 +216,7 @@ def records_check3(fichier: pd.DataFrame,
             if record_counts[str(record)] >= 7:
                 return ''
             place = idx + 1
-            top_emoji = {1: "<:medal1:1377385116376105133>",
-                        2: "<:medal2:1377385148538163300>",
-                        3: "<:medal3:1377385160642793472>",
-                        4 : "<:medal4:1377386302994907247>",
-                        5 : "<:medal5:1377386313262698717>",
-                        6 : "<:medal6:1377386323651985429>",
-                        7 : "<:medal7:1377386333215002655>",
-                        8 : "<:medal8:1377386343172280381>",
-                        9 : "<:medal9:1377386352781299802>",
-                        10 : "<:medal10:1377386361698521249>"}.get(place, f"TOP {place}")
+            top_emoji = dict_place.get(place, f"TOP {place}")
             champ_emoji = emote_champ_discord.get(champion.capitalize(), 'inconnu')
             cat_emoji = emote_v2.get(category, ':star:')
 

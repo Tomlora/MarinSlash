@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import warnings
 from fonctions.gestion_bdd import lire_bdd, get_data_bdd, requete_perso_bdd
-from fonctions.params import saison
+from utils.params import saison
 from fonctions.channels_discord import mention
 import numpy as np
 import sys

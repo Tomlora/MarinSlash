@@ -6,7 +6,7 @@ import aiohttp
 import sys
 import traceback
 import humanize
-from fonctions.match import emote_champ_discord
+from utils.emoji import emote_champ_discord
 from fonctions.match import (get_version,
                              get_champ_list,
                              get_version,

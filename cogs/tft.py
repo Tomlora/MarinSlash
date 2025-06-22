@@ -5,13 +5,14 @@ import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, slash_command, listen, Task,IntervalTrigger
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 import sys
-from fonctions.params import Version
+from utils.params import Version
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
                                    get_data_bdd,
                                    lire_bdd_perso,
                                    requete_perso_bdd)
-from fonctions.match import dict_rankid, emote_rank_discord, emote_champ_discord
+from utils.emoji import emote_rank_discord, emote_champ_discord
+from utils.lol import dict_rankid
 import aiohttp
 import re
 

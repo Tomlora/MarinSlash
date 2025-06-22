@@ -4,7 +4,6 @@ import interactions
 import pandas as pd
 from fonctions.gestion_bdd import lire_bdd_perso, get_tag
 from fonctions.autocomplete import autocomplete_riotid
-from fonctions.match import emote_champ_discord
 import numpy as np
 from interactions.ext.paginators import Paginator
 import dataframe_image as dfi
