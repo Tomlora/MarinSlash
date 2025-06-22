@@ -12,6 +12,9 @@ import psycopg2.errors
 from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, get_tag
 from fonctions.autocomplete import autocomplete_riotid
 from fonctions.match import getId_with_puuid, get_summonerinfo_by_puuid, get_summoner_by_riot_id
+from utils.emoji import emote_rank_discord
+from utils.lol import label_rank, label_tier
+from interactions.ext.paginators import Paginator
 
 
 
@@ -359,6 +362,57 @@ class LolAccount(Extension):
         else:
             await ctx.send(f" Le joueur {riot_id} n'est pas dans la base de données.")
 
+
+    @slash_command(name='lol_list',
+                   description='Affiche la liste des joueurs suivis',
+                   options=[SlashCommandOption(name='season',
+                                               description='14 pour le split en cours, 14_numero split pour un split terminé. Les splits commencent en S14',
+                                               type=interactions.OptionType.STRING,
+                                               required=False),
+                       SlashCommandOption(name='serveur_only',
+                                      description='General ou serveur ?',
+                                      type=interactions.OptionType.BOOLEAN,
+                                      required=False)])
+    async def lollist(self,
+                      ctx: SlashContext,
+                      season : str = saison,
+                      serveur_only: bool = False):
+
+        if serveur_only:
+            df = lire_bdd_perso(f'''SELECT tracker.riot_id, tracker.riot_tagline, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_s{season} as suivi
+                                        INNER join tracker ON tracker.id_compte = suivi.index
+                                        where suivi.tier != 'Non-classe' and tracker.activation = true
+                                        and tracker.server_id = {int(ctx.guild.id)}
+                                        and tracker.banned = false ''', index_col='riot_id')
+
+        else:
+            df = lire_bdd_perso(f'''SELECT tracker.riot_id, tracker.riot_tagline, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, tracker.server_id from suivi_s{season} as suivi
+                                        INNER join tracker ON tracker.id_compte = suivi.index
+                                        where suivi.tier != 'Non-classe' and tracker.activation = true 
+                                        and tracker.banned = false ''', index_col='riot_id')
+        df = df.transpose().reset_index()
+
+        # Pour l'ordre de passage
+        df['tier_pts'] = df['tier'].apply(label_tier)
+        df['rank_pts'] = df['rank'].apply(label_rank)
+
+        df['winrate'] = round(df['wins'].astype(int) / (df['wins'].astype(int) + df['losses'].astype(int)) * 100, 1)
+
+        df['nb_games'] = df['wins'].astype(int) + df['losses'].astype(int)
+
+        df.sort_values(by=['tier_pts', 'rank_pts', 'LP'],
+                                    ascending=[False, False, False],
+                                    inplace=True)
+
+        response = ''.join(
+            f'''**{data['riot_id']} #{data['riot_tagline']}** : {emote_rank_discord[data['tier']]} {data['rank']} | {data['LP']} LP | {data['winrate']}% WR ({data['nb_games']} G)\n'''
+            for lig, data in df.iterrows())
+
+        
+        paginator = Paginator.create_from_string(self.bot, response, page_size=3000, timeout=60)
+
+        paginator.default_title = f'Live feed list Split {season}'
+        await paginator.send(ctx)
 
 def setup(bot):
     LolAccount(bot)
