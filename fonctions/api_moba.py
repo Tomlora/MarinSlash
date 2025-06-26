@@ -540,3 +540,44 @@ async def get_rank_moba(session, riot_id, riot_tag):
             return '', '', 0
         
     return tier, rank, lp
+
+
+
+async def test_mobalytics_api():
+
+    query = """
+    query LolPlayerChampionsStats($region: Region!, $gameName: String!, $tagLine: String!) {
+      lol {
+        player(region: $region, gameName: $gameName, tagLine: $tagLine) {
+          gameName
+          tagLine
+          region
+        }
+      }
+    }
+    """
+    variables = {
+        "region": 'EUW',
+        "gameName": 'Tomlora',
+        "tagLine": 'EUW'
+    }
+    json_data = {"query": query, "variables": variables}
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    async with ClientSession() as session:
+        try:
+            async with session.post(url_api_moba, headers=headers, json=json_data, timeout=8) as resp:
+                res = await resp.json()
+                player = res.get('data', {}).get('lol', {}).get('player')
+                if player is None:
+                    return f"""❌ L'API Mobalytics ne retourne aucun joueur (player=None).\n Vérifie le pseudo/tag/région, ou que l'API est bien disponible.\n Erreur brute : {res}"""
+                    
+                else:
+                    return f"""✅ L'API Mobalytics répond !\n Trouvé : {player['gameName']}#{player['tagLine']} (région: {player['region']})"""
+        except Exception as e:
+            return f"❌ Exception lors de l'appel API : {e}"
+
+

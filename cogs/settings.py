@@ -254,5 +254,38 @@ class Settings(Extension):
             await ctx.send("Erreur : Tu n'as pas l'autorisation")
 
 
+    @modifier_settings.subcommand('api_lol',
+                                  options=[
+                                      SlashCommandOption(name='api',
+                                                         description='Table saison actuelle. Ex : suivi_s14',
+                                                         type=interactions.OptionType.STRING,
+                                                         choices=[
+                                                             SlashCommandChoice(name='API Moba', value='API_Moba'),
+                                                             SlashCommandChoice(name='API UGG', value='API_UGG')])])
+    async def modifier_api_lol(self, 
+                                    ctx: SlashContext,
+                                    api: str):
+
+        await ctx.defer()
+
+        if isOwner_slash(ctx):
+            
+            if api == 'API_Moba':
+                requete_perso_bdd('UPDATE settings SET data_mobalytics = "True" WHERE parametres = "data_mobalytics" ')
+                await ctx.send('API Moba configurée !')
+            elif api == 'API_UGG':
+                requete_perso_bdd('UPDATE settings SET data_mobalytics = "False" WHERE parametres = "data_mobalytics" ')
+                await ctx.send('API UGG configurée !')
+            else:
+                await ctx.send('Erreur : API non reconnue')
+            
+
+
+
+
+        else:
+            await ctx.send("Erreur : Tu n'as pas l'autorisation")
+
+
 def setup(bot):
     Settings(bot)

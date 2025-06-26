@@ -459,15 +459,12 @@ async def get_summonerinfo_by_puuid(puuid, session):
     return me
 
 
-async def get_league_by_summoner(session: aiohttp.ClientSession, me):
-    if isinstance(me, str):
-        async with session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{me}",
+async def get_league_by_puuid(session: aiohttp.ClientSession, me):
+    '''me = puuid'''
+    async with session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-puuid/{me}",
                                 params={'api_key': api_key_lol}) as session_league:
-                stats = await session_league.json()
-    else:
-        async with session.get(f"https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{me['id']}",
-                            params={'api_key': api_key_lol}) as session_league:
-            stats = await session_league.json()
+        stats = await session_league.json()
+
     return stats
 
 
@@ -577,8 +574,8 @@ async def get_data_champ_tags(session, version):
         df = df[['key', 'name', 'tags']]
     return df  
 
-async def get_data_rank(session, account_id):
-    async with session.get(f'https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-summoner/{account_id}?api_key={api_key_lol}') as session_rank:
+async def get_data_rank(session, puuid):
+    async with session.get(f'https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-puuid/{puuid}?api_key={api_key_lol}') as session_rank:
         if session_rank.status == 404:
             return ''    
         
@@ -1223,7 +1220,7 @@ class matchlol():
 
 
 
-        self.thisStats = await get_data_rank(self.session, self.info_account['id'])
+        self.thisStats = await get_data_rank(self.session, self.puuid)
 
         
         self.thisWinrateStat = ' '
@@ -4105,10 +4102,12 @@ class matchlol():
                 poids_main_role = self.role_pref[pseudo]['poids_role']
                 emote_champ = emote_champ_discord.get(self.thisChampNameListe[num].capitalize(), self.thisChampNameListe[num].capitalize())
 
+                try:
+                    if self.all_role[pseudo][role]['poids'] <= 15 and self.role_count[pseudo] > 30:
 
-                if self.all_role[pseudo][role]['poids'] <= 15 and self.role_count[pseudo] > 30:
-
-                    self.first_time += f'{emote} **{pseudo}** {emote_champ} Autofill ({role.upper()}) : Main {main_role.upper()} ({poids_main_role}%) \n'
+                        self.first_time += f'{emote} **{pseudo}** {emote_champ} Autofill ({role.upper()}) : Main {main_role.upper()} ({poids_main_role}%) \n'
+                except KeyError:
+                    pass
 
 
 

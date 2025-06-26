@@ -11,6 +11,7 @@ from fonctions.match import get_id_account_bdd, get_stat_null_rules
 from utils.emoji import emote_champ_discord, emote_rank_discord, emote_v2
 from fonctions.match import emote_rank_discord, get_list_matchs_with_puuid
 from fonctions.api_calls import getRankings
+from fonctions.api_moba import test_mobalytics_api
 from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import challengeslol
 from fonctions.autocomplete import autocomplete_riotid
@@ -32,7 +33,7 @@ from fonctions.gestion_bdd import (lire_bdd,
 from fonctions.match import (matchlol,
                              get_summoner_by_puuid,
                              getId_with_puuid,
-                             get_league_by_summoner,
+                             get_league_by_puuid,
                              get_spectator_data,
                              top_records
                              )
@@ -192,7 +193,7 @@ def records_check3(fichier: pd.DataFrame,
     category_exclusion_egalite = [
         'baron', 'herald', 'drake', 'first_double', 'first_triple', 'first_quadra',
         'first_penta', 'first_horde', 'first_niveau_max', 'first_blood',
-        'tower', 'inhib', 'first_tower_time'
+        'tower', 'inhib', 'first_tower_time', 'LEVEL_UP_10'
     ]
 
     if result_category_match == 0:
@@ -853,12 +854,12 @@ class LeagueofLegends(Extension):
                          riot_tag,
                          discord_server_id : chan_discord,
                          session: aiohttp.ClientSession,
-                         me,
+                         puuid,
                          discord_id=None):
 
         suivirank = lire_bdd(f'suivi_s{saison}', 'dict')
 
-        stats = await get_league_by_summoner(session, me)
+        stats = await get_league_by_puuid(session, puuid)
 
         if len(stats) > 0: # s'il y a des stats
    
@@ -1230,7 +1231,7 @@ class LeagueofLegends(Extension):
             '''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, tracker.id, tracker.server_id,
             tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges,
             tracker.insights, tracker.nb_challenges, tracker.affichage,
-            tracker.banned, tracker.riot_id, tracker.riot_tagline, tracker.id_league, tracker.save_records
+            tracker.banned, tracker.riot_id, tracker.riot_tagline, tracker.save_records
                             from tracker 
                             INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                             where tracker.activation = true
@@ -1239,7 +1240,7 @@ class LeagueofLegends(Extension):
         timeout = aiohttp.ClientTimeout(total=60*5)
         session = aiohttp.ClientSession(timeout=timeout)
 
-        for id_compte, riot_id, riot_tag, last_game, server_id, tracker_bool, tracker_spec, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage, banned, riot_id, riot_tagline, id_league, check_records in data:
+        for id_compte, riot_id, riot_tag, last_game, server_id, tracker_bool, tracker_spec, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage, banned, riot_id, riot_tagline, check_records in data:
 
             id_last_game = await getId_with_puuid(puuid, session)
 
@@ -1290,7 +1291,7 @@ class LeagueofLegends(Extension):
                                          check_records=check_records)
 
                     # update rank
-                    await self.updaterank(id_compte, riot_id, riot_tag,  discord_server_id, session, id_league, discord_id)
+                    await self.updaterank(id_compte, riot_id, riot_tag,  discord_server_id, session, puuid, discord_id)
                 except TypeError:
                     # on recommence dans 1 minute
                     requete_perso_bdd(
@@ -1590,6 +1591,19 @@ class LeagueofLegends(Extension):
 
 
 
+    @slash_command(name="test_api_moba",
+                                    description="Teste l'APi Mobalytics",
+                                    default_member_permissions=interactions.Permissions.MANAGE_GUILD)
+    async def test_api_m(self,
+                        ctx: SlashContext):
+        
+
+
+        await ctx.defer(ephemeral=False)
+
+        resp = await test_mobalytics_api()
+
+        await ctx.send(f"{resp}")
 
 
 
