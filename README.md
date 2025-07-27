@@ -60,7 +60,7 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
  <p align="center">
 Image générée<b>du recap de la game</b> : 
  <br>
- <img width="1100" height="650" src="https://github.com/Tomlora/MarinSlash/blob/main/synthese_detaille.png?raw=true">
+ <img width="1100" height="650" src="https://github.com/Tomlora/MarinSlash/blob/master/synthese_detaille.png?raw=true">
   <br>
 </p>
 
@@ -70,8 +70,8 @@ Image générée<b>du recap de la game</b> :
  <br>
  <br>
  <br>
-  <img src="https://github.com/Tomlora/MarinSlash/blob/main/synthese3.png?raw=true" width="45%" style="margin-right: 10px;">
-  <img src="https://github.com/Tomlora/MarinSlash/blob/main/synthese7.png?raw=true" width="45%">
+  <img src="https://github.com/Tomlora/MarinSlash/blob/master/synthese3.png?raw=true" width="45%" style="margin-right: 10px;">
+  <img src="https://github.com/Tomlora/MarinSlash/blob/master/synthese7.png?raw=true" width="45%">
 </p>
 
 <p align="center">
@@ -100,7 +100,7 @@ Ce recap est personnalisable, c'est-à-dire qu'il y a différents modules qui pe
 
 <p align="center">
  <br>
-  <img width="500" height="600" src="https://github.com/Tomlora/MarinSlash/blob/main/records.png?raw=true">
+  <img width="500" height="600" src="https://github.com/Tomlora/MarinSlash/blob/master/records.png?raw=true">
  <br>
  </p>
 
@@ -128,8 +128,8 @@ Riot a mis en place récemment un site de défis, avec 232 disponibles. Par exem
 Ai-je fait beaucoup de dégats sur les ennemis ?
 
  <p align="center">
-  <img width="700" height="400" src="https://github.com/Tomlora/MarinSlash/blob/main/vision.png?raw=true">
-  <img width="1000" height="500" src="https://github.com/Tomlora/MarinSlash/blob/main/gold_team.png?raw=true">
+  <img width="700" height="400" src="https://github.com/Tomlora/MarinSlash/blob/master/vision.png?raw=true">
+  <img width="1000" height="500" src="https://github.com/Tomlora/MarinSlash/blob/master/gold_team.png?raw=true">
 </p>
 
 Ai-je amassé beaucoup de gold, me permettant d'être plus forts, par rapport aux autres ?
@@ -150,9 +150,6 @@ __Le bot peut répondre à toutes ces questions.__
 League of Legends est un jeu qui est mis à jour toutes les deux semaines (Nouveau contenu, équilibrage du contenu existant...)
 Le bot est capable de détecter un nouveau patch, et de partager un résumé en image
 
- <p align="center">
-  <img width="480" height="390" src="https://github.com/Tomlora/MarinSlash/blob/main/recap.png?raw=true">
-</p>
 
 ****
 
