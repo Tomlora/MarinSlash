@@ -18,6 +18,7 @@ import math
 from utils.lol import elo_lp, dict_points, dict_id_q
 from utils.emoji import emote_champ_discord, emote_rank_discord
 from utils.params import api_key_lol, region, my_region
+from sqlalchemy.exc import IntegrityError
 
 # TODO : rajouter temps en vie
 
@@ -5088,4 +5089,11 @@ class matchlol():
 
         return embed
 
-
+    def sauvegarde_embed(self, embed):
+        
+        pickle_embed = pickle.dumps(embed)
+        try:
+            requete_perso_bdd('''INSERT INTO match_embed (match_id, joueur, data) VALUES (:match_id, :joueur, :data) ''',
+                          dict_params={'match_id' : self.last_match, 'joueur' : self.id_compte, 'data' : pickle_embed})
+        except IntegrityError:
+            pass

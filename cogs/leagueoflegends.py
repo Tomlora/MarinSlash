@@ -24,6 +24,7 @@ import re
 from utils.emoji import dict_place
 import io 
 from PIL import Image
+import pickle
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -853,6 +854,8 @@ class LeagueofLegends(Extension):
         embed.set_footer(
                 text=f'by Tomlora - Match {str(match_info.last_match)}')
         
+        match_info.sauvegarde_embed(embed)
+        
         return embed, match_info.thisQ, resume
 
     async def updaterank(self,
@@ -1627,10 +1630,13 @@ class LeagueofLegends(Extension):
         await ctx.send(f"{resp}")
 
 
+    @slash_command(name='chargement_ancienne_game',
+                   description='Charger des stats ancienne game')
+    async def chargement_ancienne_game(self, ctx: SlashContext):  
+        pass  
 
-
-    @slash_command(name='charger_resume',
-                   description="Charger le résumé d'une partie",
+    @chargement_ancienne_game.subcommand('image',
+                   sub_cmd_description="Charger le résumé d'une partie",
                    options=[
                        SlashCommandOption(name="match_id",
                                           description="Id du match EUW1...",
@@ -1638,6 +1644,9 @@ class LeagueofLegends(Extension):
                                             required=True)])
     async def load_resume(self, ctx: SlashContext, match_id):
 
+        await ctx.defer()
+        
+        
         data = lire_bdd_perso(f'''SELECT * from match_images where match_id = '{match_id}' ''', index_col='match_id').T
         image_bytes = data['image'].values[0]
         image : Image.Image = Image.open(io.BytesIO(image_bytes))
@@ -1647,6 +1656,39 @@ class LeagueofLegends(Extension):
         await ctx.send(file='resume_save.png')
         
         os.remove('resume_save.png')
+
+    @chargement_ancienne_game.subcommand('resume_complet',
+                   sub_cmd_description="Charger le résumé d'une partie",
+                   options=[
+                       SlashCommandOption(name="match_id",
+                                          description="Id du match EUW1...",
+                                          type=interactions.OptionType.STRING,
+                                            required=True)])
+    async def load_embed(self, ctx: SlashContext, match_id):
+        
+        
+        await ctx.defer()
+
+        data = lire_bdd_perso(f'''SELECT match_embed.match_id, match_images.image, match_embed.joueur, match_embed.data from match_embed
+                              inner join match_images on match_embed.match_id = match_images.match_id
+                              where match_embed.match_id = '{match_id}' and match_images.match_id = '{match_id}' ''', index_col='match_id').T
+        
+        data_binary = data['data'].values[0]
+        
+        original_embed = pickle.loads(data_binary)
+        
+        image_bytes = data['image'].values[0]
+        image : Image.Image = Image.open(io.BytesIO(image_bytes))
+        
+        image.save('resume_save.png')
+        
+        resume = interactions.File('resume_save.png')
+        original_embed.set_image(url='attachment://resume_save.png')
+        
+        await ctx.send(embeds=original_embed, files=resume)
+        os.remove('resume_save.png')
+        
+
         
         
 
