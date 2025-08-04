@@ -17,6 +17,7 @@ import random
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
+import random
 
 
 saison = int(lire_bdd_perso('select * from settings', format='dict', index_col='parametres')['saison']['value'])
@@ -296,7 +297,7 @@ class AnalyseLoLSeason(Extension):
             riot_tag1 = riot_tag1.upper()
             df = df[(df['riot_id'] == riot_id1) & (df['riot_tagline'] == riot_tag1)]
 
-
+                  
             df = df[df['mode'] == 'RANKED']
 
             if split1 != None:
@@ -363,6 +364,11 @@ class AnalyseLoLSeason(Extension):
 
         gap = 50
 
+        if riot_id == 'tomlora' or riot_id2 == 'tomlora':
+            resultat = random.choice(['C:/Users/Kevin/Desktop/bot_marin/utils/fuckyou.mp4',
+                                      'C:/Users/Kevin/Desktop/bot_marin/utils/mouton.mp4'])
+            return await ctx.send(files=resultat) 
+        
         if nb_games < 50:
             gap = 10
 
@@ -758,7 +764,12 @@ class AnalyseLoLSeason(Extension):
                 return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
 
             riot_id2 = riot_id2.lower().replace(' ', '')
-            riot_tag2 = riot_tag2.upper()             
+            riot_tag2 = riot_tag2.upper()
+        
+        if riot_id == 'tomlora' or riot_id2 == 'tomlora':
+            resultat = random.choice(['C:/Users/Kevin/Desktop/bot_marin/utils/fuckyou.mp4',
+                                      'C:/Users/Kevin/Desktop/bot_marin/utils/mouton.mp4'])
+            return await ctx.send(files=resultat)            
 
         df = df[(df['riot_id'].isin([riot_id, riot_id2])) & (df['riot_tagline'].isin([riot_tag, riot_tag2]))]
 

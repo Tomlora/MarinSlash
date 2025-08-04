@@ -18,7 +18,6 @@ from fonctions.gestion_bdd import lire_bdd_perso
 class Divers(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        self.database_handler = DatabaseHandler()
         self.api_key_openai = os.environ.get('openai')
 
     @listen()
@@ -27,43 +26,7 @@ class Divers(Extension):
         self.check_for_unmute.start()
 
 
-    @listen()
-    async def createMutedRole(self, ctx: SlashContext):
-        
-        mutedRole = await ctx.guild.create_role(name="Muted",
-                                                permissions=interactions.Permissions(
-                                                    send_messages=False,
-                                                    speak=False),
-                                                reason="Creation du role Muted pour mute des gens.")
-        for channel in await ctx.guild.get_all_channels():
-            await channel.set_permissions(mutedRole, send_messages=False, speak=False)
-        return mutedRole
 
-    @listen()
-    async def getMutedRole(self, ctx):
-        roles = ctx.guild.roles
-        for role in roles:
-            if role.name == "Muted":
-                return role
-
-        return await self.createMutedRole(ctx)
-
-    @Task.create(IntervalTrigger(minutes=1))
-    async def check_for_unmute(self):
-        # print("Checking en cours...")
-        data = get_guild_data()
-        for server_id in data.fetchall():
-            
-            guild = await self.bot.fetch_guild(server_id[0])
-
-            active_tempmute = self.database_handler.active_tempmute_to_revoke(
-                int(guild.id))
-            if len(active_tempmute) > 0:
-                muted_role = await self.get_muted_role(guild)
-                for row in active_tempmute:
-                    member = await guild.get_member(row["user_id"])
-                    self.database_handler.revoke_tempmute(row["id"])
-                    await member.remove_role(role=muted_role, guild_id=guild.id)
 
 
     @slash_command(name="ping", description="Latence du bot")
@@ -73,7 +36,6 @@ class Divers(Extension):
 
     @slash_command(name='spank',
                                     description='spank un membre',
-                                    default_member_permissions=interactions.Permissions.MANAGE_GUILD,
                                     options=[
                                         SlashCommandOption(
                                             name='member',
@@ -91,77 +53,39 @@ class Divers(Extension):
                           member: interactions.User,
                           reason="Aucune raison n'a été renseignée"):
         
-        tz = pytz.timezone('Europe/Paris')
+        duree_timeout = timedelta(minutes=1)
         if isOwner_slash(ctx):
 
-            muted_role = await self.get_muted_role(ctx.guild)
-            self.database_handler.add_tempmute(int(member.id), int(ctx.guild_id),
-                                               datetime.now(tz) + timedelta(seconds=60))
-            await member.add_role(role=muted_role, guild_id=ctx.guild_id)
+            guild_member : interactions.Member = await ctx.guild.fetch_member(member.id)
+            
+            await guild_member.timeout(communication_disabled_until=duree_timeout) 
+            
+            
             if reason == "Aucune raison n'a été renseignée":
                 description = f"{member.mention} a été spank par {ctx.author.nickname}"
             else:
                 description = f"{member.mention} a été spank par {ctx.author.nickname} pour {reason}"
             embed = interactions.Embed(description=description,
                                        color=interactions.Color.random())
-            print("Une personne a été spank")
+
 
             await ctx.send(embeds=embed)
         else:
-            id = ctx.author.id
-            muted_role = await self.get_muted_role(ctx.guild)
-            self.database_handler.add_tempmute(int(id), int(ctx.guild_id),
-                                               datetime.now(tz) + timedelta(seconds=60))
-            await ctx.author.add_role(role=muted_role, guild_id=ctx.guild_id)
+            author_id = ctx.author.id
+            
+            guild_member : interactions.Member = await ctx.guild.fetch_member(author_id)
+            
+            await guild_member.timeout(communication_disabled_until=duree_timeout)
+            
+            
             description = f"Bien essayé. {ctx.author.nickname} s'est prank lui-même"
 
             embed = interactions.Embed(description=description,
                                        color=interactions.Color.random())
-            print("Une personne s'est spank elle-même")
+
 
             await ctx.send(embeds=embed)
 
-
-
-    @slash_command(name="mute",
-                                    description="mute someone for x secondes",
-                                    default_member_permissions=interactions.Permissions.MUTE_MEMBERS,
-                                    options=[
-                                        SlashCommandOption(
-                                            name="member",
-                                            description="membre du discord",
-                                            type=interactions.OptionType.USER,
-                                            required=True),
-                                        SlashCommandOption(
-                                            name="seconds",
-                                            description="Temps de mute en secondes",
-                                            type=interactions.OptionType.INTEGER,
-                                            required=True),
-                                        SlashCommandOption(
-                                            name="reason",
-                                            description="reason",
-                                            type=interactions.OptionType.STRING,
-                                            required=False
-                                        )
-                                    ])
-    async def mute_time(self,
-                        ctx: SlashContext,
-                        member: interactions.Member,
-                        seconds: int,
-                        reason: str = "Aucune raison n'a été renseignée"):
-
-
-        muted_role = await self.get_muted_role(ctx.guild)
-        self.database_handler.add_tempmute(int(member.id), int(ctx.guild_id),
-                                               datetime.now(pytz.timezone('Europe/Paris')) + timedelta(seconds=seconds))
-        await member.add_role(role=muted_role, guild_id=ctx.guild_id)
-
-        if reason == "Aucune raison n'a été renseignée":
-            description = f"{member.mention} a été muté pour {seconds} secondes ! 🎙"
-        else:
-            description = f"{member.mention} a été muté pour {seconds} secondes ! 🎙"
-        embed = interactions.Embed(description=description,
-                                       color=interactions.Color.random())
 
         await ctx.send(embeds=embed)
 
