@@ -27,9 +27,8 @@ Les visuels sont réalisés avec :
 Autres librairies utilisées :
 - Pandas
 - Numpy
-- Scikit-learn et skicit-image pour la régression linéaire et l'utilisation de carte League of Legends
+- Scikit-learn et skicit-image pour les modeles et l'utilisation de carte League of Legends
 - Discord, Discord-interactions et Asyncio pour le fonctionnement du bot
-- RiotWatcher pour les requêtes à l'API de Riot Games
 - Requests / urllib / mwclient ou Aiohttp
 - Datetime
 - os

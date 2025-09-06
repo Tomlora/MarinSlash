@@ -9,6 +9,7 @@ import pandas as pd
 class Quizz(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
+        self.timeout = 420
         
     def indice_a_trou(self, joueur):
         return f'{joueur[0]}{(len(joueur)-2)*"-"}{joueur[-1]}'    
@@ -58,7 +59,7 @@ class Quizz(Extension):
                         
                     answer : interactions.api.events.MessageCreate = await self.bot.wait_for(interactions.api.events.MessageCreate,
                                                                                                  checks=check,
-                                                                                                 timeout=600)
+                                                                                                 timeout=self.timeout)
                         
                     print(joueur)
                                                
@@ -69,7 +70,7 @@ class Quizz(Extension):
                         
                     if joueur.lower() == answer_content.lower():
                         await ctx.send(f"Bonne réponse !' C'est {joueur} avec **{df_reponse[stat_selected]}** le {date} avec {equipe}")
-                        requete_perso_bdd(f'''INSERT INTO quizz({discord_id}) VALUES ({discord_id})
+                        requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
                                                     ON CONFLICT (discord_id)
                                                     DO NOTHING;
                                                     UPDATE quizz
@@ -96,7 +97,7 @@ class Quizz(Extension):
                 try:
                     answer : interactions.api.events.MessageCreate = await self.bot.wait_for(interactions.api.events.MessageCreate,
                                                                                                  checks=check,
-                                                                                                 timeout=600)
+                                                                                                 timeout=self.timeout)
                         
                     answer_content = answer.message.content[1:].lower().split(', ')
                     answer_author = answer.message.author
@@ -162,7 +163,7 @@ class Quizz(Extension):
                 try:
                     answer : interactions.api.events.MessageCreate = await self.bot.wait_for(interactions.api.events.MessageCreate,
                                                                                                  checks=check,
-                                                                                                 timeout=600)                     
+                                                                                                 timeout=self.timeout)                     
                     answer_content = answer.message.content.lower()[1:]
                     answer_author = answer.message.author
                     discord_id = int(answer_author.id)
@@ -195,7 +196,7 @@ class Quizz(Extension):
                 try:
                     answer : interactions.api.events.MessageCreate = await self.bot.wait_for(interactions.api.events.MessageCreate,
                                                                                                     checks=check,
-                                                                                                    timeout=600)                                            
+                                                                                                    timeout=self.timeout)                                            
                     answer_content = answer.message.content[1:].lower().split(', ')
                     answer_author = answer.message.author
                     discord_id = int(answer_author.id)
@@ -339,6 +340,8 @@ class Quizz(Extension):
         elif quizz_selected in ['Joueur']:  
             
             championnat_selected = None
+            
+            stat_selected = None
             
             df_joueur = lire_bdd_perso('''SELECT index, league, date, playername, position, teamname from data_history_lol ''').T
             

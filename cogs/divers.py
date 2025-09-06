@@ -20,10 +20,10 @@ class Divers(Extension):
         self.bot: interactions.Client = bot
         self.api_key_openai = os.environ.get('openai')
 
-    @listen()
-    async def on_startup(self):
+    # @listen()
+    # async def on_startup(self):
 
-        self.check_for_unmute.start()
+    #     self.check_for_unmute.start()
 
 
 

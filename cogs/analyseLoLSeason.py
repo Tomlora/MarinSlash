@@ -364,10 +364,10 @@ class AnalyseLoLSeason(Extension):
 
         gap = 50
 
-        if riot_id == 'tomlora' or riot_id2 == 'tomlora':
-            resultat = random.choice(['C:/Users/Kevin/Desktop/bot_marin/utils/fuckyou.mp4',
-                                      'C:/Users/Kevin/Desktop/bot_marin/utils/mouton.mp4'])
-            return await ctx.send(files=resultat) 
+        # if riot_id == 'tomlora' or riot_id2 == 'tomlora':
+        #     resultat = random.choice(['C:/Users/Kevin/Desktop/bot_marin/utils/fuckyou.mp4',
+        #                               'C:/Users/Kevin/Desktop/bot_marin/utils/mouton.mp4'])
+        #     return await ctx.send(files=resultat) 
         
         if nb_games < 50:
             gap = 10
@@ -766,10 +766,10 @@ class AnalyseLoLSeason(Extension):
             riot_id2 = riot_id2.lower().replace(' ', '')
             riot_tag2 = riot_tag2.upper()
         
-        if riot_id == 'tomlora' or riot_id2 == 'tomlora':
-            resultat = random.choice(['C:/Users/Kevin/Desktop/bot_marin/utils/fuckyou.mp4',
-                                      'C:/Users/Kevin/Desktop/bot_marin/utils/mouton.mp4'])
-            return await ctx.send(files=resultat)            
+        # if riot_id == 'tomlora' or riot_id2 == 'tomlora':
+        #     resultat = random.choice(['C:/Users/Kevin/Desktop/bot_marin/utils/fuckyou.mp4',
+        #                               'C:/Users/Kevin/Desktop/bot_marin/utils/mouton.mp4'])
+        #     return await ctx.send(files=resultat)            
 
         df = df[(df['riot_id'].isin([riot_id, riot_id2])) & (df['riot_tagline'].isin([riot_tag, riot_tag2]))]
 
