@@ -1,432 +1,427 @@
-from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, slash_command
-import interactions
-from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso
-from fonctions.match import fix_temps
-import random
+from __future__ import annotations
+
 import asyncio
+import random
+from dataclasses import dataclass
+from typing import List, Tuple, Optional, Dict, Iterable
+import time
+
+import interactions
+from interactions import (
+    SlashContext,
+    Extension,
+    slash_command,
+)
+
 import pandas as pd
 
+from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso
+
+
+# ==========================
+# Utilitaires de domaine
+# ==========================
+
+HINT_INTERVAL = 60  # secondes entre les 4 premiers indices
+HINT_INTERVAL_LAST = 120  # délai avant le dernier indice
+DEFAULT_TIMEOUT = 300
+
+
+def normalize_answer(s: str) -> str:
+    """Normalise une réponse utilisateur (casse/espaces)."""
+    return " ".join(s.strip().lower().split())
+
+
+def parse_answer_list(raw: str) -> List[str]:
+    """Extrait une liste de réponses 
+    à partir d'un message au format `?val1, val2, val3`."""
+    s = raw[1:] if raw.startswith("?") else raw
+    parts = [normalize_answer(p) for p in s.split(",")]
+    # retire les entrées vides
+    return [p for p in parts if p]
+
+
+@dataclass
+class QuizPayload:
+    """Données nécessaires pour gérer la session de quiz."""
+    kind: str  # Top1 | Top5 | Top4team | Joueur
+    prompt: str
+    hints: List[str]
+    expected_list: Optional[List[str]] = None  # pour Top5 / Top4team
+    expected_single: Optional[str] = None      # pour Top1 / Joueur
+    # infos additionnelles pour message de succès
+    scoreboard_rows: Optional[List[Tuple[str, str, str]]] = None  # [(label, score, date)]
+
+
+def mask_word(word: str) -> str:
+    if not word:
+        return word
+    if len(word) <= 2:
+        return word
+    return f"{word[0]}{'-' * (len(word) - 2)}{word[-1]}"
+
+
+def compare_lists(correct: List[str], proposed: List[str]) -> Tuple[bool, List[str], List[str]]:
+    """Compare deux listes.
+    Retourne: (match_exact, bien_places, trouves)
+    - match_exact: égalité stricte (ordre et contenu)
+    - bien_places: éléments identiques au même index
+    - trouves: intersection sans ordre
+    """
+    match_exact = correct == proposed
+    bien_places = [c for i, c in enumerate(correct) if i < len(proposed) and proposed[i] == c]
+    trouves = list(set(correct) & set(proposed))
+    return match_exact, bien_places, trouves
+
+
+async def send_hints(msg: interactions.Message, hints: Iterable[str]) -> None:
+    for i, h in enumerate(hints, start=1):
+        await asyncio.sleep(HINT_INTERVAL if i < 5 else HINT_INTERVAL_LAST)
+        await msg.edit(content=f"{msg.content}\n**Indice {i}** {h}")
+
+
+async def wait_for_answer(bot: interactions.Client, ctx : SlashContext,  timeout: int = DEFAULT_TIMEOUT):
+    
+    channel_id = ctx.channel_id
+    guild_id = ctx.guild_id
+    
+    
+    async def check(evt: interactions.api.events.MessageCreate):
+        
+        msg = evt.message  
+        # ignore les bots
+        
+        
+        if getattr(msg.author, "bot", False):
+            return False 
+        
+        if getattr(msg, '_channel_id', None) != channel_id:
+            return False
+        
+        if guild_id is not None and getattr(msg, '_guild_id', None) != guild_id:
+            return False
+        
+        return msg.content.startswith('?')
+    
+
+    return await bot.wait_for(
+        interactions.api.events.MessageCreate,
+        checks=check,
+        timeout=timeout,
+    )
+
+
+# ==========================
+# Accès base & formats
+# ==========================
+
+QUIZ_COUNTERS: Dict[str, Tuple[str, str]] = {
+    "Top1": ("count_top1", "result_top1"),
+    "Top5": ("count_top5", "result_top5"),
+    "Top4team": ("count_top6_team", "result_top6_team"),  # garde les mêmes noms que ta base
+    "Joueur": ("count_joueur", "result_joueur"),
+}
+
+
+def bump_counters_sql(discord_id: int, kind: str, success: bool) -> str:
+    count_col, result_col = QUIZ_COUNTERS[kind]
+    inc_success = f', {result_col}="{result_col}"+1' if success else ""
+    return f'''
+        INSERT INTO quizz(discord_id) VALUES ({discord_id})
+        ON CONFLICT (discord_id) DO NOTHING;
+        UPDATE quizz
+        SET {count_col}="{count_col}"+1{inc_success}
+        WHERE discord_id = {discord_id};
+    '''
+
+
+# ==========================
+# Chargement des données & construction des quiz
+# ==========================
+
+class DataLoader:
+    @staticmethod
+    def top_players(championnat: str, stat: str) -> pd.DataFrame:
+        df = lire_bdd_perso(
+            f'''SELECT index, league, date, champion, position, playername, teamname, "{stat}" from data_history_lol
+                WHERE league = '{championnat}' '''
+        ).T
+        df = df.dropna(subset=["playername"])  # retirer les équipes
+        df = df.sort_values(stat, ascending=False)
+        return df[["league", "playername", "champion", "position", "teamname", "date", stat]]
+
+    @staticmethod
+    def top_teams(championnat: str, stat: str) -> pd.DataFrame:
+        df = lire_bdd_perso(
+            f'''SELECT index, league, date, position, teamname, "{stat}" from data_history_lol
+                WHERE league = '{championnat}' '''
+        ).T
+        df = df[df["position"] == "team"]
+        df = df.sort_values(stat, ascending=False)
+        return df[["league", "teamname", "date", stat]]
+
+    @staticmethod
+    def random_player() -> pd.DataFrame:
+        df = lire_bdd_perso(
+            'SELECT index, league, date, playername, position, teamname from data_history_lol '
+        ).T
+        return df
+
+
+class QuizBuilder:
+    @staticmethod
+    def build_top1() -> QuizPayload:
+        championnat = random.choice(["LEC", "LCS", "LFL", "LCK", "MSI", "Worlds"])
+        stat = random.choice([
+            "kills",
+            "total cs",
+            "deaths",
+            "assists",
+            "doublekills",
+            "triplekills",
+            "quadrakills",
+            "damagetochampions",
+            "visionscore",
+        ])
+        df = DataLoader.top_players(championnat, stat)
+        s = df.head(1).iloc[0]
+        joueur = normalize_answer(str(s["playername"]))
+        position = str(s["position"]) if "position" in s else "?"
+
+        hints = [
+            f"Il joue au poste {position}.",
+            f"La réponse commence par {joueur[:1].upper()}.",
+            f"La réponse finit par {joueur[-1:].upper()}.",
+            f"La réponse est en {len(joueur)} lettres.",
+        ]
+        prompt = f"Quel joueur a le record de {stat} en {championnat} en une seule partie ?"
+        # pour message succès
+        date = str(s["date"]) if "date" in s else "?"
+        team = str(s["teamname"]) if "teamname" in s else "?"
+        score = str(s[stat])
+        scoreboard = [(s["playername"], score, date + f" — {team}")]
+
+        payload = QuizPayload(
+            kind="Top1",
+            prompt=prompt,
+            hints=hints,
+            expected_single=joueur,
+            scoreboard_rows=scoreboard,
+        )
+        return payload
+
+    @staticmethod
+    def build_top5() -> QuizPayload:
+        championnat = random.choice(["LEC", "LCS", "LFL", "LCK", "MSI", "Worlds"])
+        stat = random.choice([
+            "kills",
+            "total cs",
+            "deaths",
+            "assists",
+            "doublekills",
+            "triplekills",
+            "quadrakills",
+            "damagetochampions",
+            "visionscore",
+        ])
+        df = DataLoader.top_players(championnat, stat).head(5).copy()
+        df["playername"] = df["playername"].astype(str).str.lower()
+        expected = df["playername"].tolist()
+        positions = df["position"].astype(str).tolist()
+
+        hints = [
+            ", ".join(positions),
+            " - ".join(name[0].upper() for name in expected),
+            " - ".join(mask_word(name) for name in expected),
+        ]
+        prompt = (
+            f"Le top 5 des joueurs avec le record de **{stat}** en **{championnat}** ?\n"
+            "La réponse doit être au format : `?Joueur1, Joueur2, Joueur3, Joueur4, Joueur5`"
+        )
+
+        scoreboard = [
+            (row["playername"], str(row[stat]), str(row["date"])) for _, row in df.iterrows()
+        ]
+
+        return QuizPayload(
+            kind="Top5",
+            prompt=prompt,
+            hints=hints,
+            expected_list=expected,
+            scoreboard_rows=scoreboard,
+        )
+
+    @staticmethod
+    def build_top4team() -> QuizPayload:
+        championnat = random.choice(["LEC", "LCS", "LFL", "LCK", "MSI", "Worlds"])
+        stat = random.choice(["kills", "gamelength"])
+        df = DataLoader.top_teams(championnat, stat).head(4).copy()
+        df["teamname"] = df["teamname"].astype(str).str.lower()
+        expected = df["teamname"].tolist()
+
+        hints = [
+            " - ".join(name[0].upper() for name in expected),
+            " - ".join(mask_word(name) for name in expected),
+        ]
+        prompt = (
+            f"Le top 4 des équipes avec le record de **{stat}** en **{championnat}** en 1 seule game ?\n"
+            "La réponse doit être au format : `?Equipe1, Equipe2, Equipe3, Equipe4`"
+        )
+
+        scoreboard = [
+            (row["teamname"], str(row[stat]), str(row["date"])) for _, row in df.iterrows()
+        ]
+
+        return QuizPayload(
+            kind="Top4team",
+            prompt=prompt,
+            hints=hints,
+            expected_list=expected,
+            scoreboard_rows=scoreboard,
+        )
+
+    @staticmethod
+    def build_player_quiz() -> QuizPayload:
+        df = DataLoader.random_player()
+        df_filt = df[df["league"].isin(["LEC", "LCS", "LFL", "LCK", "Worlds"])]
+        target = random.choice(df_filt["playername"].astype(str).unique().tolist())
+        expected = normalize_answer(target)
+
+        history = df[df["playername"].astype(str) == target].copy()
+        history["date"] = pd.to_datetime(history["date"])
+        history = history.sort_values("date")
+        history["year"] = history["date"].dt.year
+        uniq = history.drop_duplicates(subset=["league", "teamname", "position", "year"])
+
+        hints = [
+            f"La réponse commence par {target[:1].upper()}.",
+            f"La réponse finit par {target[-1:].upper()}.",
+            mask_word(normalize_answer(target)),
+        ]
+
+        lines = [
+            f"**{row['year']}** : {row['teamname']} ({row['league']}) en tant que {row['position']}"
+            for _, row in uniq.iterrows()
+        ]
+        prompt = "\n".join(lines)
+
+        return QuizPayload(
+            kind="Joueur",
+            prompt=prompt,
+            hints=hints,
+            expected_single=expected,
+        )
+
+
+# ==========================
+# Extension principale
+# ==========================
+
 class Quizz(Extension):
-    def __init__(self, bot):
-        self.bot: interactions.Client = bot
-        self.timeout = 420
-        
-    def indice_a_trou(self, joueur):
-        return f'{joueur[0]}{(len(joueur)-2)*"-"}{joueur[-1]}'    
-        
-    async def indice(self, ctx : SlashContext, msg : interactions.Message, liste_indice):
-        
-        time_to_sleep = 60
-        
-        if len(liste_indice) >= 1:
-            await asyncio.sleep(time_to_sleep)
-            await msg.edit(content=f'{msg.content} \n **Indice 1** {liste_indice[0]}')
-        
-        if len(liste_indice) >= 2:
-            await asyncio.sleep(time_to_sleep)
-            await msg.edit(content=f'{msg.content} \n **Indice 2** {liste_indice[1]}')
+    def __init__(self, bot: interactions.Client):
+        self.bot = bot
+        self.timeout = DEFAULT_TIMEOUT
 
-        if len(liste_indice) >= 3:
-            await asyncio.sleep(time_to_sleep)
-            await msg.edit(content=f'{msg.content} \n **Indice 3** {liste_indice[2]}')
-            
-        if len(liste_indice) >= 4:
-            await asyncio.sleep(time_to_sleep)
-            await msg.edit(content=f'{msg.content} \n **Indice 4** {liste_indice[3]}')
-            
-        if len(liste_indice) >= 5:
-            await asyncio.sleep(time_to_sleep * 2)
-            await msg.edit(content=f'{msg.content} \n **Indice 5** {liste_indice[4]}')
-    
-    async def gestion_quizz(self, ctx : SlashContext, quizz_selected, championnat_selected, stat_selected, df_reponse):
-        async def check(msg : interactions.api.events.MessageCreate):
-            if msg.message.content.startswith('?'):
-                return True
-            else:
-                return False
-            
-        if quizz_selected == 'Top1':
-            
-            joueur = df_reponse['playername']
-            date = df_reponse['date']
-            equipe = df_reponse['teamname']
-            position = df_reponse['position']
-            
+    # ---------------------
+    # Gestion d'une session
+    # ---------------------
+    async def run_session(self, ctx: SlashContext, payload: QuizPayload) -> None:
+        await ctx.send("Pour répondre, le message doit être au format `?Réponse`")
+        msg = await ctx.send(payload.prompt)
+
+        # En parallèle: indices & attentes de réponses
+        await asyncio.gather(
+            self._handle_answers(ctx, msg, payload),
+            send_hints(msg, payload.hints),
+        )
+
+    async def _handle_answers(
+        self, ctx: SlashContext, msg: interactions.Message, payload: QuizPayload
+    ) -> None:
+        
+        deadline = time.monotonic() + self.timeout
+        
+        try:
             while True:
- 
-                    
-                try:
-                        
-                    answer : interactions.api.events.MessageCreate = await self.bot.wait_for(interactions.api.events.MessageCreate,
-                                                                                                 checks=check,
-                                                                                                 timeout=self.timeout)
-                        
-                    print(joueur)
-                                               
-                    answer_content = answer.message.content[1:]
-                    answer_author = answer.message.author
-                    discord_id = int(answer_author.id)
+                
+                remaining = deadline - time.monotonic()
+                
+                if remaining <= 0:
+                    raise asyncio.TimeoutError
+                
+                evt = await wait_for_answer(self.bot, ctx, timeout=remaining)
+                content = evt.message.content
+                author = evt.message.author
+                discord_id = int(author.id)
 
-                        
-                    if joueur.lower() == answer_content.lower():
-                        await ctx.send(f"Bonne réponse !' C'est {joueur} avec **{df_reponse[stat_selected]}** le {date} avec {equipe}")
-                        requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
-                                                    ON CONFLICT (discord_id)
-                                                    DO NOTHING;
-                                                    UPDATE quizz
-                                                SET count_top1="count_top1"+1, result_top1="result_top1"+1
-                                                WHERE discord_id = {discord_id};''')
+                if payload.expected_single is not None:
+                    # Réponse unique
+                    user_ans = normalize_answer(content[1:])
+                    success = user_ans == payload.expected_single
+                    if success:
+                        success_text = self._success_text(payload)
+                        await ctx.send(success_text)
+                        requete_perso_bdd(bump_counters_sql(discord_id, payload.kind, True))
                         break
                     else:
-                        await ctx.send('Mauvaise réponse !')
-                
-                except asyncio.TimeoutError:
-                        
-                    await ctx.send(f'Fini ! La réponse était {joueur}' )
-                    break                    
+                        await ctx.send("Mauvaise réponse !")
 
-        elif quizz_selected == 'Top5':
-
-            joueur = df_reponse['playername'].tolist()
-            score = df_reponse[stat_selected].tolist()
-            date = df_reponse['date'].tolist()
-            position = df_reponse['position'].tolist()
-                        
-            while True:    
-
-                try:
-                    answer : interactions.api.events.MessageCreate = await self.bot.wait_for(interactions.api.events.MessageCreate,
-                                                                                                 checks=check,
-                                                                                                 timeout=self.timeout)
-                        
-                    answer_content = answer.message.content[1:].lower().split(', ')
-                    answer_author = answer.message.author
-                    discord_id = int(answer_author.id)
-                        
-                    print(joueur)
-                    print(answer_content)
-
-                    if joueur == answer_content:
-                        txt_result = ''
-                        for player, score, date in zip(joueur, score, date):
-                            txt_result += f'**{player}** : {score} ({date}) | '
-                        await ctx.send(f'Bonne réponse ! {txt_result}')
-                        requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
-                                                    ON CONFLICT (discord_id)
-                                                    DO NOTHING;
-                                                    UPDATE quizz
-                                                SET count_top5="count_top5"+1, result_top1="result_top5"+1
-                                                WHERE discord_id = {discord_id};''')
+                elif payload.expected_list is not None:
+                    user_list = parse_answer_list(content)
+                    match, bien_places, trouves = compare_lists(payload.expected_list, user_list)
+                    if match:
+                        success_text = self._success_text(payload)
+                        await ctx.send(success_text)
+                        requete_perso_bdd(bump_counters_sql(discord_id, payload.kind, True))
                         break
                     else:
-
-                        elements_identiques = []
-                                
-                                
-                        try:
-                                    # Parcourez les deux listes en utilisant une boucle for
-                            for i in range(len(joueur)):
-                                if joueur[i] == answer_content[i]:
-                                    elements_identiques.append(joueur[i])
-                                            
-                                    # Trouver l'intersection des deux ensembles
-                            ensemble1 = set(joueur)
-                            ensemble2 = set(answer_content)
-                            intersection = ensemble1.intersection(ensemble2)
-
-                                    # Convertir l'intersection en liste (si nécessaire)
-                            joueur_trouves = list(intersection)
-                                    
-                                    # Format
-                            joueur_trouves_format = f"**{', '.join(joueur_trouves)}**"
-                            elements_identiques_format = f"**{', '.join(elements_identiques)}**"
-                                    
-                            if joueur_trouves_format == '':
-                                joueur_trouves_format = 'personne'
-                            if elements_identiques_format == '':    
-                                elements_identiques_format = 'Aucun ne'
-
-                            await ctx.send(f"Mauvaise réponse... Tu as trouvé {joueur_trouves_format}. {elements_identiques_format} sont bien placés.")
-                
-                        except IndexError: # le joueur n'a pas donné assez de réponse
-                            await ctx.send("Tu n'as pas donné assez de réponse")
-                                    
-                except asyncio.TimeoutError:
-                        
-                    await ctx.send(f'Fini ! La réponse était {joueur}' )
+                        if not user_list:
+                            await ctx.send("Tu n'as pas donné assez de réponses")
+                        else:
+                            bp = ", ".join(f"**{x}**" for x in bien_places) or "Aucun ne"
+                            tr = ", ".join(f"**{x}**" for x in trouves) or "personne"
+                            await ctx.send(
+                                f"Mauvaise réponse... Tu as trouvé {tr}. \n {bp} sont bien placés."
+                            )
+                else:
+                    await ctx.send("Quiz mal configuré.")
                     break
-                
-        elif quizz_selected == 'Joueur':
-            # pour celui-ci, df_reponse = le joueur
-            while True:    
-     
-                try:
-                    answer : interactions.api.events.MessageCreate = await self.bot.wait_for(interactions.api.events.MessageCreate,
-                                                                                                 checks=check,
-                                                                                                 timeout=self.timeout)                     
-                    answer_content = answer.message.content.lower()[1:]
-                    answer_author = answer.message.author
-                    discord_id = int(answer_author.id)
-                        
-                    print(df_reponse)
-                    print(answer_content)
-                        
-                    if df_reponse.lower() == answer_content:
-                        await ctx.send('Bonne réponse !')
-                        requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
-                                                    ON CONFLICT (discord_id)
-                                                    DO NOTHING;
-                                                    UPDATE quizz
-                                                SET count_joueur="count_joueur"+1, result_joueur="result_joueur"+1
-                                                WHERE discord_id = {discord_id};''')
-                        break
-                    else:
-                        await ctx.send('Mauvaise réponse')
-                
-                except asyncio.TimeoutError:
-                        
-                    await ctx.send(f'Fini ! La réponse était {df_reponse}')
-                    break
-                
-        elif quizz_selected == 'Top4team':
-            joueur = df_reponse['teamname'].tolist()
-            score = df_reponse[stat_selected].tolist()
-            date = df_reponse['date'].tolist()
-            while True:
-                try:
-                    answer : interactions.api.events.MessageCreate = await self.bot.wait_for(interactions.api.events.MessageCreate,
-                                                                                                    checks=check,
-                                                                                                    timeout=self.timeout)                                            
-                    answer_content = answer.message.content[1:].lower().split(', ')
-                    answer_author = answer.message.author
-                    discord_id = int(answer_author.id)
-                            
-                    print(joueur)
-                    print(answer_content)
+        except asyncio.TimeoutError:
+            # Fin de partie
+            solution = (
+                ", ".join(payload.expected_list)
+                if payload.expected_list is not None
+                else payload.expected_single
+            )
+            await ctx.send(f"Fini ! La réponse était {solution}")
 
-                    if joueur == answer_content:
-                        txt_result = ''
-                        for player, score, date in zip(joueur, score, date):
-                            txt_result += f'**{player}** : {score} ({date}) | '
-                        await ctx.send(f'Bonne réponse ! {txt_result}')
-                        requete_perso_bdd(f'''INSERT INTO quizz(discord_id) VALUES ({discord_id})
-                                                        ON CONFLICT (discord_id)
-                                                        DO NOTHING;
-                                                        UPDATE quizz
-                                                    SET count_top6_team="count_top6_team"+1, result_top6_team="result_top6_team"+1
-                                                    WHERE discord_id = {discord_id};''')
-                        break
-                    else:
-                        elements_identiques = []
+    def _success_text(self, payload: QuizPayload) -> str:
+        if payload.kind in {"Top5", "Top4team"} and payload.scoreboard_rows:
+            parts = [f"**{p}** : {s} ({d})" for p, s, d in payload.scoreboard_rows]
+            return "Bonne réponse ! " + " | ".join(parts)
+        if payload.kind == "Top1" and payload.scoreboard_rows:
+            p, s, d = payload.scoreboard_rows[0]
+            return f"Bonne réponse ! C'est {p} avec **{s}** ({d})"
+        return "Bonne réponse !"
 
-                        try:
-                                # Parcourez les deux listes en utilisant une boucle for
-                            for i in range(len(joueur)):
-                                if joueur[i] == answer_content[i]:
-                                    elements_identiques.append(joueur[i])
-                                                
-                                    # Trouver l'intersection des deux ensembles
-                            ensemble1 = set(joueur)
-                            ensemble2 = set(answer_content)
-                            intersection = ensemble1.intersection(ensemble2)
-
-                                    # Convertir l'intersection en liste (si nécessaire)
-                            joueur_trouves = list(intersection)
-                                        
-                                    # Format
-                            joueur_trouves_format = f"**{', '.join(joueur_trouves)}**"
-                            elements_identiques_format = f"**{', '.join(elements_identiques)}**"
-                                        
-                            if joueur_trouves_format == '':
-                                joueur_trouves_format = 'personne'
-                            if elements_identiques_format == '':    
-                                elements_identiques_format = 'Aucun ne'
-
-                            await ctx.send(f"Mauvaise réponse... Tu as trouvé {joueur_trouves_format}. {elements_identiques_format} sont bien placés.")
-                        
-                        except IndexError: # le joueur n'a pas donné assez de réponse
-                                await ctx.send("Tu n'as pas donné assez de réponse")
-                                
-                except asyncio.TimeoutError:
-                            
-                    await ctx.send(f'Fini ! La réponse était {joueur}')
-                    break
-                
-    @slash_command(name='quizz_lol',
-                   description='Quizz lol')
+    # ---------------------
+    # Slash command
+    # ---------------------
+    @slash_command(name="quizz_lol", description="Quizz lol")
     async def quizz_lol(self, ctx: SlashContext):
-
         await ctx.defer(ephemeral=False)
-        
 
-        
-        await ctx.send('Pour répondre, le message doit être au format `?Réponse` ')
-        
-
-        quizz_selected = random.choice(['Top1', 'Top5', 'Top4team', 'Joueur'])
-    
-        if quizz_selected in ['Top1', 'Top5']:
-                        
-            def __sort_stats(df, stat, filter_league : list = None):
-
-                df_cs = df.sort_values([stat], ascending=False)
-
-                df_cs = df_cs.dropna(subset=['playername']) # on vire les équipes
-                
-                if filter_league != None:
-                    df_cs = df_cs[df_cs['league'].isin(filter_league)]
-
-                return df_cs[['league', 'playername', 'champion', 'position', 'teamname', 'date', stat]]
-            
-            
-
-            championnat_selected = random.choice(['LEC', 'LCS', 'LFL', 'LCK', 'MSI', 'Worlds'])
-            stat_selected = random.choice(['kills', 'total cs', 'deaths', 'assists', 'doublekills', 'triplekills', 'quadrakills', 'damagetochampions', 'visionscore'])
-
-            df_stats = lire_bdd_perso(f'''SELECT index, league, date, champion, position, playername, teamname, "{stat_selected}" from data_history_lol
-                                      WHERE league = '{championnat_selected}' ''').T            
-            
-            df_filter = __sort_stats(df_stats, stat_selected, [championnat_selected])
-            
-            del df_stats
-            
-            df_filter = df_filter.sort_values(stat_selected, ascending=False)
-            
-        
-            if quizz_selected == 'Top1':  
-                
-                result = df_filter.head(1).iloc[0]  
-                joueur = result['playername']
-                # date = result['date']
-                # equipe = result['teamname']
-                position = result['position']
-        
-
-                indice1 = f'Il joue au poste {position}.'
-
-                indice2 = f' La réponse commence par {joueur[0]}'
-
-                indice3 = f'La réponse finit par {joueur[-1]}'
-
-                indice4 = f'La réponse est en {len(joueur)} lettres.'
-                
-                liste_indice = [indice1, indice2, indice3, indice4]
-
-                msg = await ctx.send(f'Quel joueur a le record de {stat_selected} en {championnat_selected} en une seule partie ?')
-
-                    
-            elif quizz_selected == 'Top5':  
-                
-                result = df_filter.head(5) 
-                result['playername'] = result['playername'].apply(lambda x : x.lower())
-                joueur = result['playername'].tolist()
-                # score = result[stat_selected].tolist()
-                # date = result['date'].tolist()
-                position = result['position'].tolist()
-                
-                
-                indice1 = f"{', '.join(position)}"
-                indice2 = f'{joueur[0][0]} - {joueur[1][0]} - {joueur[2][0]} - {joueur[3][0]} - {joueur[4][0]}'
-                indice3 = f'{self.indice_a_trou(joueur[0])} - {self.indice_a_trou(joueur[1])} - {self.indice_a_trou(joueur[2])} - {self.indice_a_trou(joueur[3])} - {self.indice_a_trou(joueur[4])}'
-                
-                liste_indice = [indice1, indice2, indice3]
-
-                msg = await ctx.send(f'Le top 5 des joueurs avec le record de **{stat_selected}** en **{championnat_selected}** ? \n La réponse doit être au format : `?Joueur1, Joueur2, Joueur3, Joueur4, Joueur5` ')
-                
-                
-                
-
-                    
-        elif quizz_selected in ['Joueur']:  
-            
-            championnat_selected = None
-            
-            stat_selected = None
-            
-            df_joueur = lire_bdd_perso('''SELECT index, league, date, playername, position, teamname from data_history_lol ''').T
-            
-            df_joueur_filter = df_joueur[df_joueur['league'].isin(['LEC', 'LCS', 'LFL', 'LCK', 'Worlds'])]
-
-            result = random.choice(df_joueur_filter['playername'].unique().tolist())
-            
-            df_joueur_history = df_joueur[df_joueur['playername'] == result]
-            
-            df_joueur_history['date'] = pd.to_datetime(df_joueur_history['date'])
-                
-            df_joueur_history = df_joueur_history.sort_values('date')
-            
-            df_joueur_history['year'] = df_joueur_history['date'].dt.year
-            
-            df_joueur_unique = df_joueur_history.drop_duplicates(subset=['league', 'teamname', 'position', 'year'])
-
-            del df_joueur, df_joueur_filter
-
-            
-            indice1 = f'La réponse commence par {result[:1]}.'
-
-            indice2 = f'La réponse finit par {result[1:]}'
-            
-            indice3 = self.indice_a_trou(result)
-            
-            liste_indice = [indice1, indice2, indice3]
-                
-            txt = ''
-
-            for index, data in df_joueur_unique.iterrows():
-                txt += f'''**{data['year']}** : {data['teamname']} ({data['league']}) en tant que {data['position']} \n'''
-                
-
-            msg = await ctx.send(txt)
-                      
-
-        elif quizz_selected == 'Top4team':
-            def __sort_stats_equipe(df, stat, filter_league : list = None):
-
-                            df_cs = df.sort_values([stat], ascending=False)
-
-                            df_cs = df_cs[df_cs['position'] == 'team'] # on ne retient que les équipes
-                            
-                            if filter_league != None:
-                                df_cs = df_cs[df_cs['league'].isin(filter_league)]
-
-                            return df_cs[['league', 'teamname', 'date', stat]]
-            
-            
-
-            championnat_selected = random.choice(['LEC', 'LCS', 'LFL', 'LCK', 'MSI', 'Worlds'])
-            stat_selected = random.choice(['kills', 'gamelength'])
-
-            df_stats = lire_bdd_perso(f'''SELECT index, league, date, position, teamname, "{stat_selected}" from data_history_lol
-                                      WHERE league = '{championnat_selected}' ''').T            
-            
-            df_filter = __sort_stats_equipe(df_stats, stat_selected, [championnat_selected])
-            
-            del df_stats
-            
-            df_filter = df_filter.sort_values(stat_selected, ascending=False)
-            
-                 
-            result = df_filter.head(4) 
-            result['teamname'] = result['teamname'].apply(lambda x : x.lower())
-            joueur = result['teamname'].tolist()
-            # score = result[stat_selected].tolist()
-            # date = result['date'].tolist()
-            
-            indice1 = f'{joueur[0][0]} - {joueur[1][0]} - {joueur[2][0]} - {joueur[3][0]}'
-            indice2 = f'{self.indice_a_trou(joueur[0])} - {self.indice_a_trou(joueur[1])} - {self.indice_a_trou(joueur[2])} - {self.indice_a_trou(joueur[3])}'
-            
-            liste_indice = [indice1, indice2]
-                
-
-            msg = await ctx.send(f'Le top 4 des équipes avec le record de **{stat_selected}** en **{championnat_selected}** en 1 seule game ? \n La réponse doit être au format : `?Equipe1, Equipe2, Equipe3, Equipe4` ')
-
-        await asyncio.gather(self.gestion_quizz(ctx, quizz_selected, championnat_selected, stat_selected, result),
-                             self.indice(ctx, msg, liste_indice))
-
-    
+        builders = [
+            QuizBuilder.build_top1,
+            QuizBuilder.build_top5,
+            QuizBuilder.build_top4team,
+            QuizBuilder.build_player_quiz,
+        ]
+        payload = random.choice(builders)()
+        await self.run_session(ctx, payload)
 
 
+# Entrée extension
 
-# await asyncio.gather(coro(), coro2())
 def setup(bot):
     Quizz(bot)
