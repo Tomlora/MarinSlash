@@ -5,6 +5,8 @@ import random
 from dataclasses import dataclass
 from typing import List, Tuple, Optional, Dict, Iterable
 import time
+import unicodedata
+from difflib import SequenceMatcher
 
 import interactions
 from interactions import (
@@ -25,12 +27,24 @@ from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso
 HINT_INTERVAL = 60  # secondes entre les 4 premiers indices
 HINT_INTERVAL_LAST = 120  # délai avant le dernier indice
 DEFAULT_TIMEOUT = 300
+CLOSE_MATCH_CUTOFF = 0.85
+
+def strip_accents(s : str) -> str:
+    """Supprime les accents"""
+    
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s)
+        if unicodedata.category(c) != "Mn"
+    )
 
 
 def normalize_answer(s: str) -> str:
     """Normalise une réponse utilisateur (casse/espaces)."""
+    s = strip_accents(s)
     return " ".join(s.strip().lower().split())
 
+def is_close_match(user_ans:str, expected:str, cutoff: float = CLOSE_MATCH_CUTOFF) -> bool:
+    return SequenceMatcher(a=user_ans, b=expected).ratio () >= cutoff
 
 def parse_answer_list(raw: str) -> List[str]:
     """Extrait une liste de réponses 
@@ -47,8 +61,8 @@ class QuizPayload:
     kind: str  # Top1 | Top5 | Top4team | Joueur
     prompt: str
     hints: List[str]
-    expected_list: Optional[List[str]] = None  # pour Top5 / Top4team
-    expected_single: Optional[str] = None      # pour Top1 / Joueur
+    expected_list: Optional[List[str]] = None  # pour Top5
+    expected_single: Optional[str] = None      # pour Top1 / Joueur / Top4team (modifié)
     # infos additionnelles pour message de succès
     scoreboard_rows: Optional[List[Tuple[str, str, str]]] = None  # [(label, score, date)]
 
@@ -118,7 +132,7 @@ async def wait_for_answer(bot: interactions.Client, ctx : SlashContext,  timeout
 QUIZ_COUNTERS: Dict[str, Tuple[str, str]] = {
     "Top1": ("count_top1", "result_top1"),
     "Top5": ("count_top5", "result_top5"),
-    "Top4team": ("count_top6_team", "result_top6_team"),  # garde les mêmes noms que ta base
+    "Top4team": ("count_top6_team", "result_top6_team"),  # noms conservés pour compat BDD
     "Joueur": ("count_joueur", "result_joueur"),
 }
 
@@ -253,30 +267,41 @@ class QuizBuilder:
 
     @staticmethod
     def build_top4team() -> QuizPayload:
+        """Version modifiée : une seule bonne réponse (une équipe)."""
         championnat = random.choice(["LEC", "LCS", "LFL", "LCK", "MSI", "Worlds"])
         stat = random.choice(["kills", "gamelength"])
-        df = DataLoader.top_teams(championnat, stat).head(4).copy()
-        df["teamname"] = df["teamname"].astype(str).str.lower()
-        expected = df["teamname"].tolist()
 
+        # On ne prend que la #1 équipe (record en 1 seule game)
+        df = DataLoader.top_teams(championnat, stat).head(1).copy()
+        s = df.iloc[0]
+
+        team_raw = str(s["teamname"])
+        team_norm = normalize_answer(team_raw)
+
+        # Indices pour une réponse unique
         hints = [
-            " - ".join(name[0].upper() for name in expected),
-            " - ".join(mask_word(name) for name in expected),
+            f"La réponse commence par {team_raw[:1].upper()}.",
+            f"La réponse finit par {team_raw[-1:].upper()}.",
+            f"La réponse est en {len(team_norm)} lettres.",
+            mask_word(team_norm),
         ]
+
         prompt = (
-            f"Le top 4 des équipes avec le record de **{stat}** en **{championnat}** en 1 seule game ?\n"
-            "La réponse doit être au format : `?Equipe1, Equipe2, Equipe3, Equipe4`"
+            f"**Quelle équipe** détient le record de **{stat}** en **{championnat}** "
+            f"sur **une seule partie** ?\n"
+            "Réponds au format : `?Equipe`"
         )
 
-        scoreboard = [
-            (row["teamname"], str(row[stat]), str(row["date"])) for _, row in df.iterrows()
-        ]
+        date = str(s.get("date", "?"))
+        score = str(s[stat])
+
+        scoreboard = [(team_raw, score, date)]
 
         return QuizPayload(
-            kind="Top4team",
+            kind="Top4team",               # on garde la clé pour compatibilité BDD
             prompt=prompt,
             hints=hints,
-            expected_list=expected,
+            expected_single=team_norm,     # ✅ réponse unique
             scoreboard_rows=scoreboard,
         )
 
@@ -357,14 +382,20 @@ class Quizz(Extension):
                 if payload.expected_single is not None:
                     # Réponse unique
                     user_ans = normalize_answer(content[1:])
-                    success = user_ans == payload.expected_single
+                    expected = payload.expected_single
+                    
+                    success = (user_ans == expected) or is_close_match(user_ans, expected)
                     if success:
                         success_text = self._success_text(payload)
                         await ctx.send(success_text)
                         requete_perso_bdd(bump_counters_sql(discord_id, payload.kind, True))
                         break
                     else:
-                        await ctx.send("Mauvaise réponse !")
+                        sim = SequenceMatcher(a=user_ans, b=expected).ratio()
+                        if sim >= (CLOSE_MATCH_CUTOFF - 0.05):
+                            await ctx.send('Presque ! Tu es **très proche** :eyes: ')
+                        else:
+                            await ctx.send("Mauvaise réponse !")
 
                 elif payload.expected_list is not None:
                     user_list = parse_answer_list(content)
@@ -413,8 +444,7 @@ class Quizz(Extension):
 
         builders = [
             QuizBuilder.build_top1,
-            # QuizBuilder.build_top5,
-            # QuizBuilder.build_top4team,
+            QuizBuilder.build_top4team,   # ✅ version réponse unique
             QuizBuilder.build_player_quiz,
         ]
         payload = random.choice(builders)()
