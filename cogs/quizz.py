@@ -413,8 +413,8 @@ class Quizz(Extension):
 
         builders = [
             QuizBuilder.build_top1,
-            QuizBuilder.build_top5,
-            QuizBuilder.build_top4team,
+            # QuizBuilder.build_top5,
+            # QuizBuilder.build_top4team,
             QuizBuilder.build_player_quiz,
         ]
         payload = random.choice(builders)()
