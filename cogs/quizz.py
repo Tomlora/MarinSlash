@@ -7,12 +7,16 @@ from typing import List, Tuple, Optional, Dict, Iterable
 import time
 import unicodedata
 from difflib import SequenceMatcher
+import os
+import re
+from pathlib import Path
 
 import interactions
 from interactions import (
     SlashContext,
     Extension,
     slash_command,
+    File,
 )
 
 import pandas as pd
@@ -29,9 +33,9 @@ HINT_INTERVAL_LAST = 120  # délai avant le dernier indice
 DEFAULT_TIMEOUT = 300
 CLOSE_MATCH_CUTOFF = 0.85
 
-def strip_accents(s : str) -> str:
+
+def strip_accents(s: str) -> str:
     """Supprime les accents"""
-    
     return "".join(
         c for c in unicodedata.normalize("NFD", s)
         if unicodedata.category(c) != "Mn"
@@ -43,28 +47,42 @@ def normalize_answer(s: str) -> str:
     s = strip_accents(s)
     return " ".join(s.strip().lower().split())
 
-def is_close_match(user_ans:str, expected:str, cutoff: float = CLOSE_MATCH_CUTOFF) -> bool:
-    return SequenceMatcher(a=user_ans, b=expected).ratio () >= cutoff
+
+def is_close_match(user_ans: str, expected: str, cutoff: float = CLOSE_MATCH_CUTOFF) -> bool:
+    return SequenceMatcher(a=user_ans, b=expected).ratio() >= cutoff
+
 
 def parse_answer_list(raw: str) -> List[str]:
-    """Extrait une liste de réponses 
-    à partir d'un message au format `?val1, val2, val3`."""
+    """Extrait une liste de réponses à partir d'un message au format `?val1, val2, val3`."""
     s = raw[1:] if raw.startswith("?") else raw
     parts = [normalize_answer(p) for p in s.split(",")]
     # retire les entrées vides
     return [p for p in parts if p]
 
 
+def clean_name_from_filename(name: str) -> str:
+    """Supprime ce qui est entre parenthèses dans un nom et normalise les espaces.
+    Ex: 'Hans sama (Steven)' -> 'Hans sama'"""
+    # retire le suffixe d'extension au cas où on passerait un nom avec .jpg
+    name = os.path.splitext(name)[0]
+    # supprime les contenus entre parenthèses (éventuellement multiples)
+    name = re.sub(r"\s*\(.*?\)", "", name)
+    # normalise les espaces/underscores
+    name = name.replace("_", " ")
+    return " ".join(name.strip().split())
+
+
 @dataclass
 class QuizPayload:
     """Données nécessaires pour gérer la session de quiz."""
-    kind: str  # Top1 | Top5 | Top4team | Joueur
+    kind: str  # Top1 | Top5 | Top4team | Joueur | Photo
     prompt: str
     hints: List[str]
     expected_list: Optional[List[str]] = None  # pour Top5
-    expected_single: Optional[str] = None      # pour Top1 / Joueur / Top4team (modifié)
+    expected_single: Optional[str] = None      # pour Top1 / Joueur / Top4team / Photo
     # infos additionnelles pour message de succès
     scoreboard_rows: Optional[List[Tuple[str, str, str]]] = None  # [(label, score, date)]
+    image_path: Optional[str] = None  # pour le quizz photo
 
 
 def mask_word(word: str) -> str:
@@ -91,32 +109,27 @@ def compare_lists(correct: List[str], proposed: List[str]) -> Tuple[bool, List[s
 async def send_hints(msg: interactions.Message, hints: Iterable[str]) -> None:
     for i, h in enumerate(hints, start=1):
         await asyncio.sleep(HINT_INTERVAL if i < 5 else HINT_INTERVAL_LAST)
-        await msg.edit(content=f"{msg.content}\n**Indice {i}** {h}")
+        try:
+            await msg.edit(content=f"{msg.content}\n**Indice {i}** {h}")
+        except Exception:
+            # on ignore une éventuelle erreur d'édition (ex: permissions)
+            pass
 
 
-async def wait_for_answer(bot: interactions.Client, ctx : SlashContext,  timeout: int = DEFAULT_TIMEOUT):
-    
+async def wait_for_answer(bot: interactions.Client, ctx: SlashContext, timeout: int = DEFAULT_TIMEOUT):
     channel_id = ctx.channel_id
     guild_id = ctx.guild_id
-    
-    
+
     async def check(evt: interactions.api.events.MessageCreate):
-        
-        msg = evt.message  
+        msg = evt.message
         # ignore les bots
-        
-        
         if getattr(msg.author, "bot", False):
-            return False 
-        
+            return False
         if getattr(msg, '_channel_id', None) != channel_id:
             return False
-        
         if guild_id is not None and getattr(msg, '_guild_id', None) != guild_id:
             return False
-        
         return msg.content.startswith('?')
-    
 
     return await bot.wait_for(
         interactions.api.events.MessageCreate,
@@ -134,6 +147,7 @@ QUIZ_COUNTERS: Dict[str, Tuple[str, str]] = {
     "Top5": ("count_top5", "result_top5"),
     "Top4team": ("count_top6_team", "result_top6_team"),  # noms conservés pour compat BDD
     "Joueur": ("count_joueur", "result_joueur"),
+    "Photo": ("count_photo", "result_photo"),
 }
 
 
@@ -224,47 +238,6 @@ class QuizBuilder:
         )
         return payload
 
-    # @staticmethod
-    # def build_top5() -> QuizPayload:
-    #     championnat = random.choice(["LEC", "LCS", "LFL", "LCK", "MSI", "Worlds", "LTA N"])
-    #     stat = random.choice([
-    #         "kills",
-    #         "total cs",
-    #         "deaths",
-    #         "assists",
-    #         "doublekills",
-    #         "triplekills",
-    #         "quadrakills",
-    #         "damagetochampions",
-    #         "visionscore",
-    #     ])
-    #     df = DataLoader.top_players(championnat, stat).head(5).copy()
-    #     df["playername"] = df["playername"].astype(str).str.lower()
-    #     expected = df["playername"].tolist()
-    #     positions = df["position"].astype(str).tolist()
-
-    #     hints = [
-    #         ", ".join(positions),
-    #         " - ".join(name[0].upper() for name in expected),
-    #         " - ".join(mask_word(name) for name in expected),
-    #     ]
-    #     prompt = (
-    #         f"Le top 5 des joueurs avec le record de **{stat}** en **{championnat}** ?\n"
-    #         "La réponse doit être au format : `?Joueur1, Joueur2, Joueur3, Joueur4, Joueur5`"
-    #     )
-
-    #     scoreboard = [
-    #         (row["playername"], str(row[stat]), str(row["date"])) for _, row in df.iterrows()
-    #     ]
-
-    #     return QuizPayload(
-    #         kind="Top5",
-    #         prompt=prompt,
-    #         hints=hints,
-    #         expected_list=expected,
-    #         scoreboard_rows=scoreboard,
-    #     )
-
     @staticmethod
     def build_top4team() -> QuizPayload:
         """Version modifiée : une seule bonne réponse (une équipe)."""
@@ -298,10 +271,10 @@ class QuizBuilder:
         scoreboard = [(team_raw, score, date)]
 
         return QuizPayload(
-            kind="Top4team",               # on garde la clé pour compatibilité BDD
+            kind="Top4team",  # on garde la clé pour compatibilité BDD
             prompt=prompt,
             hints=hints,
-            expected_single=team_norm,     # ✅ réponse unique
+            expected_single=team_norm,  # ✅ réponse unique
             scoreboard_rows=scoreboard,
         )
 
@@ -337,6 +310,55 @@ class QuizBuilder:
             expected_single=expected,
         )
 
+    @staticmethod
+    def build_photo_quiz(images_root: str = "players_headshots") -> Optional[QuizPayload]:
+        """Construit le quizz photo en piochant une image au hasard.
+        Arborescence attendue: players_headshots/championnat/équipe/nom.jpg
+        - `nom` peut contenir des parenthèses, à supprimer pour la réponse attendue.
+        - Indices: championnat, équipe, 1ère lettre du pseudo.
+        """
+        root = Path(images_root)
+        if not root.exists():
+            return None
+
+        # Recherche de toutes les images .jpg (3 niveaux de sous-dossiers)
+        candidates: List[Path] = [
+            p for p in root.rglob("*.jpg")
+            if len(p.relative_to(root).parts) >= 3
+        ]
+        if not candidates:
+            return None
+
+        img = random.choice(candidates)
+        rel_parts = img.relative_to(root).parts  # [championnat, equipe, nom.jpg]
+        try:
+            championnat, equipe, filename = rel_parts[0], rel_parts[1], rel_parts[-1]
+        except Exception:
+            return None
+
+        raw_name = os.path.splitext(filename)[0]
+        cleaned = clean_name_from_filename(raw_name)
+        expected = normalize_answer(cleaned)
+
+        # Indices demandés
+        hints = [
+            f"Championnat : **{championnat}**",
+            f"Équipe : **{equipe}**",
+            f"Première lettre du pseudo : **{cleaned[:1].upper()}**",
+        ]
+
+        prompt = ("**Qui est ce joueur ?**\n"
+                  "Réponds au format : `?Pseudo`\n"
+                  "(Les accents/majuscules ne comptent pas)")
+
+        return QuizPayload(
+            kind="Photo",
+            prompt=prompt,
+            hints=hints,
+            expected_single=expected,
+            image_path=str(img),
+        )
+
 
 # ==========================
 # Extension principale
@@ -352,7 +374,17 @@ class Quizz(Extension):
     # ---------------------
     async def run_session(self, ctx: SlashContext, payload: QuizPayload) -> None:
         await ctx.send("Pour répondre, le message doit être au format `?Réponse`")
-        msg = await ctx.send(payload.prompt)
+
+        # Si on a une image, on l'envoie avec le prompt dans le même message pour pouvoir éditer le contenu ensuite
+        if payload.image_path:
+            # await ctx.send(payload.image_path)
+
+
+            file = File(payload.image_path)
+            msg = await ctx.send(content=payload.prompt, file=file)
+
+        else:
+            msg = await ctx.send(payload.prompt)
 
         # En parallèle: indices & attentes de réponses
         await asyncio.gather(
@@ -363,17 +395,13 @@ class Quizz(Extension):
     async def _handle_answers(
         self, ctx: SlashContext, msg: interactions.Message, payload: QuizPayload
     ) -> None:
-        
         deadline = time.monotonic() + self.timeout
-        
         try:
             while True:
-                
                 remaining = deadline - time.monotonic()
-                
                 if remaining <= 0:
                     raise asyncio.TimeoutError
-                
+
                 evt = await wait_for_answer(self.bot, ctx, timeout=remaining)
                 content = evt.message.content
                 author = evt.message.author
@@ -383,7 +411,7 @@ class Quizz(Extension):
                     # Réponse unique
                     user_ans = normalize_answer(content[1:])
                     expected = payload.expected_single
-                    
+
                     success = (user_ans == expected) or is_close_match(user_ans, expected)
                     if success:
                         success_text = self._success_text(payload)
@@ -433,6 +461,8 @@ class Quizz(Extension):
         if payload.kind == "Top1" and payload.scoreboard_rows:
             p, s, d = payload.scoreboard_rows[0]
             return f"Bonne réponse ! C'est {p} avec **{s}** ({d})"
+        if payload.kind == "Photo":
+            return "Bonne réponse ! (quizz photo)"
         return "Bonne réponse !"
 
     # ---------------------
@@ -442,12 +472,16 @@ class Quizz(Extension):
     async def quizz_lol(self, ctx: SlashContext):
         await ctx.defer(ephemeral=False)
 
+        # Ajout du 4e quizz (photo)
         builders = [
-            QuizBuilder.build_top1,
-            QuizBuilder.build_top4team,   # ✅ version réponse unique
-            QuizBuilder.build_player_quiz,
+            # QuizBuilder.build_top1,
+            # QuizBuilder.build_top4team,   # ✅ version réponse unique
+            # QuizBuilder.build_player_quiz,
+            QuizBuilder.build_photo_quiz
         ]
+
         payload = random.choice(builders)()
+
         await self.run_session(ctx, payload)
 
 
