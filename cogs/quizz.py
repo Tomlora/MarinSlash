@@ -185,7 +185,7 @@ class DataLoader:
 class QuizBuilder:
     @staticmethod
     def build_top1() -> QuizPayload:
-        championnat = random.choice(["LEC", "LCS", "LFL", "LCK", "MSI", "Worlds"])
+        championnat = random.choice(["LEC", "LCS", "LFL", "LCK", "MSI", "Worlds", "LTA N"])
         stat = random.choice([
             "kills",
             "total cs",
@@ -224,51 +224,51 @@ class QuizBuilder:
         )
         return payload
 
-    @staticmethod
-    def build_top5() -> QuizPayload:
-        championnat = random.choice(["LEC", "LCS", "LFL", "LCK", "MSI", "Worlds"])
-        stat = random.choice([
-            "kills",
-            "total cs",
-            "deaths",
-            "assists",
-            "doublekills",
-            "triplekills",
-            "quadrakills",
-            "damagetochampions",
-            "visionscore",
-        ])
-        df = DataLoader.top_players(championnat, stat).head(5).copy()
-        df["playername"] = df["playername"].astype(str).str.lower()
-        expected = df["playername"].tolist()
-        positions = df["position"].astype(str).tolist()
+    # @staticmethod
+    # def build_top5() -> QuizPayload:
+    #     championnat = random.choice(["LEC", "LCS", "LFL", "LCK", "MSI", "Worlds", "LTA N"])
+    #     stat = random.choice([
+    #         "kills",
+    #         "total cs",
+    #         "deaths",
+    #         "assists",
+    #         "doublekills",
+    #         "triplekills",
+    #         "quadrakills",
+    #         "damagetochampions",
+    #         "visionscore",
+    #     ])
+    #     df = DataLoader.top_players(championnat, stat).head(5).copy()
+    #     df["playername"] = df["playername"].astype(str).str.lower()
+    #     expected = df["playername"].tolist()
+    #     positions = df["position"].astype(str).tolist()
 
-        hints = [
-            ", ".join(positions),
-            " - ".join(name[0].upper() for name in expected),
-            " - ".join(mask_word(name) for name in expected),
-        ]
-        prompt = (
-            f"Le top 5 des joueurs avec le record de **{stat}** en **{championnat}** ?\n"
-            "La réponse doit être au format : `?Joueur1, Joueur2, Joueur3, Joueur4, Joueur5`"
-        )
+    #     hints = [
+    #         ", ".join(positions),
+    #         " - ".join(name[0].upper() for name in expected),
+    #         " - ".join(mask_word(name) for name in expected),
+    #     ]
+    #     prompt = (
+    #         f"Le top 5 des joueurs avec le record de **{stat}** en **{championnat}** ?\n"
+    #         "La réponse doit être au format : `?Joueur1, Joueur2, Joueur3, Joueur4, Joueur5`"
+    #     )
 
-        scoreboard = [
-            (row["playername"], str(row[stat]), str(row["date"])) for _, row in df.iterrows()
-        ]
+    #     scoreboard = [
+    #         (row["playername"], str(row[stat]), str(row["date"])) for _, row in df.iterrows()
+    #     ]
 
-        return QuizPayload(
-            kind="Top5",
-            prompt=prompt,
-            hints=hints,
-            expected_list=expected,
-            scoreboard_rows=scoreboard,
-        )
+    #     return QuizPayload(
+    #         kind="Top5",
+    #         prompt=prompt,
+    #         hints=hints,
+    #         expected_list=expected,
+    #         scoreboard_rows=scoreboard,
+    #     )
 
     @staticmethod
     def build_top4team() -> QuizPayload:
         """Version modifiée : une seule bonne réponse (une équipe)."""
-        championnat = random.choice(["LEC", "LCS", "LFL", "LCK", "MSI", "Worlds"])
+        championnat = random.choice(["LEC", "LCS", "LFL", "LCK", "MSI", "Worlds", "LTA N"])
         stat = random.choice(["kills", "gamelength"])
 
         # On ne prend que la #1 équipe (record en 1 seule game)
@@ -308,7 +308,7 @@ class QuizBuilder:
     @staticmethod
     def build_player_quiz() -> QuizPayload:
         df = DataLoader.random_player()
-        df_filt = df[df["league"].isin(["LEC", "LCS", "LFL", "LCK", "Worlds"])]
+        df_filt = df[df["league"].isin(["LEC", "LCS", "LFL", "LCK", "LTA N"])]
         target = random.choice(df_filt["playername"].astype(str).unique().tolist())
         expected = normalize_answer(target)
 
