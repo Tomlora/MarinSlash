@@ -474,9 +474,9 @@ class Quizz(Extension):
 
         # Ajout du 4e quizz (photo)
         builders = [
-            # QuizBuilder.build_top1,
-            # QuizBuilder.build_top4team,   # ✅ version réponse unique
-            # QuizBuilder.build_player_quiz,
+            QuizBuilder.build_top1,
+            QuizBuilder.build_top4team,   # ✅ version réponse unique
+            QuizBuilder.build_player_quiz,
             QuizBuilder.build_photo_quiz
         ]
 
