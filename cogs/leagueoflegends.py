@@ -543,7 +543,10 @@ class LeagueofLegends(Extension):
                                 'trade_efficience' : match_info.trade_efficience,
                                 'skillshots_hit_min' : match_info.thisSkillshot_hit_per_min,
                                 'skillshots_dodge_min' : match_info.thisSkillshot_dodged_per_min,
-                                'dmg_par_kills' : match_info.damage_per_kills}
+                                'dmg_par_kills' : match_info.damage_per_kills,
+                                'killsratio' : match_info.killsratio,
+                                'deathsratio' : match_info.deathsratio,
+                                'solokillsratio' : match_info.solokillsratio}
 
                 if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:
                     param_records_only_ranked = {'vision_score': match_info.thisVision,
