@@ -125,6 +125,9 @@ emote_v2 = {
     'ecart_deaths' : ':skull:',
     'ecart_assists' : ':crossed_swords:',
     'ecart_dmg' : ':dart:',
+    'killsratio' : ':crossed_swords:',
+    'deathsratio' : ':skull:',
+    'solokillsratio' : ':crossed_sword:'
 }
 
 

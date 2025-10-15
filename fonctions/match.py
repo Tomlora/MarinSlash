@@ -1708,7 +1708,22 @@ class matchlol():
         
         self.DamageGoldRatio = round((self.thisDamageNoFormat/self.thisGoldNoFormat)*100,2)
         
-
+        try:
+            self.killsratio = round(self.thisKills / self.thisTeamKills * 100, 2)
+        except ZeroDivisionError:
+            self.killsratio = 0
+            
+        try:
+            self.deathsratio = round(self.thisDeaths / self.thisTeamKillsOp * 100,2)
+        except ZeroDivisionError:
+            self.deathsratio = 0
+            
+        try:
+            self.solokillsratio = round(self.thisSoloKills / self.thisKills * 100, 2)
+        except ZeroDivisionError:
+            self.solokillsratio = 0
+            
+            
 
 
 
@@ -2316,7 +2331,7 @@ class matchlol():
             early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
             split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min, ecart_cs, petales_sanglants, atakhan, crit_dmg, immobilisation, skillshot_hit, temps_cc_inflige, tower, inhib,
             dmg_true_all, dmg_true_all_min, dmg_ad_all, dmg_ad_all_min, dmg_ap_all, dmg_ap_all_min, dmg_all, dmg_all_min, records, longue_serie_kills, ecart_kills, ecart_deaths, ecart_assists, ecart_dmg, trade_efficience, skillshots_dodge_min, skillshots_hit_min, dmg_par_kills,
-            first_tower_time, hardcarry, teamcarry)
+            first_tower_time, hardcarry, teamcarry, killsratio, deathsratio, solokillsratio)
             VALUES (:match_id, :joueur, :role, :champion, :kills, :assists, :deaths, :double, :triple, :quadra, :penta,
             :result, :team_kills, :team_deaths, :time, :dmg, :dmg_ad, :dmg_ap, :dmg_true, :vision_score, :cs, :cs_jungle, :vision_pink, :vision_wards, :vision_wards_killed,
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
@@ -2325,7 +2340,7 @@ class matchlol():
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
             :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit, :temps_cc_inflige, :tower, :inhib,
             :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min, :records, :longue_serie_kills, :ecart_kills, :ecart_deaths, :ecart_assists, :ecart_dmg, :trade_efficience, :skillshots_dodge_min, :skillshot_hit_min, :dmg_par_kills,
-            :first_tower_time, :hardcarry, :teamcarry);
+            :first_tower_time, :hardcarry, :teamcarry, :killsratio, :deathsratio, :solokillsratio);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
             INSERT INTO public.matchs_updated(match_id, joueur, updated)
 	        VALUES (:match_id, :joueur, true);
@@ -2457,6 +2472,9 @@ class matchlol():
                     'first_tower_time' : self.first_tower_time,
                     'hardcarry' : int(self.carry_points),
                     'teamcarry' : int(self.team_points),
+                    'killsratio' : self.killsratio,
+                    'deathsratio' : self.deathsratio,
+                    'solokillsratio' : self.solokillsratio
 
                 },
             )

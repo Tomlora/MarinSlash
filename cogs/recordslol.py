@@ -186,7 +186,7 @@ class Recordslol(Extension):
         
         self.fichiers = {
             'kills': ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta'],
-            'kills2': ['kills_min', 'deaths_min', 'assists_min', 'longue_serie_kills', 'ecart_kills', 'ecart_deaths', 'ecart_assists'],
+            'kills2': ['kills_min', 'deaths_min', 'assists_min', 'longue_serie_kills', 'ecart_kills', 'ecart_deaths', 'ecart_assists', 'killsratio', 'deathsratio', 'solokillsratio'],
             'dmg': ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold', 'crit_dmg', 'dmg_true_all', 'dmg_true_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min', 'dmg_all', 'dmg_all_min', 'ecart_dmg', 'dmg_par_kills'],
             'vision': ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage'],
             'farming': ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage'],
@@ -607,7 +607,7 @@ class Recordslol(Extension):
             'crit_dmg', 'immobilisation', 'temps_cc_inflige', 'dmg/gold', 'skillshot_dodged', 'temps_cc',
             'spells_used', 'trade_efficience', 'skillshots_dodge_min', 'skillshots_hit_min', 'dmg_par_kills',
             'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage',
-            'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort'
+            'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'killsratio', 'deathsratio', 'solokillsratio'
         ]
 
         ranked_flex_swiftplay_extra = [
