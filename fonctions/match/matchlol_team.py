@@ -51,6 +51,7 @@ class MatchLolTeamData:
         self.thisJungleMonsterKilledListe = []
         self.thisPositionListe = []
         self.thisPuuidListe = []
+        self.thisPinkListe = []
 
         # Calcul des totaux d'équipe
         self.thisTeamKills = sum(p['kills'] for p in participants[:5])
@@ -87,7 +88,7 @@ class MatchLolTeamData:
             self.thisJungleMonsterKilledListe.append(participant.get('neutralMinionsKilled', 0))
             self.thisLevelListe.append(participant.get('champLevel', 0))
             self.thisPositionListe.append(participant.get('teamPosition', ''))
-            
+            self.thisPinkListe.append(participant.get('visionWardsBoughtInGame', 0))
             
 
             # Multikills
@@ -219,6 +220,25 @@ class MatchLolTeamData:
 
         self.ecart_supp_gold = calc_ecart('UTILITY', self.thisGoldListe)
         self.ecart_supp_cs = calc_ecart('UTILITY', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
+        
+        role_mapping = {
+            'TOP' : (self.ecart_top_gold, self.ecart_top_cs),
+            'JUNGLE' : (self.ecart_jgl_gold, self.ecart_jgl_cs),
+            'MIDDLE' : (self.ecart_mid_gold, self.ecart_mid_cs),
+            'BOTTOM' : (self.ecart_adc_gold, self.ecart_adc_cs),
+            'UTILITY' : (self.ecart_supp_gold, self.ecart_supp_cs)
+        }
+        
+        if self.thisPosition in role_mapping:
+            gold_diff, cs_diff = role_mapping[self.thisPosition]
+            
+            if self.teamId == 200:
+                gold_diff = -gold_diff
+                cs_diff = -cs_diff
+                
+        self.ecart_gold_noformat = gold_diff
+        self.ecart_cs_noformat = cs_diff
+        self.ecart_gold_permin = round(gold_diff / self.thisTime if self.thisTime  0 else 1), 2)
 
     async def _extract_masteries(self):
         """Extrait les maîtrises de tous les joueurs."""

@@ -212,6 +212,7 @@ class MatchLolBase:
         self.kills_min = 0
         self.deaths_min = 0
         self.assists_min = 0
+        self.mvp = 0
         
         # Stats avancées
         self.thisSpellUsed = 0
