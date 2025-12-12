@@ -18,9 +18,8 @@ from interactions.ext.paginators import Paginator
 import dataframe_image as dfi
 from utils.lol import label_rank, label_tier, label_ward
 
-from fonctions.match import (get_summoner_by_puuid,
-                             get_version,
-                             get_champ_list,
+
+from fonctions.match.riot_api import (get_summoner_by_puuid,
                              get_match_timeline,
                              match_by_puuid_with_puuid,
                              get_summoner_by_riot_id)

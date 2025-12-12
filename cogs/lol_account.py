@@ -11,7 +11,7 @@ import traceback
 import psycopg2.errors
 from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, get_tag
 from fonctions.autocomplete import autocomplete_riotid
-from fonctions.match import getId_with_puuid, get_summonerinfo_by_puuid, get_summoner_by_riot_id
+from fonctions.match.riot_api import getId_with_puuid, get_summonerinfo_by_puuid, get_summoner_by_riot_id
 from utils.emoji import emote_rank_discord
 from utils.lol import label_rank, label_tier
 from interactions.ext.paginators import Paginator

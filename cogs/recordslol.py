@@ -7,7 +7,8 @@ import interactions
 from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, AutocompleteContext
 from interactions.ext.paginators import Paginator
 from utils.params import Version, saison
-from fonctions.match import trouver_records, get_champ_list, get_version, trouver_records_multiples, get_stat_null_rules
+from fonctions.match.riot_api import get_champ_list, get_version
+from fonctions.match.records import trouver_records_multiples, get_stat_null_rules
 from utils.emoji import emote_champ_discord
 from aiohttp import ClientSession
 import plotly.express as px

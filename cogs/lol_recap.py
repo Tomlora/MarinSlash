@@ -3,9 +3,9 @@ import pandas as pd
 import warnings
 import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, SlashCommandChoice, slash_command
-from fonctions.match import get_version
+from fonctions.match.riot_api import get_version
 from utils.emoji import emote_champ_discord, emote_rank_discord
-from fonctions.match import emote_rank_discord, fix_temps
+from fonctions.match.timeline import fix_temps
 from fonctions.autocomplete import autocomplete_riotid
 from datetime import datetime, timedelta
 from dateutil import tz

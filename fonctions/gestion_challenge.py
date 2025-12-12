@@ -1,9 +1,9 @@
 import ast
-from fonctions.match import get_summoner_by_name, my_region, get_challenges_config
+from fonctions.match.riot_api import get_summoner_by_name, my_region, get_challenges_config
 import pandas as pd
 import aiohttp
 from fonctions.gestion_bdd import lire_bdd_perso, sauvegarde_bdd, requete_perso_bdd
-from fonctions.match import emote_rank_discord
+from utils.emoji import emote_rank_discord
 from interactions import Embed
 import humanize
 from datetime import datetime

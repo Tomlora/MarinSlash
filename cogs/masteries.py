@@ -1,6 +1,6 @@
 import pandas as pd
 import aiohttp
-from fonctions.match import get_version, get_champ_list, get_champion_masteries
+from fonctions.match.riot_api import get_version, get_champ_list, get_champion_masteries
 from utils.emoji import emote_champ_discord
 from fonctions.gestion_bdd import lire_bdd_perso, sauvegarde_bdd, get_tag
 from fonctions.autocomplete import autocomplete_riotid
