@@ -165,6 +165,7 @@ class MatchLolBase:
         self.time_CC = 0
         self.largest_crit = 0
         self.teamId = 100
+        self.team = 0
         
         # Dégâts
         self.thisDamage = 0
@@ -331,6 +332,9 @@ class MatchLolBase:
         self.ecart_mid_cs = 0
         self.ecart_adc_cs = 0
         self.ecart_supp_cs = 0
+        self.ecart_gold_noformat = 0
+        self.ecart_cs_noformat = 0
+        self.ecart_gold_permin = 0
         
         # Timeline timestamps
         self.timestamp_fourth_dragon = 0
@@ -415,9 +419,7 @@ class MatchLolBase:
         self.badges = []
         
         # Autres
-        self.ecart_gold_noformat = 0
-        self.ecart_cs_noformat = 0
-        self.ecart_gold_permin = 0
+
         self.carry_points = 0
         self.team_points = -1
         
