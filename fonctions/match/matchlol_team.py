@@ -188,8 +188,8 @@ class MatchLolTeamData:
 
         # Mapping des positions
         position_mapping = {
-            'TOP': (0, 5), 'JUNGLE': (1, 6), 'MIDDLE': (2, 7),
-            'BOTTOM': (3, 8), 'UTILITY': (4, 9)
+            'TOP': (0, 5), 'JUNGLE': (1, 6), 'MID': (2, 7),
+            'ADC': (3, 8), 'SUPPORT': (4, 9)
         }
 
         # Trouver les indices par position
@@ -212,21 +212,21 @@ class MatchLolTeamData:
         self.ecart_jgl_gold = calc_ecart('JUNGLE', self.thisGoldListe)
         self.ecart_jgl_cs = calc_ecart('JUNGLE', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
 
-        self.ecart_mid_gold = calc_ecart('MIDDLE', self.thisGoldListe)
-        self.ecart_mid_cs = calc_ecart('MIDDLE', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
+        self.ecart_mid_gold = calc_ecart('MID', self.thisGoldListe)
+        self.ecart_mid_cs = calc_ecart('MID', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
 
-        self.ecart_adc_gold = calc_ecart('BOTTOM', self.thisGoldListe)
-        self.ecart_adc_cs = calc_ecart('BOTTOM', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
+        self.ecart_adc_gold = calc_ecart('ADC', self.thisGoldListe)
+        self.ecart_adc_cs = calc_ecart('ADC', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
 
-        self.ecart_supp_gold = calc_ecart('UTILITY', self.thisGoldListe)
-        self.ecart_supp_cs = calc_ecart('UTILITY', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
+        self.ecart_supp_gold = calc_ecart('SUPPORT', self.thisGoldListe)
+        self.ecart_supp_cs = calc_ecart('SUPPORT', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
         
         role_mapping = {
             'TOP' : (self.ecart_top_gold, self.ecart_top_cs),
             'JUNGLE' : (self.ecart_jgl_gold, self.ecart_jgl_cs),
-            'MIDDLE' : (self.ecart_mid_gold, self.ecart_mid_cs),
-            'BOTTOM' : (self.ecart_adc_gold, self.ecart_adc_cs),
-            'UTILITY' : (self.ecart_supp_gold, self.ecart_supp_cs)
+            'MID' : (self.ecart_mid_gold, self.ecart_mid_cs),
+            'ADC' : (self.ecart_adc_gold, self.ecart_adc_cs),
+            'SUPPORT' : (self.ecart_supp_gold, self.ecart_supp_cs)
         }
         
         if self.thisPosition in role_mapping:
