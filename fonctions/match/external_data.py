@@ -31,9 +31,7 @@ class ExternalDataMixin:
         self.role_count = {}
         self.dict_serie = {}
 
-        print(self.thisRiotIdListe)
-        print(self.thisRiotTagListe)
-        print(self.last_match[5:])        
+       
 
         if self.activate_mobalytics == 'True':
             # On update le profil mobalytics pour chaque joueur
@@ -41,7 +39,7 @@ class ExternalDataMixin:
                 await update_moba(self.session, riot_id, riot_tag)
             try:
                 self.data_mobalytics_complete = await get_mobalytics(f'{self.riot_id}#{self.riot_tag}', self.session, int(self.last_match[5:]))
-                print(self.data_mobalytics_complete)
+
                 self.moba_ok = True
             except:
                 self.moba_ok = False
@@ -49,7 +47,7 @@ class ExternalDataMixin:
             self.moba_ok = False
 
         self.model = pickle.load(open('model/scoring_rf.pkl', 'rb'))
-        print('Statut moba', self.moba_ok)
+
         if self.moba_ok:
 
             try:
@@ -72,14 +70,11 @@ class ExternalDataMixin:
                 riot_tag = self.thisRiotTagListe[i].lower()
                 pseudo = f"{riot_id}#{riot_tag}"
                 
-                print(riot_id)
-                print(riot_tag)
+
 
                 # --- RANK ET TIER ---
                 try:
                     tier, rank, lp = await get_rank_moba(self.session, riot_id, riot_tag)
-                    print('tier', tier)
-                    print('rank', rank)
                 except Exception:
                     rank = ''
                     tier = ''

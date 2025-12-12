@@ -49,7 +49,7 @@ class MatchLolTeamData:
         self.thisQuadraListe = []
         self.thisPentaListe = []
         self.thisJungleMonsterKilledListe = []
-        self.thisPositionListe = []
+        self.thisPositionListe = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] * 2
         self.thisPuuidListe = []
         self.thisPinkListe = []
 
@@ -87,7 +87,6 @@ class MatchLolTeamData:
             self.thisMinionListe.append(participant.get('totalMinionsKilled', 0))
             self.thisJungleMonsterKilledListe.append(participant.get('neutralMinionsKilled', 0))
             self.thisLevelListe.append(participant.get('champLevel', 0))
-            self.thisPositionListe.append(participant.get('teamPosition', ''))
             self.thisPinkListe.append(participant.get('visionWardsBoughtInGame', 0))
             
 
