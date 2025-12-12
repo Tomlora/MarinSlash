@@ -18,6 +18,10 @@ class MatchLolTeamData:
         """Extrait les données d'équipe."""
         participants = self.match_detail['info']['participants']
         teams = self.match_detail['info']['teams']
+        
+        
+        if self.thisId > 4:
+            participants = participants[5:] + participants[:5]
 
         # Listes par équipe
         self.allitems = []
@@ -230,19 +234,14 @@ class MatchLolTeamData:
         
         if self.thisPosition in role_mapping:
             gold_diff, cs_diff = role_mapping[self.thisPosition]
-            
-            if self.teamId == 200:
-                gold_diff = -gold_diff
-                cs_diff = -cs_diff
-                
+                            
         self.ecart_gold_noformat = gold_diff
         self.ecart_cs_noformat = cs_diff
         self.ecart_gold_permin = round(gold_diff / self.thisTime, 2)
         
-        if self.team == 0:
-            self.ecart_gold_team = self.thisGold_team1 - self.thisGold_team2
-        else:
-            self.ecart_gold_team = self.thisGold_team2 - self.thisGold_team1
+
+        self.ecart_gold_team = self.thisGold_team1 - self.thisGold_team2
+
 
     async def _extract_masteries(self):
         """Extrait les maîtrises de tous les joueurs."""
