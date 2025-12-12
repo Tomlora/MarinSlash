@@ -56,6 +56,7 @@ class MatchLolTeamData:
         self.thisPositionListe = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] * 2
         self.thisPuuidListe = []
         self.thisPinkListe = []
+        self.allie_feeder = 0
 
         # Calcul des totaux d'équipe
         self.thisTeamKills = sum(p['kills'] for p in participants[:5])
@@ -132,6 +133,20 @@ class MatchLolTeamData:
             kp = int((kills + assists) / team_kills * 100) if team_kills > 0 else 0
             self.thisKPListe.append(kp)
 
+
+        # allié feeder
+        
+        self.thisAlliefeeder = np.array(self.thisDeathsListe)
+        self.thisAlliefeeder = float(self.thisAlliefeeder[:5].max())
+        
+        # Stat indiv
+        
+        self.gold_share = round((self.thisGoldNoFormat / self.thisGold_team1) * 100, 2)
+        
+        try:
+            self.thisKP = int(round((self.thisKills + self.thisAssists) / (self.thisTeamKills), 2) * 100)
+        except:
+            self.thisKP = 0        
         # Bans
         self.liste_ban = []
         for team in teams:
@@ -211,32 +226,52 @@ class MatchLolTeamData:
 
         self.ecart_top_gold = calc_ecart('TOP', self.thisGoldListe)
         self.ecart_top_cs = calc_ecart('TOP', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
+        self.ecart_top_kills = calc_ecart('TOP', self.thisKillsListe)
+        self.ecart_top_deaths = calc_ecart('TOP', self.thisDeathsListe)
+        self.ecart_top_assists = calc_ecart('TOP', self.thisAssistsListe)
+        self.ecart_top_dmg = calc_ecart('TOP', self.thisDamageListe)
 
         self.ecart_jgl_gold = calc_ecart('JUNGLE', self.thisGoldListe)
         self.ecart_jgl_cs = calc_ecart('JUNGLE', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
+        self.ecart_jgl_kills = calc_ecart('JUNGLE', self.thisDamageListe)
+        self.ecart_jgl_deaths = calc_ecart('JUNGLE', self.thisDeathsListe)
+        self.ecart_jgl_assists = calc_ecart('JUNGLE', self.thisAssistsListe)
+        self.ecart_jgl_dmg = calc_ecart('JUNGLE', self.thisDamageListe)
 
         self.ecart_mid_gold = calc_ecart('MID', self.thisGoldListe)
         self.ecart_mid_cs = calc_ecart('MID', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
+        self.ecart_mid_kills = calc_ecart('MID', self.thisKillsListe)
+        self.ecart_mid_deaths = calc_ecart('MID', self.thisDeathsListe)
+        self.ecart_mid_assists = calc_ecart('MID', self.thisAssistsListe)
+        self.ecart_mid_dmg = calc_ecart('MID', self.thisDamageListe)
 
         self.ecart_adc_gold = calc_ecart('ADC', self.thisGoldListe)
         self.ecart_adc_cs = calc_ecart('ADC', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
+        self.ecart_adc_kills = calc_ecart('ADC', self.thisKillsListe)
+        self.ecart_adc_deaths = calc_ecart('ADC', self.thisDeathsListe)
+        self.ecart_adc_assists = calc_ecart('ADC', self.thisAssistsListe)
+        self.ecart_adc_dmg = calc_ecart('ADC', self.thisDamageListe)
 
         self.ecart_supp_gold = calc_ecart('SUPPORT', self.thisGoldListe)
         self.ecart_supp_cs = calc_ecart('SUPPORT', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
+        self.ecart_supp_kills = calc_ecart('SUPPORT', self.thisKillsListe)
+        self.ecart_supp_deaths = calc_ecart('SUPPORT', self.thisDeathsListe)
+        self.ecart_supp_assists = calc_ecart('SUPPORT', self.thisAssistsListe)
+        self.ecart_supp_dmg = calc_ecart('SUPPORT', self.thisDamageListe)
         
         role_mapping = {
-            'TOP' : (self.ecart_top_gold, self.ecart_top_cs),
-            'JUNGLE' : (self.ecart_jgl_gold, self.ecart_jgl_cs),
-            'MID' : (self.ecart_mid_gold, self.ecart_mid_cs),
-            'ADC' : (self.ecart_adc_gold, self.ecart_adc_cs),
-            'SUPPORT' : (self.ecart_supp_gold, self.ecart_supp_cs)
+            'TOP' : (self.ecart_top_gold, self.ecart_top_cs, self.ecart_top_kills, self.ecart_top_deaths, self.ecart_top_assists, self.ecart_top_dmg),
+            'JUNGLE' : (self.ecart_jgl_gold, self.ecart_jgl_cs, self.ecart_jgl_kills, self.ecart_jgl_deaths, self.ecart_jgl_assists, self.ecart_jgl_dmg),
+            'MID' : (self.ecart_mid_gold, self.ecart_mid_cs, self.ecart_mid_kills, self.ecart_mid_deaths, self.ecart_mid_assists, self.ecart_mid_dmg),
+            'ADC' : (self.ecart_adc_gold, self.ecart_adc_cs, self.ecart_adc_kills, self.ecart_adc_deaths, self.ecart_adc_assists, self.ecart_adc_dmg),
+            'SUPPORT' : (self.ecart_supp_gold, self.ecart_supp_cs, self.ecart_supp_kills, self.ecart_supp_deaths, self.ecart_supp_assists, self.ecart_supp_dmg)
         }
         
         if self.thisPosition in role_mapping:
-            gold_diff, cs_diff = role_mapping[self.thisPosition]
+            gold_diff, self.ecart_cs, self.ecart_kills, self.ecart_morts, self.ecart_assists, self.ecart_dmg = role_mapping[self.thisPosition]
                             
         self.ecart_gold_noformat = gold_diff
-        self.ecart_cs_noformat = cs_diff
+        self.ecart_gold = gold_diff
         self.ecart_gold_permin = round(gold_diff / self.thisTime, 2)
         
 

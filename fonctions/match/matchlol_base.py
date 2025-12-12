@@ -575,7 +575,10 @@ class MatchLolBase:
         self.time_CC = p['timeCCingOthers']
         self.largest_crit = p['largestCriticalStrike']
         self.teamId = p['teamId']
+        
 
+            
+            
         # Si le joueur n'est pas mort, le temps est à 0
         if self.thisTimeLiving == 0:
             self.thisTimeLiving = self.thisTime
@@ -593,6 +596,13 @@ class MatchLolBase:
         self.thisDamageADAllNoFormat = p['physicalDamageDealt']
         self.thisDamageAPAllNoFormat = p['magicDamageDealt']
         self.thisDamageAllNoFormat = p['totalDamageDealt']
+        
+        self.thisDamageRatio = round((c['teamDamagePercentage']) * 100, 2)
+        self.thisDamageTakenRatio = round((c['damageTakenOnTeamPercentage']) * 100, 2)
+        
+        self.thisDamageRatioListe = dict_data(self.thisId, self.match_detail, 'teamDamagePercentage')
+        self.thisDamageTakenRatioListe = dict_data(self.thisId, self.match_detail, 'damageTakenOnTeamPercentage')
+        
 
         # Multikills par équipe
         self.thisDoubleListe = dict_data(self.thisId, self.match_detail, 'doubleKills')
@@ -630,6 +640,8 @@ class MatchLolBase:
         self.thisWardsKilled = p['wardsKilled']
         self.thisGold = int(p['goldEarned'])
         self.thisGoldNoFormat = int(p['goldEarned'])
+        
+        self.DamageGoldRatio = round((self.thisDamageNoFormat / self.thisGoldNoFormat) * 100, 2)
 
         # Sorts
         self.spell1 = p['summoner1Id']
@@ -672,6 +684,22 @@ class MatchLolBase:
         self.deaths_min = np.round(self.thisDeaths / self.thisTime, 2)
         self.assists_min = np.round(self.thisAssists / self.thisTime, 2)
 
+        try:
+            self.killsratio = round(self.thisKills / self.thisTeamKills * 100, 2)
+        except ZeroDivisionError:
+            self.killsratio = 0
+            
+        try:
+            self.deathsratio = round(self.thisDeaths / self.thisTeamKillsOp * 100,2)
+        except ZeroDivisionError:
+            self.deathsratio = 0
+            
+        try:
+            self.solokillsratio = round(self.thisSoloKills / self.thisKills * 100, 2)
+        except ZeroDivisionError:
+            self.solokillsratio = 0
+            
+            
         # Stats avancées
         self.thisSpellUsed = c['abilityUses']
         self.thisbuffsVolees = c['buffsStolen']
