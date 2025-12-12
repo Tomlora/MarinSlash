@@ -238,7 +238,12 @@ class MatchLolTeamData:
                 
         self.ecart_gold_noformat = gold_diff
         self.ecart_cs_noformat = cs_diff
-        self.ecart_gold_permin = round(gold_diff / self.thisTime if self.thisTime  0 else 1), 2)
+        self.ecart_gold_permin = round(gold_diff / self.thisTime, 2)
+        
+        if self.team == 0:
+            self.ecart_gold_team = self.thisGold_team1 - self.thisGold_team2
+        else:
+            self.ecart_gold_team = self.thisGold_team2 - self.thisGold_team1
 
     async def _extract_masteries(self):
         """Extrait les maîtrises de tous les joueurs."""

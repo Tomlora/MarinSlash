@@ -623,6 +623,11 @@ class MatchLolBase:
         # Sorts
         self.spell1 = p['summoner1Id']
         self.spell2 = p['summoner2Id']
+        
+        # team
+        
+        self.teamId = p['teamId']
+        self.team = 0 if self.teamId == 100 else 1
 
         # Pings
         try:
