@@ -413,6 +413,15 @@ class MatchLolBase:
         
         # Badges
         self.badges = []
+        
+        # Autres
+        self.ecart_gold_noformat = 0
+        self.ecart_cs_noformat = 0
+        self.ecart_gold_permin = 0
+        self.carry_points = 0
+        self.team_points = -1
+        
+        self.thisPinkListe = []
 
     async def get_data_riot(self):
         """

@@ -164,10 +164,10 @@ class MatchLol(
                 #     except Exception:
                 #         pass
 
-            # 6. Timeline
-            if self.thisQ not in ['ARENA 2v2', 'SWARM']:
-                await self.save_timeline()
-                await self.save_timeline_event()
+            # # 6. Timeline
+            # if self.thisQ not in ['ARENA 2v2', 'SWARM']:
+            #     await self.save_timeline()
+            #     await self.save_timeline_event()
 
             # 7. Détections
             await self.detection_joueurs_pro()
