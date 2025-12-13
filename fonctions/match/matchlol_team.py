@@ -142,7 +142,17 @@ class MatchLolTeamData:
         # Stat indiv
         
         self.gold_share = round((self.thisGoldNoFormat / self.thisGold_team1) * 100, 2)
-        
+
+        try:
+            self.killsratio = round(self.thisKills / self.thisTeamKills * 100, 2)
+        except ZeroDivisionError:
+            self.killsratio = 0
+            
+        try:
+            self.deathsratio = round(self.thisDeaths / self.thisTeamKillsOp * 100,2)
+        except ZeroDivisionError:
+            self.deathsratio = 0
+            
         try:
             self.thisKP = int(round((self.thisKills + self.thisAssists) / (self.thisTeamKills), 2) * 100)
         except:

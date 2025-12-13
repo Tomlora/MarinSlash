@@ -684,20 +684,8 @@ class MatchLolBase:
         self.deaths_min = np.round(self.thisDeaths / self.thisTime, 2)
         self.assists_min = np.round(self.thisAssists / self.thisTime, 2)
 
-        try:
-            self.killsratio = round(self.thisKills / self.thisTeamKills * 100, 2)
-        except ZeroDivisionError:
-            self.killsratio = 0
-            
-        try:
-            self.deathsratio = round(self.thisDeaths / self.thisTeamKillsOp * 100,2)
-        except ZeroDivisionError:
-            self.deathsratio = 0
-            
-        try:
-            self.solokillsratio = round(self.thisSoloKills / self.thisKills * 100, 2)
-        except ZeroDivisionError:
-            self.solokillsratio = 0
+
+
             
             
         # Stats avancées
@@ -720,6 +708,11 @@ class MatchLolBase:
         self.thisTotalOnTeammates = p['totalHealsOnTeammates']
         self.thisTurretsKillsPerso = p['turretKills']
         self.thisTurretsLost = p['turretsLost']
+        
+        try:
+            self.solokillsratio = round(self.thisSoloKills / self.thisKills * 100, 2)
+        except ZeroDivisionError:
+            self.solokillsratio = 0
 
         # Pings détaillés
         self.pings_allin = p['allInPings']
