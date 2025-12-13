@@ -156,13 +156,14 @@ class MatchLol(
             if self.moba_ok:
                 await self._load_rank_data()
                 await self._calculate_team_averages()
-
-                await self.prepare_data_moba()
-                # except Exception:
-                #     try:
-                #         await self.prepare_data_ugg()
-                #     except Exception:
-                #         pass
+                try:
+                    
+                    await self.prepare_data_moba()
+                except Exception:
+                    try:
+                        await self.prepare_data_ugg()
+                    except Exception:
+                        pass
 
             # # 6. Timeline
             # if self.thisQ not in ['ARENA 2v2', 'SWARM']:

@@ -233,7 +233,7 @@ class MatchLolTeamData:
 
         self.ecart_jgl_gold = calc_ecart('JUNGLE', self.thisGoldListe)
         self.ecart_jgl_cs = calc_ecart('JUNGLE', [m + j for m, j in zip(self.thisMinionListe, self.thisJungleMonsterKilledListe)])
-        self.ecart_jgl_kills = calc_ecart('JUNGLE', self.thisDamageListe)
+        self.ecart_jgl_kills = calc_ecart('JUNGLE', self.thisKillsListe)
         self.ecart_jgl_deaths = calc_ecart('JUNGLE', self.thisDeathsListe)
         self.ecart_jgl_assists = calc_ecart('JUNGLE', self.thisAssistsListe)
         self.ecart_jgl_dmg = calc_ecart('JUNGLE', self.thisDamageListe)
