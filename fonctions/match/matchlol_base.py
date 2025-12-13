@@ -2,43 +2,20 @@
 Classe principale matchlol - Partie 1: Initialisation et récupération des données.
 """
 
-import os
-import sys
-import traceback
-import pickle
-import math
-import warnings
 
+import warnings
 import pandas as pd
 import numpy as np
 import aiohttp
-import sqlalchemy.exc
-from sqlalchemy.exc import IntegrityError
-from PIL import Image, ImageDraw
-from io import BytesIO
-
-from fonctions.gestion_bdd import (
-    lire_bdd, get_data_bdd, requete_perso_bdd, lire_bdd_perso, sauvegarde_bdd
-)
-from fonctions.channels_discord import mention
-from fonctions.api_calls import getPlayerStats, getRanks, update_ugg, get_role, get_player_match_history
-from fonctions.api_moba import (
-    update_moba, get_mobalytics, get_player_match_history_moba,
-    get_role_stats, get_wr_ranked, detect_win_streak,
-    get_stat_champion_by_player_mobalytics, get_rank_moba
-)
-from utils.lol import elo_lp, dict_points, dict_id_q
-from utils.emoji import emote_champ_discord, emote_rank_discord
-from utils.params import api_key_lol, region, my_region
-
+from fonctions.gestion_bdd import lire_bdd_perso
+from utils.lol import dict_id_q
+from utils.params import api_key_lol
 from .riot_api import (
     get_version, get_champ_list, get_summoner_by_riot_id,
     get_summonerinfo_by_puuid, get_list_matchs_with_me,
-    get_match_detail, get_match_timeline, get_data_rank,
-    get_image, get_data_champ_tags
+    get_match_detail, get_match_timeline, get_data_rank
 )
-from .utils import fix_temps, dict_data, charger_font, load_timeline
-from .masteries import get_masteries_old, get_stat_champion_by_player
+from .utils import fix_temps, dict_data
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None
