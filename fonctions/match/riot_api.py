@@ -148,10 +148,13 @@ async def get_list_matchs_with_me(session: aiohttp.ClientSession, me, params):
     return my_matches
 
 
-async def get_list_matchs_with_puuid(session: aiohttp.ClientSession, puuid, params=None):
+async def get_list_matchs_with_puuid(session: aiohttp.ClientSession, puuid, params=None, queue=None):
     """Récupère la liste des matchs par PUUID."""
     if params is None:
         params = {'start': 0, 'count': 20, 'api_key': api_key_lol}
+        
+    if queue is not None:
+        params['queue'] = queue
         
     attemps = 0
 

@@ -1007,7 +1007,9 @@ class LeagueofLegends(Extension):
                 return await ctx.send("Ce compte n'existe pas ou n'est pas enregistré")
 
             session = aiohttp.ClientSession()
-            liste_matchs_riot: list = await get_list_matchs_with_puuid(session, puuid)
+            liste_matchs_riot: list = set(await get_list_matchs_with_puuid(session, puuid, type=420),  # RANKED
+                                          await get_list_matchs_with_puuid(session, puuid, type=440), # FLEX
+                                          await get_list_matchs_with_puuid(session, puuid, type=450)) # ARAM
             await session.close()
             liste_matchs_save: pd.DataFrame = lire_bdd_perso(f'''SELECT distinct match_id from matchs where joueur = {id_compte}''', index_col=None).T
 

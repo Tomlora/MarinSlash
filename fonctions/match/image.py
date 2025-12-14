@@ -88,15 +88,21 @@ class ImageGenerationMixin:
 
             im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
                     box=(x_name-240, y_name-50))
-
-            im.paste(im=await get_image("champion", self.thisChampName.capitalize(), self.session, 100, 100, self.version['n']['profileicon']),
+            try:
+                im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100, self.version['n']['profileicon']),
+                    box=(x_name-120, y_name-50))
+            except:
+                im.paste(im=await get_image("champion", self.thisChampName.capitalize(), self.session, 100, 100, self.version['n']['profileicon']),
                     box=(x_name-120, y_name-50))
         else:
             im.paste(im=await get_image("avatar", self.avatar, self.session, 100, 100, self.version['n']['profileicon']),
                     box=(x_name-240, y_name-20))
-
-            im.paste(im=await get_image("champion", self.thisChampName.capitalize(), self.session, 100, 100, self.version['n']['profileicon']),
-                    box=(x_name-120, y_name-20))
+            try:
+                im.paste(im=await get_image("champion", self.thisChampName, self.session, 100, 100, self.version['n']['profileicon']),
+                        box=(x_name-120, y_name-20))
+            except:
+                im.paste(im=await get_image("champion", self.thisChampName.capitalize(), self.session, 100, 100, self.version['n']['profileicon']),
+                        box=(x_name-120, y_name-20))
 
         d.text((x_name+1000, y_name-20),
                f"Niveau {self.level_summoner}", font=font_little, fill=fill)
@@ -420,10 +426,16 @@ class ImageGenerationMixin:
 
             
         for i in range(self.nb_joueur):
-            im.paste(
-                im=await get_image("champion", self.thisChampNameListe[i].capitalize(), self.session, profil_version=self.version['n']['champion']),
-                box=(10, initial_y-13),
-            )
+            try:
+                im.paste(
+                    im=await get_image("champion", self.thisChampNameListe[i], self.session, profil_version=self.version['n']['champion']),
+                    box=(10, initial_y-13),
+                )
+            except:
+                im.paste(
+                    im=await get_image("champion", self.thisChampNameListe[i].capitalize(), self.session, profil_version=self.version['n']['champion']),
+                    box=(10, initial_y-13),
+                )
 
             if self.mastery_level[i] >= 100:
                 x_mastery = 15
