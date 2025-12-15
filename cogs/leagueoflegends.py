@@ -1285,8 +1285,7 @@ class LeagueofLegends(Extension):
                     rank_old = str(suivi[key]['rank_jour'])
                     classement_old = f"{tier_old} {rank_old}"
 
-                    rank_euw_old = suivi[key]['classement_euw']
-                    percent_rank_old = suivi[key]['classement_percent_euw']
+
 
                     tier = str(suivi[key]['tier'])
                     rank = str(suivi[key]['rank'])
@@ -1299,45 +1298,7 @@ class LeagueofLegends(Extension):
                     totaldef = totaldef + diflosses
                     totalgames = totalwin + totaldef
 
-                    attempts = 0
-                    try:
-                        while attempts < 5:
-                            stats_rankings = await getRankings(session, suivi[key]['riot_id'], suivi[key]['riot_tagline'], 'euw1', saison, 420)
 
-                            if stats_rankings != 'Service indisponible':
-                                break
-                            else:
-                                attempts += 1
-
-                        if stats_rankings == 'Service indisponible':
-                            rank_euw = rank_euw_old
-                            percent_rank_euw = percent_rank_old
-                        else:
-                            rank_euw = stats_rankings['data']['overallRanking']['overallRanking']
-                            percent_rank_euw = int(round(stats_rankings['data']['overallRanking']['overallRanking'] / stats_rankings['data']['overallRanking']['totalPlayerCount'] * 100, 0))
-                    except TypeError:
-                        rank_euw = rank_euw_old
-                        percent_rank_euw = percent_rank_old
-
-                    if rank_euw_old == 0:
-                        rank_euw_old = rank_euw
-
-                    diff_rank_euw = rank_euw - rank_euw_old
-
-                    if diff_rank_euw > 0:
-                        diff_rank_euw = f"+{humanize.intcomma(int(diff_rank_euw)).replace(',', ' ')}"
-                    else:
-                        try:
-                            diff_rank_euw = f"{humanize.intcomma(int(diff_rank_euw)).replace(',', ' ')}"
-                        except ValueError:
-                            diff_rank_euw = f"{0}"
-
-                    try:
-                        rank_euw_format = humanize.intcomma(int(rank_euw)).replace(',', ' ')
-                    except ValueError:
-                        rank_euw_format = "0"
-                        rank_euw = 0
-                        percent_rank_euw = 0
 
                     if dict_rankid[classement_old] > dict_rankid[classement_new]:
                         difrank = dict_rankid[classement_old] - dict_rankid[classement_new]
@@ -1368,7 +1329,7 @@ class LeagueofLegends(Extension):
                             emote = ":arrow_right:"
 
                     embed.add_field(
-                        name=f"{suivi[key]['riot_id']}#{suivi[key]['riot_tagline']} ( {emote_rank_discord[tier]} {rank} ) #{rank_euw_format}({diff_rank_euw}) | {percent_rank_euw}%",
+                        name=f"{suivi[key]['riot_id']}#{suivi[key]['riot_tagline']} ( {emote_rank_discord[tier]} {rank} )",
                         value=f"V : {suivi[key]['wins']} ({difwins}) | D : {suivi[key]['losses']} ({diflosses}) | LP :  {suivi[key]['LP']} ({difLP})   {emote}", inline=False)
 
                     if (difwins + diflosses > 0):
@@ -1380,10 +1341,6 @@ class LeagueofLegends(Extension):
                             rank_jour = '{suivi[key]['rank']}'
                             where index = '{key}';'''
 
-                    sql += f'''UPDATE suivi_s{saison}
-                            SET classement_euw = {rank_euw},
-                            classement_percent_euw = {percent_rank_euw}
-                            where index = '{key}';'''
 
                 channel_tracklol = await self.bot.fetch_channel(chan_discord_id.tracklol)
                 embed.set_footer(text=f'Version {Version} by Tomlora')

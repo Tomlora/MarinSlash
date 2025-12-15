@@ -74,7 +74,7 @@ class MatchLolTeamData:
             self.allitems.append(items)
 
             # Pseudo et Riot ID
-            self.thisPseudoListe.append(participant.get('summonerName', ''))
+            self.thisPseudoListe.append(participant.get('riotIdGameName', ''))
             self.thisRiotIdListe.append(participant.get('riotIdGameName', ''))
             self.thisRiotTagListe.append(participant.get('riotIdTagline', ''))
             self.thisPuuidListe.append(participant.get('puuid', ''))

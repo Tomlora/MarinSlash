@@ -171,13 +171,13 @@ class MatchLol(
             #     await self.save_timeline_event()
 
             # 7. Détections
-            await self.detection_joueurs_pro()
-            await self.detection_smurf()
-            await self.detection_mauvais_joueur()
-            await self.detection_first_time()
-            await self.detection_otp()
-            await self.detection_serie_victoire()
-            await self.ecart_cs_by_role()
+            #await self.detection_joueurs_pro()
+            #await self.detection_smurf()
+            #await self.detection_mauvais_joueur()
+            #await self.detection_first_time()
+            #await self.detection_otp()
+            #await self.detection_serie_victoire()
+            #await self.ecart_cs_by_role()
             await self.detection_gap()
 
             # # 8. Sauvegarde
