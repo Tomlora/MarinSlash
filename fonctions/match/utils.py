@@ -31,16 +31,16 @@ def fix_temps(duree):
     return minutes + secondes
 
 
-def range_value(i, liste, min: bool = False, return_top: bool = False):
+def range_value(i, liste, min: bool = False, return_top: bool = False, value_meilleur = (0, 128, 0), value_pire = (220, 20, 60)):
     """
     Détermine la couleur en fonction de la position dans le classement.
     Vert pour max, rouge pour min, noir sinon.
     """
     if i == np.argmax(liste[:5]) or i - 5 == np.argmax(liste[5:]):
-        fill = (0, 128, 0)
+        fill = value_meilleur
         top = 'max'
     elif min and (i == np.argmin(liste[:5]) or i - 5 == np.argmin(liste[5:])):
-        fill = (220, 20, 60)
+        fill = value_pire
         top = 'min'
     else:
         fill = (0, 0, 0)

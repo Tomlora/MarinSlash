@@ -15,23 +15,53 @@ from .utils import charger_font, range_value
 from fonctions.api_calls import getRanks
 
 
+color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (191,64,191), 8 : (220,20,60), 9 : (220,20,60), 10 : (220,20,60)}
+
 class ImageGenerationMixin:
     """Mixin pour la génération d'images de résumé."""
+
+    async def get_theme(self):
+
+        dict_color = lire_bdd_perso(f'''SELECT *                                   
+                                     from theme
+        where index = (select theme from tracker where puuid = '{self.puuid}' ) ''', format='dict', index_col=None)[0]
+
+        principal = (dict_color['r_principal'], dict_color['g_principal'], dict_color['b_principal'])
+        secondaire = (dict_color['r_secondaire'], dict_color['g_secondaire'], dict_color['b_secondaire'])
+        texte = (dict_color['r_texte'], dict_color['g_texte'], dict_color['b_texte'])
+        player = (dict_color['r_player'], dict_color['g_player'], dict_color['b_player'])
+
+        dict_scoring = {1 : (dict_color['r_top1'], dict_color['g_top1'], dict_color['b_top1']),
+                        2 : (dict_color['r_top2'], dict_color['g_top2'], dict_color['b_top2']),
+                        3 : (dict_color['r_top3'], dict_color['g_top3'], dict_color['b_top3']),
+                        8 : (dict_color['r_top8'], dict_color['g_top8'], dict_color['b_top8']),
+                        9 : (dict_color['r_top9'], dict_color['g_top9'], dict_color['b_top9']),
+                        10 : (dict_color['r_top10'], dict_color['g_top10'], dict_color['b_top10'])}
+        
+
+        victoire60 = (dict_color['r_victoire60'], dict_color['g_victoire60'], dict_color['b_victoire60'])
+        victoire50 = (dict_color['r_victoire50'], dict_color['g_victoire50'], dict_color['b_victoire50'])
+        victoire30 = (dict_color['r_victoire30'], dict_color['g_victoire30'], dict_color['b_victoire30'])
+
+
+        kda5 = (dict_color['r_kda5'], dict_color['g_kda5'], dict_color['b_kda5'])
+        kda4 = (dict_color['r_kda4'], dict_color['g_kda4'], dict_color['b_kda4'])
+        kda3 = (dict_color['r_kda3'], dict_color['g_kda3'], dict_color['b_kda3'])
+        kda1 = (dict_color['r_kda1'], dict_color['g_kda1'], dict_color['b_kda1'])
+
+        return principal, secondaire, texte, player, dict_scoring, victoire60, victoire50, victoire30, kda5, kda4, kda3, kda1
+
 
     async def resume_general(self,
                              name_img,
                              embed,
                              difLP):
-        mode_couleur = {'light' : {'principal' : (255, 255, 255), # blanc
-                                   'secondaire' : (230, 230, 230), # gris
-                                   'texte' : (0, 0, 0)}} # noir
-        
-        
-        mode = 'light'
 
-        principal = mode_couleur[mode]['principal']
-        secondaire = mode_couleur[mode]['secondaire']
-        fill = mode_couleur[mode]['texte']
+
+        principal, secondaire, fill, player, color_scoring, victoire60, victoire50, victoire30, kda5, kda4, kda3, kda1 = await self.get_theme()
+
+        meilleur_joueur = color_scoring[1]
+        pire_joueur = color_scoring[10]
  
 
         # Gestion de l'image 2
@@ -313,7 +343,7 @@ class ImageGenerationMixin:
 
         def draw_light_blue_line(i: int) -> None:
             im.paste(Image.new("RGB", (lineX, lineY),
-                     (173, 216, 230)), (0, (i*lineY) + 190))
+                     player), (0, (i*lineY) + 190))
 
         def draw_black_line() -> None:
             im.paste(Image.new("RGB", (lineX, 3),
@@ -455,9 +485,9 @@ class ImageGenerationMixin:
                 ecart_level = self.thisLevelListe[i] - self.thisLevelListe[i+5]
 
                 if ecart_level > 0:
-                    fill_level = (0, 128, 0)
+                    fill_level = meilleur_joueur
                 elif ecart_level < 0:
-                    fill_level = (255, 0, 0)
+                    fill_level = pire_joueur
                 else:
                     fill_level = fill
             else:
@@ -523,8 +553,6 @@ class ImageGenerationMixin:
                                        'match_id' : self.last_match,
                                        'joueur' : self.id_compte})
                 
-            color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (191,64,191), 8 : (220,20,60), 9 : (220,20,60), 10 : (220,20,60)}
-
 
             d.text((x_score+20, initial_y),
                     str(scoring),
@@ -552,7 +580,7 @@ class ImageGenerationMixin:
                 d.text((x_assists - 20, initial_y),
                        str(self.thisAssistsListe[i]), font=font, fill=fill)
 
-            fill_color = range_value(i, self.thisKDAListe, True)
+            fill_color = range_value(i, self.thisKDAListe, True, value_meilleur=meilleur_joueur, value_pire=pire_joueur)
 
             # Recentrer le résultat quand chiffre rond
             if len(str(round(self.thisKDAListe[i], 2))) == 1:
@@ -562,13 +590,13 @@ class ImageGenerationMixin:
                 d.text((x_kda, initial_y), str(
                     round(self.thisKDAListe[i], 2)), font=font, fill=fill_color)
 
-            fill_color = range_value(i, self.thisKPListe, True)
+            fill_color = range_value(i, self.thisKPListe, True, value_meilleur=meilleur_joueur, value_pire=pire_joueur)
 
             d.text((x_kp, initial_y), str(
                 self.thisKPListe[i]) + "%", font=font, fill=fill_color)
 
             fill_color = range_value(i, np.array(self.thisMinionListe) +
-                               np.array(self.thisJungleMonsterKilledListe))
+                               np.array(self.thisJungleMonsterKilledListe), value_meilleur=meilleur_joueur, value_pire=pire_joueur)
 
             if len(str(self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i])) != 2:
                 d.text((x_cs, initial_y), str(
@@ -579,18 +607,18 @@ class ImageGenerationMixin:
 
             if not self.thisQ in ["ARAM", "CLASH ARAM"]:
 
-                fill_color = range_value(i, self.thisVisionListe)
+                fill_color = range_value(i, self.thisVisionListe, value_meilleur=meilleur_joueur, value_pire=pire_joueur)
 
                 d.text((x_vision, initial_y), str(
                     self.thisVisionListe[i]), font=font, fill=fill_color)
 
-            fill_color = range_value(i, self.thisDamageListe)
+            fill_color = range_value(i, self.thisDamageListe, value_meilleur=meilleur_joueur, value_pire=pire_joueur)
 
             d.text((x_dmg_percent, initial_y),
                    f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font, fill=fill_color)
 
             fill_color = range_value(i, np.array(
-                self.thisDamageTakenListe) + np.array(self.thisDamageSelfMitigatedListe))
+                self.thisDamageTakenListe) + np.array(self.thisDamageSelfMitigatedListe), value_meilleur=meilleur_joueur, value_pire=pire_joueur)
 
             d.text((x_dmg_taken + 25, initial_y),
                    f'{int(self.thisDamageTakenListe[i]/1000) + int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font, fill=fill_color)
@@ -774,11 +802,11 @@ class ImageGenerationMixin:
                            f' {nb_games} Parties | {mvp} MVP', font=font_little, fill=fill)
                 
             if ratio_victoire >= 60:
-                color_victoire = (255, 119, 0)
+                color_victoire = victoire60
             elif ratio_victoire >= 50:
-                color_victoire = (85, 85, 255)
+                color_victoire = victoire50
             elif ratio_victoire <= 30 and nb_games >= 10:
-                color_victoire = (220, 20, 60)
+                color_victoire = victoire30
             else:
                 color_victoire = fill
                 
@@ -787,13 +815,13 @@ class ImageGenerationMixin:
             
 
             if kda >= 5:
-                color_kda = (255, 119, 0) # (255, 140, 0)
+                color_kda = kda5 # (255, 140, 0)
             elif kda >= 4:
-                color_kda = (85, 85, 255)
+                color_kda = kda4
             elif kda >= 3:
-                color_kda = (0, 128, 0)
+                color_kda = kda3
             elif kda < 1:
-                color_kda = (220, 20, 60)
+                color_kda = kda1
             else:
                 color_kda = fill
             
