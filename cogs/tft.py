@@ -27,16 +27,9 @@ my_region = 'euw1'
 region = "europe"
 
 
-async def get_summonertft_by_name(session: aiohttp.ClientSession, summonername):
-    async with session.get(f'https://{my_region}.api.riotgames.com/tft/summoner/v1/summoners/by-name/{summonername}', params={'api_key': api_key_tft}) as session_summoner_tft:
-        me = await session_summoner_tft.json()  # informations sur le joueur
-    return me
+async def get_stats_ranked(session: aiohttp.ClientSession, puuid):
 
-
-async def get_stats_ranked(session: aiohttp.ClientSession, summonername):
-
-    me = await get_summonertft_by_name(session, summonername)
-    async with session.get(f'https://{my_region}.api.riotgames.com/tft/league/v1/entries/by-summoner/{me["id"]}', params={'api_key': api_key_tft}) as stats_ranked_tft:
+    async with session.get(f'https://{my_region}.api.riotgames.com/tft/league/v1/by-puuid/{puuid}', params={'api_key': api_key_tft}) as stats_ranked_tft:
         stats = await stats_ranked_tft.json()  # informations sur le joueur
     return stats
 
@@ -62,12 +55,9 @@ async def get_data_trait(session):
 
         return data
 
-async def matchtft_by_puuid(summonerName, idgames: int, session, puuid = None):
+async def matchtft_by_puuid(idgames: int, session, puuid = None):
     
-    if puuid is None:
-            me = await get_summonertft_by_name(session, summonerName)
-            puuid = me['puuid']
-            
+           
     liste_matchs = await get_matchs_by_puuid(session, puuid)
     if len(liste_matchs) == 0:
         return None, None, None
@@ -88,7 +78,7 @@ class tft(Extension):
         self.updatetft.start()
 
     async def stats_tft(self, summonername, session, idgames: int = 0, puuid = None):
-        match_detail, id_match, puuid = await matchtft_by_puuid(summonername, idgames, session, puuid)
+        match_detail, id_match, puuid = await matchtft_by_puuid(idgames, session, puuid)
 
         if not isinstance(match_detail, pd.DataFrame):
             return {}
@@ -129,15 +119,6 @@ class tft(Extension):
 
         data_trait = await get_data_trait(session)
         df_traits_data = pd.json_normalize(data_trait)
-
-        # augments = stats_joueur['augments']
-
-        # msg_augment = ''
-
-        # for augment in augments:
-        #     augment = augment.replace(
-        #         'TFT6_Augment_', '').replace('TFT7_Augment_', '').replace('TFT8_Augment_', '').replace('TFT9_Augment_', '').replace('TFT10_Augment_', '')
-        #     msg_augment = f'{msg_augment} | {augment}'
 
         # Classement
 
@@ -189,7 +170,7 @@ class tft(Extension):
                                       INNER JOIN trackertft ON trackertft.id_compte = suivitft.index''', 'dict')
         
         try:
-            profil = await get_stats_ranked(session, summonername)
+            profil = await get_stats_ranked(session, puuid)
             profil = profil[0]
             ranked = True
             wins = profil['wins']
@@ -324,6 +305,8 @@ class tft(Extension):
             monster_name = re.sub(r'tft\d+_', '', mob[1]['character_id'], flags=re.IGNORECASE)  # Remplace TFT suivi de chiffres (insensible à la casse)
                     
             monster_tier = mob[1]['tier']
+
+            monster_emote = emote_champ_discord.get(monster_name.capitalize().replace(" ", ""), monster_name)
             
             def afficher_etoiles(monster_tier):
                 return '⭐' * int(monster_tier)
@@ -331,12 +314,15 @@ class tft(Extension):
             # afficher un nombre de stars en fonction de monster_tier:
             
             rarity = mob[1]['rarity']
-            embed.add_field(name=f'{emote_champ_discord[monster_name.capitalize().replace(" ", "")]} ({dic_rarity[rarity]}:moneybag:)',
-                            value=afficher_etoiles(monster_tier), inline=inline)
-            inline = True
+            if len(embed.fields) < 25:
+                embed.add_field(name=f'{monster_emote} ({dic_rarity[rarity]}:moneybag:)',
+                                value=afficher_etoiles(monster_tier), inline=inline)
+                inline = True
 
-        embed.add_field(name="Stats :bar_chart: : ", value=f':money_with_wings: : **{gold_restants}** | Level : **{level}** | DMG infligés : **{dmg_total}**', inline=False)
+        if len(embed.fields) < 25:
+            embed.add_field(name="Stats :bar_chart: : ", value=f':money_with_wings: : **{gold_restants}** | Level : **{level}** | DMG infligés : **{dmg_total}**', inline=False)
 
+        
         embed.set_footer(
             text=f'Version {Version} by Tomlora - Match {id_match}')
 
@@ -380,7 +366,7 @@ class tft(Extension):
                                                     type=interactions.OptionType.INTEGER,
                                                     required=False,
                                                     min_value=0,
-                                                    max_value=10)])
+                                                    max_value=20)])
     async def gametft(self,
                       ctx: SlashContext,
                       summonername,
@@ -398,10 +384,8 @@ class tft(Extension):
 
         await ctx.send(embeds=embed)
 
-    async def printLivetft(self, summonername: str, discord_server_id: chan_discord, session):
+    async def printLivetft(self, summonername: str, discord_server_id: chan_discord, session, puuid):
         
-        puuid = lire_bdd_perso(f'''SELECT puuid from trackertft where index = '{summonername.lower()}' ''', index_col=None).loc['puuid'][0]
-
         embed = await self.stats_tft(summonername, session, idgames=0, puuid=puuid)
 
         channel = await self.bot.fetch_channel(discord_server_id.tft)
@@ -424,7 +408,7 @@ class tft(Extension):
                 try:
 
                     discord_server_id = chan_discord(server_id)
-                    await self.printLivetft(joueur, discord_server_id, session)
+                    await self.printLivetft(joueur, discord_server_id, session, puuid)
                 except:
                     print(f"erreur {joueur}")  # joueur qui a posé pb
                     print(sys.exc_info())  # erreur
