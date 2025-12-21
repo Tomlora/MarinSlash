@@ -62,6 +62,7 @@ class ThemeCog(Extension):
     def __init__(self, bot):
         self.bot = bot
         self.modal_cache: dict[str, dict] = {}
+        self.delete_cache: dict[int, str] = {}
     
     @slash_command(
         name="theme",
@@ -600,28 +601,28 @@ class ThemeCog(Extension):
     async def theme_supprimer(self, ctx: SlashContext, theme_id: str):
         discord_id = int(ctx.author_id)
         
+        if theme_id == 'Light':
+            await ctx.send("❌ Ce thème n'est pas supprimable.", ephemeral=True)
+            return
+        
         # Vérifier si le thème existe et appartient à l'utilisateur
         result = lire_bdd_perso(
-            f"SELECT name, discord FROM theme WHERE index = '{theme_id}' ",
+            f"SELECT name, discord FROM theme WHERE name = '{theme_id}'",
             format='dict',
             index_col=None
         )
-
-        if theme_id == 'Light':
-            await ctx.send(f"❌ Ce thème n'est pas supprimable", ephemeral=True)
-            return            
         
         if not result:
-            await ctx.send(f"❌ Thème #{theme_id} introuvable.", ephemeral=True)
+            await ctx.send(f"❌ Thème '{theme_id}' introuvable.", ephemeral=True)
             return
         
-        if result[0].get('discord') != discord_id:
+        if str(result[0].get('discord')) != str(discord_id):
             await ctx.send("❌ Tu ne peux supprimer que tes propres thèmes.", ephemeral=True)
             return
         
         # Vérifier si le thème est utilisé
         usage = lire_bdd_perso(
-            f"SELECT COUNT(*) as count FROM tracker WHERE theme = '{theme_id}' ",
+            f"SELECT COUNT(*) as count FROM tracker WHERE theme = (select index from theme where name = '{theme_id}') ",
             format='dict',
             index_col=None
         )
@@ -635,11 +636,14 @@ class ThemeCog(Extension):
         
         theme_name = result[0].get('name', 'Sans nom')
         
+        # Stocker le nom du thème dans le cache
+        self.delete_cache[discord_id] = theme_id
+        
         buttons = [
             Button(
                 style=ButtonStyle.DANGER,
                 label="Confirmer",
-                custom_id=f"theme_delete_confirm_{theme_id}"
+                custom_id="theme_delete_confirm"  # ID fixe
             ),
             Button(
                 style=ButtonStyle.SECONDARY,
@@ -650,29 +654,43 @@ class ThemeCog(Extension):
         
         embed = Embed(
             title="⚠️ Confirmation de suppression",
-            description=f"Voulez-vous vraiment supprimer le thème **#{theme_id}** ({theme_name}) ?",
+            description=f"Voulez-vous vraiment supprimer le thème **{theme_name}** ?",
             color=0xe74c3c
         )
         
         await ctx.send(embed=embed, components=[ActionRow(*buttons)], ephemeral=True)
-    
-    @interactions.component_callback("theme_delete_confirm_")
+
+    @interactions.component_callback("theme_delete_confirm")  # ID fixe, sans underscore final
     async def on_theme_delete_confirm(self, ctx: ComponentContext):
-        # Extraire theme_id du custom_id
-        theme_id = int(ctx.custom_id.split("_")[-1])
+        discord_id = int(ctx.author_id)
         
-        requete_perso_bdd(f"DELETE FROM theme WHERE name = '{theme_id}' ")
+        # Récupérer le nom du thème depuis le cache
+        if discord_id not in self.delete_cache:
+            await ctx.edit_origin(
+                embed=Embed(title="❌ Session expirée", color=0xe74c3c),
+                components=[]
+            )
+            return
+        
+        theme_name = self.delete_cache.pop(discord_id)
+        
+        requete_perso_bdd(f"DELETE FROM theme WHERE name = '{theme_name}'")
         
         embed = Embed(
             title="✅ Thème supprimé",
-            description=f"Le thème #{theme_id} a été supprimé.",
+            description=f"Le thème **{theme_name}** a été supprimé.",
             color=0x2ecc71
         )
         
         await ctx.edit_origin(embed=embed, components=[])
-    
+
     @interactions.component_callback("theme_delete_cancel")
     async def on_theme_delete_cancel(self, ctx: ComponentContext):
+        discord_id = int(ctx.author_id)
+        
+        # Nettoyer le cache
+        self.delete_cache.pop(discord_id, None)
+        
         embed = Embed(
             title="❌ Suppression annulée",
             color=0x95a5a6
