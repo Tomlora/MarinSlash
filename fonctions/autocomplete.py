@@ -51,3 +51,23 @@ async def autocomplete_record(record_id):
     liste_records = [i for i in liste_records if record_id in i]
 
     return liste_records[:25]
+
+
+
+async def autocomplete_theme_recap(input_txt):
+    df = lire_bdd_perso(f'''select name from theme''', index_col=None).T
+
+    if df.empty:
+        return []
+    
+    df['theme'] = df['theme']
+    input_txt = input_txt
+
+    df.sort_values(by='theme', inplace=True)
+
+    liste_id = []
+    for i in df['theme'].unique().tolist():
+        if input_txt in i:
+            liste_id.append({"name": f'{i}', "value": f'{i}'})
+    
+    return liste_id[:25]
