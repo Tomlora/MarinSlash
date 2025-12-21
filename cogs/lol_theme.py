@@ -25,7 +25,7 @@ COULEURS_DISPONIBLES = [
     "principal", "secondaire", "texte", "player",
     "top1", "top2", "top3", "top8", "top9", "top10",
     "victoire60", "victoire50", "victoire30",
-    "kda5", "kda4", "kda3", "kda1"
+    "kda5", "kda4", "kda3", "kda1", 'allie', 'ennemi', 'texte_allie', 'texte_ennemi'
 ]
 
 
@@ -263,19 +263,23 @@ class ThemeCog(Extension):
             # Valeurs par défaut pour les autres couleurs
             default_colors = {
                 'player': (255, 255, 255),
-                'top1': (255, 215, 0),
-                'top2': (192, 192, 192),
-                'top3': (205, 127, 50),
-                'top8': (100, 200, 100),
-                'top9': (200, 150, 100),
-                'top10': (200, 100, 100),
-                'victoire60': (0, 255, 0),
-                'victoire50': (255, 255, 0),
-                'victoire30': (255, 0, 0),
-                'kda5': (0, 255, 0),
-                'kda4': (100, 255, 100),
-                'kda3': (255, 255, 0),
-                'kda1': (255, 0, 0),
+                'top1': (0, 128, 0),
+                'top2': (89, 148, 207),
+                'top3': (191, 64, 191),
+                'top8': (220, 20, 60),
+                'top9': (220, 20, 60),
+                'top10': (220, 20, 60),
+                'victoire60': (255, 119, 0),
+                'victoire50': (85, 85, 255),
+                'victoire30': (220, 20, 60),
+                'kda5': (255, 119, 0),
+                'kda4': (85, 85, 255),
+                'kda3': (0, 128, 0),
+                'kda1': (220, 20, 60),
+                'allie' : (85, 85, 255),
+                'ennemi' : (255, 70, 70),
+                'texte_allie' : (255, 255, 255),
+                'texte_ennemi' : (0, 0, 0)
             }
             
             # Construction de la requête INSERT avec discord et name
@@ -477,7 +481,7 @@ class ThemeCog(Extension):
         
         # Vérifier que le thème appartient à l'utilisateur
         result = lire_bdd_perso(
-            f"SELECT discord, name FROM theme WHERE index = {theme_id}",
+            f"SELECT discord, name FROM theme WHERE name = '{theme_id}' ",
             format='dict',
             index_col=None
         )

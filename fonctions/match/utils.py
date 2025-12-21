@@ -31,7 +31,7 @@ def fix_temps(duree):
     return minutes + secondes
 
 
-def range_value(i, liste, min: bool = False, return_top: bool = False, value_meilleur = (0, 128, 0), value_pire = (220, 20, 60)):
+def range_value(i, liste, min: bool = False, return_top: bool = False, value_meilleur = (0, 128, 0), value_pire = (220, 20, 60), couleur_fill=(0, 0, 0)):
     """
     Détermine la couleur en fonction de la position dans le classement.
     Vert pour max, rouge pour min, noir sinon.
@@ -43,7 +43,7 @@ def range_value(i, liste, min: bool = False, return_top: bool = False, value_mei
         fill = value_pire
         top = 'min'
     else:
-        fill = (0, 0, 0)
+        fill = couleur_fill
         top = None
 
     return (fill, top) if return_top else fill

@@ -15,8 +15,6 @@ from .utils import charger_font, range_value
 from fonctions.api_calls import getRanks
 
 
-color_scoring = {1 : (0,128,0), 2 : (89,148,207), 3 : (191,64,191), 8 : (220,20,60), 9 : (220,20,60), 10 : (220,20,60)}
-
 class ImageGenerationMixin:
     """Mixin pour la génération d'images de résumé."""
 
@@ -49,7 +47,13 @@ class ImageGenerationMixin:
         kda3 = (dict_color['r_kda3'], dict_color['g_kda3'], dict_color['b_kda3'])
         kda1 = (dict_color['r_kda1'], dict_color['g_kda1'], dict_color['b_kda1'])
 
-        return principal, secondaire, texte, player, dict_scoring, victoire60, victoire50, victoire30, kda5, kda4, kda3, kda1
+        allie = (dict_color['r_allie'], dict_color['g_allie'], dict_color['b_allie'])
+        ennemi = (dict_color['r_ennemi'], dict_color['g_ennemi'], dict_color['b_ennemi'])
+
+        texte_allie = (dict_color['r_texte_allie'], dict_color['g_texte_allie'], dict_color['b_texte_allie'])
+        texte_ennemi = (dict_color['r_texte_ennemi'], dict_color['g_texte_ennemi'], dict_color['b_texte_ennemi'])
+
+        return principal, secondaire, texte, player, dict_scoring, victoire60, victoire50, victoire30, kda5, kda4, kda3, kda1, allie, ennemi, texte_allie, texte_ennemi
 
 
     async def resume_general(self,
@@ -58,7 +62,7 @@ class ImageGenerationMixin:
                              difLP):
 
 
-        principal, secondaire, fill, player, color_scoring, victoire60, victoire50, victoire30, kda5, kda4, kda3, kda1 = await self.get_theme()
+        principal, secondaire, fill, player, color_scoring, victoire60, victoire50, victoire30, kda5, kda4, kda3, kda1, color_allie, color_ennemi, txt_allie, txt_ennemi = await self.get_theme()
 
         meilleur_joueur = color_scoring[1]
         pire_joueur = color_scoring[10]
@@ -335,11 +339,11 @@ class ImageGenerationMixin:
 
         def draw_blue_line(i: int) -> None:
             im.paste(Image.new("RGB", (lineX, lineY),
-                     (85, 85, 255)), (0, (i * lineY) + 190))
+                     color_allie), (0, (i * lineY) + 190))
 
         def draw_red_line(i: int) -> None:
             im.paste(Image.new("RGB", (lineX, lineY),
-                     (255, 70, 70)), (0, (i * lineY) + 190))
+                     color_ennemi), (0, (i * lineY) + 190))
 
         def draw_light_blue_line(i: int) -> None:
             im.paste(Image.new("RGB", (lineX, lineY),
@@ -418,7 +422,7 @@ class ImageGenerationMixin:
                         self.avgrank_enemy), font=font, fill=fill)
 
         for y in range(123 + 190, 724 + 190, 600):
-            color = principal if y == 123 + 190 else fill
+            color = txt_allie if y == 123 + 190 else txt_ennemi
             d.text((x_level-10, y), 'LVL', font=font, fill=color)
             # d.text((x_name, y), 'Name', font=font, fill=color)
 
@@ -580,7 +584,7 @@ class ImageGenerationMixin:
                 d.text((x_assists - 20, initial_y),
                        str(self.thisAssistsListe[i]), font=font, fill=fill)
 
-            fill_color = range_value(i, self.thisKDAListe, True, value_meilleur=meilleur_joueur, value_pire=pire_joueur)
+            fill_color = range_value(i, self.thisKDAListe, True, value_meilleur=meilleur_joueur, value_pire=pire_joueur, couleur_fill=fill)
 
             # Recentrer le résultat quand chiffre rond
             if len(str(round(self.thisKDAListe[i], 2))) == 1:
@@ -590,35 +594,35 @@ class ImageGenerationMixin:
                 d.text((x_kda, initial_y), str(
                     round(self.thisKDAListe[i], 2)), font=font, fill=fill_color)
 
-            fill_color = range_value(i, self.thisKPListe, True, value_meilleur=meilleur_joueur, value_pire=pire_joueur)
+            fill_color = range_value(i, self.thisKPListe, True, value_meilleur=meilleur_joueur, value_pire=pire_joueur, couleur_fill=fill)
 
             d.text((x_kp, initial_y), str(
                 self.thisKPListe[i]) + "%", font=font, fill=fill_color)
 
             fill_color = range_value(i, np.array(self.thisMinionListe) +
-                               np.array(self.thisJungleMonsterKilledListe), value_meilleur=meilleur_joueur, value_pire=pire_joueur)
+                               np.array(self.thisJungleMonsterKilledListe), value_meilleur=meilleur_joueur, value_pire=pire_joueur, couleur_fill=fill)
 
             if len(str(self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i])) != 2:
                 d.text((x_cs, initial_y), str(
-                    self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill_color)
+                    self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill_color, couleur_fill=fill)
             else:
                 d.text((x_cs + 10, initial_y), str(
-                    self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill_color)
+                    self.thisMinionListe[i] + self.thisJungleMonsterKilledListe[i]), font=font, fill=fill_color, couleur_fill=fill)
 
             if not self.thisQ in ["ARAM", "CLASH ARAM"]:
 
-                fill_color = range_value(i, self.thisVisionListe, value_meilleur=meilleur_joueur, value_pire=pire_joueur)
+                fill_color = range_value(i, self.thisVisionListe, value_meilleur=meilleur_joueur, value_pire=pire_joueur, couleur_fill=fill)
 
                 d.text((x_vision, initial_y), str(
                     self.thisVisionListe[i]), font=font, fill=fill_color)
 
-            fill_color = range_value(i, self.thisDamageListe, value_meilleur=meilleur_joueur, value_pire=pire_joueur)
+            fill_color = range_value(i, self.thisDamageListe, value_meilleur=meilleur_joueur, value_pire=pire_joueur, couleur_fill=fill)
 
             d.text((x_dmg_percent, initial_y),
                    f'{int(self.thisDamageListe[i]/1000)}k ({int(self.thisDamageRatioListe[i]*100)}%)', font=font, fill=fill_color)
 
             fill_color = range_value(i, np.array(
-                self.thisDamageTakenListe) + np.array(self.thisDamageSelfMitigatedListe), value_meilleur=meilleur_joueur, value_pire=pire_joueur)
+                self.thisDamageTakenListe) + np.array(self.thisDamageSelfMitigatedListe), value_meilleur=meilleur_joueur, value_pire=pire_joueur, couleur_fill=fill)
 
             d.text((x_dmg_taken + 25, initial_y),
                    f'{int(self.thisDamageTakenListe[i]/1000) + int(self.thisDamageSelfMitigatedListe[i]/1000)}k', font=font, fill=fill_color)
