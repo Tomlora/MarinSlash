@@ -330,7 +330,7 @@ class ImageGenerationMixin:
         dict_position = {"TOP": 2, "JUNGLE": 3,
                          "MID": 4, "ADC": 5, "SUPPORT": 6}
 
-        def draw_gray_line(i: int) -> None:
+        def draw_secondaire_line(i: int) -> None:
             im.paste(line, (0, (i * lineY) + 190))
 
         def draw_blue_line(i: int) -> None:
@@ -345,13 +345,13 @@ class ImageGenerationMixin:
             im.paste(Image.new("RGB", (lineX, lineY),
                      player), (0, (i*lineY) + 190))
 
-        def draw_black_line() -> None:
+        def draw_text_line() -> None:
             im.paste(Image.new("RGB", (lineX, 3),
-                     (0, 0, 0)), (0, 180))
+                     fill), (0, 180))
 
         for i in range(13):
             if i % 2 == 0:
-                draw_gray_line(i)
+                draw_secondaire_line(i)
             elif i == 1:
                 draw_blue_line(i)
             elif i == 7:
@@ -360,7 +360,7 @@ class ImageGenerationMixin:
             if not self.thisQ  in ["ARAM", "CLASH ARAM"] and i == dict_position[self.thisPosition]:
                 draw_light_blue_line(i)
 
-        draw_black_line()
+        draw_text_line()
 
         # Ban 
 

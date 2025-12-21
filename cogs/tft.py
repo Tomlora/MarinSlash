@@ -397,12 +397,12 @@ class tft(Extension):
     async def updatetft(self):
 
         session = aiohttp.ClientSession()
-        data = get_data_bdd('''SELECT trackertft.index, trackertft.id, trackertft.puuid, tracker.server_id from trackertft
+        data = get_data_bdd('''SELECT distinct trackertft.index, trackertft.id, trackertft.puuid, tracker.server_id from trackertft
                     INNER JOIN tracker on trackertft.index = tracker.index''')
         
         for joueur, id_game, puuid, server_id in data:
 
-            match_detail, id_match, puuid = await matchtft_by_puuid(joueur, 0, session, puuid)
+            match_detail, id_match, puuid = await matchtft_by_puuid(0, session, puuid)
 
             if str(id_game) != id_match:  # value -> ID de dernière game enregistrée dans id_data != ID de la dernière game via l'API Rito / #key = summonername // value = numéro de la game
                 try:
