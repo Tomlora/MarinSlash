@@ -877,7 +877,7 @@ class LeagueofLegends(Extension):
                    numerogame: int = 0,
                    identifiant_game=None,
                    ce_channel=False,
-                   check_doublon=True):
+                   check_doublon=False):
 
         await ctx.defer(ephemeral=False)
 
