@@ -60,13 +60,13 @@ async def autocomplete_theme_recap(input_txt):
     if df.empty:
         return []
     
-    df['theme'] = df['theme']
+    df['name'] = df['name']
     input_txt = input_txt
 
-    df.sort_values(by='theme', inplace=True)
+    df.sort_values(by='name', inplace=True)
 
     liste_id = []
-    for i in df['theme'].unique().tolist():
+    for i in df['name'].unique().tolist():
         if input_txt in i:
             liste_id.append({"name": f'{i}', "value": f'{i}'})
     

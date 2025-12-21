@@ -107,7 +107,7 @@ class ThemeCog(Extension):
         discord_id = int(ctx.author_id)
         
         themes = lire_bdd_perso(
-            f"SELECT index, name FROM theme WHERE discord = {discord_id} ORDER BY index",
+            f"SELECT index, name FROM theme WHERE discord = '{discord_id}' ORDER BY index",
             format='dict',
             index_col=None
         )
@@ -122,7 +122,7 @@ class ThemeCog(Extension):
                 value=theme.get('name', 'Sans nom'),
                 inline=True
             )
-            for theme in themes
+            for theme in themes.values()
         ]
         
         embed = Embed(
@@ -325,7 +325,7 @@ class ThemeCog(Extension):
         sub_cmd_description="Modifier une couleur d'un thème",
         options=[
             SlashCommandOption(
-                name="theme_name",
+                name="theme_id",
                 description="Nom du thème à modifier",
                 type=OptionType.STRING,
                 required=True,
@@ -342,22 +342,22 @@ class ThemeCog(Extension):
             )
         ]
     )
-    async def theme_modifier(self, ctx: SlashContext, theme_name: str, couleur: str):
+    async def theme_modifier(self, ctx: SlashContext, theme_id: str, couleur: str):
         discord_id = int(ctx.author_id)
         
         # Vérifier que le thème appartient à l'utilisateur
         result = lire_bdd_perso(
-            f"SELECT discord, r_{couleur}, g_{couleur}, b_{couleur} FROM theme WHERE name = '{theme_name}'",
+            f"SELECT discord, r_{couleur}, g_{couleur}, b_{couleur} FROM theme WHERE name = '{theme_id}'",
             format='dict',
             index_col=None
         )
 
-        if theme_name == 'Light':
+        if theme_id == 'Light':
             await ctx.send(f"❌ Ce thème n'est pas modifiable", ephemeral=True)
             return
         
         if not result:
-            await ctx.send(f"❌ Thème '{theme_name}' introuvable.", ephemeral=True)
+            await ctx.send(f"❌ Thème '{theme_id}' introuvable.", ephemeral=True)
             return
         
         if str(result[0].get('discord')) != str(discord_id):
@@ -372,7 +372,7 @@ class ThemeCog(Extension):
         
         # Stocker les données dans le cache avec l'ID utilisateur comme clé
         self.modal_cache[discord_id] = {
-            "theme_name": theme_name,
+            "theme_name": theme_id,
             "couleur": couleur
         }
         
@@ -825,6 +825,48 @@ class ThemeCog(Extension):
         
         await ctx.send(embeds=embeds, ephemeral=True)
 
+
+
+    @slash_command(
+        name="theme",
+        description="Gestion des thèmes de couleurs",
+        sub_cmd_name="selection",
+        sub_cmd_description="Selectionner mon thème",
+        options=[
+            SlashCommandOption(
+                name="theme_id",
+                description="ID du thème",
+                type=OptionType.STRING,
+                required=True
+            )
+        ]
+    )
+    async def theme_selection(self, ctx: SlashContext, theme_id: str):
+        result = lire_bdd_perso(
+            f"SELECT index FROM theme WHERE name = '{theme_id}' ",
+            format='dict',
+            index_col=None
+        )
+
+        if not result:
+            await ctx.send(f"❌ Thème #{theme_id} introuvable.", ephemeral=True)
+            return
+
+        theme = result[0]['index']
+
+        discord_id = str(int(ctx.author_id))
+
+
+        requete_perso_bdd(f''' UPDATE tracker SET theme = {theme} where discord = '{discord_id}' ''')
+
+
+        
+        
+        await ctx.send(content='✅ Thème selectionné', ephemeral=True)  
+
+
+
+
     @theme_voir.autocomplete("theme_id")
     async def autocomplete_voir(self, ctx: interactions.AutocompleteContext):
         liste_choix = await autocomplete_theme_recap(ctx.input_text)
@@ -856,6 +898,11 @@ class ThemeCog(Extension):
         await ctx.send(choices=liste_choix)
         
     @theme_apercu.autocomplete("theme_id")
+    async def autocomplete_voir(self, ctx: interactions.AutocompleteContext):
+        liste_choix = await autocomplete_theme_recap(ctx.input_text)
+        await ctx.send(choices=liste_choix)
+
+    @theme_selection.autocomplete("theme_id")
     async def autocomplete_voir(self, ctx: interactions.AutocompleteContext):
         liste_choix = await autocomplete_theme_recap(ctx.input_text)
         await ctx.send(choices=liste_choix)
