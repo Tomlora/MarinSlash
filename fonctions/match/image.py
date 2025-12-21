@@ -393,12 +393,16 @@ class ImageGenerationMixin:
 
         money = await get_image('gold', 'dragon', self.session, 60, 60)
 
+        # gold team
+
         im.paste(money, (10, 120 + 190), money.convert('RGBA'))
         d.text((83, 120 + 190), f'{round(self.thisGold_team1/1000,1)}k',
-               font=font, fill=principal)
+               font=font, fill=txt_allie)
         im.paste(money, (10, 720 + 190), money.convert('RGBA'))
-        d.text((83, 720 + 190), f'{round(self.thisGold_team2/1000,1)}k', font=font, fill=fill)
+        d.text((83, 720 + 190), f'{round(self.thisGold_team2/1000,1)}k', font=font, fill=txt_ennemi)
 
+        ## AVG rank
+        
         if self.moba_ok:
             try:
                 self.img_ally_avg = await get_image('tier', self.avgtier_ally.upper(), self.session, 100, 100)
@@ -406,7 +410,7 @@ class ImageGenerationMixin:
                 im.paste(self.img_ally_avg, (x_score-365, 120-20 + 190), self.img_ally_avg.convert('RGBA'))
 
                 d.text((x_score-265, 120 + 190), str(
-                            self.avgrank_ally), font=font, fill=principal)
+                            self.avgrank_ally), font=font, fill=txt_allie)
 
             except FileNotFoundError:
                 self.img_ally_avg = 'UNRANKED'
@@ -419,11 +423,11 @@ class ImageGenerationMixin:
                 self.img_enemy_avg = 'UNRANKED'
 
             d.text((x_score-265, 720 + 190), str(
-                        self.avgrank_enemy), font=font, fill=fill)
+                        self.avgrank_enemy), font=font, fill=txt_ennemi)
 
         for y in range(123 + 190, 724 + 190, 600):
             color = txt_allie if y == 123 + 190 else txt_ennemi
-            d.text((x_level-10, y), 'LVL', font=font, fill=color)
+            d.text((x_level-10, y), 'LVL', font=font, fill=(color))
             # d.text((x_name, y), 'Name', font=font, fill=color)
 
 
@@ -482,7 +486,7 @@ class ImageGenerationMixin:
                 font_mastery = font
 
             d.text((x_mastery, initial_y),
-                   str(self.mastery_level[i]), font=font_mastery, fill=principal)
+                   str(self.mastery_level[i]), font=font_mastery, fill=(255, 255, 255))
             
             # couleur
             if i <= 4:
