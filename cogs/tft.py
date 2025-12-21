@@ -211,14 +211,14 @@ class tft(Extension):
                 " " + suivi_profil[summonername]['rank']
             classement_new = tier + " " + rank
 
-            if dict_rankid[classement_old] > dict_rankid[classement_new]:  # 19-18
+            if dict_rankid[classement_old] > dict_rankid[classement_new]:  # Démote
                 difrank = dict_rankid[classement_old] - dict_rankid[classement_new]
-                difLP = (100 * difrank) + lp - int(suivi_profil[summonername]['LP'])
+                difLP = int(suivi_profil[summonername]['LP']) + (100 - lp) + (100 * (difrank - 1))
                 difLP = "Démote :arrow_down: / -" + str(difLP)
 
-            elif dict_rankid[classement_old] < dict_rankid[classement_new]:
-                difrank = dict_rankid[classement_old] - dict_rankid[classement_new]
-                difLP = (100 * difrank) - lp + int(suivi_profil[summonername]['LP'])
+            elif dict_rankid[classement_old] < dict_rankid[classement_new]:  # Promotion
+                difrank = dict_rankid[classement_new] - dict_rankid[classement_old]
+                difLP = (100 - int(suivi_profil[summonername]['LP'])) + lp + (100 * (difrank - 1))
                 difLP = "Promotion :arrow_up: / +" + str(difLP)
 
             requete_perso_bdd('''UPDATE suivitft
