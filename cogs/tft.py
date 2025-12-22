@@ -5,7 +5,7 @@ import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, slash_command, listen, Task,IntervalTrigger
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 import sys
-from utils.params import Version
+from utils.params import Version, set_tft
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
                                    get_data_bdd,
@@ -211,14 +211,14 @@ class tft(Extension):
                 " " + suivi_profil[summonername]['rank']
             classement_new = tier + " " + rank
 
-            if dict_rankid[classement_old] > dict_rankid[classement_new]:  # Démote
+            if dict_rankid[classement_old] > dict_rankid[classement_new]:  # 19-18
                 difrank = dict_rankid[classement_old] - dict_rankid[classement_new]
-                difLP = int(suivi_profil[summonername]['LP']) + (100 - lp) + (100 * (difrank - 1))
+                difLP = (100 * difrank) + lp - int(suivi_profil[summonername]['LP'])
                 difLP = "Démote :arrow_down: / -" + str(difLP)
 
-            elif dict_rankid[classement_old] < dict_rankid[classement_new]:  # Promotion
-                difrank = dict_rankid[classement_new] - dict_rankid[classement_old]
-                difLP = (100 - int(suivi_profil[summonername]['LP'])) + lp + (100 * (difrank - 1))
+            elif dict_rankid[classement_old] < dict_rankid[classement_new]:
+                difrank = dict_rankid[classement_old] - dict_rankid[classement_new]
+                difLP = (100 * difrank) - lp + int(suivi_profil[summonername]['LP'])
                 difLP = "Promotion :arrow_up: / +" + str(difLP)
 
             requete_perso_bdd('''UPDATE suivitft
@@ -397,7 +397,7 @@ class tft(Extension):
     async def updatetft(self):
 
         session = aiohttp.ClientSession()
-        data = get_data_bdd('''SELECT distinct trackertft.index, trackertft.id, trackertft.puuid, tracker.server_id from trackertft
+        data = get_data_bdd('''SELECT trackertft.index, trackertft.id, trackertft.puuid, tracker.server_id from trackertft
                     INNER JOIN tracker on trackertft.index = tracker.index''')
         
         for joueur, id_game, puuid, server_id in data:
@@ -488,6 +488,455 @@ class tft(Extension):
         response = response[:-2]
         embed = interactions.Embed(
             title="Live feed list", description=response, color=interactions.Color.random())
+
+        await ctx.send(embeds=embed)
+
+    # =====================================================
+    # NOUVELLES COMMANDES
+    # =====================================================
+
+    @slash_command(name="tftstats",
+                   description="Statistiques globales d'un joueur TFT",
+                   options=[
+                       SlashCommandOption(name="summonername",
+                                          description="Nom du joueur",
+                                          type=interactions.OptionType.STRING,
+                                          required=True),
+                       SlashCommandOption(name='set',
+                                          description='Numéro du set',
+                                          type=interactions.OptionType.INTEGER,
+                                          required=False),
+                       SlashCommandOption(name="mode",
+                                          description="Mode de jeu",
+                                          type=interactions.OptionType.STRING,
+                                          required=False,
+                                          choices=[
+                                              {"name": "Ranked", "value": "RANKED"},
+                                              {"name": "Normal", "value": "NORMAL"},
+                                              {"name": "Tous", "value": "ALL"}
+                                          ])])
+    async def tftstats(self, ctx: SlashContext, summonername: str, set : int = set_tft, mode: str = "ALL"):
+        await ctx.defer(ephemeral=False)
+
+        summonername = summonername.lower()
+
+        # Filtre par mode
+        mode_filter = "" if mode == "ALL" else f"AND mode = '{mode}'"
+
+        # Récupération des stats
+        df_stats = lire_bdd_perso(f'''
+            SELECT top, gold, level, dmg, mode, set 
+            FROM trackertft_stats 
+            WHERE joueur = (SELECT id_compte FROM trackertft WHERE index = '{summonername}')
+            and "set" = {set} 
+            {mode_filter}
+        ''', index_col=None).T
+
+        if df_stats.empty:
+            await ctx.send(f"Aucune statistique trouvée pour **{summonername.upper()}**.")
+            return
+
+        # Calculs
+        total_games = len(df_stats)
+        avg_placement = round(df_stats['top'].mean(), 2)
+        top1_count = len(df_stats[df_stats['top'] == 1])
+        top4_count = len(df_stats[df_stats['top'] <= 4])
+        top1_rate = round((top1_count / total_games) * 100, 1)
+        top4_rate = round((top4_count / total_games) * 100, 1)
+        avg_gold = round(df_stats['gold'].mean(), 1)
+        avg_level = round(df_stats['level'].mean(), 1)
+        avg_dmg = round(df_stats['dmg'].mean(), 0)
+
+        # Distribution des placements
+        placement_dist = df_stats['top'].value_counts().sort_index()
+
+        # Récupérer les couleurs du joueur
+        data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index = :index', {'index': summonername})
+        data = data.fetchall()
+        
+        if data:
+            color = interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2])
+        else:
+            color = interactions.Color.random()
+
+        # Création de l'embed
+        mode_text = "Toutes parties" if mode == "ALL" else mode
+        embed = interactions.Embed(
+            title=f"📊 Statistiques TFT - {summonername.upper()}",
+            description=f"**{total_games}** parties analysées ({mode_text})",
+            color=color
+        )
+
+        embed.add_field(
+            name="🏆 Placements",
+            value=f"**Moyenne** : {avg_placement}\n**Top 1** : {top1_count} ({top1_rate}%)\n**Top 4** : {top4_count} ({top4_rate}%)",
+            inline=True
+        )
+
+        embed.add_field(
+            name="📈 Moyennes",
+            value=f"**Or restant** : {avg_gold}\n**Niveau** : {avg_level}\n**Dégâts** : {int(avg_dmg)}",
+            inline=True
+        )
+
+        # Distribution visuelle des placements
+        dist_text = ""
+        for i in range(1, 9):
+            count = placement_dist.get(i, 0)
+            percentage = round((count / total_games) * 100, 1) if total_games > 0 else 0
+            bar = "█" * int(percentage / 5) + "░" * (20 - int(percentage / 5))
+            dist_text += f"`{i}` {bar} {count} ({percentage}%)\n"
+
+        embed.add_field(
+            name="📊 Distribution des placements",
+            value=dist_text,
+            inline=False
+        )
+
+        embed.set_footer(text=f'Version {Version} by Tomlora')
+        await ctx.send(embeds=embed)
+
+
+    @slash_command(name="tftleaderboard",
+                   description="Classement des joueurs TFT suivis")
+    async def tftleaderboard(self, ctx: SlashContext):
+        await ctx.defer(ephemeral=False)
+
+        # Récupérer tous les joueurs avec leur rang
+        df_leaderboard = lire_bdd_perso('''
+            SELECT trackertft.index as joueur, suivitft."LP", suivitft.tier, suivitft.rank
+            FROM suivitft
+            INNER JOIN trackertft ON trackertft.id_compte = suivitft.index
+        ''', index_col=None).T
+
+        if df_leaderboard.empty:
+            await ctx.send("Aucun joueur suivi trouvé.")
+            return
+
+        # Ajouter une colonne pour le tri basé sur dict_rankid
+        df_leaderboard['rank_value'] = df_leaderboard.apply(
+            lambda row: dict_rankid.get(f"{row['tier']} {row['rank']}", 0), axis=1
+        )
+        
+        # Trier par rank_value (desc) puis par LP (desc)
+        df_leaderboard = df_leaderboard.sort_values(
+            by=['rank_value', 'LP'], 
+            ascending=[False, False]
+        ).reset_index(drop=True)
+
+        # Création de l'embed
+        embed = interactions.Embed(
+            title="🏆 Classement TFT",
+            description="Classement des joueurs suivis par rang",
+            color=interactions.Color.from_rgb(255, 215, 0)  # Or
+        )
+
+        # Emotes pour le podium
+        podium_emotes = {0: "🥇", 1: "🥈", 2: "🥉"}
+
+        leaderboard_text = ""
+        for idx, row in df_leaderboard.iterrows():
+            position = podium_emotes.get(idx, f"`{idx + 1}.`")
+            joueur = row['joueur'].upper()
+            tier = row['tier']
+            rank = row['rank']
+            lp = row['LP']
+            
+            emote = emote_rank_discord.get(tier, "")
+            
+            if tier == 'Non-classe':
+                leaderboard_text += f"{position} **{joueur}** - Non classé\n"
+            else:
+                leaderboard_text += f"{position} **{joueur}** - {emote} {tier} {rank} ({lp} LP)\n"
+
+        embed.add_field(name="Classement", value=leaderboard_text or "Aucun joueur", inline=False)
+        embed.set_footer(text=f'Version {Version} by Tomlora')
+
+        await ctx.send(embeds=embed)
+
+
+    @slash_command(name="tftcompo",
+                   description="Compositions les plus jouées/performantes",
+                   options=[
+                       SlashCommandOption(name="summonername",
+                                          description="Nom du joueur",
+                                          type=interactions.OptionType.STRING,
+                                          required=True),
+                       SlashCommandOption(name='set',
+                                          description='Numéro du set',
+                                          type=interactions.OptionType.INTEGER,
+                                          required=False),
+                       SlashCommandOption(name="tri",
+                                          description="Trier par",
+                                          type=interactions.OptionType.STRING,
+                                          required=False,
+                                          choices=[
+                                              {"name": "Plus jouées", "value": "count"},
+                                              {"name": "Meilleur placement moyen", "value": "avg_top"}
+                                          ])])
+    async def tftcompo(self, ctx: SlashContext, summonername: str, set: int = set_tft, tri: str = "count"):
+        await ctx.defer(ephemeral=False)
+
+        summonername = summonername.lower()
+
+        # Récupérer les traits avec les placements
+        df_traits = lire_bdd_perso(f'''
+            SELECT t.name, t.tier_current, t.tier_total, t.num_units, t.id, s.top
+            FROM trackertft_traits t
+            INNER JOIN trackertft_stats s ON t.id = s.match_id AND t.joueur = s.joueur
+            WHERE t.joueur = (SELECT id_compte FROM trackertft WHERE index = '{summonername}')
+            AND set = {set}
+            AND t.tier_current > 0
+        ''', index_col=None).T
+
+        if df_traits.empty:
+            await ctx.send(f"Aucune composition trouvée pour **{summonername.upper()}**.")
+            return
+
+        # Nettoyer les noms de traits
+        df_traits['name_clean'] = df_traits['name'].apply(
+            lambda x: re.sub(r'(Set\d+_|TFT\d+_)', '', x)
+        )
+
+        # Agréger par trait
+        trait_stats = df_traits.groupby('name_clean').agg(
+            count=('id', 'nunique'),
+            avg_top=('top', 'mean'),
+            total_units=('num_units', 'sum')
+        ).reset_index()
+
+        # Trier
+        if tri == "count":
+            trait_stats = trait_stats.sort_values('count', ascending=False)
+        else:
+            trait_stats = trait_stats.sort_values('avg_top', ascending=True)
+
+        # Top 10
+        trait_stats = trait_stats.head(10)
+
+        # Couleurs du joueur
+        data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index = :index', {'index': summonername})
+        data = data.fetchall()
+        
+        if data:
+            color = interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2])
+        else:
+            color = interactions.Color.random()
+
+        # Création de l'embed
+        tri_text = "les plus jouées" if tri == "count" else "les plus performantes"
+        embed = interactions.Embed(
+            title=f"🎯 Compositions {tri_text} - {summonername.upper()}",
+            color=color
+        )
+
+        compo_text = ""
+        for idx, row in trait_stats.iterrows():
+            name = row['name_clean']
+            count = row['count']
+            avg_top = round(row['avg_top'], 2)
+            compo_text += f"**{name}** : {count} parties | Moy. {avg_top}\n"
+
+        embed.add_field(name="Top 10 Traits", value=compo_text or "Aucune donnée", inline=False)
+        embed.set_footer(text=f'Version {Version} by Tomlora')
+
+        await ctx.send(embeds=embed)
+
+
+    @slash_command(name="tftcompare",
+                   description="Comparer deux joueurs TFT",
+                   options=[
+                       SlashCommandOption(name="joueur1",
+                                          description="Premier joueur",
+                                          type=interactions.OptionType.STRING,
+                                          required=True),
+                       SlashCommandOption(name="joueur2",
+                                          description="Deuxième joueur",
+                                          type=interactions.OptionType.STRING,
+                                          required=True),
+                       SlashCommandOption(name='set',
+                                          description='Numéro du set',
+                                          type=interactions.OptionType.INTEGER,
+                                          required=False)])
+    async def tftcompare(self, ctx: SlashContext, joueur1: str, joueur2: str, set: int = set_tft):
+        await ctx.defer(ephemeral=False)
+
+        joueur1 = joueur1.lower()
+        joueur2 = joueur2.lower()
+
+        def get_player_stats(summonername):
+            df = lire_bdd_perso(f'''
+                SELECT top, gold, level, dmg
+                FROM trackertft_stats 
+                WHERE joueur = (SELECT id_compte FROM trackertft WHERE index = '{summonername}')
+                AND set = {set}
+            ''', index_col=None).T
+            
+            if df.empty:
+                return None
+            
+            total = len(df)
+            return {
+                'games': total,
+                'avg_top': round(df['top'].mean(), 2),
+                'top1': len(df[df['top'] == 1]),
+                'top4': len(df[df['top'] <= 4]),
+                'top1_rate': round((len(df[df['top'] == 1]) / total) * 100, 1),
+                'top4_rate': round((len(df[df['top'] <= 4]) / total) * 100, 1),
+                'avg_gold': round(df['gold'].mean(), 1),
+                'avg_level': round(df['level'].mean(), 1),
+                'avg_dmg': round(df['dmg'].mean(), 0)
+            }
+
+        stats1 = get_player_stats(joueur1)
+        stats2 = get_player_stats(joueur2)
+
+        if not stats1:
+            await ctx.send(f"Aucune statistique trouvée pour **{joueur1.upper()}**.")
+            return
+        if not stats2:
+            await ctx.send(f"Aucune statistique trouvée pour **{joueur2.upper()}**.")
+            return
+
+        # Fonction pour afficher qui est meilleur
+        def compare(val1, val2, lower_is_better=False):
+            if lower_is_better:
+                if val1 < val2:
+                    return "🟢", "🔴"
+                elif val1 > val2:
+                    return "🔴", "🟢"
+            else:
+                if val1 > val2:
+                    return "🟢", "🔴"
+                elif val1 < val2:
+                    return "🔴", "🟢"
+            return "🟡", "🟡"
+
+        embed = interactions.Embed(
+            title=f"⚔️ {joueur1.upper()} vs {joueur2.upper()}",
+            color=interactions.Color.from_rgb(138, 43, 226)
+        )
+
+        # Comparaisons
+        comparisons = [
+            ("Parties jouées", stats1['games'], stats2['games'], False),
+            ("Placement moyen", stats1['avg_top'], stats2['avg_top'], True),
+            ("Top 1 rate", f"{stats1['top1_rate']}%", f"{stats2['top1_rate']}%", False),
+            ("Top 4 rate", f"{stats1['top4_rate']}%", f"{stats2['top4_rate']}%", False),
+            ("Or moyen", stats1['avg_gold'], stats2['avg_gold'], False),
+            ("Niveau moyen", stats1['avg_level'], stats2['avg_level'], False),
+            ("Dégâts moyens", int(stats1['avg_dmg']), int(stats2['avg_dmg']), False),
+        ]
+
+        j1_text = ""
+        j2_text = ""
+
+        for label, v1, v2, lower_better in comparisons:
+            # Convertir pour comparaison numérique si pourcentage
+            v1_num = float(str(v1).replace('%', '')) if isinstance(v1, str) else v1
+            v2_num = float(str(v2).replace('%', '')) if isinstance(v2, str) else v2
+            
+            e1, e2 = compare(v1_num, v2_num, lower_better)
+            j1_text += f"{e1} **{label}** : {v1}\n"
+            j2_text += f"{e2} **{label}** : {v2}\n"
+
+        embed.add_field(name=joueur1.upper(), value=j1_text, inline=True)
+        embed.add_field(name=joueur2.upper(), value=j2_text, inline=True)
+
+        embed.set_footer(text=f'Version {Version} by Tomlora • 🟢 Meilleur | 🔴 Moins bon | 🟡 Égalité')
+
+        await ctx.send(embeds=embed)
+
+
+    @slash_command(name="tftunits",
+                   description="Champions les plus joués par un joueur",
+                   options=[
+                       SlashCommandOption(name="summonername",
+                                          description="Nom du joueur",
+                                          type=interactions.OptionType.STRING,
+                                          required=True),
+                       SlashCommandOption(name='set',
+                                          description='Numéro du set',
+                                          type=interactions.OptionType.INTEGER,
+                                          required=False),
+                       SlashCommandOption(name="tri",
+                                          description="Trier par",
+                                          type=interactions.OptionType.STRING,
+                                          required=False,
+                                          choices=[
+                                              {"name": "Plus joués", "value": "count"},
+                                              {"name": "Meilleur placement", "value": "avg_top"}
+                                          ])])
+    async def tftunits(self, ctx: SlashContext, summonername: str, set: int = set_tft, tri: str = "count"):
+        await ctx.defer(ephemeral=False)
+
+        summonername = summonername.lower()
+
+        # Récupérer les unités avec les placements
+        df_units = lire_bdd_perso(f'''
+            SELECT m.character_id, m.tier, m.rarity, m.id, s.top
+            FROM trackertft_mobs m
+            INNER JOIN trackertft_stats s ON m.id = s.match_id AND m.joueur = s.joueur
+            WHERE m.joueur = (SELECT id_compte FROM trackertft WHERE index = '{summonername}')
+            AND set = {set}
+        ''', index_col=None).T
+
+        if df_units.empty:
+            await ctx.send(f"Aucune unité trouvée pour **{summonername.upper()}**.")
+            return
+
+        # Nettoyer les noms
+        df_units['name_clean'] = df_units['character_id'].apply(
+            lambda x: re.sub(r'tft\d+_', '', x, flags=re.IGNORECASE)
+        )
+
+        # Agréger par unité
+        unit_stats = df_units.groupby('name_clean').agg(
+            count=('id', 'nunique'),
+            avg_top=('top', 'mean'),
+            avg_tier=('tier', 'mean')
+        ).reset_index()
+
+        # Trier
+        if tri == "count":
+            unit_stats = unit_stats.sort_values('count', ascending=False)
+        else:
+            unit_stats = unit_stats.sort_values('avg_top', ascending=True)
+
+        # Top 15
+        unit_stats = unit_stats.head(15)
+
+        # Couleurs du joueur
+        data = get_data_bdd(f'SELECT "R", "G", "B" from tracker WHERE index = :index', {'index': summonername})
+        data = data.fetchall()
+        
+        if data:
+            color = interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2])
+        else:
+            color = interactions.Color.random()
+
+        # Création de l'embed
+        tri_text = "les plus joués" if tri == "count" else "les plus performants"
+        embed = interactions.Embed(
+            title=f"👾 Champions {tri_text} - {summonername.upper()}",
+            color=color
+        )
+
+        units_text = ""
+        for idx, row in unit_stats.iterrows():
+            name = row['name_clean'].capitalize()
+            count = row['count']
+            avg_top = round(row['avg_top'], 2)
+            avg_tier = round(row['avg_tier'], 1)
+            
+            # Récupérer l'emote du champion
+            emote = emote_champ_discord.get(name.replace(" ", ""), name)
+            stars = "⭐" * int(round(avg_tier))
+            
+            units_text += f"{emote} **{name}** {stars} : {count} parties | Moy. {avg_top}\n"
+
+        embed.add_field(name="Top 15 Champions", value=units_text or "Aucune donnée", inline=False)
+        embed.set_footer(text=f'Version {Version} by Tomlora')
 
         await ctx.send(embeds=embed)
 

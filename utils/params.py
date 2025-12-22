@@ -8,6 +8,7 @@ saison = int(params['saison']['value'])
 heure_aram = int(params['heure_aram']['value'])
 heure_lolsuivi = int(params['heure_lolsuivi']['value'])
 heure_challenge = int(params['heure_challenge']['value'])
+set_tft = int(params['set_tft']['value'])
 
 
 
