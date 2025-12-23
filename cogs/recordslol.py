@@ -75,7 +75,7 @@ def add_aggregated_data(df: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
         'gold', 'gold_min', 'gold_share',
         'heal_total', 'shield', 'dmg_reduit',
         'time', 'trade_efficience',
-        'serie_kills', 'solokills'
+        'serie_kills'
     ]
     
     # Colonnes à sommer
@@ -193,8 +193,8 @@ def add_aggregated_data(df: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
             df_agg['avg_dmg_reduit'] = safe_round(df_agg['dmg_reduit'], 0)
         if 'trade_efficience' in cols_mean:
             df_agg['avg_trade_efficience'] = safe_round(df_agg['trade_efficience'], 2)
-        if 'solokills' in cols_mean:
-            df_agg['avg_solokills'] = safe_round(df_agg['solokills'], 2)
+        # if 'solokills' in cols_mean:
+        #     df_agg['avg_solokills'] = safe_round(df_agg['solokills'], 2)
         if 'time' in cols_mean:
             df_agg['avg_time'] = safe_round(df_agg['time'], 2)
         
@@ -212,7 +212,7 @@ def add_aggregated_data(df: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
             df_agg['double_game'] = safe_round(df_agg['double'] / df_agg['nb_games'], 4)
             df_agg['total_double'] = safe_astype_int(df_agg['double'])
         if 'solokills' in cols_sum:
-            df_agg['solokills_game'] = safe_round(df_agg['solokills'] / df_agg['nb_games'], 4)
+            df_agg['avg_solokills'] = safe_round(df_agg['solokills'] / df_agg['nb_games'], 4)
             df_agg['total_solokills'] = safe_astype_int(df_agg['solokills'])
         
         # Winrate
@@ -471,7 +471,7 @@ class Recordslol(Extension):
         
         # Catégorie 2 : Ratios et multikills (13 fields)
         'agreges_multikills': [
-            'penta_game', 'quadra_game', 'triple_game', 'double_game', 'solokills_game',
+            'penta_game', 'quadra_game', 'triple_game', 'double_game',
             'total_penta', 'total_quadra', 'total_triple', 'total_double', 'total_solokills',
             'winrate', 'total_wins', 'avg_solokills'
         ],
@@ -659,14 +659,14 @@ class Recordslol(Extension):
             fichier, self.fichiers['agreges_moyennes'], self.records_min, 
             title, 'Moyennes', methode_pseudo, saison, False
         )
-        embed_agreges_moy.set_footer(text=f'Min 3 games requises | Version {Version}')
+        embed_agreges_moy.set_footer(text=f'Min 15 games requises | Version {Version}')
         
         # Page Multikills/Ratios
         embed_agreges_multi = await calcul_record(
             fichier, self.fichiers['agreges_multikills'], self.records_min, 
             title, 'Multikills & Cumuls', methode_pseudo, saison, False
         )
-        embed_agreges_multi.set_footer(text=f'Min 3 games requises | Version {Version}')
+        embed_agreges_multi.set_footer(text=f'Min 15 games requises | Version {Version}')
         
         # Page Tank/Vision (pas pour ARAM)
         if mode != 'ARAM':
@@ -679,7 +679,7 @@ class Recordslol(Extension):
                 fichier, self.fichiers['agreges_tank_aram'], self.records_min, 
                 title, 'Tank Moyennés', methode_pseudo, saison, False
             )
-        embed_agreges_tank.set_footer(text=f'Min 3 games requises | Version {Version}')
+        embed_agreges_tank.set_footer(text=f'Min 15 games requises | Version {Version}')
     
             
         for embed in [embed1, embed1_2, embed2, embed5, embed6, embed6_2, embed7]:
@@ -897,271 +897,7 @@ class Recordslol(Extension):
         paginator.show_select_menu = True
         await paginator.send(ctx)
 
-    # @records_lol.subcommand("count",
-    #                         sub_cmd_description="Compte le nombre de records",
-    #                         options=[
-    #                             SlashCommandOption(
-    #                                 name="saison",
-    #                                 description="saison lol ? Si 0 toutes les saisons",
-    #                                 type=interactions.OptionType.INTEGER,
-    #                                 required=False,
-    #                                 min_value=0,
-    #                                 max_value=saison),
-    #                             SlashCommandOption(
-    #                                 name='mode',
-    #                                 description='quel mode de jeu ?',
-    #                                 type=interactions.OptionType.STRING,
-    #                                 required=False,
-    #                                 choices=[
-    #                                     SlashCommandChoice(name='ranked', value='RANKED'),
-    #                                     SlashCommandChoice(name='aram', value='ARAM'),
-    #                                     SlashCommandChoice(name='flex', value='FLEX'),
-    #                                     SlashCommandChoice(name='swiftplay', value='SWIFTPLAY'),
-    #                                 ]
-    #                             ),
-    #                             SlashCommandOption(
-    #                                 name='champion',
-    #                                 description='focus sur un champion ?',
-    #                                 type=interactions.OptionType.STRING,
-    #                                 required=False
-    #                             ),
-    #                             SlashCommandOption(
-    #                                 name='view',
-    #                                 description='Global ou serveur ?',
-    #                                 type=interactions.OptionType.STRING,
-    #                                 required=False,
-    #                                 choices=[
-    #                                     SlashCommandChoice(name='global', value='global'),
-    #                                     SlashCommandChoice(name='serveur', value='serveur')
-    #                                 ]
-    #                             ),
-    #                             SlashCommandOption(
-    #                                 name='inclure_agreges',
-    #                                 description='Inclure les records agrégés (moyennes, cumuls) ?',
-    #                                 type=interactions.OptionType.BOOLEAN,
-    #                                 required=False
-    #                             )
-    #                         ])
-    # async def records_count(self,
-    #                         ctx: SlashContext,
-    #                         saison: int = saison,
-    #                         mode: str = 'RANKED',
-    #                         champion: str = None,
-    #                         view: str = 'global',
-    #                         inclure_agreges: bool = False):
 
-    #     await ctx.defer(ephemeral=False)
-
-    #     # on récupère la version du jeu
-    #     session = ClientSession()
-    #     version = await get_version(session)
-
-    #     # on récupère les champions
-    #     list_champ = await get_champ_list(session, version)
-
-    #     await session.close()
-
-    #     fichier = await load_data(ctx, view, saison, mode, self.time_mini)
-
-    #     # liste records de base (communs à tous les modes)
-    #     common_records = [
-    #         'kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths',
-    #         'kda', 'kp', 'serie_kills', 'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min',
-    #         'cs', 'cs_min', 'cs_dix_min', 'cs_max_avantage', 'kills_min', 'deaths_min', 'assists_min',
-    #         'dmg_tank', 'dmg_reduit', 'tankratio', 'shield', 'heal_total', 'heal_allies',
-    #         'dmg_all', 'dmg_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min',
-    #         'dmg_true_all', 'dmg_true_all_min',
-    #         'crit_dmg', 'immobilisation', 'temps_cc_inflige', 'dmg/gold', 'skillshot_dodged', 'temps_cc',
-    #         'spells_used', 'trade_efficience', 'skillshots_dodge_min', 'skillshots_hit_min', 'dmg_par_kills',
-    #         'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage',
-    #         'temps_dead', 'temps_vivant', 'allie_feeder', 'kills+assists', 'temps_avant_premiere_mort', 'killsratio', 'deathsratio', 'solokillsratio'
-    #     ]
-
-    #     ranked_flex_swiftplay_extra = [
-    #         'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage',
-    #         'cs_jungle', 'jgl_dix_min',
-    #         'longue_serie_kills',
-    #         'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'petales_sanglants',
-    #         'abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax',
-    #         'magicResist', 'movementSpeed', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double',
-    #         'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood',
-    #         'first_tower_time', 'tower', 'inhib', 'ecart_kills', 'ecart_deaths', 'ecart_assists', 'ecart_dmg',
-    #         "ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
-    #         "BUILDING_KILL_20", "BUILDING_KILL_30",
-    #         "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30",
-    #         "DEATHS_10", "DEATHS_20", "DEATHS_30",
-    #         "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-    #         "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30",
-    #         "TURRET_PLATE_DESTROYED_10",
-    #         "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-    #         "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
-    #         "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30",
-    #         "CS_20", "CS_30", "JGL_20", "JGL_30",
-    #         "TOTAL_DMG_10", "TOTAL_DMG_20", "TOTAL_DMG_30",
-    #         "TOTAL_DMG_TAKEN_10", "TOTAL_DMG_TAKEN_20", "TOTAL_DMG_TAKEN_30",
-    #         "TRADE_EFFICIENCE_10", "TRADE_EFFICIENCE_20", "TRADE_EFFICIENCE_30",
-    #         'l_ecart_cs', 'l_ecart_gold', 'l_ecart_gold_min_durant_game', 'l_ecart_gold_max_durant_game', 'l_kda',
-    #         'l_cs', 'l_cs_max_avantage', 'l_level_max_avantage', 'l_ecart_gold_team', 'l_ecart_kills_team',
-    #         'l_temps_avant_premiere_mort', "l_ecart_kills", "l_ecart_deaths", "l_ecart_assists", "l_ecart_dmg",
-    #         "l_allie_feeder", "l_temps_vivant", "l_time", "l_solokills"
-    #     ]
-
-    #     aram_extra = [
-    #         'longue_serie_kills', 'baron', 'drake', 'dmg_tower', 'first_tower_time'
-    #     ]
-
-    #     # Records agrégés
-    #     agreges_records = [
-    #         'avg_kills', 'avg_deaths', 'avg_assists', 'avg_kda', 'avg_kp',
-    #         'avg_dmg', 'avg_dmg_min', 'avg_gold', 'avg_gold_min',
-    #         'avg_cs', 'avg_cs_min', 'avg_time',
-    #         'penta_game', 'quadra_game', 'triple_game', 'double_game', 'solokills_game',
-    #         'total_penta', 'total_quadra', 'total_triple', 'total_double', 'total_solokills',
-    #         'winrate', 'total_wins', 'avg_solokills',
-    #         'avg_dmg_tank', 'avg_tankratio', 'avg_damageratio',
-    #         'avg_heal', 'avg_shield', 'avg_dmg_reduit',
-    #         'avg_gold_share', 'avg_trade_efficience'
-    #     ]
-
-    #     # Records agrégés spécifiques aux modes avec vision
-    #     agreges_vision = ['avg_vision', 'avg_vision_min']
-
-    #     # Attribution selon le mode
-    #     if mode in ['RANKED', 'FLEX', 'SWIFTPLAY']:
-    #         liste_records = common_records + ranked_flex_swiftplay_extra
-    #         if inclure_agreges:
-    #             liste_records += agreges_records + agreges_vision
-    #     elif mode == 'ARAM':
-    #         liste_records = common_records + aram_extra
-    #         if inclure_agreges:
-    #             liste_records += agreges_records  # Sans vision pour ARAM
-
-    #     if champion == None:
-    #         # Initialisation des listes
-    #         liste_joueurs_general = []
-    #         liste_joueurs_champion = []
-
-    #         # Parcours des enregistrements dans liste_records
-    #         for records in liste_records:
-    #             methode = 'max'
-    #             if records in self.records_min:
-    #                 methode = 'min'
-
-    #             # Appel de la fonction trouver_records_multiples
-    #             joueur, champion_rec, record, url_game, saison_rec = trouver_records_multiples(
-    #                 fichier, records, methode)
-
-    #             # Ajout des joueurs dans la liste_joueurs_general
-    #             liste_joueurs_general.extend(joueur)
-
-    #             # Parcours des champions dans la liste list_champ['data']
-    #             for champ in list_champ['data']:
-    #                 try:
-    #                     # Filtre le fichier par champion
-    #                     fichier_champion = fichier[fichier['champion'] == champ]
-
-    #                     # Appel de la fonction trouver_records_multiples
-    #                     joueur, champion_rec, record, url_game, saison_rec = trouver_records_multiples(
-    #                         fichier_champion, records, methode)
-
-    #                     # Ajout des joueurs dans la liste_joueurs_champion
-    #                     liste_joueurs_champion.extend(joueur)
-
-    #                 except:
-    #                     pass
-
-    #         counts_general = pd.Series(liste_joueurs_general).value_counts()
-    #         counts_champion = pd.Series(liste_joueurs_champion).value_counts()
-
-    #         # Texte pour indiquer si les agrégés sont inclus
-    #         agreges_text = " (avec agrégés)" if inclure_agreges else ""
-
-    #         options = [
-    #             interactions.StringSelectOption(
-    #                 label="general", value="general", emoji=interactions.PartialEmoji(name='1️⃣')),
-    #             interactions.StringSelectOption(
-    #                 label="par champion", value="par champion", emoji=interactions.PartialEmoji(name='2️⃣')),
-    #         ],
-
-    #         select = interactions.StringSelectMenu(
-    #             *options,
-    #             custom_id='selection',
-    #             placeholder="Choix des records",
-    #             min_values=1,
-    #             max_values=1
-    #         )
-
-    #         message = await ctx.send(f"Quel type de record ?{agreges_text}",
-    #                                 components=select)
-
-    #         async def check(button_ctx: interactions.api.events.internal.Component):
-    #             if int(button_ctx.ctx.author_id) == int(ctx.author.user.id):
-    #                 return True
-    #             await ctx.send("I wasn't asking you!", ephemeral=True)
-    #             return False
-
-    #         while True:
-    #             try:
-    #                 button_ctx: interactions.api.events.internal.Component = await self.bot.wait_for_component(
-    #                     components=select, check=check, timeout=120
-    #                 )
-
-    #                 if button_ctx.ctx.values[0] == 'general':
-    #                     fig = px.histogram(counts_general,
-    #                                     counts_general.index,
-    #                                     counts_general.values,
-    #                                     text_auto=True,
-    #                                     color=counts_general.index,
-    #                                     title=f'Nombre de records{agreges_text}')
-    #                     fig.update_layout(showlegend=False)
-
-    #                 elif button_ctx.ctx.values[0] == 'par champion':
-    #                     fig = px.histogram(counts_champion,
-    #                                     counts_champion.index,
-    #                                     counts_champion.values,
-    #                                     text_auto=True,
-    #                                     color=counts_champion.index,
-    #                                     title=f'Nombre de records par champion{agreges_text}')
-    #                     fig.update_layout(showlegend=False)
-
-    #                 fig.write_image('image.png', width=1600, height=900)
-    #                 await button_ctx.ctx.send(files=interactions.File('image.png'))
-
-    #             except asyncio.TimeoutError:
-    #                 await message.edit(components=[])
-    #                 break
-
-    #     else:
-    #         # Si un champion est spécifié
-    #         champion = champion.capitalize()
-    #         fichier = fichier[fichier['champion'] == champion]
-
-    #         liste_joueurs = []
-
-    #         for records in liste_records:
-    #             methode = 'max'
-    #             if records in self.records_min:
-    #                 methode = 'min'
-
-    #             joueur, champion_rec, record, url_game, saison_rec = trouver_records_multiples(
-    #                 fichier, records, methode)
-
-    #             liste_joueurs.extend(joueur)
-
-    #         counts = pd.Series(liste_joueurs).value_counts()
-
-    #         agreges_text = " (avec agrégés)" if inclure_agreges else ""
-
-    #         fig = px.histogram(counts,
-    #                         counts.index,
-    #                         counts.values,
-    #                         text_auto=True,
-    #                         color=counts.index,
-    #                         title=f'Nombre de records {champion}{agreges_text}')
-    #         fig.update_layout(showlegend=False)
-    #         fig.write_image('image.png', width=1600, height=900)
-
-    #         await ctx.send(files=interactions.File('image.png'))
 
     def get_liste_records(self, mode: str, inclure_agreges: bool = False) -> list:
         """
