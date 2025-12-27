@@ -1,5 +1,12 @@
 """
 Classe matchlol - Partie 3: Données d'équipe et comparaisons.
+
+MODIFIÉ: Ajout des listes pour le scoring d'objectifs amélioré:
+- thisDamageTurretsListe
+- thisDamageObjectivesListe  
+- thisTurretsKillsPersoListe
+- thisWardsListe
+- thisWardsKilledListe
 """
 
 import numpy as np
@@ -57,6 +64,13 @@ class MatchLolTeamData:
         self.thisPuuidListe = []
         self.thisPinkListe = []
         self.allie_feeder = 0
+        
+        # === NOUVELLES LISTES POUR SCORING OBJECTIFS AMÉLIORÉ ===
+        self.thisDamageTurretsListe = []      # Dégâts aux tours
+        self.thisDamageObjectivesListe = []   # Dégâts aux objectifs (baron, dragon, tours)
+        self.thisTurretsKillsPersoListe = []  # Nombre de tours détruites
+        self.thisWardsListe = []              # Wards placées
+        self.thisWardsKilledListe = []        # Wards détruites
 
         # Calcul des totaux d'équipe
         self.thisTeamKills = sum(p['kills'] for p in participants[:5])
@@ -94,6 +108,12 @@ class MatchLolTeamData:
             self.thisLevelListe.append(participant.get('champLevel', 0))
             self.thisPinkListe.append(participant.get('visionWardsBoughtInGame', 0))
             
+            # === NOUVELLES EXTRACTIONS POUR SCORING OBJECTIFS ===
+            self.thisDamageTurretsListe.append(participant.get('damageDealtToTurrets', 0))
+            self.thisDamageObjectivesListe.append(participant.get('damageDealtToObjectives', 0))
+            self.thisTurretsKillsPersoListe.append(participant.get('turretKills', 0))
+            self.thisWardsListe.append(participant.get('wardsPlaced', 0))
+            self.thisWardsKilledListe.append(participant.get('wardsKilled', 0))
 
             # Multikills
             self.thisDoubleListe.append(participant.get('doubleKills', 0))

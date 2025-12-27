@@ -255,6 +255,133 @@ def linear_scale(value: float, min_val: float, max_val: float,
 # =============================================================================
 
 class ScoringMixin:
+    
+    def _extract_objective_participations_from_timeline(self):
+        """
+        Extrait les participations individuelles aux objectifs depuis la timeline.
+        
+        Crée les listes:
+        - thisObjectivesParticipatedListe: [int] participations par joueur (0-9)
+        - thisTotalObjectives: int total d'objectifs dans la game
+        - thisDragonParticipationListe: participations aux dragons
+        - thisBaronParticipationListe: participations aux barons
+        - thisHeraldParticipationListe: participations aux heralds
+        - thisTowerParticipationListe: participations aux tours détruites
+        - thisFirstObjectiveBonus: [bool] bonus pour first blood/first dragon/etc
+        """
+        # Initialisation des listes pour les 10 joueurs
+        self.thisObjectivesParticipatedListe = [0] * 10
+        self.thisDragonParticipationListe = [0] * 10
+        self.thisBaronParticipationListe = [0] * 10
+        self.thisHeraldParticipationListe = [0] * 10
+        self.thisTowerParticipationListe = [0] * 10
+        self.thisFirstObjectiveBonusListe = [0.0] * 10
+        self.thisTotalObjectives = 0
+        
+        # Vérifier si la timeline est disponible
+        if not hasattr(self, 'data_timeline') or not self.data_timeline:
+            return
+        
+        try:
+            frames = self.data_timeline.get('info', {}).get('frames', [])
+        except (AttributeError, TypeError):
+            return
+        
+        first_dragon_taken = False
+        first_herald_taken = False
+        first_baron_taken = False
+        first_tower_taken = False
+        
+        for frame in frames:
+            events = frame.get('events', [])
+            for event in events:
+                event_type = event.get('type', '')
+                
+                # Objectifs majeurs (dragons, baron, herald, horde)
+                if event_type == 'ELITE_MONSTER_KILL':
+                    monster_type = event.get('monsterType', '')
+                    killer_id = event.get('killerId', 0)
+                    assists = event.get('assistingParticipantIds', []) or []
+                    
+                    # Convertir participantId (1-10) en index (0-9)
+                    participants = []
+                    if killer_id and 1 <= killer_id <= 10:
+                        participants.append(killer_id - 1)
+                    for assist_id in assists:
+                        if assist_id and 1 <= assist_id <= 10:
+                            participants.append(assist_id - 1)
+                    
+                    # Compter selon le type d'objectif
+                    if monster_type == 'DRAGON':
+                        self.thisTotalObjectives += 1
+                        for p in participants:
+                            self.thisObjectivesParticipatedListe[p] += 1
+                            self.thisDragonParticipationListe[p] += 1
+                        # Bonus first dragon
+                        if not first_dragon_taken and killer_id:
+                            first_dragon_taken = True
+                            if 1 <= killer_id <= 10:
+                                self.thisFirstObjectiveBonusListe[killer_id - 1] += 0.5
+                                
+                    elif monster_type in ['BARON_NASHOR', 'BARON']:
+                        self.thisTotalObjectives += 2  # Baron compte double
+                        for p in participants:
+                            self.thisObjectivesParticipatedListe[p] += 2
+                            self.thisBaronParticipationListe[p] += 1
+                        # Bonus first baron
+                        if not first_baron_taken and killer_id:
+                            first_baron_taken = True
+                            if 1 <= killer_id <= 10:
+                                self.thisFirstObjectiveBonusListe[killer_id - 1] += 1.0
+                                
+                    elif monster_type == 'RIFTHERALD':
+                        self.thisTotalObjectives += 1
+                        for p in participants:
+                            self.thisObjectivesParticipatedListe[p] += 1
+                            self.thisHeraldParticipationListe[p] += 1
+                        # Bonus first herald
+                        if not first_herald_taken and killer_id:
+                            first_herald_taken = True
+                            if 1 <= killer_id <= 10:
+                                self.thisFirstObjectiveBonusListe[killer_id - 1] += 0.3
+                                
+                    elif monster_type == 'HORDE':
+                        # Voidgrubs - plus léger
+                        for p in participants:
+                            self.thisObjectivesParticipatedListe[p] += 0.5
+                            
+                    elif monster_type == 'ATAKHAN':
+                        self.thisTotalObjectives += 2
+                        for p in participants:
+                            self.thisObjectivesParticipatedListe[p] += 2
+                
+                # Tours détruites
+                elif event_type == 'BUILDING_KILL':
+                    building_type = event.get('buildingType', '')
+                    if building_type == 'TOWER_BUILDING':
+                        killer_id = event.get('killerId', 0)
+                        assists = event.get('assistingParticipantIds', []) or []
+                        
+                        self.thisTotalObjectives += 0.5  # Chaque tour compte un peu
+                        
+                        if killer_id and 1 <= killer_id <= 10:
+                            self.thisTowerParticipationListe[killer_id - 1] += 1
+                            self.thisObjectivesParticipatedListe[killer_id - 1] += 0.5
+                        for assist_id in assists:
+                            if assist_id and 1 <= assist_id <= 10:
+                                self.thisTowerParticipationListe[assist_id - 1] += 0.5
+                                self.thisObjectivesParticipatedListe[assist_id - 1] += 0.25
+                        
+                        # Bonus first tower
+                        if not first_tower_taken and killer_id:
+                            first_tower_taken = True
+                            if 1 <= killer_id <= 10:
+                                self.thisFirstObjectiveBonusListe[killer_id - 1] += 0.3
+        
+        # Arrondir les valeurs
+        self.thisObjectivesParticipatedListe = [round(x, 1) for x in self.thisObjectivesParticipatedListe]
+        self.thisTotalObjectives = max(1, round(self.thisTotalObjectives, 1))
+    
     """
     Mixin de scoring pour MatchLol.
     
@@ -290,6 +417,9 @@ class ScoringMixin:
         if not hasattr(self, 'thisKillsListe') or not self.thisKillsListe:
             return
         
+        # Extraire les participations aux objectifs depuis la timeline
+        self._extract_objective_participations_from_timeline()
+        
         nb_players = min(len(self.thisKillsListe), getattr(self, 'nb_joueur', 10))
         
         for i in range(nb_players):
@@ -311,7 +441,7 @@ class ScoringMixin:
                 id_player = self.thisId - 5
             else:
                 id_player = self.thisId
-                
+
             self.player_score = self.scores_liste[id_player]
             self.player_breakdown = self.breakdowns_liste[id_player]
             self.player_rank = self._get_player_rank(id_player)
@@ -455,7 +585,8 @@ class ScoringMixin:
         else:
             economic_efficiency = dpg_score * 0.35 + efficiency_score * 0.35 + cs_score * 0.30
         
-        # --- DIMENSION 3: OBJECTIVE CONTRIBUTION ---
+        # --- DIMENSION 3: OBJECTIVE CONTRIBUTION (AMÉLIORÉ) ---
+        # Score de vision
         vision_per_min = vision / game_minutes
         expected_vision = {
             Role.SUPPORT: 2.5, Role.JUNGLE: 1.2, Role.TOP: 0.9,
@@ -464,8 +595,125 @@ class ScoringMixin:
         vision_ratio = vision_per_min / expected_vision.get(role, 1.0)
         vision_score = linear_scale(vision_ratio, 0.5, 1.5, 0, 10)
         
-        # Simplification: on n'a pas les objectives participated ici
-        objective_contribution = vision_score
+        # Dégâts aux tours (si disponible)
+        turret_damage = 0
+        if hasattr(self, 'thisDamageTurretsListe') and i < len(self.thisDamageTurretsListe):
+            turret_damage = self.thisDamageTurretsListe[i]
+        turret_score = linear_scale(turret_damage, 0, 8000, 0, 10)
+        
+        # Dégâts aux objectifs (si disponible)
+        obj_damage = 0
+        if hasattr(self, 'thisDamageObjectivesListe') and i < len(self.thisDamageObjectivesListe):
+            obj_damage = self.thisDamageObjectivesListe[i]
+        obj_damage_score = linear_scale(obj_damage, 0, 20000, 0, 10)
+        
+        # Pinks achetées
+        pinks = 0
+        if hasattr(self, 'thisPinkListe') and i < len(self.thisPinkListe):
+            pinks = self.thisPinkListe[i]
+        expected_pinks = {Role.SUPPORT: 4, Role.JUNGLE: 3, Role.TOP: 2, Role.MID: 2, Role.ADC: 1, Role.UNKNOWN: 2}
+        pink_ratio = pinks / max(expected_pinks.get(role, 2), 1)
+        pink_score = linear_scale(pink_ratio, 0.3, 1.5, 0, 10)
+        
+        # === PARTICIPATION AUX OBJECTIFS DEPUIS TIMELINE ===
+        # Utilise les données réelles de la timeline si disponibles
+        obj_participation = 0
+        total_objectives = getattr(self, 'thisTotalObjectives', 0)
+        
+        if hasattr(self, 'thisObjectivesParticipatedListe') and i < len(self.thisObjectivesParticipatedListe):
+            obj_participation = self.thisObjectivesParticipatedListe[i]
+            
+        # Score de participation réelle aux objectifs
+        if total_objectives > 0:
+            obj_ratio = obj_participation / total_objectives
+            # Un joueur qui participe à 50%+ des objectifs est excellent
+            obj_participation_score = linear_scale(obj_ratio, 0.1, 0.6, 0, 10)
+        else:
+            # Fallback sur le KP si pas de timeline
+            obj_participation_score = linear_scale(kp, 0.3, 0.7, 0, 10)
+        
+        # Participation spécifique aux dragons
+        dragon_participation = 0
+        if hasattr(self, 'thisDragonParticipationListe') and i < len(self.thisDragonParticipationListe):
+            dragon_participation = self.thisDragonParticipationListe[i]
+        dragon_score = linear_scale(dragon_participation, 0, 4, 0, 10)
+        
+        # Participation aux barons
+        baron_participation = 0
+        if hasattr(self, 'thisBaronParticipationListe') and i < len(self.thisBaronParticipationListe):
+            baron_participation = self.thisBaronParticipationListe[i]
+        baron_score = linear_scale(baron_participation, 0, 2, 0, 10)
+        
+        # Bonus first objective (first dragon, first herald, first tower, first baron)
+        first_obj_bonus = 0
+        if hasattr(self, 'thisFirstObjectiveBonusListe') and i < len(self.thisFirstObjectiveBonusListe):
+            first_obj_bonus = self.thisFirstObjectiveBonusListe[i]
+        
+        # Tours détruites personnellement
+        turrets_killed = 0
+        if hasattr(self, 'thisTurretsKillsPersoListe') and i < len(self.thisTurretsKillsPersoListe):
+            turrets_killed = self.thisTurretsKillsPersoListe[i]
+        turrets_killed_score = linear_scale(turrets_killed, 0, 4, 0, 10)
+        
+        # Participation aux tours (depuis timeline)
+        tower_participation = 0
+        if hasattr(self, 'thisTowerParticipationListe') and i < len(self.thisTowerParticipationListe):
+            tower_participation = self.thisTowerParticipationListe[i]
+        tower_participation_score = linear_scale(tower_participation, 0, 5, 0, 10)
+        
+        # Pondération selon le rôle
+        if role == Role.SUPPORT:
+            # Support: Vision très importante, objectifs modérés
+            objective_contribution = (
+                vision_score * 0.35 +
+                pink_score * 0.20 +
+                obj_participation_score * 0.25 +
+                dragon_score * 0.10 +
+                tower_participation_score * 0.10
+            ) + first_obj_bonus
+        elif role == Role.JUNGLE:
+            # Jungle: Objectifs TRÈS importants - dragons, barons, herald
+            objective_contribution = (
+                dragon_score * 0.25 +
+                baron_score * 0.20 +
+                obj_participation_score * 0.20 +
+                obj_damage_score * 0.15 +
+                vision_score * 0.10 +
+                pink_score * 0.10
+            ) + first_obj_bonus * 1.5  # Bonus amplifié pour JGL
+        elif role == Role.ADC:
+            # ADC: Dégâts aux tours prioritaires
+            objective_contribution = (
+                turret_score * 0.30 +
+                turrets_killed_score * 0.15 +
+                tower_participation_score * 0.15 +
+                obj_damage_score * 0.20 +
+                obj_participation_score * 0.10 +
+                dragon_score * 0.10
+            ) + first_obj_bonus
+        elif role == Role.TOP:
+            # Top: Split push, tours, objectifs
+            objective_contribution = (
+                turret_score * 0.25 +
+                turrets_killed_score * 0.15 +
+                tower_participation_score * 0.15 +
+                obj_damage_score * 0.15 +
+                obj_participation_score * 0.15 +
+                vision_score * 0.15
+            ) + first_obj_bonus
+        else:  # MID
+            # Mid: Équilibré entre roam et objectifs
+            objective_contribution = (
+                obj_participation_score * 0.25 +
+                dragon_score * 0.15 +
+                turret_score * 0.15 +
+                tower_participation_score * 0.15 +
+                vision_score * 0.15 +
+                pink_score * 0.15
+            ) + first_obj_bonus
+        
+        # Clamp au max 10
+        objective_contribution = min(10.0, max(0.0, objective_contribution))
         
         # --- DIMENSION 4: PACE RATING ---
         gold_per_min = gold / game_minutes
@@ -643,8 +891,8 @@ class ScoringMixin:
             'is_mvp': player_index == self.mvp_index,
             'is_ace': player_index == self.ace_index,
             'breakdown': breakdown.to_dict()
-        }
-    
+        }    
+
     def get_all_players_performance_summary(self) -> List[dict]:
         """
         Retourne un résumé de la performance pour tous les joueurs.
@@ -659,7 +907,6 @@ class ScoringMixin:
             self.get_performance_summary_for_player(i) 
             for i in range(len(self.scores_liste))
         ]
-
 
 # =============================================================================
 # TESTS
@@ -681,6 +928,11 @@ if __name__ == "__main__":
             self.thisGold_team1 = 65000
             self.thisGold_team2 = 52000
             
+            # Objectifs d'équipe
+            self.thisDragonTeam = 4  # Soul
+            self.thisBaronTeam = 1
+            self.thisHeraldTeam = 2
+            
             # Données des 10 joueurs
             self.thisPositionListe = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] * 2
             self.thisKillsListe = [4, 8, 12, 6, 2, 3, 4, 5, 4, 2]
@@ -692,39 +944,126 @@ if __name__ == "__main__":
             self.thisGoldListe = [11000, 12500, 15000, 14000, 9500, 9000, 10000, 12000, 11500, 8000]
             self.thisVisionListe = [22, 40, 18, 14, 85, 18, 32, 15, 12, 55]
             self.thisDamageTakenListe = [22000, 18000, 14000, 12000, 16000, 24000, 20000, 16000, 14000, 15000]
+            
+            # === NOUVELLES LISTES POUR SCORING OBJECTIFS ===
+            # Dégâts aux tours: TOP et ADC en font le plus
+            self.thisDamageTurretsListe = [5500, 2000, 3500, 7000, 500, 3000, 1500, 2500, 4500, 400]
+            # Dégâts aux objectifs (tours + baron + dragon): JGL en fait le plus
+            self.thisDamageObjectivesListe = [8000, 18000, 6000, 12000, 1000, 5000, 12000, 4000, 8000, 800]
+            # Tours détruites
+            self.thisTurretsKillsPersoListe = [2, 1, 1, 3, 0, 1, 0, 1, 2, 0]
+            # Pinks achetées
+            self.thisPinkListe = [2, 4, 2, 1, 6, 2, 3, 1, 1, 4]
+            
+            # === TIMELINE SIMULÉE ===
+            # Simule les événements de la timeline pour tester l'extraction
+            self.data_timeline = {
+                'info': {
+                    'frames': [
+                        # Frame 1: First Herald (Blue JGL kill, TOP assist)
+                        {'events': [
+                            {'type': 'ELITE_MONSTER_KILL', 'monsterType': 'RIFTHERALD', 
+                             'killerId': 2, 'assistingParticipantIds': [1]},
+                        ]},
+                        # Frame 2: First Dragon (Blue JGL kill, MID+SUP+ADC assist)
+                        {'events': [
+                            {'type': 'ELITE_MONSTER_KILL', 'monsterType': 'DRAGON',
+                             'killerId': 2, 'assistingParticipantIds': [3, 4, 5]},
+                        ]},
+                        # Frame 3: First Tower (Blue ADC kill)
+                        {'events': [
+                            {'type': 'BUILDING_KILL', 'buildingType': 'TOWER_BUILDING',
+                             'killerId': 4, 'assistingParticipantIds': [5]},
+                        ]},
+                        # Frame 4: Second Dragon (Blue team)
+                        {'events': [
+                            {'type': 'ELITE_MONSTER_KILL', 'monsterType': 'DRAGON',
+                             'killerId': 2, 'assistingParticipantIds': [1, 3, 4, 5]},
+                        ]},
+                        # Frame 5: Tower Red side
+                        {'events': [
+                            {'type': 'BUILDING_KILL', 'buildingType': 'TOWER_BUILDING',
+                             'killerId': 9, 'assistingParticipantIds': [8, 10]},
+                        ]},
+                        # Frame 6: Third Dragon (Blue team)
+                        {'events': [
+                            {'type': 'ELITE_MONSTER_KILL', 'monsterType': 'DRAGON',
+                             'killerId': 2, 'assistingParticipantIds': [3, 5]},
+                        ]},
+                        # Frame 7: Voidgrubs (Blue JGL solo)
+                        {'events': [
+                            {'type': 'ELITE_MONSTER_KILL', 'monsterType': 'HORDE',
+                             'killerId': 2, 'assistingParticipantIds': []},
+                            {'type': 'ELITE_MONSTER_KILL', 'monsterType': 'HORDE',
+                             'killerId': 2, 'assistingParticipantIds': []},
+                            {'type': 'ELITE_MONSTER_KILL', 'monsterType': 'HORDE',
+                             'killerId': 2, 'assistingParticipantIds': [1]},
+                        ]},
+                        # Frame 8: Baron (Blue team - 4 participants)
+                        {'events': [
+                            {'type': 'ELITE_MONSTER_KILL', 'monsterType': 'BARON_NASHOR',
+                             'killerId': 2, 'assistingParticipantIds': [1, 3, 4, 5]},
+                        ]},
+                        # Frame 9: Fourth Dragon / Soul (Blue team)
+                        {'events': [
+                            {'type': 'ELITE_MONSTER_KILL', 'monsterType': 'DRAGON',
+                             'killerId': 2, 'assistingParticipantIds': [1, 3, 4, 5]},
+                        ]},
+                        # Frame 10: Towers push final
+                        {'events': [
+                            {'type': 'BUILDING_KILL', 'buildingType': 'TOWER_BUILDING',
+                             'killerId': 1, 'assistingParticipantIds': [2, 3]},
+                            {'type': 'BUILDING_KILL', 'buildingType': 'TOWER_BUILDING',
+                             'killerId': 4, 'assistingParticipantIds': [3, 5]},
+                            {'type': 'BUILDING_KILL', 'buildingType': 'TOWER_BUILDING',
+                             'killerId': 3, 'assistingParticipantIds': [1, 2, 4, 5]},
+                        ]},
+                    ]
+                }
+            }
     
     match = MockMatch()
     
     import asyncio
     asyncio.run(match.calculate_all_scores())
     
-    print("=" * 60)
-    print("Scores de tous les joueurs:")
-    print("=" * 60)
+    print("=" * 70)
+    print("Scores de tous les joueurs (avec scoring objectifs amélioré):")
+    print("=" * 70)
+    print(f"{'Team':<6} {'Role':<8} {'Score':<8} {'Combat':<8} {'Eco':<8} {'Obj':<8} {'Tempo':<8} {'Impact':<8}")
+    print("-" * 70)
     for i, (score, breakdown) in enumerate(zip(match.scores_liste, match.breakdowns_liste)):
         role = match.thisPositionListe[i]
         team = "Blue" if i < 5 else "Red"
-        best_dim, _ = breakdown.get_best_dimension()
-        print(f"  {team} {role:<8} Score: {score}/10  | Best: {best_dim}")
+        print(f"  {team:<4} {role:<8} {score:<8} {breakdown.combat_value:<8} {breakdown.economic_efficiency:<8} {breakdown.objective_contribution:<8} {breakdown.pace_rating:<8} {breakdown.win_impact:<8}")
     
     print(f"\n🏆 MVP: Index {match.mvp_index} ({match.thisPositionListe[match.mvp_index]})")
     print(f"⭐ ACE: Index {match.ace_index} ({match.thisPositionListe[match.ace_index]})")
     
-    print("\n" + "=" * 60)
+    # Afficher les données extraites de la timeline
+    print("\n" + "=" * 70)
+    print("Données extraites de la TIMELINE:")
+    print("=" * 70)
+    print(f"Total objectifs dans la game: {match.thisTotalObjectives}")
+    print(f"\n{'Team':<6} {'Role':<8} {'ObjPart':<10} {'Dragons':<10} {'Barons':<10} {'Heralds':<10} {'Towers':<10} {'1stBonus':<10}")
+    print("-" * 80)
+    for i in range(10):
+        team = "Blue" if i < 5 else "Red"
+        role = match.thisPositionListe[i]
+        obj_part = match.thisObjectivesParticipatedListe[i]
+        dragons = match.thisDragonParticipationListe[i]
+        barons = match.thisBaronParticipationListe[i]
+        heralds = match.thisHeraldParticipationListe[i]
+        towers = match.thisTowerParticipationListe[i]
+        first_bonus = match.thisFirstObjectiveBonusListe[i]
+        print(f"  {team:<4} {role:<8} {obj_part:<10} {dragons:<10} {barons:<10} {heralds:<10} {towers:<10} {first_bonus:<10}")
+    
+    print("\n" + "=" * 70)
     print("Performance du joueur principal (Mid Blue):")
-    print("=" * 60)
+    print("=" * 70)
     summary = match.get_player_performance_summary()
     print(f"  Score: {summary['score']}/10 {summary['emoji']}")
     print(f"  Rang: {summary['rank_text']}")
     print(f"  Point fort: {summary['best_dimension']} ({summary['best_dimension_score']}/10) {summary['best_dimension_emoji']}")
     print(f"  Point faible: {summary['worst_dimension']} ({summary['worst_dimension_score']}/10)")
     print(f"  MVP: {summary['is_mvp']}")
-    
-    print("\n" + "=" * 60)
-    print("get_all_players_performance_summary():")
-    print("=" * 60)
-    all_summaries = match.get_all_players_performance_summary()
-    print(all_summaries[0])
-    for s in all_summaries:
-        mvp_ace = "👑 MVP" if s['is_mvp'] else ("⭐ ACE" if s['is_ace'] else "")
-        print(f"  {s['team']:<4} {s['role']:<8} {s['emoji']} {s['score']}/10 ({s['rank_text']:<5}) | {s['best_dimension_emoji']} {s['best_dimension']:<10} {mvp_ace}")
