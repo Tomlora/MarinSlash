@@ -562,37 +562,40 @@ class ImageGenerationMixin:
                                        'joueur' : self.id_compte})
                 
 
-            # d.text((x_score+20, initial_y),
-            #         str(scoring),
-            #         font=font,
-            #         fill=color_scoring.get(scoring, fill))
+            if self.thisQ == 'ARAM':
+                d.text((x_score+20, initial_y),
+                        str(scoring),
+                        font=font,
+                        fill=color_scoring.get(scoring, fill))
+                
 
-            if hasattr(self, 'scores_liste') and i < len(self.scores_liste):
-                score = self.scores_liste[i]
-                indicator = self._get_player_rank(i)
-                
-                # Couleur basée sur le score
-                if indicator == 10:
-                    color = color_scoring[10]   # Rouge
-                elif indicator >= 8:
-                    color = color_scoring[8]
-                elif indicator >= 6:
-                    color = fill # Jaune
-                elif indicator >= 4:
-                    color = fill  # Orange
-                else:
-                    color = color_scoring[1]  # Vert
-                
-                # # Indicateur MVP/ACE
-                # indicator = ""
-                # if i == self.mvp_index:
-                #     indicator = "👑"
-                # elif i == self.ace_index:
-                #     indicator = "⭐"
+            elif self.thisQ in ['RANKED', 'FLEX', 'NORMAL', 'SWIFTPLAY']:
+                if hasattr(self, 'scores_liste') and i < len(self.scores_liste):
+                    score = self.scores_liste[i]
+                    indicator = self._get_player_rank(i)
+                    
+                    # Couleur basée sur le score
+                    if indicator == 10:
+                        color = color_scoring[10]   # Rouge
+                    elif indicator >= 8:
+                        color = color_scoring[8]
+                    elif indicator >= 6:
+                        color = fill # Jaune
+                    elif indicator >= 4:
+                        color = fill  # Orange
+                    else:
+                        color = color_scoring[1]  # Vert
+                    
+                    # # Indicateur MVP/ACE
+                    # indicator = ""
+                    # if i == self.mvp_index:
+                    #     indicator = "👑"
+                    # elif i == self.ace_index:
+                    #     indicator = "⭐"
 
-                
-                
-                d.text((x_score+15, initial_y), f"{indicator}", fill=color, font=font)
+                    
+                    
+                    d.text((x_score+15, initial_y), f"{indicator}", fill=color, font=font)
 
             if len(str(self.thisKillsListe[i])) == 1:
                 d.text((x_kills, initial_y), str(

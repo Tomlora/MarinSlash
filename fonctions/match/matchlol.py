@@ -142,10 +142,6 @@ class MatchLol(
             await self._extract_masteries()
             await self._load_items_data()
 
-            # 3b. Scoring 
-            if self.thisQ in ['RANKED', 'FLEX', 'NORMAL', 'ARAM']:
-                await self.calculate_all_scores()
-
             
             # 4. Modes spéciaux
             if self.thisQ == 'ARENA 2v2':
@@ -171,10 +167,17 @@ class MatchLol(
                     except Exception:
                         pass
 
-            # # 6. Timeline
-            # if self.thisQ not in ['ARENA 2v2', 'SWARM']:
-            #     await self.save_timeline()
-            #     await self.save_timeline_event()
+
+            # Sauvegarde timeline pour ranked/flex/swiftplay
+            if self.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY'] and self.thisTime >= 15:
+                await self.save_timeline()
+                try:
+                    await self.save_timeline_event()
+                except Exception:
+                    print('Erreur save timeline event')
+            
+                
+            await self.calculate_all_scores()
 
             # 7. Détections
             #await self.detection_joueurs_pro()

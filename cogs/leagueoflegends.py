@@ -414,19 +414,13 @@ class LeagueofLegends(Extension):
             if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ not in ['ARENA 2v2', 'SWARM']:
                 await match_info.save_data()
 
-            if match_info.thisQ in ['RANKED', 'FLEX', 'NORMAL', 'ARAM']:
-                    await match_info.save_scoring_data()
             else:
                 requete_perso_bdd(f'''DELETE from prev_lol WHERE riot_id = '{riot_id.lower()}' and riot_tag = '{riot_tag.upper()}' and match_id = '';
                                     DELETE from prev_lol_features WHERE riot_id = '{riot_id.lower()}' and riot_tag = '{riot_tag.upper()}' and match_id = '' ''')
 
-            # Sauvegarde timeline pour ranked/flex/swiftplay
-            if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY'] and match_info.thisTime >= 15:
-                await match_info.save_timeline()
-                try:
-                    await match_info.save_timeline_event()
-                except Exception:
-                    print('Erreur save timeline event')
+            if match_info.thisQ in ['RANKED', 'FLEX', 'NORMAL', 'ARAM'] and match_info.thisTime >= 15:
+
+                await match_info.save_scoring_data()
 
             # Gestion des modes spéciaux
             if match_info.thisQId == 900:  # URF
@@ -769,7 +763,7 @@ class LeagueofLegends(Extension):
             if getattr(match_info, 'observations2', '') != '':
                 embed.add_field(name='Insights 2', value=match_info.observations2)
 
-            if metrics_performance is not None:
+            if metrics_performance is not None and match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY', 'NORMAL']:
                 embed.add_field(name=metrics_performance['name'], value=metrics_performance['value'], inline=False)
 
             # Génération de l'image résumé
