@@ -306,3 +306,87 @@ class SaveDataMixin:
                             dict_params={'match_id' : self.last_match, 'joueur' : self.id_compte, 'data' : pickle_embed})
         except IntegrityError:
             pass
+
+
+    async def save_scoring_data(self):
+        """
+        Sauvegarde les données de scoring dans la table match_scoring.
+        
+        À appeler après calculate_all_scores() si sauvegarder=True.
+        Nécessite: self.last_match, self.thisRiotIdListe, self.thisRiotTagListe, 
+                   self.thisChampNameListe, self.thisPositionListe
+        """
+        from fonctions.gestion_bdd import requete_perso_bdd
+        
+        if not hasattr(self, 'scores_liste') or not self.scores_liste:
+            return
+        
+        all_summaries = self.get_all_players_performance_summary()
+        
+        for summary in all_summaries:
+            if not summary:
+                continue
+                
+            i = summary['index']
+            
+            # Récupérer les infos du joueur
+            riot_id = self.thisRiotIdListe[i] if i < len(self.thisRiotIdListe) else ''
+            riot_tag = self.thisRiotTagListe[i] if i < len(self.thisRiotTagListe) else ''
+            champion = self.thisChampNameListe[i] if i < len(self.thisChampNameListe) else ''
+            
+            breakdown = summary.get('breakdown', {})
+            
+            requete_perso_bdd(
+                '''INSERT INTO match_scoring (
+                    match_id, player_index, riot_id, riot_tag, champion, team, role,
+                    score, rank, is_mvp, is_ace,
+                    combat_value, economic_efficiency, objective_contribution, 
+                    pace_rating, win_impact,
+                    best_dimension, best_dimension_score, 
+                    worst_dimension, worst_dimension_score
+                ) VALUES (
+                    :match_id, :player_index, :riot_id, :riot_tag, :champion, :team, :role,
+                    :score, :rank, :is_mvp, :is_ace,
+                    :combat_value, :economic_efficiency, :objective_contribution,
+                    :pace_rating, :win_impact,
+                    :best_dimension, :best_dimension_score,
+                    :worst_dimension, :worst_dimension_score
+                )
+                ON CONFLICT (match_id, player_index) DO UPDATE SET
+                    score = EXCLUDED.score,
+                    rank = EXCLUDED.rank,
+                    is_mvp = EXCLUDED.is_mvp,
+                    is_ace = EXCLUDED.is_ace,
+                    combat_value = EXCLUDED.combat_value,
+                    economic_efficiency = EXCLUDED.economic_efficiency,
+                    objective_contribution = EXCLUDED.objective_contribution,
+                    pace_rating = EXCLUDED.pace_rating,
+                    win_impact = EXCLUDED.win_impact,
+                    best_dimension = EXCLUDED.best_dimension,
+                    best_dimension_score = EXCLUDED.best_dimension_score,
+                    worst_dimension = EXCLUDED.worst_dimension,
+                    worst_dimension_score = EXCLUDED.worst_dimension_score
+                ''',
+                {
+                    'match_id': self.last_match,
+                    'player_index': i,
+                    'riot_id': riot_id.lower() if riot_id else '',
+                    'riot_tag': riot_tag.upper() if riot_tag else '',
+                    'champion': champion,
+                    'team': summary.get('team', 'blue' if i < 5 else 'red'),
+                    'role': summary.get('role', ''),
+                    'score': summary.get('score', 0),
+                    'rank': summary.get('rank', 0),
+                    'is_mvp': summary.get('is_mvp', False),
+                    'is_ace': summary.get('is_ace', False),
+                    'combat_value': breakdown.get('combat_value', 0),
+                    'economic_efficiency': breakdown.get('economic_efficiency', 0),
+                    'objective_contribution': breakdown.get('objective_contribution', 0),
+                    'pace_rating': breakdown.get('pace_rating', 0),
+                    'win_impact': breakdown.get('win_impact', 0),
+                    'best_dimension': summary.get('best_dimension', ''),
+                    'best_dimension_score': summary.get('best_dimension_score', 0),
+                    'worst_dimension': summary.get('worst_dimension', ''),
+                    'worst_dimension_score': summary.get('worst_dimension_score', 0),
+                }
+            )

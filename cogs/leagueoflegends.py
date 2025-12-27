@@ -413,6 +413,9 @@ class LeagueofLegends(Extension):
             # Sauvegarde des données
             if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ not in ['ARENA 2v2', 'SWARM']:
                 await match_info.save_data()
+
+            if match_info.thisQ in ['RANKED', 'FLEX', 'NORMAL', 'ARAM']:
+                    await match_info.save_scoring_data()
             else:
                 requete_perso_bdd(f'''DELETE from prev_lol WHERE riot_id = '{riot_id.lower()}' and riot_tag = '{riot_tag.upper()}' and match_id = '';
                                     DELETE from prev_lol_features WHERE riot_id = '{riot_id.lower()}' and riot_tag = '{riot_tag.upper()}' and match_id = '' ''')
