@@ -693,9 +693,11 @@ class LeagueofLegends(Extension):
             # Calcul des badges
             if insights and match_info.thisQ not in ['ARENA 2v2', 'SWARM']:
                 await match_info.calcul_badges(sauvegarder)
+                metrics_performance = await match_info.get_scoring_embed_field()
             else:
                 match_info.observations = ''
                 match_info.observations2 = ''
+                metrics_performance = None
 
             # Ajout des champs à l'embed
             embed.add_field(
@@ -763,6 +765,9 @@ class LeagueofLegends(Extension):
 
             if getattr(match_info, 'observations2', '') != '':
                 embed.add_field(name='Insights 2', value=match_info.observations2)
+
+            if metrics_performance is not None:
+                embed.add_field(name=metrics_performance['name'], value=metrics_performance['value'], inline=False)
 
             # Génération de l'image résumé
             embed = await match_info.resume_general('resume', embed, difLP)

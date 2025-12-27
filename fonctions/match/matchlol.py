@@ -19,6 +19,7 @@ from .detection import DetectionMixin, ObjectifsMixin
 from .badges import BadgesMixin
 from .image import ImageGenerationMixin
 from .special_modes import ArenaModeMixin, SwarmModeMixin, ClashModeMixin
+from .scoring import ScoringMixin
 
 
 class MatchLol(
@@ -34,7 +35,8 @@ class MatchLol(
     ImageGenerationMixin,
     ArenaModeMixin,
     SwarmModeMixin,
-    ClashModeMixin
+    ClashModeMixin,
+    ScoringMixin
 ):
     """
     Classe principale pour l'analyse des matchs League of Legends.
@@ -139,6 +141,10 @@ class MatchLol(
             await self._extract_comparison_data()
             await self._extract_masteries()
             await self._load_items_data()
+
+            # 3b. Scoring 
+            if self.thisQ in ['RANKED', 'FLEX', 'NORMAL', 'ARAM']:
+                await self.calculate_all_scores()
 
             
             # 4. Modes spéciaux
@@ -291,6 +297,38 @@ class MatchLol(
         instance = cls(id_compte, riot_id, riot_tag, match_id, queue, 
                        me=None, save=save, moba_ok=moba_ok)
         return instance
+    
+    async def get_scoring_embed_field(self):
+        """Retourne un field Discord pour l'embed."""
+        if not hasattr(self, 'player_breakdown') or self.player_breakdown is None:
+            return None
+        
+        perf = self.get_player_performance_summary()
+        breakdown = perf['breakdown']
+        
+        # Barre visuelle pour chaque dimension
+        def score_bar(score):
+            filled = int(score)
+            return '█' * filled + '░' * (10 - filled)
+        
+        value = f"""
+    **Score: {perf['score']}/10** {perf['emoji']} ({perf['rank_text']})
+
+    ⚔️ Combat:    `{score_bar(breakdown['combat_value'])}` {breakdown['combat_value']}
+    💰 Économie:  `{score_bar(breakdown['economic_efficiency'])}` {breakdown['economic_efficiency']}
+    🎯 Objectifs: `{score_bar(breakdown['objective_contribution'])}` {breakdown['objective_contribution']}
+    ⚡ Tempo:     `{score_bar(breakdown['pace_rating'])}` {breakdown['pace_rating']}
+    👑 Impact:    `{score_bar(breakdown['win_impact'])}` {breakdown['win_impact']}
+
+    {perf['best_dimension_emoji']} Point fort: **{perf['best_dimension']}**
+    """
+        
+        return {
+            'name': '📊 Performance',
+            'value': value,
+            'inline': False
+        }
+
 
 
 # Export pour faciliter les imports

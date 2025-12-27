@@ -152,6 +152,9 @@ class BadgesMixin:
             VALUES ('{self.last_match}', '{self.id_compte}');'''
         )
 
+
+        self._add_performance_calcul()
+
         if txt_sql != '' and sauvegarder:
             requete_perso_bdd(txt_sql)
 
@@ -256,3 +259,39 @@ class BadgesMixin:
             txt_sql = add_sql(txt_sql, 'tank_ratio', [self.thisDamageTakenRatio], self.last_match, self.id_compte)
 
         return txt_sql
+
+    def _add_performance_calcul(self):
+    # Récupérer le résumé de performance
+        perf = self.get_player_performance_summary()
+        
+        # Badge MVP
+        if perf.get('is_mvp'):
+            self.badges.append('MVP')
+            self.observations += f"🏆 **MVP** de la partie! Score: {perf['score']}/10\n"
+        
+        # Badge ACE (meilleur perdant)
+        elif perf.get('is_ace') and not self.thisWinBool:
+            self.badges.append('ACE')
+            self.observations += f"⭐ **ACE** - Meilleur de ton équipe malgré la défaite\n"
+        
+        # Badge basé sur le point fort
+        best_dim = perf.get('best_dimension')
+        best_emoji = perf.get('best_dimension_emoji', '')
+        best_score = perf.get('best_dimension_score', 0)
+        
+        if best_score >= 8:
+            dim_badges = {
+                'Combat': 'Combat King',
+                'Économie': 'Gold Efficient',
+                'Objectifs': 'Objective Master',
+                'Tempo': 'Tempo Lord',
+                'Impact': 'Game Changer'
+            }
+            if best_dim in dim_badges:
+                self.badges.append(dim_badges[best_dim])
+                # self.observations += f"{best_emoji} **{dim_badges[best_dim]}** - {best_dim}: {best_score}/10\n"
+        
+        # Afficher le score dans les observations
+        score_emoji = self.get_score_emoji(self.player_score)
+        rank_text = self.get_rank_text(self.player_rank)
+        # self.observations2 += f"\n{score_emoji} Performance: **{self.player_score}/10** ({rank_text})"
