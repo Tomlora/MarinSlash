@@ -422,6 +422,11 @@ class LeagueofLegends(Extension):
 
                 await match_info.save_scoring_data()
 
+                # Sauvegarde des données de participation aux objectifs (timeline)
+                if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:
+                    await match_info.save_objective_participation_data()
+
+                    
             # Gestion des modes spéciaux
             if match_info.thisQId == 900:  # URF
                 return {}, 'URF', 0

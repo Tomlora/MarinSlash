@@ -390,3 +390,123 @@ class SaveDataMixin:
                     'worst_dimension_score': summary.get('worst_dimension_score', 0),
                 }
             )
+
+    async def save_objective_participation_data(self):
+        """
+        Sauvegarde les données de participation aux objectifs dans la table match_objective_participation.
+        
+        À appeler après calculate_all_scores() si sauvegarder=True.
+        Nécessite les listes extraites par _extract_objective_participations_from_timeline().
+        
+        Table SQL requise:
+        CREATE TABLE IF NOT EXISTS match_objective_participation (
+            id SERIAL PRIMARY KEY,
+            match_id VARCHAR(50) NOT NULL,
+            player_index INTEGER NOT NULL,
+            riot_id VARCHAR(50),
+            riot_tag VARCHAR(10),
+            champion VARCHAR(50),
+            team VARCHAR(10),
+            role VARCHAR(20),
+            objectives_participated FLOAT DEFAULT 0,
+            total_objectives FLOAT DEFAULT 0,
+            dragon_participation INTEGER DEFAULT 0,
+            baron_participation INTEGER DEFAULT 0,
+            herald_participation INTEGER DEFAULT 0,
+            tower_participation FLOAT DEFAULT 0,
+            first_objective_bonus FLOAT DEFAULT 0,
+            turret_damage INTEGER DEFAULT 0,
+            objective_damage INTEGER DEFAULT 0,
+            turrets_killed INTEGER DEFAULT 0,
+            wards_placed INTEGER DEFAULT 0,
+            wards_killed INTEGER DEFAULT 0,
+            pinks_bought INTEGER DEFAULT 0,
+            UNIQUE(match_id, player_index)
+        );
+        """
+        from fonctions.gestion_bdd import requete_perso_bdd
+        
+        # Vérifier que les données existent
+        if not hasattr(self, 'thisObjectivesParticipatedListe') or not self.thisObjectivesParticipatedListe:
+            return
+        
+        nb_players = min(len(self.thisObjectivesParticipatedListe), 10)
+        
+        for i in range(nb_players):
+            # Récupérer les infos du joueur
+            riot_id = self.thisRiotIdListe[i] if i < len(self.thisRiotIdListe) else ''
+            riot_tag = self.thisRiotTagListe[i] if i < len(self.thisRiotTagListe) else ''
+            champion = self.thisChampNameListe[i] if i < len(self.thisChampNameListe) else ''
+            role = self.thisPositionListe[i] if i < len(self.thisPositionListe) else ''
+            
+            # Données de participation aux objectifs
+            objectives_participated = self.thisObjectivesParticipatedListe[i] if i < len(self.thisObjectivesParticipatedListe) else 0
+            dragon_participation = self.thisDragonParticipationListe[i] if i < len(self.thisDragonParticipationListe) else 0
+            baron_participation = self.thisBaronParticipationListe[i] if i < len(self.thisBaronParticipationListe) else 0
+            herald_participation = self.thisHeraldParticipationListe[i] if i < len(self.thisHeraldParticipationListe) else 0
+            tower_participation = self.thisTowerParticipationListe[i] if i < len(self.thisTowerParticipationListe) else 0
+            first_objective_bonus = self.thisFirstObjectiveBonusListe[i] if i < len(self.thisFirstObjectiveBonusListe) else 0
+            
+            # Données de dégâts/vision
+            turret_damage = self.thisDamageTurretsListe[i] if hasattr(self, 'thisDamageTurretsListe') and i < len(self.thisDamageTurretsListe) else 0
+            objective_damage = self.thisDamageObjectivesListe[i] if hasattr(self, 'thisDamageObjectivesListe') and i < len(self.thisDamageObjectivesListe) else 0
+            turrets_killed = self.thisTurretsKillsPersoListe[i] if hasattr(self, 'thisTurretsKillsPersoListe') and i < len(self.thisTurretsKillsPersoListe) else 0
+            wards_placed = self.thisWardsListe[i] if hasattr(self, 'thisWardsListe') and i < len(self.thisWardsListe) else 0
+            wards_killed = self.thisWardsKilledListe[i] if hasattr(self, 'thisWardsKilledListe') and i < len(self.thisWardsKilledListe) else 0
+            pinks_bought = self.thisPinkListe[i] if hasattr(self, 'thisPinkListe') and i < len(self.thisPinkListe) else 0
+            
+            requete_perso_bdd(
+                '''INSERT INTO match_objective_participation (
+                    match_id, player_index, riot_id, riot_tag, champion, team, role,
+                    objectives_participated, total_objectives,
+                    dragon_participation, baron_participation, herald_participation,
+                    tower_participation, first_objective_bonus,
+                    turret_damage, objective_damage, turrets_killed,
+                    wards_placed, wards_killed, pinks_bought
+                ) VALUES (
+                    :match_id, :player_index, :riot_id, :riot_tag, :champion, :team, :role,
+                    :objectives_participated, :total_objectives,
+                    :dragon_participation, :baron_participation, :herald_participation,
+                    :tower_participation, :first_objective_bonus,
+                    :turret_damage, :objective_damage, :turrets_killed,
+                    :wards_placed, :wards_killed, :pinks_bought
+                )
+                ON CONFLICT (match_id, player_index) DO UPDATE SET
+                    objectives_participated = EXCLUDED.objectives_participated,
+                    total_objectives = EXCLUDED.total_objectives,
+                    dragon_participation = EXCLUDED.dragon_participation,
+                    baron_participation = EXCLUDED.baron_participation,
+                    herald_participation = EXCLUDED.herald_participation,
+                    tower_participation = EXCLUDED.tower_participation,
+                    first_objective_bonus = EXCLUDED.first_objective_bonus,
+                    turret_damage = EXCLUDED.turret_damage,
+                    objective_damage = EXCLUDED.objective_damage,
+                    turrets_killed = EXCLUDED.turrets_killed,
+                    wards_placed = EXCLUDED.wards_placed,
+                    wards_killed = EXCLUDED.wards_killed,
+                    pinks_bought = EXCLUDED.pinks_bought
+                ''',
+                {
+                    'match_id': self.last_match,
+                    'player_index': i,
+                    'riot_id': riot_id.lower() if riot_id else '',
+                    'riot_tag': riot_tag.upper() if riot_tag else '',
+                    'champion': champion,
+                    'team': 'blue' if i < 5 else 'red',
+                    'role': role,
+                    'objectives_participated': objectives_participated,
+                    'total_objectives': getattr(self, 'thisTotalObjectives', 0),
+                    'dragon_participation': dragon_participation,
+                    'baron_participation': baron_participation,
+                    'herald_participation': herald_participation,
+                    'tower_participation': tower_participation,
+                    'first_objective_bonus': first_objective_bonus,
+                    'turret_damage': turret_damage,
+                    'objective_damage': objective_damage,
+                    'turrets_killed': turrets_killed,
+                    'wards_placed': wards_placed,
+                    'wards_killed': wards_killed,
+                    'pinks_bought': pinks_bought,
+                }
+            )
+
