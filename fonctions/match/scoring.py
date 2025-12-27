@@ -565,6 +565,7 @@ class ScoringMixin:
         
         combat_value = kp_score * 0.35 + death_score * 0.30 + kda_score * 0.35
         
+        
         # --- DIMENSION 2: ECONOMIC EFFICIENCY ---
         dpg = damage / max(gold, 1)
         dpg_score = linear_scale(dpg, 1.0, 3.0, 0, 10)
