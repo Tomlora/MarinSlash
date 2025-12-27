@@ -306,9 +306,15 @@ class ScoringMixin:
         
         # Stats du joueur principal
         if hasattr(self, 'thisId') and self.thisId < len(self.scores_liste):
-            self.player_score = self.scores_liste[self.thisId]
-            self.player_breakdown = self.breakdowns_liste[self.thisId]
-            self.player_rank = self._get_player_rank(self.thisId)
+
+            if self.thisId > 4:
+                id_player = self.thisId - 5
+            else:
+                id_player = self.thisId
+                
+            self.player_score = self.scores_liste[id_player]
+            self.player_breakdown = self.breakdowns_liste[id_player]
+            self.player_rank = self._get_player_rank(id_player)
     
     def _calculate_zscore_for_player(self, i: int) -> float:
         """Calcule le score z-score pour un joueur."""
