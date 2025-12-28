@@ -394,7 +394,7 @@ def load_champion_tags() -> Dict[str, list]:
         df = lire_bdd_perso(
             "SELECT name, tags FROM data_champion_tag",
             index_col=None
-        )
+        ).T
         
         for _, row in df.iterrows():
             name = row.get('name', '').strip()
@@ -405,7 +405,7 @@ def load_champion_tags() -> Dict[str, list]:
                 tags = parse_tags(tags_str)
                 _CHAMPION_TAGS_CACHE[name_normalized] = tags
                 # Garder aussi la version originale
-                _CHAMPION_TAGS_CACHE[name.lower()] = tags
+                _CHAMPION_TAGS_CACHE[name.lower()] = tags           
                 
     except Exception as e:
         print(f"Warning: Error loading champion tags from database: {e}")
@@ -420,6 +420,8 @@ def get_champion_tags(champion_name: str) -> list:
     
     # Normaliser le nom
     name_normalized = champion_name.lower().replace(' ', '').replace("'", "")
+
+
     
     return _CHAMPION_TAGS_CACHE.get(name_normalized, [])
 
@@ -436,6 +438,7 @@ def get_profile_for_champion(champion_name: str, role: str) -> ChampionProfile:
         ChampionProfile correspondant
     """
     tags = get_champion_tags(champion_name)
+
     return get_champion_profile(tags, role)
 
 

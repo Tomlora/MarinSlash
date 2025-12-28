@@ -437,10 +437,11 @@ class ScoringMixin:
             
             if not champ_name:
                 return None
-            
+
             # Déterminer le profil
             profile = get_profile_for_champion(champ_name, role)
-            
+
+            print(profile)
             # Récupérer les ajustements
             return get_profile_adjustments(role, profile)
             
@@ -490,7 +491,7 @@ class ScoringMixin:
             self.player_breakdown = self.breakdowns_liste[id_player]
             self.player_rank = self._get_player_rank(id_player)
     
-    def _calculate_zscore_for_player(self, i: int) -> float:
+    def _calculate_zscore_for_player_with_profile(self, i: int) -> float:
         """Calcule le score z-score avec ajustements de profil."""
         # Récupération du rôle
         role_str = self.thisPositionListe[i] if i < len(self.thisPositionListe) else 'MID'
@@ -638,11 +639,14 @@ class ScoringMixin:
         # --- DIMENSION 1: COMBAT VALUE ---
         kp = (kills + assists) / team_kills
         # Ajuster les attentes de KP selon le profil
-        kp_expected = kp / kp_mult  # Si kp_mult > 1, on attend plus de KP donc le score est ajusté
-        kp_score = linear_scale(kp_expected, 0.3, 0.8, 0, 10)
+        kp_adjusted = kp / kp_mult  # Si kp_mult > 1, on attend plus de KP donc le score est ajusté
+        kp_score = linear_scale(kp_adjusted, 0.3, 0.8, 0, 10)
         
         death_share = deaths / max(team_deaths, 1)
-        death_score = linear_scale(1 - death_share, 0.5, 1.0, 0, 10)
+        # Ajuster selon tank_mult : un tank qui meurt plus est moins pénalisé
+        # Si tank_mult > 1, on attend qu'il prenne plus de dégâts/morts, donc on est plus clément
+        death_share_adjusted = death_share / tank_mult
+        death_score = linear_scale(1 - death_share_adjusted, 0.5, 1.0, 0, 10)
         
         if deaths == 0:
             kda = (kills + assists) * 1.5
@@ -658,7 +662,10 @@ class ScoringMixin:
         
         gold_share = gold / team_gold
         damage_share = damage / team_damage
-        efficiency_ratio = damage_share / gold_share if gold_share > 0 else 1.0
+        # Ajuster damage_share selon le profil : un tank avec dmg_share_mult=0.8
+        # qui fait 15% des dégâts est évalué comme s'il faisait 15/0.8 = 18.75%
+        damage_share_adjusted = damage_share / dmg_share_mult
+        efficiency_ratio = damage_share_adjusted / gold_share if gold_share > 0 else 1.0
         efficiency_score = linear_scale(efficiency_ratio, 0.6, 1.4, 0, 10)
         
         cs_per_min = cs / game_minutes
