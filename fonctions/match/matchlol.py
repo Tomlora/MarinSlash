@@ -50,6 +50,9 @@ def get_profile_name_fr(profile: str) -> str:
         return names.get(profile.upper(), profile)
 
 
+
+
+
 class MatchLol(
     MatchLolBase,
     MatchLolTeamData,
@@ -199,6 +202,7 @@ class MatchLol(
             # Sauvegarde timeline pour ranked/flex/swiftplay
             if self.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY'] and self.thisTime >= 15:
                 await self.save_timeline()
+                await self._extract_early_game_data()
                 try:
                     await self.save_timeline_event()
                 except Exception:

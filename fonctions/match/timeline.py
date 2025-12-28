@@ -513,3 +513,93 @@ class TimelineMixin:
                 )
             except sqlalchemy.exc.IntegrityError:
                 pass
+
+    async def _extract_early_game_data(self):
+        """
+        Extrait les données early game de la timeline.
+        
+        Doit être appelé après get_data_timeline().
+        Remplit :
+        - thisGoldAt15Liste, thisCsAt15Liste, thisXpAt15Liste
+        - thisSoloKillsListe
+        - firstBloodKillIndex, firstBloodAssistIndices
+        - firstTowerKillIndex, firstTowerAssistIndices
+        """
+        if not hasattr(self, 'timeline') or self.timeline is None:
+            return
+        
+        # Initialisation
+        self.thisGoldAt15Liste = [0] * 10
+        self.thisCsAt15Liste = [0] * 10
+        self.thisXpAt15Liste = [0] * 10
+        self.thisSoloKillsListe = [0] * 10
+        self.firstBloodKillIndex = -1
+        self.firstBloodAssistIndices = []
+        self.firstTowerKillIndex = -1
+        self.firstTowerAssistIndices = []
+        
+        frames = self.timeline.get('info', {}).get('frames', [])
+        
+        # Trouver la frame à 15 min (frame 15, car 1 frame = 1 min)
+        frame_15 = None
+        for frame in frames:
+            timestamp_min = frame.get('timestamp', 0) // 60000
+            if timestamp_min >= 15:
+                frame_15 = frame
+                break
+        
+        # Si game < 15 min, prendre la dernière frame disponible
+        if frame_15 is None and frames:
+            frame_15 = frames[-1]
+        
+        # Extraire les stats @15 min
+        if frame_15:
+            participant_frames = frame_15.get('participantFrames', {})
+            for pid_str, pframe in participant_frames.items():
+                try:
+                    pid = int(pid_str) - 1  # API: 1-10, nous: 0-9
+                    if 0 <= pid < 10:
+                        self.thisGoldAt15Liste[pid] = pframe.get('totalGold', 0)
+                        self.thisCsAt15Liste[pid] = pframe.get('minionsKilled', 0) + pframe.get('jungleMinionsKilled', 0)
+                        self.thisXpAt15Liste[pid] = pframe.get('xp', 0)
+                except (ValueError, IndexError):
+                    continue
+        
+        # Parcourir les events pour first blood, first tower, solo kills
+        first_blood_found = False
+        first_tower_found = False
+        
+        for frame in frames:
+            events = frame.get('events', [])
+            for event in events:
+                event_type = event.get('type', '')
+                
+                # First Blood
+                if event_type == 'CHAMPION_KILL' and not first_blood_found:
+                    killer_id = event.get('killerId', 0) - 1
+                    assists = [a - 1 for a in event.get('assistingParticipantIds', [])]
+                    
+                    if 0 <= killer_id < 10:
+                        self.firstBloodKillIndex = killer_id
+                        self.firstBloodAssistIndices = [a for a in assists if 0 <= a < 10]
+                        first_blood_found = True
+                
+                # First Tower
+                if event_type == 'BUILDING_KILL' and not first_tower_found:
+                    building_type = event.get('buildingType', '')
+                    if building_type == 'TOWER_BUILDING':
+                        killer_id = event.get('killerId', 0) - 1
+                        assists = [a - 1 for a in event.get('assistingParticipantIds', [])]
+                        
+                        if 0 <= killer_id < 10:
+                            self.firstTowerKillIndex = killer_id
+                            self.firstTowerAssistIndices = [a for a in assists if 0 <= a < 10]
+                            first_tower_found = True
+                
+                # Solo Kills (kill sans assist)
+                if event_type == 'CHAMPION_KILL':
+                    killer_id = event.get('killerId', 0) - 1
+                    assists = event.get('assistingParticipantIds', [])
+                    
+                    if 0 <= killer_id < 10 and len(assists) == 0:
+                        self.thisSoloKillsListe[killer_id] += 1

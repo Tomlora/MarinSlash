@@ -267,12 +267,12 @@ class BadgesMixin:
         # Badge MVP
         if perf.get('is_mvp'):
             self.badges.append('MVP')
-            self.observations += f"🏆 **MVP** de la partie! Score: {perf['score']}/10\n"
+            self.observations += f"\n🏆 **MVP** de la partie! Score: {perf['score']}/10\n"
         
         # Badge ACE (meilleur perdant)
         elif perf.get('is_ace') and not self.thisWinBool:
             self.badges.append('ACE')
-            self.observations += f"⭐ **ACE** - Meilleur de ton équipe malgré la défaite\n"
+            self.observations += f"\n⭐ **ACE** - Meilleur de ton équipe malgré la défaite\n"
         
         # Badge basé sur le point fort
         best_dim = perf.get('best_dimension')

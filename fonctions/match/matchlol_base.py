@@ -402,6 +402,18 @@ class MatchLolBase:
         
         self.thisPinkListe = []
 
+        # Données Early Game (à extraire de la timeline)
+        self.thisGoldAt15Liste = [0] * 10        # Gold à 15 min par joueur
+        self.thisCsAt15Liste = [0] * 10          # CS à 15 min par joueur
+        self.thisXpAt15Liste = [0] * 10          # XP à 15 min par joueur
+        self.thisSoloKillsListe = [0] * 10       # Solo kills par joueur
+
+        # First events
+        self.firstBloodKillIndex = -1            # Index du joueur first blood
+        self.firstBloodAssistIndices = []        # Indices des assistants
+        self.firstTowerKillIndex = -1            # Index du joueur first tower
+        self.firstTowerAssistIndices = []        # Indices des assistants
+
     async def get_data_riot(self):
         """
         Récupère les infos de base:

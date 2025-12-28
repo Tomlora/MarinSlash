@@ -36,6 +36,7 @@ from fonctions.match.champion_profiles import (
 
 
 
+
 # =============================================================================
 # ENUMS ET DATACLASSES
 # =============================================================================
@@ -441,7 +442,6 @@ class ScoringMixin:
             # Déterminer le profil
             profile = get_profile_for_champion(champ_name, role)
 
-            print(profile)
             # Récupérer les ajustements
             return get_profile_adjustments(role, profile)
             
@@ -598,8 +598,6 @@ class ScoringMixin:
         
         # === RÉCUPÉRATION DES AJUSTEMENTS DE PROFIL ===
         profile_adj = self._get_champion_profile_adjustments(i)
-
-        print(profile_adj)
         
         # Multiplicateurs par défaut si pas de profil
         dpm_mult = getattr(profile_adj, 'damage_per_min_mult', 1.0) if profile_adj else 1.0
@@ -801,30 +799,138 @@ class ScoringMixin:
         objective_contribution = min(10.0, max(0.0, objective_contribution))
         
         # --- DIMENSION 4: PACE RATING ---
+        game_minutes = max(getattr(self, 'thisTime', 25), 5)
+        
+        # Stats du joueur
+        gold = self.thisGoldListe[i]
+        damage = self.thisDamageListe[i]
         gold_per_min = gold / game_minutes
         damage_per_min = damage / game_minutes
         
-        # Ajuster les attentes de GPM et DPM selon le profil
-        expected_gpm = {
-            Role.ADC: 420, Role.MID: 400, Role.TOP: 380,
-            Role.JUNGLE: 360, Role.SUPPORT: 260, Role.UNKNOWN: 350
-        }
-        expected_dpm = {
-            Role.ADC: 700, Role.MID: 650, Role.TOP: 550,
-            Role.JUNGLE: 480, Role.SUPPORT: 250, Role.UNKNOWN: 500
-        }
+        # Stats d'équipe moyenne
+        if i < 5:
+            team_gold = max(getattr(self, 'thisGold_team1', 1), 1)
+            team_damage = max(getattr(self, 'thisDamage_team1', 1), 1)
+            team_indices = range(0, 5)
+        else:
+            team_gold = max(getattr(self, 'thisGold_team2', 1), 1)
+            team_damage = max(getattr(self, 'thisDamage_team2', 1), 1)
+            team_indices = range(5, 10)
         
-        # Appliquer les multiplicateurs de profil
-        adj_expected_gpm = expected_gpm.get(role, 350) * gpm_mult
-        adj_expected_dpm = expected_dpm.get(role, 500) * dpm_mult
+        team_avg_gpm = (team_gold / 5) / game_minutes
+        team_avg_dpm = (team_damage / 5) / game_minutes
         
-        gpm_ratio = gold_per_min / adj_expected_gpm
-        gpm_score = linear_scale(gpm_ratio, 0.7, 1.3, 0, 10)
+        # --- GPM vs équipe (25%) ---
+        # Ratio ajusté par le profil
+        expected_gpm_ratio = 1.0 * gpm_mult  # Un tank s'attend à avoir moins de gold
+        actual_gpm_ratio = gold_per_min / team_avg_gpm if team_avg_gpm > 0 else 1.0
+        # Score: 0.6-1.4 ratio -> 0-10
+        gpm_relative_score = linear_scale(actual_gpm_ratio / expected_gpm_ratio, 0.7, 1.3, 0, 10)
         
-        dpm_ratio = damage_per_min / adj_expected_dpm
-        dpm_score = linear_scale(dpm_ratio, 0.7, 1.3, 0, 10)
+        # --- DPM vs équipe (25%) ---
+        expected_dpm_ratio = 1.0 * dpm_mult
+        actual_dpm_ratio = damage_per_min / team_avg_dpm if team_avg_dpm > 0 else 1.0
+        dpm_relative_score = linear_scale(actual_dpm_ratio / expected_dpm_ratio, 0.7, 1.3, 0, 10)
         
-        pace_rating = gpm_score * 0.5 + dpm_score * 0.5
+        # --- Early Pressure (45%) ---
+        early_pressure_score = 0.0
+        early_components = 0
+        
+        # First Blood participation (0-10)
+        fb_score = 0.0
+        if hasattr(self, 'firstBloodKillIndex'):
+            if self.firstBloodKillIndex == i:
+                fb_score = 10.0
+            elif hasattr(self, 'firstBloodAssistIndices') and i in self.firstBloodAssistIndices:
+                fb_score = 7.0
+        early_pressure_score += fb_score * 0.25  # 25% de Early Pressure
+        
+        # First Tower participation (0-10)
+        ft_score = 0.0
+        if hasattr(self, 'firstTowerKillIndex'):
+            if self.firstTowerKillIndex == i:
+                ft_score = 10.0
+            elif hasattr(self, 'firstTowerAssistIndices') and i in self.firstTowerAssistIndices:
+                ft_score = 6.0
+        early_pressure_score += ft_score * 0.25  # 25% de Early Pressure
+        
+        # Gold diff @15 (0-10)
+        gold_15_score = 5.0  # Valeur par défaut si pas de data
+        if hasattr(self, 'thisGoldAt15Liste') and len(self.thisGoldAt15Liste) > i:
+            my_gold_15 = self.thisGoldAt15Liste[i]
+            
+            # Trouver l'adversaire direct (même rôle équipe adverse)
+            opponent_index = self._find_lane_opponent(i)
+            if opponent_index is not None and opponent_index < len(self.thisGoldAt15Liste):
+                opp_gold_15 = self.thisGoldAt15Liste[opponent_index]
+                gold_diff_15 = my_gold_15 - opp_gold_15
+                # -1500 à +1500 gold diff -> 0 à 10
+                gold_15_score = linear_scale(gold_diff_15, -1500, 1500, 0, 10)
+            else:
+                # Pas d'adversaire identifié, comparer à la moyenne adverse
+                if i < 5:
+                    enemy_avg = sum(self.thisGoldAt15Liste[5:10]) / 5
+                else:
+                    enemy_avg = sum(self.thisGoldAt15Liste[0:5]) / 5
+                gold_diff_15 = my_gold_15 - enemy_avg
+                gold_15_score = linear_scale(gold_diff_15, -1000, 1000, 0, 10)
+        
+        early_pressure_score += gold_15_score * 0.30  # 30% de Early Pressure
+        
+        # CS diff @15 (0-10)
+        cs_15_score = 5.0
+        if hasattr(self, 'thisCsAt15Liste') and len(self.thisCsAt15Liste) > i:
+            my_cs_15 = self.thisCsAt15Liste[i]
+            
+            opponent_index = self._find_lane_opponent(i)
+            if opponent_index is not None and opponent_index < len(self.thisCsAt15Liste):
+                opp_cs_15 = self.thisCsAt15Liste[opponent_index]
+                cs_diff_15 = my_cs_15 - opp_cs_15
+                # -30 à +30 CS diff -> 0 à 10
+                cs_15_score = linear_scale(cs_diff_15, -30, 30, 0, 10)
+            else:
+                # Comparer à un standard par rôle
+                expected_cs_15 = {'TOP': 120, 'MID': 120, 'ADC': 130, 'JUNGLE': 100, 'SUPPORT': 20}
+                role_str = role.value if hasattr(role, 'value') else str(role)
+                expected = expected_cs_15.get(role_str, 100)
+                cs_ratio = my_cs_15 / expected if expected > 0 else 1.0
+                cs_15_score = linear_scale(cs_ratio, 0.6, 1.2, 0, 10)
+        
+        early_pressure_score += cs_15_score * 0.20  # 20% de Early Pressure
+        
+        # --- Solo Kills (5% TOP/MID, 0% sinon) ---
+        solo_kills_score = 0.0
+        solo_kills_weight = 0.0
+        
+        role_str = role.value if hasattr(role, 'value') else str(role).upper()
+        if role_str in ['TOP', 'MID', 'MIDDLE']:
+            solo_kills_weight = 0.05
+            
+            solo_kills = 0
+            if hasattr(self, 'thisSoloKillsListe') and i < len(self.thisSoloKillsListe):
+                solo_kills = self.thisSoloKillsListe[i]
+            
+            # 0-3+ solo kills -> 0-10
+            solo_kills_score = linear_scale(solo_kills, 0, 3, 0, 10)
+        
+        # --- Score Final ---
+        # Ajuster les poids si solo kills non applicable
+        if solo_kills_weight == 0:
+            # Redistribuer le 5% sur Early Pressure
+            tempo_score = (
+                gpm_relative_score * 0.25 +
+                dpm_relative_score * 0.25 +
+                early_pressure_score * 0.50  # 45% + 5%
+            )
+        else:
+            tempo_score = (
+                gpm_relative_score * 0.25 +
+                dpm_relative_score * 0.25 +
+                early_pressure_score * 0.45 +
+                solo_kills_score * 0.05
+            )
+
+        pace_rating = max(0.0, min(10.0, tempo_score))
         
         # --- DIMENSION 5: WIN IMPACT ---
         gold_advantage = (team_gold - enemy_gold) / max(enemy_gold, 1)
@@ -1209,6 +1315,41 @@ class ScoringMixin:
                 
         except Exception as e:
             print(f"Erreur lors de la sauvegarde des profils de scoring: {e}")
+
+    def _find_lane_opponent(self, player_index: int) -> int:
+        """
+        Trouve l'adversaire direct d'un joueur (même rôle, équipe adverse).
+        
+        Parameters:
+            player_index: Index du joueur (0-9)
+            
+        Returns:
+            Index de l'adversaire ou None si pas trouvé
+        """
+        if not hasattr(self, 'thisPositionListe') or player_index >= len(self.thisPositionListe):
+            return None
+        
+        my_role = self.thisPositionListe[player_index].upper()
+        
+        # Normaliser le rôle
+        role_map = {'BOTTOM': 'ADC', 'UTILITY': 'SUPPORT', 'MIDDLE': 'MID'}
+        my_role = role_map.get(my_role, my_role)
+        
+        # Chercher dans l'équipe adverse
+        if player_index < 5:
+            search_range = range(5, 10)
+        else:
+            search_range = range(0, 5)
+        
+        for opp_index in search_range:
+            if opp_index < len(self.thisPositionListe):
+                opp_role = self.thisPositionListe[opp_index].upper()
+                opp_role = role_map.get(opp_role, opp_role)
+                if opp_role == my_role:
+                    return opp_index
+        
+        return None
+    
 # =============================================================================
 # TESTS
 # =============================================================================
