@@ -505,7 +505,6 @@ class ScoringMixin:
         # === RÉCUPÉRATION DES AJUSTEMENTS DE PROFIL ===
         profile_adj = self._get_champion_profile_adjustments(i)
 
-        print(profile_adj)
         
         dpm_mult = getattr(profile_adj, 'damage_per_min_mult', 1.0) if profile_adj else 1.0
         dmg_share_mult = getattr(profile_adj, 'damage_share_mult', 1.0) if profile_adj else 1.0
@@ -858,6 +857,8 @@ class ScoringMixin:
         gold_15_score = 5.0  # Valeur par défaut si pas de data
         if hasattr(self, 'thisGoldAt15Liste') and len(self.thisGoldAt15Liste) > i:
             my_gold_15 = self.thisGoldAt15Liste[i]
+
+
             
             # Trouver l'adversaire direct (même rôle équipe adverse)
             opponent_index = self._find_lane_opponent(i)

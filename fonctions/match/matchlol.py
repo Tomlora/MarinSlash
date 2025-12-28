@@ -201,6 +201,7 @@ class MatchLol(
 
             # Sauvegarde timeline pour ranked/flex/swiftplay
             if self.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY'] and self.thisTime >= 15:
+                print("save_timeline")
                 await self.save_timeline()
                 await self._extract_early_game_data()
                 try:

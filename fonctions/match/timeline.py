@@ -525,7 +525,7 @@ class TimelineMixin:
         - firstBloodKillIndex, firstBloodAssistIndices
         - firstTowerKillIndex, firstTowerAssistIndices
         """
-        if not hasattr(self, 'timeline') or self.timeline is None:
+        if not hasattr(self, 'data_timeline') or self.data_timeline is None:
             return
         
         # Initialisation
@@ -538,7 +538,7 @@ class TimelineMixin:
         self.firstTowerKillIndex = -1
         self.firstTowerAssistIndices = []
         
-        frames = self.timeline.get('info', {}).get('frames', [])
+        frames = self.data_timeline.get('info', {}).get('frames', [])
         
         # Trouver la frame à 15 min (frame 15, car 1 frame = 1 min)
         frame_15 = None
@@ -551,7 +551,7 @@ class TimelineMixin:
         # Si game < 15 min, prendre la dernière frame disponible
         if frame_15 is None and frames:
             frame_15 = frames[-1]
-        
+
         # Extraire les stats @15 min
         if frame_15:
             participant_frames = frame_15.get('participantFrames', {})
@@ -562,9 +562,10 @@ class TimelineMixin:
                         self.thisGoldAt15Liste[pid] = pframe.get('totalGold', 0)
                         self.thisCsAt15Liste[pid] = pframe.get('minionsKilled', 0) + pframe.get('jungleMinionsKilled', 0)
                         self.thisXpAt15Liste[pid] = pframe.get('xp', 0)
-                except (ValueError, IndexError):
+                except (ValueError, IndexError) as e:
+                    print('Erreur extraction stats @15 min:', e)
                     continue
-        
+
         # Parcourir les events pour first blood, first tower, solo kills
         first_blood_found = False
         first_tower_found = False
