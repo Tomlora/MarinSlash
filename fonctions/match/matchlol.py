@@ -22,6 +22,34 @@ from .special_modes import ArenaModeMixin, SwarmModeMixin, ClashModeMixin
 from .scoring import ScoringMixin
 
 
+def get_profile_emoji(profile: str) -> str:
+        """Retourne un emoji pour le profil de champion."""
+        emojis = {
+            'TANK': '🛡️',
+            'FIGHTER': '⚔️',
+            'ASSASSIN': '🗡️',
+            'MAGE': '🔮',
+            'MARKSMAN': '🏹',
+            'SUPPORT_UTILITY': '💚',
+            'UNKNOWN': '❓',
+        }
+        return emojis.get(profile.upper(), '❓')
+
+
+def get_profile_name_fr(profile: str) -> str:
+        """Retourne le nom français du profil."""
+        names = {
+            'TANK': 'Tank',
+            'FIGHTER': 'Bruiser',
+            'ASSASSIN': 'Assassin',
+            'MAGE': 'Mage',
+            'MARKSMAN': 'Tireur',
+            'SUPPORT_UTILITY': 'Enchanteur',
+            'UNKNOWN': 'Inconnu',
+        }
+        return names.get(profile.upper(), profile)
+
+
 class MatchLol(
     MatchLolBase,
     MatchLolTeamData,
@@ -301,37 +329,224 @@ class MatchLol(
         instance = cls(id_compte, riot_id, riot_tag, match_id, queue, 
                        me=None, save=save, moba_ok=moba_ok)
         return instance
-    
+
+ 
+
+
     async def get_scoring_embed_field(self):
-        """Retourne un field Discord pour l'embed."""
+        """
+        Retourne un field Discord pour l'embed avec le profil du champion.
+        
+        Returns:
+            dict avec 'name', 'value', 'inline' ou None si pas de données
+        """
         if not hasattr(self, 'player_breakdown') or self.player_breakdown is None:
             return None
         
         perf = self.get_player_performance_summary()
         breakdown = perf['breakdown']
         
+        # Récupérer le profil du joueur
+        if self.thisId > 4:
+            id_player = self.thisId - 5
+        else:
+            id_player = self.thisId
+
+        profile_info = self.get_player_scoring_profile_summary(id_player)
+        profile = profile_info.get('profile', 'UNKNOWN') if profile_info else 'UNKNOWN'
+        profile_emoji = get_profile_emoji(profile)
+        profile_name = get_profile_name_fr(profile)
+        
         # Barre visuelle pour chaque dimension
         def score_bar(score):
             filled = int(score)
             return '█' * filled + '░' * (10 - filled)
         
-        value = f"""
-    **Score: {perf['score']}/10** {perf['emoji']} ({perf['rank_text']})
+        # Indicateur si des ajustements sont appliqués
+        adjustments = profile_info.get('adjustments', {}) if profile_info else {}
+        has_adjustments = any(
+            v != 1.0 for k, v in adjustments.items() 
+            if k.endswith('_mult')
+        ) or any(
+            v != 0.0 for k, v in adjustments.items() 
+            if k.endswith('_adj')
+        )
+        
+        adjustment_indicator = " ⚙️" if has_adjustments else ""
+        
+        value = f"""**Score: {perf['score']}/10** {perf['emoji']} ({perf['rank_text']})
+    {profile_emoji} Profil: **{profile_name}**{adjustment_indicator}
 
-    ⚔️ Combat:    `{score_bar(breakdown['combat_value'])}` {breakdown['combat_value']}
-    💰 Économie:  `{score_bar(breakdown['economic_efficiency'])}` {breakdown['economic_efficiency']}
+    ⚔️ Combat: `{score_bar(breakdown['combat_value'])}` {breakdown['combat_value']}
+    💰 Économie: `{score_bar(breakdown['economic_efficiency'])}` {breakdown['economic_efficiency']}
     🎯 Objectifs: `{score_bar(breakdown['objective_contribution'])}` {breakdown['objective_contribution']}
-    ⚡ Tempo:     `{score_bar(breakdown['pace_rating'])}` {breakdown['pace_rating']}
-    👑 Impact:    `{score_bar(breakdown['win_impact'])}` {breakdown['win_impact']}
-
-    {perf['best_dimension_emoji']} Point fort: **{perf['best_dimension']}**
+    ⚡ Tempo: `{score_bar(breakdown['pace_rating'])}` {breakdown['pace_rating']}
+    👑 Impact: `{score_bar(breakdown['win_impact'])}` {breakdown['win_impact']}
     """
+        # {perf['best_dimension_emoji']} Point fort: **{perf['best_dimension']}**
+        return {
+            'name': '📊 Performance',
+            'value': value,
+            'inline': False
+        }
+
+
+    # =============================================================================
+    # VERSION DÉTAILLÉE AVEC PLUS D'INFOS SUR LE PROFIL
+    # =============================================================================
+
+    async def get_scoring_embed_field_detailed(self):
+        """
+        Version détaillée qui montre aussi les ajustements appliqués.
+        
+        Returns:
+            dict avec 'name', 'value', 'inline' ou None si pas de données
+        """
+        if not hasattr(self, 'player_breakdown') or self.player_breakdown is None:
+            return None
+        
+        perf = self.get_player_performance_summary()
+        breakdown = perf['breakdown']
+        
+        # Récupérer le profil du joueur
+
+        # Récupérer le profil du joueur
+        if self.thisId > 4:
+            id_player = self.thisId - 5
+        else:
+            id_player = self.thisId
+
+        profile_info = self.get_player_scoring_profile_summary(id_player)
+        profile = profile_info.get('profile', 'UNKNOWN') if profile_info else 'UNKNOWN'
+        profile_emoji = get_profile_emoji(profile)
+        profile_name = get_profile_name_fr(profile)
+        champion = profile_info.get('champion', '') if profile_info else ''
+        
+        # Barre visuelle
+        def score_bar(score):
+            filled = int(score)
+            return '█' * filled + '░' * (10 - filled)
+        
+        # Construire la description des ajustements
+        adjustments = profile_info.get('adjustments', {}) if profile_info else {}
+        adj_parts = []
+        
+        if adjustments.get('damage_per_min_mult', 1.0) != 1.0:
+            mult = adjustments['damage_per_min_mult']
+            adj_parts.append(f"DPM×{mult:.2f}")
+        if adjustments.get('damage_taken_share_mult', 1.0) != 1.0:
+            mult = adjustments['damage_taken_share_mult']
+            adj_parts.append(f"Tank×{mult:.2f}")
+        if adjustments.get('kp_mult', 1.0) != 1.0:
+            mult = adjustments['kp_mult']
+            adj_parts.append(f"KP×{mult:.2f}")
+        if adjustments.get('vision_mult', 1.0) != 1.0:
+            mult = adjustments['vision_mult']
+            adj_parts.append(f"Vision×{mult:.2f}")
+        
+        adj_text = f" ({', '.join(adj_parts)})" if adj_parts else ""
+        
+        value = f"""**Score: {perf['score']}/10** {perf['emoji']} ({perf['rank_text']})
+    {profile_emoji} **{champion}** → {profile_name}{adj_text}
+
+    ⚔️ Combat: `{score_bar(breakdown['combat_value'])}` {breakdown['combat_value']}
+    💰 Économie: `{score_bar(breakdown['economic_efficiency'])}` {breakdown['economic_efficiency']}
+    🎯 Objectifs: `{score_bar(breakdown['objective_contribution'])}` {breakdown['objective_contribution']}
+    ⚡ Tempo: `{score_bar(breakdown['pace_rating'])}` {breakdown['pace_rating']}
+    👑 Impact: `{score_bar(breakdown['win_impact'])}` {breakdown['win_impact']}
+    """
+        
+        # {perf['best_dimension_emoji']} Point fort: **{perf['best_dimension']}**
         
         return {
             'name': '📊 Performance',
             'value': value,
             'inline': False
         }
+
+
+    # =============================================================================
+    # FONCTIONS HELPER POUR L'AFFICHAGE DES PROFILS DANS LES LISTES
+    # =============================================================================
+
+    def format_player_with_profile(self, player_index: int, show_adjustments: bool = False) -> str:
+        """
+        Formate une ligne pour un joueur avec son profil.
+        
+        Parameters:
+            player_index: Index du joueur (0-9)
+            show_adjustments: Afficher les multiplicateurs appliqués
+            
+        Returns:
+            String formaté pour Discord
+        """
+        try:
+            from fonctions.match.champion_profiles import (
+                get_profile_for_champion,
+                get_profile_adjustments,
+                get_champion_tags,
+            )
+            from utils.emoji import emote_champ_discord
+            
+            champion = self.thisChampNameListe[player_index] if player_index < len(self.thisChampNameListe) else ''
+            riot_id = self.thisRiotIdListe[player_index] if player_index < len(self.thisRiotIdListe) else ''
+            role = self.thisPositionListe[player_index] if player_index < len(self.thisPositionListe) else ''
+            score = self.scores_liste[player_index] if player_index < len(self.scores_liste) else 0
+            
+            # Profil
+            profile = get_profile_for_champion(champion, role)
+            profile_emoji = get_profile_emoji(profile.value if profile else 'UNKNOWN')
+            
+            # Emoji champion
+            champ_emoji = emote_champ_discord.get(champion.capitalize(), '')
+            
+            # Score emoji
+            score_emoji = self.get_score_emoji(score)
+            
+            # Badge MVP/ACE
+            badge = ''
+            if player_index == self.mvp_index:
+                badge = ' 🏆'
+            elif player_index == self.ace_index:
+                badge = ' ⭐'
+            
+            line = f"{champ_emoji} **{riot_id}** ({role}) {profile_emoji} `{score}` {score_emoji}{badge}"
+            
+            if show_adjustments:
+                adj = get_profile_adjustments(role, profile)
+                adj_parts = []
+                if adj.damage_per_min_mult != 1.0:
+                    adj_parts.append(f"DPM×{adj.damage_per_min_mult:.1f}")
+                if adj.damage_taken_share_mult != 1.0:
+                    adj_parts.append(f"Tank×{adj.damage_taken_share_mult:.1f}")
+                if adj_parts:
+                    line += f" ({', '.join(adj_parts)})"
+            
+            return line
+            
+        except Exception:
+            return f"Joueur {player_index}"
+
+
+    def get_team_profiles_summary(self, team: str = 'blue') -> str:
+        """
+        Retourne un résumé des profils d'une équipe.
+        
+        Parameters:
+            team: 'blue' (indices 0-4) ou 'red' (indices 5-9)
+            
+        Returns:
+            String formaté pour Discord
+        """
+        start = 0 if team.lower() == 'blue' else 5
+        end = 5 if team.lower() == 'blue' else 10
+        
+        lines = []
+        for i in range(start, min(end, len(self.scores_liste))):
+            lines.append(self.format_player_with_profile(i))
+        
+        return '\n'.join(lines)
+
 
 
 
