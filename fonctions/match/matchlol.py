@@ -211,7 +211,8 @@ class MatchLol(
             
                 
             await self.calculate_all_scores()
-            await self.save_player_scoring_profiles()
+            # await self.save_player_scoring_profiles()
+            await self.save_player_scoring_data()
 
             # 7. Détections
             #await self.detection_joueurs_pro()
@@ -377,10 +378,10 @@ class MatchLol(
             if k.endswith('_adj')
         )
         
-        adjustment_indicator = " ⚙️" if has_adjustments else ""
+        # adjustment_indicator = " ⚙️" if has_adjustments else ""
         
         value = f"""**Score: {perf['score']}/10** {perf['emoji']} ({perf['rank_text']})
-    {profile_emoji} Profil: **{profile_name}**{adjustment_indicator}
+    {profile_emoji} Profil: **{profile_name}**
 
     ⚔️ Combat: `{score_bar(breakdown['combat_value'])}` {breakdown['combat_value']}
     💰 Économie: `{score_bar(breakdown['economic_efficiency'])}` {breakdown['economic_efficiency']}
