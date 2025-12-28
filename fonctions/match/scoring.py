@@ -491,7 +491,7 @@ class ScoringMixin:
             self.player_breakdown = self.breakdowns_liste[id_player]
             self.player_rank = self._get_player_rank(id_player)
     
-    def _calculate_zscore_for_player_with_profile(self, i: int) -> float:
+    def _calculate_zscore_for_player(self, i: int) -> float:
         """Calcule le score z-score avec ajustements de profil."""
         # Récupération du rôle
         role_str = self.thisPositionListe[i] if i < len(self.thisPositionListe) else 'MID'
@@ -504,6 +504,8 @@ class ScoringMixin:
         
         # === RÉCUPÉRATION DES AJUSTEMENTS DE PROFIL ===
         profile_adj = self._get_champion_profile_adjustments(i)
+
+        print(profile_adj)
         
         dpm_mult = getattr(profile_adj, 'damage_per_min_mult', 1.0) if profile_adj else 1.0
         dmg_share_mult = getattr(profile_adj, 'damage_share_mult', 1.0) if profile_adj else 1.0
@@ -596,6 +598,8 @@ class ScoringMixin:
         
         # === RÉCUPÉRATION DES AJUSTEMENTS DE PROFIL ===
         profile_adj = self._get_champion_profile_adjustments(i)
+
+        print(profile_adj)
         
         # Multiplicateurs par défaut si pas de profil
         dpm_mult = getattr(profile_adj, 'damage_per_min_mult', 1.0) if profile_adj else 1.0
@@ -1009,7 +1013,202 @@ class ScoringMixin:
             self.get_performance_summary_for_player(i) 
             for i in range(len(self.scores_liste))
         ]
+    
 
+    def get_player_scoring_profile_summary(self, player_index: int) -> dict:
+        """
+        Retourne un résumé du profil de scoring appliqué à un joueur.
+        
+        Parameters:
+            player_index: Index du joueur (0-9)
+            
+        Returns:
+            Dict avec champion, role, profile, ratios appliqués
+        """
+        try:
+            from fonctions.match.champion_profiles import (
+                get_profile_for_champion,
+                get_profile_adjustments,
+                get_champion_tags,
+            )
+            
+            champion = self.thisChampNameListe[player_index] if player_index < len(self.thisChampNameListe) else ''
+            role = self.thisPositionListe[player_index] if player_index < len(self.thisPositionListe) else 'UNKNOWN'
+            
+            tags = get_champion_tags(champion)
+            profile = get_profile_for_champion(champion, role)
+            adj = get_profile_adjustments(role, profile)
+            
+            return {
+                'champion': champion,
+                'role': role,
+                'tags': tags,
+                'profile': profile.value if profile else 'UNKNOWN',
+                'adjustments': {
+                    'damage_per_min_mult': adj.damage_per_min_mult,
+                    'damage_share_mult': adj.damage_share_mult,
+                    'cs_per_min_mult': adj.cs_per_min_mult,
+                    'gold_per_min_mult': adj.gold_per_min_mult,
+                    'vision_mult': adj.vision_mult,
+                    'kp_mult': adj.kp_mult,
+                    'damage_taken_share_mult': adj.damage_taken_share_mult,
+                    'combat_weight_adj': adj.combat_weight_adj,
+                    'economic_weight_adj': adj.economic_weight_adj,
+                    'objective_weight_adj': adj.objective_weight_adj,
+                    'tempo_weight_adj': adj.tempo_weight_adj,
+                    'impact_weight_adj': adj.impact_weight_adj,
+                }
+            }
+        except Exception:
+            return {}
+
+    async def save_player_scoring_profiles(self):
+        """
+        Sauvegarde les profils et ratios appliqués à chaque joueur dans la BDD.
+        
+        À appeler après calculate_all_scores().
+        Sauvegarde dans la table match_player_scoring_profile.
+        """
+        try:
+            from fonctions.gestion_bdd import requete_perso_bdd
+            from fonctions.match.champion_profiles import (
+                get_profile_for_champion,
+                get_profile_adjustments,
+                get_champion_tags,
+                load_champion_tags,
+                load_profile_adjustments,
+                ChampionProfile
+            )
+            
+            # S'assurer que les caches sont chargés
+            load_champion_tags()
+            load_profile_adjustments()
+            
+            match_id = getattr(self, 'last_match', None)
+            if not match_id:
+                return
+            
+            nb_players = min(len(self.thisKillsListe), 10)
+            
+            for i in range(nb_players):
+                # Infos joueur
+                riot_id = self.thisRiotIdListe[i] if i < len(self.thisRiotIdListe) else ''
+                riot_tag = self.thisRiotTagListe[i] if i < len(self.thisRiotTagListe) else ''
+                champion = self.thisChampNameListe[i] if i < len(self.thisChampNameListe) else ''
+                role = self.thisPositionListe[i] if i < len(self.thisPositionListe) else 'UNKNOWN'
+                
+                # Récupérer les tags et le profil
+                tags = get_champion_tags(champion)
+                tags_str = '{' + ','.join(tags) + '}' if tags else ''
+                profile = get_profile_for_champion(champion, role)
+                profile_str = profile.value if profile else 'UNKNOWN'
+                
+                # Récupérer les ajustements
+                adj = get_profile_adjustments(role, profile)
+                
+                # Calculer les poids finaux (après ajustement et normalisation)
+                base_weights = DIMENSION_WEIGHTS.get(normalize_position(role), DIMENSION_WEIGHTS[Role.UNKNOWN])
+                
+                adjusted_weights = {
+                    'combat_value': max(0, base_weights['combat_value'] + adj.combat_weight_adj),
+                    'economic_efficiency': max(0, base_weights['economic_efficiency'] + adj.economic_weight_adj),
+                    'objective_contribution': max(0, base_weights['objective_contribution'] + adj.objective_weight_adj),
+                    'pace_rating': max(0, base_weights['pace_rating'] + adj.tempo_weight_adj),
+                    'win_impact': max(0, base_weights['win_impact'] + adj.impact_weight_adj),
+                }
+                
+                total_weight = sum(adjusted_weights.values())
+                if total_weight > 0:
+                    final_weights = {k: v / total_weight for k, v in adjusted_weights.items()}
+                else:
+                    final_weights = adjusted_weights
+                
+                # Score final
+                final_score = self.scores_liste[i] if i < len(self.scores_liste) else 0
+                
+                # Requête INSERT/UPDATE
+                query = """
+                    INSERT INTO match_player_scoring_profile (
+                        match_id, player_index, riot_id, riot_tag, champion, role,
+                        champion_tags, profile,
+                        damage_per_min_mult, damage_share_mult, cs_per_min_mult,
+                        gold_per_min_mult, vision_mult, kp_mult, damage_taken_share_mult,
+                        combat_weight_adj, economic_weight_adj, objective_weight_adj,
+                        tempo_weight_adj, impact_weight_adj,
+                        final_combat_weight, final_economic_weight, final_objective_weight,
+                        final_tempo_weight, final_impact_weight,
+                        final_score
+                    ) VALUES (
+                        :match_id, :player_index, :riot_id, :riot_tag, :champion, :role,
+                        :champion_tags, :profile,
+                        :dpm_mult, :dmg_share_mult, :cs_mult,
+                        :gpm_mult, :vision_mult, :kp_mult, :tank_mult,
+                        :combat_adj, :eco_adj, :obj_adj,
+                        :tempo_adj, :impact_adj,
+                        :final_combat, :final_eco, :final_obj,
+                        :final_tempo, :final_impact,
+                        :final_score
+                    )
+                    ON CONFLICT (match_id, player_index) DO UPDATE SET
+                        riot_id = EXCLUDED.riot_id,
+                        riot_tag = EXCLUDED.riot_tag,
+                        champion = EXCLUDED.champion,
+                        role = EXCLUDED.role,
+                        champion_tags = EXCLUDED.champion_tags,
+                        profile = EXCLUDED.profile,
+                        damage_per_min_mult = EXCLUDED.damage_per_min_mult,
+                        damage_share_mult = EXCLUDED.damage_share_mult,
+                        cs_per_min_mult = EXCLUDED.cs_per_min_mult,
+                        gold_per_min_mult = EXCLUDED.gold_per_min_mult,
+                        vision_mult = EXCLUDED.vision_mult,
+                        kp_mult = EXCLUDED.kp_mult,
+                        damage_taken_share_mult = EXCLUDED.damage_taken_share_mult,
+                        combat_weight_adj = EXCLUDED.combat_weight_adj,
+                        economic_weight_adj = EXCLUDED.economic_weight_adj,
+                        objective_weight_adj = EXCLUDED.objective_weight_adj,
+                        tempo_weight_adj = EXCLUDED.tempo_weight_adj,
+                        impact_weight_adj = EXCLUDED.impact_weight_adj,
+                        final_combat_weight = EXCLUDED.final_combat_weight,
+                        final_economic_weight = EXCLUDED.final_economic_weight,
+                        final_objective_weight = EXCLUDED.final_objective_weight,
+                        final_tempo_weight = EXCLUDED.final_tempo_weight,
+                        final_impact_weight = EXCLUDED.final_impact_weight,
+                        final_score = EXCLUDED.final_score
+                """
+                
+                params = {
+                    'match_id': match_id,
+                    'player_index': i,
+                    'riot_id': riot_id,
+                    'riot_tag': riot_tag,
+                    'champion': champion,
+                    'role': role,
+                    'champion_tags': tags_str,
+                    'profile': profile_str,
+                    'dpm_mult': adj.damage_per_min_mult,
+                    'dmg_share_mult': adj.damage_share_mult,
+                    'cs_mult': adj.cs_per_min_mult,
+                    'gpm_mult': adj.gold_per_min_mult,
+                    'vision_mult': adj.vision_mult,
+                    'kp_mult': adj.kp_mult,
+                    'tank_mult': adj.damage_taken_share_mult,
+                    'combat_adj': adj.combat_weight_adj,
+                    'eco_adj': adj.economic_weight_adj,
+                    'obj_adj': adj.objective_weight_adj,
+                    'tempo_adj': adj.tempo_weight_adj,
+                    'impact_adj': adj.impact_weight_adj,
+                    'final_combat': round(final_weights['combat_value'], 4),
+                    'final_eco': round(final_weights['economic_efficiency'], 4),
+                    'final_obj': round(final_weights['objective_contribution'], 4),
+                    'final_tempo': round(final_weights['pace_rating'], 4),
+                    'final_impact': round(final_weights['win_impact'], 4),
+                    'final_score': final_score,
+                }
+                
+                requete_perso_bdd(query, params)
+                
+        except Exception as e:
+            print(f"Erreur lors de la sauvegarde des profils de scoring: {e}")
 # =============================================================================
 # TESTS
 # =============================================================================

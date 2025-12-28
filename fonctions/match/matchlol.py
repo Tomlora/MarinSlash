@@ -178,6 +178,7 @@ class MatchLol(
             
                 
             await self.calculate_all_scores()
+            await self.save_player_scoring_profiles()
 
             # 7. Détections
             #await self.detection_joueurs_pro()
