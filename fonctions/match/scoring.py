@@ -1,9 +1,15 @@
 """
-Mixin de scoring pour MatchLol.
+Mixin de scoring pour MatchLol - VERSION HARMONISÉE.
 
-Intègre deux systèmes complémentaires:
+Intègre deux systèmes complémentaires avec logique d'ajustement unifiée:
 - PerformanceScorer (z-score): Score principal 1-10 pour ranking MVP/ACE
 - ContributionScorer (impact): Breakdown détaillé pour insights/badges
+
+HARMONISATION v2.0:
+- Les deux systèmes utilisent la même logique : ajuster les BASELINES/BORNES avec les multiplicateurs
+- Z-Score : baseline ajustée = baseline * multiplicateur
+- Breakdown : bornes ajustées = bornes * multiplicateur
+- Inversion damage_taken_share basée sur tank_mult (< 1.0 = non-tank) au lieu du rôle
 
 Usage dans MatchLol:
     class MatchLol(ScoringMixin, ...):
@@ -11,14 +17,6 @@ Usage dans MatchLol:
     
     # Après prepare_data():
     await self.calculate_all_scores()
-    
-    # Accès aux scores:
-    self.scores_liste        # [7.2, 6.5, 8.1, ...] pour les 10 joueurs
-    self.mvp_index           # Index du MVP (0-9)
-    self.ace_index           # Index de l'ACE (meilleur perdant)
-    self.player_score        # Score du joueur principal
-    self.player_rank         # Rang du joueur (1-10)
-    self.player_breakdown    # ContributionBreakdown détaillé
 """
 
 from dataclasses import dataclass, field
@@ -84,7 +82,6 @@ class ContributionBreakdown:
         }
     
     def get_best_dimension(self) -> Tuple[str, float]:
-        """Retourne la meilleure dimension du joueur."""
         dims = {
             'Combat': self.combat_value,
             'Économie': self.economic_efficiency,
@@ -96,7 +93,6 @@ class ContributionBreakdown:
         return best, dims[best]
     
     def get_weakest_dimension(self) -> Tuple[str, float]:
-        """Retourne la dimension la plus faible."""
         dims = {
             'Combat': self.combat_value,
             'Économie': self.economic_efficiency,
@@ -108,7 +104,6 @@ class ContributionBreakdown:
         return worst, dims[worst]
     
     def get_badge_emoji(self) -> str:
-        """Retourne un emoji correspondant au point fort."""
         emoji_map = {
             'Combat': '⚔️',
             'Économie': '💰',
@@ -122,10 +117,7 @@ class ContributionBreakdown:
 
 @dataclass
 class PlayerMetrics:
-    """
-    Métriques calculées pour un joueur - Structure centralisée pour éviter les doublons.
-    Contient toutes les valeurs intermédiaires utilisées par les deux systèmes de scoring.
-    """
+    """Métriques calculées pour un joueur - Structure centralisée."""
     # === IDENTITÉ ===
     player_index: int
     champion: str = ""
@@ -154,7 +146,7 @@ class PlayerMetrics:
     team_gold: int = 1
     enemy_gold: int = 1
     
-    # === MÉTRIQUES DÉRIVÉES (calculées une fois) ===
+    # === MÉTRIQUES DÉRIVÉES ===
     game_minutes: float = 25.0
     cs_per_min: float = 0.0
     damage_per_min: float = 0.0
@@ -166,7 +158,7 @@ class PlayerMetrics:
     kda: float = 0.0
     death_share: float = 0.0
     gold_share: float = 0.0
-    dpg: float = 0.0  # Damage per gold
+    dpg: float = 0.0
     
     # === OBJECTIFS (TIMELINE) ===
     objectives_participated: float = 0.0
@@ -209,7 +201,7 @@ class PlayerMetrics:
     tempo_weight_adj: float = 0.0
     impact_weight_adj: float = 0.0
     
-    # === Z-SCORES (calculés une fois, utilisés par zscore scoring) ===
+    # === Z-SCORES ===
     z_kda: float = 0.0
     z_cs_per_min: float = 0.0
     z_damage_per_min: float = 0.0
@@ -255,7 +247,7 @@ class PlayerMetrics:
     advantage_score: float = 0.0
     contribution_to_lead: float = 0.0
     
-    # === POIDS FINAUX (après normalisation) ===
+    # === POIDS FINAUX ===
     final_combat_weight: float = 0.0
     final_economic_weight: float = 0.0
     final_objective_weight: float = 0.0
@@ -263,17 +255,17 @@ class PlayerMetrics:
     final_impact_weight: float = 0.0
     
     # === SCORES FINAUX ===
-    zscore_score: float = 5.0  # Score du système z-score (1-10)
+    zscore_score: float = 5.0
     combat_value: float = 0.0
     economic_efficiency: float = 0.0
     objective_contribution: float = 0.0
     pace_rating: float = 0.0
     win_impact: float = 0.0
-    breakdown_score: float = 5.0  # Score du système breakdown (1-10)
+    breakdown_score: float = 5.0
 
 
 # =============================================================================
-# CONSTANTES - BASELINES ET POIDS
+# CONSTANTES - BASELINES Z-SCORE
 # =============================================================================
 
 ROLE_BASELINES: Dict[Role, RoleStats] = {
@@ -371,6 +363,48 @@ DIMENSION_WEIGHTS: Dict[Role, Dict[str, float]] = {
 
 
 # =============================================================================
+# BASELINES BREAKDOWN - Harmonisées avec Z-Score
+# =============================================================================
+
+BREAKDOWN_BASELINES: Dict[str, Dict[str, Tuple[float, float]]] = {
+    'kp': {'min': 0.30, 'max': 0.80},
+    'death_share': {'min': 0.10, 'max': 0.40},
+    'kda': {'min': 1.0, 'max': 6.0},
+    'dpg': {'min': 1.0, 'max': 3.0},
+    'efficiency': {'min': 0.6, 'max': 1.4},
+    'cs_ratio': {'min': 0.5, 'max': 1.2},
+    'vision_ratio': {'min': 0.5, 'max': 1.5},
+    'turret_damage': {'min': 0, 'max': 8000},
+    'obj_damage': {'min': 0, 'max': 20000},
+    'pink_ratio': {'min': 0.3, 'max': 1.5},
+    'obj_participation': {'min': 0.1, 'max': 0.6},
+    'dragon': {'min': 0, 'max': 4},
+    'baron': {'min': 0, 'max': 2},
+    'turrets_killed': {'min': 0, 'max': 4},
+    'tower_participation': {'min': 0, 'max': 5},
+    'resource_ratio': {'min': 0.7, 'max': 1.3},
+    'gold_diff_15': {'min': -1500, 'max': 1500},
+    'cs_diff_15': {'min': -30, 'max': 30},
+    'solo_kills': {'min': 0, 'max': 3},
+    'gold_advantage': {'min': -0.2, 'max': 0.2},
+}
+
+EXPECTED_CS_BY_ROLE: Dict[str, float] = {
+    'ADC': 8.0, 'MID': 8.0, 'TOP': 7.0, 'JUNGLE': 5.5, 'SUPPORT': 1.5, 'UNKNOWN': 6.0,
+}
+
+EXPECTED_VISION_BY_ROLE: Dict[Role, float] = {
+    Role.SUPPORT: 2.5, Role.JUNGLE: 1.2, Role.TOP: 0.9,
+    Role.MID: 0.8, Role.ADC: 0.6, Role.UNKNOWN: 1.0,
+}
+
+EXPECTED_PINKS_BY_ROLE: Dict[Role, int] = {
+    Role.SUPPORT: 4, Role.JUNGLE: 3, Role.TOP: 2,
+    Role.MID: 2, Role.ADC: 1, Role.UNKNOWN: 2,
+}
+
+
+# =============================================================================
 # FONCTIONS UTILITAIRES
 # =============================================================================
 
@@ -409,30 +443,52 @@ def linear_scale(value: float, min_val: float, max_val: float,
     return max(out_min, min(out_max, scaled))
 
 
+def linear_scale_adjusted(value: float, min_val: float, max_val: float,
+                          multiplier: float = 1.0,
+                          out_min: float = 0, out_max: float = 10) -> float:
+    """
+    Scale linéaire avec bornes ajustées par un multiplicateur.
+    
+    HARMONISATION: Cette fonction applique la même logique que le z-score:
+    - Z-Score: baseline ajustée = baseline * mult
+    - Breakdown: bornes ajustées = bornes * mult
+    """
+    adj_min = min_val * multiplier
+    adj_max = max_val * multiplier
+    
+    if adj_max == adj_min:
+        return (out_min + out_max) / 2
+    
+    scaled = (value - adj_min) / (adj_max - adj_min) * (out_max - out_min) + out_min
+    return max(out_min, min(out_max, scaled))
+
+
+def linear_scale_inverted_adjusted(value: float, min_val: float, max_val: float,
+                                   multiplier: float = 1.0,
+                                   out_min: float = 0, out_max: float = 10) -> float:
+    """
+    Scale linéaire inversé avec bornes ajustées.
+    Utilisé pour les métriques où moins = mieux (death_share pour non-tanks).
+    """
+    adj_min = min_val * multiplier
+    adj_max = max_val * multiplier
+    
+    if adj_max == adj_min:
+        return (out_min + out_max) / 2
+    
+    scaled = (adj_max - value) / (adj_max - adj_min) * (out_max - out_min) + out_min
+    return max(out_min, min(out_max, scaled))
+
+
 # =============================================================================
 # MIXIN PRINCIPAL
 # =============================================================================
 
 class ScoringMixin:
-    """
-    Mixin de scoring pour MatchLol.
-    
-    Ajoute les attributs:
-        - scores_liste: Liste des scores (0-10) pour les 10 joueurs
-        - breakdowns_liste: Liste des ContributionBreakdown pour chaque joueur
-        - player_metrics_liste: Liste des PlayerMetrics avec tous les calculs intermédiaires
-        - mvp_index: Index du MVP
-        - ace_index: Index de l'ACE (meilleur perdant)
-        - player_score: Score du joueur principal
-        - player_rank: Rang du joueur (1 = MVP)
-        - player_breakdown: Breakdown détaillé du joueur principal
-    """
+    """Mixin de scoring pour MatchLol."""
     
     def _extract_objective_participations_from_timeline(self):
-        """
-        Extrait les participations individuelles aux objectifs depuis la timeline.
-        """
-        # Initialisation des listes pour les 10 joueurs
+        """Extrait les participations individuelles aux objectifs depuis la timeline."""
         self.thisObjectivesParticipatedListe = [0] * 10
         self.thisDragonParticipationListe = [0] * 10
         self.thisBaronParticipationListe = [0] * 10
@@ -545,35 +601,8 @@ class ScoringMixin:
         self.player_rank = 5
         self.player_breakdown = None
 
-    def _get_champion_profile_adjustments(self, player_index: int):
-        """Récupère les ajustements de profil pour un joueur."""
-        try:
-            from fonctions.match.champion_profiles import (
-                get_profile_for_champion,
-                get_profile_adjustments,
-                load_champion_tags
-            )
-            
-            load_champion_tags()
-            
-            champ_name = self.thisChampNameListe[player_index] if player_index < len(self.thisChampNameListe) else ""
-            role = self.thisPositionListe[player_index] if player_index < len(self.thisPositionListe) else "MID"
-            
-            if not champ_name:
-                return None
-
-            profile = get_profile_for_champion(champ_name, role)
-            return get_profile_adjustments(role, profile)
-            
-        except ImportError:
-            return None
-        except Exception:
-            return None
-
     def _build_player_metrics(self, i: int) -> PlayerMetrics:
-        """
-        Construit l'objet PlayerMetrics avec toutes les métriques calculées une seule fois.
-        """
+        """Construit l'objet PlayerMetrics avec toutes les métriques calculées une seule fois."""
         metrics = PlayerMetrics(player_index=i)
         
         # === IDENTITÉ ===
@@ -618,7 +647,7 @@ class ScoringMixin:
             metrics.team_gold = max(getattr(self, 'thisGold_team2', 1), 1)
             metrics.enemy_gold = max(getattr(self, 'thisGold_team1', 1), 1)
         
-        # === MÉTRIQUES DÉRIVÉES (calculées une seule fois) ===
+        # === MÉTRIQUES DÉRIVÉES ===
         metrics.game_minutes = max(getattr(self, 'thisTime', 25), 5)
         metrics.cs_per_min = metrics.cs / metrics.game_minutes
         metrics.damage_per_min = metrics.damage / metrics.game_minutes
@@ -659,22 +688,17 @@ class ScoringMixin:
         if hasattr(self, 'thisSoloKillsListe') and i < len(self.thisSoloKillsListe):
             metrics.solo_kills = self.thisSoloKillsListe[i]
         
-        # First Blood
         if hasattr(self, 'firstBloodKillIndex') and self.firstBloodKillIndex == i:
             metrics.has_first_blood = True
         if hasattr(self, 'firstBloodAssistIndices') and i in getattr(self, 'firstBloodAssistIndices', []):
             metrics.has_first_blood_assist = True
-        
-        # First Tower
         if hasattr(self, 'firstTowerKillIndex') and self.firstTowerKillIndex == i:
             metrics.has_first_tower = True
         if hasattr(self, 'firstTowerAssistIndices') and i in getattr(self, 'firstTowerAssistIndices', []):
             metrics.has_first_tower_assist = True
         
-        # Adversaire direct
         metrics.opponent_index = self._find_lane_opponent(i)
         
-        # Gold/CS diff @15
         if metrics.opponent_index is not None:
             if hasattr(self, 'thisGoldAt15Liste') and metrics.opponent_index < len(self.thisGoldAt15Liste):
                 metrics.gold_diff_15 = metrics.gold_at_15 - self.thisGoldAt15Liste[metrics.opponent_index]
@@ -712,7 +736,12 @@ class ScoringMixin:
         return metrics
 
     def _calculate_zscores(self, metrics: PlayerMetrics):
-        """Calcule tous les z-scores pour un joueur. Modifie l'objet metrics en place."""
+        """
+        Calcule tous les z-scores pour un joueur.
+        
+        HARMONISATION: Utilise tank_mult pour déterminer si le joueur est un tank,
+        au lieu de se baser uniquement sur le rôle.
+        """
         role = metrics.role_enum
         baseline = ROLE_BASELINES.get(role, ROLE_BASELINES[Role.MID])
         weights = ROLE_WEIGHTS.get(role, ROLE_WEIGHTS[Role.MID])
@@ -736,8 +765,10 @@ class ScoringMixin:
         metrics.z_kp = calculate_z_score(metrics.kp, adj_baseline_kp[0], adj_baseline_kp[1])
         metrics.z_damage_taken_share = calculate_z_score(metrics.damage_taken_share, adj_baseline_tank[0], adj_baseline_tank[1])
         
-        # Inversion pour damage_taken_share (moins = mieux, sauf tank)
-        if role not in [Role.TOP, Role.SUPPORT]:
+        # HARMONISATION: Inversion basée sur tank_mult au lieu du rôle
+        # tank_mult >= 1.0 = profil tank (plus de dégâts pris = mieux)
+        # tank_mult < 1.0 = profil non-tank (moins de dégâts pris = mieux)
+        if metrics.tank_mult < 1.0:
             metrics.z_damage_taken_share = -metrics.z_damage_taken_share
         
         # Z-score pondéré
@@ -756,94 +787,179 @@ class ScoringMixin:
         metrics.zscore_score = sigmoid_transform(metrics.weighted_z)
 
     def _calculate_breakdown_scores(self, metrics: PlayerMetrics):
-        """Calcule tous les scores de breakdown pour un joueur. Modifie l'objet metrics en place."""
+        """
+        Calcule tous les scores de breakdown pour un joueur.
+        
+        HARMONISATION v2.0: Toutes les métriques utilisent maintenant des bornes ajustées
+        par les multiplicateurs de profil, alignées avec la logique du z-score.
+        """
         role = metrics.role_enum
+        baselines = BREAKDOWN_BASELINES
         
         # ===== DIMENSION 1: COMBAT VALUE =====
-        kp_adjusted = metrics.kp / metrics.kp_mult
-        metrics.kp_score = linear_scale(kp_adjusted, 0.3, 0.8, 0, 10)
+        metrics.kp_score = linear_scale_adjusted(
+            metrics.kp,
+            baselines['kp']['min'], baselines['kp']['max'],
+            metrics.kp_mult
+        )
         
-        death_share_adjusted = metrics.death_share / metrics.tank_mult
-        metrics.death_score = linear_scale(1 - death_share_adjusted, 0.5, 1.0, 0, 10)
+        # Death Score - Comportement différent selon tank_mult
+        if metrics.tank_mult >= 1.0:
+            metrics.death_score = linear_scale_inverted_adjusted(
+                metrics.death_share,
+                baselines['death_share']['min'], baselines['death_share']['max'],
+                metrics.tank_mult
+            )
+        else:
+            metrics.death_score = linear_scale_inverted_adjusted(
+                metrics.death_share,
+                baselines['death_share']['min'], baselines['death_share']['max'],
+                metrics.tank_mult
+            )
         
-        metrics.kda_score = linear_scale(metrics.kda, 1.0, 6.0, 0, 10)
+        metrics.kda_score = linear_scale(
+            metrics.kda,
+            baselines['kda']['min'], baselines['kda']['max']
+        )
         
-        metrics.combat_value = metrics.kp_score * 0.35 + metrics.death_score * 0.30 + metrics.kda_score * 0.35
+        metrics.combat_value = (
+            metrics.kp_score * 0.35 +
+            metrics.death_score * 0.30 +
+            metrics.kda_score * 0.35
+        )
         
         # ===== DIMENSION 2: ECONOMIC EFFICIENCY =====
-        metrics.dpg_score = linear_scale(metrics.dpg, 1.0, 3.0, 0, 10)
+        metrics.dpg_score = linear_scale(
+            metrics.dpg,
+            baselines['dpg']['min'], baselines['dpg']['max']
+        )
         
-        damage_share_adjusted = metrics.damage_share / metrics.dmg_share_mult
-        efficiency_ratio = damage_share_adjusted / metrics.gold_share if metrics.gold_share > 0 else 1.0
-        metrics.efficiency_score = linear_scale(efficiency_ratio, 0.6, 1.4, 0, 10)
+        efficiency_ratio = metrics.damage_share / metrics.gold_share if metrics.gold_share > 0 else 1.0
+        metrics.efficiency_score = linear_scale_adjusted(
+            efficiency_ratio,
+            baselines['efficiency']['min'], baselines['efficiency']['max'],
+            metrics.dmg_share_mult
+        )
         
-        expected_cs = {'ADC': 8.0, 'MID': 8.0, 'TOP': 7.0, 'JUNGLE': 5.5, 'SUPPORT': 1.5}
-        expected = expected_cs.get(role.value, 6.0) * metrics.cs_mult
-        cs_ratio = metrics.cs_per_min / expected if expected > 0 else 1.0
-        metrics.cs_score = linear_scale(cs_ratio, 0.5, 1.2, 0, 10)
+        expected_cs = EXPECTED_CS_BY_ROLE.get(role.value, 6.0)
+        expected_cs_adjusted = expected_cs * metrics.cs_mult
+        cs_ratio = metrics.cs_per_min / expected_cs_adjusted if expected_cs_adjusted > 0 else 1.0
+        metrics.cs_score = linear_scale(
+            cs_ratio,
+            baselines['cs_ratio']['min'], baselines['cs_ratio']['max']
+        )
         
         if role == Role.SUPPORT:
-            metrics.economic_efficiency = metrics.dpg_score * 0.5 + metrics.efficiency_score * 0.5
+            metrics.economic_efficiency = (
+                metrics.dpg_score * 0.5 +
+                metrics.efficiency_score * 0.5
+            )
         else:
-            metrics.economic_efficiency = metrics.dpg_score * 0.35 + metrics.efficiency_score * 0.35 + metrics.cs_score * 0.30
+            metrics.economic_efficiency = (
+                metrics.dpg_score * 0.35 +
+                metrics.efficiency_score * 0.35 +
+                metrics.cs_score * 0.30
+            )
         
         # ===== DIMENSION 3: OBJECTIVE CONTRIBUTION =====
-        expected_vision = {
-            Role.SUPPORT: 2.5, Role.JUNGLE: 1.2, Role.TOP: 0.9,
-            Role.MID: 0.8, Role.ADC: 0.6, Role.UNKNOWN: 1.0
-        }
-        expected_vis = expected_vision.get(role, 1.0) * metrics.vision_mult
-        vision_ratio = metrics.vision_per_min / expected_vis
-        metrics.vision_score = linear_scale(vision_ratio, 0.5, 1.5, 0, 10)
+        expected_vis = EXPECTED_VISION_BY_ROLE.get(role, 1.0)
+        expected_vis_adjusted = expected_vis * metrics.vision_mult
+        vision_ratio = metrics.vision_per_min / expected_vis_adjusted if expected_vis_adjusted > 0 else 1.0
+        metrics.vision_score = linear_scale(
+            vision_ratio,
+            baselines['vision_ratio']['min'], baselines['vision_ratio']['max']
+        )
         
-        metrics.turret_score = linear_scale(metrics.turret_damage, 0, 8000, 0, 10)
-        metrics.obj_damage_score = linear_scale(metrics.objective_damage, 0, 20000, 0, 10)
+        metrics.turret_score = linear_scale(
+            metrics.turret_damage,
+            baselines['turret_damage']['min'], baselines['turret_damage']['max']
+        )
+        metrics.obj_damage_score = linear_scale(
+            metrics.objective_damage,
+            baselines['obj_damage']['min'], baselines['obj_damage']['max']
+        )
         
-        expected_pinks = {Role.SUPPORT: 4, Role.JUNGLE: 3, Role.TOP: 2, Role.MID: 2, Role.ADC: 1, Role.UNKNOWN: 2}
-        pink_ratio = metrics.pinks / max(expected_pinks.get(role, 2), 1)
-        metrics.pink_score = linear_scale(pink_ratio, 0.3, 1.5, 0, 10)
+        expected_pinks = EXPECTED_PINKS_BY_ROLE.get(role, 2)
+        pink_ratio = metrics.pinks / max(expected_pinks, 1)
+        metrics.pink_score = linear_scale(
+            pink_ratio,
+            baselines['pink_ratio']['min'], baselines['pink_ratio']['max']
+        )
         
         if metrics.total_objectives > 0:
             obj_ratio = metrics.objectives_participated / metrics.total_objectives
-            metrics.obj_participation_score = linear_scale(obj_ratio, 0.1, 0.6, 0, 10)
+            metrics.obj_participation_score = linear_scale(
+                obj_ratio,
+                baselines['obj_participation']['min'], baselines['obj_participation']['max']
+            )
         else:
-            metrics.obj_participation_score = linear_scale(metrics.kp, 0.3, 0.7, 0, 10)
+            metrics.obj_participation_score = linear_scale_adjusted(
+                metrics.kp,
+                baselines['kp']['min'], baselines['kp']['max'],
+                metrics.kp_mult
+            )
         
-        metrics.dragon_score = linear_scale(metrics.dragon_participation, 0, 4, 0, 10)
-        metrics.baron_score = linear_scale(metrics.baron_participation, 0, 2, 0, 10)
-        metrics.turrets_killed_score = linear_scale(metrics.turrets_killed, 0, 4, 0, 10)
-        metrics.tower_participation_score = linear_scale(metrics.tower_participation, 0, 5, 0, 10)
+        metrics.dragon_score = linear_scale(
+            metrics.dragon_participation,
+            baselines['dragon']['min'], baselines['dragon']['max']
+        )
+        metrics.baron_score = linear_scale(
+            metrics.baron_participation,
+            baselines['baron']['min'], baselines['baron']['max']
+        )
+        metrics.turrets_killed_score = linear_scale(
+            metrics.turrets_killed,
+            baselines['turrets_killed']['min'], baselines['turrets_killed']['max']
+        )
+        metrics.tower_participation_score = linear_scale(
+            metrics.tower_participation,
+            baselines['tower_participation']['min'], baselines['tower_participation']['max']
+        )
         
-        # Calcul objective_contribution selon le rôle
+        # Objective Contribution final (pondération par rôle)
         if role == Role.SUPPORT:
             metrics.objective_contribution = (
-                metrics.vision_score * 0.35 + metrics.pink_score * 0.20 +
-                metrics.obj_participation_score * 0.25 + metrics.dragon_score * 0.10 +
+                metrics.vision_score * 0.35 +
+                metrics.pink_score * 0.20 +
+                metrics.obj_participation_score * 0.25 +
+                metrics.dragon_score * 0.10 +
                 metrics.tower_participation_score * 0.10
             ) + metrics.first_objective_bonus
         elif role == Role.JUNGLE:
             metrics.objective_contribution = (
-                metrics.dragon_score * 0.25 + metrics.baron_score * 0.20 +
-                metrics.obj_participation_score * 0.20 + metrics.obj_damage_score * 0.15 +
-                metrics.vision_score * 0.10 + metrics.pink_score * 0.10
+                metrics.dragon_score * 0.25 +
+                metrics.baron_score * 0.20 +
+                metrics.obj_participation_score * 0.20 +
+                metrics.obj_damage_score * 0.15 +
+                metrics.vision_score * 0.10 +
+                metrics.pink_score * 0.10
             ) + metrics.first_objective_bonus * 1.5
         elif role == Role.ADC:
             metrics.objective_contribution = (
-                metrics.turret_score * 0.30 + metrics.turrets_killed_score * 0.15 +
-                metrics.tower_participation_score * 0.15 + metrics.obj_damage_score * 0.20 +
-                metrics.obj_participation_score * 0.10 + metrics.dragon_score * 0.10
+                metrics.turret_score * 0.30 +
+                metrics.turrets_killed_score * 0.15 +
+                metrics.tower_participation_score * 0.15 +
+                metrics.obj_damage_score * 0.20 +
+                metrics.obj_participation_score * 0.10 +
+                metrics.dragon_score * 0.10
             ) + metrics.first_objective_bonus
         elif role == Role.TOP:
             metrics.objective_contribution = (
-                metrics.turret_score * 0.25 + metrics.turrets_killed_score * 0.15 +
-                metrics.tower_participation_score * 0.15 + metrics.obj_damage_score * 0.15 +
-                metrics.obj_participation_score * 0.15 + metrics.vision_score * 0.15
+                metrics.turret_score * 0.25 +
+                metrics.turrets_killed_score * 0.15 +
+                metrics.tower_participation_score * 0.15 +
+                metrics.obj_damage_score * 0.15 +
+                metrics.obj_participation_score * 0.15 +
+                metrics.vision_score * 0.15
             ) + metrics.first_objective_bonus
         else:  # MID
             metrics.objective_contribution = (
-                metrics.obj_participation_score * 0.25 + metrics.dragon_score * 0.15 +
-                metrics.turret_score * 0.15 + metrics.tower_participation_score * 0.15 +
-                metrics.vision_score * 0.15 + metrics.pink_score * 0.15
+                metrics.obj_participation_score * 0.25 +
+                metrics.dragon_score * 0.15 +
+                metrics.turret_score * 0.15 +
+                metrics.tower_participation_score * 0.15 +
+                metrics.vision_score * 0.15 +
+                metrics.pink_score * 0.15
             ) + metrics.first_objective_bonus
         
         metrics.objective_contribution = min(10.0, max(0.0, metrics.objective_contribution))
@@ -852,39 +968,61 @@ class ScoringMixin:
         team_avg_gpm = (metrics.team_gold / 5) / metrics.game_minutes
         team_avg_dpm = (metrics.team_damage / 5) / metrics.game_minutes
         
-        expected_gpm_ratio = 1.0 * metrics.gpm_mult
         actual_gpm_ratio = metrics.gold_per_min / team_avg_gpm if team_avg_gpm > 0 else 1.0
-        metrics.gpm_relative_score = linear_scale(actual_gpm_ratio / expected_gpm_ratio, 0.7, 1.3, 0, 10)
+        expected_gpm_ratio = 1.0 * metrics.gpm_mult
+        gpm_performance = actual_gpm_ratio / expected_gpm_ratio if expected_gpm_ratio > 0 else 1.0
+        metrics.gpm_relative_score = linear_scale(
+            gpm_performance,
+            baselines['resource_ratio']['min'], baselines['resource_ratio']['max']
+        )
         
-        expected_dpm_ratio = 1.0 * metrics.dpm_mult
         actual_dpm_ratio = metrics.damage_per_min / team_avg_dpm if team_avg_dpm > 0 else 1.0
-        metrics.dpm_relative_score = linear_scale(actual_dpm_ratio / expected_dpm_ratio, 0.7, 1.3, 0, 10)
+        expected_dpm_ratio = 1.0 * metrics.dpm_mult
+        dpm_performance = actual_dpm_ratio / expected_dpm_ratio if expected_dpm_ratio > 0 else 1.0
+        metrics.dpm_relative_score = linear_scale(
+            dpm_performance,
+            baselines['resource_ratio']['min'], baselines['resource_ratio']['max']
+        )
         
         metrics.fb_score = 10.0 if metrics.has_first_blood else (7.0 if metrics.has_first_blood_assist else 0.0)
         metrics.ft_score = 10.0 if metrics.has_first_tower else (6.0 if metrics.has_first_tower_assist else 0.0)
         
         if metrics.opponent_index is not None:
-            metrics.gold_15_score = linear_scale(metrics.gold_diff_15, -1500, 1500, 0, 10)
-            metrics.cs_15_score = linear_scale(metrics.cs_diff_15, -30, 30, 0, 10)
+            metrics.gold_15_score = linear_scale(
+                metrics.gold_diff_15,
+                baselines['gold_diff_15']['min'], baselines['gold_diff_15']['max']
+            )
+            metrics.cs_15_score = linear_scale(
+                metrics.cs_diff_15,
+                baselines['cs_diff_15']['min'], baselines['cs_diff_15']['max']
+            )
         else:
             metrics.gold_15_score = 5.0
             metrics.cs_15_score = 5.0
         
         metrics.early_pressure_score = (
-            metrics.fb_score * 0.25 + metrics.ft_score * 0.25 +
-            metrics.gold_15_score * 0.30 + metrics.cs_15_score * 0.20
+            metrics.fb_score * 0.25 +
+            metrics.ft_score * 0.25 +
+            metrics.gold_15_score * 0.30 +
+            metrics.cs_15_score * 0.20
         )
         
         role_str = role.value if hasattr(role, 'value') else str(role).upper()
         if role_str in ['TOP', 'MID', 'MIDDLE']:
-            metrics.solo_kills_score = linear_scale(metrics.solo_kills, 0, 3, 0, 10)
+            metrics.solo_kills_score = linear_scale(
+                metrics.solo_kills,
+                baselines['solo_kills']['min'], baselines['solo_kills']['max']
+            )
             metrics.pace_rating = (
-                metrics.gpm_relative_score * 0.25 + metrics.dpm_relative_score * 0.25 +
-                metrics.early_pressure_score * 0.45 + metrics.solo_kills_score * 0.05
+                metrics.gpm_relative_score * 0.25 +
+                metrics.dpm_relative_score * 0.25 +
+                metrics.early_pressure_score * 0.45 +
+                metrics.solo_kills_score * 0.05
             )
         else:
             metrics.pace_rating = (
-                metrics.gpm_relative_score * 0.25 + metrics.dpm_relative_score * 0.25 +
+                metrics.gpm_relative_score * 0.25 +
+                metrics.dpm_relative_score * 0.25 +
                 metrics.early_pressure_score * 0.50
             )
         
@@ -892,10 +1030,18 @@ class ScoringMixin:
         
         # ===== DIMENSION 5: WIN IMPACT =====
         gold_advantage = (metrics.team_gold - metrics.enemy_gold) / max(metrics.enemy_gold, 1)
-        metrics.advantage_score = linear_scale(gold_advantage, -0.2, 0.2, 0, 10)
+        metrics.advantage_score = linear_scale(
+            gold_advantage,
+            baselines['gold_advantage']['min'], baselines['gold_advantage']['max']
+        )
+        
         metrics.contribution_to_lead = metrics.gold_share * 10
         
-        metrics.win_impact = metrics.advantage_score * 0.4 + metrics.contribution_to_lead * 0.3 + metrics.kp_score * 0.3
+        metrics.win_impact = (
+            metrics.advantage_score * 0.4 +
+            metrics.contribution_to_lead * 0.3 +
+            metrics.kp_score * 0.3
+        )
         
         # ===== CALCUL DES POIDS FINAUX =====
         base_weights = DIMENSION_WEIGHTS.get(role, DIMENSION_WEIGHTS[Role.UNKNOWN])
@@ -928,7 +1074,7 @@ class ScoringMixin:
         metrics.breakdown_score = max(1.0, min(10.0, metrics.breakdown_score))
 
     async def calculate_all_scores(self):
-        """Calcule les scores de tous les joueurs. À appeler après _extract_team_data()."""
+        """Calcule les scores de tous les joueurs."""
         self._init_scoring_attributes()
         
         if not hasattr(self, 'thisKillsListe') or not self.thisKillsListe:
@@ -939,16 +1085,10 @@ class ScoringMixin:
         nb_players = min(len(self.thisKillsListe), getattr(self, 'nb_joueur', 10))
         
         for i in range(nb_players):
-            # 1. Construire l'objet PlayerMetrics avec toutes les stats brutes
             metrics = self._build_player_metrics(i)
-            
-            # 2. Calculer les z-scores (pour le score principal)
             self._calculate_zscores(metrics)
-            
-            # 3. Calculer les scores de breakdown (pour les insights)
             self._calculate_breakdown_scores(metrics)
             
-            # 4. Stocker les résultats
             self.player_metrics_liste.append(metrics)
             self.scores_liste.append(round(metrics.zscore_score, 1))
             
@@ -974,38 +1114,6 @@ class ScoringMixin:
             self.player_breakdown = self.breakdowns_liste[id_player]
             self.player_rank = self._get_player_rank(id_player)
 
-    def _calculate_zscore_for_player(self, i: int) -> float:
-        """DEPRECATED: Utilisé pour compatibilité, préférer calculate_all_scores()."""
-        if hasattr(self, 'player_metrics_liste') and i < len(self.player_metrics_liste):
-            return self.player_metrics_liste[i].zscore_score
-        metrics = self._build_player_metrics(i)
-        self._calculate_zscores(metrics)
-        return metrics.zscore_score
-    
-    def _calculate_breakdown_for_player(self, i: int) -> 'ContributionBreakdown':
-        """DEPRECATED: Utilisé pour compatibilité, préférer calculate_all_scores()."""
-        if hasattr(self, 'player_metrics_liste') and i < len(self.player_metrics_liste):
-            m = self.player_metrics_liste[i]
-            return ContributionBreakdown(
-                combat_value=round(m.combat_value, 1),
-                economic_efficiency=round(m.economic_efficiency, 1),
-                objective_contribution=round(m.objective_contribution, 1),
-                pace_rating=round(m.pace_rating, 1),
-                win_impact=round(m.win_impact, 1),
-                final_score=round(m.breakdown_score, 1)
-            )
-        metrics = self._build_player_metrics(i)
-        self._calculate_zscores(metrics)
-        self._calculate_breakdown_scores(metrics)
-        return ContributionBreakdown(
-            combat_value=round(metrics.combat_value, 1),
-            economic_efficiency=round(metrics.economic_efficiency, 1),
-            objective_contribution=round(metrics.objective_contribution, 1),
-            pace_rating=round(metrics.pace_rating, 1),
-            win_impact=round(metrics.win_impact, 1),
-            final_score=round(metrics.breakdown_score, 1)
-        )
-    
     def _identify_mvp_ace(self):
         """Identifie le MVP (meilleur global) et l'ACE (meilleur perdant)."""
         if not self.scores_liste:
@@ -1037,6 +1145,29 @@ class ScoringMixin:
             if idx == player_index:
                 return rank
         return len(self.scores_liste)
+    
+    def _find_lane_opponent(self, player_index: int) -> Optional[int]:
+        """Trouve l'adversaire direct d'un joueur."""
+        if not hasattr(self, 'thisPositionListe') or player_index >= len(self.thisPositionListe):
+            return None
+        
+        my_role = self.thisPositionListe[player_index].upper()
+        role_map = {'BOTTOM': 'ADC', 'UTILITY': 'SUPPORT', 'MIDDLE': 'MID'}
+        my_role = role_map.get(my_role, my_role)
+        
+        if player_index < 5:
+            search_range = range(5, 10)
+        else:
+            search_range = range(0, 5)
+        
+        for opp_index in search_range:
+            if opp_index < len(self.thisPositionListe):
+                opp_role = self.thisPositionListe[opp_index].upper()
+                opp_role = role_map.get(opp_role, opp_role)
+                if opp_role == my_role:
+                    return opp_index
+        
+        return None
     
     def get_score_emoji(self, score: float) -> str:
         """Retourne un emoji basé sur le score."""
@@ -1095,7 +1226,7 @@ class ScoringMixin:
             'is_mvp': player_index == self.mvp_index,
             'is_ace': player_index == self.ace_index,
             'breakdown': breakdown.to_dict()
-        }    
+        }
 
     def get_all_players_performance_summary(self) -> List[dict]:
         """Retourne un résumé de la performance pour tous les joueurs."""
@@ -1106,7 +1237,30 @@ class ScoringMixin:
             self.get_performance_summary_for_player(i) 
             for i in range(len(self.scores_liste))
         ]
-    
+
+    def get_player_performance_summary(self) -> dict:
+        """Retourne un résumé de la performance du joueur."""
+        if not hasattr(self, 'player_breakdown') or self.player_breakdown is None:
+            return {}
+        
+        best_dim, best_val = self.player_breakdown.get_best_dimension()
+        worst_dim, worst_val = self.player_breakdown.get_weakest_dimension()
+        
+        return {
+            'score': self.player_score,
+            'rank': self.player_rank,
+            'rank_text': self.get_rank_text(self.player_rank),
+            'emoji': self.get_score_emoji(self.player_score),
+            'best_dimension': best_dim,
+            'best_dimension_score': best_val,
+            'best_dimension_emoji': self.player_breakdown.get_badge_emoji(),
+            'worst_dimension': worst_dim,
+            'worst_dimension_score': worst_val,
+            'is_mvp': self.player_rank == 1,
+            'is_ace': hasattr(self, 'thisId') and self.thisId == self.ace_index,
+            'breakdown': self.player_breakdown.to_dict()
+        }
+
     def get_player_scoring_profile_summary(self, player_index: int) -> dict:
         """Retourne un résumé du profil de scoring appliqué à un joueur."""
         if hasattr(self, 'player_metrics_liste') and player_index < len(self.player_metrics_liste):
@@ -1131,44 +1285,8 @@ class ScoringMixin:
                     'impact_weight_adj': m.impact_weight_adj,
                 }
             }
-        
-        # Fallback
-        try:
-            from fonctions.match.champion_profiles import (
-                get_profile_for_champion,
-                get_profile_adjustments,
-                get_champion_tags,
-            )
-            
-            champion = self.thisChampNameListe[player_index] if player_index < len(self.thisChampNameListe) else ''
-            role = self.thisPositionListe[player_index] if player_index < len(self.thisPositionListe) else 'UNKNOWN'
-            
-            tags = get_champion_tags(champion)
-            profile = get_profile_for_champion(champion, role)
-            adj = get_profile_adjustments(role, profile)
-            
-            return {
-                'champion': champion,
-                'role': role,
-                'tags': tags,
-                'profile': profile.value if profile else 'UNKNOWN',
-                'adjustments': {
-                    'damage_per_min_mult': adj.damage_per_min_mult,
-                    'damage_share_mult': adj.damage_share_mult,
-                    'cs_per_min_mult': adj.cs_per_min_mult,
-                    'gold_per_min_mult': adj.gold_per_min_mult,
-                    'vision_mult': adj.vision_mult,
-                    'kp_mult': adj.kp_mult,
-                    'damage_taken_share_mult': adj.damage_taken_share_mult,
-                    'combat_weight_adj': adj.combat_weight_adj,
-                    'economic_weight_adj': adj.economic_weight_adj,
-                    'objective_weight_adj': adj.objective_weight_adj,
-                    'tempo_weight_adj': adj.tempo_weight_adj,
-                    'impact_weight_adj': adj.impact_weight_adj,
-                }
-            }
-        except Exception:
-            return {}
+        return {}
+
 
     def _find_lane_opponent(self, player_index: int) -> Optional[int]:
         """Trouve l'adversaire direct d'un joueur (même rôle, équipe adverse)."""
