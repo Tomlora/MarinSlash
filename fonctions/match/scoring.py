@@ -387,6 +387,8 @@ BREAKDOWN_BASELINES: Dict[str, Dict[str, Tuple[float, float]]] = {
     'cs_diff_15': {'min': -30, 'max': 30},
     'solo_kills': {'min': 0, 'max': 3},
     'gold_advantage': {'min': -0.2, 'max': 0.2},
+    'tank_efficiency': {'min': 1.0, 'max': 4.0},
+
 }
 
 EXPECTED_CS_BY_ROLE: Dict[str, float] = {
@@ -803,30 +805,49 @@ class ScoringMixin:
             metrics.kp_mult
         )
         
-        # Death Score - Comportement différent selon tank_mult
-        if metrics.tank_mult >= 1.0:
-            metrics.death_score = linear_scale_inverted_adjusted(
+        if metrics.tank_mult > 1.0:
+            # Tank: absorber plus de dégâts/morts est normal → PAS d'inversion
+            metrics.death_score = linear_scale_adjusted(
                 metrics.death_share,
                 baselines['death_share']['min'], baselines['death_share']['max'],
                 metrics.tank_mult
             )
         else:
+            # Non-tank: moins de morts = mieux → inversion
             metrics.death_score = linear_scale_inverted_adjusted(
                 metrics.death_share,
                 baselines['death_share']['min'], baselines['death_share']['max'],
                 metrics.tank_mult
             )
-        
+
+        # Nouveau score pour les tanks
+        if metrics.tank_mult >= 1.0:
+            # Ratio dégâts absorbés / morts — un tank efficace absorbe beaucoup en mourant peu
+            tank_efficiency = metrics.damage_taken_share / max(metrics.death_share, 0.05)
+            metrics.tank_efficiency_score = linear_scale(tank_efficiency, baselines['tank_efficiency']['min'], baselines['tank_efficiency']['max'])
+        else:
+            metrics.tank_efficiency_score = 5.0  # Neutre pour non-tanks       
+
+
         metrics.kda_score = linear_scale(
             metrics.kda,
             baselines['kda']['min'], baselines['kda']['max']
         )
-        
-        metrics.combat_value = (
-            metrics.kp_score * 0.35 +
-            metrics.death_score * 0.30 +
-            metrics.kda_score * 0.35
-        )
+
+        if metrics.tank_mult > 1.0:
+            metrics.combat_value = (
+                metrics.kp_score * 0.25 +
+                metrics.death_score * 0.20 +
+                metrics.kda_score * 0.25 +
+                metrics.tank_efficiency_score * 0.30  # Nouvelle dimension
+            )    
+
+        else:    
+            metrics.combat_value = (
+                metrics.kp_score * 0.35 +
+                metrics.death_score * 0.30 +
+                metrics.kda_score * 0.35
+            )
         
         # ===== DIMENSION 2: ECONOMIC EFFICIENCY =====
         metrics.dpg_score = linear_scale(
@@ -1362,7 +1383,7 @@ class ScoringMixin:
                         final_combat_weight, final_economic_weight, final_objective_weight,
                         final_tempo_weight, final_impact_weight,
                         zscore_score, combat_value, economic_efficiency, objective_contribution,
-                        pace_rating, win_impact, breakdown_score
+                        pace_rating, win_impact, breakdown_score, tank_efficiency_score
                     ) VALUES (
                         :match_id, :player_index, :riot_id, :riot_tag, :champion, :role,
                         :kills, :deaths, :assists, :cs, :damage, :gold, :vision, :damage_taken,
@@ -1392,7 +1413,7 @@ class ScoringMixin:
                         :final_combat_weight, :final_economic_weight, :final_objective_weight,
                         :final_tempo_weight, :final_impact_weight,
                         :zscore_score, :combat_value, :economic_efficiency, :objective_contribution,
-                        :pace_rating, :win_impact, :breakdown_score
+                        :pace_rating, :win_impact, :breakdown_score, :tank_efficiency_score
                     )
                     ON CONFLICT (match_id, player_index) DO UPDATE SET
                         riot_id = EXCLUDED.riot_id, riot_tag = EXCLUDED.riot_tag,
@@ -1467,7 +1488,8 @@ class ScoringMixin:
                         economic_efficiency = EXCLUDED.economic_efficiency,
                         objective_contribution = EXCLUDED.objective_contribution,
                         pace_rating = EXCLUDED.pace_rating, win_impact = EXCLUDED.win_impact,
-                        breakdown_score = EXCLUDED.breakdown_score
+                        breakdown_score = EXCLUDED.breakdown_score,
+                        tank_efficiency_score = EXCLUDED.tank_efficiency_score
                 """
                 
                 params = {
@@ -1582,6 +1604,7 @@ class ScoringMixin:
                     'pace_rating': round(metrics.pace_rating, 2),
                     'win_impact': round(metrics.win_impact, 2),
                     'breakdown_score': round(metrics.breakdown_score, 2),
+                    'tank_efficiency_score' : round(metrics.tank_efficiency_score, 2)
                 }
                 
                 requete_perso_bdd(query, params)
