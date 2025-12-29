@@ -373,7 +373,7 @@ BREAKDOWN_BASELINES: Dict[str, Dict[str, Tuple[float, float]]] = {
     'death_share': {'min': 0.10, 'max': 0.40},
     'kda': {'min': 1.0, 'max': 6.0},
     'dpg': {'min': 1.0, 'max': 3.0},
-    'efficiency': {'min': 0.6, 'max': 1.4},
+    'efficiency': {'min': 0.4, 'max': 1.4},
     'cs_ratio': {'min': 0.5, 'max': 1.2},
     'vision_ratio': {'min': 0.5, 'max': 1.5},
     'turret_damage': {'min': 0, 'max': 8000},
@@ -390,6 +390,7 @@ BREAKDOWN_BASELINES: Dict[str, Dict[str, Tuple[float, float]]] = {
     'solo_kills': {'min': 0, 'max': 3},
     'gold_advantage': {'min': -0.2, 'max': 0.2},
     'tank_efficiency': {'min': 1.0, 'max': 4.0},
+    'contribution_to_lead' : {'min': 0.15, 'max': 0.30},
 
 }
 
@@ -1052,8 +1053,15 @@ class ScoringMixin:
             baselines['gold_advantage']['min'], baselines['gold_advantage']['max']
         )
         
-        metrics.contribution_to_lead = metrics.gold_share * 10
-        
+        expected_gold_share = 0.20 * metrics.gpm_mult  # 0.20 = 1/5
+        gold_share_ratio = metrics.gold_share / expected_gold_share if expected_gold_share > 0 else 1.0
+
+        metrics.contribution_to_lead = linear_scale(
+            gold_share_ratio,
+            baselines['contribution_to_lead']['min'], baselines['contribution_to_lead']['max'],  # 70% à 130% de l'attendu
+
+        )      
+
         metrics.win_impact = (
             metrics.advantage_score * 0.4 +
             metrics.contribution_to_lead * 0.3 +
