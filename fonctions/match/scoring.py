@@ -216,6 +216,7 @@ class PlayerMetrics:
     kp_score: float = 0.0
     death_score: float = 0.0
     kda_score: float = 0.0
+    tank_efficiency_score: float = 0.0
     
     # === SCORES INTERMÉDIAIRES ÉCONOMIE ===
     dpg_score: float = 0.0
@@ -242,6 +243,7 @@ class PlayerMetrics:
     cs_15_score: float = 0.0
     solo_kills_score: float = 0.0
     early_pressure_score: float = 0.0
+    
     
     # === SCORES INTERMÉDIAIRES IMPACT ===
     advantage_score: float = 0.0
@@ -821,7 +823,7 @@ class ScoringMixin:
             )
 
         # Nouveau score pour les tanks
-        if metrics.tank_mult >= 1.0:
+        if metrics.tank_mult > 1.0:
             # Ratio dégâts absorbés / morts — un tank efficace absorbe beaucoup en mourant peu
             tank_efficiency = metrics.damage_taken_share / max(metrics.death_share, 0.05)
             metrics.tank_efficiency_score = linear_scale(tank_efficiency, baselines['tank_efficiency']['min'], baselines['tank_efficiency']['max'])
