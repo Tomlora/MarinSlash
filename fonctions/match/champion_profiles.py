@@ -148,7 +148,7 @@ def get_champion_profile(tags: list, role: str) -> ChampionProfile:
         # Marksman standard
         if primary_tag == "Marksman":
             if secondary_tag == "Assassin":
-                return ChampionProfile.ASSASSIN  # Samira, Lucian, Tristana
+                return ChampionProfile.MARSKMAN  # Samira, Lucian, Tristana - Cela reste des ADC
             else:
                 return ChampionProfile.MARKSMAN
         # Mage ADC (Ziggs, Cassio bot)
