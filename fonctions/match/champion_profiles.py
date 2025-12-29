@@ -377,6 +377,12 @@ def load_champion_tags() -> Dict[str, list]:
     if _CHAMPION_TAGS_CACHE:
         return _CHAMPION_TAGS_CACHE
     
+    # Corrections de noms entre la BDD et l'API Riot
+    NAME_CORRECTIONS = {
+        "dr.mundo": "drmundo",
+        "wukong": "monkeyking",
+    }
+    
     try:
         from fonctions.gestion_bdd import lire_bdd_perso
         
@@ -391,10 +397,12 @@ def load_champion_tags() -> Dict[str, list]:
             if name:
                 # Normaliser le nom (minuscules, sans espaces)
                 name_normalized = name.lower().replace(' ', '').replace("'", "")
+                
+                # Appliquer les corrections si nécessaire
+                name_normalized = NAME_CORRECTIONS.get(name_normalized, name_normalized)
+                
                 tags = parse_tags(tags_str)
                 _CHAMPION_TAGS_CACHE[name_normalized] = tags
-                # Garder aussi la version originale
-                _CHAMPION_TAGS_CACHE[name.lower()] = tags
                 
     except Exception as e:
         print(f"Warning: Error loading champion tags from database: {e}")
