@@ -807,20 +807,14 @@ class ScoringMixin:
             metrics.kp_mult
         )
         
-        if metrics.tank_mult > 1.0:
+
             # Tank: absorber plus de dégâts/morts est normal → PAS d'inversion
-            metrics.death_score = linear_scale_adjusted(
+        metrics.death_score = linear_scale_inverted_adjusted(
                 metrics.death_share,
                 baselines['death_share']['min'], baselines['death_share']['max'],
-                metrics.tank_mult
-            )
-        else:
-            # Non-tank: moins de morts = mieux → inversion
-            metrics.death_score = linear_scale_inverted_adjusted(
-                metrics.death_share,
-                baselines['death_share']['min'], baselines['death_share']['max'],
-                metrics.tank_mult
-            )
+                metrics.tank_mult  # > 1.0 = bornes plus larges (indulgent), < 1.0 = bornes strictes
+)
+
 
         # Nouveau score pour les tanks
         if metrics.tank_mult > 1.0:
