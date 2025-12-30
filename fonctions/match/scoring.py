@@ -1053,11 +1053,11 @@ class ScoringMixin:
             baselines['gold_advantage']['min'], baselines['gold_advantage']['max']
         )
         
-        expected_gold_share = 0.20 * metrics.gpm_mult  # 0.20 = 1/5
-        gold_share_ratio = metrics.gold_share / expected_gold_share if expected_gold_share > 0 else 1.0
+        metrics.expected_gold_share = 0.20 * metrics.gpm_mult  # 0.20 = 1/5
+        metrics.gold_share_ratio = metrics.gold_share / metrics.expected_gold_share if metrics.expected_gold_share > 0 else 1.0
 
         metrics.contribution_to_lead = linear_scale(
-            gold_share_ratio,
+            metrics.gold_share_ratio,
             baselines['contribution_to_lead']['min'], baselines['contribution_to_lead']['max'],  # 70% à 130% de l'attendu
 
         )      
@@ -1387,7 +1387,8 @@ class ScoringMixin:
                         final_combat_weight, final_economic_weight, final_objective_weight,
                         final_tempo_weight, final_impact_weight,
                         zscore_score, combat_value, economic_efficiency, objective_contribution,
-                        pace_rating, win_impact, breakdown_score, tank_efficiency_score
+                        pace_rating, win_impact, breakdown_score, tank_efficiency_score,
+                        gold_share_ratio, expected_gold_share
                     ) VALUES (
                         :match_id, :player_index, :riot_id, :riot_tag, :champion, :role,
                         :kills, :deaths, :assists, :cs, :damage, :gold, :vision, :damage_taken,
@@ -1417,7 +1418,8 @@ class ScoringMixin:
                         :final_combat_weight, :final_economic_weight, :final_objective_weight,
                         :final_tempo_weight, :final_impact_weight,
                         :zscore_score, :combat_value, :economic_efficiency, :objective_contribution,
-                        :pace_rating, :win_impact, :breakdown_score, :tank_efficiency_score
+                        :pace_rating, :win_impact, :breakdown_score, :tank_efficiency_score,
+                        :gold_share_ratio, :expected_gold_share
                     )
                     ON CONFLICT (match_id, player_index) DO UPDATE SET
                         riot_id = EXCLUDED.riot_id, riot_tag = EXCLUDED.riot_tag,
@@ -1493,7 +1495,9 @@ class ScoringMixin:
                         objective_contribution = EXCLUDED.objective_contribution,
                         pace_rating = EXCLUDED.pace_rating, win_impact = EXCLUDED.win_impact,
                         breakdown_score = EXCLUDED.breakdown_score,
-                        tank_efficiency_score = EXCLUDED.tank_efficiency_score
+                        tank_efficiency_score = EXCLUDED.tank_efficiency_score,
+                        gold_share_ratio = EXCLUDED.gold_share_ratio,
+                        expected_gold_share = EXCLUDED.expected_gold_share
                 """
                 
                 params = {
@@ -1608,13 +1612,16 @@ class ScoringMixin:
                     'pace_rating': round(metrics.pace_rating, 2),
                     'win_impact': round(metrics.win_impact, 2),
                     'breakdown_score': round(metrics.breakdown_score, 2),
-                    'tank_efficiency_score' : round(metrics.tank_efficiency_score, 2)
+                    'tank_efficiency_score' : round(metrics.tank_efficiency_score, 2),
+                    'gold_share_ratio' : round(metrics.gold_share_ratio, 4),
+                    'expected_gold_share' : round(metrics.expected_gold_share, 4)
                 }
                 
                 requete_perso_bdd(query, params)
                 
         except Exception as e:
             print(f"Erreur lors de la sauvegarde des données de scoring: {e}")
+
 
 
     async def save_player_scoring_profiles(self):
