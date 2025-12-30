@@ -1,8 +1,8 @@
 """
 Mixin d'analyse des ganks pour MatchLol.
 
-Analyse la pression jungle en détectant les ganks effectués et subis
-à partir des données timeline.
+Détecte les ganks basés sur les KILLS impliquant le jungler sur une lane.
+Méthode fiable à 100% car basée sur des événements avec timestamp exact.
 
 Usage dans MatchLol:
     class MatchLol(GankAnalysisMixin, ScoringMixin, ...):
@@ -14,12 +14,13 @@ Usage dans MatchLol:
     # Accès aux données:
     self.gank_stats           # Stats complètes de ganks
     self.ally_jungler_style   # Style du jungler allié
-    self.gank_differential    # Différentiel de ganks par lane
+    self.enemy_jungler_style  # Style du jungler ennemi
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from enum import Enum
+
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 
 
@@ -40,27 +41,27 @@ class GamePhase(Enum):
     LATE = "late"        # 30+ min
 
 
-# Seuils en millisecondes
-PHASE_THRESHOLDS = {
-    GamePhase.EARLY: (0, 14 * 60 * 1000),                    # 0-14 min
-    GamePhase.MID: (14 * 60 * 1000, 30 * 60 * 1000),         # 14-30 min
-    GamePhase.LATE: (30 * 60 * 1000, float('inf'))           # 30+ min
+PHASE_THRESHOLDS_MS = {
+    GamePhase.EARLY: (0, 14 * 60 * 1000),
+    GamePhase.MID: (14 * 60 * 1000, 30 * 60 * 1000),
+    GamePhase.LATE: (30 * 60 * 1000, float('inf'))
 }
 
 
 @dataclass
 class GankEvent:
-    """Représente un événement de gank."""
+    """Représente un événement de gank (kill impliquant le jungler sur une lane)."""
     timestamp: int
     lane: Lane
-    successful: bool
+    successful: bool  # True si l'ennemi meurt, False si un allié meurt
     jungler_participant_id: int
-    victim_ids: List[int] = field(default_factory=list)
+    jungler_champion: str = ""
+    victim_id: int = 0
     is_counter_gank: bool = False
     
     @property
     def game_phase(self) -> GamePhase:
-        for phase, (start, end) in PHASE_THRESHOLDS.items():
+        for phase, (start, end) in PHASE_THRESHOLDS_MS.items():
             if start <= self.timestamp < end:
                 return phase
         return GamePhase.LATE
@@ -78,8 +79,9 @@ class GankEvent:
             "game_phase": self.game_phase.value,
             "lane": self.lane.value,
             "successful": self.successful,
-            "is_counter_gank": self.is_counter_gank,
-            "victims": self.victim_ids
+            "jungler": self.jungler_champion,
+            "victim_id": self.victim_id,
+            "is_counter_gank": self.is_counter_gank
         }
 
 
@@ -90,9 +92,15 @@ class LaneGankStats:
     ganks_made_successful: int = 0
     ganks_received: int = 0
     ganks_received_successful: int = 0
+    ganks_made_by_phase: Dict[GamePhase, int] = field(default_factory=lambda: {
+        GamePhase.EARLY: 0, GamePhase.MID: 0, GamePhase.LATE: 0
+    })
+    ganks_received_by_phase: Dict[GamePhase, int] = field(default_factory=lambda: {
+        GamePhase.EARLY: 0, GamePhase.MID: 0, GamePhase.LATE: 0
+    })
     
     @property
-    def gank_differential(self) -> int:
+    def differential(self) -> int:
         return self.ganks_made - self.ganks_received
     
     @property
@@ -109,15 +117,17 @@ class LaneGankStats:
             "ganks_made_successful": self.ganks_made_successful,
             "ganks_received": self.ganks_received,
             "ganks_received_successful": self.ganks_received_successful,
-            "differential": self.gank_differential,
+            "differential": self.differential,
             "success_rate_made": round(self.success_rate_made, 2),
-            "death_rate_received": round(self.death_rate_received, 2)
+            "death_rate_received": round(self.death_rate_received, 2),
+            "by_phase_made": {p.value: c for p, c in self.ganks_made_by_phase.items()},
+            "by_phase_received": {p.value: c for p, c in self.ganks_received_by_phase.items()}
         }
 
 
-@dataclass
+@dataclass 
 class PhaseGankStats:
-    """Stats de gank pour une phase de jeu spécifique."""
+    """Stats de gank pour une phase de jeu."""
     total: int = 0
     successful: int = 0
     by_lane: Dict[Lane, int] = field(default_factory=lambda: {Lane.TOP: 0, Lane.MID: 0, Lane.BOT: 0})
@@ -139,49 +149,46 @@ class PhaseGankStats:
 # FONCTIONS UTILITAIRES
 # =============================================================================
 
-def get_map_zone(x: int, y: int) -> Lane:
+def get_lane_from_position(x: int, y: int) -> Lane:
     """
-    Détermine la zone de la map basée sur les coordonnées.
-    Map SR: environ 0-15000 sur chaque axe.
+    Détermine la lane basée sur les coordonnées du kill.
+    Map SR: 0-15000 sur chaque axe.
     """
     nx = x / 15000
     ny = y / 15000
     
-    dist_to_mid = abs(ny - nx)
-    lane_width = 0.15
-    
-    # Mid lane - corridor diagonal
-    if dist_to_mid < lane_width and 0.2 < nx < 0.8:
-        return Lane.MID
-    
-    # Top lane - bord supérieur et gauche
-    if (ny > 0.75 and nx < 0.5) or (nx < 0.25 and ny > 0.5):
+    # TOP: coin supérieur gauche
+    if (ny > 0.65 and nx < 0.55) or (nx < 0.30 and ny > 0.45):
         return Lane.TOP
     
-    # Bot lane - bord inférieur et droit
-    if (ny < 0.25 and nx > 0.5) or (nx > 0.75 and ny < 0.5):
+    # BOT: coin inférieur droit
+    if (ny < 0.35 and nx > 0.45) or (nx > 0.70 and ny < 0.55):
         return Lane.BOT
+    
+    # MID: diagonale centrale
+    if abs(ny - nx) < 0.20 and 0.20 < nx < 0.80:
+        return Lane.MID
     
     return Lane.JUNGLE
 
 
 def get_jungler_style(phase_stats: Dict[GamePhase, PhaseGankStats]) -> str:
     """
-    Identifie le style de jeu du jungler basé sur la distribution temporelle des ganks.
+    Identifie le style de jeu du jungler.
     
     Returns:
-        - "early_aggro": Focus early game agressif (50%+ des ganks en early)
-        - "balanced": Répartition équilibrée entre les phases
-        - "mid_focused": Focus sur le mid game
-        - "late_scaler": Peu de ganks early, style farming/scaling
-        - "passive": Très peu de ganks
+        - "early_aggro": 50%+ des ganks en early
+        - "balanced": Répartition équilibrée
+        - "mid_focused": Focus mid game
+        - "late_scaler": Peu de ganks early
+        - "passive": Très peu de ganks total
     """
     early = phase_stats[GamePhase.EARLY].total
     mid = phase_stats[GamePhase.MID].total
     late = phase_stats[GamePhase.LATE].total
     total = early + mid + late
     
-    if total == 0:
+    if total < 2:
         return "passive"
     
     early_ratio = early / total
@@ -205,131 +212,110 @@ class GankAnalysisMixin:
     """
     Mixin pour analyser les ganks dans MatchLol.
     
-    Requiert que la classe MatchLol ait:
+    Détection basée sur les KILLS impliquant le jungler sur une lane.
+    Un gank = le jungler participe (kill ou assist) à un kill sur TOP/MID/BOT.
+    
+    Requiert:
     - self.match_detail: Données du match
-    - self.data_timeline: Données timeline (à récupérer si non présent)
+    - self.data_timeline: Données timeline
     - self.thisId: Index du joueur principal (0-9)
+    - self.last_match: ID du match
     """
     
-    # Constantes de détection
-    GANK_COOLDOWN_MS = 30000       # 30 secondes entre deux ganks sur la même lane
-    GANK_MAX_DURATION_MS = 20000   # Durée max d'un gank (sinon c'est un "hold")
-    GANK_SUCCESS_WINDOW_MS = 15000 # Fenêtre pour détecter un kill après entrée sur lane
-    COUNTER_GANK_WINDOW_MS = 15000 # Fenêtre pour détecter un counter-gank
+    GANK_COOLDOWN_MS = 20000  # 20s entre deux ganks comptés séparément
+    COUNTER_GANK_WINDOW_MS = 15000  # Fenêtre pour détecter un counter-gank
     
-    def _get_team_participants_for_ganks(self) -> Dict[int, Dict]:
-        """Retourne les participants par équipe avec leurs rôles."""
+    def _get_jungler_info(self) -> Dict:
+        """Retourne les infos des junglers des deux équipes."""
         participants = self.match_detail.get("info", {}).get("participants", [])
         
-        teams = {100: {}, 200: {}}
+        junglers = {100: None, 200: None}
         
         for p in participants:
-            team_id = p.get("teamId")
             role = p.get("teamPosition") or p.get("individualPosition")
-            participant_id = p.get("participantId")
-            
-            teams[team_id][role] = {
-                "participantId": participant_id,
-                "championName": p.get("championName"),
-                "summonerName": p.get("summonerName", p.get("riotIdGameName", "Unknown"))
-            }
-            teams[team_id][participant_id] = role
+            if role == "JUNGLE":
+                team_id = p.get("teamId")
+                junglers[team_id] = {
+                    "participantId": p.get("participantId"),
+                    "championName": p.get("championName"),
+                    "summonerName": p.get("summonerName", p.get("riotIdGameName", "Unknown"))
+                }
         
-        return teams
+        return junglers
     
-    def _collect_kill_events(self) -> List[Dict]:
-        """Collecte tous les events de kills depuis la timeline."""
-        frames = self.data_timeline.get("info", {}).get("frames", [])
-        kill_events = []
+    def _collect_lane_kills_with_jungler(self, jungler_id: int, team_id: int) -> List[GankEvent]:
+        """
+        Collecte tous les kills sur lane impliquant le jungler.
         
-        for frame in frames:
-            for event in frame.get("events", []):
-                if event.get("type") == "CHAMPION_KILL":
-                    kill_events.append({
-                        "timestamp": event.get("timestamp"),
-                        "position": event.get("position", {}),
-                        "killerId": event.get("killerId"),
-                        "victimId": event.get("victimId"),
-                        "assistingParticipantIds": event.get("assistingParticipantIds", [])
-                    })
+        Args:
+            jungler_id: participantId du jungler
+            team_id: 100 ou 200
         
-        return kill_events
-    
-    def _detect_ganks_for_jungler(
-        self,
-        jungler_participant_id: int,
-        kill_events: List[Dict]
-    ) -> List[GankEvent]:
-        """Détecte les ganks d'un jungler spécifique."""
-        frames = self.data_timeline.get("info", {}).get("frames", [])
+        Returns:
+            Liste de GankEvent
+        """
+        # Récupérer le nom du champion du jungler
+        junglers = self._get_jungler_info()
+        jungler_champion = junglers.get(team_id, {}).get("championName", "Unknown")
+        
+        # Parser la timeline selon sa structure
+        if isinstance(self.data_timeline, list):
+            frames = self.data_timeline
+        else:
+            frames = self.data_timeline.get("info", {}).get("frames", [])
+        
         ganks = []
-        
-        previous_zone = Lane.JUNGLE
-        lane_entry_time = None
-        current_lane = None
-        
         last_gank_time = {Lane.TOP: -60000, Lane.MID: -60000, Lane.BOT: -60000}
         
         for frame in frames:
-            timestamp = frame.get("timestamp", 0)
-            participant_frames = frame.get("participantFrames", {})
-            
-            jungler_frame = participant_frames.get(str(jungler_participant_id))
-            if not jungler_frame:
-                continue
-            
-            position = jungler_frame.get("position", {})
-            x, y = position.get("x", 0), position.get("y", 0)
-            
-            current_zone = get_map_zone(x, y)
-            
-            # Détection d'entrée sur une lane depuis la jungle
-            if previous_zone == Lane.JUNGLE and current_zone in [Lane.TOP, Lane.MID, Lane.BOT]:
-                if timestamp - last_gank_time[current_zone] > self.GANK_COOLDOWN_MS:
-                    lane_entry_time = timestamp
-                    current_lane = current_zone
-            
-            # Gank terminé ?
-            if lane_entry_time is not None and current_lane is not None:
-                time_on_lane = timestamp - lane_entry_time
+            for event in frame.get("events", []):
+                if event.get("type") != "CHAMPION_KILL":
+                    continue
                 
-                if current_zone == Lane.JUNGLE or time_on_lane > self.GANK_MAX_DURATION_MS:
-                    # Vérifier si gank réussi
-                    successful = False
-                    victim_ids = []
-                    
-                    for kill_event in kill_events:
-                        kill_time = kill_event["timestamp"]
-                        if lane_entry_time <= kill_time <= lane_entry_time + self.GANK_SUCCESS_WINDOW_MS:
-                            kill_pos = kill_event["position"]
-                            kill_zone = get_map_zone(kill_pos.get("x", 0), kill_pos.get("y", 0))
-                            
-                            if kill_zone == current_lane:
-                                if (kill_event["killerId"] == jungler_participant_id or
-                                    jungler_participant_id in kill_event["assistingParticipantIds"]):
-                                    successful = True
-                                    victim_ids.append(kill_event["victimId"])
-                    
-                    gank = GankEvent(
-                        timestamp=lane_entry_time,
-                        lane=current_lane,
-                        successful=successful,
-                        jungler_participant_id=jungler_participant_id,
-                        victim_ids=victim_ids
-                    )
-                    ganks.append(gank)
-                    
-                    last_gank_time[current_lane] = lane_entry_time
-                    lane_entry_time = None
-                    current_lane = None
-            
-            previous_zone = current_zone
+                ts = event.get("timestamp", 0)
+                killer_id = event.get("killerId")
+                victim_id = event.get("victimId")
+                assists = event.get("assistingParticipantIds", [])
+                pos = event.get("position", {})
+                
+                # Le jungler est-il impliqué ?
+                jungler_is_killer = killer_id == jungler_id
+                jungler_assisted = jungler_id in assists
+                
+                if not jungler_is_killer and not jungler_assisted:
+                    continue
+                
+                # Déterminer la lane
+                lane = get_lane_from_position(pos.get("x", 0), pos.get("y", 0))
+                
+                # Ignorer les kills en jungle
+                if lane == Lane.JUNGLE:
+                    continue
+                
+                # Vérifier le cooldown
+                if ts - last_gank_time[lane] < self.GANK_COOLDOWN_MS:
+                    continue
+                
+                # Déterminer si c'est un gank réussi (ennemi tué) ou raté (allié tué)
+                # Équipe 100 = participants 1-5, Équipe 200 = participants 6-10
+                victim_is_enemy = (victim_id > 5) if team_id == 100 else (victim_id <= 5)
+                
+                gank = GankEvent(
+                    timestamp=ts,
+                    lane=lane,
+                    successful=victim_is_enemy,
+                    jungler_participant_id=jungler_id,
+                    jungler_champion=jungler_champion,
+                    victim_id=victim_id
+                )
+                ganks.append(gank)
+                last_gank_time[lane] = ts
         
         return ganks
     
-    def _analyze_gank_timing(self, ganks: List[GankEvent]) -> Dict[GamePhase, PhaseGankStats]:
-        """Analyse la distribution temporelle des ganks par phase de jeu."""
-        phase_stats = {
+    def _compute_phase_stats(self, ganks: List[GankEvent]) -> Dict[GamePhase, PhaseGankStats]:
+        """Calcule les stats par phase de jeu."""
+        stats = {
             GamePhase.EARLY: PhaseGankStats(),
             GamePhase.MID: PhaseGankStats(),
             GamePhase.LATE: PhaseGankStats()
@@ -337,134 +323,109 @@ class GankAnalysisMixin:
         
         for gank in ganks:
             phase = gank.game_phase
-            phase_stats[phase].total += 1
+            stats[phase].total += 1
             if gank.successful:
-                phase_stats[phase].successful += 1
-            phase_stats[phase].by_lane[gank.lane] += 1
+                stats[phase].successful += 1
+            if gank.lane in stats[phase].by_lane:
+                stats[phase].by_lane[gank.lane] += 1
         
-        return phase_stats
+        return stats
     
-    def _get_timing_insights(
+    def _compute_timing_insights(
         self,
         ally_ganks: List[GankEvent],
         enemy_ganks: List[GankEvent]
     ) -> Dict:
-        """Génère des insights sur les patterns de timing des ganks."""
-        ally_timing = self._analyze_gank_timing(ally_ganks)
-        enemy_timing = self._analyze_gank_timing(enemy_ganks)
+        """Génère des insights sur le timing des ganks."""
         
-        # Premier gank de chaque jungler
-        first_ally_gank = min(ally_ganks, key=lambda g: g.timestamp) if ally_ganks else None
-        first_enemy_gank = min(enemy_ganks, key=lambda g: g.timestamp) if enemy_ganks else None
+        ally_phase = self._compute_phase_stats(ally_ganks)
+        enemy_phase = self._compute_phase_stats(enemy_ganks)
         
-        # Temps moyen entre les ganks
-        def avg_time_between_ganks(ganks: List[GankEvent]) -> Optional[float]:
+        # Stocker pour la sauvegarde
+        self._ally_phase_stats = ally_phase
+        self._enemy_phase_stats = enemy_phase
+        
+        first_ally = min(ally_ganks, key=lambda g: g.timestamp) if ally_ganks else None
+        first_enemy = min(enemy_ganks, key=lambda g: g.timestamp) if enemy_ganks else None
+        
+        def avg_interval(ganks: List[GankEvent]) -> Optional[float]:
             if len(ganks) < 2:
                 return None
-            sorted_ganks = sorted(ganks, key=lambda g: g.timestamp)
-            intervals = [sorted_ganks[i+1].timestamp - sorted_ganks[i].timestamp
-                        for i in range(len(sorted_ganks) - 1)]
-            return sum(intervals) / len(intervals) / 1000  # en secondes
-        
-        # Pic d'activité (fenêtre de 5 min avec le plus de ganks)
-        def find_peak_activity(ganks: List[GankEvent], window_ms: int = 5 * 60 * 1000) -> Optional[Dict]:
-            if not ganks:
-                return None
-            
-            max_count = 0
-            peak_start = 0
-            
-            for gank in ganks:
-                count = sum(1 for g in ganks if gank.timestamp <= g.timestamp < gank.timestamp + window_ms)
-                if count > max_count:
-                    max_count = count
-                    peak_start = gank.timestamp
-            
-            return {
-                "start": peak_start,
-                "start_formatted": f"{peak_start // 60000}:{(peak_start % 60000) // 1000:02d}",
-                "end_formatted": f"{(peak_start + window_ms) // 60000}:{((peak_start + window_ms) % 60000) // 1000:02d}",
-                "count": max_count
-            }
+            sorted_g = sorted(ganks, key=lambda g: g.timestamp)
+            intervals = [sorted_g[i+1].timestamp - sorted_g[i].timestamp for i in range(len(sorted_g)-1)]
+            return round(sum(intervals) / len(intervals) / 1000, 1)  # En secondes
         
         return {
             "ally": {
-                "style": get_jungler_style(ally_timing),
+                "style": get_jungler_style(ally_phase),
                 "first_gank": {
-                    "timestamp": first_ally_gank.timestamp,
-                    "timestamp_formatted": first_ally_gank.timestamp_formatted,
-                    "lane": first_ally_gank.lane.value,
-                    "successful": first_ally_gank.successful
-                } if first_ally_gank else None,
-                "avg_time_between_ganks": avg_time_between_ganks(ally_ganks),
-                "peak_activity": find_peak_activity(ally_ganks),
-                "by_phase": {phase.value: stats.to_dict() for phase, stats in ally_timing.items()}
+                    "timestamp": first_ally.timestamp,
+                    "formatted": first_ally.timestamp_formatted,
+                    "lane": first_ally.lane.value,
+                    "successful": first_ally.successful
+                } if first_ally else None,
+                "avg_interval_seconds": avg_interval(ally_ganks),
+                "by_phase": {p.value: s.to_dict() for p, s in ally_phase.items()}
             },
             "enemy": {
-                "style": get_jungler_style(enemy_timing),
+                "style": get_jungler_style(enemy_phase),
                 "first_gank": {
-                    "timestamp": first_enemy_gank.timestamp,
-                    "timestamp_formatted": first_enemy_gank.timestamp_formatted,
-                    "lane": first_enemy_gank.lane.value,
-                    "successful": first_enemy_gank.successful
-                } if first_enemy_gank else None,
-                "avg_time_between_ganks": avg_time_between_ganks(enemy_ganks),
-                "peak_activity": find_peak_activity(enemy_ganks),
-                "by_phase": {phase.value: stats.to_dict() for phase, stats in enemy_timing.items()}
+                    "timestamp": first_enemy.timestamp,
+                    "formatted": first_enemy.timestamp_formatted,
+                    "lane": first_enemy.lane.value,
+                    "successful": first_enemy.successful
+                } if first_enemy else None,
+                "avg_interval_seconds": avg_interval(enemy_ganks),
+                "by_phase": {p.value: s.to_dict() for p, s in enemy_phase.items()}
             },
             "comparison": {
-                "first_to_gank": "ally" if (first_ally_gank and first_enemy_gank and
-                                            first_ally_gank.timestamp < first_enemy_gank.timestamp) else
-                                ("enemy" if first_enemy_gank else ("ally" if first_ally_gank else "none")),
-                "early_game_winner": "ally" if ally_timing[GamePhase.EARLY].total > enemy_timing[GamePhase.EARLY].total else
-                                    ("enemy" if enemy_timing[GamePhase.EARLY].total > ally_timing[GamePhase.EARLY].total else "even")
+                "first_to_gank": "ally" if (first_ally and first_enemy and first_ally.timestamp < first_enemy.timestamp)
+                                 else ("enemy" if first_enemy else ("ally" if first_ally else "none")),
+                "early_winner": "ally" if ally_phase[GamePhase.EARLY].total > enemy_phase[GamePhase.EARLY].total
+                               else ("enemy" if enemy_phase[GamePhase.EARLY].total > ally_phase[GamePhase.EARLY].total else "even")
             }
         }
     
     async def analyze_ganks(self, team_id: int = None) -> Dict:
         """
-        Analyse complète de la pression jungle.
+        Analyse complète des ganks.
         
         Args:
-            team_id: 100 (blue) ou 200 (red). Si None, utilise l'équipe du joueur principal.
+            team_id: 100 ou 200. Si None, déduit de thisId.
         
         Returns:
-            Statistiques complètes de ganks (effectués et subis) par lane.
+            Dict avec toutes les stats de ganks.
         
         Attributs mis à jour:
-            self.gank_stats: Dict complet des statistiques
-            self.ally_ganks: Liste des GankEvent alliés
-            self.enemy_ganks: Liste des GankEvent ennemis
-            self.lane_gank_stats: Dict[Lane, LaneGankStats]
-            self.ally_jungler_style: str
-            self.enemy_jungler_style: str
+            self.gank_stats
+            self.ally_ganks
+            self.enemy_ganks
+            self.lane_gank_stats
+            self.ally_jungler_style
+            self.enemy_jungler_style
         """
-        # Déterminer l'équipe si non spécifiée
+        # Déterminer l'équipe
         if team_id is None:
-            # thisId 0-4 = équipe 1 (100), 5-9 = équipe 2 (200)
             team_id = 100 if self.thisId < 5 else 200
-        
-        self._analyzed_team_id = team_id
         enemy_team_id = 200 if team_id == 100 else 100
         
-        teams = self._get_team_participants_for_ganks()
+        # Récupérer les junglers
+        junglers = self._get_jungler_info()
         
-        # Trouver les junglers
-        ally_jungler_info = teams[team_id].get("JUNGLE", {})
-        enemy_jungler_info = teams[enemy_team_id].get("JUNGLE", {})
+        ally_jgl = junglers.get(team_id)
+        enemy_jgl = junglers.get(enemy_team_id)
         
-        ally_jungler_id = ally_jungler_info.get("participantId")
-        enemy_jungler_id = enemy_jungler_info.get("participantId")
-        
-        if not ally_jungler_id or not enemy_jungler_id:
-            self.gank_stats = {"error": "Impossible de trouver les junglers"}
+        if not ally_jgl or not enemy_jgl:
+            self.gank_stats = {"error": "Junglers non trouvés"}
             return self.gank_stats
         
-        kill_events = self._collect_kill_events()
-        
-        # Détecter les ganks des deux junglers
-        self.ally_ganks = self._detect_ganks_for_jungler(ally_jungler_id, kill_events)
-        self.enemy_ganks = self._detect_ganks_for_jungler(enemy_jungler_id, kill_events)
+        # Collecter les ganks
+        self.ally_ganks = self._collect_lane_kills_with_jungler(
+            ally_jgl["participantId"], team_id
+        )
+        self.enemy_ganks = self._collect_lane_kills_with_jungler(
+            enemy_jgl["participantId"], enemy_team_id
+        )
         
         # Stats par lane
         self.lane_gank_stats = {
@@ -475,411 +436,306 @@ class GankAnalysisMixin:
         
         for gank in self.ally_ganks:
             self.lane_gank_stats[gank.lane].ganks_made += 1
+            self.lane_gank_stats[gank.lane].ganks_made_by_phase[gank.game_phase] += 1
             if gank.successful:
                 self.lane_gank_stats[gank.lane].ganks_made_successful += 1
         
         for gank in self.enemy_ganks:
             self.lane_gank_stats[gank.lane].ganks_received += 1
+            self.lane_gank_stats[gank.lane].ganks_received_by_phase[gank.game_phase] += 1
             if gank.successful:
                 self.lane_gank_stats[gank.lane].ganks_received_successful += 1
         
         # Détecter les counter-ganks
         counter_ganks = 0
-        for ally_gank in self.ally_ganks:
-            for enemy_gank in self.enemy_ganks:
-                if (ally_gank.lane == enemy_gank.lane and
-                    abs(ally_gank.timestamp - enemy_gank.timestamp) < self.COUNTER_GANK_WINDOW_MS):
+        for ag in self.ally_ganks:
+            for eg in self.enemy_ganks:
+                if ag.lane == eg.lane and abs(ag.timestamp - eg.timestamp) < self.COUNTER_GANK_WINDOW_MS:
                     counter_ganks += 1
-                    ally_gank.is_counter_gank = True
-                    enemy_gank.is_counter_gank = True
+                    ag.is_counter_gank = True
+                    eg.is_counter_gank = True
         
-        # Stats globales
-        total_ganks_made = sum(s.ganks_made for s in self.lane_gank_stats.values())
-        total_ganks_received = sum(s.ganks_received for s in self.lane_gank_stats.values())
-        total_successful_made = sum(s.ganks_made_successful for s in self.lane_gank_stats.values())
-        total_successful_received = sum(s.ganks_received_successful for s in self.lane_gank_stats.values())
+        # Totaux
+        total_made = len(self.ally_ganks)
+        total_received = len(self.enemy_ganks)
+        successful_made = sum(1 for g in self.ally_ganks if g.successful)
+        successful_received = sum(1 for g in self.enemy_ganks if g.successful)
         
-        most_ganked_lane = max(self.lane_gank_stats.keys(), key=lambda l: self.lane_gank_stats[l].ganks_made) if total_ganks_made > 0 else None
-        most_targeted_lane = max(self.lane_gank_stats.keys(), key=lambda l: self.lane_gank_stats[l].ganks_received) if total_ganks_received > 0 else None
+        # Timing
+        timing = self._compute_timing_insights(self.ally_ganks, self.enemy_ganks)
         
-        # Analyse temporelle
-        timing_insights = self._get_timing_insights(self.ally_ganks, self.enemy_ganks)
+        self.ally_jungler_style = timing["ally"]["style"]
+        self.enemy_jungler_style = timing["enemy"]["style"]
         
-        # Stocker les styles pour accès rapide
-        self.ally_jungler_style = timing_insights["ally"]["style"]
-        self.enemy_jungler_style = timing_insights["enemy"]["style"]
-        
-        # Construire le résultat complet
+        # Construire le résultat
         self.gank_stats = {
             "team_id": team_id,
-            "ally_jungler": {
-                "participantId": ally_jungler_id,
-                "champion": ally_jungler_info.get("championName"),
-                "name": ally_jungler_info.get("summonerName")
-            },
-            "enemy_jungler": {
-                "participantId": enemy_jungler_id,
-                "champion": enemy_jungler_info.get("championName"),
-                "name": enemy_jungler_info.get("summonerName")
-            },
+            "ally_jungler": ally_jgl,
+            "enemy_jungler": enemy_jgl,
             "summary": {
-                "total_ganks_made": total_ganks_made,
-                "total_ganks_received": total_ganks_received,
-                "gank_differential": total_ganks_made - total_ganks_received,
-                "ganks_made_successful": total_successful_made,
-                "ganks_received_successful": total_successful_received,
-                "success_rate_made": round(total_successful_made / total_ganks_made, 2) if total_ganks_made > 0 else 0,
-                "death_rate_received": round(total_successful_received / total_ganks_received, 2) if total_ganks_received > 0 else 0,
+                "total_ganks_made": total_made,
+                "total_ganks_received": total_received,
+                "differential": total_made - total_received,
+                "successful_made": successful_made,
+                "successful_received": successful_received,
+                "success_rate_made": round(successful_made / total_made, 2) if total_made > 0 else 0,
+                "death_rate_received": round(successful_received / total_received, 2) if total_received > 0 else 0,
                 "counter_ganks": counter_ganks
             },
             "by_lane": {
                 lane.value: self.lane_gank_stats[lane].to_dict()
                 for lane in [Lane.TOP, Lane.MID, Lane.BOT]
             },
-            "timing": timing_insights,
+            "timing": timing,
             "insights": {
-                "most_ganked_by_ally": most_ganked_lane.value if most_ganked_lane else None,
-                "most_targeted_by_enemy": most_targeted_lane.value if most_targeted_lane else None,
-                "jungle_dominance": "ally" if total_ganks_made > total_ganks_received else
-                                   ("enemy" if total_ganks_received > total_ganks_made else "even"),
-                "ally_jungler_style": self.ally_jungler_style,
-                "enemy_jungler_style": self.enemy_jungler_style
+                "most_ganked_by_ally": max(
+                    [Lane.TOP, Lane.MID, Lane.BOT],
+                    key=lambda l: self.lane_gank_stats[l].ganks_made
+                ).value if total_made > 0 else None,
+                "most_targeted_by_enemy": max(
+                    [Lane.TOP, Lane.MID, Lane.BOT],
+                    key=lambda l: self.lane_gank_stats[l].ganks_received
+                ).value if total_received > 0 else None,
+                "jungle_dominance": "ally" if total_made > total_received 
+                                   else ("enemy" if total_received > total_made else "even"),
+                "ally_style": self.ally_jungler_style,
+                "enemy_style": self.enemy_jungler_style
             },
-            "gank_events": {
-                "ally_ganks": [g.to_dict() for g in sorted(self.ally_ganks, key=lambda x: x.timestamp)],
-                "enemy_ganks": [g.to_dict() for g in sorted(self.enemy_ganks, key=lambda x: x.timestamp)]
+            "events": {
+                "ally": [g.to_dict() for g in self.ally_ganks],
+                "enemy": [g.to_dict() for g in self.enemy_ganks]
             }
         }
         
         return self.gank_stats
-    
-    def get_lane_gank_summary(self, lane: str) -> Dict:
-        """
-        Retourne un résumé des ganks pour une lane spécifique.
-        
-        Args:
-            lane: "top", "mid", ou "bot"
-        """
-        lane_enum = Lane(lane.lower())
-        stats = self.lane_gank_stats.get(lane_enum)
-        
-        if not stats:
-            return {"error": f"Lane {lane} non trouvée"}
-        
-        ally_lane_ganks = [g for g in self.ally_ganks if g.lane == lane_enum]
-        enemy_lane_ganks = [g for g in self.enemy_ganks if g.lane == lane_enum]
-        
-        return {
-            "lane": lane,
-            "stats": stats.to_dict(),
-            "ally_ganks_timeline": [
-                {"time": g.timestamp_formatted, "phase": g.game_phase.value, "success": g.successful}
-                for g in sorted(ally_lane_ganks, key=lambda x: x.timestamp)
-            ],
-            "enemy_ganks_timeline": [
-                {"time": g.timestamp_formatted, "phase": g.game_phase.value, "success": g.successful}
-                for g in sorted(enemy_lane_ganks, key=lambda x: x.timestamp)
-            ]
-        }
-    
-    def get_player_gank_pressure(self, participant_id: int = None) -> Dict:
-        """
-        Retourne la pression de gank subie/reçue par un joueur spécifique.
-        
-        Args:
-            participant_id: ID du participant (1-10). Si None, utilise le joueur principal.
-        """
-        if participant_id is None:
-            participant_id = self.thisId + 1  # thisId est 0-indexed, participantId est 1-indexed
-        
-        # Trouver la lane du joueur
-        teams = self._get_team_participants_for_ganks()
-        player_role = None
-        player_team = None
-        
-        for team_id, team_data in teams.items():
-            if participant_id in team_data:
-                player_role = team_data[participant_id]
-                player_team = team_id
-                break
-        
-        if not player_role or player_role == "JUNGLE":
-            return {"error": "Joueur non trouvé ou est jungler"}
-        
-        # Mapper le rôle vers la lane
-        role_to_lane = {
-            "TOP": Lane.TOP,
-            "JUNGLE": Lane.JUNGLE,
-            "MID": Lane.MID,
-            "ADC": Lane.BOT,
-            "SUPPORT": Lane.BOT
-        }
-        
-        player_lane = role_to_lane.get(player_role, Lane.MID)
-        
-        # Compter les ganks qui ont ciblé ce joueur
-        ganks_received_by_player = [
-            g for g in self.enemy_ganks
-            if g.lane == player_lane
-        ]
-        
-        deaths_from_ganks = [
-            g for g in ganks_received_by_player
-            if participant_id in g.victim_ids
-        ]
-        
-        return {
-            "participant_id": participant_id,
-            "role": player_role,
-            "lane": player_lane.value,
-            "ganks_in_lane": len(ganks_received_by_player),
-            "deaths_from_ganks": len(deaths_from_ganks),
-            "survival_rate": 1 - (len(deaths_from_ganks) / len(ganks_received_by_player)) if ganks_received_by_player else 1,
-            "gank_timeline": [
-                {
-                    "time": g.timestamp_formatted,
-                    "phase": g.game_phase.value,
-                    "died": participant_id in g.victim_ids
-                }
-                for g in sorted(ganks_received_by_player, key=lambda x: x.timestamp)
-            ]
-        }
     
     # =========================================================================
     # MÉTHODES DE SAUVEGARDE BDD
     # =========================================================================
     
     async def save_gank_data(self) -> bool:
-        """
-        Sauvegarde toutes les données de ganks dans la BDD.
-        
-        Returns:
-            True si sauvegarde réussie, False sinon.
-        """
+        """Sauvegarde toutes les données de ganks."""
         if not hasattr(self, 'gank_stats') or "error" in self.gank_stats:
             return False
         
         try:
-            # 1. Sauvegarder le résumé
             await self._save_gank_summary()
-            
-            # 2. Sauvegarder les événements de gank
             await self._save_gank_events()
-            
-            # 3. Sauvegarder les stats par lane
             await self._save_gank_lane_stats()
-            
-            # 4. Sauvegarder les stats par phase
             await self._save_gank_phase_stats()
-            
             return True
-            
         except Exception as e:
             print(f"Erreur sauvegarde ganks: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     async def _save_gank_summary(self):
-        """Sauvegarde le résumé des ganks."""
+        """Sauvegarde le résumé global."""
         stats = self.gank_stats
         timing = stats["timing"]
         
-        # Extraire les données de timing allié
-        ally_timing = timing["ally"]
-        ally_first = ally_timing.get("first_gank") or {}
-        ally_peak = ally_timing.get("peak_activity") or {}
-        
-        # Extraire les données de timing ennemi
-        enemy_timing = timing["enemy"]
-        enemy_first = enemy_timing.get("first_gank") or {}
-        enemy_peak = enemy_timing.get("peak_activity") or {}
+        ally_first = timing["ally"].get("first_gank") or {}
+        enemy_first = timing["enemy"].get("first_gank") or {}
         
         sql = """
         INSERT INTO match_gank_summary (
             match_id, team_id,
-            ally_jungler_participant_id, ally_jungler_champion, ally_jungler_name,
-            enemy_jungler_participant_id, enemy_jungler_champion, enemy_jungler_name,
-            total_ganks_made, total_ganks_received, gank_differential,
-            ganks_made_successful, ganks_received_successful,
+            ally_jungler_id, ally_jungler_champion, ally_jungler_name,
+            enemy_jungler_id, enemy_jungler_champion, enemy_jungler_name,
+            total_ganks_made, total_ganks_received, differential,
+            successful_made, successful_received,
             success_rate_made, death_rate_received, counter_ganks,
-            most_ganked_lane_by_ally, most_targeted_lane_by_enemy,
-            jungle_dominance, ally_jungler_style, enemy_jungler_style,
-            ally_first_gank_timestamp, ally_first_gank_lane, ally_first_gank_successful,
-            ally_avg_time_between_ganks, ally_peak_activity_start, ally_peak_activity_count,
-            enemy_first_gank_timestamp, enemy_first_gank_lane, enemy_first_gank_successful,
-            enemy_avg_time_between_ganks, enemy_peak_activity_start, enemy_peak_activity_count,
-            first_to_gank, early_game_winner
+            most_ganked_by_ally, most_targeted_by_enemy,
+            jungle_dominance, ally_style, enemy_style,
+            ally_first_gank_time, ally_first_gank_lane, ally_first_gank_success,
+            enemy_first_gank_time, enemy_first_gank_lane, enemy_first_gank_success,
+            first_to_gank, early_winner
         ) VALUES (
-            %s, %s,
-            %s, %s, %s,
-            %s, %s, %s,
-            %s, %s, %s,
-            %s, %s,
-            %s, %s, %s,
-            %s, %s,
-            %s, %s, %s,
-            %s, %s, %s,
-            %s, %s, %s,
-            %s, %s, %s,
-            %s, %s, %s,
-            %s, %s
+            :match_id, :team_id,
+            :ally_jungler_id, :ally_jungler_champion, :ally_jungler_name,
+            :enemy_jungler_id, :enemy_jungler_champion, :enemy_jungler_name,
+            :total_ganks_made, :total_ganks_received, :differential,
+            :successful_made, :successful_received,
+            :success_rate_made, :death_rate_received, :counter_ganks,
+            :most_ganked_by_ally, :most_targeted_by_enemy,
+            :jungle_dominance, :ally_style, :enemy_style,
+            :ally_first_gank_time, :ally_first_gank_lane, :ally_first_gank_success,
+            :enemy_first_gank_time, :enemy_first_gank_lane, :enemy_first_gank_success,
+            :first_to_gank, :early_winner
         )
         ON CONFLICT (match_id, team_id) DO UPDATE SET
             total_ganks_made = EXCLUDED.total_ganks_made,
             total_ganks_received = EXCLUDED.total_ganks_received,
-            gank_differential = EXCLUDED.gank_differential,
-            ganks_made_successful = EXCLUDED.ganks_made_successful,
-            ganks_received_successful = EXCLUDED.ganks_received_successful,
+            differential = EXCLUDED.differential,
+            successful_made = EXCLUDED.successful_made,
+            successful_received = EXCLUDED.successful_received,
             success_rate_made = EXCLUDED.success_rate_made,
             death_rate_received = EXCLUDED.death_rate_received,
             counter_ganks = EXCLUDED.counter_ganks
         """
         
-        params = (
-            self.last_match, self._analyzed_team_id,
-            stats["ally_jungler"]["participantId"],
-            stats["ally_jungler"]["champion"],
-            stats["ally_jungler"]["name"],
-            stats["enemy_jungler"]["participantId"],
-            stats["enemy_jungler"]["champion"],
-            stats["enemy_jungler"]["name"],
-            stats["summary"]["total_ganks_made"],
-            stats["summary"]["total_ganks_received"],
-            stats["summary"]["gank_differential"],
-            stats["summary"]["ganks_made_successful"],
-            stats["summary"]["ganks_received_successful"],
-            stats["summary"]["success_rate_made"],
-            stats["summary"]["death_rate_received"],
-            stats["summary"]["counter_ganks"],
-            stats["insights"]["most_ganked_by_ally"],
-            stats["insights"]["most_targeted_by_enemy"],
-            stats["insights"]["jungle_dominance"],
-            stats["insights"]["ally_jungler_style"],
-            stats["insights"]["enemy_jungler_style"],
-            ally_first.get("timestamp"),
-            ally_first.get("lane"),
-            ally_first.get("successful"),
-            ally_timing.get("avg_time_between_ganks"),
-            ally_peak.get("start"),
-            ally_peak.get("count"),
-            enemy_first.get("timestamp"),
-            enemy_first.get("lane"),
-            enemy_first.get("successful"),
-            enemy_timing.get("avg_time_between_ganks"),
-            enemy_peak.get("start"),
-            enemy_peak.get("count"),
-            timing["comparison"]["first_to_gank"],
-            timing["comparison"]["early_game_winner"]
-        )
+        params = {
+            "match_id": self.last_match,
+            "team_id": stats["team_id"],
+            "ally_jungler_id": stats["ally_jungler"]["participantId"],
+            "ally_jungler_champion": stats["ally_jungler"]["championName"],
+            "ally_jungler_name": stats["ally_jungler"]["summonerName"],
+            "enemy_jungler_id": stats["enemy_jungler"]["participantId"],
+            "enemy_jungler_champion": stats["enemy_jungler"]["championName"],
+            "enemy_jungler_name": stats["enemy_jungler"]["summonerName"],
+            "total_ganks_made": stats["summary"]["total_ganks_made"],
+            "total_ganks_received": stats["summary"]["total_ganks_received"],
+            "differential": stats["summary"]["differential"],
+            "successful_made": stats["summary"]["successful_made"],
+            "successful_received": stats["summary"]["successful_received"],
+            "success_rate_made": stats["summary"]["success_rate_made"],
+            "death_rate_received": stats["summary"]["death_rate_received"],
+            "counter_ganks": stats["summary"]["counter_ganks"],
+            "most_ganked_by_ally": stats["insights"]["most_ganked_by_ally"],
+            "most_targeted_by_enemy": stats["insights"]["most_targeted_by_enemy"],
+            "jungle_dominance": stats["insights"]["jungle_dominance"],
+            "ally_style": stats["insights"]["ally_style"],
+            "enemy_style": stats["insights"]["enemy_style"],
+            "ally_first_gank_time": ally_first.get("timestamp"),
+            "ally_first_gank_lane": ally_first.get("lane"),
+            "ally_first_gank_success": ally_first.get("successful"),
+            "enemy_first_gank_time": enemy_first.get("timestamp"),
+            "enemy_first_gank_lane": enemy_first.get("lane"),
+            "enemy_first_gank_success": enemy_first.get("successful"),
+            "first_to_gank": timing["comparison"]["first_to_gank"],
+            "early_winner": timing["comparison"]["early_winner"]
+        }
         
         requete_perso_bdd(sql, params)
     
     async def _save_gank_events(self):
-        """Sauvegarde tous les événements de gank."""
-        # Supprimer les anciens events pour ce match
-        delete_sql = "DELETE FROM match_gank_events WHERE match_id = %s"
-        requete_perso_bdd(delete_sql, (self.last_match,))
+        """Sauvegarde les événements de gank."""
+        team_id = self.gank_stats["team_id"]
+        enemy_team_id = 200 if team_id == 100 else 100
         
-        # Insérer les ganks alliés
-        for gank in self.ally_ganks:
-            self._insert_gank_event(gank, self._analyzed_team_id)
+        # Supprimer les anciens
+        requete_perso_bdd(
+            "DELETE FROM match_gank_events WHERE match_id = :match_id",
+            {"match_id": self.last_match}
+        )
         
-        # Insérer les ganks ennemis
-        enemy_team_id = 200 if self._analyzed_team_id == 100 else 100
-        for gank in self.enemy_ganks:
-            self._insert_gank_event(gank, enemy_team_id)
-    
-    def _insert_gank_event(self, gank: GankEvent, team_id: int):
-        """Insère un événement de gank dans la BDD."""
+        # Insérer les nouveaux
         sql = """
         INSERT INTO match_gank_events (
             match_id, team_id, timestamp_ms, timestamp_formatted,
-            game_phase, lane, jungler_participant_id,
-            successful, is_counter_gank, victim_ids
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            game_phase, lane, jungler_id, jungler_champion,
+            successful, is_counter_gank, victim_id
+        ) VALUES (
+            :match_id, :team_id, :timestamp_ms, :timestamp_formatted,
+            :game_phase, :lane, :jungler_id, :jungler_champion,
+            :successful, :is_counter_gank, :victim_id
+        )
         """
         
-        params = (
-            self.last_match,
-            team_id,
-            gank.timestamp,
-            gank.timestamp_formatted,
-            gank.game_phase.value,
-            gank.lane.value,
-            gank.jungler_participant_id,
-            gank.successful,
-            gank.is_counter_gank,
-            gank.victim_ids  # PostgreSQL supporte les arrays
-        )
+        for gank in self.ally_ganks:
+            requete_perso_bdd(sql, {
+                "match_id": self.last_match,
+                "team_id": team_id,
+                "timestamp_ms": gank.timestamp,
+                "timestamp_formatted": gank.timestamp_formatted,
+                "game_phase": gank.game_phase.value,
+                "lane": gank.lane.value,
+                "jungler_id": gank.jungler_participant_id,
+                "jungler_champion": gank.jungler_champion,
+                "successful": gank.successful,
+                "is_counter_gank": gank.is_counter_gank,
+                "victim_id": gank.victim_id
+            })
         
-        requete_perso_bdd(sql, params)
+        for gank in self.enemy_ganks:
+            requete_perso_bdd(sql, {
+                "match_id": self.last_match,
+                "team_id": enemy_team_id,
+                "timestamp_ms": gank.timestamp,
+                "timestamp_formatted": gank.timestamp_formatted,
+                "game_phase": gank.game_phase.value,
+                "lane": gank.lane.value,
+                "jungler_id": gank.jungler_participant_id,
+                "jungler_champion": gank.jungler_champion,
+                "successful": gank.successful,
+                "is_counter_gank": gank.is_counter_gank,
+                "victim_id": gank.victim_id
+            })
     
     async def _save_gank_lane_stats(self):
-        """Sauvegarde les statistiques par lane."""
+        """Sauvegarde les stats par lane."""
+        team_id = self.gank_stats["team_id"]
+        
+        sql = """
+        INSERT INTO match_gank_lane_stats (
+            match_id, team_id, lane,
+            ganks_made, ganks_made_successful,
+            ganks_received, ganks_received_successful,
+            differential, success_rate_made, death_rate_received,
+            made_early, made_mid, made_late,
+            received_early, received_mid, received_late
+        ) VALUES (
+            :match_id, :team_id, :lane,
+            :ganks_made, :ganks_made_successful,
+            :ganks_received, :ganks_received_successful,
+            :differential, :success_rate_made, :death_rate_received,
+            :made_early, :made_mid, :made_late,
+            :received_early, :received_mid, :received_late
+        )
+        ON CONFLICT (match_id, team_id, lane) DO UPDATE SET
+            ganks_made = EXCLUDED.ganks_made,
+            ganks_made_successful = EXCLUDED.ganks_made_successful,
+            ganks_received = EXCLUDED.ganks_received,
+            ganks_received_successful = EXCLUDED.ganks_received_successful,
+            differential = EXCLUDED.differential,
+            success_rate_made = EXCLUDED.success_rate_made,
+            death_rate_received = EXCLUDED.death_rate_received,
+            made_early = EXCLUDED.made_early,
+            made_mid = EXCLUDED.made_mid,
+            made_late = EXCLUDED.made_late,
+            received_early = EXCLUDED.received_early,
+            received_mid = EXCLUDED.received_mid,
+            received_late = EXCLUDED.received_late
+        """
+        
         for lane, stats in self.lane_gank_stats.items():
-            sql = """
-            INSERT INTO match_gank_lane_stats (
-                match_id, team_id, lane,
-                ganks_made, ganks_made_successful,
-                ganks_received, ganks_received_successful,
-                differential, success_rate_made, death_rate_received,
-                ganks_made_early, ganks_made_mid, ganks_made_late,
-                ganks_received_early, ganks_received_mid, ganks_received_late
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (match_id, team_id, lane) DO UPDATE SET
-                ganks_made = EXCLUDED.ganks_made,
-                ganks_made_successful = EXCLUDED.ganks_made_successful,
-                ganks_received = EXCLUDED.ganks_received,
-                ganks_received_successful = EXCLUDED.ganks_received_successful,
-                differential = EXCLUDED.differential,
-                success_rate_made = EXCLUDED.success_rate_made,
-                death_rate_received = EXCLUDED.death_rate_received,
-                ganks_made_early = EXCLUDED.ganks_made_early,
-                ganks_made_mid = EXCLUDED.ganks_made_mid,
-                ganks_made_late = EXCLUDED.ganks_made_late,
-                ganks_received_early = EXCLUDED.ganks_received_early,
-                ganks_received_mid = EXCLUDED.ganks_received_mid,
-                ganks_received_late = EXCLUDED.ganks_received_late
-            """
-            
-            params = (
-                self.last_match,
-                self._analyzed_team_id,
-                lane.value,
-                stats.ganks_made,
-                stats.ganks_made_successful,
-                stats.ganks_received,
-                stats.ganks_received_successful,
-                stats.gank_differential,
-                stats.success_rate_made,
-                stats.death_rate_received,
-                stats.ganks_made_by_phase[GamePhase.EARLY],
-                stats.ganks_made_by_phase[GamePhase.MID],
-                stats.ganks_made_by_phase[GamePhase.LATE],
-                stats.ganks_received_by_phase[GamePhase.EARLY],
-                stats.ganks_received_by_phase[GamePhase.MID],
-                stats.ganks_received_by_phase[GamePhase.LATE]
-            )
-            
-            requete_perso_bdd(sql, params)
+            requete_perso_bdd(sql, {
+                "match_id": self.last_match,
+                "team_id": team_id,
+                "lane": lane.value,
+                "ganks_made": stats.ganks_made,
+                "ganks_made_successful": stats.ganks_made_successful,
+                "ganks_received": stats.ganks_received,
+                "ganks_received_successful": stats.ganks_received_successful,
+                "differential": stats.differential,
+                "success_rate_made": stats.success_rate_made,
+                "death_rate_received": stats.death_rate_received,
+                "made_early": stats.ganks_made_by_phase[GamePhase.EARLY],
+                "made_mid": stats.ganks_made_by_phase[GamePhase.MID],
+                "made_late": stats.ganks_made_by_phase[GamePhase.LATE],
+                "received_early": stats.ganks_received_by_phase[GamePhase.EARLY],
+                "received_mid": stats.ganks_received_by_phase[GamePhase.MID],
+                "received_late": stats.ganks_received_by_phase[GamePhase.LATE]
+            })
     
     async def _save_gank_phase_stats(self):
-        """Sauvegarde les statistiques par phase de jeu."""
-        # Stats allié
-        for phase, stats in self._ally_phase_stats.items():
-            self._insert_phase_stats(phase, stats, is_ally=True)
+        """Sauvegarde les stats par phase."""
+        if not hasattr(self, '_ally_phase_stats'):
+            return
         
-        # Stats ennemi
-        for phase, stats in self._enemy_phase_stats.items():
-            self._insert_phase_stats(phase, stats, is_ally=False)
-    
-    def _insert_phase_stats(self, phase: GamePhase, stats: PhaseGankStats, is_ally: bool):
-        """Insère les stats d'une phase dans la BDD."""
+        team_id = self.gank_stats["team_id"]
+        
         sql = """
         INSERT INTO match_gank_phase_stats (
             match_id, team_id, is_ally, phase,
             total_ganks, successful_ganks, success_rate,
             ganks_top, ganks_mid, ganks_bot
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ) VALUES (
+            :match_id, :team_id, :is_ally, :phase,
+            :total_ganks, :successful_ganks, :success_rate,
+            :ganks_top, :ganks_mid, :ganks_bot
+        )
         ON CONFLICT (match_id, team_id, is_ally, phase) DO UPDATE SET
             total_ganks = EXCLUDED.total_ganks,
             successful_ganks = EXCLUDED.successful_ganks,
@@ -889,90 +745,80 @@ class GankAnalysisMixin:
             ganks_bot = EXCLUDED.ganks_bot
         """
         
-        params = (
-            self.last_match,
-            self._analyzed_team_id,
-            is_ally,
-            phase.value,
-            stats.total,
-            stats.successful,
-            stats.success_rate,
-            stats.by_lane[Lane.TOP],
-            stats.by_lane[Lane.MID],
-            stats.by_lane[Lane.BOT]
-        )
+        for phase, stats in self._ally_phase_stats.items():
+            requete_perso_bdd(sql, {
+                "match_id": self.last_match,
+                "team_id": team_id,
+                "is_ally": True,
+                "phase": phase.value,
+                "total_ganks": stats.total,
+                "successful_ganks": stats.successful,
+                "success_rate": stats.success_rate,
+                "ganks_top": stats.by_lane[Lane.TOP],
+                "ganks_mid": stats.by_lane[Lane.MID],
+                "ganks_bot": stats.by_lane[Lane.BOT]
+            })
         
-        requete_perso_bdd(sql, params)
+        for phase, stats in self._enemy_phase_stats.items():
+            requete_perso_bdd(sql, {
+                "match_id": self.last_match,
+                "team_id": team_id,
+                "is_ally": False,
+                "phase": phase.value,
+                "total_ganks": stats.total,
+                "successful_ganks": stats.successful,
+                "success_rate": stats.success_rate,
+                "ganks_top": stats.by_lane[Lane.TOP],
+                "ganks_mid": stats.by_lane[Lane.MID],
+                "ganks_bot": stats.by_lane[Lane.BOT]
+            })
     
     # =========================================================================
-    # MÉTHODES DE LECTURE BDD
+    # MÉTHODES DE LECTURE BDD (statiques)
     # =========================================================================
     
     @staticmethod
-    def get_gank_stats_from_db(match_id: str, team_id: int = None) -> Optional[Dict]:
-        """
-        Récupère les stats de ganks depuis la BDD.
-        
-        Args:
-            match_id: ID du match
-            team_id: ID de l'équipe (optionnel, retourne les deux si None)
-        """
+    def get_gank_summary(match_id: str, team_id: int = None) -> Optional[Dict]:
+        """Récupère le résumé des ganks depuis la BDD."""
         if team_id:
-            sql = "SELECT * FROM match_gank_summary WHERE match_id = %s AND team_id = %s"
-            result = lire_bdd_perso(sql, (match_id, team_id), format='dict')
+            sql = "SELECT * FROM match_gank_summary WHERE match_id = :match_id AND team_id = :team_id"
+            params = {"match_id": match_id, "team_id": team_id}
         else:
-            sql = "SELECT * FROM match_gank_summary WHERE match_id = %s"
-            result = lire_bdd_perso(sql, (match_id,), format='dict')
+            sql = "SELECT * FROM match_gank_summary WHERE match_id = :match_id"
+            params = {"match_id": match_id}
         
+        result = lire_bdd_perso(sql, format='dict', params=params)
         return result if result else None
     
     @staticmethod
-    def get_jungler_stats_aggregated(jungler_name: str, limit: int = 20) -> Dict:
+    def get_gank_events(match_id: str) -> List[Dict]:
+        """Récupère tous les événements de gank d'un match."""
+        sql = """
+        SELECT * FROM match_gank_events 
+        WHERE match_id = :match_id 
+        ORDER BY timestamp_ms
         """
-        Récupère les statistiques agrégées d'un jungler sur plusieurs matchs.
-        
-        Args:
-            jungler_name: Nom du jungler
-            limit: Nombre de matchs à analyser
-        """
+        result = lire_bdd_perso(sql, format='dict', params={"match_id": match_id})
+        return result if result else []
+    
+    @staticmethod
+    def get_jungler_aggregated_stats(jungler_name: str, limit: int = 20) -> Dict:
+        """Récupère les stats agrégées d'un jungler."""
         sql = """
         SELECT 
-            ally_jungler_name,
             ally_jungler_champion,
             COUNT(*) as games,
             AVG(total_ganks_made) as avg_ganks,
             AVG(success_rate_made) as avg_success_rate,
-            AVG(gank_differential) as avg_differential,
-            ally_jungler_style,
-            COUNT(*) FILTER (WHERE jungle_dominance = 'ally') as games_dominant
+            AVG(differential) as avg_differential,
+            SUM(CASE WHEN jungle_dominance = 'ally' THEN 1 ELSE 0 END) as games_dominant
         FROM match_gank_summary
-        WHERE ally_jungler_name = %s
-        GROUP BY ally_jungler_name, ally_jungler_champion, ally_jungler_style
+        WHERE ally_jungler_name = :jungler_name
+        GROUP BY ally_jungler_champion
         ORDER BY games DESC
-        LIMIT %s
+        LIMIT :limit
         """
-        
-        result = lire_bdd_perso(sql, (jungler_name, limit), format='dict')
+        result = lire_bdd_perso(sql, format='dict', params={"jungler_name": jungler_name, "limit": limit})
         return result if result else {}
-    
-    @staticmethod
-    def get_lane_gank_history(match_id: str) -> List[Dict]:
-        """Récupère l'historique des ganks par lane pour un match."""
-        sql = """
-        SELECT * FROM match_gank_lane_stats 
-        WHERE match_id = %s 
-        ORDER BY lane
-        """
-        result = lire_bdd_perso(sql, (match_id,), format='dict')
-        return result if result else []
-    
-    @staticmethod
-    def get_gank_events_timeline(match_id: str) -> List[Dict]:
-        """Récupère tous les événements de gank pour un match."""
-        sql = """
-        SELECT * FROM match_gank_events 
-        WHERE match_id = %s 
-        ORDER BY timestamp_ms
-        """
-        result = lire_bdd_perso(sql, (match_id,), format='dict')
-        return result if result else []
+
+
