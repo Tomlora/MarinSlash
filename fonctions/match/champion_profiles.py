@@ -126,6 +126,8 @@ def get_champion_profile(tags: list, role: str) -> ChampionProfile:
         # Marksman JGL (Kindred, Graves)
         elif primary_tag == "Marksman":
             return ChampionProfile.MARKSMAN
+        elif primary_tag == 'Support': # Ivern
+            return ChampionProfile.TANK
         else:
             return ChampionProfile.FIGHTER
     
@@ -148,7 +150,7 @@ def get_champion_profile(tags: list, role: str) -> ChampionProfile:
         # Marksman standard
         if primary_tag == "Marksman":
             if secondary_tag == "Assassin":
-                return ChampionProfile.MARSKMAN  # Samira, Lucian, Tristana - Cela reste des ADC
+                return ChampionProfile.MARKSMAN  # Samira, Lucian, Tristana - Cela reste des ADC
             else:
                 return ChampionProfile.MARKSMAN
         # Mage ADC (Ziggs, Cassio bot)
