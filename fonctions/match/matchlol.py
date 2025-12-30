@@ -20,6 +20,7 @@ from .badges import BadgesMixin
 from .image import ImageGenerationMixin
 from .special_modes import ArenaModeMixin, SwarmModeMixin, ClashModeMixin
 from .scoring import ScoringMixin
+from .ganks import GankAnalysisMixin
 
 
 def get_profile_emoji(profile: str) -> str:
@@ -67,7 +68,8 @@ class MatchLol(
     ArenaModeMixin,
     SwarmModeMixin,
     ClashModeMixin,
-    ScoringMixin
+    ScoringMixin,
+    GankAnalysisMixin
 ):
     """
     Classe principale pour l'analyse des matchs League of Legends.
@@ -201,14 +203,19 @@ class MatchLol(
 
             # Sauvegarde timeline pour ranked/flex/swiftplay
             if self.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY'] and self.thisTime >= 15:
-                print("save_timeline")
                 await self.save_timeline()
                 await self._extract_early_game_data()
+
                 try:
                     await self.save_timeline_event()
                 except Exception:
                     print('Erreur save timeline event')
-            
+
+                await self.analyze_ganks()
+                await self.save_gank_data()
+
+            # stats = self.get_gank_stats_from_db(self.last_match)
+            # jungler_history = self.get_jungler_stats_aggregated("Faker")            
                 
             await self.calculate_all_scores()
             # await self.save_player_scoring_profiles()
