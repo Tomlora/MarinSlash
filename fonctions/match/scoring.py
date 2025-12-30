@@ -390,7 +390,7 @@ BREAKDOWN_BASELINES: Dict[str, Dict[str, Tuple[float, float]]] = {
     'solo_kills': {'min': 0, 'max': 3},
     'gold_advantage': {'min': -0.2, 'max': 0.2},
     'tank_efficiency': {'min': 1.0, 'max': 4.0},
-    'contribution_to_lead' : {'min': 0.15, 'max': 0.30},
+    'contribution_to_lead' : {'min': 0.70, 'max': 1.30},
 
 }
 
