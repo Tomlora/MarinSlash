@@ -65,7 +65,7 @@ class LadderCollector(Extension):
     @listen()
     async def on_startup(self):
         self.scheduled_ladder_update.start()
-        print("✅ Tâche de collecte du ladder planifiée à 3h00")
+        print("Tache de collecte du ladder planifiee a 3h00")
     
     # ==========================================================================
     # COMMANDES ADMIN
