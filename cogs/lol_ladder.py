@@ -116,7 +116,7 @@ class LadderCollector(Extension):
             df = lire_bdd_perso('''
                 SELECT COUNT(*) as total, MAX(updated_at) as last_update
                 FROM ladder_euw
-            ''', index_col=None)
+            ''', index_col=None).T
             
             if df.empty or df.iloc[0]['total'] == 0:
                 return await ctx.send("❌ Aucune donnée de ladder disponible.", ephemeral=True)
@@ -161,7 +161,7 @@ class LadderCollector(Extension):
               AND t.banned = false
               AND t.activation = true
             ORDER BY l.rank_global ASC
-        ''', params={'server_id': int(ctx.guild_id)}, index_col=None)
+        ''', params={'server_id': int(ctx.guild_id)}, index_col=None).T
         
         if df.empty:
             return await ctx.send("❌ Aucun joueur suivi trouvé dans le ladder EUW.")
