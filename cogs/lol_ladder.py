@@ -228,7 +228,7 @@ class LadderCollector(Extension):
         """Collecte le ladder complet et le stocke en BDD."""
         
         if self.is_collecting:
-            print(":warning: Collecte déjà en cours, abandon.")
+            print("Collecte deja en cours, abandon.")
             return
         
         self.is_collecting = True
@@ -238,12 +238,12 @@ class LadderCollector(Extension):
         tiers = ["DIAMOND", "EMERALD", "PLATINUM", "GOLD", "SILVER", "BRONZE", "IRON"]
         divisions = ["I", "II", "III", "IV"]
         
-        # Dictionnaire pour dédupliquer par puuid
         players_dict = {}
         request_count = 0
         
         try:
-            timeout = aiohttp.ClientTimeout(total=30)
+            # Timeout plus long pour éviter les 504
+            timeout = aiohttp.ClientTimeout(total=60)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 headers = {"X-Riot-Token": api_key_lol}
                 
@@ -262,7 +262,7 @@ class LadderCollector(Extension):
                             request_count += 1
                             
                             if resp.status != 200:
-                                print(f":warning: Erreur {resp.status} pour {tier}")
+                                print(f"[WARN] Erreur {resp.status} pour {tier}")
                                 self.progress["errors"] += 1
                                 continue
                             
@@ -270,7 +270,6 @@ class LadderCollector(Extension):
                             
                             for entry in data.get("entries", []):
                                 puuid = entry["puuid"]
-                                # Garde le meilleur LP si doublon
                                 if puuid not in players_dict or entry["leaguePoints"] > players_dict[puuid]["lp"]:
                                     players_dict[puuid] = {
                                         "puuid": puuid,
@@ -283,15 +282,10 @@ class LadderCollector(Extension):
                             
                             self.progress["current"] = len(players_dict)
                         
-                        print(f":white_check_mark: {tier}: {len(data.get('entries', []))} joueurs")
-                    
-                    except asyncio.TimeoutError:
-                        print(f":timer: Timeout pour {tier}")
-                        self.progress["errors"] += 1
-                        continue
+                        print(f"[OK] {tier}: {len(data.get('entries', []))} joueurs")
                     
                     except Exception as e:
-                        print(f":x: Erreur {tier}: {e}")
+                        print(f"[ERR] {tier}: {e}")
                         self.progress["errors"] += 1
                         continue
                 
@@ -303,10 +297,11 @@ class LadderCollector(Extension):
                     for division in divisions:
                         page = 1
                         consecutive_errors = 0
+                        max_retries = 5
                         
                         while True:
-                            if consecutive_errors >= 3:
-                                print(f":warning: Trop d'erreurs pour {tier} {division}, passage au suivant")
+                            if consecutive_errors >= max_retries:
+                                print(f"[WARN] Trop d'erreurs pour {tier} {division}, passage au suivant")
                                 break
                             
                             await self.rate_limiter.wait()
@@ -316,14 +311,31 @@ class LadderCollector(Extension):
                                 async with session.get(url, headers=headers) as resp:
                                     request_count += 1
                                     
+                                    # Rate limit
                                     if resp.status == 429:
-                                        retry_after = int(resp.headers.get("Retry-After", 10))
-                                        print(f":timer: Rate limit, attente {retry_after}s...")
+                                        retry_after = int(resp.headers.get("Retry-After", 30))
+                                        print(f"[RATE] Rate limit, attente {retry_after}s...")
                                         await asyncio.sleep(retry_after)
                                         continue
                                     
+                                    # Gateway timeout - retry avec délai
+                                    if resp.status == 504:
+                                        consecutive_errors += 1
+                                        wait_time = 10 * consecutive_errors
+                                        print(f"[504] Timeout Riot pour {tier} {division} page {page}, retry dans {wait_time}s... ({consecutive_errors}/{max_retries})")
+                                        await asyncio.sleep(wait_time)
+                                        continue
+                                    
+                                    # Autres erreurs serveur - retry
+                                    if resp.status >= 500:
+                                        consecutive_errors += 1
+                                        wait_time = 5 * consecutive_errors
+                                        print(f"[{resp.status}] Erreur serveur pour {tier} {division} page {page}, retry dans {wait_time}s...")
+                                        await asyncio.sleep(wait_time)
+                                        continue
+                                    
                                     if resp.status != 200:
-                                        print(f":warning: Erreur {resp.status} pour {tier} {division} page {page}")
+                                        print(f"[WARN] Erreur {resp.status} pour {tier} {division} page {page}")
                                         self.progress["errors"] += 1
                                         consecutive_errors += 1
                                         break
@@ -335,7 +347,6 @@ class LadderCollector(Extension):
                                     
                                     for entry in entries:
                                         puuid = entry["puuid"]
-                                        # Garde le meilleur LP si doublon
                                         if puuid not in players_dict or entry["leaguePoints"] > players_dict[puuid]["lp"]:
                                             players_dict[puuid] = {
                                                 "puuid": puuid,
@@ -349,49 +360,49 @@ class LadderCollector(Extension):
                                     tier_count += len(entries)
                                     self.progress["current"] = len(players_dict)
                                     page += 1
-                                    consecutive_errors = 0
+                                    consecutive_errors = 0  # Reset après succès
                             
                             except asyncio.TimeoutError:
-                                print(f"⏱️ Timeout {tier} {division} page {page}, retry...")
+                                consecutive_errors += 1
+                                wait_time = 10 * consecutive_errors
+                                print(f"[TIMEOUT] {tier} {division} page {page}, retry dans {wait_time}s... ({consecutive_errors}/{max_retries})")
+                                await asyncio.sleep(wait_time)
+                                continue
+                            
+                            except Exception as e:
+                                print(f"[ERR] {tier} {division} page {page}: {e}")
                                 self.progress["errors"] += 1
                                 consecutive_errors += 1
                                 await asyncio.sleep(5)
                                 continue
-                            
-                            except Exception as e:
-                                print(f":x: Erreur {tier} {division} page {page}: {e}")
-                                self.progress["errors"] += 1
-                                consecutive_errors += 1
-                                break
                     
-                    print(f":white_check_mark: {tier}: {tier_count} joueurs ({request_count} requêtes)")
+                    print(f"[OK] {tier}: {tier_count} joueurs (total: {len(players_dict):,}, {request_count} req)")
             
-            # 3. Convertir en liste et trier
+            # 3. Trier et sauvegarder
             if players_dict:
                 self.progress["tier"] = "Tri et sauvegarde..."
                 all_players = list(players_dict.values())
-                print(f":arrows_counterclockwise: Tri de {len(all_players):,} joueurs uniques...")
+                print(f"[SORT] Tri de {len(all_players):,} joueurs uniques...")
                 
                 all_players.sort(key=lambda x: calculate_rank_score(x["tier"], x["rank"], x["lp"]), reverse=True)
                 
                 for i, player in enumerate(all_players):
                     player["rank_global"] = i + 1
                 
-                # 4. Sauvegarder en BDD
                 await self.save_ladder_to_db(all_players)
                 
                 elapsed = datetime.now() - start_time
-                print(f":white_check_mark: Collecte terminée: {len(all_players):,} joueurs en {elapsed} ({request_count} requêtes, {self.progress['errors']} erreurs)")
+                print(f"[DONE] Collecte terminee: {len(all_players):,} joueurs en {elapsed} ({request_count} requetes, {self.progress['errors']} erreurs)")
             else:
-                print(":x: Aucun joueur collecté!")
+                print("[ERR] Aucun joueur collecte!")
         
         except Exception as e:
-            print(f":x: ERREUR FATALE dans collect_and_store_ladder: {e}")
+            print(f"[FATAL] Erreur dans collect_and_store_ladder: {e}")
             traceback.print_exc()
         
         finally:
             self.is_collecting = False
-            self.progress["tier"] = "Terminé"
+            self.progress["tier"] = "Termine"
     
     async def save_ladder_to_db(self, players: list):
         """Sauvegarde le ladder en BDD."""
