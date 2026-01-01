@@ -1101,6 +1101,7 @@ class LolScore(Extension):
     @slash_command(
         name="baremes",
         description="Affiche ta position dans les barèmes de scoring pour une partie",
+        sub_cmd_name='scoring',
         options=[
             SlashCommandOption(
                 name="riot_id",
