@@ -225,7 +225,7 @@ class LadderCollector(Extension):
     # ==========================================================================
     
     async def collect_and_store_ladder(self, queue: str = "RANKED_SOLO_5x5"):
-        """Collecte le ladder complet et le stocke en BDD."""
+        """Collecte le ladder complet et le stocke en BDD avec sauvegardes intermédiaires."""
         
         if self.is_collecting:
             print("Collecte deja en cours, abandon.")
@@ -235,19 +235,27 @@ class LadderCollector(Extension):
         self.progress = {"current": 0, "total": 0, "tier": "Initialisation", "errors": 0}
         start_time = datetime.now()
         
-        tiers = ["DIAMOND", "EMERALD", "PLATINUM", "GOLD", "SILVER", "BRONZE", "IRON"]
+        # tiers_low = ["DIAMOND", "EMERALD", "PLATINUM", "GOLD", "SILVER", "BRONZE", "IRON"]
+        tiers_low = ["DIAMOND", "EMERALD", "PLATINUM", "GOLD"]
         divisions = ["I", "II", "III", "IV"]
         
-        players_dict = {}
         request_count = 0
+        total_players = 0
         
         try:
-            # Timeout plus long pour éviter les 504
+            # Vider la table au début
+            print("[INIT] Vidage de la table ladder_euw...")
+            requete_perso_bdd('TRUNCATE TABLE ladder_euw')
+            
             timeout = aiohttp.ClientTimeout(total=60)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 headers = {"X-Riot-Token": api_key_lol}
                 
-                # 1. High elo
+                # =================================================================
+                # 1. HIGH ELO (Challenger, Grandmaster, Master)
+                # =================================================================
+                high_elo_players = {}
+                
                 for tier, endpoint in [
                     ("CHALLENGER", "challengerleagues"),
                     ("GRANDMASTER", "grandmasterleagues"),
@@ -270,8 +278,8 @@ class LadderCollector(Extension):
                             
                             for entry in data.get("entries", []):
                                 puuid = entry["puuid"]
-                                if puuid not in players_dict or entry["leaguePoints"] > players_dict[puuid]["lp"]:
-                                    players_dict[puuid] = {
+                                if puuid not in high_elo_players or entry["leaguePoints"] > high_elo_players[puuid]["lp"]:
+                                    high_elo_players[puuid] = {
                                         "puuid": puuid,
                                         "tier": tier,
                                         "rank": entry["rank"],
@@ -280,18 +288,26 @@ class LadderCollector(Extension):
                                         "losses": entry["losses"]
                                     }
                             
-                            self.progress["current"] = len(players_dict)
-                        
-                        print(f"[OK] {tier}: {len(data.get('entries', []))} joueurs")
+                            self.progress["current"] = len(high_elo_players)
+                            print(f"[OK] {tier}: {len(data.get('entries', []))} joueurs")
                     
                     except Exception as e:
                         print(f"[ERR] {tier}: {e}")
                         self.progress["errors"] += 1
                         continue
                 
-                # 2. Diamond à Iron
-                for tier in tiers:
+                # Sauvegarde high elo
+                if high_elo_players:
+                    await self.save_batch_to_db(high_elo_players)
+                    total_players += len(high_elo_players)
+                    print(f"[SAVE] High elo sauvegarde: {len(high_elo_players):,} joueurs")
+                
+                # =================================================================
+                # 2. DIAMOND A IRON (avec sauvegarde par tier)
+                # =================================================================
+                for tier in tiers_low:
                     self.progress["tier"] = tier
+                    tier_players = {}
                     tier_count = 0
                     
                     for division in divisions:
@@ -322,22 +338,21 @@ class LadderCollector(Extension):
                                     if resp.status == 504:
                                         consecutive_errors += 1
                                         wait_time = 10 * consecutive_errors
-                                        print(f"[504] Timeout Riot pour {tier} {division} page {page}, retry dans {wait_time}s... ({consecutive_errors}/{max_retries})")
+                                        print(f"[504] Timeout Riot {tier} {division} p{page}, retry {wait_time}s ({consecutive_errors}/{max_retries})")
                                         await asyncio.sleep(wait_time)
                                         continue
                                     
-                                    # Autres erreurs serveur - retry
+                                    # Autres erreurs serveur
                                     if resp.status >= 500:
                                         consecutive_errors += 1
                                         wait_time = 5 * consecutive_errors
-                                        print(f"[{resp.status}] Erreur serveur pour {tier} {division} page {page}, retry dans {wait_time}s...")
+                                        print(f"[{resp.status}] Erreur serveur {tier} {division} p{page}, retry {wait_time}s")
                                         await asyncio.sleep(wait_time)
                                         continue
                                     
                                     if resp.status != 200:
                                         print(f"[WARN] Erreur {resp.status} pour {tier} {division} page {page}")
                                         self.progress["errors"] += 1
-                                        consecutive_errors += 1
                                         break
                                     
                                     entries = await resp.json()
@@ -347,8 +362,8 @@ class LadderCollector(Extension):
                                     
                                     for entry in entries:
                                         puuid = entry["puuid"]
-                                        if puuid not in players_dict or entry["leaguePoints"] > players_dict[puuid]["lp"]:
-                                            players_dict[puuid] = {
+                                        if puuid not in tier_players or entry["leaguePoints"] > tier_players[puuid]["lp"]:
+                                            tier_players[puuid] = {
                                                 "puuid": puuid,
                                                 "tier": tier,
                                                 "rank": division,
@@ -358,41 +373,41 @@ class LadderCollector(Extension):
                                             }
                                     
                                     tier_count += len(entries)
-                                    self.progress["current"] = len(players_dict)
+                                    self.progress["current"] = total_players + len(tier_players)
                                     page += 1
-                                    consecutive_errors = 0  # Reset après succès
+                                    consecutive_errors = 0
                             
                             except asyncio.TimeoutError:
                                 consecutive_errors += 1
                                 wait_time = 10 * consecutive_errors
-                                print(f"[TIMEOUT] {tier} {division} page {page}, retry dans {wait_time}s... ({consecutive_errors}/{max_retries})")
+                                print(f"[TIMEOUT] {tier} {division} p{page}, retry {wait_time}s ({consecutive_errors}/{max_retries})")
                                 await asyncio.sleep(wait_time)
                                 continue
                             
                             except Exception as e:
-                                print(f"[ERR] {tier} {division} page {page}: {e}")
+                                print(f"[ERR] {tier} {division} p{page}: {e}")
                                 self.progress["errors"] += 1
                                 consecutive_errors += 1
                                 await asyncio.sleep(5)
                                 continue
                     
-                    print(f"[OK] {tier}: {tier_count} joueurs (total: {len(players_dict):,}, {request_count} req)")
+                    # Sauvegarde après chaque tier
+                    if tier_players:
+                        await self.save_batch_to_db(tier_players)
+                        total_players += len(tier_players)
+                        print(f"[SAVE] {tier}: {len(tier_players):,} joueurs (total: {total_players:,}, {request_count} req)")
+                    else:
+                        print(f"[WARN] {tier}: aucun joueur collecte")
             
-            # 3. Trier et sauvegarder
-            if players_dict:
-                self.progress["tier"] = "Tri et sauvegarde..."
-                all_players = list(players_dict.values())
-                print(f"[SORT] Tri de {len(all_players):,} joueurs uniques...")
-                
-                all_players.sort(key=lambda x: calculate_rank_score(x["tier"], x["rank"], x["lp"]), reverse=True)
-                
-                for i, player in enumerate(all_players):
-                    player["rank_global"] = i + 1
-                
-                await self.save_ladder_to_db(all_players)
+            # =================================================================
+            # 3. CALCUL DES RANGS GLOBAUX
+            # =================================================================
+            if total_players > 0:
+                self.progress["tier"] = "Calcul des rangs..."
+                await self.update_global_ranks()
                 
                 elapsed = datetime.now() - start_time
-                print(f"[DONE] Collecte terminee: {len(all_players):,} joueurs en {elapsed} ({request_count} requetes, {self.progress['errors']} erreurs)")
+                print(f"[DONE] Collecte terminee: {total_players:,} joueurs en {elapsed} ({request_count} req, {self.progress['errors']} err)")
             else:
                 print("[ERR] Aucun joueur collecte!")
         
@@ -403,39 +418,71 @@ class LadderCollector(Extension):
         finally:
             self.is_collecting = False
             self.progress["tier"] = "Termine"
-    
-    async def save_ladder_to_db(self, players: list):
-        """Sauvegarde le ladder en BDD."""
+
+
+    async def save_batch_to_db(self, players_dict: dict):
+        """Sauvegarde un batch de joueurs avec gestion des doublons."""
+        players = list(players_dict.values())
+        batch_size = 5000
         
-        print(f":floppy_disk: Sauvegarde de {len(players):,} joueurs en BDD...")
-        
-        try:
-            # Vider la table
-            requete_perso_bdd('TRUNCATE TABLE ladder_euw')
+        for i in range(0, len(players), batch_size):
+            batch = players[i:i + batch_size]
+            values = ", ".join([
+                f"($${p['puuid']}$$, '{p['tier']}', '{p['rank']}', {p['lp']}, {p['wins']}, {p['losses']}, 0, NOW())"
+                for p in batch
+            ])
             
-            # Insert par batch
-            batch_size = 5000
-            for i in range(0, len(players), batch_size):
-                batch = players[i:i + batch_size]
-                
-                # Escape les puuid pour éviter les injections SQL
-                values = ", ".join([
-                    f"($${p['puuid']}$$, '{p['tier']}', '{p['rank']}', {p['lp']}, {p['wins']}, {p['losses']}, {p['rank_global']}, NOW())"
-                    for p in batch
-                ])
-                
-                requete_perso_bdd(f'''
-                    INSERT INTO ladder_euw (puuid, tier, rank, lp, wins, losses, rank_global, updated_at)
-                    VALUES {values}
-                ''')
-                
-                print(f"  :floppy_disk: Batch {i // batch_size + 1}/{(len(players) // batch_size) + 1}: {len(batch)} joueurs insérés")
-            
-            print(f":white_check_mark: Sauvegarde terminée")
+            requete_perso_bdd(f'''
+                INSERT INTO ladder_euw (puuid, tier, rank, lp, wins, losses, rank_global, updated_at)
+                VALUES {values}
+                ON CONFLICT (puuid) DO UPDATE SET
+                    tier = EXCLUDED.tier,
+                    rank = EXCLUDED.rank,
+                    lp = EXCLUDED.lp,
+                    wins = EXCLUDED.wins,
+                    losses = EXCLUDED.losses,
+                    updated_at = NOW()
+            ''')
+
+
+    async def update_global_ranks(self):
+        """Met à jour les rangs globaux en SQL (beaucoup plus rapide)."""
+        print("[RANK] Calcul des rangs globaux...")
         
-        except Exception as e:
-            print(f":x: Erreur lors de la sauvegarde: {e}")
-            traceback.print_exc()
+        requete_perso_bdd('''
+            WITH ranked AS (
+                SELECT puuid,
+                    ROW_NUMBER() OVER (
+                        ORDER BY 
+                            CASE tier 
+                                WHEN 'CHALLENGER' THEN 2800
+                                WHEN 'GRANDMASTER' THEN 2400
+                                WHEN 'MASTER' THEN 2000
+                                WHEN 'DIAMOND' THEN 1600
+                                WHEN 'EMERALD' THEN 1200
+                                WHEN 'PLATINUM' THEN 800
+                                WHEN 'GOLD' THEN 400
+                                WHEN 'SILVER' THEN 0
+                                WHEN 'BRONZE' THEN -400
+                                WHEN 'IRON' THEN -800
+                            END +
+                            CASE rank
+                                WHEN 'I' THEN 300
+                                WHEN 'II' THEN 200
+                                WHEN 'III' THEN 100
+                                WHEN 'IV' THEN 0
+                            END +
+                            lp DESC
+                    ) as new_rank
+                FROM ladder_euw
+            )
+            UPDATE ladder_euw l
+            SET rank_global = r.new_rank
+            FROM ranked r
+            WHERE l.puuid = r.puuid
+        ''')
+        
+        print("[RANK] Rangs globaux mis a jour")
 
 
 def setup(bot):
