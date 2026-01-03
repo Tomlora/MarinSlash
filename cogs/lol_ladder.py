@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime
 import interactions
-from interactions import Extension, listen, slash_command, SlashContext, SlashCommandOption, OptionType, Permissions, Task, TimeTrigger
+from interactions import Extension, listen, slash_command, SlashContext, SlashCommandOption, OptionType, Permissions, Task, TimeTrigger, ActionRow, Button, ButtonStyle, Embed, ComponentContext
 import aiohttp
 import traceback
 
@@ -149,6 +149,8 @@ class LadderCollector(Extension):
     # COMMANDE LEADERBOARD
     # ==========================================================================
     
+
+
     @slash_command(
         name="ladder",
         description="Affiche le classement EUW global des joueurs suivis",
@@ -172,28 +174,22 @@ class LadderCollector(Extension):
             FROM tracker t
             INNER JOIN ladder_euw l ON t.puuid = l.puuid
             WHERE t.server_id = :server_id
-              AND t.banned = false
-              AND t.activation = true
+            AND t.banned = false
+            AND t.activation = true
             ORDER BY l.rank_global ASC
         ''', params={'server_id': int(ctx.guild_id)}, index_col=None).T
         
         if df.empty:
-            return await ctx.send(":x: Aucun joueur suivi trouvé dans le ladder EUW.")
+            return await ctx.send(":x: Aucun joueur suivi trouve dans le ladder EUW.")
         
         total_players = df.iloc[0]['total_players']
+        total_tracked = len(df)
         
         # Emotes pour le podium
         podium = {0: ":first_place:", 1: ":second_place:", 2: ":third_place:"}
         
- 
-        
-        embed = interactions.Embed(
-            title="<:world_emoji:1333120623613841489> Classement EUW Global",
-            description=f"Position de vos joueurs parmi **{total_players:,}** joueurs ranked",
-            color=0xFFD700
-        )
-        
-        leaderboard_text = ""
+        # Construire la liste des joueurs formatés
+        players_lines = []
         for idx, row in df.iterrows():
             position = podium.get(idx, f"`{idx + 1}.`")
             riot_id = row['riot_id'].upper()
@@ -205,20 +201,123 @@ class LadderCollector(Extension):
             losses = row['losses']
             wr = round(wins / (wins + losses) * 100) if (wins + losses) > 0 else 0
             
-            # Pourcentage top
             top_percent = round(rank_global / total_players * 100, 2)
-            
             emote = emote_rank_discord.get(tier, "")
             
-            leaderboard_text += (
+            line = (
                 f"{position} **{riot_id}** - #{rank_global:,} (top {top_percent}%)\n"
-                f"　　{emote} {tier} {rank} • {lp} LP • {wr}% WR\n"
+                f"   {emote} {tier} {rank} | {lp} LP | {wr}% WR"
             )
+            players_lines.append(line)
         
-        embed.add_field(name="Classement", value=leaderboard_text or "Aucun joueur", inline=False)
-        embed.set_footer(text="Mis à jour quotidiennement à 3h00")
+        # Pagination - 10 joueurs par page
+        players_per_page = 5
+        pages = []
         
-        await ctx.send(embeds=embed)
+        for i in range(0, len(players_lines), players_per_page):
+            page_lines = players_lines[i:i + players_per_page]
+            pages.append("\n".join(page_lines))
+        
+        total_pages = len(pages)
+        current_page = 0
+        
+        def create_embed(page_num: int) -> Embed:
+            embed = Embed(
+                title="<:world_emoji:1333120623613841489> Classement EUW Global",
+                description=f"Position des **{total_tracked}** joueurs parmi **{total_players:,}** joueurs ranked ({emote_rank_discord['CHALLENGER']} - {emote_rank_discord['GOLD']})",
+                color=0xFFD700
+            )
+            embed.add_field(name="Classement", value=pages[page_num], inline=False)
+            embed.set_footer(text=f"Page {page_num + 1}/{total_pages} | Mis a jour quotidiennement a 3h00")
+            return embed
+        
+        def create_buttons(page_num: int) -> list[ActionRow]:
+            return [
+                ActionRow(
+                    Button(
+                        style=ButtonStyle.SECONDARY,
+                        label="<<",
+                        custom_id="ladder_first",
+                        disabled=(page_num == 0)
+                    ),
+                    Button(
+                        style=ButtonStyle.PRIMARY,
+                        label="<",
+                        custom_id="ladder_prev",
+                        disabled=(page_num == 0)
+                    ),
+                    Button(
+                        style=ButtonStyle.SECONDARY,
+                        label=f"{page_num + 1}/{total_pages}",
+                        custom_id="ladder_page",
+                        disabled=True
+                    ),
+                    Button(
+                        style=ButtonStyle.PRIMARY,
+                        label=">",
+                        custom_id="ladder_next",
+                        disabled=(page_num >= total_pages - 1)
+                    ),
+                    Button(
+                        style=ButtonStyle.SECONDARY,
+                        label=">>",
+                        custom_id="ladder_last",
+                        disabled=(page_num >= total_pages - 1)
+                    )
+                )
+            ]
+        
+        # Envoyer la première page
+        if total_pages == 1:
+            # Pas besoin de pagination
+            await ctx.send(embeds=create_embed(0))
+        else:
+            msg = await ctx.send(embeds=create_embed(0), components=create_buttons(0))
+            
+            # Gérer les interactions (timeout 5 minutes)
+            while True:
+                try:
+                    button_ctx: ComponentContext = await self.bot.wait_for_component(
+                        components=["ladder_first", "ladder_prev", "ladder_next", "ladder_last"],
+                        messages=msg,
+                        timeout=300
+                    )
+                    
+                    # Vérifier que c'est le même utilisateur
+                    if button_ctx.ctx.author.id != ctx.author.id:
+                        await button_ctx.send("Ce n'est pas ton classement !", ephemeral=True)
+                        continue
+                    
+                    if button_ctx.ctx.custom_id == "ladder_first":
+                        current_page = 0
+                    elif button_ctx.ctx.custom_id == "ladder_prev":
+                        current_page = max(0, current_page - 1)
+                    elif button_ctx.ctx.custom_id == "ladder_next":
+                        current_page = min(total_pages - 1, current_page + 1)
+                    elif button_ctx.ctx.custom_id == "ladder_last":
+                        current_page = total_pages - 1
+                    
+                    await button_ctx.ctx.edit_origin(
+                        embeds=create_embed(current_page),
+                        components=create_buttons(current_page)
+                    )
+                
+                except asyncio.TimeoutError:
+                    # Désactiver les boutons après timeout
+                    disabled_buttons = [
+                        ActionRow(
+                            Button(style=ButtonStyle.SECONDARY, label="<<", custom_id="ladder_first", disabled=True),
+                            Button(style=ButtonStyle.PRIMARY, label="<", custom_id="ladder_prev", disabled=True),
+                            Button(style=ButtonStyle.SECONDARY, label=f"{current_page + 1}/{total_pages}", custom_id="ladder_page", disabled=True),
+                            Button(style=ButtonStyle.PRIMARY, label=">", custom_id="ladder_next", disabled=True),
+                            Button(style=ButtonStyle.SECONDARY, label=">>", custom_id="ladder_last", disabled=True)
+                        )
+                    ]
+                    try:
+                        await msg.edit(components=disabled_buttons)
+                    except:
+                        pass
+                    break
     
     # ==========================================================================
     # COLLECTE DU LADDER
