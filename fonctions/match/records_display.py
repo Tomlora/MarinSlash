@@ -37,8 +37,8 @@ SCOPE_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     'general': {
         'icon': '<:boss:1333120152983834726>',
-        'label': 'Serveur',
-        'header': '<:boss:1333120152983834726> **Records Serveur**',
+        'label': 'Saison',
+        'header': '<:boss:1333120152983834726> **Records Saison**',
         'order': 2,
     },
     'perso': {
@@ -139,9 +139,15 @@ class RecordsCollector:
     
     def get_summary(self) -> str:
         """
-        Retourne un résumé compact des records.
+        Retourne un résumé compact des records, groupé par scope puis par médaille.
         
-        Format: 🌐 Serveur : 🥇 kda ~~@User~~, kills ~~@User2~~ | 🤝🥈 cs_min (@User3)
+        Format:
+            🏛️ **Records All-Time**
+            🥇 x3 : kda, kills, dmg
+            🥈 x2 : cs_min, gold
+            
+            👤 **Records Serveur**
+            🥇 x5 : assists, deaths... (+2)
         """
         summary_parts = []
         
@@ -155,61 +161,42 @@ class RecordsCollector:
             if not entries:
                 continue
                 
-            config = SCOPE_CONFIG.get(scope, {'icon': '❓', 'label': scope})
+            config = SCOPE_CONFIG.get(scope, {'header': f'**{scope.title()}**'})
             
-            # Séparer nouveaux records et égalisations
-            new_records: List[RecordEntry] = []
-            ties: List[RecordEntry] = []
-            
+            # Grouper par (place, is_tie)
+            by_medal: Dict[tuple, List[RecordEntry]] = defaultdict(list)
             for entry in entries:
-                if entry.is_tie:
-                    ties.append(entry)
+                key = (entry.place, entry.is_tie)
+                by_medal[key].append(entry)
+            
+            # Trier : d'abord par place (1, 2, 3...), puis nouveaux records avant égalisations
+            sorted_keys = sorted(by_medal.keys(), key=lambda k: (k[0], k[1]))
+            
+            lines = [config['header']]
+            
+            for (place, is_tie) in sorted_keys:
+                medal = MEDAL_EMOJIS.get(place, f"#{place}")
+                group_entries = by_medal[(place, is_tie)]
+                count = len(group_entries)
+                
+                # Lister les noms de stats
+                stats = sorted(e.category for e in group_entries)
+                
+                # Limiter l'affichage si trop nombreuses
+                max_display = 4
+                if count <= max_display:
+                    stats_display = ", ".join(stats)
                 else:
-                    new_records.append(entry)
-            
-            def format_medal_group(entries_list: List[RecordEntry], is_tie: bool = False) -> List[str]:
-                """Formate un groupe d'entrées par médaille."""
-                # Grouper par place/médaille
-                by_medal: Dict[int, List[RecordEntry]] = defaultdict(list)
-                for entry in entries_list:
-                    by_medal[entry.place].append(entry)
+                    stats_display = ", ".join(stats[:max_display]) + f"... (+{count - max_display})"
                 
-                parts = []
-                for place in sorted(by_medal.keys()):
-                    medal = MEDAL_EMOJIS.get(place, f"#{place}")
-                    group_entries = by_medal[place]
-                    
-                    # Formater chaque record avec l'ancien détenteur
-                    record_strs = []
-                    for entry in group_entries[:4]:  # Max 4 par médaille pour pas surcharger
-                        if is_tie:
-                            # Égalisation : on montre avec qui on égalise
-                            record_strs.append(f"{entry.category} ({entry.old_holder})")
-                        else:
-                            # Nouveau record : on montre qui on a battu (barré)
-                            record_strs.append(f"{entry.category} ~~{entry.old_holder}~~")
-                    
-                    if len(group_entries) > 4:
-                        record_strs.append('...')
-                    
-                    prefix = "🤝" if is_tie else ""
-                    parts.append(f"{prefix}{medal} {', '.join(record_strs)}")
+                # Préfixe pour les égalisations
+                tie_prefix = "🤝 " if is_tie else ""
                 
-                return parts
+                lines.append(f"{tie_prefix}{medal} x{count} : {stats_display}")
             
-            counts_parts = []
-            
-            if new_records:
-                counts_parts.extend(format_medal_group(new_records, is_tie=False))
-            
-            if ties:
-                counts_parts.extend(format_medal_group(ties, is_tie=True))
-            
-            summary_parts.append(
-                f"{config['icon']} **{config.get('label', scope)}** : {' | '.join(counts_parts)}"
-            )
+            summary_parts.append('\n'.join(lines))
         
-        return '\n'.join(summary_parts)
+        return '\n\n'.join(summary_parts)
 
 
 
