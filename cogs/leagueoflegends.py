@@ -23,6 +23,7 @@ from utils.emoji import dict_place
 import io 
 from PIL import Image
 import pickle
+import asyncio
 
 from fonctions.gestion_bdd import (lire_bdd,
                                    sauvegarde_bdd,
@@ -43,6 +44,9 @@ from fonctions.match.riot_api import (
                              )
 
 from fonctions.match.records import top_records, get_id_account_bdd, get_stat_null_rules
+
+from fonctions.match.records_display import RecordsCollector, records_check3, add_records_to_embed
+
 from utils.lol import label_rank, label_tier, dict_rankid
 from fonctions.channels_discord import chan_discord, rgb_to_discord
 
@@ -52,203 +56,6 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 import re
 from collections import defaultdict, OrderedDict
-
-
-def summarize_medals(parts):
-    """Résumé : groupé par (label, medal), total + noms de stats entre ()"""
-
-    # 🔤 Ordre de priorité pour l'affichage
-    CONTEXT_LABELS = OrderedDict([
-        (":boom:", "Record"),
-        ("<:boss:1333120152983834726>", "Record personnel"),
-        ("<:world_emoji:1333120623613841489>", "Record All Time"),
-        ("<:trophy_world:1333117173731819520>", "Record All Time Champion")
-    ])
-
-    label_order = {label: i for i, label in enumerate(CONTEXT_LABELS.values())}
-
-    summary = defaultdict(lambda: {"count": 0, "stats": set()})
-
-    for part in parts:
-        lines = [line.strip() for line in part.split('\n') if line.strip()]
-        for line in lines:
-            # 🎯 Médaille
-            medal_match = re.search(r'(<:medal\d+:\d+>)', line)
-            if not medal_match:
-                continue
-            medal = medal_match.group(1)
-
-            # 🎯 Contexte
-            label = "Autre"
-            for emote, name in CONTEXT_LABELS.items():
-                if emote in line:
-                    label = f'{emote}{name}'
-                    break
-
-            # 🎯 Stat name (facultatif)
-            stat_match = re.search(r'__(.+?)__', line)
-            stat_name = f"__{stat_match.group(1)}__" if stat_match else "__?__"
-
-            # 🔢 Ajout au résumé
-            key = (label, medal)
-            summary[key]["count"] += 1
-            summary[key]["stats"].add(stat_name)
-
-    # ✅ Format final du résumé, trié selon l'ordre du label puis nombre décroissant
-    summary_lines = [
-        f"{label} {medal} : {data['count']} ({', '.join(sorted(data['stats']))})"
-        for (label, medal), data in sorted(
-            summary.items(),
-            key=lambda x: (
-                label_order.get(x[0][0], 999),
-                -x[1]["count"]
-            )
-        )
-    ]
-
-    return "\n".join(summary_lines)
-
-
-def add_chunked_field(embed, title, parts, max_len=1024, total_limit=4000):
-    """Ajoute des champs à un embed Discord, ou un résumé si trop long."""
-
-    total_content = "\n".join(parts).strip()
-
-    if len(total_content) <= total_limit:
-        current = ""
-        index = 1
-
-        for part in parts:
-            part = part.strip()
-            if not part:
-                continue
-
-            if len(part) > max_len:
-                part = part[:max_len - 3] + '...'
-
-            if len(current) + len(part) + 1 > max_len:
-                embed.add_field(
-                    name=title if index == 1 else f"{title} {index}",
-                    value=current.strip(),
-                    inline=False
-                )
-                current = ""
-                index += 1
-
-            current += part + "\n"
-
-        if current.strip():
-            embed.add_field(
-                name=title if index == 1 else f"{title} {index}",
-                value=current.strip(),
-                inline=False
-            )
-
-    else:
-        summary = summarize_medals(parts)
-
-        if not summary:
-            embed.add_field(
-                name=f"{title} (résumé)",
-                value="Aucun record trouvé.",
-                inline=False
-            )
-        else:
-            lines = summary.split('\n')
-            current = ""
-            index = 1
-
-            for line in lines:
-                if len(current) + len(line) + 1 > max_len:
-                    embed.add_field(
-                        name=f"{title} (résumé {index})" if index > 1 else f"{title} (résumé)",
-                        value=current.strip(),
-                        inline=False
-                    )
-                    current = ""
-                    index += 1
-                current += line + "\n"
-
-            if current.strip():
-                embed.add_field(
-                    name=f"{title} (résumé {index})" if index > 1 else f"{title} (résumé)",
-                    value=current.strip(),
-                    inline=False
-                )
-
-    return embed
-
-
-def records_check3(fichier: pd.DataFrame,
-                   fichier_joueur: pd.DataFrame = None,
-                   fichier_all: pd.DataFrame = None,
-                   category=None,
-                   result_category_match=None,
-                   methode='max') -> str:
-    '''
-    Vérifie si le score est dans le top 10 (général, perso, all-time), indique la position
-    et le record battu ou égalisé si applicable.
-    '''
-    embed = ''
-    category_exclusion_egalite = [
-        'baron', 'herald', 'drake', 'first_double', 'first_triple', 'first_quadra',
-        'first_penta', 'first_horde', 'first_niveau_max', 'first_blood',
-        'tower', 'inhib', 'first_tower_time', 'LEVEL_UP_10'
-    ]
-
-    if result_category_match == 0:
-        return embed
-
-    def format_embed(scope_name, scope_name1, top_list):
-
-        record_counts = Counter(str(record) for _, _, record, _ in top_list)
-
-        for idx, (joueur, champion, record, url) in enumerate(top_list):
-            if record_counts[str(record)] >= 7:
-                return ''
-            place = idx + 1
-            top_emoji = dict_place.get(place, f"TOP {place}")
-            champ_emoji = emote_champ_discord.get(champion.capitalize(), 'inconnu')
-            cat_emoji = emote_v2.get(category, ':star:')
-
-            if float(result_category_match) == float(record):
-                if category not in category_exclusion_egalite:
-                    return (
-                        f"\n **{scope_name} {top_emoji} {scope_name1} - {cat_emoji}__{category}__ : {result_category_match}**"
-                        f" — :military_medal: Égalisation {joueur} {champ_emoji}"
-                    )
-                else:
-                    return (
-                        f"\n **{scope_name} {top_emoji} {scope_name1} - {cat_emoji}__{category}__ : {result_category_match}**"
-                    )
-
-            if (
-                (methode == 'max' and float(result_category_match) > float(record)) or
-                (methode == 'min' and float(result_category_match) < float(record))
-            ):
-                return (
-                    f"\n **{scope_name} {top_emoji} {scope_name1} - {cat_emoji}__{category}__ : {result_category_match}**"
-                    f" (Ancien : {record} par {joueur} {champ_emoji})"
-                )
-        return ''
-
-    # TOP 10 Général
-    if fichier is not None and fichier.shape[0] > 0:
-        top_gen = top_records(fichier, category, methode, identifiant='discord', top_n=10)
-        embed += format_embed(":boom:", "Général", top_gen)
-
-    # TOP 10 Personnel
-    if isinstance(fichier_joueur, pd.DataFrame) and fichier_joueur.shape[0] > 0:
-        top_perso = top_records(fichier_joueur, category, methode, identifiant='riot_id', top_n=3)
-        embed += format_embed("<:boss:1333120152983834726>", "Perso", top_perso)
-
-    # TOP 10 All Time
-    if isinstance(fichier_all, pd.DataFrame) and fichier_all.shape[0] > 0 and len(fichier_all['season'].unique()) > 1:
-        top_all = top_records(fichier_all, category, methode, identifiant='discord', top_n=10)
-        embed += format_embed("<:world_emoji:1333120623613841489>", "All Time", top_all)
-
-    return embed
-
 
 class LeagueofLegends(Extension):
     def __init__(self, bot):
@@ -398,8 +205,6 @@ class LeagueofLegends(Extension):
                 AND discord = (SELECT tracker.discord FROM tracker WHERE tracker.id_compte = {id_compte})
             ''')
 
-            records_parts = []
-
             # Vérification des doublons
             if check_doublon:
                 df_doublon = lire_bdd_perso(f'''SELECT match_id, joueur from matchs
@@ -458,7 +263,11 @@ class LeagueofLegends(Extension):
                 suivi[id_compte]['losses'] = match_info.thisLoose
                 suivi[id_compte]['LP'] = match_info.thisLP
 
+
+
             # Vérification des records
+            records_collector = RecordsCollector()
+            
             if ((match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY'] and match_info.thisTime >= 15) or 
                 (match_info.thisQ == "ARAM" and match_info.thisTime >= 10)) and check_records:
 
@@ -613,6 +422,8 @@ class LeagueofLegends(Extension):
 
                 param_records_only_aram = {'snowball': match_info.snowball}
 
+                
+
                 # Vérification des records communs
                 for parameter, value in param_records.items():
                     methode = 'min' if parameter in [
@@ -620,18 +431,36 @@ class LeagueofLegends(Extension):
                         'first_horde', 'first_double', 'first_triple', 'first_quadra',
                         'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time'
                     ] else 'max'
-
+                    
                     if parameter == 'kda':
                         if int(match_info.thisDeaths) >= 1:
-                            result = records_check3(fichier, fichier_joueur, fichier_all, 'kda', match_info.thisKDA, methode)
+                            records_check3(
+                                fichier, fichier_joueur, fichier_all,
+                                category='kda',
+                                result_category_match=match_info.thisKDA,
+                                methode=methode,
+                                collector=records_collector
+                            )
                         else:
-                            kda_val = float(round((int(match_info.thisKills) + int(match_info.thisAssists)) / (int(match_info.thisDeaths) + 1), 2))
-                            result = records_check3(fichier, fichier_joueur, fichier_all, 'kda', kda_val, methode)
+                            kda_val = float(round(
+                                (int(match_info.thisKills) + int(match_info.thisAssists)) / 
+                                (int(match_info.thisDeaths) + 1), 2
+                            ))
+                            records_check3(
+                                fichier, fichier_joueur, fichier_all,
+                                category='kda',
+                                result_category_match=kda_val,
+                                methode=methode,
+                                collector=records_collector
+                            )
                     else:
-                        result = records_check3(fichier, fichier_joueur, fichier_all, parameter, value, methode)
-
-                    if result:
-                        records_parts.append(result)
+                        records_check3(
+                            fichier, fichier_joueur, fichier_all,
+                            category=parameter,
+                            result_category_match=value,
+                            methode=methode,
+                            collector=records_collector
+                        )
 
                 # Vérification des records ranked
                 if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:
@@ -641,17 +470,25 @@ class LeagueofLegends(Extension):
                             'first_horde', 'first_double', 'first_triple', 'first_quadra',
                             'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time'
                         ] else 'max'
-                        result = records_check3(fichier, fichier_joueur, fichier_all, parameter, value, methode)
-                        if result:
-                            records_parts.append(result)
+                        records_check3(
+                            fichier, fichier_joueur, fichier_all,
+                            category=parameter,
+                            result_category_match=value,
+                            methode=methode,
+                            collector=records_collector
+                        )
 
                 # Vérification des records ARAM
                 if match_info.thisQ in ['ARAM', 'CLASH ARAM']:
                     for parameter, value in param_records_only_aram.items():
                         methode = 'max'
-                        result = records_check3(fichier, fichier_joueur, fichier_all, parameter, value, methode)
-                        if result:
-                            records_parts.append(result)
+                        records_check3(
+                            fichier, fichier_joueur, fichier_all,
+                            category=parameter,
+                            result_category_match=value,
+                            methode=methode,
+                            collector=records_collector
+                        )
 
             del fichier, fichier_all, fichier_joueur
 
@@ -708,10 +545,7 @@ class LeagueofLegends(Extension):
             embed.add_field(
                 name='Champion', value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)", inline=True)
 
-            if not records_parts:
-                embed.add_field(name="Exploits", value="Aucun exploit", inline=False)
-            else:
-                embed = add_chunked_field(embed, "Exploits", records_parts)
+            embed = add_records_to_embed(embed, records_collector, title="Exploits")
 
             # Détections spécifiques aux ranked/flex
             if match_info.thisQ in ['RANKED', 'FLEX']:
@@ -1014,9 +848,13 @@ class LeagueofLegends(Extension):
                 return await ctx.send("Ce compte n'existe pas ou n'est pas enregistré")
 
             session = aiohttp.ClientSession()
-            liste_matchs_riot: list = set(await get_list_matchs_with_puuid(session, puuid, type=420),  # RANKED
-                                          await get_list_matchs_with_puuid(session, puuid, type=440), # FLEX
-                                          await get_list_matchs_with_puuid(session, puuid, type=450)) # ARAM
+
+            ranked, flex, aram = await asyncio.gather(
+                get_list_matchs_with_puuid(session, puuid, queue=420),  # RANKED
+                get_list_matchs_with_puuid(session, puuid, queue=440),  # FLEX
+                get_list_matchs_with_puuid(session, puuid, queue=450),  # ARAM
+            )
+            liste_matchs_riot: list = list(set(ranked + flex + aram))
             await session.close()
             liste_matchs_save: pd.DataFrame = lire_bdd_perso(f'''SELECT distinct match_id from matchs where joueur = {id_compte}''', index_col=None).T
 
