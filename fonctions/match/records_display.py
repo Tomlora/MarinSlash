@@ -386,7 +386,8 @@ def add_records_to_embed(embed,
                          collector: RecordsCollector, 
                          title: str = "Exploits",
                          max_field_len: int = 1024, 
-                         total_limit: int = 3500) -> Any:
+                         total_limit: int = 3500,
+                         max_fields: int = 5) -> Any:
     """
     Ajoute les records à un embed Discord, groupés par scope.
     
@@ -402,6 +403,8 @@ def add_records_to_embed(embed,
         Longueur max par champ Discord (limite API: 1024)
     total_limit : int
         Limite totale avant de passer en mode résumé
+    max_fields : int
+        Nombre maximum de champs à créer (défaut: 5)
         
     Returns
     -------
@@ -432,32 +435,47 @@ def add_records_to_embed(embed,
                 embed, 
                 summary, 
                 base_title=f"{title} (résumé)",
-                max_len=max_field_len
+                max_len=max_field_len,
+                max_fields=max_fields
             )
     else:
-        # Affichage normal groupé par scope
+        # Affichage normal - découper ligne par ligne si nécessaire
+        all_lines = []
+        for part in parts:
+            all_lines.extend(part.strip().split('\n'))
+            all_lines.append('')  # Séparateur entre scopes
+        
         current = ""
         field_index = 1
         
-        for part in parts:
-            part = part.strip()
+        for line in all_lines:
+            # Vérifier si ajouter cette ligne dépasse la limite
+            test_content = current + line + '\n' if current else line + '\n'
             
-            # Tronquer si une partie est trop longue
-            if len(part) > max_field_len:
-                part = part[:max_field_len - 3] + '...'
-            
-            # Si ajouter cette partie dépasse la limite, créer un nouveau champ
-            separator = "\n\n" if current else ""
-            if current and len(current) + len(separator) + len(part) > max_field_len:
-                embed.add_field(
-                    name=title if field_index == 1 else f"{title} ({field_index})",
-                    value=current.strip(),
-                    inline=False
-                )
-                current = ""
-                field_index += 1
-            
-            current += separator + part
+            if len(test_content) > max_field_len:
+                # Sauvegarder le champ actuel
+                if current.strip():
+                    embed.add_field(
+                        name=title if field_index == 1 else f"{title} ({field_index})",
+                        value=current.strip(),
+                        inline=False
+                    )
+                    field_index += 1
+                    
+                    # Limite de champs atteinte → passer en résumé
+                    if field_index > max_fields:
+                        remaining_lines = all_lines[all_lines.index(line):]
+                        if remaining_lines:
+                            embed.add_field(
+                                name=f"{title} (suite)",
+                                value=collector.get_summary(),
+                                inline=False
+                            )
+                        return embed
+                
+                current = line + '\n'
+            else:
+                current = test_content
         
         # Ajouter le dernier champ
         if current.strip():
@@ -471,7 +489,7 @@ def add_records_to_embed(embed,
 
 
 def _add_chunked_content(embed, content: str, base_title: str, 
-                         max_len: int = 1024) -> None:
+                         max_len: int = 1024, max_fields: int = 5) -> None:
     """Ajoute du contenu découpé en plusieurs champs si nécessaire."""
     lines = content.split('\n')
     current = ""
@@ -479,6 +497,15 @@ def _add_chunked_content(embed, content: str, base_title: str,
     
     for line in lines:
         if len(current) + len(line) + 1 > max_len:
+            if index > max_fields:
+                # Tronquer proprement
+                embed.add_field(
+                    name=f"{base_title} {index}",
+                    value=current.strip() + "\n...",
+                    inline=False
+                )
+                return
+            
             embed.add_field(
                 name=base_title if index == 1 else f"{base_title} {index}",
                 value=current.strip(),
@@ -488,7 +515,7 @@ def _add_chunked_content(embed, content: str, base_title: str,
             index += 1
         current += line + "\n"
     
-    if current.strip():
+    if current.strip() and index <= max_fields:
         embed.add_field(
             name=base_title if index == 1 else f"{base_title} {index}",
             value=current.strip(),

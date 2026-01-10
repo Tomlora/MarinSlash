@@ -145,7 +145,7 @@ class SaveDataMixin:
             'temps_vivant': self.thisTimeSpendAlive,
             'dmg_tower': self.thisDamageTurrets,
             'gold_share': self.gold_share,
-            'mvp': self.mvp,
+            'mvp': self.player_score,
             'ecart_gold_team': self.ecart_gold_team,
             'ka': self.thisKills + self.thisAssists,
             'time_first_death': self.thisTimeLiving,
@@ -509,4 +509,5 @@ class SaveDataMixin:
                     'pinks_bought': pinks_bought,
                 }
             )
+
 

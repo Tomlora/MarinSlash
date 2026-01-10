@@ -94,7 +94,7 @@ class ImageGenerationMixin:
         x_dmg_taken = x_dmg_percent + 260
 
         x_kill_total = 850
-        x_objectif = 1800
+        x_objectif = 2000
 
 
         x_name = 260
@@ -557,7 +557,7 @@ class ImageGenerationMixin:
                                       SET mvp = :mvp 
                                       WHERE match_id = :match_id
                                       AND joueur = :joueur''',
-                                      {'mvp' : int(scoring),
+                                      {'mvp' : int(scoring), # self.player_score . Ancien : mvp_modele
                                        'match_id' : self.last_match,
                                        'joueur' : self.id_compte})
                 
@@ -694,7 +694,7 @@ class ImageGenerationMixin:
             herald = await get_image('monsters', 'herald', self.session)
             nashor = await get_image('monsters', 'nashor', self.session)
             horde = await get_image('monsters', 'horde', self.session)
-            atakhan = await get_image('monsters', 'atakhan', self.session)
+            # atakhan = await get_image('monsters', 'atakhan', self.session)
 
             im.paste(tower, (x_objectif - 400, 190), tower.convert('RGBA'))
             d.text((x_objectif - 400 + 100, 25 + 190), str(self.thisTowerTeam),
@@ -724,9 +724,9 @@ class ImageGenerationMixin:
             d.text((x_objectif + 800 + 100, 25 + 190),
                    str(self.thisHordeTeam), font=font, fill=fill)
             
-            im.paste(atakhan, (x_objectif + 1000, 10 + 190), atakhan.convert('RGBA'))
-            d.text((x_objectif + 1000 + 100, 25 + 190),
-                   str(self.thisAtakhanTeam), font=font, fill=fill)
+            # im.paste(atakhan, (x_objectif + 1000, 10 + 190), atakhan.convert('RGBA'))
+            # d.text((x_objectif + 1000 + 100, 25 + 190),
+            #        str(self.thisAtakhanTeam), font=font, fill=fill)
 
         img_timer = await get_image('timer', 'timer', self.session)
         img_blue_epee = await get_image('epee', 'blue', self.session)
