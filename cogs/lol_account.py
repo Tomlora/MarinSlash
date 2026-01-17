@@ -60,7 +60,7 @@ class LolAccount(Extension):
                 session = aiohttp.ClientSession()
                 me = await get_summoner_by_riot_id(session, riot_id, riot_tag)
                 puuid = me['puuid']
-                info_account = await get_summonerinfo_by_puuid(puuid, session)
+                # info_account = await get_summonerinfo_by_puuid(puuid, session)
                 if lire_bdd_perso(f'''select * from tracker where puuid = '{puuid}' ''').empty:
                     requete_perso_bdd(f'''
                                     INSERT INTO tracker(index, id, discord, server_id, puuid, riot_id, riot_tagline, id_league) VALUES (:riot_id, :id, :discord, :guilde, :puuid, :riot_id, :riot_tagline, :id_league); 
@@ -72,7 +72,7 @@ class LolAccount(Extension):
                                     'puuid': puuid,
                                     'riot_id' : riot_id,
                                     'riot_tagline' : riot_tag,
-                                    'id_league' : info_account['id']})
+                                    'id_league' : 0})
                     
                     requete_perso_bdd(f'''
                                     INSERT INTO suivi_s{saison}(
@@ -322,10 +322,7 @@ class LolAccount(Extension):
                            options=[SlashCommandOption(name="riot_id",
                                                        description="Nom du joueur",
                                                        type=interactions.OptionType.STRING,
-                                                       required=True),
-                                    SlashCommandOption(name="riot_tag",
-                                                       description="Tag",
-                                                       type=interactions.OptionType.STRING,
+                                                       autocomplete=True,
                                                        required=True),
                                     SlashCommandOption(name="rouge",
                                                        description="R",
@@ -338,16 +335,30 @@ class LolAccount(Extension):
                                     SlashCommandOption(name="bleu",
                                                        description="B",
                                                        type=interactions.OptionType.INTEGER,
-                                                       required=True)])
+                                                       required=True),
+                                    SlashCommandOption(name="riot_tag",
+                                                       description="Tag",
+                                                       type=interactions.OptionType.STRING,
+                                                       required=False)
+                ])
     async def lolcolor(self,
                        ctx: SlashContext,
                        riot_id: str,
-                       riot_tag: str,
-                       rouge: int,
-                       vert: int,
-                       bleu: int):
+                       riot_tag: str = None,
+                       rouge: int = 0,
+                       vert: int = 0,
+                       bleu: int = 0):
 
         await ctx.defer(ephemeral=False)
+
+        if riot_tag == None:
+            try:
+                riot_tag = get_tag(riot_id)
+            except ValueError:
+                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
+
+        riot_id = riot_id.lower().replace(' ', '')
+        riot_tag = riot_tag.upper()
 
         params = {'rouge': rouge, 'vert': vert,
                   'bleu': bleu, 'riot_id': riot_id.lower(), 'riot_tagline' : riot_tag}
@@ -361,6 +372,14 @@ class LolAccount(Extension):
             await ctx.send(f' La couleur du joueur {riot_id} a été modifiée.')
         else:
             await ctx.send(f" Le joueur {riot_id} n'est pas dans la base de données.")
+
+
+    @lolcolor.autocomplete("riot_id")
+    async def autocomplete_lolcolor(self, ctx: interactions.AutocompleteContext):
+
+        liste_choix = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+
+        await ctx.send(choices=liste_choix)
 
 
     @slash_command(name='lol_list',
