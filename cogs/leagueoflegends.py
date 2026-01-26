@@ -13,6 +13,7 @@ from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import challengeslol
 from fonctions.autocomplete import autocomplete_riotid
 from fonctions.channels_discord import identifier_role_by_name
+from fonctions.timer import timer
 from datetime import datetime
 import traceback
 import humanize
@@ -60,6 +61,7 @@ from collections import defaultdict, OrderedDict
 class LeagueofLegends(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
+        self._update_lock = asyncio.Lock()
 
     @listen()
     async def on_startup(self):
@@ -116,7 +118,7 @@ class LeagueofLegends(Extension):
                 await match_info.run(save=sauvegarder)
                 
 
-
+            @timer
             # Fonction pour récupérer les données de match pour les records
             def get_match_data(filters: str) -> pd.DataFrame:
                 stat_null_rules = get_stat_null_rules()
@@ -197,13 +199,23 @@ class LeagueofLegends(Extension):
 
                 return df
 
-            # Chargement des fichiers pour les records
-            fichier = get_match_data(f"AND season = {match_info.season}")
+            # # Chargement des fichiers pour les records
+            # fichier = get_match_data(f"AND season = {match_info.season}")
+            # fichier_all = get_match_data("")
+            # fichier_joueur = get_match_data(f'''
+            #     AND season = {match_info.season}
+            #     AND discord = (SELECT tracker.discord FROM tracker WHERE tracker.id_compte = {id_compte})
+            # ''')
+
+            discord_id = lire_bdd_perso(f'SELECT tracker.discord FROM tracker where tracker.id_compte = {id_compte}',
+                                        index_col=None,
+                                        format='dict')[0]['discord']
+
             fichier_all = get_match_data("")
-            fichier_joueur = get_match_data(f'''
-                AND season = {match_info.season}
-                AND discord = (SELECT tracker.discord FROM tracker WHERE tracker.id_compte = {id_compte})
-            ''')
+            fichier = fichier_all[fichier_all['season'] == match_info.season].copy()
+            fichier_joueur = fichier[fichier['discord'] == discord_id].copy()
+
+
 
             # Vérification des doublons
             if check_doublon:
@@ -969,110 +981,115 @@ class LeagueofLegends(Extension):
 
     @Task.create(IntervalTrigger(minutes=3))
     async def update(self):
-        data = get_data_bdd(
-            '''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, tracker.id, tracker.server_id,
-            tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges,
-            tracker.insights, tracker.nb_challenges, tracker.affichage,
-            tracker.banned, tracker.riot_id, tracker.riot_tagline, tracker.save_records
-                            from tracker
-                            INNER JOIN channels_module on tracker.server_id = channels_module.server_id
-                            where tracker.activation = true
-                            and channels_module.league_ranked = true'''
-        ).fetchall()
-        timeout = aiohttp.ClientTimeout(total=60*5)
-        session = aiohttp.ClientSession(timeout=timeout)
+        if self._update_lock.locked():
+            print("Update déjà en cours, skip")
+            return
+        
+        async with self._update_lock:
+            data = get_data_bdd(
+                '''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, tracker.id, tracker.server_id,
+                tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges,
+                tracker.insights, tracker.nb_challenges, tracker.affichage,
+                tracker.banned, tracker.riot_id, tracker.riot_tagline, tracker.save_records
+                                from tracker
+                                INNER JOIN channels_module on tracker.server_id = channels_module.server_id
+                                where tracker.activation = true
+                                and channels_module.league_ranked = true'''
+            ).fetchall()
+            timeout = aiohttp.ClientTimeout(total=60*5)
+            session = aiohttp.ClientSession(timeout=timeout)
 
-        for id_compte, riot_id, riot_tag, last_game, server_id, tracker_bool, tracker_spec, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage, banned, riot_id, riot_tagline, check_records in data:
+            for id_compte, riot_id, riot_tag, last_game, server_id, tracker_bool, tracker_spec, discord_id, puuid, tracker_challenges, insights, nb_challenges, affichage, banned, riot_id, riot_tagline, check_records in data:
 
-            id_last_game = await getId_with_puuid(puuid, session)
+                id_last_game = await getId_with_puuid(puuid, session)
 
-            if str(last_game) != id_last_game:
-                requete_perso_bdd(
-                    'UPDATE tracker SET id = :id, spec_send = :spec WHERE id_compte = :id_compte',
-                    {'id': id_last_game, 'id_compte': id_compte, 'spec': False})
-
-                try:
-                    me = await get_summoner_by_puuid(puuid, session)
-
-                    if riot_id != me['gameName'].replace(" ", "").lower() or riot_tag != me['tagLine']:
-                        requete_perso_bdd(
-                            'UPDATE tracker SET riot_id = :riot_id, riot_tagline = :riot_tag WHERE id_compte = :id_compte',
-                            {'id_compte': id_compte, 'riot_id': me['gameName'].lower().replace(" ", ""), 'riot_tag': me['tagLine'].upper()},
-                        )
-                        riot_id = me['gameName'].lower().replace(" ", "")
-                        riot_tag = me['tagLine'].upper()
-
-                except KeyError:
-                    print(f'Erreur de maj de pseudo {riot_id}')
+                if str(last_game) != id_last_game:
                     requete_perso_bdd(
-                        'UPDATE tracker SET id = :id WHERE id_compte = :id_compte',
-                        {'id': last_game, 'id_compte': id_compte})
-                    continue
+                        'UPDATE tracker SET id = :id, spec_send = :spec WHERE id_compte = :id_compte',
+                        {'id': id_last_game, 'id_compte': id_compte, 'spec': False})
 
-                try:
-                    discord_server_id = chan_discord(int(server_id))
+                    try:
+                        me = await get_summoner_by_puuid(puuid, session)
 
-                    await self.printLive(id_compte,
-                                         riot_id,
-                                         riot_tag,
-                                         discord_server_id,
-                                         me,
-                                         identifiant_game=id_last_game,
-                                         tracker_challenges=tracker_challenges,
-                                         session=session,
-                                         insights=insights,
-                                         nbchallenges=nb_challenges,
-                                         banned=banned,
-                                         check_records=check_records)
-
-                    await self.updaterank(id_compte, riot_id, riot_tag, discord_server_id, session, puuid, discord_id)
-                except TypeError:
-                    requete_perso_bdd(
-                        'UPDATE tracker SET id = :id WHERE id_compte = :id_compte',
-                        {'id': last_game, 'id_compte': id_compte})
-                    print(f"erreur TypeError {riot_id}")
-                    exc_type, exc_value, exc_traceback = sys.exc_info()
-                    traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
-                    traceback_msg = ''.join(traceback_details)
-                    print(traceback_msg)
-                    continue
-                except Exception:
-                    print(f"erreur {riot_id}")
-                    exc_type, exc_value, exc_traceback = sys.exc_info()
-                    traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
-                    traceback_msg = ''.join(traceback_details)
-                    print(traceback_msg)
-                    continue
-
-            if tracker_bool and not tracker_spec:
-                try:
-                    url, gamemode, id_game, champ_joueur, icon = await get_spectator(session, puuid)
-                    url_opgg = f'https://www.op.gg/summoners/euw/{riot_id.replace(" ", "")}-{riot_tagline}/ingame'
-                    league_of_graph = f'https://porofessor.gg/fr/live/euw/{riot_id.replace(" ", "")}-{riot_tagline}'
-
-                    if url is not None:
-                        member = await self.bot.fetch_member(discord_id, server_id)
-
-                        if id_last_game != str(id_game):
-                            embed = interactions.Embed(
-                                title=f'{riot_id.upper()} : Analyse de la game prête !')
-                            embed.add_field(name='Mode de jeu', value=gamemode)
-                            embed.add_field(name='OPGG', value=f"[General]({url_opgg}) | [Detail]({url}) ")
-                            embed.add_field(name='League of Graph', value=f"[{riot_id.upper()}]({league_of_graph})")
-                            embed.add_field(name='Lolalytics', value=f'[{champ_joueur.capitalize()}](https://lolalytics.com/lol/{champ_joueur}/build/)')
-                            embed.set_thumbnail(url=icon)
-
-                            await member.send(embeds=embed)
-
+                        if riot_id != me['gameName'].replace(" ", "").lower() or riot_tag != me['tagLine']:
                             requete_perso_bdd(
-                                'UPDATE tracker SET spec_send = :spec WHERE id_compte = :id_compte',
-                                {'spec': True, 'id_compte': id_compte},
+                                'UPDATE tracker SET riot_id = :riot_id, riot_tagline = :riot_tag WHERE id_compte = :id_compte',
+                                {'id_compte': id_compte, 'riot_id': me['gameName'].lower().replace(" ", ""), 'riot_tag': me['tagLine'].upper()},
                             )
-                except TypeError:
-                    continue
-                except Exception:
-                    continue
-        await session.close()
+                            riot_id = me['gameName'].lower().replace(" ", "")
+                            riot_tag = me['tagLine'].upper()
+
+                    except KeyError:
+                        print(f'Erreur de maj de pseudo {riot_id}')
+                        requete_perso_bdd(
+                            'UPDATE tracker SET id = :id WHERE id_compte = :id_compte',
+                            {'id': last_game, 'id_compte': id_compte})
+                        continue
+
+                    try:
+                        discord_server_id = chan_discord(int(server_id))
+
+                        await self.printLive(id_compte,
+                                            riot_id,
+                                            riot_tag,
+                                            discord_server_id,
+                                            me,
+                                            identifiant_game=id_last_game,
+                                            tracker_challenges=tracker_challenges,
+                                            session=session,
+                                            insights=insights,
+                                            nbchallenges=nb_challenges,
+                                            banned=banned,
+                                            check_records=check_records)
+
+                        await self.updaterank(id_compte, riot_id, riot_tag, discord_server_id, session, puuid, discord_id)
+                    except TypeError:
+                        requete_perso_bdd(
+                            'UPDATE tracker SET id = :id WHERE id_compte = :id_compte',
+                            {'id': last_game, 'id_compte': id_compte})
+                        print(f"erreur TypeError {riot_id}")
+                        exc_type, exc_value, exc_traceback = sys.exc_info()
+                        traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                        traceback_msg = ''.join(traceback_details)
+                        print(traceback_msg)
+                        continue
+                    except Exception:
+                        print(f"erreur {riot_id}")
+                        exc_type, exc_value, exc_traceback = sys.exc_info()
+                        traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                        traceback_msg = ''.join(traceback_details)
+                        print(traceback_msg)
+                        continue
+
+                if tracker_bool and not tracker_spec:
+                    try:
+                        url, gamemode, id_game, champ_joueur, icon = await get_spectator(session, puuid)
+                        url_opgg = f'https://www.op.gg/summoners/euw/{riot_id.replace(" ", "")}-{riot_tagline}/ingame'
+                        league_of_graph = f'https://porofessor.gg/fr/live/euw/{riot_id.replace(" ", "")}-{riot_tagline}'
+
+                        if url is not None:
+                            member = await self.bot.fetch_member(discord_id, server_id)
+
+                            if id_last_game != str(id_game):
+                                embed = interactions.Embed(
+                                    title=f'{riot_id.upper()} : Analyse de la game prête !')
+                                embed.add_field(name='Mode de jeu', value=gamemode)
+                                embed.add_field(name='OPGG', value=f"[General]({url_opgg}) | [Detail]({url}) ")
+                                embed.add_field(name='League of Graph', value=f"[{riot_id.upper()}]({league_of_graph})")
+                                embed.add_field(name='Lolalytics', value=f'[{champ_joueur.capitalize()}](https://lolalytics.com/lol/{champ_joueur}/build/)')
+                                embed.set_thumbnail(url=icon)
+
+                                await member.send(embeds=embed)
+
+                                requete_perso_bdd(
+                                    'UPDATE tracker SET spec_send = :spec WHERE id_compte = :id_compte',
+                                    {'spec': True, 'id_compte': id_compte},
+                                )
+                    except TypeError:
+                        continue
+                    except Exception:
+                        continue
+            await session.close()
 
     async def update_24h(self):
         data = get_data_bdd(

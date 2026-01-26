@@ -6,7 +6,9 @@ import pickle
 import aiohttp
 import pandas as pd
 
+
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
+from fonctions.timer import timer
 
 # Import des mixins
 from .matchlol_base import MatchLolBase
@@ -142,6 +144,7 @@ class MatchLol(
         except FileNotFoundError:
             self.model = None
 
+    @timer
     async def run(self, embed=None, difLP=0, save=True):
         """
         Exécute l'analyse complète du match.
