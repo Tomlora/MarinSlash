@@ -159,6 +159,9 @@ class LoLRecap(Extension):
 
         if df.shape[0] >= 1:
 
+
+            df.drop_duplicates(subset='match_id', inplace=True)
+
             # on convertit dans le bon fuseau horaire
             df['datetime'] = pd.to_datetime(
                 df['datetime'], utc=True).dt.tz_convert('Europe/Paris')
