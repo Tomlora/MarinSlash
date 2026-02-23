@@ -21,14 +21,25 @@ from interactions import (
     ActionRow,
     component_callback,
     ComponentContext,
+    Task,
+    IntervalTrigger,
+    listen,
+    Permissions,
 )
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
+import asyncio
+import logging
+import traceback
 from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Optional
 import re
+from fonctions.permissions import isOwner_slash
+import aiohttp
+
+log = logging.getLogger(__name__)
 
 # =============================================================================
 # CONSTANTES
@@ -122,6 +133,16 @@ class MedalData:
         """Nom affiché avec drapeau."""
         return f"{self.flag} {self.pays_fr}"
 
+    def diff(self, other: "MedalData") -> dict[str, int]:
+        """Retourne les différences de médailles entre deux états d'un même pays.
+        Ex: {"Or": +1, "Bronze": +1} si on a gagné 1 or et 1 bronze."""
+        changes = {}
+        for medal_type, attr in [("Or", "or_count"), ("Argent", "argent_count"), ("Bronze", "bronze_count")]:
+            delta = getattr(self, attr) - getattr(other, attr)
+            if delta > 0:
+                changes[medal_type] = delta
+        return changes
+
 
 @dataclass
 class MedalTable:
@@ -146,17 +167,50 @@ class MedalTable:
             reverse=True,
         )
 
+    def as_dict(self) -> dict[str, MedalData]:
+        """Retourne un dict {pays: MedalData}."""
+        return {c.pays: c for c in self.countries}
+
+    def compute_diff(self, old: "MedalTable") -> list[tuple[MedalData, dict[str, int], int]]:
+        """Compare avec un ancien tableau et retourne les nouvelles médailles.
+        
+        Returns:
+            Liste de (country_data, {"Or": +1, ...}, rang)
+        """
+        old_dict = old.as_dict()
+        new_sorted = self.sorted()
+        changes = []
+
+        for rank, country in enumerate(new_sorted, 1):
+            old_country = old_dict.get(country.pays)
+            if old_country is None:
+                # Nouveau pays : toutes les médailles sont nouvelles
+                diff = {}
+                for medal_type, attr in [("Or", "or_count"), ("Argent", "argent_count"), ("Bronze", "bronze_count")]:
+                    val = getattr(country, attr)
+                    if val > 0:
+                        diff[medal_type] = val
+                if diff:
+                    changes.append((country, diff, rank))
+            else:
+                diff = country.diff(old_country)
+                if diff:
+                    changes.append((country, diff, rank))
+
+        return changes
+
 
 # =============================================================================
 # FONCTIONS DE RÉCUPÉRATION DES DONNÉES
 # =============================================================================
 
-def fetch_medal_table_wikipedia() -> MedalTable:
+async def fetch_medal_table_wikipedia(session : aiohttp.ClientSession) -> MedalTable:
     """Récupère le tableau des médailles depuis Wikipedia (BeautifulSoup)."""
-    response = requests.get(WIKI_URL, headers=HEADERS, timeout=15)
-    response.raise_for_status()
+    async with session.get(WIKI_URL, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=15)) as response:
+        response.raise_for_status()
+        html = await response.text()
 
-    soup = BeautifulSoup(response.text, "html.parser")
+    soup = BeautifulSoup(html, "html.parser")
     tables = soup.find_all("table", class_="wikitable")
 
     medal_table = None
@@ -255,25 +309,27 @@ def fetch_medal_table_pandas() -> MedalTable:
     return MedalTable(countries=countries, source="Wikipedia (pandas)")
 
 
-def get_medal_table() -> MedalTable:
+
+async def get_medal_table() -> MedalTable:
     """
     Tente de récupérer les médailles avec plusieurs méthodes.
     Retourne le MedalTable ou lève une exception si tout échoue.
     """
-    methods = [
-        ("Wikipedia (BS4)", fetch_medal_table_wikipedia),
-        ("Wikipedia (pandas)", fetch_medal_table_pandas),
-    ]
+    async with aiohttp.ClientSession() as session:
+        methods = [
+            ("Wikipedia (BS4)", fetch_medal_table_wikipedia),
+            ("Wikipedia (pandas)", fetch_medal_table_pandas),
+        ]
 
-    last_error = None
-    for name, func in methods:
-        try:
-            table = func()
-            table.source = name
-            return table
-        except Exception as e:
-            last_error = e
-            continue
+        last_error = None
+        for name, func in methods:
+            try:
+                table = await func(session)
+                table.source = name
+                return table
+            except Exception as e:
+                last_error = e
+                continue
 
     raise ValueError(
         f"Impossible de récupérer les données. "
@@ -414,6 +470,54 @@ class JO2026(Extension):
         self._cache_time: Optional[datetime] = None
         self._cache_ttl = 300  # 5 minutes de cache
 
+        # État précédent pour la détection de nouvelles médailles
+        self._previous_table: Optional[MedalTable] = None
+        self._lock = asyncio.Lock()
+
+        # Channel par serveur : {server_id: channel_id}
+        self._channels: dict[int, int] = {}
+
+    @listen()
+    async def on_startup(self):
+        """Charge les channels configurés et démarre la task."""
+        self._load_channels()
+        if self._channels:
+            self.medal_tracker.start()
+            log.info(f"[JO2026] Task démarrée — {len(self._channels)} serveur(s) configuré(s)")
+        else:
+            log.info("[JO2026] Aucun channel configuré, task non démarrée. Utilisez /jo set_channel")
+
+    def _load_channels(self):
+        """Charge les channels depuis la BDD."""
+        try:
+            from fonctions.gestion_bdd import get_data_bdd
+            rows = get_data_bdd(
+                "SELECT server_id, channel_id FROM jo_medals_config"
+            ).fetchall()
+            self._channels = {int(row[0]): int(row[1]) for row in rows}
+        except Exception as e:
+            log.warning(f"[JO2026] Impossible de charger les channels : {e}")
+            self._channels = {}
+
+    def _save_channel(self, server_id: int, channel_id: int):
+        """Sauvegarde un channel en BDD."""
+        from fonctions.gestion_bdd import requete_perso_bdd
+        requete_perso_bdd(
+            """INSERT INTO jo_medals_config (server_id, channel_id) 
+               VALUES (:server_id, :channel_id)
+               ON CONFLICT (server_id) 
+               DO UPDATE SET channel_id = :channel_id""",
+            {"server_id": server_id, "channel_id": channel_id},
+        )
+
+    def _remove_channel(self, server_id: int):
+        """Supprime un channel de la BDD."""
+        from fonctions.gestion_bdd import requete_perso_bdd
+        requete_perso_bdd(
+            "DELETE FROM jo_medals_config WHERE server_id = :server_id",
+            {"server_id": server_id},
+        )
+
     def _get_cached_table(self) -> Optional[MedalTable]:
         """Retourne le cache s'il est encore valide."""
         if self._cache and self._cache_time:
@@ -433,9 +537,178 @@ class JO2026(Extension):
         if cached:
             return cached
 
-        table = get_medal_table()
+        table = await get_medal_table()
         self._set_cache(table)
         return table
+
+    # =========================================================================
+    # TASK : Vérification automatique toutes les 3 minutes
+    # =========================================================================
+
+    @Task.create(IntervalTrigger(minutes=3))
+    async def medal_tracker(self):
+        """Vérifie les nouvelles médailles et publie dans les channels configurés."""
+        if not self._channels:
+            return
+
+        async with self._lock:
+            try:
+                # Forcer le refresh (pas de cache)
+                table = await get_medal_table()
+                self._set_cache(table)
+            except Exception as e:
+                log.warning(f"[JO2026] Erreur scraping : {e}")
+                return
+
+            # Première exécution : on sauvegarde l'état sans notifier
+            if self._previous_table is None:
+                self._previous_table = table
+                log.info(
+                    f"[JO2026] État initial chargé : "
+                    f"{table.total_countries} pays, {table.total_medals} médailles"
+                )
+                return
+
+            # Détecter les changements
+            changes = table.compute_diff(self._previous_table)
+
+            if not changes:
+                return
+
+            log.info(f"[JO2026] {len(changes)} changement(s) détecté(s)")
+
+            # Construire les embeds de notification
+            embeds = []
+            for country, diff, rank in changes:
+                for medal_type, count in diff.items():
+                    for _ in range(count):
+                        embeds.append(
+                            self._build_new_medal_embed(country, medal_type, rank, table)
+                        )
+
+            # Publier dans tous les channels configurés
+            for server_id, channel_id in self._channels.items():
+                try:
+                    channel = await self.bot.fetch_channel(channel_id)
+                    for embed in embeds:
+                        await channel.send(embeds=embed)
+                        await asyncio.sleep(0.3)  # Anti rate-limit
+                except Exception as e:
+                    log.error(f"[JO2026] Erreur envoi serveur {server_id} : {e}")
+
+            # Mettre à jour l'état
+            self._previous_table = table
+
+    def _build_new_medal_embed(
+        self, country: MedalData, medal_type: str, rank: int, table: MedalTable
+    ) -> Embed:
+        """Construit un embed pour une nouvelle médaille."""
+        medal_emoji = MEDAL_EMOJIS.get(medal_type, "🏅")
+        colors = {"Or": 0xFFD700, "Argent": 0xC0C0C0, "Bronze": 0xCD7F32}
+
+        embed = Embed(
+            title=f"{medal_emoji} Nouvelle médaille d'{medal_type.lower()} !",
+            description=(
+                f"**{country.display_name}** remporte une médaille d'**{medal_type.lower()}** !"
+            ),
+            color=colors.get(medal_type, 0x808080),
+            timestamp=datetime.now(),
+        )
+
+        embed.add_field(name="🥇 Or", value=str(country.or_count), inline=True)
+        embed.add_field(name="🥈 Argent", value=str(country.argent_count), inline=True)
+        embed.add_field(name="🥉 Bronze", value=str(country.bronze_count), inline=True)
+        embed.add_field(name="📊 Total", value=str(country.total), inline=True)
+
+        embed.set_footer(
+            text=f"JO d'hiver 2026 — Rang #{rank}/{table.total_countries}"
+        )
+
+        embed.set_thumbnail(
+            url="https://upload.wikimedia.org/wikipedia/fr/4/48/Logo_JO_d%27hiver_-_Milan_Cortina_2026.svg"
+        )
+
+        return embed
+
+    # =========================================================================
+    # COMMANDE : /jo set_channel
+    # =========================================================================
+
+    @slash_command(
+        name="jo",
+        description="Jeux Olympiques d'hiver 2026",
+        sub_cmd_name="set_channel",
+        sub_cmd_description="Définir le channel pour les alertes médailles",
+    )
+    @slash_option(
+        name="channel",
+        description="Channel où publier les nouvelles médailles",
+        opt_type=OptionType.CHANNEL,
+        required=True,
+    )
+    async def jo_set_channel(self, ctx: SlashContext, channel: interactions.TYPE_ALL_CHANNEL):
+        server_id = int(ctx.guild_id)
+        channel_id = int(channel.id)
+
+        self._save_channel(server_id, channel_id)
+        self._channels[server_id] = channel_id
+
+        # Démarrer la task si elle ne tourne pas encore
+        if not self.medal_tracker.running:
+            self.medal_tracker.start()
+            log.info("[JO2026] Task démarrée suite à la configuration d'un channel")
+
+        embed = Embed(
+            title="✅ Channel JO 2026 configuré",
+            description=(
+                f"Les alertes médailles seront publiées dans <#{channel_id}>.\n\n"
+                f"Le bot vérifie automatiquement toutes les **3 minutes** "
+                f"et envoie un message à chaque nouvelle médaille."
+            ),
+            color=0x2ECC71,
+        )
+        await ctx.send(embeds=embed, ephemeral=True)
+
+    # =========================================================================
+    # COMMANDE : /jo stop_tracker
+    # =========================================================================
+
+    @slash_command(
+        name="jo",
+        description="Jeux Olympiques d'hiver 2026",
+        sub_cmd_name="stop_tracker",
+        sub_cmd_description="Arrêter les alertes médailles pour ce serveur",
+    )
+    async def jo_stop_tracker(self, ctx: SlashContext):
+
+        if isOwner_slash(ctx):
+            server_id = int(ctx.guild_id)
+
+            if server_id in self._channels:
+                self._remove_channel(server_id)
+                del self._channels[server_id]
+
+                # Arrêter la task si plus aucun channel configuré
+                if not self._channels and self.medal_tracker.running:
+                    self.medal_tracker.stop()
+                    log.info("[JO2026] Task arrêtée — plus aucun channel configuré")
+
+                embed = Embed(
+                    title="🛑 Alertes médailles désactivées",
+                    description="Ce serveur ne recevra plus les alertes automatiques.",
+                    color=0xE74C3C,
+                )
+            else:
+                embed = Embed(
+                    title="⚠️ Aucune alerte active",
+                    description="Ce serveur n'a pas de channel d'alertes configuré.",
+                    color=0xFFA500,
+                )
+
+            await ctx.send(embeds=embed, ephemeral=True)
+        
+        else:
+            await ctx.send('Non autorisé : Seuls les propriétaires du serveur peuvent utiliser cette commande.')
 
     # =========================================================================
     # COMMANDE : /jo medals

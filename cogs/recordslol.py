@@ -290,7 +290,6 @@ def add_aggregated_data(df: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
 
 
 async def load_data(ctx, view, saison, mode, time_mini):
-    # Règles d’annulation dynamiques depuis records_exclusion
     stat_null_rules = get_stat_null_rules()
 
     untouched_columns = [
@@ -323,17 +322,14 @@ async def load_data(ctx, view, saison, mode, time_mini):
         'records_loser."l_temps_avant_premiere_mort"', 'records_loser."l_ecart_kills"', 'records_loser."l_ecart_deaths"',
         'records_loser."l_ecart_assists"', 'records_loser."l_ecart_dmg"', 'records_loser."l_allie_feeder"',
         'records_loser."l_temps_vivant"', 'records_loser."l_time"', 'records_loser."l_solokills"',
-        # Ajouter d'autres si nécessaire
     ]
 
-
-    # Colonnes sélectionnées
     all_columns = [
         "matchs.*",
         "tracker.riot_id", "tracker.riot_tagline", "tracker.discord"
     ] + untouched_columns
 
-    # Construction de la requête SQL
+    # Requête SQL allégée : uniquement les filtres liés aux JOINs et aux données essentielles
     base_query = f'''
         SELECT DISTINCT {', '.join(all_columns)}
         FROM matchs
@@ -341,37 +337,29 @@ async def load_data(ctx, view, saison, mode, time_mini):
         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id AND matchs.match_id = max_data_timeline.match_id
         LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id AND matchs.match_id = data_timeline_palier.match_id
         LEFT JOIN records_loser ON matchs.joueur = records_loser.joueur AND matchs.match_id = records_loser.match_id
-        WHERE mode = '{mode}'
-          AND time >= {time_mini[mode]}
-          AND tracker.banned = false
+        WHERE tracker.banned = false
           AND tracker.save_records = true
           AND matchs.records = true
     '''
 
-    where_conditions = []
-    if saison != 0:
-        where_conditions.append(f"season = {saison}")
-    if view == 'serveur':
-        where_conditions.append(f"server_id = {int(ctx.guild_id)}")
-    if where_conditions:
-        base_query += " AND " + " AND ".join(where_conditions)
-
-    # Chargement des données
     fichier = lire_bdd_perso(base_query, index_col='id').transpose()
 
-    # Application des règles d'annulation dynamiques sur toutes les colonnes
+    # Filtres pandas (plus rapides que côté SQL pour des conditions simples sur des données déjà chargées)
+    fichier = fichier[fichier['mode'] == mode]
+    fichier = fichier[fichier['time'] >= time_mini[mode]]
+
+    if saison != 0:
+        fichier = fichier[fichier['season'] == saison]
+    if view == 'serveur':
+        fichier = fichier[fichier['server_id'] == int(ctx.guild_id)]
+
+    # Règles d'annulation dynamiques
     if 'champion' in fichier.columns:
-        for col in fichier.columns:
-            if col == 'champion':
-                continue
-            if col in stat_null_rules:
-                champions = stat_null_rules[col]
+        for col, champions in stat_null_rules.items():
+            if col in fichier.columns and col != 'champion':
                 fichier.loc[fichier['champion'].isin(champions), col] = None
 
-
-    # Agrégat
     fichier = add_aggregated_data(fichier, min_games=15)
-
 
     return fichier
 
