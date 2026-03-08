@@ -257,15 +257,19 @@ class LeagueofLegends(Extension):
             # Suivi des LP
             suivi = lire_bdd(f'suivi_s{saison}', 'dict')
 
-            try:
-                if suivi[id_compte]['tier'] == match_info.thisTier and suivi[id_compte]['rank'] == match_info.thisRank:
-                    difLP = int(match_info.thisLP) - int(suivi[id_compte]['LP'])
-                else:
-                    if int(match_info.thisLP) < int(suivi[id_compte]['LP']):
-                        difLP = (100 - int(suivi[id_compte]['LP'])) + int(match_info.thisLP)
+            if match_info.thisQ != 'FLEX':
+                try:
+                    if suivi[id_compte]['tier'] == match_info.thisTier and suivi[id_compte]['rank'] == match_info.thisRank:
+                        difLP = int(match_info.thisLP) - int(suivi[id_compte]['LP'])
                     else:
-                        difLP = (-100 - int(suivi[id_compte]['LP'])) + int(match_info.thisLP)
-            except Exception:
+                        if int(match_info.thisLP) < int(suivi[id_compte]['LP']):
+                            difLP = (100 - int(suivi[id_compte]['LP'])) + int(match_info.thisLP)
+                        else:
+                            difLP = (-100 - int(suivi[id_compte]['LP'])) + int(match_info.thisLP)
+                except Exception:
+                    difLP = 0
+            
+            else:
                 difLP = 0
 
             difLP = f'+{str(difLP)}' if difLP > 0 else str(difLP)
@@ -1125,15 +1129,15 @@ class LeagueofLegends(Extension):
                 df['LP_pts'] = df['LP'].astype(int)
 
                 df.sort_values(by=['tier_pts', 'rank_pts', 'LP_pts'],
-                               ascending=[False, False, False],
-                               inplace=True)
+                            ascending=[False, False, False],
+                            inplace=True)
 
                 sql = ''
                 suivi = df.set_index(['id_compte']).transpose().to_dict()
                 joueur = suivi.keys()
 
                 embed = interactions.Embed(
-                    title="Suivi LOL", description='Periode : 24h', color=interactions.Color.random())
+                    title="🎮 Suivi LOL", color=interactions.Color.random())
                 totalwin = 0
                 totaldef = 0
                 totalgames = 0
@@ -1141,13 +1145,10 @@ class LeagueofLegends(Extension):
                 for key in joueur:
                     wins = int(suivi[key]['wins_jour'])
                     losses = int(suivi[key]['losses_jour'])
-                    nbgames = wins + losses
                     LP = int(suivi[key]['LP_jour'])
                     tier_old = str(suivi[key]['tier_jour'])
                     rank_old = str(suivi[key]['rank_jour'])
                     classement_old = f"{tier_old} {rank_old}"
-
-
 
                     tier = str(suivi[key]['tier'])
                     rank = str(suivi[key]['rank'])
@@ -1156,45 +1157,73 @@ class LeagueofLegends(Extension):
                     difwins = int(suivi[key]['wins']) - wins
                     diflosses = int(suivi[key]['losses']) - losses
                     difLP = int(suivi[key]['LP']) - LP
-                    totalwin = totalwin + difwins
-                    totaldef = totaldef + diflosses
+                    nb_games_jour = difwins + diflosses
+
+                    totalwin += difwins
+                    totaldef += diflosses
                     totalgames = totalwin + totaldef
 
+                    # Joueurs inactifs
+                    if nb_games_jour == 0:
+                        embed.add_field(
+                            name=f"➡️ {suivi[key]['riot_id']}#{suivi[key]['riot_tagline']} {emote_rank_discord[tier]} {rank}",
+                            value=f"➡️ **0 LP** — Total : {suivi[key]['LP']} LP ({suivi[key]['wins']}W {suivi[key]['losses']}L)",
+                            inline=False
+                        )
+                        continue
 
-
+                    # Calcul LP et emote
                     if dict_rankid[classement_old] > dict_rankid[classement_new]:
                         difrank = dict_rankid[classement_old] - dict_rankid[classement_new]
-                        if classement_old == "Non-classe 0":
-                            difrank = 0
                         if classement_old not in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
                             difLP = (100 * difrank) + LP - int(suivi[key]['LP'])
-                        difLP = f"Démote (x{difrank}) / -{str(difLP)}  "
-                        emote = ":arrow_down:"
-
+                        difLP_display = f"Démote (x{difrank}) / -{difLP}"
+                        emote = "⬇️"
                     elif dict_rankid[classement_old] < dict_rankid[classement_new]:
                         difrank = dict_rankid[classement_new] - dict_rankid[classement_old]
-
                         if classement_old not in ['MASTER I', 'GRANDMASTER I', 'CHALLENGER I']:
-                            if classement_old == "Non-classe 0":
-                                difrank = 0
                             difLP = (100 * difrank) - LP + int(suivi[key]['LP'])
-                        difLP = f"Promotion (x{difrank}) / +{str(difLP)} "
-                        emote = "<:frogUp:1205933878540238868>"
-
-                    elif dict_rankid[classement_old] == dict_rankid[classement_new]:
+                        difLP_display = f"Promotion (x{difrank}) / +{difLP}"
+                        emote = "⬆️"
+                    else:
                         if difLP > 0:
-                            emote = "<:frogUp:1205933878540238868>"
-                            difLP = f'+{difLP}'
+                            emote = "⬆️"
+                            difLP_display = f"+{difLP}"
                         elif difLP < 0:
-                            emote = ":arrow_down:"
-                        elif difLP == 0:
-                            emote = ":arrow_right:"
+                            emote = "⬇️"
+                            difLP_display = str(difLP)
+                        else:
+                            emote = "➡️"
+                            difLP_display = "0"
+
+                    # Barre chronologique depuis matchs
+                    df_games = lire_bdd_perso(f'''
+                        SELECT victoire FROM matchs
+                        WHERE joueur = :id_compte
+                        AND mode IN ('RANKED')
+                        AND datetime >= NOW() - INTERVAL '24 hours'
+                        ORDER BY datetime ASC
+                    ''', params={'id_compte': key}, index_col=None).T
+
+                    if not df_games.empty:
+                        MAX_BAR = 16
+                        games = df_games['victoire'].tolist()[-MAX_BAR:]
+                        bar = "".join("🟩 " if v else "🟥 " for v in games)
+                    else:
+                        bar = ""
+
+                    winrate = round(difwins / nb_games_jour * 100)
 
                     embed.add_field(
-                        name=f"{suivi[key]['riot_id']}#{suivi[key]['riot_tagline']} ( {emote_rank_discord[tier]} {rank} )",
-                        value=f"V : {suivi[key]['wins']} ({difwins}) | D : {suivi[key]['losses']} ({diflosses}) | LP :  {suivi[key]['LP']} ({difLP})   {emote}", inline=False)
+                        name=f"{emote} {suivi[key]['riot_id']}#{suivi[key]['riot_tagline']} {emote_rank_discord[tier]} {rank}",
+                        value=(
+                            f"{bar}  **{difwins}W / {diflosses}L** ({winrate}%)\n"
+                            f"**{difLP_display} LP** — Total : {suivi[key]['LP']} LP ({suivi[key]['wins']}W {suivi[key]['losses']}L)"
+                        ),
+                        inline=False
+                    )
 
-                    if (difwins + diflosses > 0):
+                    if nb_games_jour > 0:
                         sql += f'''UPDATE suivi_s{saison}
                             SET wins_jour = {suivi[key]['wins']},
                             losses_jour = {suivi[key]['losses']},
@@ -1203,35 +1232,41 @@ class LeagueofLegends(Extension):
                             rank_jour = '{suivi[key]['rank']}'
                             where index = '{key}';'''
 
-
                 channel_tracklol = await self.bot.fetch_channel(chan_discord_id.tracklol)
                 embed.set_footer(text=f'Version {Version} by Tomlora')
-
-                await session.close()
 
                 if sql != '':
                     requete_perso_bdd(sql)
 
-                if totalgames > 0:
-                    attempts = 0
+                global_wr = round(totalwin / totalgames * 100) if totalgames > 0 else 0
+                embed.description = (
+                    f"📊 **{totalgames}** games jouées — "
+                    f"**{totalwin}**W / **{totaldef}**L ({global_wr}% WR)"
+                )
 
-                    while attempts < 5:
-                        try:
-                            await channel_tracklol.send(content=f'Sur {totalgames} games -> {totalwin} victoires et {totaldef} défaites.',
-                                                        embeds=embed)
-                            break
-                        except:
-                            attempts += 1
-                            await sleep(5)
+                attempts = 0
+                while attempts < 5:
+                    try:
+                        await channel_tracklol.send(embeds=embed)
+                        break
+                    except Exception:
+                        attempts += 1
+                        await sleep(5)
 
                 df_journalier = lire_bdd_perso(f'''select index, wins, losses, "LP", tier, rank, classement_euw from suivi_s{saison} where tier != 'Non-classe' ''', index_col=None).T
-
                 date = datetime.now()
                 df_journalier['datetime'] = pd.to_datetime(f'{date.day}/{date.month}/{date.year}', format='%d/%m/%Y')
                 df_journalier['classement_euw'] = df_journalier['classement_euw'].astype(int)
                 df_journalier['saison'] = saison
 
-                sauvegarde_bdd(df_journalier, 'suivi_rank', 'append', index=False)
+                try:
+                    sauvegarde_bdd(df_journalier, 'suivi_rank', 'append', index=False)
+                except Exception:
+                    requete_perso_bdd('''
+                        INSERT INTO suivi_rank (index, wins, losses, "LP", tier, rank, classement_euw, datetime, saison)
+                        VALUES (:index, :wins, :losses, :LP, :tier, :rank, :classement_euw, :datetime, :saison)
+                        ON CONFLICT (index, datetime, saison) DO NOTHING
+                    ''', df_journalier.to_dict(orient='records'))
 
     @Task.create(TimeTrigger(hour=6))
     async def lolsuivi(self):
