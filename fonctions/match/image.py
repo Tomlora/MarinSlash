@@ -799,21 +799,41 @@ class ImageGenerationMixin:
 
 
         time = 10 if self.thisQ == 'ARAM' else 15
+
+        if self.thisQ == 'RANKED': # Le nouveau modèle
+
+            stats_joueur_split = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
+                        (count(victoire) filter (where victoire = True)) / 2 as victoire,
+                        avg(kp) as kp,
+                        count(victoire) / 2 as nb_games,
+                        (avg(s.rank) filter (where s.rank != 0)) as mvp
+                        from matchs
+                        INNER JOIN tracker on matchs.joueur = tracker.id_compte
+                        INNER JOIN match_scoring s ON matchs.match_id = s.match_id and matchs.role = s.role
+                        WHERE tracker.id_compte = {self.id_compte}
+                        and matchs.champion = '{self.thisChampName}'
+                        and season = {self.season}
+                        and mode = '{self.thisQ}'
+                        and time > {time}
+                        and split = {self.split}
+                        GROUP BY tracker.id_compte''', index_col='id_compte').transpose()
         
-        stats_joueur_split = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
-                    (count(victoire) filter (where victoire = True)) as victoire,
-                    avg(kp) as kp,
-                    count(victoire) as nb_games,
-                    (avg(mvp) filter (where mvp != 0)) as mvp
-                    from matchs
-                    INNER JOIN tracker on matchs.joueur = tracker.id_compte
-                    WHERE tracker.id_compte = {self.id_compte}
-                    and champion = '{self.thisChampName}'
-                    and season = {self.season}
-                    and mode = '{self.thisQ}'
-                    and time > {time}
-                    and split = {self.split}
-                    GROUP BY tracker.id_compte''', index_col='id_compte').transpose()
+        else:
+        
+            stats_joueur_split = lire_bdd_perso(f'''SELECT tracker.id_compte, avg(kills) as kills, avg(deaths) as deaths, avg(assists) as assists, 
+                        (count(victoire) filter (where victoire = True)) as victoire,
+                        avg(kp) as kp,
+                        count(victoire) as nb_games,
+                        (avg(mvp) filter (where mvp != 0)) as mvp
+                        from matchs
+                        INNER JOIN tracker on matchs.joueur = tracker.id_compte
+                        WHERE tracker.id_compte = {self.id_compte}
+                        and champion = '{self.thisChampName}'
+                        and season = {self.season}
+                        and mode = '{self.thisQ}'
+                        and time > {time}
+                        and split = {self.split}
+                        GROUP BY tracker.id_compte''', index_col='id_compte').transpose()
 
         if not stats_joueur_split.empty:
             k = round(

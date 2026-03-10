@@ -1134,13 +1134,14 @@ class LeagueofLegends(Extension):
 
                 sql = ''
                 suivi = df.set_index(['id_compte']).transpose().to_dict()
-                joueur = suivi.keys()
+                joueur = list(suivi.keys())
 
                 embed = interactions.Embed(
                     title="🎮 Suivi LOL", color=interactions.Color.random())
                 totalwin = 0
                 totaldef = 0
                 totalgames = 0
+                scores_joueurs = {}
 
                 for key in joueur:
                     wins = int(suivi[key]['wins_jour'])
@@ -1163,11 +1164,23 @@ class LeagueofLegends(Extension):
                     totaldef += diflosses
                     totalgames = totalwin + totaldef
 
+                    # Score moyen de la journée
+                    df_score = lire_bdd_perso('''
+                        SELECT AVG(ms.score) as score_moyen FROM match_scoring ms
+                        INNER JOIN matchs m ON ms.match_id = m.match_id AND ms.role = m.role
+                        WHERE m.joueur = :id_compte
+                        AND m.datetime >= NOW() - INTERVAL '24 hours'
+                        AND m.mode IN ('RANKED')
+                    ''', params={'id_compte': key}, index_col=None).T
+
+                    score_moyen = round(float(df_score['score_moyen'].values[0]), 1) if not df_score.empty and df_score['score_moyen'].values[0] is not None else None
+                    scores_joueurs[key] = score_moyen
+
                     # Joueurs inactifs
                     if nb_games_jour == 0:
                         embed.add_field(
                             name=f"➡️ {suivi[key]['riot_id']}#{suivi[key]['riot_tagline']} {emote_rank_discord[tier]} {rank}",
-                            value=f"➡️ **0 LP** — Total : {suivi[key]['LP']} LP ({suivi[key]['wins']}W {suivi[key]['losses']}L)",
+                            value=f"**0 LP** — Total : {suivi[key]['LP']} LP ({suivi[key]['wins']}W {suivi[key]['losses']}L)",
                             inline=False
                         )
                         continue
@@ -1197,7 +1210,7 @@ class LeagueofLegends(Extension):
                             difLP_display = "0"
 
                     # Barre chronologique depuis matchs
-                    df_games = lire_bdd_perso(f'''
+                    df_games = lire_bdd_perso('''
                         SELECT victoire FROM matchs
                         WHERE joueur = :id_compte
                         AND mode IN ('RANKED')
@@ -1206,22 +1219,34 @@ class LeagueofLegends(Extension):
                     ''', params={'id_compte': key}, index_col=None).T
 
                     if not df_games.empty:
-                        MAX_BAR = 16
+                        MAX_BAR = 20
                         games = df_games['victoire'].tolist()[-MAX_BAR:]
-                        bar = "".join("🟩 " if v else "🟥 " for v in games)
+                        bar = "".join("🟩" if v else "🟥" for v in games)
                     else:
                         bar = ""
 
                     winrate = round(difwins / nb_games_jour * 100)
+                    score_display = f" — ⭐ {score_moyen}" if score_moyen is not None else ""
 
-                    embed.add_field(
-                        name=f"{emote} {suivi[key]['riot_id']}#{suivi[key]['riot_tagline']} {emote_rank_discord[tier]} {rank}",
-                        value=(
-                            f"{bar}  **{difwins}W / {diflosses}L** ({winrate}%)\n"
-                            f"**{difLP_display} LP** — Total : {suivi[key]['LP']} LP ({suivi[key]['wins']}W {suivi[key]['losses']}L)"
-                        ),
-                        inline=False
-                    )
+                    if bar != "":
+                        embed.add_field(
+                            name=f"{emote} {suivi[key]['riot_id']}#{suivi[key]['riot_tagline']} {emote_rank_discord[tier]} {rank}",
+                            value=(
+                                f"{bar}\n  **{difwins}W / {diflosses}L** ({winrate}%){score_display}\n"
+                                f"**{difLP_display} LP** — Total : {suivi[key]['LP']} LP ({suivi[key]['wins']}W {suivi[key]['losses']}L)"
+                            ),
+                            inline=False
+                        )
+                    
+                    else:
+                        embed.add_field(
+                            name=f"{emote} {suivi[key]['riot_id']}#{suivi[key]['riot_tagline']} {emote_rank_discord[tier]} {rank}",
+                            value=(
+                                f"{bar} **{difwins}W / {diflosses}L** ({winrate}%){score_display}\n"
+                                f"**{difLP_display} LP** — Total : {suivi[key]['LP']} LP ({suivi[key]['wins']}W {suivi[key]['losses']}L)"
+                            ),
+                            inline=False
+                        )                        
 
                     if nb_games_jour > 0:
                         sql += f'''UPDATE suivi_s{saison}
@@ -1231,6 +1256,38 @@ class LeagueofLegends(Extension):
                             tier_jour = '{suivi[key]['tier']}',
                             rank_jour = '{suivi[key]['rank']}'
                             where index = '{key}';'''
+
+                # MVP = joueur avec le meilleur score moyen
+                scores_valides = {k: v for k, v in scores_joueurs.items() if v is not None}
+                mvp_line = ""
+                if scores_valides:
+                    mvp_key = max(scores_valides, key=lambda k: scores_valides[k])
+                    mvp_name = f"{suivi[mvp_key]['riot_id']}#{suivi[mvp_key]['riot_tagline']}"
+                    mvp_score = scores_valides[mvp_key]
+                    mvp_line = f"\n🏆 **MVP** : {mvp_name} ({mvp_score} moy.)"
+
+                # Meilleure game individuelle
+                best_game_line = ""
+                if len(joueur) > 0:
+                    df_best = lire_bdd_perso('''
+                        SELECT m.joueur, ms.score as best_score, ms.match_id, ms.player_index FROM match_scoring ms
+                        INNER JOIN matchs m ON ms.match_id = m.match_id AND ms.role = m.role
+                        WHERE m.joueur IN :joueurs
+                        AND m.datetime >= NOW() - INTERVAL '24 hours'
+                        AND m.mode IN ('RANKED')
+                        ORDER BY ms.score DESC
+                        LIMIT 1
+                    ''', params={'joueurs': tuple(joueur)}, index_col=None).T
+
+                    if not df_best.empty and df_best['best_score'].values[0] is not None:
+                        best_key = df_best['joueur'].values[0]
+                        best_score = round(float(df_best['best_score'].values[0]), 1)
+                        best_name = f"{suivi[best_key]['riot_id']}#{suivi[best_key]['riot_tagline']}"
+                        best_match_id = df_best['match_id'].values[0][5:]
+                        best_player_index = df_best['player_index'].values[0]
+                        best_url = f'https://www.leagueofgraphs.com/fr/match/euw/{best_match_id}#participant{best_player_index}'
+
+                        best_game_line = f"\n⭐ **[Best Game]({best_url})** : {best_name} ({best_score})"
 
                 channel_tracklol = await self.bot.fetch_channel(chan_discord_id.tracklol)
                 embed.set_footer(text=f'Version {Version} by Tomlora')
@@ -1242,6 +1299,8 @@ class LeagueofLegends(Extension):
                 embed.description = (
                     f"📊 **{totalgames}** games jouées — "
                     f"**{totalwin}**W / **{totaldef}**L ({global_wr}% WR)"
+                    f"{mvp_line}"
+                    f"{best_game_line}"
                 )
 
                 attempts = 0
