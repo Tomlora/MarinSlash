@@ -414,6 +414,10 @@ class MatchLolBase:
         self.firstTowerKillIndex = -1            # Index du joueur first tower
         self.firstTowerAssistIndices = []        # Indices des assistants
 
+        self.liste_tier = []
+        self.liste_rank = []
+        self.liste_lp = []
+
     async def get_data_riot(self):
         """
         Récupère les infos de base:
@@ -875,3 +879,20 @@ class MatchLolBase:
                 self.thisVictory = str(data_joueur['wins'].values[0])
                 self.thisLoose = str(data_joueur['losses'].values[0])
                 self.thisWinStreak = str(data_joueur['serie'].values[0])
+
+
+
+    async def _load_rank_data_riot(self):
+        from .riot_api import get_ranks_all_participants
+
+        rank_data = await get_ranks_all_participants(self.session, self.thisPuuidListe)
+
+        self.liste_tier = []
+        self.liste_rank = []
+        self.liste_lp = []
+
+        for puuid in self.thisPuuidListe:
+            data = rank_data.get(puuid, {'tier': 'UNRANKED', 'rank': None, 'lp': 0})
+            self.liste_tier.append(data['tier'])
+            self.liste_rank.append(data['rank'])
+            self.liste_lp.append(data['lp'])

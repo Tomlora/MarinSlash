@@ -120,6 +120,50 @@ async def get_champion_masteries(session, puuid):
         return await data_masteries.json()
 
 
+
+async def get_ranks_all_participants(session: aiohttp.ClientSession, puuid_liste: list) -> dict:
+    """
+    Récupère le rang solo/duo de tous les participants d'une partie.
+    Returns: {puuid: {'tier': ..., 'rank': ..., 'lp': ..., 'wins': ..., 'losses': ...}}
+    """
+    results = {}
+    for puuid in puuid_liste:
+        try:
+            async with session.get(
+                f'https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-puuid/{puuid}',
+                params={'api_key': api_key_lol}
+            ) as resp:
+                if resp.status == 429:
+                    retry_after = int(resp.headers.get('Retry-After', 5))
+                    await asyncio.sleep(retry_after)
+                    async with session.get(
+                        f'https://{my_region}.api.riotgames.com/lol/league/v4/entries/by-puuid/{puuid}',
+                        params={'api_key': api_key_lol}
+                    ) as retry_resp:
+                        entries = await retry_resp.json()
+                elif resp.status != 200:
+                    entries = []
+                else:
+                    entries = await resp.json()
+        except Exception:
+            entries = []
+
+        solo = next((e for e in entries if e['queueType'] == 'RANKED_SOLO_5x5'), None)
+        if solo:
+            results[puuid] = {
+                'tier': solo['tier'],
+                'rank': solo['rank'],
+                'lp': solo['leaguePoints'],
+                'wins': solo['wins'],
+                'losses': solo['losses'],
+            }
+        else:
+            results[puuid] = {'tier': 'UNRANKED', 'rank': None, 'lp': 0, 'wins': 0, 'losses': 0}
+
+        await asyncio.sleep(0.12)
+
+    return results
+
 # ============================================================================
 # MATCHS
 # ============================================================================

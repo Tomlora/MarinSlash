@@ -177,6 +177,7 @@ class MatchLol(
             await self._extract_comparison_data()
             await self._extract_masteries()
             await self._load_items_data()
+            await self._load_rank_data_riot()
 
             
             # 4. Modes spéciaux

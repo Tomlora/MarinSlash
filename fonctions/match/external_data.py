@@ -21,9 +21,9 @@ class ExternalDataMixin:
 
     async def prepare_data_moba(self):
         """Prépare les données depuis Mobalytics."""
-        self.liste_rank = []
-        self.liste_tier = []
-        self.liste_lp = []
+        # self.liste_rank = []
+        # self.liste_tier = []
+        # self.liste_lp = []
         self.winrate_joueur = {}
         self.winrate_champ_joueur = {}
         self.role_pref = {}
@@ -73,15 +73,15 @@ class ExternalDataMixin:
 
 
                 # --- RANK ET TIER ---
-                try:
-                    tier, rank, lp = await get_rank_moba(self.session, riot_id, riot_tag)
-                except Exception:
-                    rank = ''
-                    tier = ''
-                    lp = 0
-                self.liste_rank.append(rank)
-                self.liste_tier.append(tier)
-                self.liste_lp.append(lp)
+                # try:
+                #     tier, rank, lp = await get_rank_moba(self.session, riot_id, riot_tag)
+                # except Exception:
+                #     rank = ''
+                #     tier = ''
+                #     lp = 0
+                # self.liste_rank.append(rank)
+                # self.liste_tier.append(tier)
+                # self.liste_lp.append(lp)
 
                 # --- WINRATE GLOBAL ---
                 try:
@@ -248,8 +248,8 @@ class ExternalDataMixin:
 
     async def prepare_data_ugg(self):
         """Prépare les données depuis UGG."""
-        self.liste_rank = []
-        self.liste_tier = []
+        # self.liste_rank = []
+        # self.liste_tier = []
         
         self.winrate_joueur = {}
         
@@ -332,15 +332,15 @@ class ExternalDataMixin:
             
 
 
-            try:
-                rank_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
-                tier_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
-                self.liste_rank.append(rank_joueur)
-                self.liste_tier.append(tier_joueur)
+            # try:
+            #     rank_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['tier'].values[0]
+            #     tier_joueur = self.df_rank.loc[self.df_rank['queueType'] == 'ranked_solo_5x5']['rank'].values[0]
+            #     self.liste_rank.append(rank_joueur)
+            #     self.liste_tier.append(tier_joueur)
                     
-            except:
-                self.liste_rank.append('')
-                self.liste_tier.append('')
+            # except:
+            #     self.liste_rank.append('')
+            #     self.liste_tier.append('')
 
             ###
 
