@@ -14,6 +14,7 @@ from fonctions.gestion_challenge import challengeslol
 from fonctions.autocomplete import autocomplete_riotid
 from fonctions.channels_discord import identifier_role_by_name
 from fonctions.timer import timer
+from fonctions.match.matchlol import get_profile_emoji, get_profile_name_fr
 from datetime import datetime
 import traceback
 import humanize
@@ -57,6 +58,33 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 import re
 from collections import defaultdict, OrderedDict
+
+def _split_field_by_lines(text: str, max_len: int = 1024) -> list[str]:
+        """
+        Découpe un texte en chunks de max_len caractères max,
+        en coupant uniquement entre les lignes (jamais au milieu).
+        Retourne une liste de strings prêts pour embed.add_field().
+        """
+        if len(text) <= max_len:
+            return [text]
+
+        chunks = []
+        current = ''
+
+        for line in text.split('\n'):
+            # +1 pour le \\n qu'on va rajouter
+            if current and len(current) + len(line) + 1 > max_len:
+                chunks.append(current.strip())
+                current = ''
+            if current:
+                current += '\n'
+            current += line
+
+        if current.strip():
+            chunks.append(current.strip())
+
+        return chunks if chunks else [text[:max_len]]
+
 
 class LeagueofLegends(Extension):
     def __init__(self, bot):
@@ -508,7 +536,7 @@ class LeagueofLegends(Extension):
 
             del fichier, fichier_all, fichier_joueur
 
-            # Formatage des dégâts aux tours
+                        # Formatage des dégâts aux tours
             try:
                 match_info.thisDamageTurrets = "{:,}".format(match_info.thisDamageTurrets).replace(',', ' ').replace('.', ',')
             except AttributeError:
@@ -519,111 +547,115 @@ class LeagueofLegends(Extension):
                 'id_compte': id_compte}).fetchall()
             color = rgb_to_discord(data[0][0], data[0][1], data[0][2])
 
-            # Construction de l'embed
+            # === TITRE (avec AFK intégré) ===
+            afk_indicator = " · 😴 AFK" if match_info.AFKTeamBool else ""
+
             match match_info.thisQ:
                 case "OTHER":
-                    embed = interactions.Embed(
-                        title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une game ", color=color)
+                    title = f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une game{afk_indicator}"
                 case "PERSO":
-                    embed = interactions.Embed(
-                        title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une game perso", color=color)
+                    title = f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une game perso{afk_indicator}"
                 case "ARAM":
-                    embed = interactions.Embed(
-                        title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une ARAM ", color=color)
+                    title = f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une ARAM{afk_indicator}"
                 case "CLASH ARAM":
-                    embed = interactions.Embed(
-                        title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** un CLASH ARAM ", color=color)
+                    title = f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** un CLASH ARAM{afk_indicator}"
                 case 'ARENA 2v2':
-                    embed = interactions.Embed(
-                        title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de terminer ** {match_info.thisWin}ème ** en ARENA ", color=color)
+                    title = f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de terminer ** {match_info.thisWin}ème ** en ARENA{afk_indicator}"
                 case 'SWARM':
-                    embed = interactions.Embed(
-                        title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de {match_info.thisWin} une SWARM ", color=color)
+                    title = f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de {match_info.thisWin} une SWARM{afk_indicator}"
                 case _:
-                    embed = interactions.Embed(
-                        title=f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une {match_info.thisQ} game ({match_info.thisPosition})", color=color)
+                    title = f"** {match_info.riot_id.upper()} #{match_info.riot_tag} ** vient de ** {match_info.thisWin} ** une {match_info.thisQ} game ({match_info.thisPosition}){afk_indicator}"
+
+            embed = interactions.Embed(title=title, color=color)
+
+            # === DESCRIPTION (liens + score compact) ===
+            champion_link = f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)"
+            graph_link = f"[Graph]({match_info.url_game})"
+            opgg_link = f"[OPGG](https://euw.op.gg/summoners/euw/{match_info.riot_id.replace(' ', '')}-{match_info.riot_tag})"
+
+            description = f"{champion_link} · {graph_link} · {opgg_link}"
+
+            # Ajouter le scoring compact dans la description
+            metrics_performance = None
+            if insights and match_info.thisQ not in ['ARENA 2v2', 'SWARM']:
+                metrics_performance = await match_info.get_scoring_embed_field()
+                if metrics_performance and match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY', 'NORMAL']:
+                    perf = match_info.get_player_performance_summary()
+                    if perf:
+                        breakdown = perf.get('breakdown', {})
+                        player_idx = match_info.thisId - 5 if match_info.thisId > 4 else match_info.thisId
+                        profile_info = match_info.get_player_scoring_profile_summary(player_idx)
+                        profile = profile_info.get('profile', 'UNKNOWN') if profile_info else 'UNKNOWN'
+                        profile_emoji = get_profile_emoji(profile)
+                        profile_name = get_profile_name_fr(profile)
+
+                        score_line = (
+                            f"**{perf['score']}/10** ({perf['rank_text']}) · "
+                            f"{profile_emoji} {profile_name} · "
+                            f"⚔️{breakdown.get('combat_value', 0)} "
+                            f"💰{breakdown.get('economic_efficiency', 0)} "
+                            f"🎯{breakdown.get('objective_contribution', 0)} "
+                            f"⚡{breakdown.get('pace_rating', 0)} "
+                            f"👑{breakdown.get('win_impact', 0)}"
+                        )
+                        description += f"\n{score_line}"
+
+            embed.description = description
 
             sauvegarde_bdd(suivi, f'suivi_s{saison}')
 
-            # Calcul des badges
+            # === BADGES ===
             if insights and match_info.thisQ not in ['ARENA 2v2', 'SWARM']:
                 await match_info.calcul_badges(sauvegarder)
-                metrics_performance = await match_info.get_scoring_embed_field()
             else:
                 match_info.observations = ''
                 match_info.observations2 = ''
-                metrics_performance = None
 
-            # Ajout des champs à l'embed
-            embed.add_field(
-                name="Game", value=f"[Graph]({match_info.url_game}) | [OPGG](https://euw.op.gg/summoners/euw/{match_info.riot_id.replace(' ', '')}-{match_info.riot_tag}) ", inline=True)
-
-            embed.add_field(
-                name='Champion', value=f"[{match_info.thisChampName}](https://lolalytics.com/lol/{match_info.thisChampName.lower()}/build/)", inline=True)
-
+            # === RECORDS (inchangés) ===
             embed = add_records_to_embed(embed, records_collector, title="Exploits")
 
-            # Détections spécifiques aux ranked/flex
+            # === DÉTECTIONS + OBJECTIFS (uniquement ranked/flex) ===
             if match_info.thisQ in ['RANKED', 'FLEX']:
-                # Objectifs personnels
+                # Objectifs personnels (condensés sur une ligne)
                 await match_info.traitement_objectif()
-                name, txt = await match_info.show_objectifs()
+                name_obj, txt_obj = await match_info.show_objectifs()
 
-                if name is not None:
-                    embed.add_field(name=name, value=txt)
+                if name_obj is not None and txt_obj is not None:
+                    objectifs_compact = txt_obj.replace('\n', ' · ').replace('- ', '').strip()
+                    if objectifs_compact.endswith(' · '):
+                        objectifs_compact = objectifs_compact[:-3]
+                    embed.add_field(name=name_obj, value=objectifs_compact, inline=False)
 
-                # Détection joueurs pro
-                await match_info.detection_joueurs_pro()
-                if match_info.observations_proplayers != '':
-                    embed.add_field(name=':stadium: Joueurs Pro', value=match_info.observations_proplayers)
+                # Analyse lobby (toutes détections fusionnées)
+                lobby_text = await match_info.get_lobby_analysis()
+                if lobby_text:
+                    lobby_chunks = _split_field_by_lines(lobby_text, max_len=1024)
+                    for idx, chunk in enumerate(lobby_chunks):
+                        try:
+                            name = '🔍 Analyse lobby' if idx == 0 else f'🔍 Analyse lobby ({idx + 1})'
+                            embed.add_field(name=name, value=chunk, inline=False)
+                        except ValueError:
+                            name = '🔍 Analyse lobby' if idx == 0 else f'🔍 Analyse lobby ({idx + 1})'
+                            embed.add_field(name=name, value=chunk[:1000], inline=False)
+                            
 
-                # Détection Smurf
-                await match_info.detection_smurf()
-                if match_info.observations_smurf != '':
-                    embed.add_field(name=':muscle: Bons joueurs', value=match_info.observations_smurf)
+            # === INSIGHTS (fusionnés en 1 seul field, split si > 1024) ===
+            all_insights = ''
+            if match_info.observations:
+                all_insights += match_info.observations.strip()
+            if getattr(match_info, 'observations2', ''):
+                if all_insights:
+                    all_insights += '\n'
+                all_insights += match_info.observations2.strip()
 
-                # Détection mauvais joueur
-                await match_info.detection_mauvais_joueur()
-                if match_info.observations_mauvais_joueur != '':
-                    embed.add_field(name=':thumbdown: Joueurs nuls', value=match_info.observations_mauvais_joueur)
+            if all_insights:
+                insight_chunks = _split_field_by_lines(all_insights, max_len=1024)
+                for idx, chunk in enumerate(insight_chunks):
+                    name = 'Insights' if idx == 0 else f'Insights ({idx + 1})'
+                    embed.add_field(name=name, value=chunk, inline=False)
 
-                # Détection First Time
-                await match_info.detection_first_time()
-                if match_info.first_time != '':
-                    embed.add_field(name='<:worryschool:1307745643996905519> Débutant', value=match_info.first_time)
-
-                # OTP
-                await match_info.detection_otp()
-                if match_info.otp != '':
-                    embed.add_field(name=':one: OTP', value=match_info.otp)
-
-                # Serie
-                await match_info.detection_serie_victoire()
-                if match_info.serie_victoire != '':
-                    embed.add_field(name=':mag: Serie', value=match_info.serie_victoire)
-
-                # Ecart CS
-                await match_info.ecart_cs_by_role()
-                if match_info.ecart_cs_txt != '':
-                    embed.add_field(name=':ghost: Ecart CS', value=match_info.ecart_cs_txt)
-
-            # AFK
-            if match_info.AFKTeamBool:
-                embed.add_field(name=':sleeping: AFK', value=' ')
-
-            # Insights
-            if match_info.observations != '':
-                embed.add_field(name='Insights', value=match_info.observations)
-
-            if getattr(match_info, 'observations2', '') != '':
-                embed.add_field(name='Insights 2', value=match_info.observations2)
-
-            if metrics_performance is not None and match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY', 'NORMAL']:
-                embed.add_field(name=metrics_performance['name'], value=metrics_performance['value'], inline=False)
-
-            # Génération de l'image résumé
+            # === IMAGE DE RÉSUMÉ ===
             embed = await match_info.resume_general('resume', embed, difLP)
-
         finally:
             self.compte_loading.discard(riot_id.lower())
 

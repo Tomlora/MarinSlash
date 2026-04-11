@@ -288,6 +288,67 @@ class MatchLol(
         }
         return observations
 
+
+    async def get_lobby_analysis(self) -> str:
+        """
+        Fusionne toutes les détections en un seul texte pour le field 'Analyse lobby'.
+        
+        Returns:
+            str: Texte fusionné, vide si aucune détection.
+        """
+        parts = []
+
+        # Joueurs pro
+        await self.detection_joueurs_pro()
+        if self.observations_proplayers:
+            for line in self.observations_proplayers.strip().split('\n'):
+                if line.strip():
+                    parts.append(f":stadium: {line.strip()}")
+
+        # Bons joueurs (smurfs)
+        await self.detection_smurf()
+        if self.observations_smurf:
+            for line in self.observations_smurf.strip().split('\n'):
+                if line.strip():
+                    parts.append(f"💪 {line.strip()}")
+
+        # Mauvais joueurs
+        await self.detection_mauvais_joueur()
+        if self.observations_mauvais_joueur:
+            for line in self.observations_mauvais_joueur.strip().split('\n'):
+                if line.strip():
+                    parts.append(f"👎 {line.strip()}")
+
+        # First time
+        await self.detection_first_time()
+        if self.first_time:
+            for line in self.first_time.strip().split('\n'):
+                if line.strip():
+                    parts.append(f"<:worryschool:1307745643996905519> {line.strip()}")
+
+        # OTP
+        await self.detection_otp()
+        if self.otp:
+            for line in self.otp.strip().split('\n'):
+                if line.strip():
+                    parts.append(f"1️⃣ {line.strip()}")
+
+        # Série victoire/défaite
+        await self.detection_serie_victoire()
+        if self.serie_victoire:
+            for line in self.serie_victoire.strip().split('\n'):
+                if line.strip():
+                    parts.append(f"🔥 {line.strip()}")
+
+        # Écart CS
+        await self.ecart_cs_by_role()
+        if self.ecart_cs_txt:
+            for line in self.ecart_cs_txt.strip().split('\n'):
+                if line.strip():
+                    parts.append(f"👻 {line.strip()}")
+
+        return '\n'.join(parts)
+
     async def get_summary(self):
         """
         Retourne un résumé des stats du match.
