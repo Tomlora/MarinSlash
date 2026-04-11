@@ -1015,7 +1015,7 @@ class LeagueofLegends(Extension):
             except:
                 pass
 
-    @Task.create(IntervalTrigger(minutes=3))
+    @Task.create(IntervalTrigger(minutes=5))
     async def update(self):
         if self._update_lock.locked():
             print("Update déjà en cours, skip")
