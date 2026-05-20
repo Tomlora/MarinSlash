@@ -1200,6 +1200,7 @@ class LeagueofLegends(Extension):
                     df_score = lire_bdd_perso('''
                         SELECT AVG(ms.score) as score_moyen FROM match_scoring ms
                         INNER JOIN matchs m ON ms.match_id = m.match_id AND ms.role = m.role
+                        INNER JOIN tracker t ON t.riot_id = REPLACE(ms.riot_id, ' ', '')
                         WHERE m.joueur = :id_compte
                         AND m.datetime >= NOW() - INTERVAL '24 hours'
                         AND m.mode IN ('RANKED')
@@ -1304,6 +1305,7 @@ class LeagueofLegends(Extension):
                     df_best = lire_bdd_perso('''
                         SELECT m.joueur, ms.score as best_score, ms.match_id, ms.player_index FROM match_scoring ms
                         INNER JOIN matchs m ON ms.match_id = m.match_id AND ms.role = m.role
+                        INNER JOIN tracker t ON t.riot_id = REPLACE(ms.riot_id, ' ', '')
                         WHERE m.joueur IN :joueurs
                         AND m.datetime >= NOW() - INTERVAL '24 hours'
                         AND m.mode IN ('RANKED')
@@ -1332,7 +1334,7 @@ class LeagueofLegends(Extension):
                     f"📊 **{totalgames}** games jouées — "
                     f"**{totalwin}**W / **{totaldef}**L ({global_wr}% WR)"
                     f"{mvp_line}"
-                    f"{best_game_line}"
+                   f"{best_game_line}"
                 )
 
                 attempts = 0

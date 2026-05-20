@@ -139,7 +139,7 @@ class MatchLol(
         
         # Chargement du modèle de scoring
         try:
-            with open('data/model_scoring.pkl', 'rb') as f:
+            with open('model/model_scoring.pkl', 'rb') as f:
                 self.model = pickle.load(f)
         except FileNotFoundError:
             self.model = None

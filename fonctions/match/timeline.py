@@ -9,6 +9,51 @@ import sqlalchemy.exc
 from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, sauvegarde_bdd
 from .utils import fix_temps, load_timeline
 
+import json
+import numpy as np
+import pandas as pd
+
+import json
+import numpy as np
+import pandas as pd
+
+def prepare_df_for_existing_sql_table(df: pd.DataFrame, table_name: str) -> pd.DataFrame:
+    df = df.copy()
+
+    # 1. Convertir les dict/list/array en JSON
+    def clean_value(x):
+        if isinstance(x, np.ndarray):
+            return json.dumps(x.tolist(), ensure_ascii=False)
+
+        if isinstance(x, (dict, list)):
+            return json.dumps(x, ensure_ascii=False)
+
+        if pd.isna(x):
+            return None
+
+        return x
+
+    for col in df.columns:
+        df[col] = df[col].apply(clean_value)
+
+    # 2. Récupérer les colonnes existantes en BDD
+    df_table = lire_bdd_perso(
+        f"SELECT * FROM {table_name} LIMIT 0",
+        index_col=None
+    )
+
+    existing_columns = df_table.columns.tolist()
+
+    # 3. Ajouter les colonnes manquantes dans le DataFrame avec None
+    for col in existing_columns:
+        if col not in df.columns:
+            df[col] = None
+
+    # 4. Supprimer les colonnes qui n'existent pas dans la table SQL
+    df = df[existing_columns]
+
+    return df
+
 
 class TimelineMixin:
     """Mixin pour la gestion de la timeline."""
@@ -396,7 +441,10 @@ class TimelineMixin:
         if df_exists.empty:
             try:
                 sauvegarde_bdd(
-                    self.df_events_joueur,
+                    prepare_df_for_existing_sql_table(
+                        self.df_events_joueur,
+                        'data_timeline_events'
+                    ),
                     'data_timeline_events',
                     methode_save='append',
                     index=False
