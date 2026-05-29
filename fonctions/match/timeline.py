@@ -44,6 +44,9 @@ def prepare_df_for_existing_sql_table(df: pd.DataFrame, table_name: str) -> pd.D
 
     existing_columns = df_table.columns.tolist()
 
+    if not existing_columns and not df_table.index.empty:
+        existing_columns = df_table.index.tolist()
+
     # 3. Ajouter les colonnes manquantes dans le DataFrame avec None
     for col in existing_columns:
         if col not in df.columns:
@@ -439,18 +442,32 @@ class TimelineMixin:
         )
 
         if df_exists.empty:
-            try:
-                sauvegarde_bdd(
-                    prepare_df_for_existing_sql_table(
-                        self.df_events_joueur,
-                        'data_timeline_events'
-                    ),
-                    'data_timeline_events',
-                    methode_save='append',
-                    index=False
-                )
-            except sqlalchemy.exc.IntegrityError:
-                pass
+            df_events = prepare_df_for_existing_sql_table(
+                self.df_events_joueur,
+                'data_timeline_events'
+            )
+
+
+            df_events_invalid = df_events[df_events['timestamp'].isna()]
+            df_events = df_events.dropna(subset=['timestamp'])
+
+
+            if not df_events_invalid.empty:
+                print("Events sans timestamp ignorés", self.last_match, self.id_compte)
+                print(df_events_invalid[['type', 'match_id', 'riot_id']])
+
+            if not df_events.empty:
+                try:
+                    sauvegarde_bdd(
+                        df_events,
+                        'data_timeline_events',
+                        methode_save='append',
+                        index=False
+                    )
+                except sqlalchemy.exc.IntegrityError as e:
+                    print("Erreur insert data_timeline_events", self.last_match, self.id_compte)
+                    print(e)
+
 
         df_exists = lire_bdd_perso(
             f'''SELECT match_id, riot_id FROM matchs_timestamp_gold WHERE
@@ -458,16 +475,6 @@ class TimelineMixin:
             index_col=None
         )
 
-        if df_exists.empty:
-            try:
-                sauvegarde_bdd(
-                    self.df_timeline_diff,
-                    'matchs_timestamp_gold',
-                    methode_save='append',
-                    index=False
-                )
-            except sqlalchemy.exc.IntegrityError:
-                pass
 
     async def _extract_timeline_stats(self):
         """Extrait les stats par palier de temps."""
