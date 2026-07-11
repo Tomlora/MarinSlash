@@ -22,6 +22,7 @@ Structure des modules:
 - detection.py: Détection de patterns joueurs
 - badges.py: Calcul des badges et scoring
 - image.py: Génération d'images
+- image_modern.py: Nouveau récapitulatif moderne sélectionnable en BDD
 - special_modes.py: Modes Arena, Swarm, Clash
 - matchlol.py: Classe principale assemblant tout
 
@@ -39,6 +40,7 @@ Usage:
 """
 
 from .matchlol import MatchLol
+from .image_modern import install_modern_recap
 from .riot_api import (
     get_version,
     get_champ_list,
@@ -72,6 +74,10 @@ from .utils import (
     dict_data_swarm,
     load_timeline,
 )
+
+# Ajoute le sélecteur legacy/modern à MatchLol tout en conservant la méthode
+# historique comme fallback.
+install_modern_recap(MatchLol)
 
 __all__ = [
     # Classe principale
