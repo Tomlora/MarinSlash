@@ -31,7 +31,7 @@ def _draw_match_summary(
     assets: Mapping[str, Image.Image],
     objectives,
 ) -> None:
-    """Dessine le résumé avec toutes les métriques sur une même grille."""
+    """Dessine le résumé avec une grille visuelle homogène."""
     box = (MARGIN, 166, WIDTH - MARGIN, 264)
     _rounded_panel(canvas, box, fill=PALETTE.panel)
 
@@ -55,17 +55,18 @@ def _draw_match_summary(
     _draw_text(draw, (123, 185), result_label, _font(27), result_color)
     _draw_text(draw, (123, 220), "Équipe alliée", _font(17), PALETTE.muted)
 
-    # Toutes les métriques partagent désormais exactement les mêmes ordonnées.
-    value_y = 196
-    label_y = 229
+    # Les trois métriques textuelles sont légèrement abaissées pour compenser
+    # leur ancrage centré, qui les faisait paraître plus hautes que les objectifs.
+    summary_value_y = 200
+    summary_label_y = 233
     summary_stats = [
         ("Durée", _format_duration(getattr(match, "thisTime", 0)), 350),
         ("Kills", _as_int(getattr(match, "thisTeamKills", 0)), 500),
         ("Morts", _as_int(getattr(match, "thisTeamKillsOp", 0)), 640),
     ]
     for label, value, center_x in summary_stats:
-        _draw_text(draw, (center_x, value_y), value, _font(27), PALETTE.text, anchor="mm")
-        _draw_text(draw, (center_x, label_y), label, _font(15), PALETTE.muted, anchor="mm")
+        _draw_text(draw, (center_x, summary_value_y), value, _font(27), PALETTE.text, anchor="mm")
+        _draw_text(draw, (center_x, summary_label_y), label, _font(15), PALETTE.muted, anchor="mm")
 
     draw.line((710, 183, 710, 246), fill=PALETTE.divider, width=1)
 
@@ -78,6 +79,8 @@ def _draw_match_summary(
         ("obj_horde", "horde", "Voidgrubs"),
         ("obj_elder", "elder", "Elders"),
     ]
+    objective_value_y = 196
+    objective_label_y = 229
     start_x = 746
     cell_width = 164
     for pos, (asset_key, stat_key, label) in enumerate(objective_order):
@@ -85,8 +88,8 @@ def _draw_match_summary(
         icon = assets.get(asset_key)
         if icon is not None:
             _paste_with_alpha(canvas, icon, (x, 184))
-        _draw_text(draw, (x + 53, value_y), objectives.get(stat_key, 0), _font(24), PALETTE.text)
-        _draw_text(draw, (x + 53, label_y), label, _font(14), PALETTE.muted)
+        _draw_text(draw, (x + 53, objective_value_y), objectives.get(stat_key, 0), _font(24), PALETTE.text)
+        _draw_text(draw, (x + 53, objective_label_y), label, _font(14), PALETTE.muted)
 
 
 def _draw_team_panel(
@@ -113,25 +116,22 @@ def _draw_team_panel(
     accent = PALETTE.ally if ally else PALETTE.enemy
     header_fill = (19, 58, 99, 255) if ally else (86, 27, 43, 255)
 
-    # Recouvre la zone gauche de l'en-tête pour supprimer l'ancien OR et le
-    # libellé "RANG MOYEN", puis redessine les informations sans chevauchement.
+    # Recouvre toute la zone gauche de l'en-tête afin de supprimer les anciens
+    # libellés OR / Δ OR avant de redessiner uniquement le nom et le rang moyen.
     draw.rectangle((25, y + 1, 515, y + 44), fill=header_fill)
 
     team_name = "ÉQUIPE ALLIÉE" if ally else "ÉQUIPE ADVERSE"
     _draw_text(draw, (43, y + 12), team_name, _font(20), accent)
 
-    # Le repère de l'écart d'or est placé après le nom d'équipe.
-    _draw_text(draw, (205, y + 14), "Δ OR", _font(12), PALETTE.muted, anchor="ma")
-
     rank_tier, rank_division = _polish._team_average_rank(match, start_index, ally)
     rank_text = _polish._format_average_rank(rank_tier, rank_division)
     rank_icon = assets.get(f"tier_name_{rank_tier}") if rank_tier else None
 
-    text_x = 250
+    text_x = 210
     if rank_icon is not None:
         icon = rank_icon.resize((28, 28))
-        _paste_with_alpha(canvas, icon, (230, y + 8))
-        text_x = 266
+        _paste_with_alpha(canvas, icon, (194, y + 8))
+        text_x = 230
 
     _draw_text(draw, (text_x, y + 23), rank_text, _font(15), PALETTE.text, anchor="lm")
 
