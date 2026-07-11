@@ -81,16 +81,37 @@ def _get_player_summary(match: Any) -> Dict[str, Any]:
     }
 
 
-def _get_daily_stats(match: Any) -> Tuple[int, int]:
+def _get_daily_stats(match: Any) -> Tuple[int, int, int]:
+    """Retourne les victoires, défaites et LP nets des dernières 24 heures."""
     table_name = f"ranked_aram_s{match.season}" if match.thisQ in ("ARAM", "CLASH ARAM") else f"suivi_s{match.season}"
     try:
         suivi = lire_bdd(table_name, "dict")
         row = suivi[match.id_compte]
         wins = _as_int(match.thisVictory) - _as_int(row.get("wins_jour"))
         losses = _as_int(match.thisLoose) - _as_int(row.get("losses_jour"))
-        return max(0, wins), max(0, losses)
     except Exception:
-        return 0, 0
+        wins, losses = 0, 0
+
+    # ``ecart_lp`` est déjà enregistré pour chaque partie. Sa somme sur les
+    # dernières 24 heures reste correcte même lors d'un changement de division.
+    try:
+        data = lire_bdd_perso(
+            """
+            SELECT COALESCE(SUM(ecart_lp), 0) AS lp_24h
+            FROM matchs
+            WHERE joueur = :id_compte
+              AND mode = :mode
+              AND datetime >= NOW() - INTERVAL '24 hours'
+            """,
+            format="dict",
+            index_col=None,
+            params={"id_compte": match.id_compte, "mode": match.thisQ},
+        )
+        lp_24h = _as_int(data.get(0, {}).get("lp_24h")) if isinstance(data, dict) else 0
+    except Exception:
+        lp_24h = 0
+
+    return max(0, wins), max(0, losses), lp_24h
 
 
 def _team_objectives(match: Any) -> Dict[str, int]:
