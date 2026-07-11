@@ -6,7 +6,7 @@ from typing import Any
 from PIL import Image
 
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
-from .image_modern_renderer import build_modern_recap
+from .image_modern_renderer_polish import build_modern_recap
 
 
 async def _selected_recap_format(match: Any) -> str:
