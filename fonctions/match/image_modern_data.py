@@ -3,6 +3,7 @@
 from typing import Any, Dict, Mapping, Tuple
 
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
+from utils.lol import dict_rankid
 from .image_modern_common import _as_float, _as_int, _safe_get
 
 
@@ -82,36 +83,62 @@ def _get_player_summary(match: Any) -> Dict[str, Any]:
 
 
 def _get_daily_stats(match: Any) -> Tuple[int, int, int]:
-    """Retourne les victoires, défaites et LP nets des dernières 24 heures."""
-    table_name = f"ranked_aram_s{match.season}" if match.thisQ in ("ARAM", "CLASH ARAM") else f"suivi_s{match.season}"
+    """Retourne victoires, défaites et variation de LP depuis le snapshot 24 h.
+
+    Le calcul reproduit la logique de ``update_24h`` : comparaison avec
+    ``LP_jour`` / ``tier_jour`` / ``rank_jour`` et correction de 100 LP par
+    division franchie. Cela évite les erreurs liées à la somme des ``ecart_lp``
+    partie par partie, notamment lors des promotions, rétrogradations ou parties
+    enregistrées plusieurs fois.
+    """
+    table_name = (
+        f"ranked_aram_s{match.season}"
+        if match.thisQ in ("ARAM", "CLASH ARAM")
+        else f"suivi_s{match.season}"
+    )
+
     try:
         suivi = lire_bdd(table_name, "dict")
         row = suivi[match.id_compte]
+
         wins = _as_int(match.thisVictory) - _as_int(row.get("wins_jour"))
         losses = _as_int(match.thisLoose) - _as_int(row.get("losses_jour"))
-    except Exception:
-        wins, losses = 0, 0
 
-    # ``ecart_lp`` est déjà enregistré pour chaque partie. Sa somme sur les
-    # dernières 24 heures reste correcte même lors d'un changement de division.
-    try:
-        data = lire_bdd_perso(
-            """
-            SELECT COALESCE(SUM(ecart_lp), 0) AS lp_24h
-            FROM matchs
-            WHERE joueur = :id_compte
-              AND mode = :mode
-              AND datetime >= NOW() - INTERVAL '24 hours'
-            """,
-            format="dict",
-            index_col=None,
-            params={"id_compte": match.id_compte, "mode": match.thisQ},
-        )
-        lp_24h = _as_int(data.get(0, {}).get("lp_24h")) if isinstance(data, dict) else 0
-    except Exception:
-        lp_24h = 0
+        lp_old = _as_int(row.get("LP_jour", row.get("lp_jour", 0)))
+        lp_new = _as_int(getattr(match, "thisLP", row.get("LP", row.get("lp", 0))))
 
-    return max(0, wins), max(0, losses), lp_24h
+        tier_old = str(row.get("tier_jour", row.get("tier", "")) or "").upper()
+        rank_old = str(row.get("rank_jour", row.get("rank", "")) or "").upper()
+        tier_new = str(getattr(match, "thisTier", row.get("tier", "")) or "").upper()
+        rank_new = str(getattr(match, "thisRank", row.get("rank", "")) or "").upper()
+
+        classement_old = f"{tier_old} {rank_old}".strip()
+        classement_new = f"{tier_new} {rank_new}".strip()
+        apex = {"MASTER I", "GRANDMASTER I", "CHALLENGER I"}
+
+        old_rank_id = dict_rankid.get(classement_old)
+        new_rank_id = dict_rankid.get(classement_new)
+
+        if old_rank_id is None or new_rank_id is None or old_rank_id == new_rank_id:
+            lp_24h = lp_new - lp_old
+        elif old_rank_id > new_rank_id:
+            # Rétrogradation : valeur nette négative.
+            difrank = old_rank_id - new_rank_id
+            if classement_old in apex:
+                lp_24h = lp_new - lp_old
+            else:
+                lp_24h = -((100 * difrank) + lp_old - lp_new)
+        else:
+            # Promotion : valeur nette positive.
+            difrank = new_rank_id - old_rank_id
+            if classement_old in apex:
+                lp_24h = lp_new - lp_old
+            else:
+                lp_24h = (100 * difrank) - lp_old + lp_new
+
+        return max(0, wins), max(0, losses), lp_24h
+    except Exception:
+        return 0, 0, 0
 
 
 def _team_objectives(match: Any) -> Dict[str, int]:
