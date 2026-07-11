@@ -127,11 +127,11 @@ def _draw_team_panel(
     rank_text = _polish._format_average_rank(rank_tier, rank_division)
     rank_icon = assets.get(f"tier_name_{rank_tier}") if rank_tier else None
 
-    text_x = 210
+    text_x = 245
     if rank_icon is not None:
         icon = rank_icon.resize((28, 28))
-        _paste_with_alpha(canvas, icon, (194, y + 8))
-        text_x = 230
+        _paste_with_alpha(canvas, icon, (220, y + 8))
+        text_x = 256
 
     _draw_text(draw, (text_x, y + 23), rank_text, _font(15), PALETTE.text, anchor="lm")
 
