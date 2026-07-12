@@ -21,6 +21,13 @@ _DRAGON_TYPE_ALIASES = {
 }
 
 
+_APEX_RANK_ABBREVIATIONS = {
+    "MASTER": "M",
+    "GRANDMASTER": "GM",
+    "CHALLENGER": "C",
+}
+
+
 def _get_player_local_index(match: Any) -> int:
     this_id = _as_int(getattr(match, "thisId", 0))
     return this_id - 5 if this_id > 4 else this_id
@@ -258,8 +265,8 @@ def _participant_rank_text(match: Any, index: int) -> str:
     tier = str(_safe_get(getattr(match, "liste_tier", []), index, "UNRANKED") or "UNRANKED").upper()
     division = _safe_get(getattr(match, "liste_rank", []), index, "")
     lp = _as_int(_safe_get(getattr(match, "liste_lp", []), index, 0))
-    if tier in ("MASTER", "GRANDMASTER", "CHALLENGER"):
-        return f"{tier.title()} {lp} LP"
+    if tier in _APEX_RANK_ABBREVIATIONS:
+        return f"{_APEX_RANK_ABBREVIATIONS[tier]} {lp} LP"
     if tier == "UNRANKED":
         return "Non classé"
     return f"{tier.title()} {division or ''}".strip()
