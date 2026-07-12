@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, Mapping
 
 from PIL import Image, ImageDraw
@@ -24,11 +25,204 @@ from .image_modern_common import (
     _rounded_panel,
     _safe_get,
 )
-from .image_modern_data import _get_player_local_index
+from .image_modern_data import _get_player_local_index, _team_dragon_types
 
 
 _ORIGINAL_DRAW_HEADER = _renderer._draw_header
 _ORIGINAL_DRAW_TEAM_PANEL = _renderer._draw_team_panel
+
+_DRAGON_BADGE_COLORS = {
+    "fire": ((66, 23, 18, 245), (241, 111, 57, 255)),
+    "water": ((8, 43, 55, 245), (68, 211, 224, 255)),
+    "earth": ((49, 39, 21, 245), (210, 170, 78, 255)),
+    "air": ((16, 39, 60, 245), (121, 197, 247, 255)),
+    "hextech": ((26, 26, 64, 245), (105, 178, 255, 255)),
+    "chemtech": ((20, 51, 32, 245), (104, 218, 116, 255)),
+}
+
+
+@lru_cache(maxsize=12)
+def _dragon_badge(dragon_type: str, size: int = 18) -> Image.Image:
+    """Construit une petite icône vectorielle lisible sans asset externe."""
+    scale = 4
+    high_size = size * scale
+    badge = Image.new("RGBA", (high_size, high_size), (0, 0, 0, 0))
+    badge_draw = ImageDraw.Draw(badge)
+
+    background, accent = _DRAGON_BADGE_COLORS.get(
+        dragon_type,
+        ((26, 39, 55, 245), (168, 184, 203, 255)),
+    )
+    pad = scale
+    badge_draw.ellipse(
+        (pad, pad, high_size - pad - 1, high_size - pad - 1),
+        fill=background,
+        outline=accent,
+        width=scale,
+    )
+
+    cx = high_size / 2
+    cy = high_size / 2
+    unit = high_size / 18
+
+    if dragon_type == "fire":
+        badge_draw.polygon(
+            [
+                (cx, cy + 5.5 * unit),
+                (cx - 4.2 * unit, cy + 1.8 * unit),
+                (cx - 1.8 * unit, cy - 2.2 * unit),
+                (cx - 0.7 * unit, cy - 6.0 * unit),
+                (cx + 2.2 * unit, cy - 2.8 * unit),
+                (cx + 4.0 * unit, cy + 1.0 * unit),
+            ],
+            fill=accent,
+        )
+        badge_draw.polygon(
+            [
+                (cx, cy + 4.0 * unit),
+                (cx - 1.8 * unit, cy + 0.9 * unit),
+                (cx + 0.7 * unit, cy - 2.3 * unit),
+                (cx + 2.0 * unit, cy + 1.7 * unit),
+            ],
+            fill=(255, 226, 148, 255),
+        )
+    elif dragon_type == "water":
+        for offset in (-2.2, 1.3):
+            y = cy + offset * unit
+            badge_draw.arc(
+                (
+                    cx - 6.0 * unit,
+                    y - 2.3 * unit,
+                    cx + 1.5 * unit,
+                    y + 2.3 * unit,
+                ),
+                start=195,
+                end=355,
+                fill=accent,
+                width=scale,
+            )
+            badge_draw.arc(
+                (
+                    cx - 1.5 * unit,
+                    y - 2.3 * unit,
+                    cx + 6.0 * unit,
+                    y + 2.3 * unit,
+                ),
+                start=15,
+                end=175,
+                fill=accent,
+                width=scale,
+            )
+    elif dragon_type == "earth":
+        badge_draw.polygon(
+            [
+                (cx - 5.8 * unit, cy + 4.8 * unit),
+                (cx, cy - 5.8 * unit),
+                (cx + 5.8 * unit, cy + 4.8 * unit),
+            ],
+            fill=accent,
+        )
+        badge_draw.polygon(
+            [
+                (cx - 2.0 * unit, cy - 2.0 * unit),
+                (cx, cy - 5.8 * unit),
+                (cx + 2.2 * unit, cy - 1.8 * unit),
+                (cx + 0.4 * unit, cy - 2.4 * unit),
+            ],
+            fill=(247, 232, 189, 255),
+        )
+    elif dragon_type == "air":
+        badge_draw.arc(
+            (
+                cx - 6.2 * unit,
+                cy - 5.2 * unit,
+                cx + 4.0 * unit,
+                cy + 2.2 * unit,
+            ),
+            start=205,
+            end=355,
+            fill=accent,
+            width=scale,
+        )
+        badge_draw.arc(
+            (
+                cx - 3.7 * unit,
+                cy - 0.5 * unit,
+                cx + 5.5 * unit,
+                cy + 5.2 * unit,
+            ),
+            start=20,
+            end=175,
+            fill=accent,
+            width=scale,
+        )
+        badge_draw.line(
+            (cx - 5.5 * unit, cy + 2.0 * unit, cx + 2.8 * unit, cy + 2.0 * unit),
+            fill=accent,
+            width=scale,
+        )
+    elif dragon_type == "hextech":
+        badge_draw.polygon(
+            [
+                (cx + 0.5 * unit, cy - 6.0 * unit),
+                (cx - 4.2 * unit, cy + 0.7 * unit),
+                (cx - 0.8 * unit, cy + 0.7 * unit),
+                (cx - 2.0 * unit, cy + 6.0 * unit),
+                (cx + 4.5 * unit, cy - 1.3 * unit),
+                (cx + 1.0 * unit, cy - 1.3 * unit),
+            ],
+            fill=accent,
+        )
+    elif dragon_type == "chemtech":
+        badge_draw.line(
+            (
+                cx - 2.4 * unit,
+                cy - 5.0 * unit,
+                cx + 2.4 * unit,
+                cy - 5.0 * unit,
+            ),
+            fill=accent,
+            width=scale,
+        )
+        badge_draw.line(
+            (
+                cx - 1.4 * unit,
+                cy - 5.0 * unit,
+                cx - 1.4 * unit,
+                cy - 1.5 * unit,
+                cx - 4.5 * unit,
+                cy + 4.8 * unit,
+                cx + 4.5 * unit,
+                cy + 4.8 * unit,
+                cx + 1.4 * unit,
+                cy - 1.5 * unit,
+                cx + 1.4 * unit,
+                cy - 5.0 * unit,
+            ),
+            fill=accent,
+            width=scale,
+            joint="curve",
+        )
+        badge_draw.polygon(
+            [
+                (cx - 3.5 * unit, cy + 1.6 * unit),
+                (cx + 3.5 * unit, cy + 1.6 * unit),
+                (cx + 4.5 * unit, cy + 4.8 * unit),
+                (cx - 4.5 * unit, cy + 4.8 * unit),
+            ],
+            fill=accent,
+        )
+        badge_draw.ellipse(
+            (
+                cx + 1.7 * unit,
+                cy - 0.8 * unit,
+                cx + 3.3 * unit,
+                cy + 0.8 * unit,
+            ),
+            fill=(204, 255, 194, 255),
+        )
+
+    return badge.resize((size, size), Image.Resampling.LANCZOS)
 
 
 def _draw_header(
@@ -125,6 +319,18 @@ def _draw_match_summary(
             _paste_with_alpha(canvas, icon, (x, 184))
         _draw_text(draw, (x + 53, objective_value_y), objectives.get(stat_key, 0), _font(24), PALETTE.text)
         _draw_text(draw, (x + 53, objective_label_y), label, _font(14), PALETTE.muted)
+
+    dragon_types = _team_dragon_types(match)[:4]
+    if dragon_types:
+        badge_size = 18
+        badge_gap = 3
+        dragon_center_x = start_x + 2 * cell_width + 53
+        total_width = len(dragon_types) * badge_size + (len(dragon_types) - 1) * badge_gap
+        first_x = round(dragon_center_x - total_width / 2)
+        badge_y = 244
+        for index, dragon_type in enumerate(dragon_types):
+            badge_x = first_x + index * (badge_size + badge_gap)
+            _paste_with_alpha(canvas, _dragon_badge(dragon_type, badge_size), (badge_x, badge_y))
 
 
 def _row_fill(ally: bool, row: int, is_player: bool):
