@@ -34,7 +34,7 @@ def _draw_team_panel(
     y: int,
     ally: bool,
 ) -> None:
-    """Aligne KDA et uniformise le titre de la colonne de tanking."""
+    """Centre les titres K/D/A et KDA et uniformise le titre de tanking."""
     _FINAL_DRAW_TEAM_PANEL(
         canvas,
         draw,
@@ -45,8 +45,25 @@ def _draw_team_panel(
         ally=ally,
     )
 
-    # Le contenu KDA reste centré en x=827, mais le rendu du libellé paraissait
-    # visuellement trop à gauche. On efface l'ancien titre et on le décale de 15 px.
+    # Les valeurs K / D / A s'étendent de x=655 à x=758. L'ancien titre était
+    # centré sur x=655, c'est-à-dire uniquement sur la colonne des kills.
+    # On le recentre sur l'ensemble du groupe de valeurs.
+    _restore_header_background(
+        canvas,
+        (610, y + 1, 785, y + 44),
+        (785, y + 5),
+    )
+    _draw_text(
+        draw,
+        (706, y + 14),
+        "K / D / A",
+        _font(14),
+        PALETTE.muted,
+        anchor="ma",
+    )
+
+    # Le titre KDA doit rester centré sur les valeurs KDA, elles-mêmes en x=827.
+    # Cela annule le décalage appliqué par erreur lors du correctif précédent.
     _restore_header_background(
         canvas,
         (790, y + 1, 875, y + 44),
@@ -54,7 +71,7 @@ def _draw_team_panel(
     )
     _draw_text(
         draw,
-        (842, y + 14),
+        (827, y + 14),
         "KDA",
         _font(14),
         PALETTE.muted,
