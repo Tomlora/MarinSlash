@@ -1,10 +1,24 @@
 """Collecte et normalisation des données du récapitulatif moderne."""
 
-from typing import Any, Dict, Mapping, Tuple
+from typing import Any, Dict, List, Mapping, Tuple
 
 from fonctions.gestion_bdd import lire_bdd, lire_bdd_perso
 from utils.lol import dict_rankid
 from .image_modern_common import _as_float, _as_int, _safe_get
+
+
+_DRAGON_TYPE_ALIASES = {
+    "FIRE_DRAGON": "fire",
+    "INFERNAL_DRAGON": "fire",
+    "WATER_DRAGON": "water",
+    "OCEAN_DRAGON": "water",
+    "EARTH_DRAGON": "earth",
+    "MOUNTAIN_DRAGON": "earth",
+    "AIR_DRAGON": "air",
+    "CLOUD_DRAGON": "air",
+    "HEXTECH_DRAGON": "hextech",
+    "CHEMTECH_DRAGON": "chemtech",
+}
 
 
 def _get_player_local_index(match: Any) -> int:
@@ -163,6 +177,61 @@ def _team_objectives(match: Any) -> Dict[str, int]:
         "horde": count("horde", _as_int(getattr(match, "thisHordeTeam", 0))),
         "elder": _as_int(getattr(match, "thisElderPerso", 0)),
     }
+
+
+def _team_dragon_types(match: Any) -> List[str]:
+    """Retourne les dragons élémentaires pris par l'équipe, dans l'ordre.
+
+    La timeline brute est utilisée afin que l'information reste disponible pour
+    les modes où ``save_timeline_event`` n'est pas exécuté. L'Elder est exclu,
+    puisqu'il dispose déjà de son propre compteur dans le résumé.
+    """
+    data_timeline = getattr(match, "data_timeline", {}) or {}
+    if not isinstance(data_timeline, Mapping):
+        return []
+
+    info = data_timeline.get("info", {})
+    frames = info.get("frames", []) if isinstance(info, Mapping) else []
+    if not isinstance(frames, list):
+        return []
+
+    this_id = _as_int(getattr(match, "thisId", 0))
+    fallback_team_id = 100 if this_id <= 4 else 200
+    team_id = _as_int(getattr(match, "teamId", fallback_team_id), fallback_team_id)
+
+    dragon_events = []
+    for frame in frames:
+        if not isinstance(frame, Mapping):
+            continue
+
+        events = frame.get("events", []) or []
+        if not isinstance(events, list):
+            continue
+
+        for event in events:
+            if not isinstance(event, Mapping):
+                continue
+            if event.get("type") != "ELITE_MONSTER_KILL":
+                continue
+            if event.get("monsterType") != "DRAGON":
+                continue
+
+            event_team_id = _as_int(
+                event.get("killerTeamId") or event.get("teamId"),
+                0,
+            )
+            if event_team_id != team_id:
+                continue
+
+            subtype = str(event.get("monsterSubType", "") or "").upper()
+            dragon_type = _DRAGON_TYPE_ALIASES.get(subtype)
+            if dragon_type is None:
+                continue
+
+            dragon_events.append((_as_int(event.get("timestamp", 0)), dragon_type))
+
+    dragon_events.sort(key=lambda item: item[0])
+    return [dragon_type for _, dragon_type in dragon_events]
 
 
 def _team_totals(match: Any, start: int) -> Dict[str, float]:
