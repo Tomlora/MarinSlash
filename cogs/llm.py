@@ -96,6 +96,12 @@ class LLM(Extension):
                 required=False,
                 choices=list(MODEL_CHOICES),
             ),
+            SlashCommandOption(
+                name="raisonnement",
+                description="Activer le raisonnement approfondi (plus lent)",
+                type=interactions.OptionType.BOOLEAN,
+                required=False,
+            ),
         ],
     )
     async def llm_leger(
@@ -103,6 +109,7 @@ class LLM(Extension):
         ctx: SlashContext,
         texte: str,
         modele: str = DEFAULT_MODEL,
+        raisonnement: bool = False,
     ):
         await ctx.defer()
 
@@ -119,16 +126,19 @@ class LLM(Extension):
             return
 
         selected_model = modele or DEFAULT_MODEL
+        mode_label = " avec raisonnement approfondi" if raisonnement else ""
         queued = self.generation_lock.locked()
         status_message = await ctx.send(
             "⏳ Requête mise en file d'attente…"
             if queued
-            else f"⏳ Chargement de `{selected_model}`…"
+            else f"⏳ Chargement de `{selected_model}`{mode_label}…"
         )
 
         async with self.generation_lock:
             if queued:
-                await status_message.edit(content=f"⏳ Chargement de `{selected_model}`…")
+                await status_message.edit(
+                    content=f"⏳ Chargement de `{selected_model}`{mode_label}…"
+                )
 
             try:
                 await self._stream_answer(
@@ -136,6 +146,7 @@ class LLM(Extension):
                     status_message=status_message,
                     prompt=prompt,
                     model=selected_model,
+                    reasoning=raisonnement,
                 )
             except ResponseError as exc:
                 LOGGER.warning("Erreur Ollama pour le modèle %s : %s", selected_model, exc)
@@ -166,6 +177,7 @@ class LLM(Extension):
         status_message: interactions.Message,
         prompt: str,
         model: str,
+        reasoning: bool,
     ) -> None:
         """Diffuse la réponse en limitant les éditions Discord et la mémoire tampon."""
         messages = [
@@ -177,7 +189,7 @@ class LLM(Extension):
             model=model,
             messages=messages,
             stream=True,
-            think=False,
+            think=reasoning,
             keep_alive=OLLAMA_KEEP_ALIVE,
             options=GENERATION_OPTIONS,
         )
@@ -219,10 +231,10 @@ class LLM(Extension):
                 content="Le modèle n'a renvoyé aucun contenu exploitable."
             )
 
-        self._log_generation_metrics(model, final_chunk)
+        self._log_generation_metrics(model, reasoning, final_chunk)
 
     @staticmethod
-    def _log_generation_metrics(model: str, chunk) -> None:
+    def _log_generation_metrics(model: str, reasoning: bool, chunk) -> None:
         if chunk is None:
             return
 
@@ -235,8 +247,9 @@ class LLM(Extension):
             tokens_per_second = eval_count / (eval_duration / 1_000_000_000)
 
         LOGGER.info(
-            "LLM model=%s load_ms=%s output_tokens=%s tokens_per_second=%s",
+            "LLM model=%s reasoning=%s load_ms=%s output_tokens=%s tokens_per_second=%s",
             model,
+            reasoning,
             round(load_duration / 1_000_000, 1) if load_duration else None,
             eval_count,
             round(tokens_per_second, 2) if tokens_per_second else None,
