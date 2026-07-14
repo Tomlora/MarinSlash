@@ -60,6 +60,7 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
 Image générée<b>du recap de la game</b> : 
  <br>
  <img width="1100" height="650" src="https://github.com/Tomlora/MarinSlash/blob/master/synthese_detaille.png?raw=true">
+   <img width="1100" height="650" src="https://github.com/Tomlora/MarinSlash/blob/master/synthese_new.png?raw=true">
   <br>
 </p>
 
@@ -128,8 +129,6 @@ Ai-je fait beaucoup de dégats sur les ennemis ?
 
  <p align="center">
   <img width="700" height="400" src="https://github.com/Tomlora/MarinSlash/blob/master/vision.png?raw=true">
-  <img width="1000" height="500" src="https://github.com/Tomlora/MarinSlash/blob/master/gold_team.png?raw=true">
-</p>
 
 Ai-je amassé beaucoup de gold, me permettant d'être plus forts, par rapport aux autres ?
 
