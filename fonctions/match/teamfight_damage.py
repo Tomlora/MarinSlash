@@ -92,12 +92,17 @@ def calculate_teamfight_damage(
     match_detail: dict[str, Any],
     timeline: dict[str, Any],
     *,
+    allied_team_id: int,
     max_gap_ms: int = 12_000,
     max_distance: int = 2_000,
     fight_radius: int = 2_000,
     min_players_per_team: int = 2,
 ) -> list[dict[str, Any]]:
     """Calcule les dégâts de chaque joueur pour les teamfights détectés.
+
+    ``allied_team_id`` correspond à l'équipe du joueur dont le match est analysé.
+    Les joueurs retournés sont ainsi étiquetés ``Allié`` ou ``Ennemi`` sans
+    exposer les identifiants Riot 100 et 200 dans l'output.
 
     Deux mesures complémentaires sont retournées :
 
@@ -124,6 +129,9 @@ def calculate_teamfight_damage(
         participant["participantId"]: participant["teamId"]
         for participant in participants
     }
+    if allied_team_id not in set(team_by_pid.values()):
+        raise ValueError("allied_team_id ne correspond à aucune équipe du match")
+
     champion_by_pid = {
         participant["participantId"]: participant.get("championName", "")
         for participant in participants
@@ -135,6 +143,10 @@ def calculate_teamfight_damage(
             or participant.get("championName")
             or str(participant["participantId"])
         )
+        for participant in participants
+    }
+    puuid_by_pid = {
+        participant["participantId"]: participant.get("puuid", "")
         for participant in participants
     }
 
@@ -181,11 +193,15 @@ def calculate_teamfight_damage(
             )
         }
 
-        involved_100 = {pid for pid in involved if team_by_pid[pid] == 100}
-        involved_200 = {pid for pid in involved if team_by_pid[pid] == 200}
+        involved_allies = {
+            pid for pid in involved if team_by_pid[pid] == allied_team_id
+        }
+        involved_enemies = {
+            pid for pid in involved if team_by_pid[pid] != allied_team_id
+        }
         if (
-            len(involved_100) < min_players_per_team
-            or len(involved_200) < min_players_per_team
+            len(involved_allies) < min_players_per_team
+            or len(involved_enemies) < min_players_per_team
         ):
             continue
 
@@ -226,9 +242,14 @@ def calculate_teamfight_damage(
             player_results.append(
                 {
                     "participant_id": participant_id,
+                    "puuid": puuid_by_pid[participant_id],
                     "player": player_by_pid[participant_id],
                     "champion": champion_by_pid[participant_id],
-                    "team_id": team_by_pid[participant_id],
+                    "team": (
+                        "Allié"
+                        if team_by_pid[participant_id] == allied_team_id
+                        else "Ennemi"
+                    ),
                     "participation_source": (
                         "event" if participant_id in event_involved else "proximity"
                     ),
@@ -240,12 +261,13 @@ def calculate_teamfight_damage(
                 }
             )
 
-        kills_100 = sum(
-            team_by_pid.get(event.get("killerId")) == 100
+        kills_allies = sum(
+            team_by_pid.get(event.get("killerId")) == allied_team_id
             for event in events
         )
-        kills_200 = sum(
-            team_by_pid.get(event.get("killerId")) == 200
+        kills_enemies = sum(
+            event.get("killerId") in team_by_pid
+            and team_by_pid[event["killerId"]] != allied_team_id
             for event in events
         )
 
@@ -258,8 +280,8 @@ def calculate_teamfight_damage(
                 "end_minute": round(end_ms / 60_000, 2),
                 "estimation_window_start_ms": frame_before["timestamp"],
                 "estimation_window_end_ms": frame_after["timestamp"],
-                "kills_100": kills_100,
-                "kills_200": kills_200,
+                "kills_allies": kills_allies,
+                "kills_enemies": kills_enemies,
                 "players": player_results,
             }
         )
@@ -278,9 +300,26 @@ async def teamfight_damage(
     if not getattr(self, "data_timeline", None):
         return []
 
+    allied_team_id = getattr(self, "teamId", None)
+    if allied_team_id is None:
+        current_participant_id = getattr(self, "index_timeline", None)
+        current_participant = next(
+            (
+                participant
+                for participant in self.match_detail.get("info", {}).get("participants", [])
+                if participant.get("participantId") == current_participant_id
+            ),
+            None,
+        )
+        allied_team_id = current_participant.get("teamId") if current_participant else None
+
+    if allied_team_id is None:
+        raise ValueError("Impossible de déterminer l'équipe alliée du joueur analysé")
+
     return calculate_teamfight_damage(
         self.match_detail,
         self.data_timeline,
+        allied_team_id=allied_team_id,
         max_gap_ms=max_gap_ms,
         max_distance=max_distance,
         fight_radius=fight_radius,
