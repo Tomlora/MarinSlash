@@ -196,6 +196,12 @@ class LeagueofLegends(Extension):
                     'data_timeline_palier."WARD_PLACED_10"',
                     'data_timeline_palier."WARD_PLACED_20"',
                     'data_timeline_palier."WARD_PLACED_30"',
+                    'data_timeline_palier."TURRET_PLATE_DESTROYED_30" AS turret_plates_taken',
+                    'match_player_scoring_data.gold_diff_15',
+                    'match_player_scoring_data.cs_diff_15',
+                    'match_player_scoring_data.objective_damage',
+                    'match_player_scoring_data.objectives_participated',
+                    'match_player_scoring_data.turrets_killed',
                 ]
 
                 base_query = f'''
@@ -208,6 +214,9 @@ class LeagueofLegends(Extension):
                     LEFT JOIN data_timeline_palier
                         ON matchs.joueur = data_timeline_palier.riot_id
                         AND matchs.match_id = data_timeline_palier.match_id
+                    LEFT JOIN match_player_scoring_data
+                        ON matchs.match_id = match_player_scoring_data.match_id
+                        AND matchs.id_participant = match_player_scoring_data.player_index
                     WHERE mode = '{match_info.thisQ}'
                     AND server_id = {guild_id}
                     AND tracker.save_records = TRUE
@@ -216,6 +225,29 @@ class LeagueofLegends(Extension):
                 '''
 
                 df = lire_bdd_perso(base_query, index_col='id').transpose()
+
+                if 'victoire' in df.columns:
+                    victoire_values = df['victoire'].astype(str).str.lower()
+
+                    if 'ecart_gold_min_durant_game' in df.columns:
+                        min_gold_diff = pd.to_numeric(
+                            df['ecart_gold_min_durant_game'], errors='coerce'
+                        )
+                        df['biggest_comeback'] = np.where(
+                            victoire_values.isin(['true', '1', 't']) & (min_gold_diff < 0),
+                            min_gold_diff.abs(),
+                            np.nan
+                        )
+
+                    if 'ecart_gold_max_durant_game' in df.columns:
+                        max_gold_diff = pd.to_numeric(
+                            df['ecart_gold_max_durant_game'], errors='coerce'
+                        )
+                        df['biggest_throw'] = np.where(
+                            victoire_values.isin(['false', '0', 'f']) & (max_gold_diff > 0),
+                            max_gold_diff,
+                            np.nan
+                        )
 
                 if 'champion' in df.columns:
                     for col in df.columns:
@@ -258,6 +290,14 @@ class LeagueofLegends(Extension):
             # Sauvegarde des données
             if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ not in ['ARENA 2v2', 'SWARM']:
                 await match_info.save_data()
+
+                # La timeline est analysée avant l'insertion de la ligne `matchs`.
+                # On rejoue donc la mise à jour une fois la ligne effectivement créée.
+                if (
+                    match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']
+                    and hasattr(match_info, 'val_min_ecart_gold')
+                ):
+                    match_info.persist_match_timeline_fields()
 
             else:
                 requete_perso_bdd(f'''DELETE from prev_lol WHERE riot_id = '{riot_id.lower()}' and riot_tag = '{riot_tag.upper()}' and match_id = '';
@@ -359,6 +399,7 @@ class LeagueofLegends(Extension):
                     'temps_avant_premiere_mort': match_info.thisTimeLiving,
                     'dmg/gold': match_info.DamageGoldRatio,
                     'skillshot_dodged': match_info.thisSkillshot_dodged,
+                    'skillshot_hit': match_info.thisSkillshot_hit,
                     'temps_cc': match_info.time_CC,
                     'spells_used': match_info.thisSpellUsed,
                     'kills_min': match_info.kills_min,
@@ -384,6 +425,13 @@ class LeagueofLegends(Extension):
                     'deathsratio': match_info.deathsratio,
                     'solokillsratio': match_info.solokillsratio
                 }
+
+                tracked_metrics = None
+                if (
+                    hasattr(match_info, 'player_metrics_liste')
+                    and 0 <= match_info.thisId < len(match_info.player_metrics_liste)
+                ):
+                    tracked_metrics = match_info.player_metrics_liste[match_info.thisId]
 
                 # Paramètres spécifiques aux ranked
                 if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:
@@ -420,6 +468,26 @@ class LeagueofLegends(Extension):
                         'first_penta': match_info.timestamp_pentakill,
                         'first_niveau_max': match_info.timestamp_niveau_max,
                         'first_blood': match_info.timestamp_first_blood,
+                        'early_atakhan': getattr(match_info, 'timestamp_first_atakhan', 999),
+                        'gold_diff_15': getattr(tracked_metrics, 'gold_diff_15', 0),
+                        'cs_diff_15': getattr(tracked_metrics, 'cs_diff_15', 0),
+                        'objective_damage': getattr(tracked_metrics, 'objective_damage', 0),
+                        'objectives_participated': getattr(tracked_metrics, 'objectives_participated', 0),
+                        'turrets_killed': getattr(tracked_metrics, 'turrets_killed', 0),
+                        'turret_plates_taken': getattr(match_info, 'thisTurretPlatesTaken', 0),
+                        'shutdown_bounty': getattr(match_info, 'bounty_recupere', 0),
+                        'gold_avec_kills': getattr(match_info, 'gold_with_kills', 0),
+                        'solokilled': getattr(match_info, 'get_solokilled', 0),
+                        'kills_avec_jgl_early': getattr(match_info, 'kills_with_jgl_early', 0),
+                        'deaths_with_jgl_early': getattr(match_info, 'deaths_with_jgl_early', 0),
+                        'biggest_comeback': (
+                            abs(min(getattr(match_info, 'val_min_ecart_gold', 0), 0))
+                            if match_info.thisWinBool else 0
+                        ),
+                        'biggest_throw': (
+                            max(getattr(match_info, 'val_max_ecart_gold', 0), 0)
+                            if not match_info.thisWinBool else 0
+                        ),
                         'tower': match_info.thisTowerTeam,
                         'inhib': match_info.thisInhibTeam,
                         'ecart_kills': match_info.ecart_kills,
@@ -472,7 +540,7 @@ class LeagueofLegends(Extension):
                 for parameter, value in param_records.items():
                     methode = 'min' if parameter in [
                         'early_drake', 'early_baron', 'fourth_dragon', 'first_elder',
-                        'first_horde', 'first_double', 'first_triple', 'first_quadra',
+                        'first_horde', 'early_atakhan', 'first_double', 'first_triple', 'first_quadra',
                         'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time'
                     ] else 'max'
                     
@@ -511,7 +579,7 @@ class LeagueofLegends(Extension):
                     for parameter, value in param_records_only_ranked.items():
                         methode = 'min' if parameter in [
                             'early_drake', 'early_baron', 'fourth_dragon', 'first_elder',
-                            'first_horde', 'first_double', 'first_triple', 'first_quadra',
+                            'first_horde', 'early_atakhan', 'first_double', 'first_triple', 'first_quadra',
                             'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time'
                         ] else 'max'
                         records_check3(
