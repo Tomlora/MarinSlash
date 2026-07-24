@@ -2,7 +2,7 @@
 Module match - Analyse des matchs League of Legends.
 
 Ce module fournit une architecture modulaire pour:
-- Récupérer les données des matchs via l'API Riot Games
+- Récupérer les données des matchs via l'API Riot
 - Analyser les performances des joueurs
 - Calculer des statistiques avancées
 - Générer des résumés visuels
