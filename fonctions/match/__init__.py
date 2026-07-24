@@ -45,6 +45,7 @@ from .matchlol import MatchLol
 from .image_modern import install_modern_recap
 from .teamfight_damage import calculate_teamfight_damage, install_teamfight_damage
 from .teamfight_storage import install_teamfight_storage
+from .timeline_persistence import install_timeline_persistence
 from .riot_api import (
     get_version,
     get_champ_list,
@@ -86,6 +87,9 @@ install_modern_recap(MatchLol)
 # Ajoute le calcul puis la sauvegarde automatique des dégâts de teamfight.
 install_teamfight_damage(MatchLol)
 install_teamfight_storage(MatchLol)
+
+# Persiste les champs calculés depuis la timeline après l'insertion du match.
+install_timeline_persistence(MatchLol)
 
 __all__ = [
     # Classe principale
