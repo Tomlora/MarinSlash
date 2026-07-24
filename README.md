@@ -60,6 +60,7 @@ __Utilisation de l'API de Riot Games, après avoir obtenu leur autorisation sur 
 Image générée<b>du recap de la game</b> : 
  <br>
  <img width="1100" height="650" src="https://github.com/Tomlora/MarinSlash/blob/master/synthese_detaille.png?raw=true">
+  <img width="1100" height="650" src="https://github.com/Tomlora/MarinSlash/blob/master/resume2.png?raw=true">
   <br>
 </p>
 
