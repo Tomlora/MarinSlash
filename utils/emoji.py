@@ -128,7 +128,20 @@ emote_v2 = {
     'dmg_par_kills' : ':dart:',
     'killsratio' : ':crossed_swords:',
     'deathsratio' : ':skull:',
-    'solokillsratio' : ':crossed_swords:'
+    'solokillsratio' : ':crossed_swords:',
+    'gold_diff_15' : ':euro:',
+    'cs_diff_15' : ':ghost:',
+    'objective_damage' : ':dart:',
+    'objectives_participated' : ':trophy:',
+    'turrets_killed' : ':tokyo_tower:',
+    'turret_plates_taken' : ':tokyo_tower:',
+    'shutdown_bounty' : ':moneybag:',
+    'gold_avec_kills' : ':moneybag:',
+    'solokilled' : ':skull:',
+    'kills_avec_jgl_early' : ':crossed_swords:',
+    'deaths_with_jgl_early' : ':skull:',
+    'biggest_comeback' : ':chart_with_upwards_trend:',
+    'biggest_throw' : ':chart_with_downwards_trend:'
 }
 
 

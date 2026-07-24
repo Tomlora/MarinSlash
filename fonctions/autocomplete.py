@@ -29,11 +29,12 @@ async def autocomplete_record(record_id):
     ['kills_min', 'deaths_min', 'assists_min', 'longue_serie_kills', 'ecart_kills', 'ecart_deaths', 'ecart_assists', 'killsratio', 'deathsratio', 'solokillsratio'] +\
     ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold', 'crit_dmg', 'dmg_true_all', 'dmg_true_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min', 'dmg_all', 'dmg_all_min', 'ecart_dmg', 'dmg_par_kills'] +\
     ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage'] +\
-    ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage'] +\
+    ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage', 'cs_diff_15'] +\
     ['dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies'] +\
-    ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib', 'early_atakhan'] +\
-    ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball',
-    'skillshot_dodged', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation', 'temps_cc_inflige', 'first_blood'] +\
+    ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib', 'early_atakhan', 'first_tower_time',
+     'objective_damage', 'objectives_participated', 'turrets_killed', 'turret_plates_taken'] +\
+    ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'gold_diff_15', 'gold_avec_kills', 'biggest_comeback', 'biggest_throw', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball',
+     'skillshot_dodged', 'skillshot_hit', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation', 'temps_cc_inflige', 'first_blood', 'shutdown_bounty', 'solokilled', 'kills_avec_jgl_early', 'deaths_with_jgl_early'] +\
     ['abilityHaste', 'abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'first_niveau_max'] +\
     ["ASSISTS_10", "ASSISTS_20", "ASSISTS_30",
                                         "BUILDING_KILL_20", "BUILDING_KILL_30",

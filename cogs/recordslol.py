@@ -239,18 +239,24 @@ def add_aggregated_data(df: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
             'vision_min', 'vision_avantage',
             # Farming
             'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage',
+            'cs_diff_15',
             # Tank/Heal
             'dmg_tank', 'dmg_reduit', 'tankratio', 'shield', 'heal_total', 'heal_allies',
             # Gold
-            'gold', 'gold_min', 'gold_share',
+            'gold', 'gold_min', 'gold_share', 'gold_diff_15', 'gold_avec_kills',
+            'biggest_comeback', 'biggest_throw',
             # Objectifs
             'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
             'tower', 'inhib', 'fourth_dragon', 'first_elder', 'first_horde',
+            'objective_damage', 'objectives_participated', 'turrets_killed',
+            'turret_plates_taken',
             # Timing
             'time', 'temps_dead', 'temps_vivant', 'temps_avant_premiere_mort',
             # Combat
             'skillshot_dodged', 'skillshot_hit', 'trade_efficience', 'temps_cc',
             'spells_used', 'buffs_voles', 'immobilisation', 'first_blood',
+            'shutdown_bounty', 'solokilled', 'kills_avec_jgl_early',
+            'deaths_with_jgl_early',
             # Stats max
             'abilityPower', 'armor', 'attackDamage', 'currentGold',
             'healthMax', 'magicResist', 'movementSpeed',
@@ -307,7 +313,8 @@ async def load_data(ctx, view, saison, mode, time_mini):
         'data_timeline_palier."ITEM_UNDO_10"', 'data_timeline_palier."ITEM_UNDO_20"', 'data_timeline_palier."ITEM_UNDO_30"',
         'data_timeline_palier."LEVEL_UP_10"', 'data_timeline_palier."LEVEL_UP_20"', 'data_timeline_palier."LEVEL_UP_30"',
         'data_timeline_palier."SKILL_LEVEL_UP_10"', 'data_timeline_palier."SKILL_LEVEL_UP_20"', 'data_timeline_palier."SKILL_LEVEL_UP_30"',
-        'data_timeline_palier."TURRET_PLATE_DESTROYED_10"', 'data_timeline_palier."TURRET_PLATE_DESTROYED_20"', 'data_timeline_palier."TURRET_PLATE_DESTROYED_30"',
+        'data_timeline_palier."TURRET_PLATE_DESTROYED_10"', 'data_timeline_palier."TURRET_PLATE_DESTROYED_20"',
+        'data_timeline_palier."TURRET_PLATE_DESTROYED_30" AS turret_plates_taken',
         'data_timeline_palier."WARD_KILL_10"', 'data_timeline_palier."WARD_KILL_20"', 'data_timeline_palier."WARD_KILL_30"',
         'data_timeline_palier."WARD_PLACED_10"', 'data_timeline_palier."WARD_PLACED_20"', 'data_timeline_palier."WARD_PLACED_30"',
         'data_timeline_palier."CHAMPION_TRANSFORM_10"', 'data_timeline_palier."CHAMPION_TRANSFORM_20"', 'data_timeline_palier."CHAMPION_TRANSFORM_30"',
@@ -322,6 +329,10 @@ async def load_data(ctx, view, saison, mode, time_mini):
         'records_loser."l_temps_avant_premiere_mort"', 'records_loser."l_ecart_kills"', 'records_loser."l_ecart_deaths"',
         'records_loser."l_ecart_assists"', 'records_loser."l_ecart_dmg"', 'records_loser."l_allie_feeder"',
         'records_loser."l_temps_vivant"', 'records_loser."l_time"', 'records_loser."l_solokills"',
+        'match_player_scoring_data.gold_diff_15', 'match_player_scoring_data.cs_diff_15',
+        'match_player_scoring_data.objective_damage',
+        'match_player_scoring_data.objectives_participated',
+        'match_player_scoring_data.turrets_killed',
     ]
 
     all_columns = [
@@ -336,6 +347,8 @@ async def load_data(ctx, view, saison, mode, time_mini):
         INNER JOIN tracker ON tracker.id_compte = matchs.joueur
         LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id AND matchs.match_id = max_data_timeline.match_id
         LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id AND matchs.match_id = data_timeline_palier.match_id
+        LEFT JOIN match_player_scoring_data ON matchs.match_id = match_player_scoring_data.match_id
+            AND matchs.id_participant = match_player_scoring_data.player_index
         LEFT JOIN records_loser ON matchs.joueur = records_loser.joueur AND matchs.match_id = records_loser.match_id
         WHERE tracker.banned = false
           AND tracker.save_records = true
@@ -343,6 +356,30 @@ async def load_data(ctx, view, saison, mode, time_mini):
     '''
 
     fichier = lire_bdd_perso(base_query, index_col='id').transpose()
+
+    # Records narratifs dérivés de l'écart de gold de l'équipe pendant la partie.
+    if 'victoire' in fichier.columns:
+        victoire_values = fichier['victoire'].astype(str).str.lower()
+
+        if 'ecart_gold_min_durant_game' in fichier.columns:
+            min_gold_diff = pd.to_numeric(
+                fichier['ecart_gold_min_durant_game'], errors='coerce'
+            )
+            fichier['biggest_comeback'] = np.where(
+                victoire_values.isin(['true', '1', 't']) & (min_gold_diff < 0),
+                min_gold_diff.abs(),
+                np.nan
+            )
+
+        if 'ecart_gold_max_durant_game' in fichier.columns:
+            max_gold_diff = pd.to_numeric(
+                fichier['ecart_gold_max_durant_game'], errors='coerce'
+            )
+            fichier['biggest_throw'] = np.where(
+                victoire_values.isin(['false', '0', 'f']) & (max_gold_diff > 0),
+                max_gold_diff,
+                np.nan
+            )
 
     # Filtres pandas (plus rapides que côté SQL pour des conditions simples sur des données déjà chargées)
     fichier = fichier[fichier['mode'] == mode]
@@ -438,11 +475,11 @@ class Recordslol(Extension):
             'kills2': ['kills_min', 'deaths_min', 'assists_min', 'longue_serie_kills', 'ecart_kills', 'ecart_deaths', 'ecart_assists', 'killsratio', 'deathsratio', 'solokillsratio'],
             'dmg': ['dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'damageratio', 'dmg_min', 'dmg/gold', 'crit_dmg', 'dmg_true_all', 'dmg_true_all_min', 'dmg_ad_all', 'dmg_ad_all_min', 'dmg_ap_all', 'dmg_ap_all_min', 'dmg_all', 'dmg_all_min', 'ecart_dmg', 'dmg_par_kills'],
             'vision': ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage'],
-            'farming': ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage'],
+            'farming': ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage', 'cs_diff_15'],
             'tank_heal': ['dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies'],
-            'objectif': ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib', 'early_atakhan', 'first_tower_time'],
-            'divers': ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball'],
-            'fight': ['skillshot_dodged', 'skillshot_hit', 'skillshots_dodge_min', 'skillshots_hit_min', 'trade_efficience', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation', 'temps_cc_inflige', 'first_blood'],
+            'objectif': ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib', 'early_atakhan', 'first_tower_time', 'objective_damage', 'objectives_participated', 'turrets_killed', 'turret_plates_taken'],
+            'divers': ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'gold_diff_15', 'gold_avec_kills', 'biggest_comeback', 'biggest_throw', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball'],
+            'fight': ['skillshot_dodged', 'skillshot_hit', 'skillshots_dodge_min', 'skillshots_hit_min', 'trade_efficience', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation', 'temps_cc_inflige', 'first_blood', 'shutdown_bounty', 'solokilled', 'kills_avec_jgl_early', 'deaths_with_jgl_early'],
             'stats': ['abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'first_niveau_max'],
             'timer': ["ASSISTS_10", "ASSISTS_20", "ASSISTS_30", "BUILDING_KILL_20", "BUILDING_KILL_30", "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30", "DEATHS_10", "DEATHS_20", "DEATHS_30", "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30", "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30"],
             'timer2': ["TURRET_PLATE_DESTROYED_10", "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30", "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30", "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"],
@@ -610,9 +647,17 @@ class Recordslol(Extension):
                 fichier_divers.remove('snowball')
 
         if mode == 'ARAM':
-            for item in ['cs_jungle', 'jgl_dix_min']:
+            for item in ['cs_jungle', 'jgl_dix_min', 'cs_diff_15']:
                 if item in fichier_farming:
                     fichier_farming.remove(item)
+
+            for item in ['gold_diff_15', 'gold_avec_kills', 'biggest_comeback', 'biggest_throw']:
+                if item in fichier_divers:
+                    fichier_divers.remove(item)
+
+            for item in ['shutdown_bounty', 'solokilled', 'kills_avec_jgl_early', 'deaths_with_jgl_early']:
+                if item in fichier_fight:
+                    fichier_fight.remove(item)
 
             for item in ['first_double', 'first_triple', 'first_quadra', 'first_penta']:
                 if item in fichier_kills:
@@ -804,9 +849,17 @@ class Recordslol(Extension):
                 fichier_divers.remove('snowball')
 
         if mode == 'ARAM':
-            for stat in ['cs_jungle', 'jgl_dix_min']:
+            for stat in ['cs_jungle', 'jgl_dix_min', 'cs_diff_15']:
                 if stat in fichier_farming:
                     fichier_farming.remove(stat)
+
+            for stat in ['gold_diff_15', 'gold_avec_kills', 'biggest_comeback', 'biggest_throw']:
+                if stat in fichier_divers:
+                    fichier_divers.remove(stat)
+
+            for stat in ['shutdown_bounty', 'solokilled', 'kills_avec_jgl_early', 'deaths_with_jgl_early']:
+                if stat in fichier_fight:
+                    fichier_fight.remove(stat)
 
             to_remove_timer = [
                 "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
