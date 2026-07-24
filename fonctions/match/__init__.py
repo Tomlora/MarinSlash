@@ -19,6 +19,8 @@ Structure des modules:
 - save_data.py: Sauvegarde en BDD
 - timeline.py: Analyse de la timeline
 - analysis.py: Analyses avancées (skirmishes, roam, etc.)
+- teamfight_damage.py: Dégâts par joueur pendant les teamfights
+- teamfight_storage.py: Sauvegarde PostgreSQL des dégâts de teamfight
 - detection.py: Détection de patterns joueurs
 - badges.py: Calcul des badges et scoring
 - image.py: Génération d'images
@@ -41,6 +43,8 @@ Usage:
 
 from .matchlol import MatchLol
 from .image_modern import install_modern_recap
+from .teamfight_damage import calculate_teamfight_damage, install_teamfight_damage
+from .teamfight_storage import install_teamfight_storage
 from .riot_api import (
     get_version,
     get_champ_list,
@@ -79,6 +83,10 @@ from .utils import (
 # historique comme fallback.
 install_modern_recap(MatchLol)
 
+# Ajoute le calcul puis la sauvegarde automatique des dégâts de teamfight.
+install_teamfight_damage(MatchLol)
+install_teamfight_storage(MatchLol)
+
 __all__ = [
     # Classe principale
     'MatchLol',
@@ -105,6 +113,9 @@ __all__ = [
     'get_stat_champion_by_player',
     'detect_duos',
     'get_spectator_data',
+
+    # Teamfights
+    'calculate_teamfight_damage',
     
     # Utils
     'mode',

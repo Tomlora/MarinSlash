@@ -346,6 +346,50 @@ class TimelineMixin:
             self.timestamp_quadrakill = 999
             self.timestamp_pentakill = 999
 
+    def persist_match_timeline_fields(self):
+        """Persiste dans `matchs` les valeurs calculées depuis la timeline."""
+        requete_perso_bdd(
+            '''UPDATE matchs SET fourth_dragon = :fourth_dragon,
+            first_elder = :first_elder,
+            first_horde = :first_horde,
+            first_double = :first_double,
+            first_triple = :first_triple,
+            first_quadra = :first_quadra,
+            first_penta = :first_penta,
+            first_niveau_max = :first_niveau_max,
+            first_blood = :first_blood,
+            early_atakhan = :first_atakhan,
+            solokilled = :solokilled,
+            gold_avec_kills = :gold_avec_kills,
+            kills_avec_jgl_early = :kills_avec_jgl_early,
+            deaths_with_jgl_early = :deaths_with_jgl_early,
+            shutdown_bounty = :shutdown_bounty,
+            ecart_gold_min_durant_game = :ecart_gold_min_durant_game,
+            ecart_gold_max_durant_game = :ecart_gold_max_durant_game
+            WHERE match_id = :match_id AND joueur = :joueur''',
+            {
+                'fourth_dragon': getattr(self, 'timestamp_fourth_dragon', 999),
+                'first_elder': getattr(self, 'timestamp_first_elder', 999),
+                'first_horde': getattr(self, 'timestamp_first_horde', 999),
+                'first_double': getattr(self, 'timestamp_doublekill', 999),
+                'first_triple': getattr(self, 'timestamp_triplekill', 999),
+                'first_quadra': getattr(self, 'timestamp_quadrakill', 999),
+                'first_penta': getattr(self, 'timestamp_pentakill', 999),
+                'first_niveau_max': getattr(self, 'timestamp_niveau_max', 999),
+                'first_blood': getattr(self, 'timestamp_first_blood', 999),
+                'first_atakhan': getattr(self, 'timestamp_first_atakhan', 999),
+                'solokilled': getattr(self, 'get_solokilled', 0),
+                'gold_avec_kills': getattr(self, 'gold_with_kills', 0),
+                'kills_avec_jgl_early': getattr(self, 'kills_with_jgl_early', 0),
+                'deaths_with_jgl_early': getattr(self, 'deaths_with_jgl_early', 0),
+                'shutdown_bounty': getattr(self, 'bounty_recupere', 0),
+                'ecart_gold_min_durant_game': getattr(self, 'val_min_ecart_gold', 0),
+                'ecart_gold_max_durant_game': getattr(self, 'val_max_ecart_gold', 0),
+                'match_id': self.last_match,
+                'joueur': self.id_compte
+            }
+        )
+
     async def _extract_gold_diff(self):
         """Extrait les différences de gold pendant la partie."""
         participants = self.match_detail['info']['participants']
@@ -387,48 +431,9 @@ class TimelineMixin:
         self.df_timeline_diff['gold_adv'] = self.df_timeline_adverse['totalGold']
         self.df_timeline_diff['gold_allie'] = self.df_timeline_alliee['totalGold']
 
-        # Mise à jour de la BDD
-        requete_perso_bdd(
-            '''UPDATE matchs SET fourth_dragon = :fourth_dragon,
-            first_elder = :first_elder,
-            first_horde = :first_horde,
-            first_double = :first_double,
-            first_triple = :first_triple,
-            first_quadra = :first_quadra,
-            first_penta = :first_penta,
-            first_niveau_max = :first_niveau_max,
-            first_blood = :first_blood,
-            early_atakhan = :first_atakhan,
-            solokilled = :solokilled,
-            gold_avec_kills = :gold_avec_kills,
-            kills_avec_jgl_early = :kills_avec_jgl_early,
-            deaths_with_jgl_early = :deaths_with_jgl_early,
-            shutdown_bounty = :shutdown_bounty,
-            ecart_gold_min_durant_game = :ecart_gold_min_durant_game,
-            ecart_gold_max_durant_game = :ecart_gold_max_durant_game
-            WHERE match_id = :match_id AND joueur = :joueur''',
-            {
-                'fourth_dragon': self.timestamp_fourth_dragon,
-                'first_elder': self.timestamp_first_elder,
-                'first_horde': self.timestamp_first_horde,
-                'first_double': self.timestamp_doublekill,
-                'first_triple': self.timestamp_triplekill,
-                'first_quadra': self.timestamp_quadrakill,
-                'first_penta': self.timestamp_pentakill,
-                'first_niveau_max': self.timestamp_niveau_max,
-                'first_blood': self.timestamp_first_blood,
-                'first_atakhan': self.timestamp_first_atakhan,
-                'solokilled': self.get_solokilled,
-                'gold_avec_kills': self.gold_with_kills,
-                'kills_avec_jgl_early': self.kills_with_jgl_early,
-                'deaths_with_jgl_early': self.deaths_with_jgl_early,
-                'shutdown_bounty': self.bounty_recupere,
-                'ecart_gold_min_durant_game': self.val_min_ecart_gold,
-                'ecart_gold_max_durant_game': self.val_max_ecart_gold,
-                'match_id': self.last_match,
-                'joueur': self.id_compte
-            }
-        )
+        # Mise à jour immédiate pour les matchs déjà présents (recalcul/backfill).
+        # Pour un nouveau match, cette méthode est rejouée après `save_data()`.
+        self.persist_match_timeline_fields()
 
         # Sauvegarde des événements et timeline
         self._save_timeline_tables()
@@ -546,7 +551,7 @@ class TimelineMixin:
             setattr(self, f'champion_kill_{time}', safe_get_first(self.df_time_pivot, f'CHAMPION_KILL_{time}'))
             setattr(self, f'level_{time}', safe_get_first(self.df_time_pivot, f'LEVEL_UP_{time}'))
             setattr(self, f'WARD_KILL_{time}', safe_get_first(self.df_time_pivot, f'WARD_KILL_{time}'))
-            setattr(self, f'WARD_PLACED_{time}', safe_get_first(self.df_time_pivot, f'WARD_KILL_{time}'))
+            setattr(self, f'WARD_PLACED_{time}', safe_get_first(self.df_time_pivot, f'WARD_PLACED_{time}'))
 
         self.jgl_20 = safe_get_first(self.df_time_pivot, 'JGL_20')
         self.jgl_30 = safe_get_first(self.df_time_pivot, 'JGL_30')
