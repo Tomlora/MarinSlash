@@ -42,6 +42,15 @@ ALTER TABLE IF EXISTS match_teamfight_damage
     ALTER COLUMN participation_source TYPE TEXT
     USING participation_source::TEXT;
 
+-- L'ancien CHECK n'autorisait que les valeurs historiques. Les nouvelles
+-- sources "damage" et "event+damage" sont produites par le calcul enrichi.
+ALTER TABLE IF EXISTS match_teamfight_damage
+    DROP CONSTRAINT IF EXISTS match_teamfight_damage_participation_source_check;
+
+ALTER TABLE IF EXISTS match_teamfight_damage
+    ADD CONSTRAINT match_teamfight_damage_participation_source_check
+    CHECK (participation_source IN ('event', 'damage', 'event+damage', 'proximity'));
+
 -- Backfill des champs qui peuvent être reconstruits sans ambiguïté sur l'historique.
 UPDATE match_teamfight_damage
 SET
