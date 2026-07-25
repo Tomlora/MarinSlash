@@ -36,6 +36,12 @@ ALTER TABLE IF EXISTS match_teamfight_damage
     ADD COLUMN IF NOT EXISTS damage_share_on_dead_targets DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS damage_frame_window BIGINT;
 
+-- La nouvelle valeur "event+damage" fait 12 caractères. L'ancien schéma
+-- utilisait VARCHAR(10), ce qui provoquait StringDataRightTruncation.
+ALTER TABLE IF EXISTS match_teamfight_damage
+    ALTER COLUMN participation_source TYPE TEXT
+    USING participation_source::TEXT;
+
 -- Backfill des champs qui peuvent être reconstruits sans ambiguïté sur l'historique.
 UPDATE match_teamfight_damage
 SET
