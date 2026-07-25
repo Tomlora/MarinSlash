@@ -1,4 +1,18 @@
-from fonctions.match.teamfight_damage import calculate_teamfight_damage
+import importlib.util
+from pathlib import Path
+
+
+MODULE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "fonctions"
+    / "match"
+    / "teamfight_damage.py"
+)
+SPEC = importlib.util.spec_from_file_location("teamfight_damage_under_test", MODULE_PATH)
+assert SPEC and SPEC.loader
+MODULE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(MODULE)
+calculate_teamfight_damage = MODULE.calculate_teamfight_damage
 
 
 def _participants():
