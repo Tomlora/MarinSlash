@@ -72,6 +72,21 @@ WHERE
     OR shared_window_fight_count IS NULL
     OR damage_frame_window IS NULL;
 
+-- start_minute/end_minute sont des valeurs MM.SS, pas des minutes décimales.
+-- Exemple : 658000 ms = 10 min 58 s => 10.58, et non 10.97.
+UPDATE match_teamfight_damage
+SET
+    start_minute = (
+        FLOOR(start_ms::numeric / 60000)
+        + FLOOR(MOD(start_ms, 60000)::numeric / 1000) / 100
+    ),
+    end_minute = (
+        FLOOR(end_ms::numeric / 60000)
+        + FLOOR(MOD(end_ms, 60000)::numeric / 1000) / 100
+    )
+WHERE start_ms IS NOT NULL
+  AND end_ms IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_match_teamfight_damage_match_fight
     ON match_teamfight_damage (match_id, analyzed_puuid, fight_id);
 
