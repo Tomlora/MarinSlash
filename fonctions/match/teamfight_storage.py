@@ -6,6 +6,7 @@ from functools import wraps
 from typing import Any
 
 from fonctions.gestion_bdd import requete_perso_bdd
+from .teamfight_time import timestamp_ms_to_mmss_decimal
 
 
 TEAMFIGHT_TABLE = "match_teamfight_damage"
@@ -107,14 +108,22 @@ async def save_teamfight_damage(
     for fight in teamfights:
         allied_kills = fight.get("allied_kills", fight.get("kills_allies", 0))
         enemy_kills = fight.get("enemy_kills", fight.get("kills_enemies", 0))
+
+        # start_minute/end_minute utilisent une représentation MM.SS et non des
+        # minutes décimales. Exemple : 10 min 58 s -> 10.58, jamais 10.97.
+        start_minute = timestamp_ms_to_mmss_decimal(fight["start_ms"])
+        end_minute = timestamp_ms_to_mmss_decimal(fight["end_ms"])
+        fight["start_minute"] = start_minute
+        fight["end_minute"] = end_minute
+
         fight_values = {
             "match_id": match_id,
             "analyzed_puuid": analyzed_puuid,
             "fight_id": fight["fight_id"],
             "start_ms": fight["start_ms"],
             "end_ms": fight["end_ms"],
-            "start_minute": fight["start_minute"],
-            "end_minute": fight["end_minute"],
+            "start_minute": start_minute,
+            "end_minute": end_minute,
             "first_kill_ms": fight.get("first_kill_ms", fight["start_ms"]),
             "last_kill_ms": fight.get("last_kill_ms", fight["end_ms"]),
             "kill_span_ms": fight.get("kill_span_ms", max(0, fight["end_ms"] - fight["start_ms"])),
