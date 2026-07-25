@@ -19,6 +19,8 @@ Structure des modules:
 - save_data.py: Sauvegarde en BDD
 - timeline.py: Analyse de la timeline
 - analysis.py: Analyses avancées (skirmishes, roam, etc.)
+- ganks.py: Implémentation historique de l'analyse des ganks
+- ganks_hybrid.py: Détection hybride des tentatives de gank
 - teamfight_damage.py: Dégâts par joueur pendant les teamfights
 - teamfight_storage.py: Sauvegarde PostgreSQL des dégâts de teamfight
 - detection.py: Détection de patterns joueurs
@@ -46,6 +48,8 @@ from .image_modern import install_modern_recap
 from .teamfight_damage import calculate_teamfight_damage, install_teamfight_damage
 from .teamfight_storage import install_teamfight_storage
 from .timeline_persistence import install_timeline_persistence
+from .ganks import GankAnalysisMixin as LegacyGankAnalysisMixin
+from .ganks_hybrid import install_hybrid_ganks
 from .riot_api import (
     get_version,
     get_champ_list,
@@ -83,6 +87,17 @@ from .utils import (
 # Ajoute le sélecteur legacy/modern à MatchLol tout en conservant la méthode
 # historique comme fallback.
 install_modern_recap(MatchLol)
+
+# Remplace la détection historique « kill du jungler = gank » par la V2 hybride.
+# La position à la minute devient un signal optionnel, combiné aux événements
+# exacts et aux deltas de dégâts entre frames.
+install_hybrid_ganks(MatchLol)
+
+# _compute_timing_insights utilise super() dans la classe hybride lorsqu'elle est
+# instanciée directement. MatchLol reçoit les méthodes par installation dynamique,
+# donc on conserve ici l'implémentation historique compatible pour l'agrégation
+# temporelle (les détails V2 restent disponibles dans gank_stats['events']).
+MatchLol._compute_timing_insights = LegacyGankAnalysisMixin._compute_timing_insights
 
 # Ajoute le calcul puis la sauvegarde automatique des dégâts de teamfight.
 install_teamfight_damage(MatchLol)
