@@ -10,6 +10,7 @@ from fonctions.proplay_sources import (
     fetch_trackingthepros_players,
     merge_proplayer_sources,
 )
+from fonctions.lolpros import fetch_lolpros_accounts, merge_account_sources
 from fonctions.word import suggestion_word
 from datetime import datetime
 from dateutil import tz
@@ -62,47 +63,61 @@ class LoLProplay(Extension):
                 print('Update Database Proplayers annulée : fusion vide.')
                 return
 
-            # La table joueurs est sauvegardée avant le scraping des comptes TTP :
-            # une panne de ces pages ne peut donc plus bloquer la mise à jour roster.
+            # La table joueurs est sauvegardée avant les sources de comptes :
+            # une panne LoLPros/TTP ne peut donc plus bloquer la mise à jour roster.
             sauvegarde_bdd(df_pro, 'data_proplayers')
             print(
                 f'data_proplayers mise à jour : {len(df_pro)} joueurs '
                 f'({len(df_leaguepedia)} Leaguepedia, {len(df_tracking)} TrackingThePros).'
             )
 
+            # Aucun appel Riot ici. Les URLs LoLPros sont résolues via Leaguepedia
+            # et TTP reste une deuxième source additive quand il répond.
+            df_lolpros_accounts = await fetch_lolpros_accounts(
+                session,
+                df_leaguepedia['plug'].tolist(),
+            )
             if not df_tracking.empty:
-                df_accounts = await fetch_trackingthepros_accounts(
+                df_ttp_accounts = await fetch_trackingthepros_accounts(
                     session,
                     df_tracking['plug'].tolist(),
                 )
-
-                if not df_accounts.empty:
-                    df_accounts_origin = lire_bdd_perso(
-                        '''SELECT * from data_acc_proplayers''',
-                        index_col=['joueur', 'compte'],
-                    ).T
-
-                    df_accounts.set_index(['joueur', 'compte'], inplace=True)
-                    df_accounts_origin = pd.concat([
-                        df_accounts_origin[~df_accounts_origin.index.isin(df_accounts.index)],
-                        df_accounts,
-                    ])
-
-                    df_accounts_origin.reset_index(inplace=True)
-                    df_accounts_origin.drop_duplicates(
-                        subset=['joueur', 'compte', 'region'],
-                        inplace=True,
-                    )
-
-                    sauvegarde_bdd(
-                        df_accounts_origin.drop(columns='index', errors='ignore'),
-                        'data_acc_proplayers',
-                    )
-                    print(f'data_acc_proplayers mise à jour : {len(df_accounts)} comptes récupérés.')
-                else:
-                    print('TrackingThePros comptes indisponibles : data_acc_proplayers conservée.')
             else:
-                print('TrackingThePros indisponible : data_acc_proplayers conservée.')
+                df_ttp_accounts = pd.DataFrame(columns=['joueur', 'compte', 'region'])
+
+            df_accounts = merge_account_sources(
+                df_lolpros_accounts,
+                df_ttp_accounts,
+            )
+
+            if not df_accounts.empty:
+                df_accounts_origin = lire_bdd_perso(
+                    '''SELECT * from data_acc_proplayers''',
+                    index_col=['joueur', 'compte'],
+                ).T
+
+                df_accounts.set_index(['joueur', 'compte'], inplace=True)
+                df_accounts_origin = pd.concat([
+                    df_accounts_origin[~df_accounts_origin.index.isin(df_accounts.index)],
+                    df_accounts,
+                ])
+
+                df_accounts_origin.reset_index(inplace=True)
+                df_accounts_origin.drop_duplicates(
+                    subset=['joueur', 'compte', 'region'],
+                    inplace=True,
+                )
+
+                sauvegarde_bdd(
+                    df_accounts_origin.drop(columns='index', errors='ignore'),
+                    'data_acc_proplayers',
+                )
+                print(
+                    f'data_acc_proplayers mise à jour : {len(df_accounts)} comptes '
+                    f'({len(df_lolpros_accounts)} LoLPros, {len(df_ttp_accounts)} TrackingThePros).'
+                )
+            else:
+                print('LoLPros et TrackingThePros comptes indisponibles : data_acc_proplayers conservée.')
 
         print('Update Database Proplayers terminée !')
 
