@@ -1,55 +1,18 @@
 import interactions
-from interactions import Extension, listen, Task, IntervalTrigger, slash_command, SlashContext, SlashCommandOption
 import pandas as pd
+from interactions import Extension, listen, Task, IntervalTrigger, slash_command, SlashContext, SlashCommandOption
 from aiohttp import ClientSession
 from fonctions.gestion_bdd import sauvegarde_bdd, lire_bdd_perso, requete_perso_bdd
+from fonctions.proplay_sources import (
+    DEFAULT_PRO_LEAGUES,
+    fetch_leaguepedia_players,
+    fetch_trackingthepros_accounts,
+    fetch_trackingthepros_players,
+    merge_proplayer_sources,
+)
 from fonctions.word import suggestion_word
 from datetime import datetime
 from dateutil import tz
-
-
-
-async def data_joueur_leaguepedia(session, liste_championnat):
-
-    liste_df = []
-
-    for championnat in liste_championnat: # https://lol.fandom.com/wiki/Metadata:Leagues
-        url = "https://lol.fandom.com/api.php"
-        params = {
-            "action": "cargoquery",
-            "tables": "Tournaments,TournamentPlayers,PlayerRedirects, Players",
-            "fields": "Players.Player,Players.Name,Players.Country, Players.Role, Tournaments.League, Players.Team, Players.Country",
-            "where" : f"Tournaments.League in ('{championnat}') and Players.Role in ('Top', 'Jungle', 'Mid', 'Bot', 'Support') ",
-            "join_on": "Tournaments.OverviewPage=TournamentPlayers.OverviewPage, TournamentPlayers.Player = PlayerRedirects.AllName, PlayerRedirects.OverviewPage=Players.OverviewPage",
-            "group_by" : 'Players.OverviewPage',
-            "format": "json",
-            "limit": "1000"  # Augmentez la limite ici
-        }
-
-        response = await session.get(url, params=params)
-        data = await response.json()
-
-        data = data['cargoquery']
-
-        # Transformation des données pour obtenir une liste de dictionnaires
-        cleaned_data = [entry['title'] for entry in data]
-
-        # Création du DataFrame à partir des données nettoyées
-        df = pd.DataFrame(cleaned_data)
-
-        # Optionnel : Renommer les colonnes pour un meilleur affichage
-        df.columns = ['plug', 'Nom', 'Pays', 'Rôle', 'Ligue', 'team_plug']
-
-        liste_df.append(df)
-
-
-    df_leaguepedia = pd.concat(liste_df).reset_index(drop=True).drop_duplicates(keep='first', subset='plug')
-
-    df_leaguepedia['Rôle'] = df_leaguepedia['Rôle'].replace({'Bot' : 'ADC'})
-
-    df_leaguepedia['plug'] = df_leaguepedia['plug'].str.replace(r'\s*\(.*?\)', '', regex=True)
-
-    return df_leaguepedia
 
 
 class LoLProplay(Extension):
@@ -62,102 +25,86 @@ class LoLProplay(Extension):
 
     @Task.create(IntervalTrigger(hours=12))
     async def update_pro_database(self):
+        if datetime.now().weekday() != 0:  # Que le lundi
+            return
 
-        if datetime.now().weekday() == 0: # Que le lundi
+        print('Update Database Proplayers...')
+        timezone = tz.gettz('Europe/Paris')
+        updated_at = datetime.now(timezone)
 
-            session = ClientSession()
-            data = await session.get('https://www.trackingthepros.com/d/list_players?filter_region=ALL&')
+        async with ClientSession() as session:
+            # Leaguepedia est la source roster principale et fonctionne même si TTP est KO.
+            df_leaguepedia = await fetch_leaguepedia_players(
+                session,
+                DEFAULT_PRO_LEAGUES,
+            )
 
-            print('Update Database Proplayers...')
+            # TrackingThePros n'est plus bloquant : il enrichit les infos et comptes.
+            df_tracking = await fetch_trackingthepros_players(session)
 
-            txt = await data.json()
+            if df_leaguepedia.empty and df_tracking.empty:
+                print('Update Database Proplayers annulée : Leaguepedia et TrackingThePros indisponibles.')
+                return
 
-            df_pro = pd.DataFrame(txt['data'])
+            df_pro_origin = lire_bdd_perso(
+                '''SELECT * from data_proplayers''',
+                index_col='plug',
+            ).T
 
-            df_pro.drop(['DT_RowId', 'name', 'online', 'gameID', 'onStream','onlineNum'], axis=1, inplace=True)
+            df_pro = merge_proplayer_sources(
+                df_pro_origin,
+                df_tracking,
+                df_leaguepedia,
+                updated_at=updated_at,
+            )
 
-            # NOTE : Prevoir 15m
+            if df_pro.empty:
+                print('Update Database Proplayers annulée : fusion vide.')
+                return
 
-            df_final = pd.DataFrame(columns=['joueur', 'compte'])
+            # La table joueurs est sauvegardée avant le scraping des comptes TTP :
+            # une panne de ces pages ne peut donc plus bloquer la mise à jour roster.
+            sauvegarde_bdd(df_pro, 'data_proplayers')
+            print(
+                f'data_proplayers mise à jour : {len(df_pro)} joueurs '
+                f'({len(df_leaguepedia)} Leaguepedia, {len(df_tracking)} TrackingThePros).'
+            )
 
-            for name_joueur in df_pro['name_plug']:
+            if not df_tracking.empty:
+                df_accounts = await fetch_trackingthepros_accounts(
+                    session,
+                    df_tracking['plug'].tolist(),
+                )
 
-                try:
-                    df_rank = pd.read_html(f'https://www.trackingthepros.com/player/{name_joueur}/')[1][[0]]
-                    
-                    df_rank.columns = ['compte']
-                    
-                    df_rank['joueur'] = name_joueur 
-                    
-                    df_final = pd.concat([df_final, df_rank])
-                except:
-                    # print('erreur', f'{name_joueur}')
-                    continue
+                if not df_accounts.empty:
+                    df_accounts_origin = lire_bdd_perso(
+                        '''SELECT * from data_acc_proplayers''',
+                        index_col=['joueur', 'compte'],
+                    ).T
 
-            # filtre
+                    df_accounts.set_index(['joueur', 'compte'], inplace=True)
+                    df_accounts_origin = pd.concat([
+                        df_accounts_origin[~df_accounts_origin.index.isin(df_accounts.index)],
+                        df_accounts,
+                    ])
 
-            df_final = df_final[~df_final['compte'].str.contains('Inactive')]
+                    df_accounts_origin.reset_index(inplace=True)
+                    df_accounts_origin.drop_duplicates(
+                        subset=['joueur', 'compte', 'region'],
+                        inplace=True,
+                    )
 
-            df_final['region'] = df_final['compte'].str.extract(r'\[(.*?)\]', expand=False) # extrait les regions
+                    sauvegarde_bdd(
+                        df_accounts_origin.drop(columns='index', errors='ignore'),
+                        'data_acc_proplayers',
+                    )
+                    print(f'data_acc_proplayers mise à jour : {len(df_accounts)} comptes récupérés.')
+                else:
+                    print('TrackingThePros comptes indisponibles : data_acc_proplayers conservée.')
+            else:
+                print('TrackingThePros indisponible : data_acc_proplayers conservée.')
 
-            df_final['compte'] = df_final['compte'].str.replace(r'\[.*?\]', '', regex=True) # les supprime des pseudos
-
-            df_final['compte'] = df_final['compte'].apply(lambda x: x[1:] if x.startswith(' ') else x) # laisse un espace vide
-
-
-            df_pro.rename(columns={'id' : 'index', 'position' : 'role', 'name_plug' : 'plug', 'current_region' : 'current', 'home_region' : 'home', 'highest_lp' : 'rankHighLP', 'highest_rank' : 'rankHighLPNum', "player_accounts" : 'accounts'} , inplace=True)
-
-            # df_pro.set_index('index', inplace=True)
-
-            df_pro = df_pro[['current', 'home', 'role', 'accounts', 'team_plug', 'plug', 'rankHigh', 'rankHighNum', 'rankHighLP', 'rankHighLPNum']]
-
-
-            # NOTE : Data Leaguepedia
-
-            df_leaguepedia = await data_joueur_leaguepedia(session, ['LoL EMEA Championship', 'La Ligue Française', 'La Ligue Française Division 2', 'Iberian Cup', 'Prime League Pro Division',
-                            'Turkish Championship League', 'Ultraliga', 'Arabian League', 'Northern League of Legends Championship', 'Esports Balkan League'])
-            
-            for joueur in df_pro['plug'].tolist():
-                if joueur in df_leaguepedia['plug'].tolist():
-                    df_pro.loc[df_pro['plug'] == joueur, 'team_plug'] = df_leaguepedia.loc[df_leaguepedia['plug'] == joueur, 'team_plug'].values[0] 
-
-
-            # upsert
-
-            df_pro_origin = lire_bdd_perso('''SELECT * from data_proplayers''', index_col='plug').T
-
-            df_pro.set_index('plug', inplace=True)
-
-            df_pro_origin = pd.concat([df_pro_origin[~df_pro_origin.index.isin(df_pro.index)], df_pro])
-
-            df_pro_origin = df_pro_origin.reset_index()[['current', 'home', 'role', 'accounts', 'team_plug', 'plug', 'rankHigh', 'rankHighNum', 'rankHighLP', 'rankHighLPNum']]
-
-            df_pro_origin = df_pro_origin.merge(df_leaguepedia[['plug', 'Pays']], how='left', on='plug')
-
-            timezone = tz.gettz('Europe/Paris')
-            df_pro_origin['update'] = datetime.now(timezone)
-
-            sauvegarde_bdd(df_pro_origin,
-                    'data_proplayers')
-            
-            df_final.reset_index(inplace=True, drop=True)
-
-            # upsert
-
-            df_final_origin = lire_bdd_perso('''SELECT * from data_acc_proplayers''', index_col=['joueur', 'compte']).T
-            
-            df_final.set_index(['joueur', 'compte'], inplace=True)
-
-            df_final_origin = pd.concat([df_final_origin[~df_final_origin.index.isin(df_final.index)], df_final])
-
-            df_final_origin.reset_index(inplace=True)
-
-            df_final_origin.drop_duplicates(subset=['joueur', 'compte', 'region'], inplace=True)
-
-
-            sauvegarde_bdd(df_final_origin.drop(columns='index'), 'data_acc_proplayers')
-
-            print('Update Database Proplayers terminée !')
+        print('Update Database Proplayers terminée !')
 
 
     @slash_command(name='lol_pro', description='Pro League of Legends')
