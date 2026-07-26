@@ -7,6 +7,7 @@ from fonctions.proplay_sources import (
     merge_proplayer_sources,
     parse_trackingthepros_accounts,
 )
+from fonctions.lolpros import merge_account_sources, parse_lolpros_accounts
 
 
 class ProplaySourceTests(unittest.TestCase):
@@ -35,6 +36,8 @@ class ProplaySourceTests(unittest.TestCase):
                 "Rôle": "Jungle",
                 "Ligue": "Prime League 1st Division",
                 "team_plug": "G2 NORD",
+                "SoloqueueIds": "Markoon, ikklapjouwII",
+                "Lolpros": "https://lolpros.gg/player/markoon",
             }
         ])
 
@@ -88,6 +91,43 @@ class ProplaySourceTests(unittest.TestCase):
         self.assertEqual(result.iloc[0]["joueur"], "Markoon")
         self.assertEqual(result.iloc[0]["compte"], "Markoon#EUW")
         self.assertEqual(result.iloc[0]["region"], "EUW")
+
+    def test_lolpros_only_returns_current_accounts(self):
+        html = """
+        <html><body>
+          <h1>Markoon</h1>
+          <div>Netherlands</div>
+          <a>Michiel deRuyter#NLNLN</a>
+          <a>ikklapjouwII#EUW</a>
+          <h4>Current Rank</h4>
+          <div>Challenger</div>
+          <h4>Summoner Names</h4>
+          <div>Barkoon#bark</div>
+          <div>Markoon#EUW</div>
+        </body></html>
+        """
+
+        result = parse_lolpros_accounts(html, "Markoon")
+
+        self.assertEqual(
+            result["compte"].tolist(),
+            ["Michiel deRuyter#NLNLN", "ikklapjouwII#EUW"],
+        )
+        self.assertEqual(result["region"].tolist(), ["EUW", "EUW"])
+
+    def test_account_sources_are_deduplicated(self):
+        lolpros = pd.DataFrame([
+            {"joueur": "Markoon", "compte": "Michiel deRuyter#NLNLN", "region": "EUW"},
+            {"joueur": "Markoon", "compte": "ikklapjouwII#EUW", "region": "EUW"},
+        ])
+        tracking = pd.DataFrame([
+            {"joueur": "Markoon", "compte": "Michiel deRuyter#NLNLN", "region": "euw"},
+        ])
+
+        result = merge_account_sources(lolpros, tracking)
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(set(result["region"]), {"EUW"})
 
 
 if __name__ == "__main__":
