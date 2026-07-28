@@ -7,6 +7,10 @@ from fonctions.proplay_sources import (
     merge_proplayer_sources,
     parse_trackingthepros_accounts,
 )
+from fonctions.leaguepedia_pro import (
+    fetch_leaguepedia_players,
+    fetch_leaguepedia_players_by_name,
+)
 from fonctions.lolpros import merge_account_sources, parse_lolpros_accounts
 
 
@@ -128,6 +132,84 @@ class ProplaySourceTests(unittest.TestCase):
 
         self.assertEqual(len(result), 2)
         self.assertEqual(set(result["region"]), {"EUW"})
+
+
+class _FakeResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    def raise_for_status(self):
+        return None
+
+    async def json(self, content_type=None):
+        return self.payload
+
+
+class _FakeSession:
+    def __init__(self, payload):
+        self.payload = payload
+        self.calls = []
+
+    def get(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        return _FakeResponse(self.payload)
+
+
+class LeaguepediaQueryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_direct_player_lookup_does_not_depend_on_tournaments(self):
+        session = _FakeSession({
+            "cargoquery": [{
+                "title": {
+                    "Player": "Caps",
+                    "Name": "Rasmus Borregaard Winther",
+                    "Country": "Denmark",
+                    "Role": "Mid",
+                    "Team": "G2 Esports",
+                    "Lolpros": "https://lolpros.gg/player/caps",
+                }
+            }]
+        })
+
+        result = await fetch_leaguepedia_players_by_name(session, ["Caps"])
+
+        self.assertEqual(result.iloc[0]["plug"], "Caps")
+        self.assertEqual(result.iloc[0]["team_plug"], "G2 Esports")
+        params = session.calls[0][1]["params"]
+        self.assertEqual(params["tables"], "PlayerRedirects,Players")
+        self.assertIn("PlayerRedirects.AllName='Caps'", params["where"])
+
+    async def test_roster_query_uses_current_leaguepedia_redirect_join(self):
+        session = _FakeSession({
+            "cargoquery": [{
+                "title": {
+                    "Player": "Markoon",
+                    "Name": "Mark van Woensel",
+                    "Country": "Netherlands",
+                    "Role": "Jungle",
+                    "League": "Prime League Pro Division",
+                    "Team": "G2 NORD",
+                    "Lolpros": "https://lolpros.gg/player/markoon",
+                }
+            }]
+        })
+
+        result = await fetch_leaguepedia_players(
+            session,
+            ["Prime League Pro Division"],
+        )
+
+        self.assertEqual(result.iloc[0]["plug"], "Markoon")
+        params = session.calls[0][1]["params"]
+        self.assertIn(
+            "TournamentPlayers.Link=PlayerRedirects.AllName",
+            params["join_on"],
+        )
 
 
 if __name__ == "__main__":
