@@ -44,12 +44,12 @@ class FantasyLoL(Extension):
         return int(ctx.guild_id)
 
     @staticmethod
-    async def _error(ctx: SlashContext, exc: Exception):
+    async def _error(ctx: SlashContext, exc: Exception, *, ephemeral: bool = True):
         if isinstance(exc, FantasyServiceError):
             message = str(exc)
         else:
             message = f"Erreur Fantasy inattendue : `{type(exc).__name__}`."
-        await ctx.send(f"❌ {message}", ephemeral=True)
+        await ctx.send(f"❌ {message}", ephemeral=ephemeral)
 
     @slash_command(name="fantasy", description="Fantasy League of Legends")
     async def fantasy(self, ctx: SlashContext):
@@ -244,7 +244,7 @@ class FantasyLoL(Extension):
                 requester_discord_id=int(ctx.author_id),
             )
         except Exception as exc:
-            return await self._error(ctx, exc)
+            return await self._error(ctx, exc, ephemeral=False)
 
         ordered = [
             manager
@@ -309,7 +309,7 @@ class FantasyLoL(Extension):
                 league_id=int(league_id), guild_id=self._guild_id(ctx)
             )
         except Exception as exc:
-            return await self._error(ctx, exc)
+            return await self._error(ctx, exc, ephemeral=False)
 
         asset_icon = "👤" if result.pick.asset_type == "player" else "🛡️"
         if result.draft_completed:
