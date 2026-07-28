@@ -5,11 +5,11 @@ from aiohttp import ClientSession
 from fonctions.gestion_bdd import sauvegarde_bdd, lire_bdd_perso, requete_perso_bdd
 from fonctions.proplay_sources import (
     DEFAULT_PRO_LEAGUES,
-    fetch_leaguepedia_players,
     fetch_trackingthepros_accounts,
     fetch_trackingthepros_players,
     merge_proplayer_sources,
 )
+from fonctions.leaguepedia_pro import fetch_leaguepedia_players
 from fonctions.lolpros import fetch_lolpros_accounts, merge_account_sources
 from fonctions.word import suggestion_word
 from datetime import datetime
