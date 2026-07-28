@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections import Counter
+from itertools import product
 from typing import Iterable, Sequence
 
-from .models import PlayerRole, RosterEntry, RosterSlot, STARTER_SLOTS
+from .models import PlayerAsset, PlayerRole, RosterEntry, RosterSlot, STARTER_SLOTS, TeamAsset
 
 
 EXPECTED_PLAYER_COUNT = 8
@@ -67,6 +68,62 @@ def validate_final_roster(entries: Sequence[RosterEntry]) -> None:
         raise RosterValidationError("A player cannot appear twice in the same roster")
 
     validate_lineup(entries)
+
+
+def choose_initial_roster(
+    players: Sequence[PlayerAsset], team: TeamAsset
+) -> list[RosterEntry]:
+    """Build a valid post-draft lineup from 8 owned players.
+
+    Picks are ownership decisions, not lineup decisions. At draft completion we
+    select one player for every role while ensuring the five starters represent
+    at least two competitions. Remaining players become bench assets.
+
+    Candidates keep draft order, so the earliest valid combination is chosen.
+    """
+    players = list(players)
+    if len(players) != EXPECTED_PLAYER_COUNT:
+        raise RosterValidationError("Initial roster construction requires 8 players")
+    if len({player.player_id for player in players}) != len(players):
+        raise RosterValidationError("Drafted players must be unique")
+
+    by_role = {
+        role: [player for player in players if player.role == role]
+        for role in PlayerRole
+    }
+    missing_roles = [role.value for role, candidates in by_role.items() if not candidates]
+    if missing_roles:
+        raise RosterValidationError(
+            "Draft is missing mandatory player roles: " + ", ".join(missing_roles)
+        )
+
+    role_order = [PlayerRole(slot.value) for slot in STARTER_SLOTS]
+    selected = None
+    for candidate_lineup in product(*(by_role[role] for role in role_order)):
+        competitions = {player.competition for player in candidate_lineup}
+        if len(competitions) >= 2:
+            selected = candidate_lineup
+            break
+
+    if selected is None:
+        raise RosterValidationError(
+            "No starting lineup can represent at least two competitions"
+        )
+
+    starter_ids = {player.player_id for player in selected}
+    entries = [
+        RosterEntry(slot=slot, player=player)
+        for slot, player in zip(STARTER_SLOTS, selected)
+    ]
+    entries.extend(
+        RosterEntry(slot=RosterSlot.BENCH, player=player)
+        for player in players
+        if player.player_id not in starter_ids
+    )
+    entries.append(RosterEntry(slot=RosterSlot.TEAM, team=team))
+
+    validate_final_roster(entries)
+    return entries
 
 
 def required_slots_remaining(entries: Iterable[RosterEntry]) -> set[str]:
