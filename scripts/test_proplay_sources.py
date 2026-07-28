@@ -36,7 +36,8 @@ from fonctions.leaguepedia_pro import (  # noqa: E402
     fetch_leaguepedia_players,
     fetch_leaguepedia_players_by_name,
 )
-from fonctions.lolpros import fetch_lolpros_accounts, merge_account_sources  # noqa: E402
+from fonctions.lolpros import merge_account_sources  # noqa: E402
+from fonctions.lolpros_profiles import fetch_lolpros_accounts_from_profiles  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -54,8 +55,8 @@ def parse_args() -> argparse.Namespace:
         action="append",
         dest="players",
         help=(
-            "Joueur Leaguepedia. Sans --league, utilise un lookup direct qui ne dépend "
-            "pas des tables de tournoi. Répéter pour plusieurs joueurs."
+            "Joueur Leaguepedia. Sans --league, utilise un lookup direct dans Players. "
+            "Répéter pour plusieurs joueurs."
         ),
     )
     parser.add_argument(
@@ -72,7 +73,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Relève immédiatement les erreurs HTTP/JSON au lieu de continuer.",
+        help=(
+            "Relève immédiatement les erreurs HTTP/JSON/Cargo. Utile notamment pour voir "
+            "un éventuel 'ratelimited' renvoyé par Fandom."
+        ),
     )
     parser.add_argument(
         "--list-leagues",
@@ -113,9 +117,7 @@ async def main() -> None:
 
     async with ClientSession() as session:
         if need_leaguepedia:
-            # Un test par joueur doit d'abord tester la fiche joueur elle-même.
-            # Cela évite qu'une panne/changement de la jointure roster rende Caps/Markoon
-            # artificiellement "introuvables".
+            # Un seul appel Cargo est effectué : soit lookup Players, soit roster.
             if args.players and not args.leagues:
                 leaguepedia = await fetch_leaguepedia_players_by_name(
                     session,
@@ -142,18 +144,12 @@ async def main() -> None:
             print_frame("TrackingThePros", matched_ttp, args.limit)
 
         if args.accounts or args.source == "lolpros":
-            # Si --player est fourni, LoLPros peut résoudre son URL directement via
-            # Players/PlayerRedirects, même si le roster championnat est indisponible.
-            if args.players:
-                lolpros_players = args.players[: args.limit]
-            elif not matched_leaguepedia.empty:
-                lolpros_players = matched_leaguepedia["plug"].head(args.limit).tolist()
-            else:
-                lolpros_players = []
-
-            lolpros_accounts = await fetch_lolpros_accounts(
+            # Réutilise directement Players.Lolpros de la réponse Leaguepedia.
+            # Aucun deuxième appel Cargo n'est fait.
+            lolpros_targets = matched_leaguepedia.head(args.limit)
+            lolpros_accounts = await fetch_lolpros_accounts_from_profiles(
                 session,
-                lolpros_players,
+                lolpros_targets,
                 strict=args.strict,
             )
             print_frame("Comptes LoLPros", lolpros_accounts, args.limit)
