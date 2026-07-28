@@ -3,8 +3,9 @@
 
 Exemples :
     python scripts/test_proplay_sources.py --player Markoon
-    python scripts/test_proplay_sources.py --league "Prime League 1st Division"
-    python scripts/test_proplay_sources.py --league "La Ligue Française" --player Caliste
+    python scripts/test_proplay_sources.py --player Caps
+    python scripts/test_proplay_sources.py --league "Prime League Pro Division"
+    python scripts/test_proplay_sources.py --league "LoL EMEA Championship" --player Caps
     python scripts/test_proplay_sources.py --player Markoon --accounts
     python scripts/test_proplay_sources.py --player Markoon --source lolpros --accounts
     python scripts/test_proplay_sources.py --player Markoon --source trackingthepros --accounts
@@ -28,9 +29,12 @@ if str(ROOT) not in sys.path:
 
 from fonctions.proplay_sources import (  # noqa: E402
     DEFAULT_PRO_LEAGUES,
-    fetch_leaguepedia_players,
     fetch_trackingthepros_accounts,
     fetch_trackingthepros_players,
+)
+from fonctions.leaguepedia_pro import (  # noqa: E402
+    fetch_leaguepedia_players,
+    fetch_leaguepedia_players_by_name,
 )
 from fonctions.lolpros import fetch_lolpros_accounts, merge_account_sources  # noqa: E402
 
@@ -49,7 +53,10 @@ def parse_args() -> argparse.Namespace:
         "--player",
         action="append",
         dest="players",
-        help="Filtre joueur insensible à la casse. Répéter pour plusieurs joueurs.",
+        help=(
+            "Joueur Leaguepedia. Sans --league, utilise un lookup direct qui ne dépend "
+            "pas des tables de tournoi. Répéter pour plusieurs joueurs."
+        ),
     )
     parser.add_argument(
         "--source",
@@ -59,7 +66,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--accounts",
         action="store_true",
-        help="Teste les comptes LoLPros/TTP des joueurs affichés. Aucun appel Riot.",
+        help="Teste les comptes LoLPros/TTP des joueurs demandés/affichés. Aucun appel Riot.",
     )
     parser.add_argument("--limit", type=int, default=50, help="Nombre max de lignes affichées.")
     parser.add_argument(
@@ -106,12 +113,28 @@ async def main() -> None:
 
     async with ClientSession() as session:
         if need_leaguepedia:
-            leaguepedia = await fetch_leaguepedia_players(
-                session, leagues, strict=args.strict
-            )
-            matched_leaguepedia = filter_players(leaguepedia, args.players)
+            # Un test par joueur doit d'abord tester la fiche joueur elle-même.
+            # Cela évite qu'une panne/changement de la jointure roster rende Caps/Markoon
+            # artificiellement "introuvables".
+            if args.players and not args.leagues:
+                leaguepedia = await fetch_leaguepedia_players_by_name(
+                    session,
+                    args.players,
+                    strict=args.strict,
+                )
+                matched_leaguepedia = leaguepedia
+                leaguepedia_title = "Leaguepedia (lookup direct)"
+            else:
+                leaguepedia = await fetch_leaguepedia_players(
+                    session,
+                    leagues,
+                    strict=args.strict,
+                )
+                matched_leaguepedia = filter_players(leaguepedia, args.players)
+                leaguepedia_title = "Leaguepedia (roster championnat)"
+
             if args.source in ("all", "leaguepedia"):
-                print_frame("Leaguepedia", matched_leaguepedia, args.limit)
+                print_frame(leaguepedia_title, matched_leaguepedia, args.limit)
 
         if args.source in ("all", "trackingthepros"):
             tracking = await fetch_trackingthepros_players(session, strict=args.strict)
@@ -119,10 +142,18 @@ async def main() -> None:
             print_frame("TrackingThePros", matched_ttp, args.limit)
 
         if args.accounts or args.source == "lolpros":
-            lolpros_targets = matched_leaguepedia.head(args.limit)
+            # Si --player est fourni, LoLPros peut résoudre son URL directement via
+            # Players/PlayerRedirects, même si le roster championnat est indisponible.
+            if args.players:
+                lolpros_players = args.players[: args.limit]
+            elif not matched_leaguepedia.empty:
+                lolpros_players = matched_leaguepedia["plug"].head(args.limit).tolist()
+            else:
+                lolpros_players = []
+
             lolpros_accounts = await fetch_lolpros_accounts(
                 session,
-                lolpros_targets["plug"].tolist() if not lolpros_targets.empty else [],
+                lolpros_players,
                 strict=args.strict,
             )
             print_frame("Comptes LoLPros", lolpros_accounts, args.limit)
