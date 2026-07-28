@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Iterable, Sequence
 
@@ -29,6 +30,11 @@ ROLE_MAP = {
     "support": PlayerRole.SUPPORT,
 }
 
+# The three target leagues all have more than six teams. Requiring six teams
+# before treating a tournament roster as a complete split prevents an
+# incompletely populated upcoming page from becoming the source of truth.
+MIN_TEAMS_FOR_SOURCE_TOURNAMENT = 6
+
 
 class LeaguepediaProviderError(RuntimeError):
     pass
@@ -37,9 +43,13 @@ class LeaguepediaProviderError(RuntimeError):
 class LeaguepediaPlayerProvider(PlayerProvider):
     """Fetch the current LEC/LCS/LFL player pool from Leaguepedia Cargo.
 
-    One provider instance performs at most one HTTP request. ``fetch_teams`` and
-    ``fetch_players`` share the parsed response so a database sync does not hit
-    Fandom twice.
+    The latest sufficiently populated non-playoff tournament is selected for
+    each competition. TournamentRosters determines which teams belong to that
+    split, while Players.Team and Players.Role provide the player's current
+    team and current primary role.
+
+    One provider instance performs at most one HTTP request. ``fetch_teams``
+    and ``fetch_players`` share the same parsed snapshot.
     """
 
     def __init__(self, *, timeout_seconds: int = 30):
@@ -83,23 +93,24 @@ class LeaguepediaPlayerProvider(PlayerProvider):
         params = {
             "action": "cargoquery",
             "format": "json",
-            "tables": "Tournaments=Tor,TournamentPlayers=TP,PlayerRedirects=PR,Players=P,Teams=Tm",
+            "tables": "Tournaments=Tor,TournamentRosters=TR,Players=P,Teams=Tm",
             "fields": (
-                "Tor.League=League,Tor.DateStart=DateStart,"
-                "TP.Team=TournamentTeam,TP.Player=TournamentPlayer,TP.Role=TournamentRole,"
-                "P.Player=Player,P.OverviewPage=PlayerPage,P.Team=CurrentTeam,"
+                "Tor.League=League,Tor.Name=Tournament,Tor.DateStart=DateStart,"
+                "TR.Team=TournamentTeam,"
+                "P.ID=PlayerId,P.Player=Player,P.OverviewPage=PlayerPage,"
+                "P.Team=CurrentTeam,P.Role=CurrentRole,"
                 "Tm.Short=TeamShort"
             ),
             "where": (
                 f"Tor.League IN ({league_values}) "
                 f"AND Tor.DateStart >= '{year}-01-01' "
-                "AND TP.Role IN ('Top','Jungle','Mid','Bot','Support') "
-                "AND P.Team=TP.Team"
+                "AND Tor.Name NOT LIKE '%Playoff%' "
+                "AND Tor.Name NOT LIKE '%Promotion%' "
+                "AND P.Role IN ('Top','Jungle','Mid','Bot','Support')"
             ),
             "join_on": (
-                "Tor.OverviewPage=TP.OverviewPage,"
-                "TP.Player=PR.AllName,"
-                "PR.OverviewPage=P.OverviewPage,"
+                "Tor.OverviewPage=TR.OverviewPage,"
+                "TR.Team=P.Team,"
                 "P.Team=Tm.OverviewPage"
             ),
             "order_by": "Tor.DateStart DESC",
@@ -154,10 +165,8 @@ class LeaguepediaPlayerProvider(PlayerProvider):
         reverse_leagues = {name: competition for competition, name in LEAGUE_NAMES.items()}
         requested_set = set(requested)
 
-        # Cargo rows are ordered newest tournament first. Keep the first valid
-        # occurrence for a player so transfers/role swaps favour the newest event.
-        teams: dict[tuple[Competition, str], ProviderTeam] = {}
-        players: dict[str, ProviderPlayer] = {}
+        grouped: dict[tuple[Competition, str, str], list[dict]] = defaultdict(list)
+        tournament_teams: dict[tuple[Competition, str, str], set[str]] = defaultdict(set)
 
         for item in raw_rows:
             title = item.get("title", {}) if isinstance(item, dict) else {}
@@ -168,25 +177,57 @@ class LeaguepediaPlayerProvider(PlayerProvider):
             if competition not in requested_set:
                 continue
 
-            current_team = str(title.get("CurrentTeam") or "").strip()
-            player_page = str(title.get("PlayerPage") or "").strip()
-            handle = str(title.get("Player") or title.get("TournamentPlayer") or "").strip()
-            role_text = str(title.get("TournamentRole") or "").strip().lower()
-            role = ROLE_MAP.get(role_text)
-            if not current_team or not player_page or not handle or role is None:
+            tournament = str(title.get("Tournament") or "").strip()
+            date_start = str(title.get("DateStart") or "").strip()
+            tournament_team = str(title.get("TournamentTeam") or "").strip()
+            if not tournament or not date_start or not tournament_team:
                 continue
 
-            team_key = (competition, current_team)
-            if team_key not in teams:
-                short_name = str(title.get("TeamShort") or "").strip() or None
-                teams[team_key] = ProviderTeam(
-                    external_id=current_team,
-                    name=current_team,
-                    short_name=short_name,
-                    competition=competition,
-                )
+            key = (competition, date_start, tournament)
+            grouped[key].append(title)
+            tournament_teams[key].add(tournament_team)
 
-            if player_page not in players:
+        selected_keys: dict[Competition, tuple[Competition, str, str]] = {}
+        for competition in requested:
+            candidates = [
+                key
+                for key in grouped
+                if key[0] == competition
+                and len(tournament_teams[key]) >= MIN_TEAMS_FOR_SOURCE_TOURNAMENT
+            ]
+            if not candidates:
+                continue
+            selected_keys[competition] = max(candidates, key=lambda key: key[1])
+
+        teams: dict[tuple[Competition, str], ProviderTeam] = {}
+        players: dict[str, ProviderPlayer] = {}
+
+        for competition, selected_key in selected_keys.items():
+            for title in grouped[selected_key]:
+                current_team = str(title.get("CurrentTeam") or "").strip()
+                tournament_team = str(title.get("TournamentTeam") or "").strip()
+                player_page = str(title.get("PlayerPage") or "").strip()
+                handle = str(title.get("Player") or title.get("PlayerId") or "").strip()
+                role_text = str(title.get("CurrentRole") or "").strip().lower()
+                role = ROLE_MAP.get(role_text)
+
+                # Because TR.Team is joined to Players.Team, these should agree.
+                # Keep the explicit guard so a malformed Cargo row is ignored.
+                if current_team != tournament_team:
+                    continue
+                if not current_team or not player_page or not handle or role is None:
+                    continue
+
+                team_key = (competition, current_team)
+                if team_key not in teams:
+                    short_name = str(title.get("TeamShort") or "").strip() or None
+                    teams[team_key] = ProviderTeam(
+                        external_id=current_team,
+                        name=current_team,
+                        short_name=short_name,
+                        competition=competition,
+                    )
+
                 players[player_page] = ProviderPlayer(
                     external_id=player_page,
                     handle=handle,
