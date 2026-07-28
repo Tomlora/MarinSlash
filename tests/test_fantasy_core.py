@@ -12,7 +12,11 @@ from fonctions.fantasy.models import (
     RosterSlot,
     TeamAsset,
 )
-from fonctions.fantasy.roster import RosterValidationError, validate_final_roster
+from fonctions.fantasy.roster import (
+    RosterValidationError,
+    choose_initial_roster,
+    validate_final_roster,
+)
 from fonctions.fantasy.scoring import (
     PlayerGameStats,
     TeamGameStats,
@@ -89,6 +93,45 @@ class RosterTests(unittest.TestCase):
         )
         with self.assertRaises(RosterValidationError):
             validate_final_roster(roster)
+
+    def test_initial_roster_can_promote_second_competition_from_bench_pool(self):
+        players = [
+            self._player(1, PlayerRole.TOP, Competition.LEC),
+            self._player(2, PlayerRole.JUNGLE, Competition.LEC),
+            self._player(3, PlayerRole.MID, Competition.LEC),
+            self._player(4, PlayerRole.ADC, Competition.LEC),
+            self._player(5, PlayerRole.SUPPORT, Competition.LEC),
+            self._player(6, PlayerRole.MID, Competition.LFL),
+            self._player(7, PlayerRole.TOP, Competition.LEC),
+            self._player(8, PlayerRole.ADC, Competition.LEC),
+        ]
+        roster = choose_initial_roster(
+            players,
+            TeamAsset(1, "G2", Competition.LEC),
+        )
+        validate_final_roster(roster)
+        starters = [entry.player for entry in roster if entry.slot in {
+            RosterSlot.TOP,
+            RosterSlot.JUNGLE,
+            RosterSlot.MID,
+            RosterSlot.ADC,
+            RosterSlot.SUPPORT,
+        }]
+        self.assertIn(Competition.LFL, {player.competition for player in starters})
+
+    def test_initial_roster_rejects_single_competition_player_pool(self):
+        players = [
+            self._player(1, PlayerRole.TOP, Competition.LEC),
+            self._player(2, PlayerRole.JUNGLE, Competition.LEC),
+            self._player(3, PlayerRole.MID, Competition.LEC),
+            self._player(4, PlayerRole.ADC, Competition.LEC),
+            self._player(5, PlayerRole.SUPPORT, Competition.LEC),
+            self._player(6, PlayerRole.MID, Competition.LEC),
+            self._player(7, PlayerRole.TOP, Competition.LEC),
+            self._player(8, PlayerRole.ADC, Competition.LEC),
+        ]
+        with self.assertRaises(RosterValidationError):
+            choose_initial_roster(players, TeamAsset(1, "G2", Competition.LEC))
 
 
 class LockTests(unittest.TestCase):
