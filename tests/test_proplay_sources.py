@@ -8,6 +8,8 @@ from fonctions.proplay_sources import (
     parse_trackingthepros_accounts,
 )
 from fonctions.leaguepedia_pro import (
+    LeaguepediaCargoError,
+    _raise_for_cargo_error,
     fetch_leaguepedia_players,
     fetch_leaguepedia_players_by_name,
 )
@@ -133,6 +135,16 @@ class ProplaySourceTests(unittest.TestCase):
         self.assertEqual(len(result), 2)
         self.assertEqual(set(result["region"]), {"EUW"})
 
+    def test_fandom_json_error_is_not_silently_treated_as_empty(self):
+        payload = {
+            "error": {
+                "code": "ratelimited",
+                "info": "You've exceeded your rate limit.",
+            }
+        }
+        with self.assertRaisesRegex(LeaguepediaCargoError, "ratelimited"):
+            _raise_for_cargo_error(payload)
+
 
 class _FakeResponse:
     def __init__(self, payload):
@@ -162,7 +174,7 @@ class _FakeSession:
 
 
 class LeaguepediaQueryTests(unittest.IsolatedAsyncioTestCase):
-    async def test_direct_player_lookup_does_not_depend_on_tournaments(self):
+    async def test_direct_player_lookup_uses_players_table_only(self):
         session = _FakeSession({
             "cargoquery": [{
                 "title": {
@@ -180,11 +192,12 @@ class LeaguepediaQueryTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result.iloc[0]["plug"], "Caps")
         self.assertEqual(result.iloc[0]["team_plug"], "G2 Esports")
+        self.assertEqual(len(session.calls), 1)
         params = session.calls[0][1]["params"]
-        self.assertEqual(params["tables"], "PlayerRedirects,Players")
-        self.assertIn("PlayerRedirects.AllName='Caps'", params["where"])
+        self.assertEqual(params["tables"], "Players")
+        self.assertIn("Players.Player IN ('Caps')", params["where"])
 
-    async def test_roster_query_uses_current_leaguepedia_redirect_join(self):
+    async def test_roster_query_batches_multiple_leagues_into_one_request(self):
         session = _FakeSession({
             "cargoquery": [{
                 "title": {
@@ -201,15 +214,18 @@ class LeaguepediaQueryTests(unittest.IsolatedAsyncioTestCase):
 
         result = await fetch_leaguepedia_players(
             session,
-            ["Prime League Pro Division"],
+            ["Prime League Pro Division", "LoL EMEA Championship"],
         )
 
         self.assertEqual(result.iloc[0]["plug"], "Markoon")
+        self.assertEqual(len(session.calls), 1)
         params = session.calls[0][1]["params"]
         self.assertIn(
             "TournamentPlayers.Link=PlayerRedirects.AllName",
             params["join_on"],
         )
+        self.assertIn("Prime League Pro Division", params["where"])
+        self.assertIn("LoL EMEA Championship", params["where"])
 
 
 if __name__ == "__main__":
