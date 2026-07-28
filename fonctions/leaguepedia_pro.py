@@ -26,12 +26,20 @@ LEAGUEPEDIA_COLUMNS = (
 )
 
 
+class LeaguepediaCargoError(RuntimeError):
+    """Erreur fonctionnelle renvoyée par l'API MediaWiki/Cargo."""
+
+
 def _empty_players() -> pd.DataFrame:
     return pd.DataFrame(columns=LEAGUEPEDIA_COLUMNS)
 
 
 def _cargo_escape(value: str) -> str:
     return value.replace("'", "''")
+
+
+def _quoted_values(values: Iterable[str]) -> str:
+    return ",".join(f"'{_cargo_escape(value)}'" for value in values)
 
 
 def _clean_result(frame: pd.DataFrame, *, league: str | None = None) -> pd.DataFrame:
@@ -60,7 +68,22 @@ def _clean_result(frame: pd.DataFrame, *, league: str | None = None) -> pd.DataF
     )
     frame["Rôle"] = frame["Rôle"].replace({"Bot": "ADC"})
     frame = frame[frame["plug"].notna() & frame["plug"].ne("")]
-    return frame.drop_duplicates(subset="plug", keep="first").reset_index(drop=True)
+    return frame.reset_index(drop=True)
+
+
+def _raise_for_cargo_error(payload: dict) -> None:
+    """Transforme les erreurs JSON MediaWiki en vraie exception.
+
+    Fandom peut répondre HTTP 200 avec ``{"error": {"code": "ratelimited", ...}}``.
+    Sans ce contrôle, le job interprétait cette réponse comme un roster vide.
+    """
+
+    error = payload.get("error")
+    if not error:
+        return
+    code = error.get("code", "unknown")
+    info = error.get("info", "Erreur MediaWiki/Cargo sans détail")
+    raise LeaguepediaCargoError(f"{code}: {info}")
 
 
 async def _cargo_query(
@@ -78,6 +101,7 @@ async def _cargo_query(
         response.raise_for_status()
         payload = await response.json(content_type=None)
 
+    _raise_for_cargo_error(payload)
     return [entry["title"] for entry in payload.get("cargoquery", [])]
 
 
@@ -85,61 +109,65 @@ async def fetch_leaguepedia_players(
     session: ClientSession,
     leagues: Sequence[str] = DEFAULT_PRO_LEAGUES,
     *,
-    timeout_seconds: int = 30,
+    timeout_seconds: int = 45,
     strict: bool = False,
 ) -> pd.DataFrame:
-    """Récupère les joueurs d'une liste de championnats Leaguepedia.
+    """Récupère les rosters demandés avec UNE seule requête Cargo.
 
-    La jointure suit celle utilisée actuellement par le module Leaguepedia
-    TournamentPlayerInformation : TournamentPlayers.Link -> PlayerRedirects.AllName.
-    Une panne sur un championnat n'empêche pas les autres de remonter.
+    Fandom applique actuellement un rate-limit très agressif aux requêtes Cargo
+    non authentifiées. L'ancienne version faisait une requête par championnat ;
+    celle-ci regroupe toute la liste dans un seul ``IN (...)``.
     """
 
-    frames: list[pd.DataFrame] = []
+    unique_leagues = [
+        league.strip()
+        for league in dict.fromkeys(leagues)
+        if isinstance(league, str) and league.strip()
+    ]
+    if not unique_leagues:
+        return _empty_players()
 
-    for league in leagues:
-        params = {
-            "action": "cargoquery",
-            "tables": "Tournaments,TournamentPlayers,PlayerRedirects,Players",
-            "fields": (
-                "Players.Player,Players.Name,Players.Country,Players.Role,"
-                "Tournaments.League,Players.Team,Players.Lolpros"
-            ),
-            "where": (
-                f"Tournaments.League in ('{_cargo_escape(league)}') "
-                "and Players.Role in ('Top', 'Jungle', 'Mid', 'Bot', 'Support')"
-            ),
-            "join_on": (
-                "Tournaments.OverviewPage=TournamentPlayers.OverviewPage,"
-                "TournamentPlayers.Link=PlayerRedirects.AllName,"
-                "PlayerRedirects.OverviewPage=Players.OverviewPage"
-            ),
-            "group_by": "Players.OverviewPage",
-            "format": "json",
-            "limit": "1000",
-        }
+    params = {
+        "action": "cargoquery",
+        "tables": "Tournaments,TournamentPlayers,PlayerRedirects,Players",
+        "fields": (
+            "Players.Player,Players.Name,Players.Country,Players.Role,"
+            "Tournaments.League,Players.Team,Players.Lolpros"
+        ),
+        "where": (
+            f"Tournaments.League IN ({_quoted_values(unique_leagues)}) "
+            "AND Players.Role IN ('Top', 'Jungle', 'Mid', 'Bot', 'Support')"
+        ),
+        "join_on": (
+            "Tournaments.OverviewPage=TournamentPlayers.OverviewPage,"
+            "TournamentPlayers.Link=PlayerRedirects.AllName,"
+            "PlayerRedirects.OverviewPage=Players.OverviewPage"
+        ),
+        "group_by": "Players.OverviewPage,Tournaments.League",
+        "format": "json",
+        "limit": "5000",
+    }
 
-        try:
-            rows = await _cargo_query(
-                session,
-                params,
-                timeout_seconds=timeout_seconds,
-            )
-            if not rows:
-                LOGGER.warning("Leaguepedia: aucun joueur pour %s", league)
-                continue
-            frames.append(_clean_result(pd.DataFrame(rows), league=league))
-        except (ClientError, asyncio.TimeoutError, ValueError, KeyError) as exc:
-            LOGGER.warning("Leaguepedia KO pour %s: %s", league, exc)
-            if strict:
-                raise
+    try:
+        rows = await _cargo_query(session, params, timeout_seconds=timeout_seconds)
+    except (
+        ClientError,
+        asyncio.TimeoutError,
+        ValueError,
+        KeyError,
+        LeaguepediaCargoError,
+    ) as exc:
+        LOGGER.warning("Leaguepedia roster KO: %s", exc)
+        if strict:
+            raise
+        return _empty_players()
 
-    frames = [frame for frame in frames if not frame.empty]
-    if not frames:
+    if not rows:
+        LOGGER.warning("Leaguepedia: aucun joueur pour les championnats demandés")
         return _empty_players()
 
     return (
-        pd.concat(frames, ignore_index=True)
+        _clean_result(pd.DataFrame(rows))
         .drop_duplicates(subset="plug", keep="first")
         .reset_index(drop=True)
     )
@@ -152,12 +180,12 @@ async def fetch_leaguepedia_players_by_name(
     timeout_seconds: int = 30,
     strict: bool = False,
 ) -> pd.DataFrame:
-    """Lookup Leaguepedia direct pour inspecter un ou plusieurs joueurs.
+    """Lookup direct de noms canoniques dans ``Players`` en UNE requête Cargo.
 
-    Contrairement au lookup par championnat, ce chemin ne dépend pas de
-    TournamentPlayers/Tournaments. Il accepte aussi un ancien alias grâce à
-    PlayerRedirects et est donc adapté à ``scripts/test_proplay_sources.py
-    --player ...``.
+    Ce chemin ne dépend ni de Tournaments ni de TournamentPlayers et convient au
+    diagnostic ``--player Caps`` / ``--player Markoon``. Il privilégie la
+    robustesse et ne tente pas de résoudre les anciens alias, ce qui nécessiterait
+    une requête supplémentaire et consommerait le rate-limit Fandom.
     """
 
     unique_players = [
@@ -168,48 +196,38 @@ async def fetch_leaguepedia_players_by_name(
     if not unique_players:
         return _empty_players()
 
-    frames: list[pd.DataFrame] = []
+    params = {
+        "action": "cargoquery",
+        "tables": "Players",
+        "fields": (
+            "Players.Player,Players.Name,Players.Country,Players.Role,"
+            "Players.Team,Players.Lolpros"
+        ),
+        "where": f"Players.Player IN ({_quoted_values(unique_players)})",
+        "format": "json",
+        "limit": str(max(20, len(unique_players) * 2)),
+    }
 
-    for player in unique_players:
-        escaped = _cargo_escape(player)
-        params = {
-            "action": "cargoquery",
-            "tables": "PlayerRedirects,Players",
-            "fields": (
-                "Players.Player,Players.Name,Players.Country,Players.Role,"
-                "Players.Team,Players.Lolpros"
-            ),
-            "where": (
-                f"PlayerRedirects.AllName='{escaped}' "
-                f"OR PlayerRedirects.ID='{escaped}'"
-            ),
-            "join_on": "PlayerRedirects.OverviewPage=Players.OverviewPage",
-            "group_by": "Players.OverviewPage",
-            "format": "json",
-            "limit": "20",
-        }
+    try:
+        rows = await _cargo_query(session, params, timeout_seconds=timeout_seconds)
+    except (
+        ClientError,
+        asyncio.TimeoutError,
+        ValueError,
+        KeyError,
+        LeaguepediaCargoError,
+    ) as exc:
+        LOGGER.warning("Leaguepedia lookup joueur KO: %s", exc)
+        if strict:
+            raise
+        return _empty_players()
 
-        try:
-            rows = await _cargo_query(
-                session,
-                params,
-                timeout_seconds=timeout_seconds,
-            )
-            if not rows:
-                LOGGER.warning("Leaguepedia: joueur introuvable: %s", player)
-                continue
-            frames.append(_clean_result(pd.DataFrame(rows)))
-        except (ClientError, asyncio.TimeoutError, ValueError, KeyError) as exc:
-            LOGGER.warning("Leaguepedia lookup joueur KO pour %s: %s", player, exc)
-            if strict:
-                raise
-
-    frames = [frame for frame in frames if not frame.empty]
-    if not frames:
+    if not rows:
+        LOGGER.warning("Leaguepedia: joueur(s) introuvable(s): %s", ", ".join(unique_players))
         return _empty_players()
 
     return (
-        pd.concat(frames, ignore_index=True)
+        _clean_result(pd.DataFrame(rows))
         .drop_duplicates(subset="plug", keep="first")
         .reset_index(drop=True)
     )
