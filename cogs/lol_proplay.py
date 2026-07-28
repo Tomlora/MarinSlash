@@ -10,7 +10,8 @@ from fonctions.proplay_sources import (
     merge_proplayer_sources,
 )
 from fonctions.leaguepedia_pro import fetch_leaguepedia_players
-from fonctions.lolpros import fetch_lolpros_accounts, merge_account_sources
+from fonctions.lolpros import merge_account_sources
+from fonctions.lolpros_profiles import fetch_lolpros_accounts_from_profiles
 from fonctions.word import suggestion_word
 from datetime import datetime
 from dateutil import tz
@@ -34,7 +35,8 @@ class LoLProplay(Extension):
         updated_at = datetime.now(timezone)
 
         async with ClientSession() as session:
-            # Leaguepedia est la source roster principale et fonctionne même si TTP est KO.
+            # Une seule requête Cargo pour l'ensemble des championnats afin de ne
+            # pas heurter le rate-limit Fandom.
             df_leaguepedia = await fetch_leaguepedia_players(
                 session,
                 DEFAULT_PRO_LEAGUES,
@@ -71,11 +73,11 @@ class LoLProplay(Extension):
                 f'({len(df_leaguepedia)} Leaguepedia, {len(df_tracking)} TrackingThePros).'
             )
 
-            # Aucun appel Riot ici. Les URLs LoLPros sont résolues via Leaguepedia
-            # et TTP reste une deuxième source additive quand il répond.
-            df_lolpros_accounts = await fetch_lolpros_accounts(
+            # Réutilise directement Players.Lolpros déjà obtenu dans la réponse
+            # roster : aucun deuxième appel Cargo Leaguepedia.
+            df_lolpros_accounts = await fetch_lolpros_accounts_from_profiles(
                 session,
-                df_leaguepedia['plug'].tolist(),
+                df_leaguepedia,
             )
             if not df_tracking.empty:
                 df_ttp_accounts = await fetch_trackingthepros_accounts(
