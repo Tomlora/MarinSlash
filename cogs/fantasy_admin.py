@@ -1,13 +1,24 @@
 from __future__ import annotations
 
 import interactions
-from interactions import Extension, SlashContext, slash_command
+from interactions import (
+    Extension,
+    OptionType,
+    SlashCommandChoice,
+    SlashCommandOption,
+    SlashContext,
+    slash_command,
+)
 from sqlalchemy import text
 
 from fonctions.fantasy.database import get_engine, schema_issues
 from fonctions.fantasy.providers.leaguepedia import (
     LeaguepediaPlayerProvider,
     LeaguepediaProviderError,
+)
+from fonctions.fantasy.providers.oracles_elixir import (
+    OracleElixirPlayerProvider,
+    OracleElixirProviderError,
 )
 from fonctions.fantasy.sync import FantasySyncError, sync_player_pool
 
@@ -21,8 +32,20 @@ class FantasyAdmin(Extension):
         name="fantasy_update_db",
         description="[Admin] Met à jour les joueurs et équipes Fantasy LEC/LCS/LFL",
         default_member_permissions=interactions.Permissions.ADMINISTRATOR,
+        options=[
+            SlashCommandOption(
+                name="source",
+                description="Source du pool joueurs/équipes",
+                type=OptionType.STRING,
+                required=False,
+                choices=[
+                    SlashCommandChoice(name="Oracle's Elixir", value="oracle_elixir"),
+                    SlashCommandChoice(name="Leaguepedia", value="leaguepedia"),
+                ],
+            )
+        ],
     )
-    async def fantasy_update_db(self, ctx: SlashContext):
+    async def fantasy_update_db(self, ctx: SlashContext, source: str = "oracle_elixir"):
         if self.sync_running:
             return await ctx.send(
                 "Une synchronisation Fantasy est déjà en cours.", ephemeral=True
@@ -31,9 +54,19 @@ class FantasyAdmin(Extension):
         await ctx.defer(ephemeral=True)
         self.sync_running = True
         try:
-            provider = LeaguepediaPlayerProvider()
+            if source == "leaguepedia":
+                provider = LeaguepediaPlayerProvider()
+                source_label = "Leaguepedia"
+            else:
+                provider = OracleElixirPlayerProvider()
+                source_label = "Oracle's Elixir"
+
             result = await sync_player_pool(provider)
-        except (LeaguepediaProviderError, FantasySyncError) as exc:
+        except (
+            LeaguepediaProviderError,
+            OracleElixirProviderError,
+            FantasySyncError,
+        ) as exc:
             return await ctx.send(f"❌ Synchronisation annulée : {exc}", ephemeral=True)
         except Exception as exc:
             return await ctx.send(
@@ -44,7 +77,7 @@ class FantasyAdmin(Extension):
             self.sync_running = False
 
         await ctx.send(
-            "✅ **Base Fantasy mise à jour depuis Leaguepedia**\n"
+            f"✅ **Base Fantasy mise à jour depuis {source_label}**\n"
             f"• équipes trouvées : **{result.teams_seen}**\n"
             f"• joueurs trouvés : **{result.players_seen}**\n"
             f"• nouvelles affectations joueur→équipe : **{result.histories_opened}**\n"
