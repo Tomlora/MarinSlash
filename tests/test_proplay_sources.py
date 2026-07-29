@@ -14,6 +14,7 @@ from fonctions.leaguepedia_pro import (
     fetch_leaguepedia_players_by_name,
 )
 from fonctions.lolpros import merge_account_sources, parse_lolpros_accounts
+from fonctions.lolpros_profiles import fetch_lolpros_accounts_for_players
 
 
 class ProplaySourceTests(unittest.TestCase):
@@ -173,6 +174,34 @@ class _FakeSession:
         return _FakeResponse(self.payload)
 
 
+class _FakeHtmlResponse:
+    def __init__(self, html, status=200):
+        self.html = html
+        self.status = status
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    def raise_for_status(self):
+        return None
+
+    async def text(self):
+        return self.html
+
+
+class _FakeHtmlSession:
+    def __init__(self, html):
+        self.html = html
+        self.calls = []
+
+    def get(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        return _FakeHtmlResponse(self.html)
+
+
 class LeaguepediaQueryTests(unittest.IsolatedAsyncioTestCase):
     async def test_direct_player_lookup_uses_players_table_only(self):
         session = _FakeSession({
@@ -226,6 +255,31 @@ class LeaguepediaQueryTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIn("Prime League Pro Division", params["where"])
         self.assertIn("LoL EMEA Championship", params["where"])
+
+    async def test_lolpros_can_refresh_known_player_without_leaguepedia(self):
+        html = """
+        <html><body>
+          <h1>Caps</h1>
+          <a>G2 Caps#1323</a>
+          <a>A 99 mid laner#EUW</a>
+          <h4>Current Rank</h4>
+        </body></html>
+        """
+        session = _FakeHtmlSession(html)
+
+        accounts, profiles = await fetch_lolpros_accounts_for_players(
+            session,
+            ["Caps"],
+            leaguepedia_profiles=pd.DataFrame(),
+            cached_profiles=pd.DataFrame(),
+        )
+
+        self.assertEqual(
+            accounts["compte"].tolist(),
+            ["G2 Caps#1323", "A 99 mid laner#EUW"],
+        )
+        self.assertEqual(profiles.iloc[0]["lolpros_url"], "https://lolpros.gg/player/caps")
+        self.assertEqual(session.calls[0][0], "https://lolpros.gg/player/caps")
 
 
 if __name__ == "__main__":
