@@ -2,13 +2,10 @@
 """Inspection manuelle des sources utilisées par data_proplayers.
 
 Exemples :
-    python scripts/test_proplay_sources.py --player Markoon
-    python scripts/test_proplay_sources.py --player Caps
-    python scripts/test_proplay_sources.py --league "Prime League Pro Division"
-    python scripts/test_proplay_sources.py --league "LoL EMEA Championship" --player Caps
+    python scripts/test_proplay_sources.py --player Caps --source leaguepedia --strict
+    python scripts/test_proplay_sources.py --player Caps --source lolpros --accounts --strict
+    python scripts/test_proplay_sources.py --league "LoL EMEA Championship" --source leaguepedia --strict
     python scripts/test_proplay_sources.py --player Markoon --accounts
-    python scripts/test_proplay_sources.py --player Markoon --source lolpros --accounts
-    python scripts/test_proplay_sources.py --player Markoon --source trackingthepros --accounts
 """
 
 from __future__ import annotations
@@ -37,7 +34,7 @@ from fonctions.leaguepedia_pro import (  # noqa: E402
     fetch_leaguepedia_players_by_name,
 )
 from fonctions.lolpros import merge_account_sources  # noqa: E402
-from fonctions.lolpros_profiles import fetch_lolpros_accounts_from_profiles  # noqa: E402
+from fonctions.lolpros_profiles import fetch_lolpros_accounts_for_players  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -54,10 +51,7 @@ def parse_args() -> argparse.Namespace:
         "--player",
         action="append",
         dest="players",
-        help=(
-            "Joueur Leaguepedia. Sans --league, utilise un lookup direct dans Players. "
-            "Répéter pour plusieurs joueurs."
-        ),
+        help="Joueur à tester. Répéter pour plusieurs joueurs.",
     )
     parser.add_argument(
         "--source",
@@ -110,7 +104,8 @@ async def main() -> None:
         return
 
     leagues = tuple(args.leagues) if args.leagues else DEFAULT_PRO_LEAGUES
-    need_leaguepedia = args.source in ("all", "leaguepedia", "lolpros") or args.accounts
+    # LoLPros peut désormais être testé entièrement sans Leaguepedia.
+    need_leaguepedia = args.source in ("all", "leaguepedia")
     leaguepedia = pd.DataFrame()
     matched_leaguepedia = pd.DataFrame()
     matched_ttp = pd.DataFrame()
@@ -135,8 +130,7 @@ async def main() -> None:
                 matched_leaguepedia = filter_players(leaguepedia, args.players)
                 leaguepedia_title = "Leaguepedia (roster championnat)"
 
-            if args.source in ("all", "leaguepedia"):
-                print_frame(leaguepedia_title, matched_leaguepedia, args.limit)
+            print_frame(leaguepedia_title, matched_leaguepedia, args.limit)
 
         if args.source in ("all", "trackingthepros"):
             tracking = await fetch_trackingthepros_players(session, strict=args.strict)
@@ -144,15 +138,26 @@ async def main() -> None:
             print_frame("TrackingThePros", matched_ttp, args.limit)
 
         if args.accounts or args.source == "lolpros":
-            # Réutilise directement Players.Lolpros de la réponse Leaguepedia.
-            # Aucun deuxième appel Cargo n'est fait.
-            lolpros_targets = matched_leaguepedia.head(args.limit)
-            lolpros_accounts = await fetch_lolpros_accounts_from_profiles(
-                session,
-                lolpros_targets,
-                strict=args.strict,
-            )
-            print_frame("Comptes LoLPros", lolpros_accounts, args.limit)
+            if args.players:
+                lolpros_players = args.players[:args.limit]
+            elif not matched_leaguepedia.empty:
+                lolpros_players = matched_leaguepedia["plug"].head(args.limit).tolist()
+            else:
+                lolpros_players = []
+
+            if not lolpros_players:
+                lolpros_accounts = pd.DataFrame()
+                resolved_profiles = pd.DataFrame()
+                print("\n=== Comptes LoLPros ===\nAucun joueur à tester. Utilise --player.")
+            else:
+                lolpros_accounts, resolved_profiles = await fetch_lolpros_accounts_for_players(
+                    session,
+                    lolpros_players,
+                    leaguepedia_profiles=matched_leaguepedia,
+                    strict=args.strict,
+                )
+                print_frame("Comptes LoLPros", lolpros_accounts, args.limit)
+                print_frame("Profils LoLPros résolus", resolved_profiles, args.limit)
         else:
             lolpros_accounts = pd.DataFrame()
 
