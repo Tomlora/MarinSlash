@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import interactions
 from interactions import Extension, SlashContext, slash_command
+from sqlalchemy import text
 
+from fonctions.fantasy.database import get_engine, schema_issues
 from fonctions.fantasy.providers.leaguepedia import (
     LeaguepediaPlayerProvider,
     LeaguepediaProviderError,
@@ -49,6 +51,59 @@ class FantasyAdmin(Extension):
             f"• anciennes affectations clôturées : **{result.histories_closed}**\n"
             f"• équipes désactivées : **{result.teams_deactivated}**\n"
             f"• joueurs désactivés : **{result.players_deactivated}**",
+            ephemeral=True,
+        )
+
+    @slash_command(
+        name="fantasy_db_status",
+        description="[Admin] Diagnostique le schéma PostgreSQL Fantasy",
+        default_member_permissions=interactions.Permissions.ADMINISTRATOR,
+    )
+    async def fantasy_db_status(self, ctx: SlashContext):
+        await ctx.defer(ephemeral=True)
+        try:
+            issues = schema_issues()
+            if issues:
+                details = "\n".join(f"• {issue}" for issue in issues[:15])
+                if len(issues) > 15:
+                    details += f"\n• … et {len(issues) - 15} autre(s) problème(s)"
+                return await ctx.send(
+                    "❌ **Schéma Fantasy incomplet ou incompatible**\n" + details,
+                    ephemeral=True,
+                )
+
+            with get_engine().connect() as connection:
+                counts = connection.execute(
+                    text(
+                        """
+                        SELECT
+                            (SELECT COUNT(*) FROM fantasy.league) AS leagues,
+                            (SELECT COUNT(*) FROM fantasy.season) AS seasons,
+                            (SELECT COUNT(*) FROM fantasy.manager) AS managers,
+                            (SELECT COUNT(*) FROM fantasy.pro_team WHERE active = TRUE) AS teams,
+                            (SELECT COUNT(*) FROM fantasy.pro_player WHERE active = TRUE) AS players
+                        """
+                    )
+                ).one()
+        except Exception as exc:
+            original = getattr(exc, "orig", None)
+            diag = getattr(original, "diag", None) if original is not None else None
+            primary = getattr(diag, "message_primary", None) if diag is not None else None
+            sqlstate = getattr(original, "pgcode", None) if original is not None else None
+            detail = primary or str(original or exc).strip().splitlines()[0]
+            prefix = f"SQLSTATE {sqlstate} — " if sqlstate else ""
+            return await ctx.send(
+                f"❌ **Diagnostic PostgreSQL impossible**\n`{prefix}{detail}`",
+                ephemeral=True,
+            )
+
+        await ctx.send(
+            "✅ **Schéma Fantasy compatible**\n"
+            f"• ligues : **{counts.leagues}**\n"
+            f"• saisons : **{counts.seasons}**\n"
+            f"• managers : **{counts.managers}**\n"
+            f"• équipes actives : **{counts.teams}**\n"
+            f"• joueurs actifs : **{counts.players}**",
             ephemeral=True,
         )
 
