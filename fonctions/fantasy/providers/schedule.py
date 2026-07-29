@@ -196,6 +196,8 @@ class RiotEsportsScheduleProvider(ScheduleProvider):
         requested = _normalise_competitions(competitions)
         if start.tzinfo is None or end.tzinfo is None:
             raise ScheduleProviderError("Les bornes du calendrier doivent être timezone-aware.")
+        if end <= start:
+            raise ScheduleProviderError("La fin du calendrier doit être après le début.")
 
         timeout = aiohttp.ClientTimeout(total=self.timeout_seconds)
         headers = {
@@ -229,15 +231,48 @@ class RiotEsportsScheduleProvider(ScheduleProvider):
                     "LoL Esports ne fournit pas les ligues demandées : " + ", ".join(missing)
                 )
 
-            params: list[tuple[str, str]] = [("hl", "en-US")]
-            params.extend(("leagueId", league_id) for league_id in league_ids)
-            schedule_payload = await self._get_json(session, "getSchedule", params)
+            base_params: list[tuple[str, str]] = [("hl", "en-US")]
+            base_params.extend(("leagueId", league_id) for league_id in league_ids)
 
-        schedule = ((schedule_payload or {}).get("data") or {}).get("schedule") or {}
-        events = schedule.get("events") or []
+            events_by_id: dict[str, dict] = {}
+            page_token: str | None = None
+            # The initial page is generally centred around the current schedule.
+            # Follow a few newer pages so a 21-day Fantasy window is not silently
+            # truncated when several leagues are requested together.
+            for _ in range(6):
+                params = list(base_params)
+                if page_token:
+                    params.append(("pageToken", page_token))
+                payload = await self._get_json(session, "getSchedule", params)
+                schedule = ((payload or {}).get("data") or {}).get("schedule") or {}
+                events = schedule.get("events") or []
+                page_max: datetime | None = None
+                for event in events:
+                    if not isinstance(event, dict):
+                        continue
+                    event_id = str(event.get("id") or (event.get("match") or {}).get("id") or "")
+                    if event_id:
+                        events_by_id[event_id] = event
+                    raw_start = event.get("startTime")
+                    if raw_start:
+                        try:
+                            event_time = _parse_datetime(str(raw_start))
+                        except ValueError:
+                            event_time = None
+                        if event_time is not None and (page_max is None or event_time > page_max):
+                            page_max = event_time
+
+                if page_max is not None and page_max >= end.astimezone(timezone.utc):
+                    break
+                newer = (schedule.get("pages") or {}).get("newer")
+                newer = str(newer or "").strip()
+                if not newer or newer == page_token:
+                    break
+                page_token = newer
+
         matches: list[ProviderMatch] = []
-        for event in events:
-            if not isinstance(event, dict) or event.get("type") != "match":
+        for event in events_by_id.values():
+            if event.get("type") != "match":
                 continue
             raw_start = event.get("startTime")
             if not raw_start:
