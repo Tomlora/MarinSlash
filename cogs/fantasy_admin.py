@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import interactions
 from interactions import (
     Extension,
@@ -20,6 +22,13 @@ from fonctions.fantasy.providers.oracles_elixir import (
     OracleElixirPlayerProvider,
     OracleElixirProviderError,
 )
+from fonctions.fantasy.providers.schedule import (
+    FallbackScheduleProvider,
+    LeaguepediaScheduleProvider,
+    RiotEsportsScheduleProvider,
+    ScheduleProviderError,
+)
+from fonctions.fantasy.schedule_sync import FantasyScheduleSyncError, sync_schedule
 from fonctions.fantasy.sync import FantasySyncError, sync_player_pool
 
 
@@ -27,6 +36,7 @@ class FantasyAdmin(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
         self.sync_running = False
+        self.schedule_sync_running = False
 
     @slash_command(
         name="fantasy_update_db",
@@ -84,6 +94,59 @@ class FantasyAdmin(Extension):
             f"• anciennes affectations clôturées : **{result.histories_closed}**\n"
             f"• équipes désactivées : **{result.teams_deactivated}**\n"
             f"• joueurs désactivés : **{result.players_deactivated}**",
+            ephemeral=True,
+        )
+
+    @slash_command(
+        name="fantasy_update_schedule",
+        description="[Admin] Met à jour le calendrier Fantasy avec fallback automatique",
+        default_member_permissions=interactions.Permissions.ADMINISTRATOR,
+    )
+    async def fantasy_update_schedule(self, ctx: SlashContext):
+        if self.schedule_sync_running:
+            return await ctx.send(
+                "Une synchronisation du calendrier Fantasy est déjà en cours.",
+                ephemeral=True,
+            )
+
+        await ctx.defer(ephemeral=True)
+        self.schedule_sync_running = True
+        provider = FallbackScheduleProvider(
+            LeaguepediaScheduleProvider(),
+            RiotEsportsScheduleProvider(),
+        )
+        now = datetime.now(timezone.utc)
+        try:
+            result = await sync_schedule(
+                provider,
+                start=now - timedelta(hours=12),
+                end=now + timedelta(days=21),
+            )
+        except (ScheduleProviderError, FantasyScheduleSyncError) as exc:
+            return await ctx.send(f"❌ Synchronisation calendrier annulée : {exc}", ephemeral=True)
+        except Exception as exc:
+            return await ctx.send(
+                f"❌ Erreur inattendue pendant la synchro calendrier : `{type(exc).__name__}`.",
+                ephemeral=True,
+            )
+        finally:
+            self.schedule_sync_running = False
+
+        provider_label = {
+            "LeaguepediaScheduleProvider": "Leaguepedia Cargo",
+            "RiotEsportsScheduleProvider": "LoL Esports",
+        }.get(provider.last_provider_name or "", provider.last_provider_name or "inconnu")
+        fallback_note = ""
+        if provider.errors:
+            fallback_note = "\n⚠️ Source primaire indisponible, fallback utilisé."
+
+        await ctx.send(
+            f"✅ **Calendrier Fantasy mis à jour via {provider_label}**\n"
+            f"• matchs : **{result.matches_seen}**\n"
+            f"• championnats : **{', '.join(c.value for c in result.competitions_updated)}**\n"
+            f"• références équipes résolues : **{result.teams_resolved}**\n"
+            f"• références équipes non résolues : **{result.teams_unresolved}**"
+            f"{fallback_note}",
             ephemeral=True,
         )
 
