@@ -1,17 +1,37 @@
 import asyncio
+import logging
 from datetime import datetime
 
 import interactions
 import pandas as pd
 from aiohttp import ClientSession
 from dateutil import tz
-from interactions import Extension, listen, Task, IntervalTrigger, slash_command, SlashContext, SlashCommandOption
+from interactions import (
+    Extension,
+    IntervalTrigger,
+    SlashCommandChoice,
+    SlashCommandOption,
+    SlashContext,
+    Task,
+    listen,
+    slash_command,
+)
 
-from fonctions.gestion_bdd import sauvegarde_bdd, lire_bdd_perso, requete_perso_bdd
+from fonctions.gestion_bdd import lire_bdd_perso, sauvegarde_bdd
 from fonctions.leaguepedia_pro import fetch_leaguepedia_players
 from fonctions.lolpros import merge_account_sources
 from fonctions.lolpros_profiles import fetch_lolpros_accounts_for_players
 from fonctions.proplay_backup import create_proplay_backup, restore_proplay_backup
+from fonctions.proplay_manual import (
+    ROLE_VALUES,
+    AccountConflictError,
+    ManualProplayError,
+    PlayerAlreadyExistsError,
+    PlayerNotFoundError,
+    add_manual_account,
+    add_manual_player,
+    get_player_names,
+)
 from fonctions.proplay_sources import (
     DEFAULT_PRO_LEAGUES,
     fetch_trackingthepros_accounts,
@@ -19,6 +39,10 @@ from fonctions.proplay_sources import (
     merge_proplayer_sources,
 )
 from fonctions.word import suggestion_word
+
+
+LOGGER = logging.getLogger(__name__)
+ROLE_CHOICES = [SlashCommandChoice(name=role, value=role) for role in ROLE_VALUES]
 
 
 class LoLProplay(Extension):
@@ -137,6 +161,17 @@ class LoLProplay(Extension):
             f"**Durée du dernier lot :** {batch_duration_text}\n"
             f"**Dernière mise à jour :** {last_edit}"
         )
+
+    @staticmethod
+    def _player_suggestion(requested_player: str) -> str | None:
+        try:
+            players = get_player_names()
+            if not players:
+                return None
+            return suggestion_word(requested_player, players)
+        except Exception:
+            LOGGER.exception("Impossible de calculer une suggestion de joueur")
+            return None
 
     def _save_lolpros_profile_cache(
         self,
@@ -324,23 +359,17 @@ class LoLProplay(Extension):
         sub_cmd_description="Forcer immédiatement la mise à jour joueurs + comptes SoloQ",
     )
     async def force_update(self, ctx: SlashContext):
-        # Le token d'une interaction Discord expire bien avant les ~2 h du refresh.
-        # On acquitte donc immédiatement la slash-command, puis on utilise un message
-        # normal du bot dont l'édition ne dépend pas du token de l'interaction.
         await ctx.defer(ephemeral=True)
 
         progress_message = None
         try:
             channel = await self.bot.fetch_channel(ctx.channel_id)
-            initial_time = datetime.now(tz.gettz("Europe/Paris")).strftime("%H:%M:%S")
             progress_message = await channel.send(
-                "⏳ Force update proplay initialisé — préparation du backup et des sources...\n"
-                "**Durée du dernier lot :** -\n"
-                f"**Dernière mise à jour :** {initial_time}"
+                "⏳ Force update proplay initialisé — préparation du backup et des sources..."
             )
             await ctx.send("Force update lancé. La progression est affichée dans le salon.")
         except Exception as exc:
-            print(f"Impossible de créer le message Discord de progression : {exc}")
+            LOGGER.exception("Impossible de créer le message Discord de progression")
             await ctx.send(
                 "Force update lancé, mais le message de progression n'a pas pu être créé. "
                 "Le traitement continue et reste visible dans les logs."
@@ -351,9 +380,8 @@ class LoLProplay(Extension):
                 return
             try:
                 await progress_message.edit(content=self._format_force_progress(state))
-            except Exception as exc:
-                # Une panne d'édition Discord ne doit jamais interrompre la collecte.
-                print(f"Progression Discord non mise à jour : {exc}")
+            except Exception:
+                LOGGER.exception("Progression Discord non mise à jour")
 
         message = await self._run_pro_database_update(
             trigger="manuel",
@@ -363,8 +391,8 @@ class LoLProplay(Extension):
         if progress_message is not None:
             try:
                 await progress_message.edit(content=f"✅ **{message}**")
-            except Exception as exc:
-                print(f"Message final Discord non mis à jour : {exc}")
+            except Exception:
+                LOGGER.exception("Message final Discord non mis à jour")
 
     @lol_pro.subcommand(
         "rollback_update",
@@ -389,154 +417,248 @@ class LoLProplay(Extension):
         else:
             await ctx.send(f"Rollback effectué vers le snapshot du {backup_at}.")
 
-    # @lol_pro.subcommand("update_joueur",
-    #                        sub_cmd_description="Mettre à jour son equipe",
-    #                        options=[
-    #                            SlashCommandOption(name="joueur",
-    #                                               description="Nom du joueur",
-    #                                               type=interactions.OptionType.STRING,
-    #                                               required=True),
-    #                             SlashCommandOption(name="equipe",
-    #                                               description="Nouvel equipe",
-    #                                               type=interactions.OptionType.STRING,
-    #                                               required=True)])
-    # async def update_joueur(self,
-    #                  ctx: SlashContext,
-    #                  joueur,
-    #                  equipe):
-    #
-    #     await ctx.defer(ephemeral=False)
-    #
-    #     nb_row = requete_perso_bdd(f'''UPDATE public.data_proplayers SET team_plug = '{equipe}' where plug = '{joueur}' ''', get_row_affected=True)
-    #
-    #     if nb_row > 0:
-    #         await ctx.send(f'Database modifiée. {joueur} rejoint {equipe}')
-    #     else:
-    #         liste_joueur = lire_bdd_perso( '''SELECT plug from public.data_proplayers ''', index_col=None ).T['plug'].to_list()
-    #         suggestion = suggestion_word(joueur, liste_joueur)
-    #         await ctx.send(f'Joueur introuvable. Souhaitais-tu dire : **{suggestion}**')
+    @lol_pro.subcommand(
+        "add_compte",
+        sub_cmd_description="Ajouter manuellement un Riot ID à un joueur existant",
+        options=[
+            SlashCommandOption(
+                name="joueur",
+                description="Pseudo du joueur pro déjà présent dans la base",
+                type=interactions.OptionType.STRING,
+                required=True,
+            ),
+            SlashCommandOption(
+                name="riot_id",
+                description="Riot ID complet au format Nom#TAG, par exemple Kiki#mates",
+                type=interactions.OptionType.STRING,
+                required=True,
+            ),
+            SlashCommandOption(
+                name="region",
+                description="Serveur du compte : EUW, KR, NA... EUW par défaut",
+                type=interactions.OptionType.STRING,
+                required=False,
+            ),
+        ],
+    )
+    async def add_compte(
+        self,
+        ctx: SlashContext,
+        joueur: str,
+        riot_id: str,
+        region: str = "EUW",
+    ):
+        await ctx.defer(ephemeral=True)
 
-    @lol_pro.subcommand("add_compte",
-                           sub_cmd_description="Ajouter un compte d'un joueur",
-                           options=[
-                               SlashCommandOption(name="compte",
-                                                  description="Compte du joueur sans tag",
-                                                  type=interactions.OptionType.STRING,
-                                                  required=True),
-                                SlashCommandOption(name="joueur",
-                                                  description="Nouvel equipe",
-                                                  type=interactions.OptionType.STRING,
-                                                  required=True)])
-    async def add_compte(self,
-                     ctx: SlashContext,
-                     compte,
-                     joueur):
+        if self._pro_update_lock.locked():
+            await ctx.send(
+                "⛔ Ajout impossible : une mise à jour proplay ou un rollback est en cours."
+            )
+            return
 
-        await ctx.defer(ephemeral=False)
+        try:
+            async with self._pro_update_lock:
+                result = add_manual_account(joueur, riot_id, region)
+        except PlayerNotFoundError:
+            suggestion = self._player_suggestion(joueur.strip())
+            message = f"❌ Joueur introuvable : `{joueur.strip()}`."
+            if suggestion:
+                message += f"\nSouhaitais-tu dire **{suggestion}** ?"
+            await ctx.send(message)
+            return
+        except AccountConflictError as exc:
+            owners = ", ".join(f"`{owner}`" for owner in exc.owners)
+            await ctx.send(
+                "⚠️ **Ajout refusé**\n"
+                f"Le Riot ID `{exc.riot_id}` en région `{exc.region}` est déjà "
+                f"associé à {owners}."
+            )
+            return
+        except ManualProplayError as exc:
+            await ctx.send(f"❌ {exc}")
+            return
+        except Exception:
+            LOGGER.exception(
+                "Erreur lors de l'ajout manuel du compte %s pour %s",
+                riot_id,
+                joueur,
+            )
+            await ctx.send(
+                "❌ Une erreur BDD inattendue est survenue. Aucune modification partielle "
+                "n'a été conservée. Consulte les logs du bot."
+            )
+            return
 
-        df = lire_bdd_perso( '''SELECT plug from public.data_proplayers ''', index_col=None ).T
-        df_index = lire_bdd_perso( '''SELECT index from public.data_acc_proplayers ''', index_col=None ).T
-        index = df_index['index'].max()
-        liste_joueur = df['plug'].to_list()
-
-        if joueur in liste_joueur:
-            requete_perso_bdd('''INSERT INTO public.data_acc_proplayers(
-                                index, joueur, compte, region)
-                                VALUES (:index, :joueur, :compte, 'EUW') ''',
-                                dict_params={'index' : index + 1,
-                                             'joueur' : joueur,
-                                             'compte' : compte})
-
-            await ctx.send('Ajouté')
-
+        if result.created:
+            title = "✅ **Compte ajouté**"
+            detail = "Le compteur de comptes du joueur a également été recalculé."
         else:
-            suggestion = suggestion_word(joueur, liste_joueur)
-            await ctx.send(f'Joueur introuvable. Souhaitais-tu dire : **{suggestion}**')
+            title = "ℹ️ **Compte déjà présent**"
+            detail = "Aucune nouvelle ligne n'a été créée."
 
-    @lol_pro.subcommand("add_joueur",
-                           sub_cmd_description="Ajouter un nouveau joueur",
-                           options=[
-                               SlashCommandOption(name="joueur",
-                                                  description="Joueur",
-                                                  type=interactions.OptionType.STRING,
-                                                  required=True),
-                                SlashCommandOption(name="team",
-                                                  description="Son equipe",
-                                                  type=interactions.OptionType.STRING,
-                                                  required=True),
-                                SlashCommandOption(name="compte",
-                                                  description="Son compte",
-                                                  type=interactions.OptionType.STRING,
-                                                  required=True),
-                                SlashCommandOption(name="role",
-                                                  description="Son role",
-                                                  type=interactions.OptionType.STRING,
-                                                  required=True)])
-    async def add_joueur(self,
-                     ctx: SlashContext,
-                     joueur,
-                     team,
-                     compte,
-                     role):
+        await ctx.send(
+            f"{title}\n"
+            f"**Joueur :** `{result.player}`\n"
+            f"**Riot ID :** `{result.riot_id}`\n"
+            f"**Région :** `{result.region}`\n"
+            f"**Comptes enregistrés :** {result.account_count}\n"
+            f"**Index BDD :** {result.row_index}\n"
+            f"{detail}"
+        )
 
-        await ctx.defer(ephemeral=False)
-        df = lire_bdd_perso( '''SELECT index, plug from public.data_proplayers ''', index_col=None ).T
-        index = df['index'].max()
-        liste_joueur = df['plug'].to_list()
+    @lol_pro.subcommand(
+        "add_joueur",
+        sub_cmd_description="Créer manuellement un joueur pro, avec un compte facultatif",
+        options=[
+            SlashCommandOption(
+                name="joueur",
+                description="Pseudo exact du joueur pro",
+                type=interactions.OptionType.STRING,
+                required=True,
+            ),
+            SlashCommandOption(
+                name="role",
+                description="Rôle principal du joueur",
+                type=interactions.OptionType.STRING,
+                required=True,
+                choices=ROLE_CHOICES,
+            ),
+            SlashCommandOption(
+                name="equipe",
+                description="Équipe actuelle ; laisse vide pour un joueur sans équipe connue",
+                type=interactions.OptionType.STRING,
+                required=False,
+            ),
+            SlashCommandOption(
+                name="riot_id",
+                description="Riot ID complet facultatif au format Nom#TAG",
+                type=interactions.OptionType.STRING,
+                required=False,
+            ),
+            SlashCommandOption(
+                name="region",
+                description="Serveur du Riot ID, par exemple EUW ou KR ; EUW par défaut",
+                type=interactions.OptionType.STRING,
+                required=False,
+            ),
+            SlashCommandOption(
+                name="pays",
+                description="Pays du joueur, facultatif",
+                type=interactions.OptionType.STRING,
+                required=False,
+            ),
+        ],
+    )
+    async def add_joueur(
+        self,
+        ctx: SlashContext,
+        joueur: str,
+        role: str,
+        equipe: str | None = None,
+        riot_id: str | None = None,
+        region: str = "EUW",
+        pays: str | None = None,
+    ):
+        await ctx.defer(ephemeral=True)
 
-        if joueur in liste_joueur:
-            await ctx.send('Joueur déjà présent')
+        if self._pro_update_lock.locked():
+            await ctx.send(
+                "⛔ Ajout impossible : une mise à jour proplay ou un rollback est en cours."
+            )
+            return
 
+        try:
+            async with self._pro_update_lock:
+                result = add_manual_player(
+                    joueur,
+                    role,
+                    team=equipe,
+                    riot_id=riot_id,
+                    region=region,
+                    country=pays,
+                )
+        except PlayerAlreadyExistsError as exc:
+            await ctx.send(
+                f"ℹ️ Le joueur `{exc.player}` existe déjà. "
+                "Utilise `/lol_pro add_compte` pour lui ajouter un Riot ID."
+            )
+            return
+        except AccountConflictError as exc:
+            owners = ", ".join(f"`{owner}`" for owner in exc.owners)
+            await ctx.send(
+                "⚠️ **Création refusée**\n"
+                f"Le Riot ID `{exc.riot_id}` en région `{exc.region}` est déjà "
+                f"associé à {owners}."
+            )
+            return
+        except ManualProplayError as exc:
+            await ctx.send(f"❌ {exc}")
+            return
+        except Exception:
+            LOGGER.exception("Erreur lors de l'ajout manuel du joueur %s", joueur)
+            await ctx.send(
+                "❌ Une erreur BDD inattendue est survenue. La transaction a été annulée : "
+                "ni le joueur ni son compte n'ont été partiellement ajoutés."
+            )
+            return
+
+        team_text = result.team or "Non renseignée"
+        country_text = result.country or "Non renseigné"
+        if result.riot_id:
+            account_text = (
+                f"`{result.riot_id}` (`{result.region}`), index {result.account_index}"
+            )
         else:
-            requete_perso_bdd('''INSERT INTO public.data_proplayers(
-                                index, current, home, role, accounts, team_plug, plug, "rankHigh", "rankHighNum", "rankHighLP", "rankHighLPNum")
-                                VALUES (:index, 'None', 'None', :role, 1, :team, :joueur, 'Challenger', 999999, 999999, 999999); ''',
-                                dict_params={'index' : index + 1,
-                                             'role' : role,
-                                             'joueur' : joueur,
-                                             'team' : team})
+            account_text = "Aucun compte ajouté"
 
-            requete_perso_bdd('''INSERT INTO public.data_acc_proplayers(
-                                index, joueur, compte, region)
-                                VALUES (:index, :joueur, :compte, 'EUW') ''',
-                                dict_params={'index' : index + 1,
-                                             'joueur' : joueur,
-                                             'compte' : compte})
+        await ctx.send(
+            "✅ **Joueur ajouté**\n"
+            f"**Joueur :** `{result.player}`\n"
+            f"**Rôle :** `{result.role}`\n"
+            f"**Équipe :** `{team_text}`\n"
+            f"**Pays :** `{country_text}`\n"
+            f"**Compte :** {account_text}\n"
+            f"**Index joueur :** {result.player_index}"
+        )
 
-            await ctx.send('Ajouté')
-
-    @lol_pro.subcommand("search",
-                           sub_cmd_description="Chercher un joueur",
-                           options=[
-                               SlashCommandOption(name="joueur",
-                                                  description="Joueur",
-                                                  type=interactions.OptionType.STRING,
-                                                  required=True)])
-    async def search_joueur(self,
-                     ctx: SlashContext,
-                     joueur):
-
+    @lol_pro.subcommand(
+        "search",
+        sub_cmd_description="Chercher un joueur",
+        options=[
+            SlashCommandOption(
+                name="joueur",
+                description="Joueur",
+                type=interactions.OptionType.STRING,
+                required=True,
+            )
+        ],
+    )
+    async def search_joueur(self, ctx: SlashContext, joueur):
         await ctx.defer(ephemeral=False)
-        df_joueur = lire_bdd_perso( f'''SELECT team_plug, plug, role from public.data_proplayers where plug like '%{joueur}%' ''', index_col=None ).T
-        df_compte = lire_bdd_perso( f'''SELECT compte from public.data_acc_proplayers where region = 'EUW' and joueur like '%{joueur}%' ''', index_col=None ).T.drop_duplicates()
+        df_joueur = lire_bdd_perso(
+            f"SELECT team_plug, plug, role from public.data_proplayers where plug like '%{joueur}%'",
+            index_col=None,
+        ).T
+        df_compte = lire_bdd_perso(
+            f"SELECT compte from public.data_acc_proplayers where region = 'EUW' and joueur like '%{joueur}%'",
+            index_col=None,
+        ).T.drop_duplicates()
 
         if df_joueur.empty:
-            await ctx.send('Joueur introuvable')
+            await ctx.send("Joueur introuvable")
+            return
 
-        else:
-            txt = 'Joueurs trouvés : \n'
+        txt = "Joueurs trouvés : \n"
+        for _, data in df_joueur.iterrows():
+            txt += f'{data["plug"]} ({data["team_plug"]}) : {data["role"]}  \n'
 
-            for index, data in df_joueur.iterrows():
-                txt += f'{data["plug"]} ({data["team_plug"]}) : {data["role"]}  \n'
+        txt += "\nComptes trouvés : \n"
+        for index, data in df_compte.iterrows():
+            if index % 5 == 0:
+                txt += "\n"
+            txt += f' {data["compte"]} |'
 
-            txt += '\nComptes trouvés : \n'
-
-            for index, data in df_compte.iterrows():
-                if index % 5 == 0:
-                    txt += '\n'
-                txt += f' {data["compte"]} |'
-
-            await ctx.send(txt)
+        await ctx.send(txt)
 
 
 def setup(bot):
