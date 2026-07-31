@@ -262,6 +262,7 @@ async def fetch_lolpros_accounts_for_players(
     processed = 0
     retry_events = 0
     aborted = False
+    last_batch_duration_seconds: float | None = None
 
     def riot_id_count() -> int:
         return sum(len(frame) for frame in account_frames)
@@ -287,6 +288,7 @@ async def fetch_lolpros_accounts_for_players(
             batch_size=batch_size,
             current_player=current_player,
             cooldown_seconds=cooldown_seconds,
+            last_batch_duration_seconds=last_batch_duration_seconds,
             aborted=aborted,
         )
 
@@ -380,6 +382,7 @@ async def fetch_lolpros_accounts_for_players(
 
     for batch_number, start in enumerate(range(0, len(selected_players), batch_size), start=1):
         batch = selected_players[start:start + batch_size]
+        batch_started_at = asyncio.get_running_loop().time()
         LOGGER.info(
             "LoLPros lot %s/%s : %s profils (%s/%s déjà traités).",
             batch_number,
@@ -416,10 +419,12 @@ async def fetch_lolpros_accounts_for_players(
             if index_in_batch < len(batch) and request_interval_seconds > 0:
                 await asyncio.sleep(request_interval_seconds)
 
+        last_batch_duration_seconds = asyncio.get_running_loop().time() - batch_started_at
         LOGGER.info(
-            "LoLPros lot %s/%s terminé : %s/%s profils traités, %s profils résolus, %s Riot IDs cumulés.",
+            "LoLPros lot %s/%s terminé en %.1fs : %s/%s profils traités, %s profils résolus, %s Riot IDs cumulés.",
             batch_number,
             total_batches,
+            last_batch_duration_seconds,
             processed,
             len(selected_players),
             len(profiles),
