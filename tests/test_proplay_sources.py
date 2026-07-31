@@ -13,7 +13,11 @@ from fonctions.leaguepedia_pro import (
     fetch_leaguepedia_players,
     fetch_leaguepedia_players_by_name,
 )
-from fonctions.lolpros import merge_account_sources, parse_lolpros_accounts
+from fonctions.lolpros import (
+    merge_account_sources,
+    parse_lolpros_accounts,
+    parse_lolpros_profile_metadata,
+)
 from fonctions.lolpros_profiles import fetch_lolpros_accounts_for_players
 
 
@@ -158,6 +162,19 @@ class ProplaySourceTests(unittest.TestCase):
 
         self.assertEqual(result["compte"].tolist(), ["Right Hand#korea"])
 
+    def test_lolpros_extracts_paduck_worldwide_roster_metadata(self):
+        html = """
+        <html><head>
+          <meta name="description" content="Bot | South Korea | Player for Shifters | Right Hand#korea [Grandmaster 1936LP]">
+        </head><body></body></html>
+        """
+
+        metadata = parse_lolpros_profile_metadata(html)
+
+        self.assertEqual(metadata["team_plug"], "Shifters")
+        self.assertEqual(metadata["role"], "ADC")
+        self.assertEqual(metadata["Pays"], "South Korea")
+
     def test_lolpros_does_not_import_teammate_ids_outside_accounts_panel(self):
         html = """
         <html><body>
@@ -187,6 +204,51 @@ class ProplaySourceTests(unittest.TestCase):
 
         self.assertEqual(len(result), 2)
         self.assertEqual(set(result["region"]), {"EUW"})
+
+    def test_lolpros_fallback_then_leaguepedia_keeps_leaguepedia_priority(self):
+        existing = pd.DataFrame([
+            {
+                "plug": "Player",
+                "team_plug": "Old Team",
+                "role": "Mid",
+                "Pays": "France",
+            }
+        ])
+        lolpros = pd.DataFrame([
+            {
+                "plug": "Player",
+                "team_plug": "LoLPros Team",
+                "Rôle": "ADC",
+                "Pays": "Spain",
+            }
+        ])
+        leaguepedia = pd.DataFrame([
+            {
+                "plug": "Player",
+                "team_plug": "Leaguepedia Team",
+                "Rôle": "Support",
+                "Pays": "Germany",
+            }
+        ])
+        updated_at = datetime(2026, 7, 31, tzinfo=timezone.utc)
+
+        after_lolpros = merge_proplayer_sources(
+            existing,
+            pd.DataFrame(),
+            lolpros,
+            updated_at=updated_at,
+        )
+        result = merge_proplayer_sources(
+            after_lolpros,
+            pd.DataFrame(),
+            leaguepedia,
+            updated_at=updated_at,
+        )
+
+        player = result.loc[result["plug"] == "Player"].iloc[0]
+        self.assertEqual(player["team_plug"], "Leaguepedia Team")
+        self.assertEqual(player["role"], "Support")
+        self.assertEqual(player["Pays"], "Germany")
 
     def test_fandom_json_error_is_not_silently_treated_as_empty(self):
         payload = {
@@ -310,7 +372,9 @@ class LeaguepediaQueryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_lolpros_can_refresh_known_player_without_leaguepedia(self):
         html = """
-        <html><body>
+        <html><head>
+          <meta name="description" content="Mid | Denmark | Player for G2 Esports | G2 Caps#1323 [Challenger 1800LP]">
+        </head><body>
           <section id="accounts">
             <a>G2 Caps#1323</a>
             <a>A 99 mid laner#EUW</a>
@@ -332,6 +396,9 @@ class LeaguepediaQueryTests(unittest.IsolatedAsyncioTestCase):
             ["G2 Caps#1323", "A 99 mid laner#EUW"],
         )
         self.assertEqual(profiles.iloc[0]["lolpros_url"], "https://lolpros.gg/player/caps")
+        self.assertEqual(profiles.iloc[0]["team_plug"], "G2 Esports")
+        self.assertEqual(profiles.iloc[0]["role"], "Mid")
+        self.assertEqual(profiles.iloc[0]["Pays"], "Denmark")
         self.assertEqual(session.calls[0][0], "https://lolpros.gg/player/caps")
 
 
