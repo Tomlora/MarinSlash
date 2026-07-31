@@ -22,6 +22,14 @@ from fonctions.leaguepedia_pro import fetch_leaguepedia_players
 from fonctions.lolpros import merge_account_sources
 from fonctions.lolpros_profiles import fetch_lolpros_accounts_for_players
 from fonctions.proplay_backup import create_proplay_backup, restore_proplay_backup
+from fonctions.proplay_lolpros_override import (
+    LolprosManualRefreshError,
+    apply_manual_profile_overrides,
+    fetch_exact_lolpros_profile,
+    merge_profile_cache_preserving_manual,
+    set_manual_lolpros_url,
+)
+from fonctions.proplay_lolpros_targeted import apply_targeted_lolpros_refresh
 from fonctions.proplay_manual import (
     ROLE_VALUES,
     AccountConflictError,
@@ -181,17 +189,15 @@ class LoLProplay(Extension):
         if resolved_profiles is None or resolved_profiles.empty:
             return
 
-        cache = self._read_optional_table("data_proplayer_lolpros_profiles")
-        new_profiles = resolved_profiles.copy()
-        new_profiles["last_verified"] = updated_at
+        existing_cache = self._read_optional_table("data_proplayer_lolpros_profiles")
+        cache = merge_profile_cache_preserving_manual(
+            existing_cache,
+            resolved_profiles,
+            verified_at=updated_at,
+        )
+        if cache.empty:
+            return
 
-        if not cache.empty and "joueur" in cache.columns:
-            cache = cache[~cache["joueur"].isin(new_profiles["joueur"])]
-            cache = pd.concat([cache, new_profiles], ignore_index=True)
-        else:
-            cache = new_profiles
-
-        cache = cache.drop_duplicates(subset="joueur", keep="last")
         sauvegarde_bdd(
             cache.drop(columns="index", errors="ignore"),
             "data_proplayer_lolpros_profiles",
@@ -264,11 +270,15 @@ class LoLProplay(Extension):
                     df_tracking,
                 )
                 profile_cache = self._read_optional_table("data_proplayer_lolpros_profiles")
+                effective_lolpros_profiles = apply_manual_profile_overrides(
+                    df_leaguepedia,
+                    profile_cache,
+                )
 
                 df_lolpros_accounts, resolved_profiles = await fetch_lolpros_accounts_for_players(
                     session,
                     target_players,
-                    leaguepedia_profiles=df_leaguepedia,
+                    leaguepedia_profiles=effective_lolpros_profiles,
                     cached_profiles=profile_cache,
                     progress_callback=progress_callback,
                 )
@@ -368,7 +378,7 @@ class LoLProplay(Extension):
                 "⏳ Force update proplay initialisé — préparation du backup et des sources..."
             )
             await ctx.send("Force update lancé. La progression est affichée dans le salon.")
-        except Exception as exc:
+        except Exception:
             LOGGER.exception("Impossible de créer le message Discord de progression")
             await ctx.send(
                 "Force update lancé, mais le message de progression n'a pas pu être créé. "
@@ -416,6 +426,137 @@ class LoLProplay(Extension):
             await ctx.send("Rollback effectué depuis le dernier snapshot disponible.")
         else:
             await ctx.send(f"Rollback effectué vers le snapshot du {backup_at}.")
+
+    @lol_pro.subcommand(
+        "set_lolpros_url",
+        sub_cmd_description="Définir l'URL LoLPros protégée d'un joueur et le rafraîchir",
+        options=[
+            SlashCommandOption(
+                name="joueur",
+                description="Pseudo du joueur déjà présent dans data_proplayers",
+                type=interactions.OptionType.STRING,
+                required=True,
+            ),
+            SlashCommandOption(
+                name="url",
+                description="Fiche complète, par exemple https://lolpros.gg/player/paduck",
+                type=interactions.OptionType.STRING,
+                required=True,
+            ),
+        ],
+    )
+    async def set_lolpros_url(
+        self,
+        ctx: SlashContext,
+        joueur: str,
+        url: str,
+    ):
+        await ctx.defer(ephemeral=True)
+
+        if self._pro_update_lock.locked():
+            await ctx.send(
+                "⛔ Modification impossible : une mise à jour proplay ou un rollback est en cours."
+            )
+            return
+
+        url_result = None
+        refresh_result = None
+        refresh_error: str | None = None
+        no_profile_data = False
+
+        try:
+            async with self._pro_update_lock:
+                url_result = set_manual_lolpros_url(joueur, url)
+
+                try:
+                    async with ClientSession() as session:
+                        accounts, profile = await fetch_exact_lolpros_profile(
+                            session,
+                            url_result.player,
+                            url_result.url,
+                        )
+                except LolprosManualRefreshError as exc:
+                    refresh_error = str(exc)
+                else:
+                    if profile is None:
+                        no_profile_data = True
+                    else:
+                        refresh_result = apply_targeted_lolpros_refresh(
+                            url_result.player,
+                            accounts,
+                            profile,
+                            verified_at=datetime.now(tz.gettz("Europe/Paris")),
+                        )
+        except PlayerNotFoundError:
+            suggestion = self._player_suggestion(joueur.strip())
+            message = f"❌ Joueur introuvable : `{joueur.strip()}`."
+            if suggestion:
+                message += f"\nSouhaitais-tu dire **{suggestion}** ?"
+            await ctx.send(message)
+            return
+        except ManualProplayError as exc:
+            await ctx.send(f"❌ {exc}")
+            return
+        except Exception:
+            LOGGER.exception(
+                "Erreur lors de la définition de l'URL LoLPros pour %s",
+                joueur,
+            )
+            if url_result is None:
+                await ctx.send(
+                    "❌ Une erreur BDD inattendue est survenue. L'override manuel n'a pas été enregistré."
+                )
+            else:
+                await ctx.send(
+                    "⚠️ L'URL manuelle a été enregistrée et protégée, mais le "
+                    "rafraîchissement ciblé a échoué. Consulte les logs du bot."
+                )
+            return
+
+        previous_url = url_result.previous_url or "Aucune"
+        change_label = "modifiée" if url_result.changed and url_result.previous_url else "ajoutée"
+        if not url_result.changed:
+            change_label = "confirmée"
+
+        header = (
+            f"✅ **URL LoLPros manuelle {change_label}**\n"
+            f"**Joueur :** `{url_result.player}`\n"
+            f"**Ancienne URL :** `{previous_url}`\n"
+            f"**URL protégée :** `{url_result.url}`\n"
+            "**Priorité :** override manuel — les mises à jour automatiques ne peuvent pas la remplacer."
+        )
+
+        if refresh_error:
+            await ctx.send(
+                f"{header}\n\n"
+                "⚠️ **Rafraîchissement ciblé non appliqué**\n"
+                f"{refresh_error}\n"
+                "L'URL reste néanmoins enregistrée avec sa protection manuelle."
+            )
+            return
+
+        if no_profile_data:
+            await ctx.send(
+                f"{header}\n\n"
+                "⚠️ **Aucune donnée exploitable trouvée sur cette fiche**\n"
+                "Aucun compte, rôle, pays ou équipe n'a été modifié."
+            )
+            return
+
+        team = refresh_result.team or "Non renseignée"
+        role = refresh_result.role or "Non renseigné"
+        country = refresh_result.country or "Non renseigné"
+        await ctx.send(
+            f"{header}\n\n"
+            "🔄 **Rafraîchissement ciblé terminé**\n"
+            f"**Riot IDs trouvés sur la fiche :** {refresh_result.discovered_accounts}\n"
+            f"**Nouveaux comptes insérés :** {refresh_result.inserted_accounts}\n"
+            f"**Comptes totaux du joueur :** {refresh_result.total_accounts}\n"
+            f"**Équipe :** `{team}`\n"
+            f"**Rôle :** `{role}`\n"
+            f"**Pays :** `{country}`\n"
+            "Seul ce joueur a été rafraîchi."
+        )
 
     @lol_pro.subcommand(
         "add_compte",
