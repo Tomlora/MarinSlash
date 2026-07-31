@@ -114,7 +114,8 @@ async def fetch_lolpros_accounts_for_players(
     en BDD même quand Cargo/Leaguepedia est ratelimited ou indisponible.
 
     Retourne ``(accounts, resolved_profiles)`` ; le deuxième DataFrame sert à
-    persister les URLs qui ont réellement répondu avec au moins un compte actif.
+    persister les URLs qui ont réellement répondu avec au moins un Riot ID attribué
+    au joueur (compte courant ou nom historique).
     """
 
     unique_players = [
@@ -167,7 +168,7 @@ async def fetch_lolpros_accounts_for_players(
                         raise
 
             if last_error is None:
-                LOGGER.warning("LoLPros: aucun compte actif détecté pour %s", player)
+                LOGGER.warning("LoLPros: aucun Riot ID détecté pour %s", player)
             return _empty_accounts(), None
 
     results = await asyncio.gather(*(fetch_one(player) for player in unique_players))
