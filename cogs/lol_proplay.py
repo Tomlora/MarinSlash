@@ -64,6 +64,28 @@ class LoLProplay(Extension):
                     players.append(player)
         return players
 
+    @staticmethod
+    def _lolpros_roster_frame(resolved_profiles: pd.DataFrame) -> pd.DataFrame:
+        """Convertit les metadata LoLPros dans le format attendu par la fusion roster."""
+        columns = ["plug", "Rôle", "Pays", "team_plug"]
+        if resolved_profiles is None or resolved_profiles.empty:
+            return pd.DataFrame(columns=columns)
+
+        frame = resolved_profiles.rename(
+            columns={"joueur": "plug", "role": "Rôle"}
+        ).copy()
+        for column in columns:
+            if column not in frame.columns:
+                frame[column] = None
+
+        frame = frame[columns]
+        metadata_columns = ["Rôle", "Pays", "team_plug"]
+        has_metadata = frame[metadata_columns].apply(
+            lambda row: any(pd.notna(value) and str(value).strip() for value in row),
+            axis=1,
+        )
+        return frame[has_metadata].reset_index(drop=True)
+
     def _save_lolpros_profile_cache(
         self,
         resolved_profiles: pd.DataFrame,
@@ -114,8 +136,8 @@ class LoLProplay(Extension):
             ).T
 
             async with ClientSession() as session:
-                # Leaguepedia reste utile pour découvrir les joueurs/équipes et fournit
-                # souvent l'URL LoLPros, mais n'est plus requis pour rafraîchir les comptes.
+                # Leaguepedia reste prioritaire sur le roster lorsqu'il répond, mais sa
+                # liste de championnats ne couvre pas les ~2500 joueurs historiques.
                 df_leaguepedia = await fetch_leaguepedia_players(
                     session,
                     DEFAULT_PRO_LEAGUES,
@@ -136,8 +158,8 @@ class LoLProplay(Extension):
                     print(message)
                     return message
 
-                # Même si Leaguepedia ET TTP sont KO, la BDD existante permet de
-                # continuer la mise à jour des comptes via LoLPros.
+                # Sauvegarde intermédiaire : si LoLPros échoue ensuite, les données
+                # Leaguepedia/TTP déjà obtenues ne sont pas perdues.
                 if not df_leaguepedia.empty or not df_tracking.empty:
                     sauvegarde_bdd(df_pro, "data_proplayers")
                     print(
@@ -158,6 +180,8 @@ class LoLProplay(Extension):
                 )
                 profile_cache = self._read_optional_table("data_proplayer_lolpros_profiles")
 
+                # Les pages LoLPros sont déjà téléchargées pour les Riot IDs. On y
+                # extrait aussi rôle/pays/équipe : aucun appel HTTP supplémentaire.
                 df_lolpros_accounts, resolved_profiles = await fetch_lolpros_accounts_for_players(
                     session,
                     target_players,
@@ -165,6 +189,32 @@ class LoLProplay(Extension):
                     cached_profiles=profile_cache,
                 )
                 self._save_lolpros_profile_cache(resolved_profiles, updated_at)
+
+                df_lolpros_roster = self._lolpros_roster_frame(resolved_profiles)
+                if not df_lolpros_roster.empty:
+                    # LoLPros sert de fallback mondial pour les joueurs que Leaguepedia
+                    # ne couvre pas. On réapplique ensuite Leaguepedia afin de conserver
+                    # l'ordre de priorité : Leaguepedia > LoLPros > ancienne BDD.
+                    df_pro = merge_proplayer_sources(
+                        df_pro,
+                        pd.DataFrame(),
+                        df_lolpros_roster,
+                        updated_at=updated_at,
+                    )
+                    if not df_leaguepedia.empty:
+                        df_pro = merge_proplayer_sources(
+                            df_pro,
+                            pd.DataFrame(),
+                            df_leaguepedia,
+                            updated_at=updated_at,
+                        )
+
+                    sauvegarde_bdd(df_pro, "data_proplayers")
+                    lolpros_teams = df_lolpros_roster["team_plug"].notna().sum()
+                    print(
+                        f"Roster LoLPros appliqué : {len(df_lolpros_roster)} profils, "
+                        f"{lolpros_teams} équipes renseignées."
+                    )
 
                 if not df_tracking.empty:
                     df_ttp_accounts = await fetch_trackingthepros_accounts(
