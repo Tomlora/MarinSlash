@@ -99,18 +99,23 @@ class ProplaySourceTests(unittest.TestCase):
         self.assertEqual(result.iloc[0]["compte"], "Markoon#EUW")
         self.assertEqual(result.iloc[0]["region"], "EUW")
 
-    def test_lolpros_only_returns_current_accounts(self):
+    def test_lolpros_returns_current_and_historical_riot_ids(self):
         html = """
         <html><body>
-          <h1>Markoon</h1>
-          <div>Netherlands</div>
-          <a>Michiel deRuyter#NLNLN</a>
-          <a>ikklapjouwII#EUW</a>
-          <h4>Current Rank</h4>
-          <div>Challenger</div>
-          <h4>Summoner Names</h4>
-          <div>Barkoon#bark</div>
-          <div>Markoon#EUW</div>
+          <section id="accounts">
+            <div class="account-selector">
+              <a>Michiel deRuyter#NLNLN</a>
+              <a>ikklapjouwII#EUW</a>
+            </div>
+            <h4>Current Rank</h4>
+            <div>Challenger</div>
+            <div id="summoner-names">
+              <h4>Summoner Names</h4>
+              <div>Barkoon#bark</div>
+              <div>Markoon#EUW</div>
+              <div>alvarooo#000</div>
+            </div>
+          </section>
         </body></html>
         """
 
@@ -118,9 +123,56 @@ class ProplaySourceTests(unittest.TestCase):
 
         self.assertEqual(
             result["compte"].tolist(),
-            ["Michiel deRuyter#NLNLN", "ikklapjouwII#EUW"],
+            [
+                "Michiel deRuyter#NLNLN",
+                "ikklapjouwII#EUW",
+                "Barkoon#bark",
+                "Markoon#EUW",
+                "alvarooo#000",
+            ],
         )
-        self.assertEqual(result["region"].tolist(), ["EUW", "EUW"])
+        self.assertEqual(result["region"].tolist(), ["EUW"] * 5)
+
+    def test_lolpros_paduck_account_can_only_be_in_current_rank_and_summoner_names(self):
+        html = """
+        <html><head>
+          <meta name="description" content="Bot | South Korea | Player for Shifters | Right Hand#korea [Grandmaster 1936LP]">
+        </head><body>
+          <section id="accounts">
+            <div id="current-elo">
+              <h4>Current Rank
+                <a href="https://op.gg/lol/summoners/euw/Right%20Hand-korea">
+                  <img alt="op.gg" title="Right Hand#korea">
+                </a>
+              </h4>
+            </div>
+            <div id="summoner-names">
+              <h4>Summoner Names</h4>
+              <div><p>Right Hand#korea</p><time>14/01/26</time></div>
+            </div>
+          </section>
+        </body></html>
+        """
+
+        result = parse_lolpros_accounts(html, "Paduck")
+
+        self.assertEqual(result["compte"].tolist(), ["Right Hand#korea"])
+
+    def test_lolpros_does_not_import_teammate_ids_outside_accounts_panel(self):
+        html = """
+        <html><body>
+          <section id="accounts">
+            <div>PlayerAccount#EUW</div>
+          </section>
+          <section id="team">
+            <a title="TeammateAccount#EUW">Team OP.GG</a>
+          </section>
+        </body></html>
+        """
+
+        result = parse_lolpros_accounts(html, "Player")
+
+        self.assertEqual(result["compte"].tolist(), ["PlayerAccount#EUW"])
 
     def test_account_sources_are_deduplicated(self):
         lolpros = pd.DataFrame([
@@ -259,10 +311,11 @@ class LeaguepediaQueryTests(unittest.IsolatedAsyncioTestCase):
     async def test_lolpros_can_refresh_known_player_without_leaguepedia(self):
         html = """
         <html><body>
-          <h1>Caps</h1>
-          <a>G2 Caps#1323</a>
-          <a>A 99 mid laner#EUW</a>
-          <h4>Current Rank</h4>
+          <section id="accounts">
+            <a>G2 Caps#1323</a>
+            <a>A 99 mid laner#EUW</a>
+            <h4>Current Rank</h4>
+          </section>
         </body></html>
         """
         session = _FakeHtmlSession(html)
