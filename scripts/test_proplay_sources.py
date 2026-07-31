@@ -2,10 +2,13 @@
 """Inspection manuelle des sources utilisées par data_proplayers.
 
 Exemples :
-    python scripts/test_proplay_sources.py --player Caps --source leaguepedia --strict
-    python scripts/test_proplay_sources.py --player Caps --source lolpros --accounts --strict
-    python scripts/test_proplay_sources.py --league "LoL EMEA Championship" --source leaguepedia --strict
+    python scripts/test_proplay_sources.py --player Markoon
+    python scripts/test_proplay_sources.py --player Caps
+    python scripts/test_proplay_sources.py --league "Prime League Pro Division"
+    python scripts/test_proplay_sources.py --league "LoL EMEA Championship" --player Caps
     python scripts/test_proplay_sources.py --player Markoon --accounts
+    python scripts/test_proplay_sources.py --player Markoon --source lolpros --accounts
+    python scripts/test_proplay_sources.py --player Markoon --source trackingthepros --accounts
 """
 
 from __future__ import annotations
@@ -51,7 +54,10 @@ def parse_args() -> argparse.Namespace:
         "--player",
         action="append",
         dest="players",
-        help="Joueur à tester. Répéter pour plusieurs joueurs.",
+        help=(
+            "Joueur Leaguepedia. Sans --league, utilise un lookup direct dans Players. "
+            "Répéter pour plusieurs joueurs."
+        ),
     )
     parser.add_argument(
         "--source",
@@ -61,7 +67,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--accounts",
         action="store_true",
-        help="Teste les comptes LoLPros/TTP des joueurs demandés/affichés. Aucun appel Riot.",
+        help=(
+            "Teste les Riot IDs LoLPros/TTP des joueurs demandés/affichés, y compris "
+            "les anciens noms connus par LoLPros. Aucun appel Riot."
+        ),
     )
     parser.add_argument("--limit", type=int, default=50, help="Nombre max de lignes affichées.")
     parser.add_argument(
@@ -104,7 +113,6 @@ async def main() -> None:
         return
 
     leagues = tuple(args.leagues) if args.leagues else DEFAULT_PRO_LEAGUES
-    # LoLPros peut désormais être testé entièrement sans Leaguepedia.
     need_leaguepedia = args.source in ("all", "leaguepedia")
     leaguepedia = pd.DataFrame()
     matched_leaguepedia = pd.DataFrame()
@@ -130,7 +138,8 @@ async def main() -> None:
                 matched_leaguepedia = filter_players(leaguepedia, args.players)
                 leaguepedia_title = "Leaguepedia (roster championnat)"
 
-            print_frame(leaguepedia_title, matched_leaguepedia, args.limit)
+            if args.source in ("all", "leaguepedia"):
+                print_frame(leaguepedia_title, matched_leaguepedia, args.limit)
 
         if args.source in ("all", "trackingthepros"):
             tracking = await fetch_trackingthepros_players(session, strict=args.strict)
@@ -139,24 +148,23 @@ async def main() -> None:
 
         if args.accounts or args.source == "lolpros":
             if args.players:
-                lolpros_players = args.players[:args.limit]
+                lolpros_players = args.players[: args.limit]
             elif not matched_leaguepedia.empty:
                 lolpros_players = matched_leaguepedia["plug"].head(args.limit).tolist()
             else:
                 lolpros_players = []
 
-            if not lolpros_players:
-                lolpros_accounts = pd.DataFrame()
-                resolved_profiles = pd.DataFrame()
-                print("\n=== Comptes LoLPros ===\nAucun joueur à tester. Utilise --player.")
-            else:
-                lolpros_accounts, resolved_profiles = await fetch_lolpros_accounts_for_players(
-                    session,
-                    lolpros_players,
-                    leaguepedia_profiles=matched_leaguepedia,
-                    strict=args.strict,
-                )
-                print_frame("Comptes LoLPros", lolpros_accounts, args.limit)
+            # LoLPros est volontairement indépendant de Leaguepedia dans ce test.
+            # Le lookup direct /player/<slug> reproduit le fallback du job hebdo.
+            lolpros_accounts, resolved_profiles = await fetch_lolpros_accounts_for_players(
+                session,
+                lolpros_players,
+                leaguepedia_profiles=matched_leaguepedia,
+                cached_profiles=pd.DataFrame(),
+                strict=args.strict,
+            )
+            print_frame("Riot IDs LoLPros (courants + historiques)", lolpros_accounts, args.limit)
+            if not resolved_profiles.empty:
                 print_frame("Profils LoLPros résolus", resolved_profiles, args.limit)
         else:
             lolpros_accounts = pd.DataFrame()
