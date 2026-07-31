@@ -86,6 +86,40 @@ class LoLProplay(Extension):
         )
         return frame[has_metadata].reset_index(drop=True)
 
+    @staticmethod
+    def _format_force_progress(state: dict[str, object]) -> str:
+        total = int(state.get("total_players") or 0)
+        processed = int(state.get("processed") or 0)
+        success = int(state.get("success") or 0)
+        to_retry = int(state.get("to_retry") or 0)
+        riot_ids = int(state.get("riot_ids") or 0)
+        retry_events = int(state.get("retry_events") or 0)
+        batch_number = int(state.get("batch_number") or 0)
+        total_batches = int(state.get("total_batches") or 0)
+        player = state.get("current_player") or "-"
+        event = str(state.get("event") or "progress")
+        percent = (processed / total * 100) if total else 0.0
+
+        if event == "start":
+            title = "⏳ Force update proplay démarré"
+        elif event == "rate_limit":
+            cooldown = float(state.get("cooldown_seconds") or 0)
+            title = f"⏸️ LoLPros rate-limité — pause {cooldown:.0f}s"
+        elif event == "done":
+            title = "🔄 Collecte LoLPros terminée, écriture BDD en cours"
+        else:
+            title = f"🔄 Lot LoLPros {batch_number}/{total_batches} terminé"
+
+        return (
+            f"{title}\n"
+            f"**Progression :** {processed}/{total} ({percent:.1f} %)\n"
+            f"**Joueur courant / dernier :** {player}\n"
+            f"**Profils résolus :** {success}\n"
+            f"**Sans résultat / à retenter :** {to_retry}\n"
+            f"**Riot IDs récupérés :** {riot_ids}\n"
+            f"**Retries HTTP 429 :** {retry_events}"
+        )
+
     def _save_lolpros_profile_cache(
         self,
         resolved_profiles: pd.DataFrame,
@@ -111,7 +145,12 @@ class LoLProplay(Extension):
             index=False,
         )
 
-    async def _run_pro_database_update(self, *, trigger: str) -> str:
+    async def _run_pro_database_update(
+        self,
+        *,
+        trigger: str,
+        progress_callback=None,
+    ) -> str:
         if self._pro_update_lock.locked():
             return "Une mise à jour proplay est déjà en cours."
 
@@ -120,8 +159,6 @@ class LoLProplay(Extension):
             updated_at = datetime.now(timezone)
             print(f"Update Database Proplayers ({trigger})...")
 
-            # Snapshot persistant avant toute écriture. Un /lol_pro rollback_update
-            # peut restaurer ces deux tables si le run produit un résultat anormal.
             try:
                 backup_at = create_proplay_backup()
                 print(f"Backup proplay créé : {backup_at}")
@@ -136,14 +173,11 @@ class LoLProplay(Extension):
             ).T
 
             async with ClientSession() as session:
-                # Leaguepedia reste prioritaire sur le roster lorsqu'il répond, mais sa
-                # liste de championnats ne couvre pas les ~2500 joueurs historiques.
                 df_leaguepedia = await fetch_leaguepedia_players(
                     session,
                     DEFAULT_PRO_LEAGUES,
                 )
 
-                # TrackingThePros est une source additive uniquement.
                 df_tracking = await fetch_trackingthepros_players(session)
 
                 df_pro = merge_proplayer_sources(
@@ -158,8 +192,6 @@ class LoLProplay(Extension):
                     print(message)
                     return message
 
-                # Sauvegarde intermédiaire : si LoLPros échoue ensuite, les données
-                # Leaguepedia/TTP déjà obtenues ne sont pas perdues.
                 if not df_leaguepedia.empty or not df_tracking.empty:
                     sauvegarde_bdd(df_pro, "data_proplayers")
                     print(
@@ -180,21 +212,17 @@ class LoLProplay(Extension):
                 )
                 profile_cache = self._read_optional_table("data_proplayer_lolpros_profiles")
 
-                # Les pages LoLPros sont déjà téléchargées pour les Riot IDs. On y
-                # extrait aussi rôle/pays/équipe : aucun appel HTTP supplémentaire.
                 df_lolpros_accounts, resolved_profiles = await fetch_lolpros_accounts_for_players(
                     session,
                     target_players,
                     leaguepedia_profiles=df_leaguepedia,
                     cached_profiles=profile_cache,
+                    progress_callback=progress_callback,
                 )
                 self._save_lolpros_profile_cache(resolved_profiles, updated_at)
 
                 df_lolpros_roster = self._lolpros_roster_frame(resolved_profiles)
                 if not df_lolpros_roster.empty:
-                    # LoLPros sert de fallback mondial pour les joueurs que Leaguepedia
-                    # ne couvre pas. On réapplique ensuite Leaguepedia afin de conserver
-                    # l'ordre de priorité : Leaguepedia > LoLPros > ancienne BDD.
                     df_pro = merge_proplayer_sources(
                         df_pro,
                         pd.DataFrame(),
@@ -278,9 +306,44 @@ class LoLProplay(Extension):
         sub_cmd_description="Forcer immédiatement la mise à jour joueurs + comptes SoloQ",
     )
     async def force_update(self, ctx: SlashContext):
+        # Le token d'une interaction Discord expire bien avant les ~2 h du refresh.
+        # On acquitte donc immédiatement la slash-command, puis on utilise un message
+        # normal du bot dont l'édition ne dépend pas du token de l'interaction.
         await ctx.defer(ephemeral=True)
-        message = await self._run_pro_database_update(trigger="manuel")
-        await ctx.send(message)
+
+        progress_message = None
+        try:
+            channel = await self.bot.fetch_channel(ctx.channel_id)
+            progress_message = await channel.send(
+                "⏳ Force update proplay initialisé — préparation du backup et des sources..."
+            )
+            await ctx.send("Force update lancé. La progression est affichée dans le salon.")
+        except Exception as exc:
+            print(f"Impossible de créer le message Discord de progression : {exc}")
+            await ctx.send(
+                "Force update lancé, mais le message de progression n'a pas pu être créé. "
+                "Le traitement continue et reste visible dans les logs."
+            )
+
+        async def discord_progress(state: dict[str, object]) -> None:
+            if progress_message is None:
+                return
+            try:
+                await progress_message.edit(content=self._format_force_progress(state))
+            except Exception as exc:
+                # Une panne d'édition Discord ne doit jamais interrompre la collecte.
+                print(f"Progression Discord non mise à jour : {exc}")
+
+        message = await self._run_pro_database_update(
+            trigger="manuel",
+            progress_callback=discord_progress,
+        )
+
+        if progress_message is not None:
+            try:
+                await progress_message.edit(content=f"✅ **{message}**")
+            except Exception as exc:
+                print(f"Message final Discord non mis à jour : {exc}")
 
     @lol_pro.subcommand(
         "rollback_update",
