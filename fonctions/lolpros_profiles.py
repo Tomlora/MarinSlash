@@ -14,11 +14,12 @@ from fonctions.lolpros import (
     ACCOUNT_COLUMNS,
     DEFAULT_HTTP_HEADERS,
     parse_lolpros_accounts,
+    parse_lolpros_profile_metadata,
 )
 
 LOGGER = logging.getLogger(__name__)
 LOLPROS_PLAYER_URL = "https://lolpros.gg/player/{slug}"
-PROFILE_COLUMNS = ("joueur", "lolpros_url")
+PROFILE_COLUMNS = ("joueur", "lolpros_url", "team_plug", "role", "Pays")
 
 
 def _empty_accounts() -> pd.DataFrame:
@@ -103,19 +104,16 @@ async def fetch_lolpros_accounts_for_players(
     region: str = "EUW",
     strict: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Récupère les comptes LoLPros sans dépendre de Leaguepedia.
+    """Récupère comptes SoloQ + métadonnées roster depuis les mêmes pages LoLPros.
 
     Ordre des URLs candidates pour chaque joueur :
     1. URL fournie par Leaguepedia pendant ce run, si disponible ;
     2. URL LoLPros validée et mise en cache lors d'un run précédent ;
     3. URL déduite directement du nom pro (``/player/<slug>``).
 
-    Cela permet de continuer à rafraîchir les comptes des joueurs déjà présents
-    en BDD même quand Cargo/Leaguepedia est ratelimited ou indisponible.
-
-    Retourne ``(accounts, resolved_profiles)`` ; le deuxième DataFrame sert à
-    persister les URLs qui ont réellement répondu avec au moins un Riot ID attribué
-    au joueur (compte courant ou nom historique).
+    ``resolved_profiles`` contient aussi ``team_plug``, ``role`` et ``Pays`` quand
+    LoLPros les expose dans sa meta description. Cela fournit un fallback roster
+    mondial sans aucune requête HTTP supplémentaire.
     """
 
     unique_players = [
@@ -158,9 +156,21 @@ async def fetch_lolpros_accounts_for_players(
                         response.raise_for_status()
                         html = await response.text()
 
-                    result = parse_lolpros_accounts(html, player, region=region)
-                    if not result.empty:
-                        return result, {"joueur": player, "lolpros_url": url}
+                    accounts = parse_lolpros_accounts(html, player, region=region)
+                    metadata = parse_lolpros_profile_metadata(html)
+                    profile = {
+                        "joueur": player,
+                        "lolpros_url": url,
+                        "team_plug": metadata.get("team_plug"),
+                        "role": metadata.get("role"),
+                        "Pays": metadata.get("Pays"),
+                    }
+
+                    # Une page reconnue peut être utile pour le roster même si aucun
+                    # Riot ID n'est actuellement exposé. On conserve donc le profil si
+                    # au moins une métadonnée fiable a été extraite.
+                    if not accounts.empty or any(metadata.values()):
+                        return accounts, profile
                 except (ClientError, asyncio.TimeoutError, ValueError) as exc:
                     last_error = exc
                     LOGGER.warning("LoLPros profil KO pour %s (%s): %s", player, url, exc)
@@ -168,7 +178,7 @@ async def fetch_lolpros_accounts_for_players(
                         raise
 
             if last_error is None:
-                LOGGER.warning("LoLPros: aucun Riot ID détecté pour %s", player)
+                LOGGER.warning("LoLPros: aucun Riot ID ni metadata détecté pour %s", player)
             return _empty_accounts(), None
 
     results = await asyncio.gather(*(fetch_one(player) for player in unique_players))
@@ -184,6 +194,7 @@ async def fetch_lolpros_accounts_for_players(
     if profiles:
         resolved = (
             pd.DataFrame(profiles)
+            .reindex(columns=PROFILE_COLUMNS)
             .drop_duplicates(subset="joueur", keep="last")
             .reset_index(drop=True)
         )
