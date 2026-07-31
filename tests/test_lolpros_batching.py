@@ -84,6 +84,34 @@ class LolprosBatchRefreshTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(profiles["joueur"]), set(players))
         self.assertEqual(set(accounts["joueur"]), set(players))
 
+    async def test_progress_callback_reports_each_completed_batch(self):
+        session = _FakeSession()
+        players = ["Player1", "Player2", "Player3", "Player4", "Player5"]
+        events = []
+
+        async def progress(state):
+            events.append(state.copy())
+
+        await fetch_lolpros_accounts_for_players(
+            session,
+            players,
+            leaguepedia_profiles=pd.DataFrame(),
+            cached_profiles=pd.DataFrame(),
+            batch_size=2,
+            request_interval_seconds=0,
+            batch_pause_seconds=0,
+            progress_callback=progress,
+        )
+
+        self.assertEqual(events[0]["event"], "start")
+        batch_events = [event for event in events if event["event"] == "batch_end"]
+        self.assertEqual(len(batch_events), 3)
+        self.assertEqual([event["processed"] for event in batch_events], [2, 4, 5])
+        self.assertEqual([event["success"] for event in batch_events], [2, 4, 5])
+        self.assertEqual(events[-1]["event"], "done")
+        self.assertEqual(events[-1]["processed"], 5)
+        self.assertEqual(events[-1]["to_retry"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
