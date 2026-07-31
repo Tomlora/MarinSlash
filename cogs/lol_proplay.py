@@ -100,6 +100,22 @@ class LoLProplay(Extension):
         event = str(state.get("event") or "progress")
         percent = (processed / total * 100) if total else 0.0
 
+        batch_duration = state.get("last_batch_duration_seconds")
+        if batch_duration is None:
+            batch_duration_text = "-"
+        else:
+            total_seconds = max(int(round(float(batch_duration))), 0)
+            hours, remainder = divmod(total_seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            if hours:
+                batch_duration_text = f"{hours} h {minutes:02d} min {seconds:02d} s"
+            elif minutes:
+                batch_duration_text = f"{minutes} min {seconds:02d} s"
+            else:
+                batch_duration_text = f"{seconds} s"
+
+        last_edit = datetime.now(tz.gettz("Europe/Paris")).strftime("%H:%M:%S")
+
         if event == "start":
             title = "⏳ Force update proplay démarré"
         elif event == "rate_limit":
@@ -117,7 +133,9 @@ class LoLProplay(Extension):
             f"**Profils résolus :** {success}\n"
             f"**Sans résultat / à retenter :** {to_retry}\n"
             f"**Riot IDs récupérés :** {riot_ids}\n"
-            f"**Retries HTTP 429 :** {retry_events}"
+            f"**Retries HTTP 429 :** {retry_events}\n"
+            f"**Durée du dernier lot :** {batch_duration_text}\n"
+            f"**Dernière mise à jour :** {last_edit}"
         )
 
     def _save_lolpros_profile_cache(
@@ -314,8 +332,11 @@ class LoLProplay(Extension):
         progress_message = None
         try:
             channel = await self.bot.fetch_channel(ctx.channel_id)
+            initial_time = datetime.now(tz.gettz("Europe/Paris")).strftime("%H:%M:%S")
             progress_message = await channel.send(
-                "⏳ Force update proplay initialisé — préparation du backup et des sources..."
+                "⏳ Force update proplay initialisé — préparation du backup et des sources...\n"
+                "**Durée du dernier lot :** -\n"
+                f"**Dernière mise à jour :** {initial_time}"
             )
             await ctx.send("Force update lancé. La progression est affichée dans le salon.")
         except Exception as exc:
