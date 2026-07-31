@@ -21,6 +21,14 @@ DEFAULT_HTTP_HEADERS = {
 }
 RIOT_ID_RE = re.compile(r"^[^#\r\n]{1,32}#[A-Za-z0-9]{2,8}$")
 META_DESCRIPTION_NAMES = {"description", "og:description", "twitter:description"}
+LOLPROS_ROLE_MAP = {
+    "top": "Top",
+    "jungle": "Jungle",
+    "mid": "Mid",
+    "bot": "ADC",
+    "adc": "ADC",
+    "support": "Support",
+}
 
 
 def _normalize_riot_id(value: object) -> str | None:
@@ -51,18 +59,20 @@ def _riot_ids_from_description(value: object) -> list[str]:
 
 
 class _LolprosAccountParser(HTMLParser):
-    """Parse uniquement le panneau Accounts du joueur courant.
+    """Parse le panneau Accounts et les métadonnées du joueur courant.
 
-    Scanner toute la page provoquerait des faux positifs car la fiche contient aussi
-    les Riot IDs des coéquipiers dans certains liens OP.GG. Le panneau ``#accounts``
-    contient en revanche les comptes du joueur, son compte sélectionné et la section
-    ``Summoner Names`` avec les anciens Riot IDs de ce même compte.
+    Scanner tous les Riot IDs de la page provoquerait des faux positifs car la fiche
+    contient aussi les comptes de coéquipiers dans certains liens OP.GG. Les comptes
+    sont donc limités à ``section#accounts``. Les meta descriptions, elles, décrivent
+    le joueur courant et servent aussi à extraire rôle/pays/équipe sans requête réseau
+    supplémentaire.
     """
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.accounts: list[str] = []
         self.meta_accounts: list[str] = []
+        self.meta_descriptions: list[str] = []
         self.in_accounts_section = False
         self.accounts_section_depth = 0
 
@@ -86,10 +96,17 @@ class _LolprosAccountParser(HTMLParser):
             self._add_account(attributes.get("title"))
             self._add_account(attributes.get("aria-label"))
 
-        if tag == "meta" and attributes.get("name") in META_DESCRIPTION_NAMES:
-            for riot_id in _riot_ids_from_description(attributes.get("content")):
-                if riot_id not in self.meta_accounts:
-                    self.meta_accounts.append(riot_id)
+        if tag == "meta":
+            meta_name = attributes.get("name") or attributes.get("property")
+            if meta_name in META_DESCRIPTION_NAMES:
+                content = attributes.get("content")
+                if content:
+                    description = " ".join(content.split()).strip()
+                    if description and description not in self.meta_descriptions:
+                        self.meta_descriptions.append(description)
+                for riot_id in _riot_ids_from_description(content):
+                    if riot_id not in self.meta_accounts:
+                        self.meta_accounts.append(riot_id)
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "section" and self.in_accounts_section:
@@ -124,6 +141,53 @@ def _normalize_lolpros_url(value: object) -> str | None:
     if hostname != "lolpros.gg" and not hostname.endswith(".lolpros.gg"):
         return None
     return url
+
+
+def _parse_lolpros_description(description: str) -> dict[str, str | None]:
+    """Transforme la description SSR LoLPros en métadonnées roster prudentes.
+
+    Format observé : ``Bot | South Korea | Player for Shifters | Riot ID [...]``.
+    Si le format change ou si l'équipe n'est pas explicitement présente, on retourne
+    ``None`` pour ne jamais écraser une valeur BDD avec une supposition.
+    """
+
+    parts = [part.strip() for part in description.split("|") if part.strip()]
+    role = None
+    country = None
+    team = None
+
+    if parts:
+        role = LOLPROS_ROLE_MAP.get(parts[0].casefold())
+    if len(parts) >= 2 and not _normalize_riot_id(parts[1]):
+        country = parts[1]
+
+    for part in parts:
+        match = re.fullmatch(r"Player\s+for\s+(.+)", part, flags=re.IGNORECASE)
+        if match:
+            candidate = match.group(1).strip()
+            if candidate:
+                team = candidate
+            break
+
+    return {"role": role, "Pays": country, "team_plug": team}
+
+
+def parse_lolpros_profile_metadata(html: str) -> dict[str, str | None]:
+    """Extrait rôle, pays et équipe du joueur depuis la fiche LOLPros.
+
+    Aucune information n'est inventée : si aucune meta description au format attendu
+    n'est disponible, les champs restent à ``None`` et la BDD existante est conservée.
+    """
+
+    parser = _LolprosAccountParser()
+    parser.feed(html)
+
+    for description in parser.meta_descriptions:
+        metadata = _parse_lolpros_description(description)
+        if any(metadata.values()):
+            return metadata
+
+    return {"role": None, "Pays": None, "team_plug": None}
 
 
 def parse_lolpros_accounts(
