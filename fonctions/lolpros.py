@@ -19,17 +19,88 @@ DEFAULT_HTTP_HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
     )
 }
+RIOT_ID_RE = re.compile(r"^[^#\r\n]{1,32}#[A-Za-z0-9]{2,8}$")
+META_DESCRIPTION_NAMES = {"description", "og:description", "twitter:description"}
 
 
-class _VisibleTextParser(HTMLParser):
+def _normalize_riot_id(value: object) -> str | None:
+    if value is None:
+        return None
+    candidate = " ".join(str(value).split()).strip()
+    if RIOT_ID_RE.fullmatch(candidate):
+        return candidate
+    return None
+
+
+def _riot_ids_from_description(value: object) -> list[str]:
+    """Extrait les Riot IDs présents dans une meta description LOLPros.
+
+    Exemple réel : ``Bot | South Korea | Player for Shifters |
+    Right Hand#korea [Grandmaster 1936LP]``.
+    """
+
+    if value is None:
+        return []
+
+    result: list[str] = []
+    for part in re.split(r"[|,\[\]<>]", str(value)):
+        riot_id = _normalize_riot_id(part)
+        if riot_id and riot_id not in result:
+            result.append(riot_id)
+    return result
+
+
+class _LolprosAccountParser(HTMLParser):
+    """Parse uniquement le panneau Accounts du joueur courant.
+
+    Scanner toute la page provoquerait des faux positifs car la fiche contient aussi
+    les Riot IDs des coéquipiers dans certains liens OP.GG. Le panneau ``#accounts``
+    contient en revanche les comptes du joueur, son compte sélectionné et la section
+    ``Summoner Names`` avec les anciens Riot IDs de ce même compte.
+    """
+
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.nodes: list[str] = []
+        self.accounts: list[str] = []
+        self.meta_accounts: list[str] = []
+        self.in_accounts_section = False
+        self.accounts_section_depth = 0
+
+    def _add_account(self, value: object) -> None:
+        riot_id = _normalize_riot_id(value)
+        if riot_id and riot_id not in self.accounts:
+            self.accounts.append(riot_id)
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+
+        if tag == "section":
+            if self.in_accounts_section:
+                self.accounts_section_depth += 1
+            elif attributes.get("id") == "accounts":
+                self.in_accounts_section = True
+                self.accounts_section_depth = 1
+
+        if self.in_accounts_section:
+            # Le compte sélectionné peut n'apparaître que dans le title du bouton OP.GG.
+            self._add_account(attributes.get("title"))
+            self._add_account(attributes.get("aria-label"))
+
+        if tag == "meta" and attributes.get("name") in META_DESCRIPTION_NAMES:
+            for riot_id in _riot_ids_from_description(attributes.get("content")):
+                if riot_id not in self.meta_accounts:
+                    self.meta_accounts.append(riot_id)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "section" and self.in_accounts_section:
+            self.accounts_section_depth -= 1
+            if self.accounts_section_depth <= 0:
+                self.in_accounts_section = False
+                self.accounts_section_depth = 0
 
     def handle_data(self, data: str) -> None:
-        value = " ".join(data.split())
-        if value:
-            self.nodes.append(value)
+        if self.in_accounts_section:
+            self._add_account(data)
 
 
 def _empty_accounts() -> pd.DataFrame:
@@ -61,27 +132,27 @@ def parse_lolpros_accounts(
     *,
     region: str = "EUW",
 ) -> pd.DataFrame:
-    """Extrait uniquement les Riot IDs actifs affichés en tête du profil.
+    """Extrait tous les Riot IDs attribués au joueur sur sa fiche LOLPros.
 
-    L'historique de renommage se trouve après ``Current Rank`` / ``Summoner Names``
-    et n'est volontairement pas importé.
+    On conserve volontairement :
+    - les comptes affichés dans le sélecteur Accounts ;
+    - le compte actuellement sélectionné (notamment via le lien OP.GG) ;
+    - tous les Riot IDs de ``Summoner Names``, même anciens.
+
+    Le but est de maximiser la couverture de ``data_acc_proplayers`` : un ancien nom
+    reste utile et il vaut mieux le conserver que considérer à tort le compte comme
+    inactif. Les IDs des coéquipiers, présents ailleurs dans la page, sont exclus car
+    le parsing principal est limité au ``section#accounts``.
     """
 
-    parser = _VisibleTextParser()
+    parser = _LolprosAccountParser()
     parser.feed(html)
 
-    stop_markers = ("Current Rank", "Summoner Names", "Rank History")
-    riot_id = re.compile(r"^[^#\r\n]{1,32}#[A-Za-z0-9]{2,8}$")
-    accounts: list[str] = []
+    accounts = list(parser.accounts)
+    for riot_id in parser.meta_accounts:
+        if riot_id not in accounts:
+            accounts.append(riot_id)
 
-    for node in parser.nodes:
-        if any(marker in node for marker in stop_markers):
-            break
-        candidate = node.strip()
-        if riot_id.fullmatch(candidate):
-            accounts.append(candidate)
-
-    accounts = list(dict.fromkeys(accounts))
     if not accounts:
         return _empty_accounts()
 
@@ -181,7 +252,7 @@ async def fetch_lolpros_accounts(
                     html = await response.text()
                 result = parse_lolpros_accounts(html, player, region=region)
                 if result.empty:
-                    LOGGER.warning("LoLPros: aucun compte actif détecté pour %s", player)
+                    LOGGER.warning("LoLPros: aucun Riot ID détecté pour %s", player)
                 return result
             except (ClientError, asyncio.TimeoutError, ValueError) as exc:
                 LOGGER.warning("LoLPros comptes KO pour %s: %s", player, exc)
