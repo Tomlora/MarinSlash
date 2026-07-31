@@ -21,18 +21,24 @@ LOGGER = logging.getLogger(__name__)
 LOLPROS_PLAYER_URL = "https://lolpros.gg/player/{slug}"
 PROFILE_COLUMNS = ("joueur", "lolpros_url", "team_plug", "role", "Pays")
 
-# LoLPros protège fortement ses pages contre les rafales de requêtes. Le job hebdo
-# ne doit donc jamais essayer les ~2600 joueurs historiques d'un seul coup.
-DEFAULT_MAX_PROFILES_PER_RUN = 500
-DEFAULT_GUESSED_PROFILES_PER_RUN = 25
-DEFAULT_REQUEST_INTERVAL_SECONDS = 1.0
-DEFAULT_RATE_LIMIT_BACKOFF_SECONDS = 60.0
+# Le job tourne de nuit : on privilégie la complétude et un rythme doux plutôt que
+# la vitesse. Environ 2600 joueurs = ~26 lots, soit ~2 h avec ces valeurs hors
+# latence réseau et éventuels backoffs 429.
+DEFAULT_BATCH_SIZE = 100
+DEFAULT_REQUEST_INTERVAL_SECONDS = 2.0
+DEFAULT_BATCH_PAUSE_SECONDS = 60.0
+DEFAULT_RATE_LIMIT_BACKOFF_SECONDS = 300.0
+DEFAULT_MAX_RATE_LIMIT_COOLDOWNS = 5
 
 
 class LolprosRateLimitError(RuntimeError):
     def __init__(self, retry_after: float | None = None):
         super().__init__("LoLPros HTTP 429 Too Many Requests")
         self.retry_after = retry_after
+
+
+class LolprosRateLimitExhausted(RuntimeError):
+    """Trop de périodes de rate-limit pendant un même run nocturne."""
 
 
 def _empty_accounts() -> pd.DataFrame:
@@ -110,11 +116,7 @@ def _profile_map(
 
 
 def _unique_players(players: Iterable[str]) -> list[str]:
-    """Déduplique les pseudos sans tenir compte de la casse.
-
-    La BDD historique contient par exemple CarioK/Cariok ou Hans-Sama/hans-sama.
-    Les requêter deux fois ne fait qu'augmenter le risque de rate-limit.
-    """
+    """Déduplique les pseudos sans tenir compte de la casse."""
 
     result: list[str] = []
     seen: set[str] = set()
@@ -147,58 +149,44 @@ def _select_players_for_refresh(
     *,
     leaguepedia_profiles: pd.DataFrame | None,
     cached_profiles: pd.DataFrame | None,
-    max_profiles: int,
-    guessed_profiles_limit: int,
 ) -> list[str]:
-    """Sélectionne une quantité raisonnable de profils pour le run.
+    """Planifie TOUS les joueurs du run, avec les plus utiles en premier.
 
-    Priorités :
+    Ordre :
     1. joueurs ayant une URL LoLPros fournie par Leaguepedia pendant ce run ;
     2. profils déjà validés en cache, les plus anciens d'abord ;
-    3. un petit nombre de joueurs sans URL connue pour découvrir de nouveaux profils.
+    3. tous les autres joueurs, dont le slug LoLPros sera deviné.
 
-    Les comptes historiques déjà présents en BDD sont conservés par le caller : il
-    n'est donc pas nécessaire de re-télécharger les ~2600 joueurs chaque semaine.
+    Contrairement à l'ancienne version, aucun quota hebdomadaire ne laisse des
+    milliers de joueurs pour les semaines suivantes : un run nocturne tente toute
+    la base, simplement à un rythme contrôlé par lots.
     """
 
     unique_players = _unique_players(players)
-    if not unique_players or max_profiles <= 0:
+    if not unique_players:
         return []
 
     by_key = {player.casefold(): player for player in unique_players}
     league_map = _profile_map(leaguepedia_profiles, "plug", "Lolpros")
-    cache_map = _profile_map(cached_profiles, "joueur", "lolpros_url")
 
     selected: list[str] = []
     selected_keys: set[str] = set()
 
     def add(player: str) -> None:
         key = player.casefold()
-        if key in by_key and key not in selected_keys and len(selected) < max_profiles:
+        if key in by_key and key not in selected_keys:
             selected.append(by_key[key])
             selected_keys.add(key)
 
-    # Le roster courant doit toujours être prioritaire.
     for player in unique_players:
         if player.casefold() in league_map:
             add(player)
 
-    # Ensuite on fait tourner les profils déjà connus, du plus vieux au plus récent.
     for cached_player in _cache_age_order(cached_profiles):
-        if len(selected) >= max_profiles:
-            break
         add(cached_player)
 
-    # Enfin seulement, on devine quelques slugs supplémentaires.
-    guessed = 0
     for player in unique_players:
-        if len(selected) >= max_profiles or guessed >= guessed_profiles_limit:
-            break
-        key = player.casefold()
-        if key in selected_keys or key in league_map or key in cache_map:
-            continue
         add(player)
-        guessed += 1
 
     return selected
 
@@ -223,24 +211,30 @@ async def fetch_lolpros_accounts_for_players(
     concurrency: int = 1,
     region: str = "EUW",
     strict: bool = False,
-    max_profiles: int = DEFAULT_MAX_PROFILES_PER_RUN,
-    guessed_profiles_limit: int = DEFAULT_GUESSED_PROFILES_PER_RUN,
+    batch_size: int = DEFAULT_BATCH_SIZE,
     request_interval_seconds: float = DEFAULT_REQUEST_INTERVAL_SECONDS,
+    batch_pause_seconds: float = DEFAULT_BATCH_PAUSE_SECONDS,
     rate_limit_backoff_seconds: float = DEFAULT_RATE_LIMIT_BACKOFF_SECONDS,
+    max_rate_limit_cooldowns: int = DEFAULT_MAX_RATE_LIMIT_COOLDOWNS,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Récupère comptes SoloQ + métadonnées roster depuis LoLPros sans rafale HTTP.
+    """Récupère comptes SoloQ + roster LoLPros pour tous les joueurs, par lots.
 
-    ``concurrency`` est conservé dans la signature pour compatibilité, mais les accès
-    LoLPros sont volontairement sérialisés. Un premier HTTP 429 provoque une pause et
-    un unique retry ; un second 429 ouvre le circuit et arrête immédiatement le reste
-    du run afin de ne pas envoyer des milliers de requêtes inutiles.
+    Les requêtes sont volontairement sérialisées. Chaque joueur de la BDD est tenté
+    pendant le run nocturne. Une pause est appliquée entre les profils et entre les
+    lots. En cas de 429, le même joueur est retenté après ``Retry-After`` ou après un
+    cooldown de 5 minutes. Après plusieurs cooldowns successifs, le run LoLPros est
+    interrompu proprement pour ne pas marteler le service ; les résultats déjà
+    obtenus restent utilisables par le caller.
     """
 
-    del concurrency  # intentionnel : LoLPros ne doit plus être sollicité en parallèle.
+    del concurrency  # compatibilité de signature ; aucune rafale parallèle voulue.
 
     unique_players = _unique_players(players)
     if not unique_players:
         return _empty_accounts(), _empty_profiles()
+
+    if batch_size <= 0:
+        raise ValueError("batch_size doit être strictement positif")
 
     league_map = _profile_map(leaguepedia_profiles, "plug", "Lolpros")
     cache_map = _profile_map(cached_profiles, "joueur", "lolpros_url")
@@ -248,15 +242,15 @@ async def fetch_lolpros_accounts_for_players(
         unique_players,
         leaguepedia_profiles=leaguepedia_profiles,
         cached_profiles=cached_profiles,
-        max_profiles=max_profiles,
-        guessed_profiles_limit=guessed_profiles_limit,
     )
 
+    total_batches = (len(selected_players) + batch_size - 1) // batch_size
     LOGGER.info(
-        "LoLPros: %s profils planifiés sur %s joueurs connus (budget=%s).",
+        "LoLPros: %s profils planifiés sur %s joueurs connus, %s lots de %s max.",
         len(selected_players),
         len(unique_players),
-        max_profiles,
+        total_batches,
+        batch_size,
     )
 
     timeout = ClientTimeout(total=timeout_seconds)
@@ -312,47 +306,96 @@ async def fetch_lolpros_accounts_for_players(
             LOGGER.debug("LoLPros: aucun Riot ID ni metadata détecté pour %s", player)
         return _empty_accounts(), None
 
-    account_frames: list[pd.DataFrame] = []
-    profiles: list[dict] = []
-    rate_limit_retry_used = False
+    async def fetch_with_backoff(
+        player: str,
+        *,
+        processed: int,
+    ) -> tuple[pd.DataFrame, dict | None, int]:
+        cooldowns = 0
+        while True:
+            try:
+                accounts, profile = await fetch_one(player)
+                return accounts, profile, cooldowns
+            except LolprosRateLimitError as exc:
+                cooldowns += 1
+                if cooldowns > max_rate_limit_cooldowns:
+                    raise LolprosRateLimitExhausted(
+                        f"LoLPros encore rate-limité après {max_rate_limit_cooldowns} cooldowns"
+                    ) from exc
 
-    for position, player in enumerate(selected_players, start=1):
-        try:
-            accounts, profile = await fetch_one(player)
-        except LolprosRateLimitError as exc:
-            if not rate_limit_retry_used:
                 delay = exc.retry_after or rate_limit_backoff_seconds
-                rate_limit_retry_used = True
                 LOGGER.warning(
-                    "LoLPros rate-limit 429 après %s/%s profils : pause %.0fs puis un seul retry.",
-                    position - 1,
-                    len(selected_players),
+                    "LoLPros 429 après %s profils : cooldown %s/%s de %.0fs, puis retry de %s.",
+                    processed,
+                    cooldowns,
+                    max_rate_limit_cooldowns,
                     delay,
+                    player,
                 )
                 await asyncio.sleep(delay)
-                try:
-                    accounts, profile = await fetch_one(player)
-                except LolprosRateLimitError as retry_exc:
-                    LOGGER.warning(
-                        "LoLPros toujours rate-limité après %.0fs : arrêt du run, %s profils non tentés.",
-                        retry_exc.retry_after or delay,
-                        len(selected_players) - position + 1,
-                    )
-                    break
-            else:
-                LOGGER.warning(
-                    "LoLPros rate-limit 429 : circuit ouvert, %s profils non tentés.",
-                    len(selected_players) - position + 1,
+
+    account_frames: list[pd.DataFrame] = []
+    profiles: list[dict] = []
+    processed = 0
+    aborted = False
+
+    for batch_number, start in enumerate(range(0, len(selected_players), batch_size), start=1):
+        batch = selected_players[start:start + batch_size]
+        LOGGER.info(
+            "LoLPros lot %s/%s : %s profils (%s/%s déjà traités).",
+            batch_number,
+            total_batches,
+            len(batch),
+            processed,
+            len(selected_players),
+        )
+
+        for index_in_batch, player in enumerate(batch, start=1):
+            try:
+                accounts, profile, _ = await fetch_with_backoff(
+                    player,
+                    processed=processed,
                 )
+            except LolprosRateLimitExhausted as exc:
+                LOGGER.error(
+                    "%s. Arrêt LoLPros après %s/%s profils ; les données déjà récupérées sont conservées.",
+                    exc,
+                    processed,
+                    len(selected_players),
+                )
+                aborted = True
                 break
 
-        if not accounts.empty:
-            account_frames.append(accounts)
-        if profile is not None:
-            profiles.append(profile)
+            processed += 1
+            if not accounts.empty:
+                account_frames.append(accounts)
+            if profile is not None:
+                profiles.append(profile)
 
-        if position < len(selected_players) and request_interval_seconds > 0:
-            await asyncio.sleep(request_interval_seconds)
+            if index_in_batch < len(batch) and request_interval_seconds > 0:
+                await asyncio.sleep(request_interval_seconds)
+
+        LOGGER.info(
+            "LoLPros lot %s/%s terminé : %s/%s profils traités, %s profils résolus, %s Riot IDs cumulés.",
+            batch_number,
+            total_batches,
+            processed,
+            len(selected_players),
+            len(profiles),
+            sum(len(frame) for frame in account_frames),
+        )
+
+        if aborted:
+            break
+
+        if start + len(batch) < len(selected_players) and batch_pause_seconds > 0:
+            LOGGER.info(
+                "LoLPros pause inter-lot %.0fs avant le lot %s/%s.",
+                batch_pause_seconds,
+                batch_number + 1,
+                total_batches,
+            )
+            await asyncio.sleep(batch_pause_seconds)
 
     if account_frames:
         accounts = pd.concat(account_frames, ignore_index=True).drop_duplicates()
@@ -370,9 +413,12 @@ async def fetch_lolpros_accounts_for_players(
         resolved = _empty_profiles()
 
     LOGGER.info(
-        "LoLPros terminé : %s profils résolus, %s Riot IDs récupérés.",
+        "LoLPros terminé : %s/%s profils traités, %s profils résolus, %s Riot IDs récupérés%s.",
+        processed,
+        len(selected_players),
         len(resolved),
         len(accounts),
+        " (arrêt sur rate-limit)" if aborted else "",
     )
     return accounts, resolved
 
