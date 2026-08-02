@@ -9,7 +9,7 @@ from sqlalchemy import text
 from fonctions.gestion_bdd import engine
 
 
-ROLE_VALUES = ("Top", "Jungle", "Mid", "ADC", "Support")
+ROLE_VALUES = ("Top", "Jungle", "Mid", "ADC", "Support", "Streamer")
 ROLE_ALIASES = {
     "top": "Top",
     "jungle": "Jungle",
