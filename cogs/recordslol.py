@@ -34,18 +34,23 @@ TEAMFIGHT_RECORDS = [
 ]
 
 TEAMFIGHT_RECORD_LABELS = {
-    'tf_takedowns_survived': 'TAKEDOWNS TF SANS MOURIR',
+    'tf_takedowns_survived': 'KILLS + ASSISTS EN TF SANS MOURIR',
     'tf_teamfight_outnumbered_wins': 'TF GAGNÉS EN INFÉRIORITÉ',
-    'tf_teamfights': 'TEAMFIGHTS DISPUTÉS',
-    'tf_clutches_won': 'CLUTCHES GAGNÉS',
+    'tf_teamfights': 'COMBATS 3V3+ DISPUTÉS',
+    'tf_clutches_won': 'COMBATS EN INFÉRIORITÉ GAGNÉS',
     'tf_damage_window': 'DMG MAX EN TEAMFIGHT',
     'tf_physical_dead_damage': 'DMG AD SUR CIBLES MORTES',
     'tf_magic_dead_damage': 'DMG AP SUR CIBLES MORTES',
     'tf_true_dead_damage': 'DMG TRUE SUR CIBLES MORTES',
-    'tf_dead_damage_share_pct': '% DMG SUR CIBLES MORTES',
-    'tf_damage_window_share_pct': '% DMG TOTAL EN TEAMFIGHT',
-    'tf_duels': 'DUELS DISPUTÉS',
-    'tf_skirmishes': 'SKIRMISHES DISPUTÉS',
+    'tf_dead_damage_share_pct': '% DMG SUR CIBLES MORTES (5 ALLIÉS IMPLIQUÉS)',
+    'tf_damage_window_share_pct': '% DMG ÉQUIPE EN TF (5 ALLIÉS IMPLIQUÉS)',
+    'tf_duels': '1V1 DISPUTÉS',
+    'tf_skirmishes': 'COMBATS 2V2 À 2V5 DISPUTÉS',
+}
+
+RECORD_LABELS = {
+    **TEAMFIGHT_RECORD_LABELS,
+    'allie_feeder': "MORTS MAX D'UN COÉQUIPIER",
 }
 
 TEAMFIGHT_PERCENT_RECORDS = {
@@ -112,21 +117,25 @@ def _split_embed_field(value: str, max_length: int = 950) -> list[str]:
 
 
 def _format_record_value(column: str, record):
-    """Formate les nouvelles métriques Teamfights sans modifier leur valeur numérique."""
+    """Affiche les valeurs entières sans .0 et formate les pourcentages Teamfights."""
+    try:
+        numeric = float(record)
+    except (TypeError, ValueError):
+        return record
+
+    if not np.isfinite(numeric):
+        return record
+
     if column in TEAMFIGHT_PERCENT_RECORDS:
-        try:
-            return f'{float(record):.2f}%'
-        except (TypeError, ValueError):
-            return record
+        if numeric.is_integer():
+            return f'{int(numeric)}%'
+        return f'{numeric:.2f}%'
+
+    if numeric.is_integer():
+        return str(int(numeric))
 
     if column in TEAMFIGHT_RECORDS:
-        try:
-            numeric = float(record)
-            if numeric.is_integer():
-                return str(int(numeric))
-            return f'{numeric:.2f}'
-        except (TypeError, ValueError):
-            return record
+        return f'{numeric:.2f}'
 
     return record
 
@@ -428,7 +437,7 @@ async def load_data(ctx, view, saison, mode, time_mini):
                 team,
                 SUM(COALESCE(damage_window_estimated, 0))::DOUBLE PRECISION AS team_damage_window
             FROM match_teamfight_damage
-            WHERE COALESCE(is_core_participant, TRUE)
+            WHERE participants_allies = 5
             GROUP BY match_id, analyzed_puuid, fight_id, team
         ),
         tf_match AS (
@@ -461,10 +470,12 @@ async def load_data(ctx, view, saison, mode, time_mini):
                 ) AS tf_true_dead_damage,
                 MAX(mtd.damage_share_on_dead_targets * 100.0) FILTER (
                     WHERE mtd.is_teamfight
+                      AND mtd.participants_allies = 5
                 ) AS tf_dead_damage_share_pct,
                 MAX(
                     CASE
                         WHEN mtd.is_teamfight
+                         AND mtd.participants_allies = 5
                          AND tdw.team_damage_window > 0
                         THEN 100.0 * COALESCE(mtd.damage_window_estimated, 0)
                              / tdw.team_damage_window
@@ -610,7 +621,7 @@ async def creation_embed(fichier, column, methode_pseudo, embed, methode='max', 
         )
 
     record_display = _format_record_value(column, record)
-    field_name = TEAMFIGHT_RECORD_LABELS.get(column, column.upper())
+    field_name = RECORD_LABELS.get(column, column.upper())
 
     if rank:
         field_value = f"Records : __{record_display}__ (#{rank_joueur}) \n {value_text}"
@@ -666,7 +677,7 @@ class Recordslol(Extension):
             'vision': ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage'],
             'farming': ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage', 'cs_diff_15'],
             'tank_heal': ['dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies'],
-            'objectif': ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib', 'early_atakhan', 'first_tower_time', 'objective_damage', 'objectives_participated', 'turrets_killed', 'turret_plates_taken'],
+            'objectif': ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib', 'first_tower_time', 'objective_damage', 'objectives_participated', 'turrets_killed', 'turret_plates_taken'],
             'divers': ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'gold_diff_15', 'gold_avec_kills', 'biggest_comeback', 'biggest_throw', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball'],
             'fight': ['skillshot_dodged', 'skillshot_hit', 'skillshots_dodge_min', 'skillshots_hit_min', 'trade_efficience', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation', 'temps_cc_inflige', 'first_blood', 'shutdown_bounty', 'solokilled', 'kills_avec_jgl_early', 'deaths_with_jgl_early'],
             'stats': ['abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'first_niveau_max'],
@@ -703,7 +714,7 @@ class Recordslol(Extension):
         self.records_min = [
             'early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde',
             'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max',
-            'first_blood', 'early_atakhan', 'l_ecart_gold_min_durant_game',
+            'first_blood', 'l_ecart_gold_min_durant_game',
             'first_tower_time', 'avg_deaths'
         ]
 
@@ -1217,6 +1228,10 @@ class Recordslol(Extension):
     async def palmares(self, ctx: SlashContext, stat: str, saison: int = saison, mode: str = 'RANKED', champion: str = None, joueur: str = None, compte_discord: interactions.User = None, view: str = 'global', top: int = 10):
         await ctx.defer()
         stat = stat.lower()
+
+        if stat == 'early_atakhan':
+            return await ctx.send("Ce record n'existe plus.")
+
         fichier = await load_data(ctx, view, saison, mode, self.time_mini)
         fichier.columns = [col.lower() for col in fichier.columns]
 
@@ -1253,7 +1268,7 @@ class Recordslol(Extension):
             fichier = fichier[['match_id', 'id_participant', 'discord', 'champion', stat, 'datetime', 'season']]
             nb_row = fichier.shape[0]
 
-            if stat in ['early_baron', 'early_drake', 'early_atakhan', 'l_ecart_gold_min_durant_game']:
+            if stat in ['early_baron', 'early_drake', 'l_ecart_gold_min_durant_game']:
                 ascending = True
                 fichier = fichier[fichier[stat] != 0]
             elif stat in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time']:
@@ -1270,13 +1285,16 @@ class Recordslol(Extension):
             if saison != 0:
                 for _, data in fichier.iterrows():
                     champion_name = data['champion']
-                    txt += f'[{data[stat]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion_name.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} \n'
+                    display_value = _format_record_value(stat, data[stat])
+                    txt += f'[{display_value}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion_name.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} \n'
             else:
                 for _, data in fichier.iterrows():
                     champion_name = data['champion']
-                    txt += f'[{data[stat]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion_name.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} (S{data["season"]})\n'
+                    display_value = _format_record_value(stat, data[stat])
+                    txt += f'[{display_value}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion_name.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} (S{data["season"]})\n'
 
-            embed = interactions.Embed(title=f'Palmarès {stat} ({mode}) S{saison}', description=txt)
+            record_title = RECORD_LABELS.get(stat, stat)
+            embed = interactions.Embed(title=f'Palmarès {record_title} ({mode}) S{saison}', description=txt)
             embed.set_footer(text=f'{nb_row} matchs analysés')
             await ctx.send(embeds=embed)
         except KeyError:
@@ -1334,7 +1352,7 @@ class Recordslol(Extension):
             if stat_lower in ['early_baron', 'early_drake', 'l_ecart_gold_min_durant_game']:
                 fichier_filtre = fichier[fichier[stat_lower] != 0]
                 top_row = fichier_filtre.nsmallest(1, stat_lower)
-            elif stat_lower in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time', 'early_atakhan']:
+            elif stat_lower in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time']:
                 fichier_filtre = fichier[fichier[stat_lower] != 999]
                 top_row = fichier_filtre.nsmallest(1, stat_lower)
             else:
@@ -1356,7 +1374,7 @@ class Recordslol(Extension):
             record = data['record']
             champ = emote_champ_discord.get(data['champion'].capitalize(), data['champion'])
             display_value = _format_record_value(record, np.round(data[record], 2))
-            base = f'{emote_v2.get(record, ":star:")} **{TEAMFIGHT_RECORD_LABELS.get(record, record)}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {champ} : **{display_value}**'
+            base = f'{emote_v2.get(record, ":star:")} **{RECORD_LABELS.get(record, record)}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {champ} : **{display_value}**'
             if saison == 0:
                 base += f' (S{data["season"]})'
             lines.append(base)
