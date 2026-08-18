@@ -1,24 +1,16 @@
 """Rattrapage des données Teamfights nécessaires aux records enrichis.
 
-Le script reprend le principe du notebook historique ``import data.ipynb`` :
-- sélection des matchs en base ;
-- récupération directe du détail de match + timeline Riot ;
-- recalcul via ``calculate_teamfight_damage`` ;
-- remplacement atomique des lignes ``match_teamfight_damage`` ;
-- marquage de la perspective dans ``match_teamfight_backfill_status``.
+Le script :
+- sélectionne les perspectives de match à retraiter en BDD ;
+- récupère directement le détail du match et sa timeline via Riot Match-V5 ;
+- recalcule les combats avec ``calculate_teamfight_damage`` ;
+- remplace atomiquement les lignes ``match_teamfight_damage`` ;
+- marque la perspective dans ``match_teamfight_backfill_status``.
 
-Le script charge directement les modules source nécessaires et n'importe pas
-``fonctions.match`` / ``MatchLol``. Cela évite d'initialiser tous les mixins et
-renderers du bot pour un simple rattrapage de données.
+Il n'importe ni ``MatchLol`` ni un module API interne au package ``fonctions.match``.
 
-Pré-requis : exécuter d'abord la migration
+Pré-requis : exécuter d'abord
 ``sql/migrations/20260818_add_teamfight_record_fields.sql``.
-
-Exemples :
-    python scripts/backfill_teamfight_records.py --dry-run
-    python scripts/backfill_teamfight_records.py --season 15 --delay 5
-    python scripts/backfill_teamfight_records.py --modes RANKED FLEX --limit 100
-    python scripts/backfill_teamfight_records.py --force --season 14 15
 """
 
 from __future__ import annotations
@@ -28,7 +20,6 @@ import asyncio
 import importlib.util
 import sys
 from pathlib import Path
-from types import ModuleType
 from typing import Iterable
 
 import aiohttp
@@ -41,41 +32,36 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from fonctions.gestion_bdd import engine, lire_bdd_perso
-from utils.params import api_key_lol
+from utils.params import api_key_lol, region
 
 
 BACKFILL_VERSION = 1
 DEFAULT_MODES = ("RANKED", "FLEX", "SWIFTPLAY", "ARAM")
 
 
-def _load_source_module(module_name: str, relative_path: str) -> ModuleType:
-    """Charge un fichier Python sans exécuter ``fonctions.match.__init__``."""
-    module_path = REPO_ROOT / relative_path
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
+def _load_teamfight_calculator():
+    """Charge teamfight_damage.py sans exécuter fonctions.match.__init__."""
+    module_path = REPO_ROOT / "fonctions" / "match" / "teamfight_damage.py"
+    if not module_path.exists():
+        raise ImportError(f"Fichier introuvable : {module_path}")
+
+    spec = importlib.util.spec_from_file_location(
+        "_teamfight_backfill_damage",
+        module_path,
+    )
     if spec is None or spec.loader is None:
         raise ImportError(f"Impossible de charger {module_path}")
+
     module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
     spec.loader.exec_module(module)
-    return module
+    return module.calculate_teamfight_damage
 
 
-_RIOT_API = _load_source_module(
-    "_teamfight_backfill_riot_api",
-    "fonctions/match/riot_api.py",
-)
-_TEAMFIGHT_DAMAGE = _load_source_module(
-    "_teamfight_backfill_damage",
-    "fonctions/match/teamfight_damage.py",
-)
-
-get_match_detail = _RIOT_API.get_match_detail
-get_match_timeline = _RIOT_API.get_match_timeline
-calculate_teamfight_damage = _TEAMFIGHT_DAMAGE.calculate_teamfight_damage
+calculate_teamfight_damage = _load_teamfight_calculator()
 
 
 def _as_rows(df: pd.DataFrame) -> pd.DataFrame:
-    """Normalise la forme historique renvoyée par ``lire_bdd_perso``."""
+    """Normalise la forme historique renvoyée par lire_bdd_perso."""
     if df is None or df.empty:
         return pd.DataFrame()
     if "id_compte" in df.columns:
@@ -86,15 +72,41 @@ def _as_rows(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _sql_list(values: Iterable[str]) -> str:
-    """Construit une liste SQL depuis les valeurs validées par argparse."""
     return ", ".join(f"'{value}'" for value in values)
 
 
 def _timestamp_ms_to_mmss_decimal(timestamp_ms: int) -> float:
-    """Encode 658000 ms en 10.58, comme ``teamfight_time.py``."""
     total_seconds = max(0, int(timestamp_ms)) // 1000
     minutes, seconds = divmod(total_seconds, 60)
     return round(minutes + seconds / 100, 2)
+
+
+def _riot_match_id(match_id: str) -> str:
+    match_id = str(match_id)
+    return match_id if "_" in match_id else f"EUW1_{match_id}"
+
+
+async def _riot_get(session: aiohttp.ClientSession, path: str) -> dict:
+    url = f"https://{str(region).lower()}.api.riotgames.com{path}"
+    async with session.get(url, params={"api_key": api_key_lol}) as response:
+        payload = await response.json(content_type=None)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Riot HTTP {response.status} sur {path}: {payload}"
+            )
+        if not isinstance(payload, dict):
+            raise RuntimeError(f"Réponse Riot invalide sur {path}")
+        return payload
+
+
+async def get_match_detail(session: aiohttp.ClientSession, match_id: str) -> dict:
+    riot_id = _riot_match_id(match_id)
+    return await _riot_get(session, f"/lol/match/v5/matches/{riot_id}")
+
+
+async def get_match_timeline(session: aiohttp.ClientSession, match_id: str) -> dict:
+    riot_id = _riot_match_id(match_id)
+    return await _riot_get(session, f"/lol/match/v5/matches/{riot_id}/timeline")
 
 
 def load_matches(
@@ -181,15 +193,6 @@ def _tracked_team_id(match_detail: dict, analyzed_puuid: str) -> int:
     return int(tracked["teamId"])
 
 
-def _validate_riot_payload(payload: dict, label: str) -> None:
-    if not isinstance(payload, dict):
-        raise RuntimeError(f"Réponse Riot invalide pour {label}")
-    if label == "match" and "info" not in payload:
-        raise RuntimeError(f"Réponse Riot invalide pour le match : {payload}")
-    if label == "timeline" and "info" not in payload:
-        raise RuntimeError(f"Réponse Riot invalide pour la timeline : {payload}")
-
-
 def _build_rows(
     match_id: str,
     analyzed_puuid: str,
@@ -200,17 +203,14 @@ def _build_rows(
     for fight in teamfights:
         allied_kills = fight.get("allied_kills", fight.get("kills_allies", 0))
         enemy_kills = fight.get("enemy_kills", fight.get("kills_enemies", 0))
-        start_minute = _timestamp_ms_to_mmss_decimal(fight["start_ms"])
-        end_minute = _timestamp_ms_to_mmss_decimal(fight["end_ms"])
-
         fight_values = {
             "match_id": match_id,
             "analyzed_puuid": analyzed_puuid,
             "fight_id": fight["fight_id"],
             "start_ms": fight["start_ms"],
             "end_ms": fight["end_ms"],
-            "start_minute": start_minute,
-            "end_minute": end_minute,
+            "start_minute": _timestamp_ms_to_mmss_decimal(fight["start_ms"]),
+            "end_minute": _timestamp_ms_to_mmss_decimal(fight["end_ms"]),
             "first_kill_ms": fight.get("first_kill_ms", fight["start_ms"]),
             "last_kill_ms": fight.get("last_kill_ms", fight["end_ms"]),
             "kill_span_ms": fight.get(
@@ -256,10 +256,7 @@ def _build_rows(
                     "team": player["team"],
                     "participation_source": player["participation_source"],
                     "is_core_participant": player.get("is_core_participant", True),
-                    "is_proximity_participant": player.get(
-                        "is_proximity_participant",
-                        False,
-                    ),
+                    "is_proximity_participant": player.get("is_proximity_participant", False),
                     "was_killer": player.get("was_killer", False),
                     "was_victim": player.get("was_victim", False),
                     "was_assistant": player.get("was_assistant", False),
@@ -269,43 +266,16 @@ def _build_rows(
                     "fight_assists": player.get("fight_assists", 0),
                     "survived": player.get("survived", True),
                     "enemies_damaged_count": player.get("enemies_damaged_count", 0),
-                    "damage_on_dead_targets": player.get(
-                        "damage_on_dead_targets",
-                        0,
-                    ),
-                    "physical_damage_on_dead_targets": player.get(
-                        "physical_damage_on_dead_targets",
-                        0,
-                    ),
-                    "magic_damage_on_dead_targets": player.get(
-                        "magic_damage_on_dead_targets",
-                        0,
-                    ),
-                    "true_damage_on_dead_targets": player.get(
-                        "true_damage_on_dead_targets",
-                        0,
-                    ),
-                    "damage_share_on_dead_targets": player.get(
-                        "damage_share_on_dead_targets",
-                        0.0,
-                    ),
-                    "damage_window_estimated": player.get(
-                        "damage_window_estimated",
-                        damage_frame_window,
-                    ),
+                    "damage_on_dead_targets": player.get("damage_on_dead_targets", 0),
+                    "physical_damage_on_dead_targets": player.get("physical_damage_on_dead_targets", 0),
+                    "magic_damage_on_dead_targets": player.get("magic_damage_on_dead_targets", 0),
+                    "true_damage_on_dead_targets": player.get("true_damage_on_dead_targets", 0),
+                    "damage_share_on_dead_targets": player.get("damage_share_on_dead_targets", 0.0),
+                    "damage_window_estimated": player.get("damage_window_estimated", damage_frame_window),
                     "damage_frame_window": damage_frame_window,
-                    "physical_damage_window_estimated": player.get(
-                        "physical_damage_window_estimated",
-                        0,
-                    ),
-                    "magic_damage_window_estimated": player.get(
-                        "magic_damage_window_estimated",
-                        0,
-                    ),
-                    "true_damage_window_estimated": player.get(
-                        "true_damage_window_estimated",
-                        0,
-                    ),
+                    "physical_damage_window_estimated": player.get("physical_damage_window_estimated", 0),
+                    "magic_damage_window_estimated": player.get("magic_damage_window_estimated", 0),
+                    "true_damage_window_estimated": player.get("true_damage_window_estimated", 0),
                 }
             )
 
@@ -376,7 +346,6 @@ def save_backfill(
     analyzed_puuid: str,
     teamfights: list[dict],
 ) -> None:
-    """Remplace les lignes d'une perspective et marque le backfill atomiquement."""
     rows = _build_rows(match_id, analyzed_puuid, teamfights)
 
     with engine.begin() as conn:
@@ -388,10 +357,7 @@ def save_backfill(
                   AND analyzed_puuid = :analyzed_puuid
                 """
             ),
-            {
-                "match_id": match_id,
-                "analyzed_puuid": analyzed_puuid,
-            },
+            {"match_id": match_id, "analyzed_puuid": analyzed_puuid},
         )
 
         if rows:
@@ -401,17 +367,9 @@ def save_backfill(
             text(
                 """
                 INSERT INTO match_teamfight_backfill_status (
-                    match_id,
-                    analyzed_puuid,
-                    backfill_version,
-                    fights_count,
-                    updated_at
+                    match_id, analyzed_puuid, backfill_version, fights_count, updated_at
                 ) VALUES (
-                    :match_id,
-                    :analyzed_puuid,
-                    :backfill_version,
-                    :fights_count,
-                    NOW()
+                    :match_id, :analyzed_puuid, :backfill_version, :fights_count, NOW()
                 )
                 ON CONFLICT (match_id, analyzed_puuid)
                 DO UPDATE SET
@@ -466,23 +424,12 @@ async def backfill(args: argparse.Namespace) -> None:
             )
 
             try:
-                match_detail = await get_match_detail(
-                    session,
-                    match_id,
-                    {"api_key": api_key_lol},
-                )
-                _validate_riot_payload(match_detail, "match")
-
+                match_detail = await get_match_detail(session, match_id)
                 timeline = await get_match_timeline(session, match_id)
-                _validate_riot_payload(timeline, "timeline")
 
-                timeline_participants = (
-                    timeline.get("metadata", {}).get("participants", [])
-                )
+                timeline_participants = timeline.get("metadata", {}).get("participants", [])
                 if puuid not in timeline_participants:
-                    raise ValueError(
-                        "PUUID du joueur introuvable dans la timeline"
-                    )
+                    raise ValueError("PUUID du joueur introuvable dans la timeline")
 
                 allied_team_id = _tracked_team_id(match_detail, puuid)
                 teamfights = calculate_teamfight_damage(
@@ -493,14 +440,10 @@ async def backfill(args: argparse.Namespace) -> None:
                 save_backfill(match_id, puuid, teamfights)
 
                 success += 1
-                print(
-                    f"  OK - {len(teamfights)} combat(s) recalculé(s)"
-                )
+                print(f"  OK - {len(teamfights)} combat(s) recalculé(s)")
             except Exception as error:
                 errors += 1
-                print(
-                    f"  ERREUR - {type(error).__name__}: {error}"
-                )
+                print(f"  ERREUR - {type(error).__name__}: {error}")
 
             if args.delay > 0 and position + 1 < len(matches):
                 await asyncio.sleep(args.delay)
@@ -536,7 +479,7 @@ def parse_args() -> argparse.Namespace:
         "--delay",
         type=float,
         default=3.0,
-        help="Pause entre deux appels de match, en secondes.",
+        help="Pause entre deux matchs, en secondes.",
     )
     parser.add_argument(
         "--force",
