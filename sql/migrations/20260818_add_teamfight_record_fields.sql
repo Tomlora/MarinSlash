@@ -5,6 +5,17 @@ ALTER TABLE IF EXISTS match_teamfight_damage
     ADD COLUMN IF NOT EXISTS magic_damage_window_estimated BIGINT,
     ADD COLUMN IF NOT EXISTS true_damage_window_estimated BIGINT;
 
+-- Marque les perspectives de match déjà retraitées par le script Python.
+-- La version permet de réutiliser la même table lors d'un futur enrichissement.
+CREATE TABLE IF NOT EXISTS match_teamfight_backfill_status (
+    match_id TEXT NOT NULL,
+    analyzed_puuid TEXT NOT NULL,
+    backfill_version INTEGER NOT NULL,
+    fights_count INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (match_id, analyzed_puuid)
+);
+
 -- Un duel est un vrai 1v1 uniquement pour les deux participants core.
 -- duel_wins est ajouté en dernière colonne pour rester compatible avec
 -- CREATE OR REPLACE VIEW sur une vue existante PostgreSQL.
