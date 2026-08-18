@@ -1,6 +1,27 @@
 from fonctions.gestion_bdd import lire_bdd_perso
 
 
+RECORD_AUTOCOMPLETE_LABELS = {
+    'tf_takedowns_survived': 'KILLS + ASSISTS EN TF SANS MOURIR',
+    'tf_teamfight_outnumbered_wins': 'TF GAGNÉS EN INFÉRIORITÉ',
+    'tf_teamfights': 'COMBATS 3V3+ DISPUTÉS',
+    'tf_clutches_won': 'COMBATS EN INFÉRIORITÉ GAGNÉS',
+    'tf_damage_window': 'DMG MAX EN TEAMFIGHT',
+    'tf_physical_damage_window': 'DMG AD MAX EN TEAMFIGHT',
+    'tf_magic_damage_window': 'DMG AP MAX EN TEAMFIGHT',
+    'tf_true_damage_window': 'DMG TRUE MAX EN TEAMFIGHT',
+    'tf_physical_dead_damage': 'DMG AD SUR CIBLES MORTES',
+    'tf_magic_dead_damage': 'DMG AP SUR CIBLES MORTES',
+    'tf_true_dead_damage': 'DMG TRUE SUR CIBLES MORTES',
+    'tf_dead_damage_share_pct': '% DMG SUR CIBLES MORTES (5 ALLIÉS IMPLIQUÉS)',
+    'tf_damage_window_share_pct': '% DMG ÉQUIPE EN TF (5 ALLIÉS IMPLIQUÉS)',
+    'tf_duels': '1V1 DISPUTÉS',
+    'tf_duels_won': '1V1 GAGNÉS',
+    'tf_skirmishes': 'COMBATS 2V2 À 2V5 DISPUTÉS',
+    'allie_feeder': "MORTS MAX D'UN COÉQUIPIER",
+}
+
+
 async def autocomplete_riotid(serverid, input_txt):
     df = lire_bdd_perso(
         f'''select riot_id from tracker where server_id = '{serverid}' ''',
@@ -66,14 +87,20 @@ async def autocomplete_record(record_id):
         'l_ecart_assists', 'l_ecart_dmg', 'l_allie_feeder', 'l_temps_vivant',
         'l_time', 'l_solokills',
         'tf_takedowns_survived', 'tf_teamfight_outnumbered_wins', 'tf_teamfights',
-        'tf_clutches_won', 'tf_damage_window', 'tf_physical_dead_damage',
+        'tf_clutches_won', 'tf_damage_window', 'tf_physical_damage_window',
+        'tf_magic_damage_window', 'tf_true_damage_window', 'tf_physical_dead_damage',
         'tf_magic_dead_damage', 'tf_true_dead_damage', 'tf_dead_damage_share_pct',
-        'tf_damage_window_share_pct', 'tf_duels', 'tf_skirmishes',
+        'tf_damage_window_share_pct', 'tf_duels', 'tf_duels_won', 'tf_skirmishes',
     ]
 
-    record_id = (record_id or '').lower()
-    liste_records.sort(key=str.lower)
-    return [record for record in liste_records if record_id in record.lower()][:25]
+    search = (record_id or '').lower().strip()
+    choices = []
+    for record in sorted(liste_records, key=lambda item: RECORD_AUTOCOMPLETE_LABELS.get(item, item).lower()):
+        label = RECORD_AUTOCOMPLETE_LABELS.get(record, record)
+        if search in record.lower() or search in label.lower():
+            choices.append({'name': label, 'value': record})
+
+    return choices[:25]
 
 
 async def autocomplete_theme_recap(input_txt):
