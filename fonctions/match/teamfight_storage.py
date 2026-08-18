@@ -6,10 +6,12 @@ from functools import wraps
 from typing import Any
 
 from fonctions.gestion_bdd import requete_perso_bdd
+from .riot_api import get_match_timeline
 from .teamfight_time import timestamp_ms_to_mmss_decimal
 
 
 TEAMFIGHT_TABLE = "match_teamfight_damage"
+TEAMFIGHT_MODES = {"RANKED", "FLEX", "SWIFTPLAY", "ARAM"}
 
 
 def _get_analyzed_puuid(match: Any) -> str:
@@ -30,6 +32,28 @@ def _get_analyzed_puuid(match: Any) -> str:
         None,
     )
     return str(participant.get("puuid", "")) if participant else ""
+
+
+async def _ensure_teamfight_timeline(match: Any) -> bool:
+    """Charge la timeline à la demande, notamment pour l'ARAM."""
+    if bool(getattr(match, "data_timeline", None)):
+        return True
+
+    if getattr(match, "thisQ", None) not in TEAMFIGHT_MODES:
+        return False
+
+    session = getattr(match, "session", None)
+    match_id = getattr(match, "last_match", None)
+    if session is None or match_id is None:
+        return False
+
+    match.data_timeline = await get_match_timeline(session, match_id)
+    analyzed_puuid = _get_analyzed_puuid(match)
+    participants = match.data_timeline.get("metadata", {}).get("participants", [])
+    if analyzed_puuid in participants:
+        match.index_timeline = participants.index(analyzed_puuid) + 1
+
+    return bool(match.data_timeline)
 
 
 async def save_teamfight_damage(
@@ -218,16 +242,17 @@ def install_teamfight_storage(match_class: type[Any]) -> None:
     async def run_with_teamfight_storage(self: Any, *args: Any, **kwargs: Any) -> Any:
         result = await original_run(self, *args, **kwargs)
 
-        # Les modes 5v5 utilisent dix participants. save=False reste respecté.
         should_save = (
             getattr(self, "save", True)
             and getattr(self, "nb_joueur", 0) == 10
-            and bool(getattr(self, "data_timeline", None))
+            and getattr(self, "thisQ", None) in TEAMFIGHT_MODES
         )
         if should_save:
             try:
-                teamfights = await self.teamfight_damage()
-                await self.save_teamfight_damage(teamfights)
+                has_timeline = await _ensure_teamfight_timeline(self)
+                if has_timeline:
+                    teamfights = await self.teamfight_damage()
+                    await self.save_teamfight_damage(teamfights)
             except Exception as error:
                 print(f"Erreur sauvegarde teamfights: {error}")
 
