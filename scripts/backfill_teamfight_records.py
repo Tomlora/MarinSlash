@@ -35,7 +35,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 from fonctions.match import MatchLol
-from fonctions.match.riot_api import get_summoner_by_puuid
+from fonctions.match.riot_api import get_match_timeline, get_summoner_by_puuid
 
 
 BACKFILL_VERSION = 1
@@ -150,6 +150,18 @@ def mark_backfilled(match_id: str, analyzed_puuid: str, fights_count: int) -> No
     )
 
 
+async def ensure_timeline(match_info: MatchLol, match_id: str, puuid: str) -> None:
+    """Charge la timeline si get_data_riot ne l'a pas fait (cas ARAM notamment)."""
+    if bool(getattr(match_info, "data_timeline", None)):
+        return
+
+    match_info.data_timeline = await get_match_timeline(match_info.session, match_id)
+    participants = match_info.data_timeline.get("metadata", {}).get("participants", [])
+    if puuid not in participants:
+        raise ValueError("PUUID du joueur introuvable dans la timeline")
+    match_info.index_timeline = participants.index(puuid) + 1
+
+
 async def backfill(args: argparse.Namespace) -> None:
     matches = load_matches(args.modes, args.season, args.limit, args.force)
     if matches.empty:
@@ -192,6 +204,7 @@ async def backfill(args: argparse.Namespace) -> None:
 
                 await match_info.get_data_riot()
                 await match_info.prepare_data()
+                await ensure_timeline(match_info, match_id, puuid)
 
                 teamfights = await match_info.teamfight_damage()
                 await match_info.save_teamfight_damage(teamfights)
