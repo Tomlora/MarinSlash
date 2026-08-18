@@ -24,12 +24,16 @@ TEAMFIGHT_RECORDS = [
     'tf_teamfights',
     'tf_clutches_won',
     'tf_damage_window',
+    'tf_physical_damage_window',
+    'tf_magic_damage_window',
+    'tf_true_damage_window',
     'tf_physical_dead_damage',
     'tf_magic_dead_damage',
     'tf_true_dead_damage',
     'tf_dead_damage_share_pct',
     'tf_damage_window_share_pct',
     'tf_duels',
+    'tf_duels_won',
     'tf_skirmishes',
 ]
 
@@ -39,18 +43,26 @@ TEAMFIGHT_RECORD_LABELS = {
     'tf_teamfights': 'COMBATS 3V3+ DISPUTÉS',
     'tf_clutches_won': 'COMBATS EN INFÉRIORITÉ GAGNÉS',
     'tf_damage_window': 'DMG MAX EN TEAMFIGHT',
+    'tf_physical_damage_window': 'DMG AD MAX EN TEAMFIGHT',
+    'tf_magic_damage_window': 'DMG AP MAX EN TEAMFIGHT',
+    'tf_true_damage_window': 'DMG TRUE MAX EN TEAMFIGHT',
     'tf_physical_dead_damage': 'DMG AD SUR CIBLES MORTES',
     'tf_magic_dead_damage': 'DMG AP SUR CIBLES MORTES',
     'tf_true_dead_damage': 'DMG TRUE SUR CIBLES MORTES',
     'tf_dead_damage_share_pct': '% DMG SUR CIBLES MORTES (5 ALLIÉS IMPLIQUÉS)',
     'tf_damage_window_share_pct': '% DMG ÉQUIPE EN TF (5 ALLIÉS IMPLIQUÉS)',
     'tf_duels': '1V1 DISPUTÉS',
+    'tf_duels_won': '1V1 GAGNÉS',
     'tf_skirmishes': 'COMBATS 2V2 À 2V5 DISPUTÉS',
 }
 
 RECORD_LABELS = {
     **TEAMFIGHT_RECORD_LABELS,
     'allie_feeder': "MORTS MAX D'UN COÉQUIPIER",
+}
+
+RECORD_KEYS_BY_LABEL = {
+    label.lower(): key for key, label in RECORD_LABELS.items()
 }
 
 TEAMFIGHT_PERCENT_RECORDS = {
@@ -414,12 +426,16 @@ async def load_data(ctx, view, saison, mode, time_mini):
         'tf_summary.tf_teamfights',
         'tf_summary.tf_clutches_won',
         'tf_match.tf_damage_window',
+        'tf_match.tf_physical_damage_window',
+        'tf_match.tf_magic_damage_window',
+        'tf_match.tf_true_damage_window',
         'tf_match.tf_physical_dead_damage',
         'tf_match.tf_magic_dead_damage',
         'tf_match.tf_true_dead_damage',
         'tf_match.tf_dead_damage_share_pct',
         'tf_match.tf_damage_window_share_pct',
         'tf_summary.tf_duels',
+        'tf_summary.tf_duels_won',
         'tf_summary.tf_skirmishes',
     ]
 
@@ -459,6 +475,15 @@ async def load_data(ctx, view, saison, mode, time_mini):
                 MAX(mtd.damage_window_estimated) FILTER (
                     WHERE mtd.is_teamfight
                 ) AS tf_damage_window,
+                MAX(mtd.physical_damage_window_estimated) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_physical_damage_window,
+                MAX(mtd.magic_damage_window_estimated) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_magic_damage_window,
+                MAX(mtd.true_damage_window_estimated) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_true_damage_window,
                 MAX(mtd.physical_damage_on_dead_targets) FILTER (
                     WHERE mtd.is_teamfight
                 ) AS tf_physical_dead_damage,
@@ -499,6 +524,7 @@ async def load_data(ctx, view, saison, mode, time_mini):
                 teamfights AS tf_teamfights,
                 outnumbered_wins AS tf_clutches_won,
                 duels AS tf_duels,
+                duel_wins AS tf_duels_won,
                 skirmishes AS tf_skirmishes
             FROM match_teamfight_player_summary
             WHERE analyzed_puuid = puuid
@@ -1227,7 +1253,8 @@ class Recordslol(Extension):
     )
     async def palmares(self, ctx: SlashContext, stat: str, saison: int = saison, mode: str = 'RANKED', champion: str = None, joueur: str = None, compte_discord: interactions.User = None, view: str = 'global', top: int = 10):
         await ctx.defer()
-        stat = stat.lower()
+        stat_input = stat.strip().lower()
+        stat = RECORD_KEYS_BY_LABEL.get(stat_input, stat_input)
 
         if stat == 'early_atakhan':
             return await ctx.send("Ce record n'existe plus.")
