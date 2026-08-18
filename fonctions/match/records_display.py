@@ -241,6 +241,14 @@ def _format_value(value, category: str = None) -> str:
         return str(value)
 
 
+def _fit_field(value: str, max_len: int = 950) -> str:
+    """Garantit qu'une valeur de field ne dépasse jamais max_len caractères."""
+    if len(value) <= max_len:
+        return value
+    suffix = "\n..."
+    return value[:max_len - len(suffix)].rstrip() + suffix
+
+
 def _format_record_line(entry: RecordEntry) -> str:
     """
     Formate une ligne de record.
@@ -481,7 +489,7 @@ def add_records_to_embed(embed,
                 if current.strip():
                     embed.add_field(
                         name=title if field_index == 1 else f"{title} ({field_index})",
-                        value=current.strip(),
+                        value=_fit_field(current.strip(), max_field_len),
                         inline=False
                     )
                     field_index += 1
@@ -492,7 +500,7 @@ def add_records_to_embed(embed,
                         if remaining_lines:
                             embed.add_field(
                                 name=f"{title} (suite)",
-                                value=collector.get_summary(),
+                                value=_fit_field(collector.get_summary(), max_field_len),
                                 inline=False
                             )
                         return embed
@@ -505,7 +513,7 @@ def add_records_to_embed(embed,
         if current.strip():
             embed.add_field(
                 name=title if field_index == 1 else f"{title} ({field_index})",
-                value=current.strip(),
+                value=_fit_field(current.strip(), max_field_len),
                 inline=False
             )
     
@@ -522,17 +530,16 @@ def _add_chunked_content(embed, content: str, base_title: str,
     for line in lines:
         if len(current) + len(line) + 1 > max_len:
             if index > max_fields:
-                # Tronquer proprement
                 embed.add_field(
                     name=f"{base_title} {index}",
-                    value=current.strip() + "\n...",
+                    value=_fit_field(current.strip() + "\n...", max_len),
                     inline=False
                 )
                 return
             
             embed.add_field(
                 name=base_title if index == 1 else f"{base_title} {index}",
-                value=current.strip(),
+                value=_fit_field(current.strip(), max_len),
                 inline=False
             )
             current = ""
@@ -542,6 +549,6 @@ def _add_chunked_content(embed, content: str, base_title: str,
     if current.strip() and index <= max_fields:
         embed.add_field(
             name=base_title if index == 1 else f"{base_title} {index}",
-            value=current.strip(),
+            value=_fit_field(current.strip(), max_len),
             inline=False
         )
