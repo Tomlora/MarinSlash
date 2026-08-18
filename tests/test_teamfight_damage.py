@@ -102,6 +102,49 @@ def test_detects_1v2_from_victim_damage_source():
     assert damage_only["true_damage_window_estimated"] == 100
 
 
+def test_duel_exposes_winner_and_core_players():
+    event = {
+        "type": "CHAMPION_KILL",
+        "timestamp": 610_000,
+        "killerId": 1,
+        "victimId": 6,
+        "assistingParticipantIds": [],
+        "position": {"x": 3000, "y": 2000},
+        "victimDamageReceived": [
+            {
+                "participantId": 1,
+                "physicalDamage": 500,
+                "magicDamage": 0,
+                "trueDamage": 0,
+            }
+        ],
+    }
+    timeline = {
+        "info": {
+            "frames": [
+                _frame(600_000, [event]),
+                _frame(660_000, [], damage_after=True),
+            ]
+        }
+    }
+    match = {"info": {"participants": _participants()}}
+
+    fights = calculate_teamfight_damage(match, timeline, allied_team_id=100)
+
+    assert len(fights) == 1
+    fight = fights[0]
+    assert fight["fight_type"] == "1v1"
+    assert fight["fight_category"] == "duel"
+    assert fight["winner"] == "Allié"
+
+    killer = next(player for player in fight["players"] if player["participant_id"] == 1)
+    victim = next(player for player in fight["players"] if player["participant_id"] == 6)
+    assert killer["is_core_participant"] is True
+    assert killer["team"] == fight["winner"]
+    assert victim["is_core_participant"] is True
+    assert victim["team"] != fight["winner"]
+
+
 def test_marks_damage_window_shared_between_distinct_fights():
     first = {
         "type": "CHAMPION_KILL",
