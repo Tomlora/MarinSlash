@@ -41,7 +41,7 @@ async def autocomplete_record(record_id):
         'dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies',
         'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon',
         'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib',
-        'early_atakhan', 'first_tower_time', 'objective_damage',
+        'first_tower_time', 'objective_damage',
         'objectives_participated', 'turrets_killed', 'turret_plates_taken',
         'time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'gold_diff_15',
         'gold_avec_kills', 'biggest_comeback', 'biggest_throw', 'level_max_avantage',
