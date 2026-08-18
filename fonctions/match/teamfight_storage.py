@@ -78,7 +78,10 @@ async def save_teamfight_damage(
             magic_damage_on_dead_targets,
             true_damage_on_dead_targets,
             damage_share_on_dead_targets,
-            damage_window_estimated, damage_frame_window
+            damage_window_estimated, damage_frame_window,
+            physical_damage_window_estimated,
+            magic_damage_window_estimated,
+            true_damage_window_estimated
         ) VALUES (
             :match_id, :analyzed_puuid, :fight_id, :participant_id, :puuid,
             :player_name, :champion, :team, :participation_source,
@@ -101,7 +104,10 @@ async def save_teamfight_damage(
             :magic_damage_on_dead_targets,
             :true_damage_on_dead_targets,
             :damage_share_on_dead_targets,
-            :damage_window_estimated, :damage_frame_window
+            :damage_window_estimated, :damage_frame_window,
+            :physical_damage_window_estimated,
+            :magic_damage_window_estimated,
+            :true_damage_window_estimated
         )
     """
 
@@ -190,6 +196,9 @@ async def save_teamfight_damage(
                     "damage_share_on_dead_targets": player.get("damage_share_on_dead_targets", 0.0),
                     "damage_window_estimated": player.get("damage_window_estimated", damage_frame_window),
                     "damage_frame_window": damage_frame_window,
+                    "physical_damage_window_estimated": player.get("physical_damage_window_estimated", 0),
+                    "magic_damage_window_estimated": player.get("magic_damage_window_estimated", 0),
+                    "true_damage_window_estimated": player.get("true_damage_window_estimated", 0),
                 },
             )
 
