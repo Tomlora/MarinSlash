@@ -80,7 +80,7 @@ def safe_astype_int(series):
         return series.fillna(0)
 
 
-def _split_embed_field(value: str, max_length: int = 1024) -> list[str]:
+def _split_embed_field(value: str, max_length: int = 950) -> list[str]:
     """Découpe une valeur de field Discord sans perdre les lignes d'égalité."""
     if len(value) <= max_length:
         return [value]
@@ -135,7 +135,7 @@ _BasePaginator = Paginator
 
 
 class _RecordPaginator:
-    """Ajoute automatiquement des pages de suite pour les fields dépassant 1024 caractères."""
+    """Ajoute automatiquement des pages de suite pour les fields dépassant le seuil de sécurité."""
 
     @staticmethod
     def create_from_embeds(bot, *embeds, **kwargs):
@@ -155,7 +155,7 @@ class _RecordPaginator:
             else:
                 footer_text = getattr(footer, 'text', None)
 
-            # 5 fields de 1024 max gardent la page sous la limite globale de 6000 caractères.
+            # 5 fields de 950 caractères max gardent une marge sous la limite globale Discord.
             for start in range(0, len(overflow_fields), 5):
                 page = interactions.Embed(
                     title=f'{base_title} (suite)',
