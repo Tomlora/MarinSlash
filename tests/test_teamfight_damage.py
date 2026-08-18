@@ -31,12 +31,14 @@ def _participants():
 def _frame(timestamp, events, damage_after=False):
     participant_frames = {}
     for pid in range(1, 11):
+        base = pid * 10
         participant_frames[str(pid)] = {
             "position": {"x": 1000 + pid * 1000, "y": 1000 + pid * 700},
             "damageStats": {
-                "totalDamageDoneToChampions": (
-                    (1000 if damage_after else 0) + pid * 10
-                )
+                "totalDamageDoneToChampions": base + (1000 if damage_after else 0),
+                "physicalDamageDoneToChampions": base + (600 if damage_after else 0),
+                "magicDamageDoneToChampions": base + (300 if damage_after else 0),
+                "trueDamageDoneToChampions": base + (100 if damage_after else 0),
             },
         }
     return {
@@ -94,6 +96,10 @@ def test_detects_1v2_from_victim_damage_source():
     assert damage_only["was_damage_source"] is True
     assert damage_only["fight_assists"] == 0
     assert damage_only["damage_on_dead_targets"] == 439
+    assert damage_only["damage_window_estimated"] == 1000
+    assert damage_only["physical_damage_window_estimated"] == 600
+    assert damage_only["magic_damage_window_estimated"] == 300
+    assert damage_only["true_damage_window_estimated"] == 100
 
 
 def test_marks_damage_window_shared_between_distinct_fights():
