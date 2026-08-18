@@ -66,12 +66,16 @@ TEAMFIGHT_RECORD_KEYS = [
     'tf_teamfights',
     'tf_clutches_won',
     'tf_damage_window',
+    'tf_physical_damage_window',
+    'tf_magic_damage_window',
+    'tf_true_damage_window',
     'tf_physical_dead_damage',
     'tf_magic_dead_damage',
     'tf_true_dead_damage',
     'tf_dead_damage_share_pct',
     'tf_damage_window_share_pct',
     'tf_duels',
+    'tf_duels_won',
     'tf_skirmishes',
 ]
 
@@ -117,7 +121,7 @@ def _max_numeric(current, candidate):
 
 
 def _get_current_teamfight_records(match_info) -> dict:
-    """Calcule les 12 records Teamfights du match courant avec les règles de recordslol.py."""
+    """Calcule les 16 records Teamfights du match courant avec les règles de recordslol.py."""
     result = {key: 0 for key in TEAMFIGHT_RECORD_KEYS}
     teamfights = getattr(match_info, 'teamfight_damage_data', None) or []
     tracked_puuid = str(getattr(match_info, 'puuid', '') or '')
@@ -128,6 +132,9 @@ def _get_current_teamfight_records(match_info) -> dict:
     max_values = {
         'tf_takedowns_survived': None,
         'tf_damage_window': None,
+        'tf_physical_damage_window': None,
+        'tf_magic_damage_window': None,
+        'tf_true_damage_window': None,
         'tf_physical_dead_damage': None,
         'tf_magic_dead_damage': None,
         'tf_true_dead_damage': None,
@@ -147,12 +154,10 @@ def _get_current_teamfight_records(match_info) -> dict:
         if tracked_player is None:
             continue
 
-        # Ces compteurs reproduisent match_teamfight_player_summary :
-        # le joueur doit être présent dans le combat, y compris par proximité.
+        # Ces compteurs reproduisent match_teamfight_player_summary.
+        # Teamfights/skirmishes/clutches conservent la participation de proximité.
         if fight.get('is_teamfight'):
             result['tf_teamfights'] += 1
-        if fight.get('fight_category') == 'duel':
-            result['tf_duels'] += 1
         if fight.get('fight_category') == 'skirmish':
             result['tf_skirmishes'] += 1
         if (
@@ -161,8 +166,14 @@ def _get_current_teamfight_records(match_info) -> dict:
         ):
             result['tf_clutches_won'] += 1
 
+        is_core = tracked_player.get('is_core_participant', True)
+        if fight.get('fight_category') == 'duel' and is_core:
+            result['tf_duels'] += 1
+            if tracked_player.get('team') == fight.get('winner'):
+                result['tf_duels_won'] += 1
+
         # Les records de dégâts/takedowns suivent tf_match : joueur tracké + core.
-        if not tracked_player.get('is_core_participant', True):
+        if not is_core:
             continue
         if not fight.get('is_teamfight'):
             continue
@@ -185,6 +196,18 @@ def _get_current_teamfight_records(match_info) -> dict:
         max_values['tf_damage_window'] = _max_numeric(
             max_values['tf_damage_window'],
             tracked_player.get('damage_window_estimated')
+        )
+        max_values['tf_physical_damage_window'] = _max_numeric(
+            max_values['tf_physical_damage_window'],
+            tracked_player.get('physical_damage_window_estimated')
+        )
+        max_values['tf_magic_damage_window'] = _max_numeric(
+            max_values['tf_magic_damage_window'],
+            tracked_player.get('magic_damage_window_estimated')
+        )
+        max_values['tf_true_damage_window'] = _max_numeric(
+            max_values['tf_true_damage_window'],
+            tracked_player.get('true_damage_window_estimated')
         )
         max_values['tf_physical_dead_damage'] = _max_numeric(
             max_values['tf_physical_dead_damage'],
@@ -352,12 +375,16 @@ class LeagueofLegends(Extension):
                     'tf_summary.tf_teamfights',
                     'tf_summary.tf_clutches_won',
                     'tf_match.tf_damage_window',
+                    'tf_match.tf_physical_damage_window',
+                    'tf_match.tf_magic_damage_window',
+                    'tf_match.tf_true_damage_window',
                     'tf_match.tf_physical_dead_damage',
                     'tf_match.tf_magic_dead_damage',
                     'tf_match.tf_true_dead_damage',
                     'tf_match.tf_dead_damage_share_pct',
                     'tf_match.tf_damage_window_share_pct',
                     'tf_summary.tf_duels',
+                    'tf_summary.tf_duels_won',
                     'tf_summary.tf_skirmishes',
                 ]
 
@@ -392,6 +419,15 @@ class LeagueofLegends(Extension):
                             MAX(mtd.damage_window_estimated) FILTER (
                                 WHERE mtd.is_teamfight
                             ) AS tf_damage_window,
+                            MAX(mtd.physical_damage_window_estimated) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_physical_damage_window,
+                            MAX(mtd.magic_damage_window_estimated) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_magic_damage_window,
+                            MAX(mtd.true_damage_window_estimated) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_true_damage_window,
                             MAX(mtd.physical_damage_on_dead_targets) FILTER (
                                 WHERE mtd.is_teamfight
                             ) AS tf_physical_dead_damage,
@@ -432,6 +468,7 @@ class LeagueofLegends(Extension):
                             teamfights AS tf_teamfights,
                             outnumbered_wins AS tf_clutches_won,
                             duels AS tf_duels,
+                            duel_wins AS tf_duels_won,
                             skirmishes AS tf_skirmishes
                         FROM match_teamfight_player_summary
                         WHERE analyzed_puuid = puuid
@@ -1696,7 +1733,7 @@ class LeagueofLegends(Extension):
     async def test_api_m(self, ctx: SlashContext):
         await ctx.defer(ephemeral=False)
         resp = await test_mobalytics_api()
-        await ctx.send(f"{resp}")
+        await ctx.send(f'{resp}')
 
     @slash_command(name='chargement_ancienne_game',
                    description='Charger des stats ancienne game')
