@@ -80,17 +80,35 @@ def safe_astype_int(series):
         return series.fillna(0)
 
 
-def _truncate_embed_field(value: str, max_length: int = 1024) -> str:
-    """Respecte la limite Discord de 1024 caractères par valeur de field."""
+def _split_embed_field(value: str, max_length: int = 1024) -> list[str]:
+    """Découpe une valeur de field Discord sans perdre les lignes d'égalité."""
     if len(value) <= max_length:
-        return value
+        return [value]
 
-    suffix = '\n… autres égalités masquées'
-    keep = max_length - len(suffix)
-    truncated = value[:keep]
-    if '\n' in truncated:
-        truncated = truncated.rsplit('\n', 1)[0]
-    return f'{truncated}{suffix}'[:max_length]
+    chunks = []
+    current = ''
+
+    for line in value.splitlines(keepends=True):
+        if len(line) > max_length:
+            if current:
+                chunks.append(current.rstrip('\n'))
+                current = ''
+            while len(line) > max_length:
+                chunks.append(line[:max_length])
+                line = line[max_length:]
+            current = line
+            continue
+
+        if current and len(current) + len(line) > max_length:
+            chunks.append(current.rstrip('\n'))
+            current = line
+        else:
+            current += line
+
+    if current:
+        chunks.append(current.rstrip('\n'))
+
+    return chunks
 
 
 def _format_record_value(column: str, record):
@@ -111,6 +129,52 @@ def _format_record_value(column: str, record):
             return record
 
     return record
+
+
+_BasePaginator = Paginator
+
+
+class _RecordPaginator:
+    """Ajoute automatiquement des pages de suite pour les fields dépassant 1024 caractères."""
+
+    @staticmethod
+    def create_from_embeds(bot, *embeds, **kwargs):
+        expanded = []
+
+        for embed in embeds:
+            expanded.append(embed)
+            overflow_fields = list(getattr(embed, '_record_overflow_fields', []))
+            if not overflow_fields:
+                continue
+
+            base_title = getattr(embed, 'title', None) or 'Records'
+            color = getattr(embed, 'color', None)
+            footer = getattr(embed, 'footer', None)
+            if isinstance(footer, dict):
+                footer_text = footer.get('text')
+            else:
+                footer_text = getattr(footer, 'text', None)
+
+            # 5 fields de 1024 max gardent la page sous la limite globale de 6000 caractères.
+            for start in range(0, len(overflow_fields), 5):
+                page = interactions.Embed(
+                    title=f'{base_title} (suite)',
+                    color=color
+                )
+                for name, value, inline in overflow_fields[start:start + 5]:
+                    page.add_field(name=name, value=value, inline=inline)
+                if footer_text:
+                    page.set_footer(text=footer_text)
+                expanded.append(page)
+
+        return _BasePaginator.create_from_embeds(bot, *expanded, **kwargs)
+
+    @staticmethod
+    def create_from_string(bot, *args, **kwargs):
+        return _BasePaginator.create_from_string(bot, *args, **kwargs)
+
+
+Paginator = _RecordPaginator
 
 
 def add_aggregated_data(df: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
@@ -553,11 +617,25 @@ async def creation_embed(fichier, column, methode_pseudo, embed, methode='max', 
     else:
         field_value = f"Records : __ {record_display} __ \n {value_text}"
 
+    complete_field_name = f'{emote_v2.get(column, ":star:")}{field_name}'
+    field_chunks = _split_embed_field(field_value)
+
     embed.add_field(
-        name=f'{emote_v2.get(column, ":star:")}{field_name}',
-        value=_truncate_embed_field(field_value),
+        name=complete_field_name,
+        value=field_chunks[0],
         inline=True
     )
+
+    if len(field_chunks) > 1:
+        overflow_fields = list(getattr(embed, '_record_overflow_fields', []))
+        for index, chunk in enumerate(field_chunks[1:], start=2):
+            overflow_fields.append((
+                f'{complete_field_name} (suite {index})',
+                chunk,
+                True
+            ))
+        embed._record_overflow_fields = overflow_fields
+
     return embed
 
 
