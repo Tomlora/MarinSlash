@@ -21,10 +21,17 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
+from pathlib import Path
 from typing import Iterable
 
 import aiohttp
 import pandas as pd
+
+# Permet l'exécution directe via ``python scripts/backfill_teamfight_records.py``.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 from fonctions.match import MatchLol
