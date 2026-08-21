@@ -154,10 +154,15 @@ class MatchLolTeamData:
             self.thisKPListe.append(kp)
 
 
-        # allié feeder
-        
-        self.thisAlliefeeder = np.array(self.thisDeathsListe)
-        self.thisAlliefeeder = float(self.thisAlliefeeder[:5].max())
+        # Mort maximale d'un coéquipier : on exclut explicitement le joueur tracké.
+        ally_deaths = [
+            participant.get('deaths', 0)
+            for participant in participants[:5]
+            if participant.get('puuid') != self.puuid
+        ]
+        self.thisAllieFeeder = max(ally_deaths, default=0)
+        # Alias conservé pour compatibilité avec d'éventuels usages historiques.
+        self.thisAlliefeeder = self.thisAllieFeeder
         
         # Stat indiv
         

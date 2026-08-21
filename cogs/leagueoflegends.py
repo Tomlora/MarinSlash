@@ -60,6 +60,26 @@ pd.options.mode.chained_assignment = None  # default='warn'
 import re
 from collections import defaultdict, OrderedDict
 
+TEAMFIGHT_RECORD_KEYS = [
+    'tf_takedowns_survived',
+    'tf_teamfight_outnumbered_wins',
+    'tf_teamfights',
+    'tf_clutches_won',
+    'tf_damage_window',
+    'tf_physical_damage_window',
+    'tf_magic_damage_window',
+    'tf_true_damage_window',
+    'tf_physical_dead_damage',
+    'tf_magic_dead_damage',
+    'tf_true_dead_damage',
+    'tf_dead_damage_share_pct',
+    'tf_damage_window_share_pct',
+    'tf_duels',
+    'tf_duels_won',
+    'tf_skirmishes',
+]
+
+
 def _split_field_by_lines(text: str, max_len: int = 1024) -> list[str]:
         """
         Découpe un texte en chunks de max_len caractères max,
@@ -85,6 +105,153 @@ def _split_field_by_lines(text: str, max_len: int = 1024) -> list[str]:
             chunks.append(current.strip())
 
         return chunks if chunks else [text[:max_len]]
+
+
+def _max_numeric(current, candidate):
+    """Retourne le maximum numérique en ignorant les valeurs absentes."""
+    if candidate is None:
+        return current
+    try:
+        candidate = float(candidate)
+    except (TypeError, ValueError):
+        return current
+    if not np.isfinite(candidate):
+        return current
+    return candidate if current is None or candidate > current else current
+
+
+def _get_current_teamfight_records(match_info) -> dict:
+    """Calcule les 16 records Teamfights du match courant avec les règles de recordslol.py."""
+    result = {key: 0 for key in TEAMFIGHT_RECORD_KEYS}
+    teamfights = getattr(match_info, 'teamfight_damage_data', None) or []
+    tracked_puuid = str(getattr(match_info, 'puuid', '') or '')
+
+    if not tracked_puuid or not teamfights:
+        return result
+
+    max_values = {
+        'tf_takedowns_survived': None,
+        'tf_damage_window': None,
+        'tf_physical_damage_window': None,
+        'tf_magic_damage_window': None,
+        'tf_true_damage_window': None,
+        'tf_physical_dead_damage': None,
+        'tf_magic_dead_damage': None,
+        'tf_true_dead_damage': None,
+        'tf_dead_damage_share_pct': None,
+        'tf_damage_window_share_pct': None,
+    }
+
+    for fight in teamfights:
+        players = fight.get('players', []) or []
+        tracked_player = next(
+            (
+                player for player in players
+                if str(player.get('puuid', '') or '') == tracked_puuid
+            ),
+            None
+        )
+        if tracked_player is None:
+            continue
+
+        # Ces compteurs reproduisent match_teamfight_player_summary.
+        # Teamfights/skirmishes/clutches conservent la participation de proximité.
+        if fight.get('is_teamfight'):
+            result['tf_teamfights'] += 1
+        if fight.get('fight_category') == 'skirmish':
+            result['tf_skirmishes'] += 1
+        if (
+            fight.get('won_while_outnumbered')
+            and tracked_player.get('team') == fight.get('outnumbered_team')
+        ):
+            result['tf_clutches_won'] += 1
+
+        is_core = tracked_player.get('is_core_participant', True)
+        if fight.get('fight_category') == 'duel' and is_core:
+            result['tf_duels'] += 1
+            if tracked_player.get('team') == fight.get('winner'):
+                result['tf_duels_won'] += 1
+
+        # Les records de dégâts/takedowns suivent tf_match : joueur tracké + core.
+        if not is_core:
+            continue
+        if not fight.get('is_teamfight'):
+            continue
+
+        if tracked_player.get('survived', True):
+            takedowns = (
+                int(tracked_player.get('fight_kills', 0) or 0)
+                + int(tracked_player.get('fight_assists', 0) or 0)
+            )
+            max_values['tf_takedowns_survived'] = _max_numeric(
+                max_values['tf_takedowns_survived'], takedowns
+            )
+
+        if (
+            fight.get('won_while_outnumbered')
+            and tracked_player.get('team') == fight.get('outnumbered_team')
+        ):
+            result['tf_teamfight_outnumbered_wins'] += 1
+
+        max_values['tf_damage_window'] = _max_numeric(
+            max_values['tf_damage_window'],
+            tracked_player.get('damage_window_estimated')
+        )
+        max_values['tf_physical_damage_window'] = _max_numeric(
+            max_values['tf_physical_damage_window'],
+            tracked_player.get('physical_damage_window_estimated')
+        )
+        max_values['tf_magic_damage_window'] = _max_numeric(
+            max_values['tf_magic_damage_window'],
+            tracked_player.get('magic_damage_window_estimated')
+        )
+        max_values['tf_true_damage_window'] = _max_numeric(
+            max_values['tf_true_damage_window'],
+            tracked_player.get('true_damage_window_estimated')
+        )
+        max_values['tf_physical_dead_damage'] = _max_numeric(
+            max_values['tf_physical_dead_damage'],
+            tracked_player.get('physical_damage_on_dead_targets')
+        )
+        max_values['tf_magic_dead_damage'] = _max_numeric(
+            max_values['tf_magic_dead_damage'],
+            tracked_player.get('magic_damage_on_dead_targets')
+        )
+        max_values['tf_true_dead_damage'] = _max_numeric(
+            max_values['tf_true_dead_damage'],
+            tracked_player.get('true_damage_on_dead_targets')
+        )
+
+        # Les deux pourcentages ne sont éligibles que si les 5 alliés sont impliqués.
+        if fight.get('participants_allies') == 5:
+            dead_share = tracked_player.get('damage_share_on_dead_targets')
+            if dead_share is not None:
+                max_values['tf_dead_damage_share_pct'] = _max_numeric(
+                    max_values['tf_dead_damage_share_pct'],
+                    float(dead_share) * 100.0
+                )
+
+            tracked_team = tracked_player.get('team')
+            team_damage_window = sum(
+                max(0, float(player.get('damage_window_estimated', 0) or 0))
+                for player in players
+                if player.get('team') == tracked_team
+            )
+            if team_damage_window > 0:
+                tracked_damage = max(
+                    0,
+                    float(tracked_player.get('damage_window_estimated', 0) or 0)
+                )
+                max_values['tf_damage_window_share_pct'] = _max_numeric(
+                    max_values['tf_damage_window_share_pct'],
+                    100.0 * tracked_damage / team_damage_window
+                )
+
+    for key, value in max_values.items():
+        if value is not None:
+            result[key] = round(value, 2) if key.endswith('_pct') else value
+
+    return result
 
 
 class LeagueofLegends(Extension):
@@ -203,9 +370,109 @@ class LeagueofLegends(Extension):
                     'match_player_scoring_data.objective_damage',
                     'match_player_scoring_data.objectives_participated',
                     'match_player_scoring_data.turrets_killed',
+                    'tf_match.tf_takedowns_survived',
+                    'tf_match.tf_teamfight_outnumbered_wins',
+                    'tf_summary.tf_teamfights',
+                    'tf_summary.tf_clutches_won',
+                    'tf_match.tf_damage_window',
+                    'tf_match.tf_physical_damage_window',
+                    'tf_match.tf_magic_damage_window',
+                    'tf_match.tf_true_damage_window',
+                    'tf_match.tf_physical_dead_damage',
+                    'tf_match.tf_magic_dead_damage',
+                    'tf_match.tf_true_dead_damage',
+                    'tf_match.tf_dead_damage_share_pct',
+                    'tf_match.tf_damage_window_share_pct',
+                    'tf_summary.tf_duels',
+                    'tf_summary.tf_duels_won',
+                    'tf_summary.tf_skirmishes',
                 ]
 
                 base_query = f'''
+                    WITH team_damage_window AS (
+                        SELECT
+                            match_id,
+                            analyzed_puuid,
+                            fight_id,
+                            team,
+                            SUM(COALESCE(damage_window_estimated, 0))::DOUBLE PRECISION AS team_damage_window
+                        FROM match_teamfight_damage
+                        WHERE participants_allies = 5
+                        GROUP BY match_id, analyzed_puuid, fight_id, team
+                    ),
+                    tf_match AS (
+                        SELECT
+                            mtd.match_id,
+                            mtd.analyzed_puuid,
+                            mtd.participant_id,
+                            MAX(
+                                CASE
+                                    WHEN mtd.is_teamfight AND mtd.survived
+                                    THEN COALESCE(mtd.fight_kills, 0) + COALESCE(mtd.fight_assists, 0)
+                                END
+                            ) AS tf_takedowns_survived,
+                            COUNT(*) FILTER (
+                                WHERE mtd.is_teamfight
+                                  AND mtd.won_while_outnumbered
+                                  AND mtd.team = mtd.outnumbered_team
+                            ) AS tf_teamfight_outnumbered_wins,
+                            MAX(mtd.damage_window_estimated) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_damage_window,
+                            MAX(mtd.physical_damage_window_estimated) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_physical_damage_window,
+                            MAX(mtd.magic_damage_window_estimated) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_magic_damage_window,
+                            MAX(mtd.true_damage_window_estimated) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_true_damage_window,
+                            MAX(mtd.physical_damage_on_dead_targets) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_physical_dead_damage,
+                            MAX(mtd.magic_damage_on_dead_targets) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_magic_dead_damage,
+                            MAX(mtd.true_damage_on_dead_targets) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_true_dead_damage,
+                            MAX(mtd.damage_share_on_dead_targets * 100.0) FILTER (
+                                WHERE mtd.is_teamfight
+                                  AND mtd.participants_allies = 5
+                            ) AS tf_dead_damage_share_pct,
+                            MAX(
+                                CASE
+                                    WHEN mtd.is_teamfight
+                                     AND mtd.participants_allies = 5
+                                     AND tdw.team_damage_window > 0
+                                    THEN 100.0 * COALESCE(mtd.damage_window_estimated, 0)
+                                         / tdw.team_damage_window
+                                END
+                            ) AS tf_damage_window_share_pct
+                        FROM match_teamfight_damage AS mtd
+                        LEFT JOIN team_damage_window AS tdw
+                            ON tdw.match_id = mtd.match_id
+                           AND tdw.analyzed_puuid = mtd.analyzed_puuid
+                           AND tdw.fight_id = mtd.fight_id
+                           AND tdw.team = mtd.team
+                        WHERE mtd.analyzed_puuid = mtd.puuid
+                          AND COALESCE(mtd.is_core_participant, TRUE)
+                        GROUP BY mtd.match_id, mtd.analyzed_puuid, mtd.participant_id
+                    ),
+                    tf_summary AS (
+                        SELECT
+                            match_id,
+                            analyzed_puuid,
+                            participant_id,
+                            teamfights AS tf_teamfights,
+                            outnumbered_wins AS tf_clutches_won,
+                            duels AS tf_duels,
+                            duel_wins AS tf_duels_won,
+                            skirmishes AS tf_skirmishes
+                        FROM match_teamfight_player_summary
+                        WHERE analyzed_puuid = puuid
+                    )
                     SELECT DISTINCT {", ".join(columns)}
                     FROM matchs
                     INNER JOIN tracker ON tracker.id_compte = matchs.joueur
@@ -218,8 +485,16 @@ class LeagueofLegends(Extension):
                     LEFT JOIN match_player_scoring_data
                         ON matchs.match_id = match_player_scoring_data.match_id
                         AND matchs.id_participant = match_player_scoring_data.player_index
-                    WHERE mode = '{match_info.thisQ}'
-                    AND server_id = {guild_id}
+                    LEFT JOIN tf_match
+                        ON tf_match.match_id = matchs.match_id
+                       AND tf_match.analyzed_puuid = tracker.puuid
+                       AND tf_match.participant_id = matchs.id_participant + 1
+                    LEFT JOIN tf_summary
+                        ON tf_summary.match_id = matchs.match_id
+                       AND tf_summary.analyzed_puuid = tracker.puuid
+                       AND tf_summary.participant_id = matchs.id_participant + 1
+                    WHERE matchs.mode = '{match_info.thisQ}'
+                    AND tracker.server_id = {guild_id}
                     AND tracker.save_records = TRUE
                     AND matchs.records = TRUE
                     {filters}
@@ -356,6 +631,15 @@ class LeagueofLegends(Extension):
             if ((match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY'] and match_info.thisTime >= 15) or 
                 (match_info.thisQ == "ARAM" and match_info.thisTime >= 10)) and check_records:
 
+                # Si la sauvegarde Teamfights a échoué, on recalcule en mémoire pour
+                # que la comparaison live reste disponible.
+                if not getattr(match_info, 'teamfight_damage_data', None) and hasattr(match_info, 'teamfight_damage'):
+                    try:
+                        match_info.teamfight_damage_data = await match_info.teamfight_damage()
+                    except Exception as error:
+                        print(f"Erreur calcul records teamfights live: {error}")
+                        match_info.teamfight_damage_data = []
+
                 # Paramètres des records (communs à tous les modes)
                 param_records = {
                     'kda': match_info.thisKDA,
@@ -426,6 +710,7 @@ class LeagueofLegends(Extension):
                     'deathsratio': match_info.deathsratio,
                     'solokillsratio': match_info.solokillsratio
                 }
+                param_records.update(_get_current_teamfight_records(match_info))
 
                 tracked_metrics = None
                 if (
@@ -469,7 +754,6 @@ class LeagueofLegends(Extension):
                         'first_penta': match_info.timestamp_pentakill,
                         'first_niveau_max': match_info.timestamp_niveau_max,
                         'first_blood': match_info.timestamp_first_blood,
-                        'early_atakhan': getattr(match_info, 'timestamp_first_atakhan', 999),
                         'gold_diff_15': getattr(tracked_metrics, 'gold_diff_15', 0),
                         'cs_diff_15': getattr(tracked_metrics, 'cs_diff_15', 0),
                         'objective_damage': getattr(tracked_metrics, 'objective_damage', 0),
@@ -541,7 +825,7 @@ class LeagueofLegends(Extension):
                 for parameter, value in param_records.items():
                     methode = 'min' if parameter in [
                         'early_drake', 'early_baron', 'fourth_dragon', 'first_elder',
-                        'first_horde', 'early_atakhan', 'first_double', 'first_triple', 'first_quadra',
+                        'first_horde', 'first_double', 'first_triple', 'first_quadra',
                         'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time'
                     ] else 'max'
                     
@@ -580,7 +864,7 @@ class LeagueofLegends(Extension):
                     for parameter, value in param_records_only_ranked.items():
                         methode = 'min' if parameter in [
                             'early_drake', 'early_baron', 'fourth_dragon', 'first_elder',
-                            'first_horde', 'early_atakhan', 'first_double', 'first_triple', 'first_quadra',
+                            'first_horde', 'first_double', 'first_triple', 'first_quadra',
                             'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time'
                         ] else 'max'
                         records_check3(
@@ -657,7 +941,6 @@ class LeagueofLegends(Extension):
                         profile = profile_info.get('profile', 'UNKNOWN') if profile_info else 'UNKNOWN'
                         profile_emoji = get_profile_emoji(profile)
                         profile_name = get_profile_name_fr(profile)
-
                         score_line = (
                             f"**{perf['score']}/10** ({perf['rank_text']}) · "
                             f"{profile_emoji} {profile_name} · "
@@ -1450,7 +1733,7 @@ class LeagueofLegends(Extension):
     async def test_api_m(self, ctx: SlashContext):
         await ctx.defer(ephemeral=False)
         resp = await test_mobalytics_api()
-        await ctx.send(f"{resp}")
+        await ctx.send(f'{resp}')
 
     @slash_command(name='chargement_ancienne_game',
                    description='Charger des stats ancienne game')

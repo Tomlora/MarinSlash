@@ -18,6 +18,59 @@ import difflib
 from utils.emoji import emote_v2
 
 
+TEAMFIGHT_RECORDS = [
+    'tf_takedowns_survived',
+    'tf_teamfight_outnumbered_wins',
+    'tf_teamfights',
+    'tf_clutches_won',
+    'tf_damage_window',
+    'tf_physical_damage_window',
+    'tf_magic_damage_window',
+    'tf_true_damage_window',
+    'tf_physical_dead_damage',
+    'tf_magic_dead_damage',
+    'tf_true_dead_damage',
+    'tf_dead_damage_share_pct',
+    'tf_damage_window_share_pct',
+    'tf_duels',
+    'tf_duels_won',
+    'tf_skirmishes',
+]
+
+TEAMFIGHT_RECORD_LABELS = {
+    'tf_takedowns_survived': 'KILLS + ASSISTS EN TF SANS MOURIR',
+    'tf_teamfight_outnumbered_wins': 'TF GAGNÉS EN INFÉRIORITÉ',
+    'tf_teamfights': 'COMBATS 3V3+ DISPUTÉS',
+    'tf_clutches_won': 'COMBATS EN INFÉRIORITÉ GAGNÉS',
+    'tf_damage_window': 'DMG MAX EN TEAMFIGHT',
+    'tf_physical_damage_window': 'DMG AD MAX EN TEAMFIGHT',
+    'tf_magic_damage_window': 'DMG AP MAX EN TEAMFIGHT',
+    'tf_true_damage_window': 'DMG TRUE MAX EN TEAMFIGHT',
+    'tf_physical_dead_damage': 'DMG AD SUR CIBLES MORTES',
+    'tf_magic_dead_damage': 'DMG AP SUR CIBLES MORTES',
+    'tf_true_dead_damage': 'DMG TRUE SUR CIBLES MORTES',
+    'tf_dead_damage_share_pct': '% DMG SUR CIBLES MORTES (5 ALLIÉS IMPLIQUÉS)',
+    'tf_damage_window_share_pct': '% DMG ÉQUIPE EN TF (5 ALLIÉS IMPLIQUÉS)',
+    'tf_duels': '1V1 DISPUTÉS',
+    'tf_duels_won': '1V1 GAGNÉS',
+    'tf_skirmishes': 'COMBATS 2V2 À 2V5 DISPUTÉS',
+}
+
+RECORD_LABELS = {
+    **TEAMFIGHT_RECORD_LABELS,
+    'allie_feeder': "MORTS MAX D'UN COÉQUIPIER",
+}
+
+RECORD_KEYS_BY_LABEL = {
+    label.lower(): key for key, label in RECORD_LABELS.items()
+}
+
+TEAMFIGHT_PERCENT_RECORDS = {
+    'tf_dead_damage_share_pct',
+    'tf_damage_window_share_pct',
+}
+
+
 def option_stats_records(name, params, description='type de recherche'):
     option = SlashCommandOption(
         name=name,
@@ -44,29 +97,117 @@ def safe_astype_int(series):
         return series.fillna(0)
 
 
+def _split_embed_field(value: str, max_length: int = 950) -> list[str]:
+    """Découpe une valeur de field Discord sans perdre les lignes d'égalité."""
+    if len(value) <= max_length:
+        return [value]
+
+    chunks = []
+    current = ''
+
+    for line in value.splitlines(keepends=True):
+        if len(line) > max_length:
+            if current:
+                chunks.append(current.rstrip('\n'))
+                current = ''
+            while len(line) > max_length:
+                chunks.append(line[:max_length])
+                line = line[max_length:]
+            current = line
+            continue
+
+        if current and len(current) + len(line) > max_length:
+            chunks.append(current.rstrip('\n'))
+            current = line
+        else:
+            current += line
+
+    if current:
+        chunks.append(current.rstrip('\n'))
+
+    return chunks
+
+
+def _format_record_value(column: str, record):
+    """Affiche les valeurs entières sans .0 et formate les pourcentages Teamfights."""
+    try:
+        numeric = float(record)
+    except (TypeError, ValueError):
+        return record
+
+    if not np.isfinite(numeric):
+        return record
+
+    if column in TEAMFIGHT_PERCENT_RECORDS:
+        if numeric.is_integer():
+            return f'{int(numeric)}%'
+        return f'{numeric:.2f}%'
+
+    if numeric.is_integer():
+        return str(int(numeric))
+
+    if column in TEAMFIGHT_RECORDS:
+        return f'{numeric:.2f}'
+
+    return record
+
+
+_BasePaginator = Paginator
+
+
+class _RecordPaginator:
+    """Ajoute automatiquement des pages de suite pour les fields dépassant le seuil de sécurité."""
+
+    @staticmethod
+    def create_from_embeds(bot, *embeds, **kwargs):
+        expanded = []
+
+        for embed in embeds:
+            expanded.append(embed)
+            overflow_fields = list(getattr(embed, '_record_overflow_fields', []))
+            if not overflow_fields:
+                continue
+
+            base_title = getattr(embed, 'title', None) or 'Records'
+            color = getattr(embed, 'color', None)
+            footer = getattr(embed, 'footer', None)
+            if isinstance(footer, dict):
+                footer_text = footer.get('text')
+            else:
+                footer_text = getattr(footer, 'text', None)
+
+            # 5 fields de 950 caractères max gardent une marge sous la limite globale Discord.
+            for start in range(0, len(overflow_fields), 5):
+                page = interactions.Embed(
+                    title=f'{base_title} (suite)',
+                    color=color
+                )
+                for name, value, inline in overflow_fields[start:start + 5]:
+                    page.add_field(name=name, value=value, inline=inline)
+                if footer_text:
+                    page.set_footer(text=footer_text)
+                expanded.append(page)
+
+        return _BasePaginator.create_from_embeds(bot, *expanded, **kwargs)
+
+    @staticmethod
+    def create_from_string(bot, *args, **kwargs):
+        return _BasePaginator.create_from_string(bot, *args, **kwargs)
+
+
+Paginator = _RecordPaginator
+
+
 def add_aggregated_data(df: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
     """
     Ajoute des lignes de statistiques moyennes/cumulées au DataFrame.
-    
+
     Ces lignes agrégées sont ajoutées avec les colonnes originales mises à NaN
     pour éviter les conflits avec les records par match.
-    
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame des matchs individuels
-    min_games : int
-        Nombre minimum de parties pour être éligible aux records agrégés
-        
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame avec les lignes agrégées ajoutées
     """
     if df.empty:
         return df
-    
-    # Colonnes à moyenner
+
     cols_to_mean = [
         'kills', 'deaths', 'assists', 'kda', 'kp',
         'vision_score', 'vision_min',
@@ -77,80 +218,58 @@ def add_aggregated_data(df: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
         'time', 'trade_efficience',
         'serie_kills'
     ]
-    
-    # Colonnes à sommer
     cols_to_sum = ['penta', 'quadra', 'triple', 'double', 'solokills']
-    
-    # Vérifier que les colonnes existent
+
     cols_mean = [c for c in cols_to_mean if c in df.columns]
     cols_sum = [c for c in cols_to_sum if c in df.columns]
-    
-    # Grouper par joueur ET champion (pour que les filtres par champion fonctionnent)
+
     groupby_cols = ['discord', 'riot_id', 'riot_tagline', 'champion']
     groupby_cols = [c for c in groupby_cols if c in df.columns]
-    
+
     if not groupby_cols:
         return df
-    
-    # Convertir les colonnes numériques avant agrégation
+
     df_work = df.copy()
     for c in cols_mean + cols_sum:
         if c in df_work.columns:
             df_work[c] = pd.to_numeric(df_work[c], errors='coerce')
-    
+
     if 'victoire' in df_work.columns:
-        # Convertir victoire en 0/1
-        df_work['victoire_num'] = df_work['victoire'].apply(lambda x: 1 if x == True or x == 1 else 0)
-    
-    # Construire le dictionnaire d'agrégation
+        df_work['victoire_num'] = df_work['victoire'].apply(
+            lambda x: 1 if x is True or x == 1 else 0
+        )
+
     agg_dict = {
-        'match_id': 'last',  # Dernier match pour avoir un lien valide
+        'match_id': 'last',
         'id_participant': 'last',
         'season': 'last',
     }
-    
-    # Ajouter les colonnes optionnelles si elles existent
+
     if 'server_id' in df_work.columns:
         agg_dict['server_id'] = 'last'
     if 'url' in df_work.columns:
         agg_dict['url'] = 'last'
-    
-    # Moyennes
+
     for c in cols_mean:
         agg_dict[c] = 'mean'
-    
-    # Sommes
     for c in cols_sum:
-        if c not in agg_dict:  # Éviter les doublons (solokills est dans les deux)
+        if c not in agg_dict:
             agg_dict[c] = 'sum'
-    
-    # Victoires pour winrate
     if 'victoire_num' in df_work.columns:
         agg_dict['victoire_num'] = 'sum'
-    
+
     try:
-        # Trier par match_id pour avoir le dernier match
         df_sorted = df_work.sort_values('match_id') if 'match_id' in df_work.columns else df_work
-        
-        # Agrégation
         df_agg = df_sorted.groupby(groupby_cols, as_index=False).agg(agg_dict)
-        
-        # Compter le nombre de games
+
         counts = df_work.groupby(groupby_cols, as_index=False)['match_id'].count()
         counts.columns = list(groupby_cols) + ['nb_games']
         df_agg = df_agg.merge(counts, on=groupby_cols)
-        
-        # Filtrer par nombre minimum de parties
         df_agg = df_agg[df_agg['nb_games'] >= min_games]
-        
+
         if df_agg.empty:
             return df
-        
-        # =================================================================
-        # CRÉATION DES NOUVELLES COLONNES DE RECORDS AGRÉGÉS
-        # =================================================================
-        
-        # Moyennes (renommer pour éviter confusion avec les valeurs brutes)
+
         if 'kills' in cols_mean:
             df_agg['avg_kills'] = safe_round(df_agg['kills'], 2)
         if 'deaths' in cols_mean:
@@ -193,12 +312,9 @@ def add_aggregated_data(df: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
             df_agg['avg_dmg_reduit'] = safe_round(df_agg['dmg_reduit'], 0)
         if 'trade_efficience' in cols_mean:
             df_agg['avg_trade_efficience'] = safe_round(df_agg['trade_efficience'], 2)
-        # if 'solokills' in cols_mean:
-        #     df_agg['avg_solokills'] = safe_round(df_agg['solokills'], 2)
         if 'time' in cols_mean:
             df_agg['avg_time'] = safe_round(df_agg['time'], 2)
-        
-        # Ratios par game (multikills)
+
         if 'penta' in df_agg.columns:
             df_agg['penta_game'] = safe_round(df_agg['penta'] / df_agg['nb_games'], 4)
             df_agg['total_penta'] = safe_astype_int(df_agg['penta'])
@@ -214,85 +330,56 @@ def add_aggregated_data(df: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
         if 'solokills' in cols_sum:
             df_agg['avg_solokills'] = safe_round(df_agg['solokills'] / df_agg['nb_games'], 4)
             df_agg['total_solokills'] = safe_astype_int(df_agg['solokills'])
-        
-        # Winrate
+
         if 'victoire_num' in df_agg.columns:
             df_agg['winrate'] = safe_round((df_agg['victoire_num'] / df_agg['nb_games']) * 100, 2)
             df_agg['total_wins'] = safe_astype_int(df_agg['victoire_num'])
-        
-        # =================================================================
-        # NETTOYAGE : Mettre les colonnes brutes à NaN pour éviter conflits
-        # =================================================================
-        
-        # Liste de toutes les colonnes "par match" qui ne doivent pas être
-        # considérées comme des records dans les lignes agrégées
+
         cols_to_nullify = [
-            # Stats de base
             'kills', 'deaths', 'assists', 'kda', 'kp',
             'double', 'triple', 'quadra', 'penta', 'solokills',
             'team_kills', 'team_deaths', 'serie_kills',
-            # DMG
             'dmg', 'dmg_ad', 'dmg_ap', 'dmg_true', 'dmg_min', 'damageratio',
             'crit_dmg', 'dmg_all', 'dmg_all_min', 'dmg/gold', 'dmg_par_kills',
-            # Vision
             'vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed',
             'vision_min', 'vision_avantage',
-            # Farming
             'cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage',
             'cs_diff_15',
-            # Tank/Heal
             'dmg_tank', 'dmg_reduit', 'tankratio', 'shield', 'heal_total', 'heal_allies',
-            # Gold
             'gold', 'gold_min', 'gold_share', 'gold_diff_15', 'gold_avec_kills',
             'biggest_comeback', 'biggest_throw',
-            # Objectifs
             'baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower',
             'tower', 'inhib', 'fourth_dragon', 'first_elder', 'first_horde',
             'objective_damage', 'objectives_participated', 'turrets_killed',
             'turret_plates_taken',
-            # Timing
             'time', 'temps_dead', 'temps_vivant', 'temps_avant_premiere_mort',
-            # Combat
             'skillshot_dodged', 'skillshot_hit', 'trade_efficience', 'temps_cc',
             'spells_used', 'buffs_voles', 'immobilisation', 'first_blood',
             'shutdown_bounty', 'solokilled', 'kills_avec_jgl_early',
             'deaths_with_jgl_early',
-            # Stats max
             'abilityPower', 'armor', 'attackDamage', 'currentGold',
             'healthMax', 'magicResist', 'movementSpeed',
-            # Ecarts
             'ecart_kills', 'ecart_deaths', 'ecart_assists', 'ecart_dmg',
             'ecart_gold_team', 'level_max_avantage', 'allie_feeder',
-            # Autres
             'snowball', 'first_double', 'first_triple', 'first_quadra', 'first_penta',
             'kills_min', 'deaths_min', 'assists_min', 'longue_serie_kills',
-            'killsratio', 'deathsratio', 'solokillsratio', 'kills+assists'
+            'killsratio', 'deathsratio', 'solokillsratio', 'kills+assists',
+            *TEAMFIGHT_RECORDS,
         ]
-        
+
         for col in cols_to_nullify:
             if col in df_agg.columns:
                 df_agg[col] = np.nan
-        
-        # Marquer les lignes comme agrégées (utile pour le debug ou filtrage)
+
         df_agg['is_aggregated'] = True
         if 'is_aggregated' not in df.columns:
             df['is_aggregated'] = False
-        
-        # =================================================================
-        # FUSION AVEC LE DATAFRAME ORIGINAL
-        # =================================================================
-        
-        result = pd.concat([df, df_agg], ignore_index=True)
-        
-        return result
-        
+
+        return pd.concat([df, df_agg], ignore_index=True)
+
     except Exception as e:
-        print(f"Erreur dans add_aggregated_data: {e}")
+        print(f'Erreur dans add_aggregated_data: {e}')
         return df
-
-
-
-
 
 
 async def load_data(ctx, view, saison, mode, time_mini):
@@ -333,23 +420,138 @@ async def load_data(ctx, view, saison, mode, time_mini):
         'match_player_scoring_data.objective_damage',
         'match_player_scoring_data.objectives_participated',
         'match_player_scoring_data.turrets_killed',
+        'tracker.server_id AS server_id',
+        'tf_match.tf_takedowns_survived',
+        'tf_match.tf_teamfight_outnumbered_wins',
+        'tf_summary.tf_teamfights',
+        'tf_summary.tf_clutches_won',
+        'tf_match.tf_damage_window',
+        'tf_match.tf_physical_damage_window',
+        'tf_match.tf_magic_damage_window',
+        'tf_match.tf_true_damage_window',
+        'tf_match.tf_physical_dead_damage',
+        'tf_match.tf_magic_dead_damage',
+        'tf_match.tf_true_dead_damage',
+        'tf_match.tf_dead_damage_share_pct',
+        'tf_match.tf_damage_window_share_pct',
+        'tf_summary.tf_duels',
+        'tf_summary.tf_duels_won',
+        'tf_summary.tf_skirmishes',
     ]
 
     all_columns = [
-        "matchs.*",
-        "tracker.riot_id", "tracker.riot_tagline", "tracker.discord"
+        'matchs.*',
+        'tracker.riot_id', 'tracker.riot_tagline', 'tracker.discord'
     ] + untouched_columns
 
-    # Requête SQL allégée : uniquement les filtres liés aux JOINs et aux données essentielles
     base_query = f'''
+        WITH team_damage_window AS (
+            SELECT
+                match_id,
+                analyzed_puuid,
+                fight_id,
+                team,
+                SUM(COALESCE(damage_window_estimated, 0))::DOUBLE PRECISION AS team_damage_window
+            FROM match_teamfight_damage
+            WHERE participants_allies = 5
+            GROUP BY match_id, analyzed_puuid, fight_id, team
+        ),
+        tf_match AS (
+            SELECT
+                mtd.match_id,
+                mtd.analyzed_puuid,
+                mtd.participant_id,
+                MAX(
+                    CASE
+                        WHEN mtd.is_teamfight AND mtd.survived
+                        THEN COALESCE(mtd.fight_kills, 0) + COALESCE(mtd.fight_assists, 0)
+                    END
+                ) AS tf_takedowns_survived,
+                COUNT(*) FILTER (
+                    WHERE mtd.is_teamfight
+                      AND mtd.won_while_outnumbered
+                      AND mtd.team = mtd.outnumbered_team
+                ) AS tf_teamfight_outnumbered_wins,
+                MAX(mtd.damage_window_estimated) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_damage_window,
+                MAX(mtd.physical_damage_window_estimated) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_physical_damage_window,
+                MAX(mtd.magic_damage_window_estimated) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_magic_damage_window,
+                MAX(mtd.true_damage_window_estimated) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_true_damage_window,
+                MAX(mtd.physical_damage_on_dead_targets) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_physical_dead_damage,
+                MAX(mtd.magic_damage_on_dead_targets) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_magic_dead_damage,
+                MAX(mtd.true_damage_on_dead_targets) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_true_dead_damage,
+                MAX(mtd.damage_share_on_dead_targets * 100.0) FILTER (
+                    WHERE mtd.is_teamfight
+                      AND mtd.participants_allies = 5
+                ) AS tf_dead_damage_share_pct,
+                MAX(
+                    CASE
+                        WHEN mtd.is_teamfight
+                         AND mtd.participants_allies = 5
+                         AND tdw.team_damage_window > 0
+                        THEN 100.0 * COALESCE(mtd.damage_window_estimated, 0)
+                             / tdw.team_damage_window
+                    END
+                ) AS tf_damage_window_share_pct
+            FROM match_teamfight_damage AS mtd
+            LEFT JOIN team_damage_window AS tdw
+                ON tdw.match_id = mtd.match_id
+               AND tdw.analyzed_puuid = mtd.analyzed_puuid
+               AND tdw.fight_id = mtd.fight_id
+               AND tdw.team = mtd.team
+            WHERE mtd.analyzed_puuid = mtd.puuid
+              AND COALESCE(mtd.is_core_participant, TRUE)
+            GROUP BY mtd.match_id, mtd.analyzed_puuid, mtd.participant_id
+        ),
+        tf_summary AS (
+            SELECT
+                match_id,
+                analyzed_puuid,
+                participant_id,
+                teamfights AS tf_teamfights,
+                outnumbered_wins AS tf_clutches_won,
+                duels AS tf_duels,
+                duel_wins AS tf_duels_won,
+                skirmishes AS tf_skirmishes
+            FROM match_teamfight_player_summary
+            WHERE analyzed_puuid = puuid
+        )
         SELECT DISTINCT {', '.join(all_columns)}
         FROM matchs
         INNER JOIN tracker ON tracker.id_compte = matchs.joueur
-        LEFT JOIN max_data_timeline ON matchs.joueur = max_data_timeline.riot_id AND matchs.match_id = max_data_timeline.match_id
-        LEFT JOIN data_timeline_palier ON matchs.joueur = data_timeline_palier.riot_id AND matchs.match_id = data_timeline_palier.match_id
-        LEFT JOIN match_player_scoring_data ON matchs.match_id = match_player_scoring_data.match_id
-            AND matchs.id_participant = match_player_scoring_data.player_index
-        LEFT JOIN records_loser ON matchs.joueur = records_loser.joueur AND matchs.match_id = records_loser.match_id
+        LEFT JOIN max_data_timeline
+            ON matchs.joueur = max_data_timeline.riot_id
+           AND matchs.match_id = max_data_timeline.match_id
+        LEFT JOIN data_timeline_palier
+            ON matchs.joueur = data_timeline_palier.riot_id
+           AND matchs.match_id = data_timeline_palier.match_id
+        LEFT JOIN match_player_scoring_data
+            ON matchs.match_id = match_player_scoring_data.match_id
+           AND matchs.id_participant = match_player_scoring_data.player_index
+        LEFT JOIN records_loser
+            ON matchs.joueur = records_loser.joueur
+           AND matchs.match_id = records_loser.match_id
+        LEFT JOIN tf_match
+            ON tf_match.match_id = matchs.match_id
+           AND tf_match.analyzed_puuid = tracker.puuid
+           AND tf_match.participant_id = matchs.id_participant + 1
+        LEFT JOIN tf_summary
+            ON tf_summary.match_id = matchs.match_id
+           AND tf_summary.analyzed_puuid = tracker.puuid
+           AND tf_summary.participant_id = matchs.id_participant + 1
         WHERE tracker.banned = false
           AND tracker.save_records = true
           AND matchs.records = true
@@ -357,7 +559,6 @@ async def load_data(ctx, view, saison, mode, time_mini):
 
     fichier = lire_bdd_perso(base_query, index_col='id').transpose()
 
-    # Records narratifs dérivés de l'écart de gold de l'équipe pendant la partie.
     if 'victoire' in fichier.columns:
         victoire_values = fichier['victoire'].astype(str).str.lower()
 
@@ -381,7 +582,6 @@ async def load_data(ctx, view, saison, mode, time_mini):
                 np.nan
             )
 
-    # Filtres pandas (plus rapides que côté SQL pour des conditions simples sur des données déjà chargées)
     fichier = fichier[fichier['mode'] == mode]
     fichier = fichier[fichier['time'] >= time_mini[mode]]
 
@@ -390,86 +590,112 @@ async def load_data(ctx, view, saison, mode, time_mini):
     if view == 'serveur':
         fichier = fichier[fichier['server_id'] == int(ctx.guild_id)]
 
-    # Règles d'annulation dynamiques
+    for column in TEAMFIGHT_PERCENT_RECORDS:
+        if column in fichier.columns:
+            fichier[column] = pd.to_numeric(fichier[column], errors='coerce').round(2)
+
     if 'champion' in fichier.columns:
         for col, champions in stat_null_rules.items():
             if col in fichier.columns and col != 'champion':
                 fichier.loc[fichier['champion'].isin(champions), col] = None
 
     fichier = add_aggregated_data(fichier, min_games=15)
-
     return fichier
 
 
-
-
-
-        
 async def format_value(joueur, champion, url, short=False):
-            text = ''
-            for j, c, u in zip(joueur, champion, url):
-                if short:
-                    text += f'**__ {j} __ {c} ** \n'
-                else:
-                    text += f'**__{j}__** [{c}]({u}) \n'
-            return text
+    text = ''
+    for j, c, u in zip(joueur, champion, url):
+        if short:
+            text += f'**__ {j} __ {c} ** \n'
+        else:
+            text += f'**__{j}__** [{c}]({u}) \n'
+    return text
+
 
 async def format_value_season(joueur, champion, url, liste_season, short=False):
-            text = ''
-            for j, c, u, s in zip(joueur, champion, url, liste_season):
-                if short:
-                    text += f'**__ {j} __ {c} S{s} ** \n'
-                else:
-                    text += f'**__{j}__** [{c}]({u}) S{s}\n'
-            return text
-        
+    text = ''
+    for j, c, u, s in zip(joueur, champion, url, liste_season):
+        if short:
+            text += f'**__ {j} __ {c} S{s} ** \n'
+        else:
+            text += f'**__{j}__** [{c}]({u}) S{s}\n'
+    return text
+
 
 async def creation_embed(fichier, column, methode_pseudo, embed, methode='max', saison=saison, rank=False):
-                if rank:
-                    joueur, champion, record, url, rank_joueur, season= trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo, rank=rank)
-                else:
-                    joueur, champion, record, url, season = trouver_records_multiples(fichier, column, methode, identifiant=methode_pseudo)
-                # on montre l'image du champ uniquement quand le record appartient à une seule personne sinon on dépasse la limite de caractères
-                
-                if saison != 0:
-                    value_text = await format_value(joueur, champion, url, short=False) if len(joueur) > 1 else f"**{joueur[0]}** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]})\n"
-                else:
-                    value_text = await format_value_season(joueur, champion, url, season, short=False) if len(joueur) > 1 else f"**{joueur[0]}** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]}) S{season[0]}\n"
+    if rank:
+        joueur, champion, record, url, rank_joueur, season = trouver_records_multiples(
+            fichier, column, methode, identifiant=methode_pseudo, rank=rank
+        )
+    else:
+        joueur, champion, record, url, season = trouver_records_multiples(
+            fichier, column, methode, identifiant=methode_pseudo
+        )
 
-                if rank:
-                    embed.add_field(
-                        name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                        value=f"Records : __{record}__ (#{rank_joueur}) \n {value_text}",
-                        inline=True
-                    )
-                else:
-                    embed.add_field(
-                        name=f'{emote_v2.get(column, ":star:")}{column.upper()}',
-                        value=f"Records : __ {record} __ \n {value_text}",
-                        inline=True
-                    )
-                
-                return embed
+    if saison != 0:
+        value_text = (
+            await format_value(joueur, champion, url, short=False)
+            if len(joueur) > 1
+            else f"**{joueur[0]}** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]})\n"
+        )
+    else:
+        value_text = (
+            await format_value_season(joueur, champion, url, season, short=False)
+            if len(joueur) > 1
+            else f"**{joueur[0]}** {emote_champ_discord.get(champion[0].capitalize(), 'inconnu')} [G]({url[0]}) S{season[0]}\n"
+        )
 
-async def calcul_record(fichier, liste_records, records_min, title, title_personnalise, methode_pseudo, saison, rank:bool):
-            embed = interactions.Embed(title=f'{title} {title_personnalise}', color=interactions.Color.random())
+    record_display = _format_record_value(column, record)
+    field_name = RECORD_LABELS.get(column, column.upper())
 
-            for column in liste_records:
-                methode = 'max'
-                if column in records_min:
-                    methode = 'min'
+    if rank:
+        field_value = f"Records : __{record_display}__ (#{rank_joueur}) \n {value_text}"
+    else:
+        field_value = f"Records : __ {record_display} __ \n {value_text}"
 
-                embed = await creation_embed(fichier, column, methode_pseudo, embed, methode, saison=saison, rank=rank)
-            
-            return embed
+    complete_field_name = f'{emote_v2.get(column, ":star:")}{field_name}'
+    field_chunks = _split_embed_field(field_value)
 
+    embed.add_field(
+        name=complete_field_name,
+        value=field_chunks[0],
+        inline=True
+    )
+
+    if len(field_chunks) > 1:
+        overflow_fields = list(getattr(embed, '_record_overflow_fields', []))
+        for index, chunk in enumerate(field_chunks[1:], start=2):
+            overflow_fields.append((
+                f'{complete_field_name} (suite {index})',
+                chunk,
+                True
+            ))
+        embed._record_overflow_fields = overflow_fields
+
+    return embed
+
+
+async def calcul_record(fichier, liste_records, records_min, title, title_personnalise, methode_pseudo, saison, rank: bool):
+    embed = interactions.Embed(
+        title=f'{title} {title_personnalise}',
+        color=interactions.Color.random()
+    )
+
+    for column in liste_records:
+        methode = 'min' if column in records_min else 'max'
+        embed = await creation_embed(
+            fichier, column, methode_pseudo, embed, methode, saison=saison, rank=rank
+        )
+
+    return embed
 
 
 class Recordslol(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        self.time_mini = {'RANKED' : 15, 'ARAM' : 10, 'FLEX' : 15, 'SWIFTPLAY' : 15} # minutes minimum pour compter dans les records
-        
+        self.time_mini = {'RANKED': 15, 'ARAM': 10, 'FLEX': 15, 'SWIFTPLAY': 15}
+
         self.fichiers = {
             'kills': ['kills', 'assists', 'deaths', 'double', 'triple', 'quadra', 'penta', 'solokills', 'team_kills', 'team_deaths', 'kda', 'kp', 'kills+assists', 'serie_kills', 'first_double', 'first_triple', 'first_quadra', 'first_penta'],
             'kills2': ['kills_min', 'deaths_min', 'assists_min', 'longue_serie_kills', 'ecart_kills', 'ecart_deaths', 'ecart_assists', 'killsratio', 'deathsratio', 'solokillsratio'],
@@ -477,89 +703,92 @@ class Recordslol(Extension):
             'vision': ['vision_score', 'vision_pink', 'vision_wards', 'vision_wards_killed', 'vision_min', 'vision_avantage'],
             'farming': ['cs', 'cs_jungle', 'cs_min', 'cs_dix_min', 'jgl_dix_min', 'cs_max_avantage', 'cs_diff_15'],
             'tank_heal': ['dmg_reduit', 'dmg_tank', 'tankratio', 'shield', 'heal_total', 'heal_allies'],
-            'objectif': ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib', 'early_atakhan', 'first_tower_time', 'objective_damage', 'objectives_participated', 'turrets_killed', 'turret_plates_taken'],
+            'objectif': ['baron', 'drake', 'early_drake', 'early_baron', 'dmg_tower', 'fourth_dragon', 'first_elder', 'first_horde', 'petales_sanglants', 'tower', 'inhib', 'first_tower_time', 'objective_damage', 'objectives_participated', 'turrets_killed', 'turret_plates_taken'],
             'divers': ['time', 'gold', 'gold_min', 'gold_share', 'ecart_gold_team', 'gold_diff_15', 'gold_avec_kills', 'biggest_comeback', 'biggest_throw', 'level_max_avantage', 'temps_dead', 'temps_vivant', 'allie_feeder', 'temps_avant_premiere_mort', 'snowball'],
             'fight': ['skillshot_dodged', 'skillshot_hit', 'skillshots_dodge_min', 'skillshots_hit_min', 'trade_efficience', 'temps_cc', 'spells_used', 'buffs_voles', 'immobilisation', 'temps_cc_inflige', 'first_blood', 'shutdown_bounty', 'solokilled', 'kills_avec_jgl_early', 'deaths_with_jgl_early'],
             'stats': ['abilityPower', 'armor', 'attackDamage', 'currentGold', 'healthMax', 'magicResist', 'movementSpeed', 'first_niveau_max'],
             'timer': ["ASSISTS_10", "ASSISTS_20", "ASSISTS_30", "BUILDING_KILL_20", "BUILDING_KILL_30", "CHAMPION_KILL_10", "CHAMPION_KILL_20", "CHAMPION_KILL_30", "DEATHS_10", "DEATHS_20", "DEATHS_30", "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30", "LEVEL_UP_10", "LEVEL_UP_20", "LEVEL_UP_30"],
             'timer2': ["TURRET_PLATE_DESTROYED_10", "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30", "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30", "TOTAL_CS_20", "TOTAL_CS_30", "TOTAL_GOLD_20", "TOTAL_GOLD_30", "CS_20", "CS_30", "JGL_20", "JGL_30"],
-            'timer3' : ["TOTAL_DMG_10", "TOTAL_DMG_20", "TOTAL_DMG_30", "TOTAL_DMG_TAKEN_10", "TOTAL_DMG_TAKEN_20", "TOTAL_DMG_TAKEN_30", "TRADE_EFFICIENCE_10", "TRADE_EFFICIENCE_20", "TRADE_EFFICIENCE_30"],
+            'timer3': ["TOTAL_DMG_10", "TOTAL_DMG_20", "TOTAL_DMG_30", "TOTAL_DMG_TAKEN_10", "TOTAL_DMG_TAKEN_20", "TOTAL_DMG_TAKEN_30", "TRADE_EFFICIENCE_10", "TRADE_EFFICIENCE_20", "TRADE_EFFICIENCE_30"],
             'loser': ['l_ecart_cs', 'l_ecart_gold', 'l_ecart_gold_min_durant_game', 'l_ecart_gold_max_durant_game', 'l_kda', 'l_cs', 'l_cs_max_avantage', 'l_level_max_avantage', 'l_ecart_gold_team', 'l_ecart_kills_team', 'l_temps_avant_premiere_mort', 'l_ecart_kills', 'l_ecart_deaths', 'l_ecart_assists', 'l_ecart_dmg', 'l_allie_feeder', 'l_temps_vivant', 'l_time', 'l_solokills'],
-        # AJOUT DES NOUVELLES CATÉGORIES  <<<
-        
-        # Catégorie 1 : Moyennes de base (12 fields)
-        'agreges_moyennes': [
-            'avg_kills', 'avg_deaths', 'avg_assists', 'avg_kda', 'avg_kp',
-            'avg_dmg', 'avg_dmg_min', 'avg_gold', 'avg_gold_min',
-            'avg_cs', 'avg_cs_min', 'avg_time'
-        ],
-        
-        # Catégorie 2 : Ratios et multikills (13 fields)
-        'agreges_multikills': [
-            'penta_game', 'quadra_game', 'triple_game', 'double_game',
-            'total_penta', 'total_quadra', 'total_triple', 'total_double', 'total_solokills',
-            'winrate', 'total_wins', 'avg_solokills'
-        ],
-        
-        # Catégorie 3 : Tank/Support/Vision (11 fields) - pas pour ARAM
-        'agreges_tank_vision': [
-            'avg_vision', 'avg_vision_min',
-            'avg_dmg_tank', 'avg_tankratio', 'avg_damageratio',
-            'avg_heal', 'avg_shield', 'avg_dmg_reduit',
-            'avg_gold_share', 'avg_trade_efficience'
-        ],
-        
-        # Variante Tank/Support sans vision pour ARAM (8 fields)
-        'agreges_tank_aram': [
-            'avg_dmg_tank', 'avg_tankratio', 'avg_damageratio',
-            'avg_heal', 'avg_shield', 'avg_dmg_reduit',
-            'avg_gold_share', 'avg_trade_efficience'
-        ],
-    }
-
-        
+            'teamfights': TEAMFIGHT_RECORDS.copy(),
+            'agreges_moyennes': [
+                'avg_kills', 'avg_deaths', 'avg_assists', 'avg_kda', 'avg_kp',
+                'avg_dmg', 'avg_dmg_min', 'avg_gold', 'avg_gold_min',
+                'avg_cs', 'avg_cs_min', 'avg_time'
+            ],
+            'agreges_multikills': [
+                'penta_game', 'quadra_game', 'triple_game', 'double_game',
+                'total_penta', 'total_quadra', 'total_triple', 'total_double', 'total_solokills',
+                'winrate', 'total_wins', 'avg_solokills'
+            ],
+            'agreges_tank_vision': [
+                'avg_vision', 'avg_vision_min',
+                'avg_dmg_tank', 'avg_tankratio', 'avg_damageratio',
+                'avg_heal', 'avg_shield', 'avg_dmg_reduit',
+                'avg_gold_share', 'avg_trade_efficience'
+            ],
+            'agreges_tank_aram': [
+                'avg_dmg_tank', 'avg_tankratio', 'avg_damageratio',
+                'avg_heal', 'avg_shield', 'avg_dmg_reduit',
+                'avg_gold_share', 'avg_trade_efficience'
+            ],
+        }
 
         self.liste_complete = [item for sublist in self.fichiers.values() for item in sublist]
 
-
-        self.records_min = ['early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'early_atakhan', 'l_ecart_gold_min_durant_game', 'first_tower_time', 'avg_deaths']
+        self.records_min = [
+            'early_drake', 'early_baron', 'fourth_dragon', 'first_elder', 'first_horde',
+            'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max',
+            'first_blood', 'l_ecart_gold_min_durant_game',
+            'first_tower_time', 'avg_deaths'
+        ]
 
         self.records_par_mode = {
-            'RANKED': ['kills', 'kills2', 'dmg', 'vision', 'farming', 'tank_heal', 
-                    'objectif', 'divers', 'fight', 'stats', 'timer', 'timer2', 'timer3', 'loser'],
-            'FLEX': ['kills', 'kills2', 'dmg', 'vision', 'farming', 'tank_heal', 
-                    'objectif', 'divers', 'fight', 'stats', 'timer', 'timer2', 'timer3', 'loser'],
-            'SWIFTPLAY': ['kills', 'kills2', 'dmg', 'vision', 'farming', 'tank_heal', 
-                        'objectif', 'divers', 'fight', 'stats', 'timer', 'timer2', 'timer3', 'loser'],
-            'ARAM': ['kills', 'kills2', 'dmg', 'farming', 'tank_heal', 'divers', 'fight'],
-        }        
+            'RANKED': ['kills', 'kills2', 'dmg', 'vision', 'farming', 'tank_heal', 'objectif', 'divers', 'fight', 'teamfights', 'stats', 'timer', 'timer2', 'timer3', 'loser'],
+            'FLEX': ['kills', 'kills2', 'dmg', 'vision', 'farming', 'tank_heal', 'objectif', 'divers', 'fight', 'teamfights', 'stats', 'timer', 'timer2', 'timer3', 'loser'],
+            'SWIFTPLAY': ['kills', 'kills2', 'dmg', 'vision', 'farming', 'tank_heal', 'objectif', 'divers', 'fight', 'teamfights', 'stats', 'timer', 'timer2', 'timer3', 'loser'],
+            'ARAM': ['kills', 'kills2', 'dmg', 'farming', 'tank_heal', 'divers', 'fight', 'teamfights'],
+        }
+
+        self.agreges_par_mode = {
+            'RANKED': ['agreges_moyennes', 'agreges_multikills', 'agreges_tank_vision'],
+            'FLEX': ['agreges_moyennes', 'agreges_multikills', 'agreges_tank_vision'],
+            'SWIFTPLAY': ['agreges_moyennes', 'agreges_multikills', 'agreges_tank_vision'],
+            'ARAM': ['agreges_moyennes', 'agreges_multikills', 'agreges_tank_aram'],
+        }
+
     @slash_command(name='lol_records', description='records League of Legends')
     async def records_lol(self, ctx: SlashContext):
         pass
 
-
     parameters_communs = [
         SlashCommandOption(
-            name="mode",
-            description="Quel mode de jeu ?",
+            name='mode',
+            description='Quel mode de jeu ?',
             type=interactions.OptionType.STRING,
-            required=True, choices=[
-                SlashCommandChoice(name='ranked',value='RANKED'),
+            required=True,
+            choices=[
+                SlashCommandChoice(name='ranked', value='RANKED'),
                 SlashCommandChoice(name='aram', value='ARAM'),
-                SlashCommandChoice(name='swiftplay',value='SWIFTPLAY'),
-                SlashCommandChoice(name='flex', value='FLEX')]),
+                SlashCommandChoice(name='swiftplay', value='SWIFTPLAY'),
+                SlashCommandChoice(name='flex', value='FLEX')
+            ]
+        ),
         SlashCommandOption(
             name='saison',
             description='saison league of legends. Si 0 alors toutes les saisons',
             type=interactions.OptionType.INTEGER,
             required=False,
             min_value=0,
-            max_value=saison),
+            max_value=saison
+        ),
         SlashCommandOption(
             name='champion',
             description='champion',
             type=interactions.OptionType.STRING,
-            required=False),
+            required=False
+        ),
         SlashCommandOption(
             name='view',
             description='global ou serveur ?',
@@ -569,68 +798,72 @@ class Recordslol(Extension):
                 SlashCommandChoice(name='global', value='global'),
                 SlashCommandChoice(name='serveur', value='serveur')
             ]
-        )]
+        )
+    ]
 
     parameters_personnel = [
         SlashCommandOption(
-            name="mode",
-            description="Quel mode de jeu ?",
+            name='mode',
+            description='Quel mode de jeu ?',
             type=interactions.OptionType.STRING,
-            required=True, choices=[
-                SlashCommandChoice(name='ranked',value='RANKED'),
+            required=True,
+            choices=[
+                SlashCommandChoice(name='ranked', value='RANKED'),
                 SlashCommandChoice(name='aram', value='ARAM'),
-                SlashCommandChoice(name='swiftplay',value='SWIFTPLAY'),
-                SlashCommandChoice(name='flex', value='FLEX')]),
+                SlashCommandChoice(name='swiftplay', value='SWIFTPLAY'),
+                SlashCommandChoice(name='flex', value='FLEX')
+            ]
+        ),
         SlashCommandOption(
-            name="joueur",
-            description="Compte LoL (pas nécessaire si compte discord renseigné)",
+            name='joueur',
+            description='Compte LoL (pas nécessaire si compte discord renseigné)',
             type=interactions.OptionType.STRING,
-            required=False),
+            required=False
+        ),
         SlashCommandOption(
-            name="compte_discord",
+            name='compte_discord',
             description='compte discord (pas nécessaire si compte lol renseigné)',
             type=interactions.OptionType.USER,
             required=False
         ),
         SlashCommandOption(
             name='saison',
-            description='saison league of legends. Si 0 alors toutes les saisons. Si 0 alors toutes les saisons',
+            description='saison league of legends. Si 0 alors toutes les saisons',
             type=interactions.OptionType.INTEGER,
             required=False,
             min_value=0,
-            max_value=saison),
+            max_value=saison
+        ),
         SlashCommandOption(
             name='champion',
             description='champion',
             type=interactions.OptionType.STRING,
-            required=False)]
+            required=False
+        )
+    ]
 
-    
-    @records_lol.subcommand('general',
-                                sub_cmd_description='Records tout confondus',
-                                options=parameters_communs)
-    async def records_list_general(self, ctx:SlashContext,
-                                   saison:int=saison,
-                                   mode:str = 'ranked',
-                                   champion:str=None,
-                                   view='global'):
-        
+    @records_lol.subcommand(
+        'general',
+        sub_cmd_description='Records tout confondus',
+        options=parameters_communs
+    )
+    async def records_list_general(
+        self,
+        ctx: SlashContext,
+        saison: int = saison,
+        mode: str = 'ranked',
+        champion: str = None,
+        view='global'
+    ):
         await ctx.defer(ephemeral=False)
-        
         methode_pseudo = 'discord'
-
         fichier = await load_data(ctx, view, saison, mode, self.time_mini)
 
-        if champion != None:
-            
+        if champion is not None:
             champion = champion.capitalize()
+            fichier = fichier[fichier['champion'] == champion]
 
-            fichier = fichier[fichier['champion'] == champion] 
-            
-        if champion == None:
-                title = f'Records {mode} S{saison}'
-        else:
-                title = f'Records {mode} S{saison} ({champion})'
+        title = f'Records {mode} S{saison}' if champion is None else f'Records {mode} S{saison} ({champion})'
 
         fichier_farming = self.fichiers['farming'].copy()
         fichier_divers = self.fichiers['divers'].copy()
@@ -641,32 +874,22 @@ class Recordslol(Extension):
         fichier_timer3 = self.fichiers['timer3'].copy()
         fichier_fight = self.fichiers['fight'].copy()
 
-        # On adapte les éléments selon le mode
-        if mode in ['RANKED', 'FLEX', 'SWIFTPLAY']:
-            if 'snowball' in fichier_divers:
-                fichier_divers.remove('snowball')
+        if mode in ['RANKED', 'FLEX', 'SWIFTPLAY'] and 'snowball' in fichier_divers:
+            fichier_divers.remove('snowball')
 
         if mode == 'ARAM':
             for item in ['cs_jungle', 'jgl_dix_min', 'cs_diff_15']:
                 if item in fichier_farming:
                     fichier_farming.remove(item)
-
             for item in ['gold_diff_15', 'gold_avec_kills', 'biggest_comeback', 'biggest_throw']:
                 if item in fichier_divers:
                     fichier_divers.remove(item)
-
             for item in ['shutdown_bounty', 'solokilled', 'kills_avec_jgl_early', 'deaths_with_jgl_early']:
                 if item in fichier_fight:
                     fichier_fight.remove(item)
-
             for item in ['first_double', 'first_triple', 'first_quadra', 'first_penta']:
                 if item in fichier_kills:
                     fichier_kills.remove(item)
-
-
-
-
-
 
         embed1 = await calcul_record(fichier, fichier_kills, self.records_min, title, 'Kills', methode_pseudo, saison, False)
         embed1_2 = await calcul_record(fichier, fichier_kills2, self.records_min, title, 'Kills2', methode_pseudo, saison, False)
@@ -674,6 +897,7 @@ class Recordslol(Extension):
         embed5 = await calcul_record(fichier, fichier_farming, self.records_min, title, 'Farming', methode_pseudo, saison, False)
         embed6 = await calcul_record(fichier, self.fichiers['tank_heal'], self.records_min, title, 'Tank/Heal', methode_pseudo, saison, False)
         embed6_2 = await calcul_record(fichier, fichier_fight, self.records_min, title, 'Fight', methode_pseudo, saison, False)
+        embed_teamfights = await calcul_record(fichier, self.fichiers['teamfights'], self.records_min, title, 'Teamfights', methode_pseudo, saison, False)
         embed7 = await calcul_record(fichier, fichier_divers, self.records_min, title, 'Divers', methode_pseudo, saison, False)
 
         if mode != 'ARAM':
@@ -685,157 +909,118 @@ class Recordslol(Extension):
             embed10_2 = await calcul_record(fichier, fichier_timer3, self.records_min, title, 'Timer3', methode_pseudo, saison, False)
             embed11 = await calcul_record(fichier, self.fichiers['loser'], self.records_min, title, 'Loser', methode_pseudo, saison, False)
 
-
-        
-        # Page Moyennes de base
         embed_agreges_moy = await calcul_record(
-            fichier, self.fichiers['agreges_moyennes'], self.records_min, 
+            fichier, self.fichiers['agreges_moyennes'], self.records_min,
             title, 'Moyennes', methode_pseudo, saison, False
         )
         embed_agreges_moy.set_footer(text=f'Min 15 games requises | Version {Version}')
-        
-        # Page Multikills/Ratios
+
         embed_agreges_multi = await calcul_record(
-            fichier, self.fichiers['agreges_multikills'], self.records_min, 
+            fichier, self.fichiers['agreges_multikills'], self.records_min,
             title, 'Multikills & Cumuls', methode_pseudo, saison, False
         )
         embed_agreges_multi.set_footer(text=f'Min 15 games requises | Version {Version}')
-        
-        # Page Tank/Vision (pas pour ARAM)
+
         if mode != 'ARAM':
             embed_agreges_tank = await calcul_record(
-                fichier, self.fichiers['agreges_tank_vision'], self.records_min, 
+                fichier, self.fichiers['agreges_tank_vision'], self.records_min,
                 title, 'Tank/Vision Moyennés', methode_pseudo, saison, False
             )
         else:
             embed_agreges_tank = await calcul_record(
-                fichier, self.fichiers['agreges_tank_aram'], self.records_min, 
+                fichier, self.fichiers['agreges_tank_aram'], self.records_min,
                 title, 'Tank Moyennés', methode_pseudo, saison, False
             )
         embed_agreges_tank.set_footer(text=f'Min 15 games requises | Version {Version}')
-    
-            
-        for embed in [embed1, embed1_2, embed2, embed5, embed6, embed6_2, embed7]:
+
+        for embed in [embed1, embed1_2, embed2, embed5, embed6, embed6_2, embed_teamfights, embed7]:
             embed.set_footer(text=f'Version {Version} by Tomlora')
-
-
 
         if mode != 'ARAM':
             for embed in [embed3, embed4, embed8, embed9, embed10, embed10_2, embed11]:
                 embed.set_footer(text=f'Version {Version} by Tomlora')
 
-            pages = [embed1, embed1_2, embed2, embed3, embed4, embed5, embed6, 
-                    embed6_2, embed7, embed8, embed9, embed10, embed10_2, embed11,
-                    embed_agreges_moy, embed_agreges_multi, embed_agreges_tank]
-
+            pages = [
+                embed1, embed1_2, embed2, embed3, embed4, embed5, embed6,
+                embed6_2, embed_teamfights, embed7, embed8, embed9, embed10,
+                embed10_2, embed11, embed_agreges_moy, embed_agreges_multi,
+                embed_agreges_tank
+            ]
         else:
-            pages = [embed1, embed1_2, embed2, embed5, embed6, embed6_2, embed7,
-                    embed_agreges_moy, embed_agreges_multi, embed_agreges_tank]
-        
-        paginator = Paginator.create_from_embeds(
-            self.bot,
-            *pages
-        )
-        paginator.show_select_menu = True
-        
-        await paginator.send(ctx)   
-            
-        
-    @records_lol.subcommand('personnel',
-                                sub_cmd_description='Records personnels sur un joueur',
-                                options=parameters_personnel)
-    async def records_list_personnel(self,
-                              ctx: SlashContext,
-                              saison: int = saison,
-                              mode: str = 'ranked',
-                              joueur= None,
-                              compte_discord : interactions.User = None,
-                              champion : str =None,
-                              view='global'):
+            pages = [
+                embed1, embed1_2, embed2, embed5, embed6, embed6_2,
+                embed_teamfights, embed7, embed_agreges_moy, embed_agreges_multi,
+                embed_agreges_tank
+            ]
 
+        paginator = Paginator.create_from_embeds(self.bot, *pages)
+        paginator.show_select_menu = True
+        await paginator.send(ctx)
+
+    @records_lol.subcommand(
+        'personnel',
+        sub_cmd_description='Records personnels sur un joueur',
+        options=parameters_personnel
+    )
+    async def records_list_personnel(
+        self,
+        ctx: SlashContext,
+        saison: int = saison,
+        mode: str = 'ranked',
+        joueur=None,
+        compte_discord: interactions.User = None,
+        champion: str = None,
+        view='global'
+    ):
         await ctx.defer(ephemeral=False)
-        
         methode_pseudo = 'discord'
-    
         fichier = await load_data(ctx, view, saison, mode, self.time_mini)
 
-        
-        fichier['early_drake'] = fichier['early_drake'].replace({0 : 999})    
-        fichier['early_baron'] = fichier['early_baron'].replace({0 : 999}) 
-        
-        
-        
+        fichier['early_drake'] = fichier['early_drake'].replace({0: 999})
+        fichier['early_baron'] = fichier['early_baron'].replace({0: 999})
+
         for column in self.liste_complete:
-            
             try:
                 fichier[f'{column}_rank_max'] = fichier[column].rank(method='min', ascending=False).astype(int)
                 fichier[f'{column}_rank_min'] = fichier[column].rank(method='min', ascending=True).astype(int)
-            except:
+            except Exception:
                 try:
-                    fichier[column].fillna(0, inplace=True)
+                    fichier[column] = fichier[column].fillna(0)
                     fichier[f'{column}_rank_max'] = fichier[column].rank(method='min', ascending=False).astype(int)
                     fichier[f'{column}_rank_min'] = fichier[column].rank(method='min', ascending=True).astype(int)
-                except:
+                except Exception:
                     print('erreur', column)
-        
-        nb_games = fichier.shape[0]    
 
-        if champion != None:
-            
+        nb_games = fichier.shape[0]
+
+        if champion is not None:
             champion = champion.capitalize()
-
             fichier = fichier[fichier['champion'] == champion]
 
-            
-        if joueur != None:
-            
+        if joueur is not None:
             joueur = joueur.lower().replace(' ', '')
-                
-            id_joueur = lire_bdd_perso('''SELECT tracker.riot_id, tracker.discord from tracker where tracker.banned = false and tracker.save_records = true ''',
-                                            format='dict', index_col='riot_id')
             try:
                 fichier = fichier[fichier['riot_id'] == joueur]
             except KeyError:
-                return await ctx.send('Joueur introuvable ou tu es banni')    
-              
-        elif compte_discord != None:
-                
+                return await ctx.send('Joueur introuvable ou tu es banni')
+        elif compte_discord is not None:
             id_discord = str(compte_discord.id)
-
-                               
             joueur = compte_discord.global_name
-            try:    
+            try:
                 fichier = fichier[fichier['discord'] == id_discord]
             except KeyError:
-                return await ctx.send('Joueur introuvable ou tu es banni. ')    
-                
-            
-        elif joueur == None and compte_discord == None:
-                
-            fichier = fichier[fichier['discord'] == str(ctx.author.id)]
-
-            try:
-                joueur = ctx.author.nick
-            except AttributeError:
-                try:
-                    joueur = ctx.author.nickname
-                except AttributeError:
-                    joueur = ctx.user.global_name
-            author_global = ctx.author.global_name
-            if joueur == None:
-                joueur = author_global                
-            joueur = ctx.author.global_name
-                
-        methode_pseudo = 'riot_id'
-
-        if champion == None:
-
-                title = f'Records personnels {joueur} {mode} S{saison}'
+                return await ctx.send('Joueur introuvable ou tu es banni. ')
         else:
-                title = f'Records personnels {joueur} {mode} S{saison} ({champion})'
+            fichier = fichier[fichier['discord'] == str(ctx.author.id)]
+            joueur = getattr(ctx.author, 'global_name', None) or getattr(ctx.user, 'global_name', None)
 
-        
-        # Copies locales des catégories modifiables
+        methode_pseudo = 'riot_id'
+        title = (
+            f'Records personnels {joueur} {mode} S{saison}'
+            if champion is None
+            else f'Records personnels {joueur} {mode} S{saison} ({champion})'
+        )
+
         fichier_farming = self.fichiers['farming'].copy()
         fichier_divers = self.fichiers['divers'].copy()
         fichier_timer = self.fichiers['timer'].copy()
@@ -843,41 +1028,36 @@ class Recordslol(Extension):
         fichier_timer3 = self.fichiers['timer3'].copy()
         fichier_fight = self.fichiers['fight'].copy()
 
-        # Ajustements selon le mode
-        if mode in ['RANKED', 'FLEX', 'SWIFTPLAY']:
-            if 'snowball' in fichier_divers:
-                fichier_divers.remove('snowball')
+        if mode in ['RANKED', 'FLEX', 'SWIFTPLAY'] and 'snowball' in fichier_divers:
+            fichier_divers.remove('snowball')
 
         if mode == 'ARAM':
             for stat in ['cs_jungle', 'jgl_dix_min', 'cs_diff_15']:
                 if stat in fichier_farming:
                     fichier_farming.remove(stat)
-
             for stat in ['gold_diff_15', 'gold_avec_kills', 'biggest_comeback', 'biggest_throw']:
                 if stat in fichier_divers:
                     fichier_divers.remove(stat)
-
             for stat in ['shutdown_bounty', 'solokilled', 'kills_avec_jgl_early', 'deaths_with_jgl_early']:
                 if stat in fichier_fight:
                     fichier_fight.remove(stat)
-
             to_remove_timer = [
-                "WARD_KILL_10", "WARD_KILL_20", "WARD_KILL_30",
-                "WARD_PLACED_10", "WARD_PLACED_20", "WARD_PLACED_30",
-                "ELITE_MONSTER_KILL_10", "ELITE_MONSTER_KILL_20", "ELITE_MONSTER_KILL_30",
-                "TURRET_PLATE_DESTROYED_10"
+                'WARD_KILL_10', 'WARD_KILL_20', 'WARD_KILL_30',
+                'WARD_PLACED_10', 'WARD_PLACED_20', 'WARD_PLACED_30',
+                'ELITE_MONSTER_KILL_10', 'ELITE_MONSTER_KILL_20', 'ELITE_MONSTER_KILL_30',
+                'TURRET_PLATE_DESTROYED_10'
             ]
             for stat in to_remove_timer:
                 if stat in fichier_timer:
                     fichier_timer.remove(stat)
 
-        # Appels aux calculs
         embed1 = await calcul_record(fichier, self.fichiers['kills'], self.records_min, title, 'Kills', methode_pseudo, saison, True)
         embed1_2 = await calcul_record(fichier, self.fichiers['kills2'], self.records_min, title, 'Kills2', methode_pseudo, saison, True)
         embed2 = await calcul_record(fichier, self.fichiers['dmg'], self.records_min, title, 'DMG', methode_pseudo, saison, True)
         embed5 = await calcul_record(fichier, fichier_farming, self.records_min, title, 'Farming', methode_pseudo, saison, True)
         embed6 = await calcul_record(fichier, self.fichiers['tank_heal'], self.records_min, title, 'Tank/Heal', methode_pseudo, saison, True)
         embed6_2 = await calcul_record(fichier, fichier_fight, self.records_min, title, 'Fight', methode_pseudo, saison, True)
+        embed_teamfights = await calcul_record(fichier, self.fichiers['teamfights'], self.records_min, title, 'Teamfights', methode_pseudo, saison, True)
         embed7 = await calcul_record(fichier, fichier_divers, self.records_min, title, 'Divers', methode_pseudo, saison, True)
 
         if mode != 'ARAM':
@@ -889,127 +1069,76 @@ class Recordslol(Extension):
             embed10_2 = await calcul_record(fichier, fichier_timer3, self.records_min, title, 'Timer3', methode_pseudo, saison, True)
             embed11 = await calcul_record(fichier, self.fichiers['loser'], self.records_min, title, 'Loser', methode_pseudo, saison, True)
 
-            
-    # Page Moyennes de base
         embed_agreges_moy = await calcul_record(
-            fichier, self.fichiers['agreges_moyennes'], self.records_min, 
+            fichier, self.fichiers['agreges_moyennes'], self.records_min,
             title, 'Moyennes', methode_pseudo, saison, True
         )
         embed_agreges_moy.set_footer(text=f'Min 15 games requises | Version {Version} - {nb_games} parties')
-        
-        # Page Multikills/Ratios
+
         embed_agreges_multi = await calcul_record(
-            fichier, self.fichiers['agreges_multikills'], self.records_min, 
+            fichier, self.fichiers['agreges_multikills'], self.records_min,
             title, 'Multikills & Cumuls', methode_pseudo, saison, True
         )
         embed_agreges_multi.set_footer(text=f'Min 15 games requises | Version {Version} - {nb_games} parties')
-        
-        # Page Tank/Vision (adapté selon le mode)
+
         if mode != 'ARAM':
             embed_agreges_tank = await calcul_record(
-                fichier, self.fichiers['agreges_tank_vision'], self.records_min, 
+                fichier, self.fichiers['agreges_tank_vision'], self.records_min,
                 title, 'Tank/Vision Moyennés', methode_pseudo, saison, True
             )
         else:
             embed_agreges_tank = await calcul_record(
-                fichier, self.fichiers['agreges_tank_aram'], self.records_min, 
+                fichier, self.fichiers['agreges_tank_aram'], self.records_min,
                 title, 'Tank Moyennés', methode_pseudo, saison, True
             )
         embed_agreges_tank.set_footer(text=f'Min 15 games requises | Version {Version} - {nb_games} parties')
 
-
-        for embed in [embed1, embed1_2, embed2, embed5, embed6, embed6_2, embed7]:
+        for embed in [embed1, embed1_2, embed2, embed5, embed6, embed6_2, embed_teamfights, embed7]:
             embed.set_footer(text=f'Version {Version} by Tomlora - {nb_games} parties')
 
-
         if mode != 'ARAM':
-            pages = [embed1, embed1_2, embed2, embed3, embed4, embed5, embed6, 
-                    embed6_2, embed7, embed8, embed9, embed10, embed10_2, embed11,
-                    embed_agreges_moy, embed_agreges_multi, embed_agreges_tank]
+            pages = [
+                embed1, embed1_2, embed2, embed3, embed4, embed5, embed6,
+                embed6_2, embed_teamfights, embed7, embed8, embed9, embed10,
+                embed10_2, embed11, embed_agreges_moy, embed_agreges_multi,
+                embed_agreges_tank
+            ]
         else:
-            pages = [embed1, embed1_2, embed2, embed5, embed6, embed6_2, embed7,
-                    embed_agreges_moy, embed_agreges_multi, embed_agreges_tank]
-            
-        paginator = Paginator.create_from_embeds(
-            self.bot,
-            *pages,
-        )
-        
+            pages = [
+                embed1, embed1_2, embed2, embed5, embed6, embed6_2,
+                embed_teamfights, embed7, embed_agreges_moy, embed_agreges_multi,
+                embed_agreges_tank
+            ]
+
+        paginator = Paginator.create_from_embeds(self.bot, *pages)
         paginator.show_select_menu = True
         await paginator.send(ctx)
 
-
-
     def get_liste_records(self, mode: str, inclure_agreges: bool = False) -> list:
-        """
-        Retourne la liste des records à utiliser selon le mode et les options.
-        
-        Parameters
-        ----------
-        mode : str
-            Mode de jeu (RANKED, ARAM, FLEX, SWIFTPLAY)
-        inclure_agreges : bool
-            Inclure les records agrégés
-            
-        Returns
-        -------
-        list
-            Liste des noms de colonnes de records
-        """
         liste_records = []
-        
-        # Records standards pour ce mode
         categories = self.records_par_mode.get(mode, self.records_par_mode['RANKED'])
         for cat in categories:
             if cat in self.fichiers:
                 liste_records.extend(self.fichiers[cat])
-        
-        # Ajout des records agrégés si demandé
+
         if inclure_agreges:
             categories_agreges = self.agreges_par_mode.get(mode, self.agreges_par_mode['RANKED'])
             for cat in categories_agreges:
                 if cat in self.fichiers:
                     liste_records.extend(self.fichiers[cat])
-        
+
         return liste_records
 
-
-    # =============================================================================
-    # 3. MÉTHODE HELPER POUR COMPTER LES RECORDS
-    # =============================================================================
-
-    def compter_records(self, fichier: pd.DataFrame, liste_records: list, 
-                        list_champ: dict = None, par_champion: bool = False) -> pd.Series:
-        """
-        Compte le nombre de records par joueur.
-        
-        Parameters
-        ----------
-        fichier : pd.DataFrame
-            DataFrame des matchs
-        liste_records : list
-            Liste des colonnes de records à compter
-        list_champ : dict, optional
-            Dictionnaire des champions (pour le comptage par champion)
-        par_champion : bool
-            Si True, compte les records par champion
-            
-        Returns
-        -------
-        pd.Series
-            Comptage des records par joueur
-        """
+    def compter_records(self, fichier: pd.DataFrame, liste_records: list, list_champ: dict = None, par_champion: bool = False) -> pd.Series:
         liste_joueurs = []
-        
+
         for record in liste_records:
-            # Vérifier que la colonne existe
             if record not in fichier.columns:
                 continue
-                
+
             methode = 'min' if record in self.records_min else 'max'
-            
+
             if par_champion and list_champ:
-                # Comptage par champion
                 for champ in list_champ.get('data', []):
                     try:
                         fichier_champ = fichier[fichier['champion'] == champ]
@@ -1020,393 +1149,219 @@ class Recordslol(Extension):
                     except Exception:
                         pass
             else:
-                # Comptage général
                 try:
                     joueur, *_ = trouver_records_multiples(fichier, record, methode)
                     liste_joueurs.extend(joueur)
                 except Exception:
                     pass
-        
-        # Filtrer les "inconnu"
+
         liste_joueurs = [j for j in liste_joueurs if j != 'inconnu']
-        
         return pd.Series(liste_joueurs).value_counts()
 
-
-    # =============================================================================
-    # 4. COMMANDE records_count SIMPLIFIÉE
-    # =============================================================================
-
-    @records_lol.subcommand("count",
-                            sub_cmd_description="Compte le nombre de records",
-                            options=[
-                                SlashCommandOption(
-                                    name="saison",
-                                    description="Saison LoL (0 = toutes)",
-                                    type=interactions.OptionType.INTEGER,
-                                    required=False,
-                                    min_value=0,
-                                    max_value=saison),
-                                SlashCommandOption(
-                                    name='mode',
-                                    description='Mode de jeu',
-                                    type=interactions.OptionType.STRING,
-                                    required=False,
-                                    choices=[
-                                        SlashCommandChoice(name='ranked', value='RANKED'),
-                                        SlashCommandChoice(name='aram', value='ARAM'),
-                                        SlashCommandChoice(name='flex', value='FLEX'),
-                                        SlashCommandChoice(name='swiftplay', value='SWIFTPLAY'),
-                                    ]
-                                ),
-                                SlashCommandOption(
-                                    name='champion',
-                                    description='Focus sur un champion',
-                                    type=interactions.OptionType.STRING,
-                                    required=False
-                                ),
-                                SlashCommandOption(
-                                    name='view',
-                                    description='Global ou serveur',
-                                    type=interactions.OptionType.STRING,
-                                    required=False,
-                                    choices=[
-                                        SlashCommandChoice(name='global', value='global'),
-                                        SlashCommandChoice(name='serveur', value='serveur')
-                                    ]
-                                ),
-                                SlashCommandOption(
-                                    name='inclure_agreges',
-                                    description='Inclure les records agrégés (moyennes, cumuls)',
-                                    type=interactions.OptionType.BOOLEAN,
-                                    required=False
-                                )
-                            ])
-    async def records_count(self,
-                            ctx: SlashContext,
-                            saison: int = saison,
-                            mode: str = 'RANKED',
-                            champion: str = None,
-                            view: str = 'global',
-                            inclure_agreges: bool = False):
-
+    @records_lol.subcommand(
+        'count',
+        sub_cmd_description='Compte le nombre de records',
+        options=[
+            SlashCommandOption(name='saison', description='Saison LoL (0 = toutes)', type=interactions.OptionType.INTEGER, required=False, min_value=0, max_value=saison),
+            SlashCommandOption(name='mode', description='Mode de jeu', type=interactions.OptionType.STRING, required=False, choices=[
+                SlashCommandChoice(name='ranked', value='RANKED'),
+                SlashCommandChoice(name='aram', value='ARAM'),
+                SlashCommandChoice(name='flex', value='FLEX'),
+                SlashCommandChoice(name='swiftplay', value='SWIFTPLAY'),
+            ]),
+            SlashCommandOption(name='champion', description='Focus sur un champion', type=interactions.OptionType.STRING, required=False),
+            SlashCommandOption(name='view', description='Global ou serveur', type=interactions.OptionType.STRING, required=False, choices=[
+                SlashCommandChoice(name='global', value='global'),
+                SlashCommandChoice(name='serveur', value='serveur')
+            ]),
+            SlashCommandOption(name='inclure_agreges', description='Inclure les records agrégés (moyennes, cumuls)', type=interactions.OptionType.BOOLEAN, required=False)
+        ]
+    )
+    async def records_count(self, ctx: SlashContext, saison: int = saison, mode: str = 'RANKED', champion: str = None, view: str = 'global', inclure_agreges: bool = False):
         await ctx.defer(ephemeral=False)
-
-        # Charger les données
         fichier = await load_data(ctx, view, saison, mode, self.time_mini)
-        
-        # Obtenir la liste des records pour ce mode
         liste_records = self.get_liste_records(mode, inclure_agreges)
-        
-        # Suffixe pour les titres
-        suffixe = " (avec agrégés)" if inclure_agreges else ""
+        suffixe = ' (avec agrégés)' if inclure_agreges else ''
 
-        # Si champion spécifié, filtrer et afficher directement
         if champion:
             champion = champion.capitalize()
             fichier = fichier[fichier['champion'] == champion]
-            
             counts = self.compter_records(fichier, liste_records)
-            
             if counts.empty:
-                return await ctx.send(f"Aucun record trouvé pour {champion}")
-            
-            fig = px.histogram(
-                counts, counts.index, counts.values,
-                text_auto=True, color=counts.index,
-                title=f'Records {champion}{suffixe}'
-            )
+                return await ctx.send(f'Aucun record trouvé pour {champion}')
+
+            fig = px.histogram(counts, counts.index, counts.values, text_auto=True, color=counts.index, title=f'Records {champion}{suffixe}')
             fig.update_layout(showlegend=False)
             fig.write_image('image.png', width=1600, height=900)
-            
             return await ctx.send(files=interactions.File('image.png'))
 
-        # Sinon, proposer le choix général/par champion
         async with ClientSession() as session:
             version = await get_version(session)
             list_champ = await get_champ_list(session, version)
 
-        # Pré-calculer les deux comptages
         counts_general = self.compter_records(fichier, liste_records)
         counts_champion = self.compter_records(fichier, liste_records, list_champ, par_champion=True)
 
-        # Menu de sélection
         select = interactions.StringSelectMenu(
-            interactions.StringSelectOption(label="Général", value="general", emoji="1️⃣"),
-            interactions.StringSelectOption(label="Par champion", value="par_champion", emoji="2️⃣"),
+            interactions.StringSelectOption(label='Général', value='general', emoji='1️⃣'),
+            interactions.StringSelectOption(label='Par champion', value='par_champion', emoji='2️⃣'),
             custom_id='selection_records_count',
-            placeholder="Type de records",
+            placeholder='Type de records',
         )
 
-        message = await ctx.send(f"Quel type de record ?{suffixe}", components=select)
+        message = await ctx.send(f'Quel type de record ?{suffixe}', components=select)
 
         def check(component):
             return int(component.ctx.author_id) == int(ctx.author.user.id)
 
         while True:
             try:
-                component = await self.bot.wait_for_component(
-                    components=select, check=check, timeout=120
-                )
-
+                component = await self.bot.wait_for_component(components=select, check=check, timeout=120)
                 choix = component.ctx.values[0]
-                counts = counts_general if choix == "general" else counts_champion
-                titre = "Général" if choix == "general" else "Par champion"
+                counts = counts_general if choix == 'general' else counts_champion
+                titre = 'Général' if choix == 'general' else 'Par champion'
 
-                fig = px.histogram(
-                    counts, counts.index, counts.values,
-                    text_auto=True, color=counts.index,
-                    title=f'Records {titre}{suffixe}'
-                )
+                fig = px.histogram(counts, counts.index, counts.values, text_auto=True, color=counts.index, title=f'Records {titre}{suffixe}')
                 fig.update_layout(showlegend=False)
                 fig.write_image('image.png', width=1600, height=900)
-                
                 await component.ctx.send(files=interactions.File('image.png'))
-
             except asyncio.TimeoutError:
                 await message.edit(components=[])
                 break
 
-
-
-    @records_lol.subcommand("palmares",
-                                    sub_cmd_description="Classement pour un record donné",
-                                    options=[
-                                        SlashCommandOption(
-                                            name='stat',
-                                            description='Nom du record (voir records) ou écrire champion pour le nombre de champions joués',
-                                            type=interactions.OptionType.STRING,
-                                            required=True,
-                                            autocomplete=True
-                                        ),
-                                        SlashCommandOption(
-                                            name="saison",
-                                            description="saison lol ? Si 0 alors toutes les saisons",
-                                            type=interactions.OptionType.INTEGER,
-                                            required=False,
-                                            min_value=0,
-                                            max_value=saison),
-                                        SlashCommandOption(
-                                            name='mode',
-                                            description='quel mode de jeu ?',
-                                            type=interactions.OptionType.STRING,
-                                            required=False,
-                                            choices=[
-                                                SlashCommandChoice(name='ranked', value='RANKED'),
-                                                SlashCommandChoice(name='aram', value='ARAM'),
-                                                SlashCommandChoice(name='swiftplay',value='SWIFTPLAY'),
-                                                SlashCommandChoice(name='flex', value='FLEX')
-                                            ]
-                                        ),
-                                        SlashCommandOption(
-                                            name='champion',
-                                            description='focus sur un champion ?',
-                                            type=interactions.OptionType.STRING,
-                                            required=False
-                                        ),
-                                        SlashCommandOption(
-                                            name='joueur',
-                                            description='focus sur un joueur ?',
-                                            type=interactions.OptionType.STRING,
-                                            required=False
-                                        ),
-                                        SlashCommandOption(
-                                            name="compte_discord",
-                                            description='focus sur un compte discord ?',
-                                            type=interactions.OptionType.USER,
-                                            required=False
-                                        ),
-                                        SlashCommandOption(
-                                            name='view',
-                                            description='Global ou serveur ?',
-                                            type=interactions.OptionType.STRING,
-                                            required=False,
-                                            choices=[
-                                                SlashCommandChoice(name='global', value='global'),
-                                                SlashCommandChoice(name='serveur', value='serveur')
-                                            ]
-                                        ),
-                                        SlashCommandOption(
-                                            name='top',
-                                            description='top à afficher',
-                                            type=interactions.OptionType.INTEGER,
-                                            required=False,
-                                            min_value=10,
-                                            max_value=25
-                                        )
-                                    ])
-    async def palmares(self,
-                        ctx: SlashContext,
-                        stat : str,
-                        saison: int = saison,
-                        mode: str = 'RANKED',
-                        champion: str = None,
-                        joueur:str = None,
-                        compte_discord: interactions.User = None,
-                        view : str = 'global',
-                        top : int = 10):
-
-
-            # on récupère les champions
-
+    @records_lol.subcommand(
+        'palmares',
+        sub_cmd_description='Classement pour un record donné',
+        options=[
+            SlashCommandOption(name='stat', description='Nom du record (voir records) ou écrire champion pour le nombre de champions joués', type=interactions.OptionType.STRING, required=True, autocomplete=True),
+            SlashCommandOption(name='saison', description='saison lol ? Si 0 alors toutes les saisons', type=interactions.OptionType.INTEGER, required=False, min_value=0, max_value=saison),
+            SlashCommandOption(name='mode', description='quel mode de jeu ?', type=interactions.OptionType.STRING, required=False, choices=[
+                SlashCommandChoice(name='ranked', value='RANKED'),
+                SlashCommandChoice(name='aram', value='ARAM'),
+                SlashCommandChoice(name='swiftplay', value='SWIFTPLAY'),
+                SlashCommandChoice(name='flex', value='FLEX')
+            ]),
+            SlashCommandOption(name='champion', description='focus sur un champion ?', type=interactions.OptionType.STRING, required=False),
+            SlashCommandOption(name='joueur', description='focus sur un joueur ?', type=interactions.OptionType.STRING, required=False),
+            SlashCommandOption(name='compte_discord', description='focus sur un compte discord ?', type=interactions.OptionType.USER, required=False),
+            SlashCommandOption(name='view', description='Global ou serveur ?', type=interactions.OptionType.STRING, required=False, choices=[
+                SlashCommandChoice(name='global', value='global'),
+                SlashCommandChoice(name='serveur', value='serveur')
+            ]),
+            SlashCommandOption(name='top', description='top à afficher', type=interactions.OptionType.INTEGER, required=False, min_value=10, max_value=25)
+        ]
+    )
+    async def palmares(self, ctx: SlashContext, stat: str, saison: int = saison, mode: str = 'RANKED', champion: str = None, joueur: str = None, compte_discord: interactions.User = None, view: str = 'global', top: int = 10):
         await ctx.defer()
+        stat_input = stat.strip().lower()
+        stat = RECORD_KEYS_BY_LABEL.get(stat_input, stat_input)
 
-        stat = stat.lower()
+        if stat == 'early_atakhan':
+            return await ctx.send("Ce record n'existe plus.")
 
         fichier = await load_data(ctx, view, saison, mode, self.time_mini)
-        
         fichier.columns = [col.lower() for col in fichier.columns]
-            
-        if champion != None:
+
+        if champion is not None:
             fichier = fichier[fichier['champion'] == champion]
-            
-        if joueur != None:
+        if joueur is not None:
             fichier = fichier[fichier['riot_id'] == joueur.replace(' ', '').lower()]
-            
-        if compte_discord != None:
+        if compte_discord is not None:
             fichier = fichier[fichier['discord'] == str(compte_discord.id)]
-            
-            
-            
+
         if stat == 'champion':
             fichier = fichier[['discord', 'champion', 'match_id']]
-            nb_row = fichier.shape[0] 
-            # on prépare le df count game
+            nb_row = fichier.shape[0]
             count_game = fichier.groupby(['discord']).count().reset_index()
             count_game = count_game[['discord', 'champion']].rename(columns={'champion': 'count'})
-            ascending=False
-            # on prépare le fichier final
-            
-               
+            ascending = False
             fichier = fichier.groupby(['champion', 'discord']).count().sort_values(by='match_id', ascending=ascending).reset_index()
             nb_champion = len(fichier['champion'].unique())
             fichier = fichier.merge(count_game, on='discord', how='left')
-            
-            fichier['proportion'] = np.int8((fichier['match_id'] / fichier['count'])*100)
-            
-            
-            fichier = fichier.head(top)   
-            
+            fichier['proportion'] = np.int8((fichier['match_id'] / fichier['count']) * 100)
+            fichier = fichier.head(top)
+
             txt = ''
-                
-                
-                
-            for row, data in fichier.iterrows():
-                champion = data['champion']
-                txt += f'**{data["match_id"]}** - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion.capitalize(), "inconnu")} - **{data["proportion"]}% des games**\n'
-                
+            for _, data in fichier.iterrows():
+                champion_name = data['champion']
+                txt += f'**{data["match_id"]}** - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion_name.capitalize(), "inconnu")} - **{data["proportion"]}% des games**\n'
+
             embed = interactions.Embed(title=f'Palmarès {stat} ({mode}) S{saison}', description=txt)
-            embed.set_footer(text=f"{nb_row} matchs analysés | {nb_champion} champions différents")
-            
+            embed.set_footer(text=f'{nb_row} matchs analysés | {nb_champion} champions différents')
             await ctx.send(embeds=embed)
-            
-        else:
-            
-            try:
-                fichier = fichier[['match_id', 'id_participant', 'discord', 'champion', stat, 'datetime', 'season']]
-                
-                nb_row = fichier.shape[0]
-                
-                                
-                if stat in ['early_baron', 'early_drake', 'early_atakhan', 'l_ecart_gold_min_durant_game']:
-                    ascending=True
-                    fichier = fichier[fichier[stat] != 0]
-                elif stat in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time']:
-                    ascending=True
-                    fichier = fichier[fichier[stat] != 999]
-                else:
-                    ascending=False
-                    fichier = fichier[fichier[stat] != 0]
-                    
-                fichier.sort_values(by=stat, ascending=ascending, inplace=True)
-                fichier = fichier.head(top)
-                
-                txt = ''
-                
-                
-                if saison != 0:
-                    for row, data in fichier.iterrows():
-                        champion = data['champion']
-                        txt += f'[{data[stat]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} \n'
-                else:
-                    for row, data in fichier.iterrows():
-                        champion = data['champion']
-                        txt += f'[{data[stat]}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} (S{data["season"]})\n'
-                    
-                embed = interactions.Embed(title=f'Palmarès {stat} ({mode}) S{saison}', description=txt)
-                embed.set_footer(text=f"{nb_row} matchs analysés")
-                
-                
-                await ctx.send(embeds=embed)
-                
-            except KeyError:              
-                suggestion = suggestion_word(stat, fichier.columns.tolist())
-                await ctx.send(f"Ce record n'existe pas. Souhaitais-tu dire : **{suggestion}** ?")
-                
+            return
 
-    @palmares.autocomplete("stat")
+        try:
+            fichier = fichier[['match_id', 'id_participant', 'discord', 'champion', stat, 'datetime', 'season']]
+            nb_row = fichier.shape[0]
 
-    async def autocomplete_game(self, ctx: interactions.AutocompleteContext):
+            if stat in ['early_baron', 'early_drake', 'l_ecart_gold_min_durant_game']:
+                ascending = True
+                fichier = fichier[fichier[stat] != 0]
+            elif stat in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time']:
+                ascending = True
+                fichier = fichier[fichier[stat] != 999]
+            else:
+                ascending = False
+                fichier = fichier[fichier[stat] != 0]
 
+            fichier.sort_values(by=stat, ascending=ascending, inplace=True)
+            fichier = fichier.head(top)
+
+            txt = ''
+            if saison != 0:
+                for _, data in fichier.iterrows():
+                    champion_name = data['champion']
+                    display_value = _format_record_value(stat, data[stat])
+                    txt += f'[{display_value}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion_name.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} \n'
+            else:
+                for _, data in fichier.iterrows():
+                    champion_name = data['champion']
+                    display_value = _format_record_value(stat, data[stat])
+                    txt += f'[{display_value}](https://www.leagueofgraphs.com/fr/match/euw/{str(data["match_id"])[5:]}#participant{int(data["id_participant"])+1}) - {mention(data["discord"], "membre")} {emote_champ_discord.get(champion_name.capitalize(), "inconnu")} - {data["datetime"].day}/{data["datetime"].month} (S{data["season"]})\n'
+
+            record_title = RECORD_LABELS.get(stat, stat)
+            embed = interactions.Embed(title=f'Palmarès {record_title} ({mode}) S{saison}', description=txt)
+            embed.set_footer(text=f'{nb_row} matchs analysés')
+            await ctx.send(embeds=embed)
+        except KeyError:
+            suggestion = suggestion_word(stat, fichier.columns.tolist())
+            await ctx.send(f"Ce record n'existe pas. Souhaitais-tu dire : **{suggestion}** ?")
+
+    @palmares.autocomplete('stat')
+    async def autocomplete_game(self, ctx: AutocompleteContext):
         liste_choix = await autocomplete_record(ctx.input_text)
-
         await ctx.send(choices=liste_choix)
 
-    @records_lol.subcommand("date_record",
-                                    sub_cmd_description="Date des records",
-                                    options=[
-                                        SlashCommandOption(
-                                            name="saison",
-                                            description="saison lol",
-                                            type=interactions.OptionType.INTEGER,
-                                            required=False,
-                                            min_value=13,
-                                            max_value=saison),
-                                        SlashCommandOption(
-                                            name='mode',
-                                            description='quel mode de jeu ?',
-                                            type=interactions.OptionType.STRING,
-                                            required=False,
-                                            choices=[
-                                                SlashCommandChoice(name='ranked', value='RANKED'),
-                                                SlashCommandChoice(name='aram', value='ARAM'),
-                                                SlashCommandChoice(name='swiftplay',value='SWIFTPLAY'),
-                                                SlashCommandChoice(name='flex', value='FLEX')]),
-                                        SlashCommandOption(
-                                            name='view',
-                                            description='Global ou serveur ?',
-                                            type=interactions.OptionType.STRING,
-                                            required=False,
-                                            choices=[
-                                                SlashCommandChoice(name='global', value='global'),
-                                                SlashCommandChoice(name='serveur', value='serveur')
-                                            ]
-                                        )
-                                    ]
+    @records_lol.subcommand(
+        'date_record',
+        sub_cmd_description='Date des records',
+        options=[
+            SlashCommandOption(name='saison', description='saison lol', type=interactions.OptionType.INTEGER, required=False, min_value=13, max_value=saison),
+            SlashCommandOption(name='mode', description='quel mode de jeu ?', type=interactions.OptionType.STRING, required=False, choices=[
+                SlashCommandChoice(name='ranked', value='RANKED'),
+                SlashCommandChoice(name='aram', value='ARAM'),
+                SlashCommandChoice(name='swiftplay', value='SWIFTPLAY'),
+                SlashCommandChoice(name='flex', value='FLEX')
+            ]),
+            SlashCommandOption(name='view', description='Global ou serveur ?', type=interactions.OptionType.STRING, required=False, choices=[
+                SlashCommandChoice(name='global', value='global'),
+                SlashCommandChoice(name='serveur', value='serveur')
+            ])
+        ]
     )
-    async def date_record(self,
-                        ctx: SlashContext,
-                        saison: int = saison,
-                        mode:str = 'RANKED',
-                        view : str = 'global'):
-        
-
+    async def date_record(self, ctx: SlashContext, saison: int = saison, mode: str = 'RANKED', view: str = 'global'):
         await ctx.defer()
+        fichier = await load_data(ctx, view, saison, mode, self.time_mini)
 
-        fichier = await load_data(ctx, view, saison, mode, self.time_mini) 
-        
-            
-        # Sélection ciblée des colonnes
         base_cols = ['match_id', 'id_participant', 'riot_id', 'discord', 'champion', 'datetime']
         if saison == 0:
             base_cols.append('season')
 
         all_cols = base_cols + self.liste_complete
         fichier = fichier[all_cols]
-
         fichier.columns = [col.lower() for col in fichier.columns]
 
-        # Typage optimisé
         fichier = fichier.astype({
             'match_id': 'string',
             'id_participant': 'int32',
@@ -1417,20 +1372,14 @@ class Recordslol(Extension):
             **{col.lower(): 'float32' for col in self.liste_complete if col.lower() not in ['datetime', 'champion']}
         })
 
-        
-       
         df_complet = []
-
         for stat in self.liste_complete:
             stat_lower = stat.lower()
 
-            # Filtrage selon type de record
             if stat_lower in ['early_baron', 'early_drake', 'l_ecart_gold_min_durant_game']:
                 fichier_filtre = fichier[fichier[stat_lower] != 0]
                 top_row = fichier_filtre.nsmallest(1, stat_lower)
-            elif stat_lower in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double',
-                                'first_triple', 'first_quadra', 'first_penta',
-                                'first_niveau_max', 'first_blood', 'first_tower_time', 'early_atakhan']:
+            elif stat_lower in ['fourth_dragon', 'first_elder', 'first_horde', 'first_double', 'first_triple', 'first_quadra', 'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time']:
                 fichier_filtre = fichier[fichier[stat_lower] != 999]
                 top_row = fichier_filtre.nsmallest(1, stat_lower)
             else:
@@ -1442,29 +1391,26 @@ class Recordslol(Extension):
                 top_row['record'] = stat_lower
                 df_complet.append(top_row)
 
-        # Fusion + tri
-        df_complet = (
-            pd.concat(df_complet, ignore_index=True)
-            .sort_values('datetime', ascending=False)
-        )
+        if not df_complet:
+            return await ctx.send('Aucun record disponible pour ces filtres.')
 
-        # Construction rapide du texte
+        df_complet = pd.concat(df_complet, ignore_index=True).sort_values('datetime', ascending=False)
+
         lines = []
         for _, data in df_complet.iterrows():
-            record = data["record"]
-            champ = emote_champ_discord.get(data["champion"].capitalize(), data["champion"])
-            base = f'{emote_v2.get(record, ":star:")} **{record}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {champ} : **{np.round(data[record],2)}**'
+            record = data['record']
+            champ = emote_champ_discord.get(data['champion'].capitalize(), data['champion'])
+            display_value = _format_record_value(record, np.round(data[record], 2))
+            base = f'{emote_v2.get(record, ":star:")} **{RECORD_LABELS.get(record, record)}** de **{data["riot_id"]}** le **{data["datetime"]}** avec {champ} : **{display_value}**'
             if saison == 0:
                 base += f' (S{data["season"]})'
             lines.append(base)
 
         txt = '\n'.join(lines)
-
         paginator = Paginator.create_from_string(self.bot, txt, page_size=2000, timeout=120)
         paginator.default_title = f'Date Records {mode}'
         await paginator.send(ctx)
-        
-                
+
 
 def setup(bot):
     Recordslol(bot)
