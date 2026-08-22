@@ -79,13 +79,26 @@ def _is_near_fight(
     return False
 
 
-def _cumulative_champion_damage(frame: dict[str, Any], participant_id: int) -> int:
-    """Lit le compteur cumulatif de dégâts aux champions d'une frame Riot."""
+def _cumulative_champion_damage(
+    frame: dict[str, Any],
+    participant_id: int,
+    stat: str = "totalDamageDoneToChampions",
+) -> int:
+    """Lit un compteur cumulatif de dégâts aux champions d'une frame Riot."""
     participant_frame = frame.get("participantFrames", {}).get(str(participant_id), {})
-    return int(
-        participant_frame.get("damageStats", {}).get("totalDamageDoneToChampions", 0)
-        or 0
-    )
+    return int(participant_frame.get("damageStats", {}).get(stat, 0) or 0)
+
+
+def _damage_window(
+    frame_before: dict[str, Any],
+    frame_after: dict[str, Any],
+    participant_id: int,
+    stat: str,
+) -> int:
+    """Retourne le delta positif d'un compteur de dégâts sur la fenêtre du combat."""
+    before = _cumulative_champion_damage(frame_before, participant_id, stat)
+    after = _cumulative_champion_damage(frame_after, participant_id, stat)
+    return max(0, after - before)
 
 
 def _fight_category(allies: int, enemies: int) -> str:
@@ -135,9 +148,9 @@ def calculate_teamfight_damage(
     probables et ne modifient pas le ``fight_type``.
 
     ``damage_on_dead_targets`` est exact pour les cibles mortes présentes dans
-    les événements Riot. ``damage_window_estimated`` / ``damage_frame_window``
-    reste une estimation par différence de compteurs entre frames et ne doit pas
-    être additionnée entre combats qui partagent la même fenêtre.
+    les événements Riot. Les champs ``*_damage_window_estimated`` sont des
+    estimations par différence de compteurs entre les mêmes frames et ne doivent
+    pas être additionnés entre combats qui partagent la même fenêtre.
     """
     frames = timeline.get("info", {}).get("frames", [])
     participants = match_detail.get("info", {}).get("participants", [])
@@ -305,8 +318,30 @@ def calculate_teamfight_damage(
         player_results = []
         for participant_id in sorted(involved):
             detailed_damage = damage_on_dead_targets[participant_id]
-            damage_before = _cumulative_champion_damage(frame_before, participant_id)
-            damage_after = _cumulative_champion_damage(frame_after, participant_id)
+            damage_frame_window = _damage_window(
+                frame_before,
+                frame_after,
+                participant_id,
+                "totalDamageDoneToChampions",
+            )
+            physical_damage_window = _damage_window(
+                frame_before,
+                frame_after,
+                participant_id,
+                "physicalDamageDoneToChampions",
+            )
+            magic_damage_window = _damage_window(
+                frame_before,
+                frame_after,
+                participant_id,
+                "magicDamageDoneToChampions",
+            )
+            true_damage_window = _damage_window(
+                frame_before,
+                frame_after,
+                participant_id,
+                "trueDamageDoneToChampions",
+            )
             participant_team_id = team_by_pid[participant_id]
 
             fight_kills = sum(event.get("killerId") == participant_id for event in events)
@@ -350,8 +385,11 @@ def calculate_teamfight_damage(
                     "magic_damage_on_dead_targets": detailed_damage["magic"],
                     "true_damage_on_dead_targets": detailed_damage["true"],
                     "damage_share_on_dead_targets": round(damage_share, 4),
-                    "damage_window_estimated": max(0, damage_after - damage_before),
-                    "damage_frame_window": max(0, damage_after - damage_before),
+                    "damage_window_estimated": damage_frame_window,
+                    "damage_frame_window": damage_frame_window,
+                    "physical_damage_window_estimated": physical_damage_window,
+                    "magic_damage_window_estimated": magic_damage_window,
+                    "true_damage_window_estimated": true_damage_window,
                 }
             )
 

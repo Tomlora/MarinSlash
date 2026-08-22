@@ -267,11 +267,11 @@ def _draw_team_panel(
     ]
     team_vision = [_as_float(_safe_get(match.thisVisionListe, i)) for i in team_indices]
     team_damage = [_as_float(_safe_get(match.thisDamageListe, i)) for i in team_indices]
-    team_tank = [
-        _as_float(_safe_get(match.thisDamageTakenListe, i))
-        + _as_float(_safe_get(match.thisDamageSelfMitigatedListe, i))
-        for i in team_indices
+    all_damage = [
+        _as_float(_safe_get(match.thisDamageListe, i))
+        for i in range(min(10, getattr(match, "nb_joueur", 10)))
     ]
+    max_damage = max(all_damage, default=0.0)
 
     for row, i in enumerate(team_indices):
         row_y = y + header_h + row * row_h
@@ -334,10 +334,11 @@ def _draw_team_panel(
         damage = _as_float(_safe_get(match.thisDamageListe, i))
         share = 100 * _as_float(_safe_get(match.thisDamageRatioListe, i))
         _draw_text(draw, (1255, center_y - 8), f"{_format_compact(damage)} ({share:.0f}%)", _font(16), _metric_color(damage, team_damage), anchor="mm")
-        _draw_progress_bar(draw, (1198, center_y + 10, 1312, center_y + 15), share / 100.0, accent)
+        damage_ratio = damage / max_damage if max_damage > 0 else 0.0
+        _draw_progress_bar(draw, (1198, center_y + 10, 1312, center_y + 15), damage_ratio, accent)
 
         tank = _as_float(_safe_get(match.thisDamageTakenListe, i)) + _as_float(_safe_get(match.thisDamageSelfMitigatedListe, i))
-        _draw_text(draw, (1450, center_y), _format_compact(tank), _font(18), _metric_color(tank, team_tank), anchor="mm")
+        _draw_text(draw, (1450, center_y), _format_compact(tank), _font(18), PALETTE.text, anchor="mm")
 
         item_x = 1540
         for slot in range(6):

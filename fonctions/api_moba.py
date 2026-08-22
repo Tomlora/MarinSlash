@@ -1,19 +1,22 @@
 import asyncio
+from urllib.parse import quote
+
 import pandas as pd
 from curl_cffi.requests import AsyncSession
 from utils.params import api_key_lol, my_region, region, api_moba, url_api_moba as URL_API_MOBA
-
-
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) "
-    "Gecko/20100101 Firefox/150.0"
-)
 
 
 # Sécurité : si utils.params pointe encore vers stg.mobalytics.gg,
 # on force l'endpoint prod qui a fonctionné avec curl_cffi.
 if "stg.mobalytics.gg" in URL_API_MOBA:
     URL_API_MOBA = "https://mobalytics.gg/api/lol/graphql/v1/query"
+
+
+# Session curl_cffi persistante : elle conserve les cookies Cloudflare et la
+# cohérence TLS/HTTP2 entre les différents appels Mobalytics.
+_moba_session = None
+_moba_session_loop = None
+_moba_session_warmed_up = False
 
 
 def split_riot_id(pseudo):
@@ -23,8 +26,6 @@ def split_riot_id(pseudo):
         game_name, tag_line = pseudo, ""
     return game_name, tag_line
 
-
-from urllib.parse import quote
 
 def make_referer(game_name, tag_line, region="EUW"):
     profile_slug = f"{game_name.lower()}-{tag_line.lower()}"
@@ -36,14 +37,66 @@ def make_referer(game_name, tag_line, region="EUW"):
     )
 
 
+async def _get_moba_session():
+    """Retourne une session curl_cffi persistante pour la boucle asyncio courante."""
+    global _moba_session, _moba_session_loop, _moba_session_warmed_up
+
+    current_loop = asyncio.get_running_loop()
+
+    if _moba_session is None or _moba_session_loop is not current_loop:
+        if _moba_session is not None:
+            try:
+                await _moba_session.close()
+            except Exception:
+                pass
+
+        # Ne pas définir manuellement de User-Agent : curl_cffi doit garder
+        # des headers cohérents avec le fingerprint TLS du navigateur simulé.
+        _moba_session = AsyncSession(impersonate="chrome")
+        _moba_session_loop = current_loop
+        _moba_session_warmed_up = False
+
+    return _moba_session
+
+
+async def _warmup_moba_session(curl_session, referer, timeout):
+    """Charge une page Mobalytics une seule fois afin d'initialiser les cookies."""
+    global _moba_session_warmed_up
+
+    if _moba_session_warmed_up:
+        return
+
+    try:
+        await curl_session.get(
+            referer or "https://mobalytics.gg/",
+            timeout=timeout,
+        )
+        _moba_session_warmed_up = True
+    except Exception:
+        # Le warm-up est une aide, pas une condition de réussite : on laisse
+        # quand même la requête GraphQL tenter sa chance comme avant.
+        pass
+
+
+def _is_cloudflare_challenge(response):
+    text = response.text or ""
+    cf_mitigated = str(response.headers.get("cf-mitigated", "")).lower()
+
+    return (
+        cf_mitigated == "challenge"
+        or (
+            response.status_code in {403, 429, 503}
+            and "Just a moment" in text
+        )
+    )
+
+
 async def moba_post(operation_name, query, variables, referer=None, attempts_max=5, timeout=30):
     headers = {
-        "accept": "*/*",
-        "accept-language": "en_us",
+        "accept": "application/json, text/plain, */*",
         "content-type": "application/json",
         "origin": "https://mobalytics.gg",
         "referer": referer or "https://mobalytics.gg/",
-        "user-agent": USER_AGENT,
         "x-moba-client": "mobalytics-web",
         "x-moba-proxy-gql-ops-name": operation_name,
     }
@@ -58,17 +111,19 @@ async def moba_post(operation_name, query, variables, referer=None, attempts_max
 
     for attempt in range(attempts_max):
         try:
-            async with AsyncSession(impersonate="chrome120") as curl_session:
-                response = await curl_session.post(
-                    URL_API_MOBA,
-                    headers=headers,
-                    json=payload,
-                    timeout=timeout,
-                )
+            curl_session = await _get_moba_session()
+            await _warmup_moba_session(curl_session, headers["referer"], timeout)
+
+            response = await curl_session.post(
+                URL_API_MOBA,
+                headers=headers,
+                json=payload,
+                timeout=timeout,
+            )
 
             content_type = response.headers.get("content-type", "")
 
-            if response.status_code == 403 and "Just a moment" in response.text:
+            if _is_cloudflare_challenge(response):
                 raise RuntimeError("Bloqué par Cloudflare.")
 
             if response.status_code >= 400:
