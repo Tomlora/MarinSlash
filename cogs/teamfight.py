@@ -1,7 +1,7 @@
 import re
 
-import pandas as pd
 import interactions
+import pandas as pd
 from interactions import Extension, SlashCommandOption, SlashContext, slash_command
 
 from fonctions.autocomplete import autocomplete_riotid
@@ -10,39 +10,58 @@ from utils.emoji import emote_champ_discord
 from utils.params import Version
 
 
-def _normalize_champion_name(champion: str) -> str:
+def _normalize_champion(champion: str) -> str:
     return re.sub(r"[^a-z0-9]", "", str(champion or "").lower())
 
 
-_CHAMPION_EMOJI_BY_NORMALIZED_NAME = {
-    _normalize_champion_name(name): emoji
-    for name, emoji in emote_champ_discord.items()
+_CHAMPION_EMOJIS = {
+    _normalize_champion(champion): emoji
+    for champion, emoji in emote_champ_discord.items()
 }
 
 
 def _champion_emoji(champion: str) -> str:
-    """Retourne l'emoji-image Discord déjà utilisé par les autres commandes."""
-    return _CHAMPION_EMOJI_BY_NORMALIZED_NAME.get(
-        _normalize_champion_name(champion),
-        "",
-    )
+    return _CHAMPION_EMOJIS.get(_normalize_champion(champion), "")
 
 
 def _champion_icon_url(champion: str) -> str | None:
-    """Transforme l'emoji Discord du champion en URL utilisable comme thumbnail."""
-    emoji = _champion_emoji(champion)
-    match = re.search(r"<a?:[^:]+:(\d+)>", emoji)
+    """Réutilise l'image du custom emoji de champion déjà employé par le bot."""
+    match = re.search(r"<a?:[^:]+:(\d+)>", _champion_emoji(champion))
     if match is None:
         return None
     return f"https://cdn.discordapp.com/emojis/{match.group(1)}.png?size=128&quality=lossless"
 
 
-def _format_damage(value) -> str:
+def _safe_bool(value) -> bool:
+    if isinstance(value, str):
+        return value.lower() in {"true", "t", "1", "yes"}
+    if value is None or pd.isna(value):
+        return False
+    return bool(value)
+
+
+def _safe_int(value) -> int:
     try:
-        damage = int(round(float(value or 0)))
+        if value is None or pd.isna(value):
+            return 0
+        return int(value)
     except (TypeError, ValueError):
-        damage = 0
-    return f"{damage:,}".replace(",", " ")
+        return 0
+
+
+def _damage_value(value) -> float:
+    """Normalise une valeur provenant exclusivement de damage_frame_window."""
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if pd.isna(numeric):
+        return 0.0
+    return max(0.0, numeric)
+
+
+def _format_damage(value) -> str:
+    return f"{int(round(_damage_value(value))):,}".replace(",", " ")
 
 
 def _format_timestamp(timestamp_ms) -> str:
@@ -54,76 +73,22 @@ def _format_timestamp(timestamp_ms) -> str:
     return f"{minutes}:{seconds:02d}"
 
 
-def _safe_int(value) -> int:
-    try:
-        if pd.isna(value):
-            return 0
-        return int(value)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _safe_bool(value) -> bool:
-    if isinstance(value, str):
-        return value.lower() in {"true", "t", "1", "yes"}
-    if pd.isna(value):
-        return False
-    return bool(value)
-
-
 def _same_team(team_a, team_b) -> bool:
-    if pd.isna(team_a) or pd.isna(team_b):
+    if team_a is None or team_b is None or pd.isna(team_a) or pd.isna(team_b):
         return False
     return str(team_a) == str(team_b)
 
 
-def _team_label(team) -> str:
-    team_str = str(team)
-    if team_str == "100":
-        return "BLUE"
-    if team_str == "200":
-        return "RED"
-    return team_str
+def _is_tie(winner) -> bool:
+    return str(winner).lower() in {"égalité", "egalite", "draw", "tie"}
 
 
-def _fight_label(row: pd.Series) -> str:
-    for column in ("fight_type_with_proximity", "fight_type", "fight_category"):
-        value = row.get(column)
-        if value is not None and not pd.isna(value) and str(value).strip():
-            return str(value)
-    return "combat"
-
-
-def _tracked_row(fight_df: pd.DataFrame, analyzed_puuid: str) -> pd.Series | None:
-    tracked = fight_df[fight_df["puuid"].astype(str) == str(analyzed_puuid)]
-    if tracked.empty:
-        return None
-    return tracked.iloc[0]
-
-
-def _team_damage(fight_df: pd.DataFrame, team) -> float:
-    """Somme exclusivement damage_frame_window pour l'équipe demandée."""
-    team_rows = fight_df[fight_df["team"].astype(str) == str(team)]
-    return float(
-        pd.to_numeric(
-            team_rows["damage_frame_window"],
-            errors="coerce",
-        ).fillna(0).clip(lower=0).sum()
-    )
-
-
-def _damage_share(fight_df: pd.DataFrame, player_row: pd.Series) -> float:
-    """Part des dégâts calculée exclusivement à partir de damage_frame_window."""
-    team_total = _team_damage(fight_df, player_row.get("team"))
-    if team_total <= 0:
-        return 0.0
-
-    try:
-        player_damage = max(0.0, float(player_row.get("damage_frame_window") or 0))
-    except (TypeError, ValueError):
-        player_damage = 0.0
-
-    return 100.0 * player_damage / team_total
+def _fight_result(player_row: pd.Series) -> tuple[str, bool | None]:
+    winner = player_row.get("winner")
+    if winner is None or pd.isna(winner) or _is_tie(winner):
+        return "⚪", None
+    won = _same_team(player_row.get("team"), winner)
+    return ("🟢" if won else "🔴"), won
 
 
 def _fight_kda(row: pd.Series) -> str:
@@ -134,13 +99,49 @@ def _fight_kda(row: pd.Series) -> str:
     )
 
 
-def _fight_result(row: pd.Series) -> tuple[str, bool | None]:
-    winner = row.get("winner")
-    if winner is None or pd.isna(winner):
-        return "⚪", None
+def _fight_label(row: pd.Series) -> str:
+    core = row.get("fight_type")
+    proximity = row.get("fight_type_with_proximity")
+    category = row.get("fight_category")
 
-    won = _same_team(row.get("team"), winner)
-    return ("🟢" if won else "🔴"), won
+    if core is not None and not pd.isna(core) and str(core).strip():
+        if (
+            proximity is not None
+            and not pd.isna(proximity)
+            and str(proximity).strip()
+            and str(proximity) != str(core)
+        ):
+            return f"{core} (avec proximité {proximity})"
+        return str(core)
+
+    if category is not None and not pd.isna(category) and str(category).strip():
+        return str(category)
+
+    return "combat"
+
+
+def _tracked_row(fight_df: pd.DataFrame, analyzed_puuid: str) -> pd.Series | None:
+    tracked = fight_df[fight_df["puuid"].astype(str) == str(analyzed_puuid)]
+    return None if tracked.empty else tracked.iloc[0]
+
+
+def _team_damage(fight_df: pd.DataFrame, team) -> float:
+    """Somme d'équipe fondée uniquement sur damage_frame_window."""
+    team_rows = fight_df[fight_df["team"].astype(str) == str(team)]
+    return float(
+        pd.to_numeric(team_rows["damage_frame_window"], errors="coerce")
+        .fillna(0)
+        .clip(lower=0)
+        .sum()
+    )
+
+
+def _damage_share(fight_df: pd.DataFrame, player_row: pd.Series) -> float:
+    """Part de dégâts fondée uniquement sur damage_frame_window."""
+    team_total = _team_damage(fight_df, player_row.get("team"))
+    if team_total <= 0:
+        return 0.0
+    return 100.0 * _damage_value(player_row.get("damage_frame_window")) / team_total
 
 
 def _game_options():
@@ -183,7 +184,7 @@ def _detail_options():
             description="Identifiant du combat",
             type=interactions.OptionType.INTEGER,
             required=True,
-            min_value=0,
+            min_value=1,
         ),
         SlashCommandOption(
             name="riot_tag",
@@ -208,22 +209,16 @@ class Teamfight(Extension):
 
     @staticmethod
     def _resolve_account(riot_id: str, riot_tag: str | None) -> tuple[str, str]:
-        normalized_riot_id = riot_id.lower().replace(" ", "")
-
+        riot_id = riot_id.lower().replace(" ", "")
         if riot_tag is None:
-            riot_tag = get_tag(normalized_riot_id)
-
-        return normalized_riot_id, riot_tag.upper()
+            riot_tag = get_tag(riot_id)
+        return riot_id, riot_tag.upper()
 
     @staticmethod
-    def _load_selected_match(
-        riot_id: str,
-        riot_tag: str,
-        numerogame: int,
-    ) -> dict | None:
+    def _load_selected_match(riot_id: str, riot_tag: str, numerogame: int) -> dict | None:
         """
-        Sélectionne une partie déjà enregistrée possédant des données teamfight.
-        numerogame=0 correspond à la plus récente.
+        Garde la même logique de numéro de partie que le reste du bot :
+        on choisit d'abord la N-ième partie enregistrée, puis on cherche ses teamfights.
         """
         df = lire_bdd_perso(
             """
@@ -236,12 +231,6 @@ class Teamfight(Extension):
                 ON tracker.id_compte = matchs.joueur
             WHERE LOWER(tracker.riot_id) = :riot_id
               AND UPPER(tracker.riot_tagline) = :riot_tag
-              AND EXISTS (
-                    SELECT 1
-                    FROM match_teamfight_damage AS tf
-                    WHERE tf.match_id = matchs.match_id
-                      AND tf.analyzed_puuid = tracker.puuid
-              )
             ORDER BY matchs.datetime DESC, matchs.match_id DESC
             LIMIT 1 OFFSET :offset
             """,
@@ -253,18 +242,15 @@ class Teamfight(Extension):
             },
         ).T
 
-        if df.empty:
-            return None
-
-        return df.iloc[0].to_dict()
+        return None if df.empty else df.iloc[0].to_dict()
 
     @staticmethod
     def _load_teamfights(match_id, analyzed_puuid: str) -> pd.DataFrame:
         """
-        Charge toutes les lignes de la partie.
-        Les seules valeurs de dégâts consommées par ce Cog sont damage_frame_window.
+        Charge le strict nécessaire. Aucune autre colonne de dégâts que
+        damage_frame_window n'est lue par ces commandes.
         """
-        df = lire_bdd_perso(
+        return lire_bdd_perso(
             """
             SELECT
                 match_id,
@@ -275,17 +261,13 @@ class Teamfight(Extension):
                 player_name,
                 champion,
                 team,
-                participation_source,
                 start_ms,
                 end_ms,
                 winner,
-                participants_allies,
-                participants_enemies,
                 fight_type,
                 fight_type_with_proximity,
                 fight_category,
                 is_teamfight,
-                is_outnumbered,
                 outnumbered_team,
                 won_while_outnumbered,
                 is_core_participant,
@@ -307,8 +289,6 @@ class Teamfight(Extension):
             },
         ).T
 
-        return df
-
     async def _load_context(
         self,
         riot_id: str,
@@ -319,23 +299,21 @@ class Teamfight(Extension):
             riot_id, riot_tag = self._resolve_account(riot_id, riot_tag)
         except (ValueError, KeyError, IndexError):
             return None, None, None, (
-                "Plusieurs comptes utilisent ce Riot ID, ou le compte est introuvable. "
-                "Merci de préciser le tag."
+                "Compte introuvable ou Riot ID ambigu. Merci de préciser le tag."
             )
 
         match = self._load_selected_match(riot_id, riot_tag, numerogame)
         if match is None:
-            return None, None, None, (
-                "Aucune partie enregistrée avec des données de teamfight "
-                "pour ce joueur à ce numéro."
-            )
+            return None, None, None, "Cette partie enregistrée est introuvable."
 
         fights = self._load_teamfights(
             match["match_id"],
             str(match["analyzed_puuid"]),
         )
         if fights.empty:
-            return None, None, None, "Aucune donnée de combat trouvée pour cette partie."
+            return None, None, None, (
+                "Cette partie existe, mais aucune donnée de teamfight n'est enregistrée pour elle."
+            )
 
         return riot_id, riot_tag, (match, fights), None
 
@@ -344,15 +322,12 @@ class Teamfight(Extension):
         fights: pd.DataFrame,
         analyzed_puuid: str,
     ) -> list[tuple[object, pd.DataFrame, pd.Series]]:
-        result = []
-
+        player_fights = []
         for fight_id, fight_df in fights.groupby("fight_id", sort=True):
             tracked = _tracked_row(fight_df, analyzed_puuid)
-            if tracked is None:
-                continue
-            result.append((fight_id, fight_df, tracked))
-
-        return result
+            if tracked is not None:
+                player_fights.append((fight_id, fight_df, tracked))
+        return player_fights
 
     @staticmethod
     def _base_embed(
@@ -366,15 +341,19 @@ class Teamfight(Extension):
             description=f"Partie #{numerogame} · `{match_id}`",
             color=interactions.Color.random(),
         )
+
         icon_url = _champion_icon_url(champion)
         if icon_url:
             embed.set_thumbnail(url=icon_url)
-        embed.set_footer(text=f"Version {Version} by Tomlora · dégâts = damage_frame_window")
+
+        embed.set_footer(
+            text=f"Version {Version} by Tomlora · dégâts = damage_frame_window"
+        )
         return embed
 
     @slash_command(
         name="teamfight",
-        description="Analyse détaillée des combats d'une partie League of Legends",
+        description="Analyse des combats d'une partie League of Legends",
     )
     async def teamfight(self, ctx: SlashContext):
         pass
@@ -394,9 +373,7 @@ class Teamfight(Extension):
         await ctx.defer(ephemeral=False)
 
         riot_id, riot_tag, payload, error = await self._load_context(
-            riot_id,
-            riot_tag,
-            numerogame,
+            riot_id, riot_tag, numerogame
         )
         if error:
             return await ctx.send(error)
@@ -404,7 +381,6 @@ class Teamfight(Extension):
         match, fights = payload
         analyzed_puuid = str(match["analyzed_puuid"])
         player_fights = self._player_fights(fights, analyzed_puuid)
-
         if not player_fights:
             return await ctx.send(
                 "Le joueur n'apparaît dans aucun combat détecté pour cette partie."
@@ -412,10 +388,8 @@ class Teamfight(Extension):
 
         champion = str(player_fights[0][2].get("champion") or "?")
         champion_emoji = _champion_emoji(champion)
-        title = f"Teamfights — {riot_id.upper()} #{riot_tag} — {champion}"
-
         embed = self._base_embed(
-            title,
+            f"Teamfights — {riot_id.upper()} #{riot_tag} — {champion}",
             champion,
             match["match_id"],
             numerogame,
@@ -433,53 +407,52 @@ class Teamfight(Extension):
 
             if _safe_bool(first.get("is_teamfight")):
                 teamfights.append((fight_id, fight_df, tracked))
-
             if category == "skirmish":
                 skirmishes += 1
-
             if category == "duel" and _safe_bool(tracked.get("is_core_participant")):
                 duels += 1
-                if _same_team(tracked.get("team"), first.get("winner")):
+                if _fight_result(tracked)[1] is True:
                     duels_won += 1
-
             if (
                 _safe_bool(first.get("won_while_outnumbered"))
                 and _same_team(tracked.get("team"), first.get("outnumbered_team"))
             ):
                 outnumbered_wins += 1
 
-        tf_wins = 0
-        tf_losses = 0
-        for _, fight_df, tracked in teamfights:
-            winner = fight_df.iloc[0].get("winner")
-            if winner is None or pd.isna(winner):
-                continue
-            if _same_team(tracked.get("team"), winner):
-                tf_wins += 1
+        wins = losses = ties = 0
+        for _, _, tracked in teamfights:
+            _, result = _fight_result(tracked)
+            if result is True:
+                wins += 1
+            elif result is False:
+                losses += 1
             else:
-                tf_losses += 1
+                ties += 1
 
-        summary_lines = [
-            f"{champion_emoji} **{champion}**" if champion_emoji else f"**{champion}**",
-            f"⚔️ **{len(teamfights)}** teamfights — **{tf_wins}** gagnés / **{tf_losses}** perdus",
-            f"🤺 **{skirmishes}** skirmishes",
-            f"🥊 **{duels}** duels — **{duels_won}** gagnés",
-            f"🔥 **{outnumbered_wins}** combats gagnés en infériorité",
-        ]
+        tf_line = f"⚔️ **{len(teamfights)}** teamfights — **{wins}** gagnés / **{losses}** perdus"
+        if ties:
+            tf_line += f" / **{ties}** égalités"
+
         embed.add_field(
             name="Résumé",
-            value="\n".join(summary_lines),
+            value="\n".join(
+                [
+                    f"{champion_emoji} **{champion}**" if champion_emoji else f"**{champion}**",
+                    tf_line,
+                    f"🤺 **{skirmishes}** skirmishes",
+                    f"🥊 **{duels}** duels — **{duels_won}** gagnés",
+                    f"🔥 **{outnumbered_wins}** combats gagnés en infériorité",
+                ]
+            ),
             inline=False,
         )
 
         if teamfights:
-            best = max(
+            best_id, best_df, best_player = max(
                 teamfights,
-                key=lambda item: float(item[2].get("damage_frame_window") or 0),
+                key=lambda item: _damage_value(item[2].get("damage_frame_window")),
             )
-            best_id, best_df, best_player = best
             best_first = best_df.iloc[0]
-            share = _damage_share(best_df, best_player)
             result_icon, _ = _fight_result(best_player)
 
             embed.add_field(
@@ -490,29 +463,21 @@ class Teamfight(Extension):
                     f"{_format_timestamp(best_first.get('end_ms'))}\n"
                     f"**{_fight_label(best_first)}** · KDA **{_fight_kda(best_player)}**\n"
                     f"🎯 **{_format_damage(best_player.get('damage_frame_window'))} dégâts** "
-                    f"· **{share:.1f}%** des dégâts de l'équipe"
+                    f"· **{_damage_share(best_df, best_player):.1f}%** des dégâts de l'équipe"
                 ),
                 inline=False,
             )
 
             lost_teamfights = [
-                item
-                for item in teamfights
-                if item[1].iloc[0].get("winner") is not None
-                and not pd.isna(item[1].iloc[0].get("winner"))
-                and not _same_team(
-                    item[2].get("team"),
-                    item[1].iloc[0].get("winner"),
-                )
+                item for item in teamfights
+                if _fight_result(item[2])[1] is False
             ]
             if lost_teamfights:
-                worst = max(
+                lost_id, lost_df, lost_player = max(
                     lost_teamfights,
-                    key=lambda item: float(item[2].get("damage_frame_window") or 0),
+                    key=lambda item: _damage_value(item[2].get("damage_frame_window")),
                 )
-                lost_id, lost_df, lost_player = worst
                 lost_first = lost_df.iloc[0]
-                lost_share = _damage_share(lost_df, lost_player)
                 embed.add_field(
                     name="Plus gros teamfight perdu en dégâts",
                     value=(
@@ -521,7 +486,7 @@ class Teamfight(Extension):
                         f"{_format_timestamp(lost_first.get('end_ms'))}\n"
                         f"**{_fight_label(lost_first)}** · KDA **{_fight_kda(lost_player)}**\n"
                         f"🎯 **{_format_damage(lost_player.get('damage_frame_window'))} dégâts** "
-                        f"· **{lost_share:.1f}%** des dégâts de l'équipe"
+                        f"· **{_damage_share(lost_df, lost_player):.1f}%** des dégâts de l'équipe"
                     ),
                     inline=False,
                 )
@@ -530,8 +495,9 @@ class Teamfight(Extension):
 
     @resume.autocomplete("riot_id")
     async def autocomplete_resume(self, ctx: interactions.AutocompleteContext):
-        choices = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
-        await ctx.send(choices=choices)
+        await ctx.send(
+            choices=await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+        )
 
     @teamfight.subcommand(
         "combats",
@@ -548,9 +514,7 @@ class Teamfight(Extension):
         await ctx.defer(ephemeral=False)
 
         riot_id, riot_tag, payload, error = await self._load_context(
-            riot_id,
-            riot_tag,
-            numerogame,
+            riot_id, riot_tag, numerogame
         )
         if error:
             return await ctx.send(error)
@@ -558,7 +522,6 @@ class Teamfight(Extension):
         match, fights = payload
         analyzed_puuid = str(match["analyzed_puuid"])
         player_fights = self._player_fights(fights, analyzed_puuid)
-
         if not player_fights:
             return await ctx.send(
                 "Le joueur n'apparaît dans aucun combat détecté pour cette partie."
@@ -566,7 +529,6 @@ class Teamfight(Extension):
 
         champion = str(player_fights[0][2].get("champion") or "?")
         champion_emoji = _champion_emoji(champion)
-
         embed = self._base_embed(
             f"Combats — {riot_id.upper()} #{riot_tag} — {champion}",
             champion,
@@ -578,21 +540,21 @@ class Teamfight(Extension):
         for fight_id, fight_df, tracked in player_fights:
             first = fight_df.iloc[0]
             result_icon, _ = _fight_result(tracked)
-            share = _damage_share(fight_df, tracked)
-            champ_icon = champion_emoji + " " if champion_emoji else ""
-
             flags = []
-            if _safe_bool(first.get("won_while_outnumbered")) and _same_team(
-                tracked.get("team"),
-                first.get("outnumbered_team"),
+
+            if (
+                _safe_bool(first.get("won_while_outnumbered"))
+                and _same_team(tracked.get("team"), first.get("outnumbered_team"))
             ):
                 flags.append("🔥")
-            if _safe_bool(tracked.get("is_proximity_participant")) and not _safe_bool(
-                tracked.get("is_core_participant")
+            if (
+                _safe_bool(tracked.get("is_proximity_participant"))
+                and not _safe_bool(tracked.get("is_core_participant"))
             ):
                 flags.append("prox.")
 
             suffix = f" · {' '.join(flags)}" if flags else ""
+            champ_icon = f"{champion_emoji} " if champion_emoji else ""
 
             lines.append(
                 f"{result_icon} **#{fight_id}** "
@@ -600,23 +562,21 @@ class Teamfight(Extension):
                 f"**{_fight_label(first)}** · "
                 f"{champ_icon}{_fight_kda(tracked)} · "
                 f"**{_format_damage(tracked.get('damage_frame_window'))} dmg** · "
-                f"{share:.1f}%{suffix}"
+                f"{_damage_share(fight_df, tracked):.1f}%{suffix}"
             )
 
-        current_lines = []
-        current_length = 0
         chunks = []
-
+        current = []
+        current_length = 0
         for line in lines:
-            if current_lines and current_length + len(line) + 1 > 950:
-                chunks.append("\n".join(current_lines))
-                current_lines = []
+            if current and current_length + len(line) + 1 > 950:
+                chunks.append("\n".join(current))
+                current = []
                 current_length = 0
-            current_lines.append(line)
+            current.append(line)
             current_length += len(line) + 1
-
-        if current_lines:
-            chunks.append("\n".join(current_lines))
+        if current:
+            chunks.append("\n".join(current))
 
         for index, chunk in enumerate(chunks):
             embed.add_field(
@@ -629,8 +589,9 @@ class Teamfight(Extension):
 
     @combats.autocomplete("riot_id")
     async def autocomplete_combats(self, ctx: interactions.AutocompleteContext):
-        choices = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
-        await ctx.send(choices=choices)
+        await ctx.send(
+            choices=await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+        )
 
     @teamfight.subcommand(
         "detail",
@@ -648,17 +609,15 @@ class Teamfight(Extension):
         await ctx.defer(ephemeral=False)
 
         riot_id, riot_tag, payload, error = await self._load_context(
-            riot_id,
-            riot_tag,
-            numerogame,
+            riot_id, riot_tag, numerogame
         )
         if error:
             return await ctx.send(error)
 
         match, fights = payload
         analyzed_puuid = str(match["analyzed_puuid"])
-
         selected = fights[fights["fight_id"].astype(str) == str(fight)]
+
         if selected.empty:
             available = ", ".join(
                 str(value)
@@ -678,18 +637,17 @@ class Teamfight(Extension):
         champion = str(tracked.get("champion") or "?")
         champion_emoji = _champion_emoji(champion)
         result_icon, won = _fight_result(tracked)
+        result_text = (
+            "Victoire" if won is True
+            else "Défaite" if won is False
+            else "Égalité"
+        )
 
         embed = self._base_embed(
             f"Fight #{fight} — {riot_id.upper()} #{riot_tag}",
             champion,
             match["match_id"],
             numerogame,
-        )
-
-        result_text = (
-            "Victoire" if won is True
-            else "Défaite" if won is False
-            else "Résultat inconnu"
         )
         embed.description = (
             f"{embed.description}\n"
@@ -698,8 +656,13 @@ class Teamfight(Extension):
             f"**{_fight_label(first)}** · {result_icon} **{result_text}**"
         )
 
-        teams = []
-        for team in selected["team"].dropna().unique().tolist():
+        winner = first.get("winner")
+        teams = sorted(
+            selected["team"].dropna().unique().tolist(),
+            key=str,
+        )
+
+        for team in teams:
             team_df = selected[selected["team"].astype(str) == str(team)].copy()
             team_df["_damage_sort"] = pd.to_numeric(
                 team_df["damage_frame_window"],
@@ -710,61 +673,50 @@ class Teamfight(Extension):
                 ascending=[False, False],
                 inplace=True,
             )
-            teams.append((team, team_df))
 
-        teams.sort(key=lambda item: str(item[0]))
-
-        winner = first.get("winner")
-        for team, team_df in teams:
             team_total = _team_damage(selected, team)
-            team_won = winner is not None and not pd.isna(winner) and _same_team(team, winner)
-            team_title = f"{'🏆 ' if team_won else ''}{_team_label(team)}"
+            team_won = (
+                winner is not None
+                and not pd.isna(winner)
+                and not _is_tie(winner)
+                and _same_team(team, winner)
+            )
 
             player_lines = []
             for _, player in team_df.iterrows():
                 champ = str(player.get("champion") or "?")
-                champ_icon = _champion_emoji(champ)
-                icon_prefix = f"{champ_icon} " if champ_icon else ""
+                icon = _champion_emoji(champ)
                 proximity = (
                     " *(prox.)*"
-                    if _safe_bool(player.get("is_proximity_participant"))
-                    and not _safe_bool(player.get("is_core_participant"))
+                    if (
+                        _safe_bool(player.get("is_proximity_participant"))
+                        and not _safe_bool(player.get("is_core_participant"))
+                    )
                     else ""
                 )
-
-                try:
-                    player_damage = max(
-                        0.0,
-                        float(player.get("damage_frame_window") or 0),
-                    )
-                except (TypeError, ValueError):
-                    player_damage = 0.0
-
+                player_damage = _damage_value(player.get("damage_frame_window"))
                 share = 100.0 * player_damage / team_total if team_total > 0 else 0.0
 
                 player_lines.append(
-                    f"{icon_prefix}**{champ}** · {_fight_kda(player)} · "
+                    f"{f'{icon} ' if icon else ''}**{champ}** · "
+                    f"{_fight_kda(player)} · "
                     f"**{_format_damage(player_damage)} dmg** · {share:.1f}%"
                     f"{proximity}"
                 )
 
             embed.add_field(
-                name=team_title,
+                name=f"{'🏆 ' if team_won else ''}{team}",
                 value="\n".join(player_lines) or "Aucun joueur",
                 inline=False,
             )
 
-        tracked_share = _damage_share(selected, tracked)
-        tracked_survived = "✅" if _safe_bool(tracked.get("survived")) else "❌"
-        tracked_prefix = f"{champion_emoji} " if champion_emoji else ""
-
         embed.add_field(
-            name=f"{tracked_prefix}{champion} — focus",
+            name=f"{f'{champion_emoji} ' if champion_emoji else ''}{champion} — focus",
             value=(
                 f"KDA **{_fight_kda(tracked)}** · "
                 f"🎯 **{_format_damage(tracked.get('damage_frame_window'))} dégâts** · "
-                f"**{tracked_share:.1f}%** des dégâts de l'équipe · "
-                f"Survie {tracked_survived}"
+                f"**{_damage_share(selected, tracked):.1f}%** des dégâts de l'équipe · "
+                f"Survie {'✅' if _safe_bool(tracked.get('survived')) else '❌'}"
             ),
             inline=False,
         )
@@ -773,5 +725,6 @@ class Teamfight(Extension):
 
     @detail.autocomplete("riot_id")
     async def autocomplete_detail(self, ctx: interactions.AutocompleteContext):
-        choices = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
-        await ctx.send(choices=choices)
+        await ctx.send(
+            choices=await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+        )
