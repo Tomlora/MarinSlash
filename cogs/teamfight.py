@@ -29,7 +29,10 @@ def _champion_icon_url(champion: str) -> str | None:
     match = re.search(r"<a?:[^:]+:(\d+)>", _champion_emoji(champion))
     if match is None:
         return None
-    return f"https://cdn.discordapp.com/emojis/{match.group(1)}.png?size=128&quality=lossless"
+    return (
+        f"https://cdn.discordapp.com/emojis/{match.group(1)}.png"
+        "?size=128&quality=lossless"
+    )
 
 
 def _safe_bool(value) -> bool:
@@ -87,6 +90,7 @@ def _fight_result(player_row: pd.Series) -> tuple[str, bool | None]:
     winner = player_row.get("winner")
     if winner is None or pd.isna(winner) or _is_tie(winner):
         return "⚪", None
+
     won = _same_team(player_row.get("team"), winner)
     return ("🟢" if won else "🔴"), won
 
@@ -167,6 +171,12 @@ def _game_options():
             min_value=0,
             max_value=100,
         ),
+        SlashCommandOption(
+            name="match_id",
+            description="Match ID Riot (prioritaire sur numerogame si renseigné)",
+            type=interactions.OptionType.STRING,
+            required=False,
+        ),
     ]
 
 
@@ -200,6 +210,12 @@ def _detail_options():
             min_value=0,
             max_value=100,
         ),
+        SlashCommandOption(
+            name="match_id",
+            description="Match ID Riot (prioritaire sur numerogame si renseigné)",
+            type=interactions.OptionType.STRING,
+            required=False,
+        ),
     ]
 
 
@@ -208,39 +224,71 @@ class Teamfight(Extension):
         self.bot: interactions.Client = bot
 
     @staticmethod
-    def _resolve_account(riot_id: str, riot_tag: str | None) -> tuple[str, str]:
+    def _resolve_account(
+        riot_id: str,
+        riot_tag: str | None,
+    ) -> tuple[str, str]:
         riot_id = riot_id.lower().replace(" ", "")
         if riot_tag is None:
             riot_tag = get_tag(riot_id)
         return riot_id, riot_tag.upper()
 
     @staticmethod
-    def _load_selected_match(riot_id: str, riot_tag: str, numerogame: int) -> dict | None:
+    def _load_selected_match(
+        riot_id: str,
+        riot_tag: str,
+        numerogame: int,
+        match_id: str | None = None,
+    ) -> dict | None:
         """
-        Garde la même logique de numéro de partie que le reste du bot :
-        on choisit d'abord la N-ième partie enregistrée, puis on cherche ses teamfights.
+        Même principe que /game :
+        - si match_id est fourni, il sélectionne explicitement cette partie ;
+        - sinon numerogame sélectionne la N-ième partie enregistrée.
         """
-        df = lire_bdd_perso(
-            """
-            SELECT
-                matchs.match_id,
-                tracker.puuid AS analyzed_puuid,
-                matchs.datetime
-            FROM matchs
-            INNER JOIN tracker
-                ON tracker.id_compte = matchs.joueur
-            WHERE LOWER(tracker.riot_id) = :riot_id
-              AND UPPER(tracker.riot_tagline) = :riot_tag
-            ORDER BY matchs.datetime DESC, matchs.match_id DESC
-            LIMIT 1 OFFSET :offset
-            """,
-            index_col=None,
-            params={
-                "riot_id": riot_id,
-                "riot_tag": riot_tag,
-                "offset": numerogame,
-            },
-        ).T
+        if match_id is not None and str(match_id).strip():
+            df = lire_bdd_perso(
+                """
+                SELECT
+                    matchs.match_id,
+                    tracker.puuid AS analyzed_puuid,
+                    matchs.datetime
+                FROM matchs
+                INNER JOIN tracker
+                    ON tracker.id_compte = matchs.joueur
+                WHERE LOWER(tracker.riot_id) = :riot_id
+                  AND UPPER(tracker.riot_tagline) = :riot_tag
+                  AND CAST(matchs.match_id AS TEXT) = :match_id
+                LIMIT 1
+                """,
+                index_col=None,
+                params={
+                    "riot_id": riot_id,
+                    "riot_tag": riot_tag,
+                    "match_id": str(match_id).strip(),
+                },
+            ).T
+        else:
+            df = lire_bdd_perso(
+                """
+                SELECT
+                    matchs.match_id,
+                    tracker.puuid AS analyzed_puuid,
+                    matchs.datetime
+                FROM matchs
+                INNER JOIN tracker
+                    ON tracker.id_compte = matchs.joueur
+                WHERE LOWER(tracker.riot_id) = :riot_id
+                  AND UPPER(tracker.riot_tagline) = :riot_tag
+                ORDER BY matchs.datetime DESC, matchs.match_id DESC
+                LIMIT 1 OFFSET :offset
+                """,
+                index_col=None,
+                params={
+                    "riot_id": riot_id,
+                    "riot_tag": riot_tag,
+                    "offset": numerogame,
+                },
+            ).T
 
         return None if df.empty else df.iloc[0].to_dict()
 
@@ -294,6 +342,7 @@ class Teamfight(Extension):
         riot_id: str,
         riot_tag: str | None,
         numerogame: int,
+        match_id: str | None = None,
     ):
         try:
             riot_id, riot_tag = self._resolve_account(riot_id, riot_tag)
@@ -302,8 +351,17 @@ class Teamfight(Extension):
                 "Compte introuvable ou Riot ID ambigu. Merci de préciser le tag."
             )
 
-        match = self._load_selected_match(riot_id, riot_tag, numerogame)
+        match = self._load_selected_match(
+            riot_id,
+            riot_tag,
+            numerogame,
+            match_id=match_id,
+        )
         if match is None:
+            if match_id:
+                return None, None, None, (
+                    f"Le match `{match_id}` est introuvable pour ce joueur."
+                )
             return None, None, None, "Cette partie enregistrée est introuvable."
 
         fights = self._load_teamfights(
@@ -312,7 +370,8 @@ class Teamfight(Extension):
         )
         if fights.empty:
             return None, None, None, (
-                "Cette partie existe, mais aucune donnée de teamfight n'est enregistrée pour elle."
+                "Cette partie existe, mais aucune donnée de teamfight "
+                "n'est enregistrée pour elle."
             )
 
         return riot_id, riot_tag, (match, fights), None
@@ -333,12 +392,18 @@ class Teamfight(Extension):
     def _base_embed(
         title: str,
         champion: str,
-        match_id,
+        selected_match_id,
         numerogame: int,
+        requested_match_id: str | None,
     ) -> interactions.Embed:
+        if requested_match_id:
+            description = f"Match ID · `{selected_match_id}`"
+        else:
+            description = f"Partie #{numerogame} · `{selected_match_id}`"
+
         embed = interactions.Embed(
             title=title,
-            description=f"Partie #{numerogame} · `{match_id}`",
+            description=description,
             color=interactions.Color.random(),
         )
 
@@ -369,11 +434,15 @@ class Teamfight(Extension):
         riot_id: str,
         riot_tag: str = None,
         numerogame: int = 0,
+        match_id: str = None,
     ):
         await ctx.defer(ephemeral=False)
 
         riot_id, riot_tag, payload, error = await self._load_context(
-            riot_id, riot_tag, numerogame
+            riot_id,
+            riot_tag,
+            numerogame,
+            match_id=match_id,
         )
         if error:
             return await ctx.send(error)
@@ -393,6 +462,7 @@ class Teamfight(Extension):
             champion,
             match["match_id"],
             numerogame,
+            match_id,
         )
 
         teamfights = []
@@ -415,7 +485,10 @@ class Teamfight(Extension):
                     duels_won += 1
             if (
                 _safe_bool(first.get("won_while_outnumbered"))
-                and _same_team(tracked.get("team"), first.get("outnumbered_team"))
+                and _same_team(
+                    tracked.get("team"),
+                    first.get("outnumbered_team"),
+                )
             ):
                 outnumbered_wins += 1
 
@@ -429,7 +502,10 @@ class Teamfight(Extension):
             else:
                 ties += 1
 
-        tf_line = f"⚔️ **{len(teamfights)}** teamfights — **{wins}** gagnés / **{losses}** perdus"
+        tf_line = (
+            f"⚔️ **{len(teamfights)}** teamfights — "
+            f"**{wins}** gagnés / **{losses}** perdus"
+        )
         if ties:
             tf_line += f" / **{ties}** égalités"
 
@@ -437,7 +513,11 @@ class Teamfight(Extension):
             name="Résumé",
             value="\n".join(
                 [
-                    f"{champion_emoji} **{champion}**" if champion_emoji else f"**{champion}**",
+                    (
+                        f"{champion_emoji} **{champion}**"
+                        if champion_emoji
+                        else f"**{champion}**"
+                    ),
                     tf_line,
                     f"🤺 **{skirmishes}** skirmishes",
                     f"🥊 **{duels}** duels — **{duels_won}** gagnés",
@@ -450,7 +530,9 @@ class Teamfight(Extension):
         if teamfights:
             best_id, best_df, best_player = max(
                 teamfights,
-                key=lambda item: _damage_value(item[2].get("damage_frame_window")),
+                key=lambda item: _damage_value(
+                    item[2].get("damage_frame_window")
+                ),
             )
             best_first = best_df.iloc[0]
             result_icon, _ = _fight_result(best_player)
@@ -461,9 +543,11 @@ class Teamfight(Extension):
                     f"{result_icon} **Fight #{best_id}** · "
                     f"{_format_timestamp(best_first.get('start_ms'))} → "
                     f"{_format_timestamp(best_first.get('end_ms'))}\n"
-                    f"**{_fight_label(best_first)}** · KDA **{_fight_kda(best_player)}**\n"
-                    f"🎯 **{_format_damage(best_player.get('damage_frame_window'))} dégâts** "
-                    f"· **{_damage_share(best_df, best_player):.1f}%** des dégâts de l'équipe"
+                    f"**{_fight_label(best_first)}** · "
+                    f"KDA **{_fight_kda(best_player)}**\n"
+                    f"🎯 **{_format_damage(best_player.get('damage_frame_window'))} "
+                    f"dégâts** · **{_damage_share(best_df, best_player):.1f}%** "
+                    "des dégâts de l'équipe"
                 ),
                 inline=False,
             )
@@ -475,7 +559,9 @@ class Teamfight(Extension):
             if lost_teamfights:
                 lost_id, lost_df, lost_player = max(
                     lost_teamfights,
-                    key=lambda item: _damage_value(item[2].get("damage_frame_window")),
+                    key=lambda item: _damage_value(
+                        item[2].get("damage_frame_window")
+                    ),
                 )
                 lost_first = lost_df.iloc[0]
                 embed.add_field(
@@ -484,20 +570,16 @@ class Teamfight(Extension):
                         f"🔴 **Fight #{lost_id}** · "
                         f"{_format_timestamp(lost_first.get('start_ms'))} → "
                         f"{_format_timestamp(lost_first.get('end_ms'))}\n"
-                        f"**{_fight_label(lost_first)}** · KDA **{_fight_kda(lost_player)}**\n"
-                        f"🎯 **{_format_damage(lost_player.get('damage_frame_window'))} dégâts** "
-                        f"· **{_damage_share(lost_df, lost_player):.1f}%** des dégâts de l'équipe"
+                        f"**{_fight_label(lost_first)}** · "
+                        f"KDA **{_fight_kda(lost_player)}**\n"
+                        f"🎯 **{_format_damage(lost_player.get('damage_frame_window'))} "
+                        f"dégâts** · **{_damage_share(lost_df, lost_player):.1f}%** "
+                        "des dégâts de l'équipe"
                     ),
                     inline=False,
                 )
 
         await ctx.send(embeds=embed)
-
-    @resume.autocomplete("riot_id")
-    async def autocomplete_resume(self, ctx: interactions.AutocompleteContext):
-        await ctx.send(
-            choices=await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
-        )
 
     @teamfight.subcommand(
         "combats",
@@ -510,11 +592,15 @@ class Teamfight(Extension):
         riot_id: str,
         riot_tag: str = None,
         numerogame: int = 0,
+        match_id: str = None,
     ):
         await ctx.defer(ephemeral=False)
 
         riot_id, riot_tag, payload, error = await self._load_context(
-            riot_id, riot_tag, numerogame
+            riot_id,
+            riot_tag,
+            numerogame,
+            match_id=match_id,
         )
         if error:
             return await ctx.send(error)
@@ -534,33 +620,33 @@ class Teamfight(Extension):
             champion,
             match["match_id"],
             numerogame,
+            match_id,
         )
 
         lines = []
         for fight_id, fight_df, tracked in player_fights:
             first = fight_df.iloc[0]
             result_icon, _ = _fight_result(tracked)
-            flags = []
+            icon = f"{champion_emoji} " if champion_emoji else ""
 
+            flags = []
             if (
                 _safe_bool(first.get("won_while_outnumbered"))
-                and _same_team(tracked.get("team"), first.get("outnumbered_team"))
+                and _same_team(
+                    tracked.get("team"),
+                    first.get("outnumbered_team"),
+                )
             ):
-                flags.append("🔥")
-            if (
-                _safe_bool(tracked.get("is_proximity_participant"))
-                and not _safe_bool(tracked.get("is_core_participant"))
-            ):
-                flags.append("prox.")
+                flags.append("🔥 infériorité")
+            if _safe_bool(tracked.get("is_proximity_participant")):
+                flags.append("proximité")
 
-            suffix = f" · {' '.join(flags)}" if flags else ""
-            champ_icon = f"{champion_emoji} " if champion_emoji else ""
-
+            suffix = f" · {' · '.join(flags)}" if flags else ""
             lines.append(
                 f"{result_icon} **#{fight_id}** "
                 f"{_format_timestamp(first.get('start_ms'))} · "
                 f"**{_fight_label(first)}** · "
-                f"{champ_icon}{_fight_kda(tracked)} · "
+                f"{icon}{_fight_kda(tracked)} · "
                 f"**{_format_damage(tracked.get('damage_frame_window'))} dmg** · "
                 f"{_damage_share(fight_df, tracked):.1f}%{suffix}"
             )
@@ -569,29 +655,27 @@ class Teamfight(Extension):
         current = []
         current_length = 0
         for line in lines:
-            if current and current_length + len(line) + 1 > 950:
+            extra = len(line) + (1 if current else 0)
+            if current and current_length + extra > 950:
                 chunks.append("\n".join(current))
                 current = []
                 current_length = 0
             current.append(line)
-            current_length += len(line) + 1
+            current_length += extra
         if current:
             chunks.append("\n".join(current))
 
-        for index, chunk in enumerate(chunks):
-            embed.add_field(
-                name="Chronologie" if index == 0 else "Chronologie (suite)",
-                value=chunk,
-                inline=False,
-            )
+        for index, chunk in enumerate(chunks, start=1):
+            field_name = "Combats" if index == 1 else f"Combats (suite {index})"
+            embed.add_field(name=field_name, value=chunk, inline=False)
+
+        embed.add_field(
+            name="Légende",
+            value="🟢 gagné · 🔴 perdu · ⚪ égalité",
+            inline=False,
+        )
 
         await ctx.send(embeds=embed)
-
-    @combats.autocomplete("riot_id")
-    async def autocomplete_combats(self, ctx: interactions.AutocompleteContext):
-        await ctx.send(
-            choices=await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
-        )
 
     @teamfight.subcommand(
         "detail",
@@ -605,126 +689,150 @@ class Teamfight(Extension):
         fight: int,
         riot_tag: str = None,
         numerogame: int = 0,
+        match_id: str = None,
     ):
         await ctx.defer(ephemeral=False)
 
         riot_id, riot_tag, payload, error = await self._load_context(
-            riot_id, riot_tag, numerogame
+            riot_id,
+            riot_tag,
+            numerogame,
+            match_id=match_id,
         )
         if error:
             return await ctx.send(error)
 
         match, fights = payload
-        analyzed_puuid = str(match["analyzed_puuid"])
-        selected = fights[fights["fight_id"].astype(str) == str(fight)]
-
+        selected = fights[
+            pd.to_numeric(fights["fight_id"], errors="coerce") == int(fight)
+        ].copy()
         if selected.empty:
-            available = ", ".join(
-                str(value)
-                for value in sorted(fights["fight_id"].dropna().unique().tolist())
+            available = sorted(
+                {
+                    _safe_int(value)
+                    for value in fights["fight_id"].tolist()
+                    if _safe_int(value) > 0
+                }
             )
             return await ctx.send(
-                f"Fight #{fight} introuvable. Combats disponibles : {available}"
+                f"Fight #{fight} introuvable. "
+                f"Fights disponibles : {', '.join(map(str, available)) or 'aucun'}."
             )
 
+        analyzed_puuid = str(match["analyzed_puuid"])
         tracked = _tracked_row(selected, analyzed_puuid)
         if tracked is None:
             return await ctx.send(
-                f"Le joueur demandé ne participe pas au fight #{fight}."
+                "Le joueur tracké ne participe pas à ce combat."
             )
 
         first = selected.iloc[0]
         champion = str(tracked.get("champion") or "?")
         champion_emoji = _champion_emoji(champion)
-        result_icon, won = _fight_result(tracked)
-        result_text = (
-            "Victoire" if won is True
-            else "Défaite" if won is False
+        result_icon, result = _fight_result(tracked)
+        result_label = (
+            "Victoire"
+            if result is True
+            else "Défaite"
+            if result is False
             else "Égalité"
         )
 
         embed = self._base_embed(
-            f"Fight #{fight} — {riot_id.upper()} #{riot_tag}",
+            (
+                f"{result_icon} Teamfight #{fight} — "
+                f"{_format_timestamp(first.get('start_ms'))} → "
+                f"{_format_timestamp(first.get('end_ms'))}"
+            ),
             champion,
             match["match_id"],
             numerogame,
+            match_id,
         )
-        embed.description = (
-            f"{embed.description}\n"
-            f"**{_format_timestamp(first.get('start_ms'))} → "
-            f"{_format_timestamp(first.get('end_ms'))}** · "
-            f"**{_fight_label(first)}** · {result_icon} **{result_text}**"
+        embed.add_field(
+            name="Combat",
+            value=f"**{_fight_label(first)}** · **{result_label}**",
+            inline=False,
         )
 
-        winner = first.get("winner")
-        teams = sorted(
-            selected["team"].dropna().unique().tolist(),
-            key=str,
-        )
+        tracked_team = tracked.get("team")
+        teams = list(dict.fromkeys(selected["team"].astype(str).tolist()))
+        teams.sort(key=lambda team: 0 if team == str(tracked_team) else 1)
 
         for team in teams:
-            team_df = selected[selected["team"].astype(str) == str(team)].copy()
-            team_df["_damage_sort"] = pd.to_numeric(
-                team_df["damage_frame_window"],
-                errors="coerce",
-            ).fillna(0)
-            team_df.sort_values(
-                ["is_core_participant", "_damage_sort"],
-                ascending=[False, False],
+            team_rows = selected[selected["team"].astype(str) == team].copy()
+            team_rows["_damage_sort"] = team_rows["damage_frame_window"].apply(
+                _damage_value
+            )
+            team_rows.sort_values(
+                ["_damage_sort", "participant_id"],
+                ascending=[False, True],
                 inplace=True,
             )
 
             team_total = _team_damage(selected, team)
-            team_won = (
-                winner is not None
-                and not pd.isna(winner)
-                and not _is_tie(winner)
-                and _same_team(team, winner)
-            )
-
             player_lines = []
-            for _, player in team_df.iterrows():
+            for _, player in team_rows.iterrows():
                 champ = str(player.get("champion") or "?")
-                icon = _champion_emoji(champ)
+                emoji = _champion_emoji(champ)
+                icon_prefix = f"{emoji} " if emoji else ""
                 proximity = (
-                    " *(prox.)*"
-                    if (
-                        _safe_bool(player.get("is_proximity_participant"))
-                        and not _safe_bool(player.get("is_core_participant"))
-                    )
+                    " · *proximité*"
+                    if _safe_bool(player.get("is_proximity_participant"))
                     else ""
                 )
-                player_damage = _damage_value(player.get("damage_frame_window"))
-                share = 100.0 * player_damage / team_total if team_total > 0 else 0.0
-
-                player_lines.append(
-                    f"{f'{icon} ' if icon else ''}**{champ}** · "
-                    f"{_fight_kda(player)} · "
-                    f"**{_format_damage(player_damage)} dmg** · {share:.1f}%"
-                    f"{proximity}"
+                player_damage = _damage_value(
+                    player.get("damage_frame_window")
+                )
+                share = (
+                    100.0 * player_damage / team_total
+                    if team_total > 0
+                    else 0.0
                 )
 
+                player_lines.append(
+                    f"{icon_prefix}**{champ}** · {_fight_kda(player)} · "
+                    f"**{_format_damage(player_damage)} dmg** · "
+                    f"{share:.1f}%{proximity}"
+                )
+
+            team_title = (
+                f"{team} — équipe du joueur"
+                if team == str(tracked_team)
+                else team
+            )
             embed.add_field(
-                name=f"{'🏆 ' if team_won else ''}{team}",
+                name=team_title,
                 value="\n".join(player_lines) or "Aucun joueur",
                 inline=False,
             )
 
+        survived = "✅" if _safe_bool(tracked.get("survived")) else "❌"
+        tracked_prefix = f"{champion_emoji} " if champion_emoji else ""
         embed.add_field(
-            name=f"{f'{champion_emoji} ' if champion_emoji else ''}{champion} — focus",
+            name=f"{tracked_prefix}{champion} — focus",
             value=(
                 f"KDA **{_fight_kda(tracked)}** · "
                 f"🎯 **{_format_damage(tracked.get('damage_frame_window'))} dégâts** · "
-                f"**{_damage_share(selected, tracked):.1f}%** des dégâts de l'équipe · "
-                f"Survie {'✅' if _safe_bool(tracked.get('survived')) else '❌'}"
+                f"**{_damage_share(selected, tracked):.1f}%** "
+                f"des dégâts de l'équipe · Survie {survived}"
             ),
             inline=False,
         )
 
         await ctx.send(embeds=embed)
 
+    @resume.autocomplete("riot_id")
+    async def autocomplete_resume(self, ctx: interactions.AutocompleteContext):
+        choices = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+        await ctx.send(choices=choices)
+
+    @combats.autocomplete("riot_id")
+    async def autocomplete_combats(self, ctx: interactions.AutocompleteContext):
+        choices = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+        await ctx.send(choices=choices)
+
     @detail.autocomplete("riot_id")
     async def autocomplete_detail(self, ctx: interactions.AutocompleteContext):
-        await ctx.send(
-            choices=await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
-        )
+        choices = await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+        await ctx.send(choices=choices)
