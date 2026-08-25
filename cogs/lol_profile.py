@@ -2,12 +2,19 @@ import re
 
 import interactions
 import pandas as pd
-from interactions import Extension, SlashCommandChoice, SlashCommandOption, SlashContext, slash_command
+from interactions import (
+    Extension,
+    SlashCommandChoice,
+    SlashCommandOption,
+    SlashContext,
+    slash_command,
+)
 
 from fonctions.autocomplete import autocomplete_riotid
 from fonctions.gestion_bdd import get_tag, lire_bdd_perso
+from fonctions.match.gank_laning_rules import GANK_WINDOW_END_MS
 from fonctions.match.lane_domination import lane_domination_sql
-from utils.emoji import emote_champ_discord
+from utils.emoji import emote_champ_discord, emote_rank_discord
 from utils.params import Version, saison
 
 
@@ -17,6 +24,20 @@ ROLE_TO_LANE = {
     "ADC": "bot",
     "SUPPORT": "bot",
 }
+
+TIER_ORDER = {
+    "CHALLENGER": 0,
+    "GRANDMASTER": 1,
+    "MASTER": 2,
+    "DIAMOND": 3,
+    "EMERALD": 4,
+    "PLATINUM": 5,
+    "GOLD": 6,
+    "SILVER": 7,
+    "BRONZE": 8,
+    "IRON": 9,
+}
+RANK_ORDER = {"I": 0, "II": 1, "III": 2, "IV": 3}
 
 
 def _normalize_champion(champion: str) -> str:
@@ -37,7 +58,10 @@ def _champion_icon_url(champion: str) -> str | None:
     match = re.search(r"<a?:[^:]+:(\d+)>", _champion_emoji(champion))
     if match is None:
         return None
-    return f"https://cdn.discordapp.com/emojis/{match.group(1)}.png?size=128&quality=lossless"
+    return (
+        f"https://cdn.discordapp.com/emojis/{match.group(1)}.png"
+        "?size=128&quality=lossless"
+    )
 
 
 def _num(value, default=0.0) -> float:
@@ -99,6 +123,14 @@ def _profile_options():
     ]
 
 
+def _tier_sort_key(tier: str) -> int:
+    return TIER_ORDER.get(str(tier or "").upper(), 99)
+
+
+def _rank_sort_key(rank: str) -> int:
+    return RANK_ORDER.get(str(rank or "").upper(), 99)
+
+
 class LolProfile(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
@@ -135,7 +167,9 @@ class LolProfile(Extension):
         return params
 
     @classmethod
-    def _core_stats(cls, riot_id: str, riot_tag: str, mode: str, season_filter: int):
+    def _core_stats(
+        cls, riot_id: str, riot_tag: str, mode: str, season_filter: int
+    ):
         conditions = cls._conditions(season_filter)
         params = cls._params(riot_id, riot_tag, mode, season_filter)
         df = lire_bdd_perso(
@@ -162,7 +196,9 @@ class LolProfile(Extension):
         return None if df.empty else df.iloc[0].to_dict()
 
     @classmethod
-    def _role_stats(cls, riot_id: str, riot_tag: str, mode: str, season_filter: int):
+    def _role_stats(
+        cls, riot_id: str, riot_tag: str, mode: str, season_filter: int
+    ):
         conditions = cls._conditions(season_filter)
         params = cls._params(riot_id, riot_tag, mode, season_filter)
         return lire_bdd_perso(
@@ -184,7 +220,37 @@ class LolProfile(Extension):
         ).T
 
     @classmethod
-    def _champions(cls, riot_id: str, riot_tag: str, mode: str, season_filter: int):
+    def _elo_stats(
+        cls, riot_id: str, riot_tag: str, mode: str, season_filter: int
+    ):
+        conditions = cls._conditions(season_filter)
+        conditions.extend(
+            [
+                "matchs.tier IS NOT NULL",
+                "UPPER(COALESCE(matchs.tier, '')) NOT IN ('', 'NON-CLASSE', 'UNRANKED')",
+            ]
+        )
+        params = cls._params(riot_id, riot_tag, mode, season_filter)
+        return lire_bdd_perso(
+            f"""
+            SELECT
+                UPPER(matchs.tier) AS tier,
+                UPPER(COALESCE(CAST(matchs.rank AS TEXT), '')) AS rank,
+                COUNT(*) AS games,
+                SUM(CASE WHEN matchs.victoire = true THEN 1 ELSE 0 END) AS wins
+            FROM matchs
+            INNER JOIN tracker ON tracker.id_compte = matchs.joueur
+            WHERE {' AND '.join(conditions)}
+            GROUP BY UPPER(matchs.tier), UPPER(COALESCE(CAST(matchs.rank AS TEXT), ''))
+            """,
+            index_col=None,
+            params=params,
+        ).T
+
+    @classmethod
+    def _champions(
+        cls, riot_id: str, riot_tag: str, mode: str, season_filter: int
+    ):
         conditions = cls._conditions(season_filter)
         params = cls._params(riot_id, riot_tag, mode, season_filter)
         return lire_bdd_perso(
@@ -192,7 +258,8 @@ class LolProfile(Extension):
             SELECT
                 matchs.champion,
                 COUNT(*) AS games,
-                100.0 * SUM(CASE WHEN matchs.victoire = true THEN 1 ELSE 0 END) / COUNT(*) AS winrate,
+                100.0 * SUM(CASE WHEN matchs.victoire = true THEN 1 ELSE 0 END)
+                    / COUNT(*) AS winrate,
                 AVG(matchs.kda) AS avg_kda,
                 AVG(matchs.dmg_min) AS avg_dpm,
                 AVG(matchs.cs_min) AS avg_cs_min
@@ -208,7 +275,9 @@ class LolProfile(Extension):
         ).T
 
     @classmethod
-    def _scoring_stats(cls, riot_id: str, riot_tag: str, mode: str, season_filter: int):
+    def _scoring_stats(
+        cls, riot_id: str, riot_tag: str, mode: str, season_filter: int
+    ):
         conditions = cls._conditions(season_filter)
         params = cls._params(riot_id, riot_tag, mode, season_filter)
         return lire_bdd_perso(
@@ -238,7 +307,8 @@ class LolProfile(Extension):
                 AVG(mps.objective_contribution) AS avg_objectives,
                 AVG(mps.pace_rating) AS avg_tempo,
                 AVG(mps.win_impact) AS avg_impact,
-                100.0 * SUM(CASE WHEN ranked.score_rank = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS mvp_rate
+                100.0 * SUM(CASE WHEN ranked.score_rank = 1 THEN 1 ELSE 0 END)
+                    / NULLIF(COUNT(*), 0) AS mvp_rate
             FROM selected
             INNER JOIN match_player_scoring_data AS mps
                 ON mps.match_id = selected.match_id
@@ -252,7 +322,9 @@ class LolProfile(Extension):
         ).T
 
     @classmethod
-    def _lane_stats(cls, riot_id: str, riot_tag: str, mode: str, season_filter: int):
+    def _lane_stats(
+        cls, riot_id: str, riot_tag: str, mode: str, season_filter: int
+    ):
         conditions = cls._conditions(season_filter)
         conditions.append("mps.role IN ('TOP', 'MID', 'ADC')")
         params = cls._params(riot_id, riot_tag, mode, season_filter)
@@ -264,8 +336,10 @@ class LolProfile(Extension):
                 AVG(mps.gold_diff_15) AS avg_gold_diff_15,
                 AVG(mps.cs_diff_15) AS avg_cs_diff_15,
                 AVG({score_sql}) AS avg_lane_score,
-                100.0 * SUM(CASE WHEN mps.gold_diff_15 > 0 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS gold_lead_rate,
-                100.0 * SUM(CASE WHEN {score_sql} >= 70 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS dominant_rate
+                100.0 * SUM(CASE WHEN mps.gold_diff_15 > 0 THEN 1 ELSE 0 END)
+                    / NULLIF(COUNT(*), 0) AS gold_lead_rate,
+                100.0 * SUM(CASE WHEN {score_sql} >= 70 THEN 1 ELSE 0 END)
+                    / NULLIF(COUNT(*), 0) AS dominant_rate
             FROM matchs
             INNER JOIN tracker ON tracker.id_compte = matchs.joueur
             INNER JOIN match_player_scoring_data AS mps
@@ -278,16 +352,20 @@ class LolProfile(Extension):
         ).T
 
     @classmethod
-    def _jungler_gank_stats(cls, riot_id: str, riot_tag: str, mode: str, season_filter: int):
+    def _jungler_gank_stats(
+        cls, riot_id: str, riot_tag: str, mode: str, season_filter: int
+    ):
         conditions = cls._conditions(season_filter)
         conditions.append("mps.role = 'JUNGLE'")
         params = cls._params(riot_id, riot_tag, mode, season_filter)
+        params["gank_end"] = GANK_WINDOW_END_MS
         return lire_bdd_perso(
             f"""
             WITH selected AS (
                 SELECT
                     matchs.match_id,
-                    CASE WHEN matchs.id_participant < 5 THEN 100 ELSE 200 END AS team_id
+                    CASE WHEN matchs.id_participant < 5 THEN 100 ELSE 200 END
+                        AS team_id
                 FROM matchs
                 INNER JOIN tracker ON tracker.id_compte = matchs.joueur
                 INNER JOIN match_player_scoring_data AS mps
@@ -295,47 +373,69 @@ class LolProfile(Extension):
                    AND mps.player_index = matchs.id_participant
                 WHERE {' AND '.join(conditions)}
             ),
-            early AS (
-                SELECT e.match_id, e.team_id, COUNT(*) AS early_attempts
-                FROM match_gank_events AS e
-                INNER JOIN selected
-                    ON selected.match_id = e.match_id
-                   AND selected.team_id = e.team_id
-                WHERE e.game_phase = 'early'
-                GROUP BY e.match_id, e.team_id
+            per_game AS (
+                SELECT
+                    selected.match_id,
+                    COUNT(e.gank_id) FILTER (
+                        WHERE e.team_id = selected.team_id
+                    ) AS attempts,
+                    COUNT(e.gank_id) FILTER (
+                        WHERE e.team_id = selected.team_id
+                          AND e.outcome = 'success'
+                    ) AS successes,
+                    COUNT(e.gank_id) FILTER (
+                        WHERE e.team_id = selected.team_id
+                          AND e.outcome = 'trade'
+                    ) AS trades,
+                    COUNT(e.gank_id) FILTER (
+                        WHERE e.team_id = selected.team_id
+                          AND e.outcome IN ('failed', 'jungler_death')
+                    ) AS failed,
+                    COUNT(e.gank_id) FILTER (
+                        WHERE e.team_id = selected.team_id
+                          AND e.is_counter_gank = true
+                    ) AS counters,
+                    MIN(e.timestamp_ms) FILTER (
+                        WHERE e.team_id = selected.team_id
+                    ) AS first_gank_time
+                FROM selected
+                LEFT JOIN match_gank_events AS e
+                    ON e.match_id = selected.match_id
+                   AND e.timestamp_ms >= 0
+                   AND e.timestamp_ms < :gank_end
+                GROUP BY selected.match_id, selected.team_id
             )
             SELECT
                 COUNT(*) AS games,
-                AVG(gs.total_ganks_made) AS avg_ganks,
-                AVG(gs.successful_made) AS avg_successful,
-                AVG(gs.failed_made) AS avg_failed,
-                AVG(gs.counter_ganks) AS avg_counter_ganks,
-                AVG(COALESCE(gs.observed_success_rate_made, gs.success_rate_made) * 100.0) AS avg_success_rate,
-                AVG(gs.ally_first_gank_time) AS avg_first_gank_time,
-                AVG(COALESCE(early.early_attempts, 0)) AS avg_early_attempts
-            FROM selected
-            INNER JOIN match_gank_summary AS gs
-                ON gs.match_id = selected.match_id
-               AND gs.team_id = selected.team_id
-            LEFT JOIN early
-                ON early.match_id = selected.match_id
-               AND early.team_id = selected.team_id
+                AVG(attempts) AS avg_ganks,
+                AVG(successes) AS avg_successful,
+                AVG(trades) AS avg_trades,
+                AVG(failed) AS avg_failed,
+                AVG(counters) AS avg_counter_ganks,
+                100.0 * SUM(successes) / NULLIF(SUM(attempts), 0)
+                    AS avg_success_rate,
+                AVG(first_gank_time) AS avg_first_gank_time
+            FROM per_game
             """,
             index_col=None,
             params=params,
         ).T
 
     @classmethod
-    def _laner_gank_pressure(cls, riot_id: str, riot_tag: str, mode: str, season_filter: int):
+    def _laner_gank_pressure(
+        cls, riot_id: str, riot_tag: str, mode: str, season_filter: int
+    ):
         conditions = cls._conditions(season_filter)
         conditions.append("mps.role IN ('TOP', 'MID', 'ADC', 'SUPPORT')")
         params = cls._params(riot_id, riot_tag, mode, season_filter)
+        params["gank_end"] = GANK_WINDOW_END_MS
         return lire_bdd_perso(
             f"""
             WITH selected AS (
                 SELECT
                     matchs.match_id,
-                    CASE WHEN matchs.id_participant < 5 THEN 100 ELSE 200 END AS team_id,
+                    CASE WHEN matchs.id_participant < 5 THEN 100 ELSE 200 END
+                        AS team_id,
                     CASE
                         WHEN mps.role = 'TOP' THEN 'top'
                         WHEN mps.role = 'MID' THEN 'mid'
@@ -351,27 +451,40 @@ class LolProfile(Extension):
             per_game AS (
                 SELECT
                     selected.match_id,
-                    COUNT(*) FILTER (
-                        WHERE e.team_id = selected.team_id AND e.lane = selected.lane
+                    COUNT(e.gank_id) FILTER (
+                        WHERE e.team_id = selected.team_id
+                          AND e.lane = selected.lane
                     ) AS ally_lane_ganks,
-                    COUNT(*) FILTER (
-                        WHERE e.team_id <> selected.team_id AND e.lane = selected.lane
-                    ) AS enemy_lane_ganks,
-                    COUNT(*) FILTER (
+                    COUNT(e.gank_id) FILTER (
                         WHERE e.team_id <> selected.team_id
                           AND e.lane = selected.lane
-                          AND e.successful = true
-                    ) AS enemy_successful
+                    ) AS enemy_lane_ganks,
+                    COUNT(e.gank_id) FILTER (
+                        WHERE e.team_id <> selected.team_id
+                          AND e.lane = selected.lane
+                          AND e.outcome = 'success'
+                    ) AS enemy_successful,
+                    COUNT(e.gank_id) FILTER (
+                        WHERE e.team_id <> selected.team_id
+                          AND e.lane = selected.lane
+                          AND e.outcome = 'trade'
+                    ) AS enemy_trades
                 FROM selected
-                LEFT JOIN match_gank_events AS e ON e.match_id = selected.match_id
-                GROUP BY selected.match_id
+                LEFT JOIN match_gank_events AS e
+                    ON e.match_id = selected.match_id
+                   AND e.timestamp_ms >= 0
+                   AND e.timestamp_ms < :gank_end
+                GROUP BY selected.match_id, selected.team_id, selected.lane
             )
             SELECT
                 COUNT(*) AS games,
                 AVG(ally_lane_ganks) AS avg_ally_lane_ganks,
                 AVG(enemy_lane_ganks) AS avg_enemy_lane_ganks,
-                100.0 * SUM(enemy_successful) / NULLIF(SUM(enemy_lane_ganks), 0) AS enemy_success_rate,
-                100.0 * SUM(CASE WHEN enemy_lane_ganks >= 2 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS pressured_games_rate
+                AVG(enemy_trades) AS avg_enemy_trades,
+                100.0 * SUM(enemy_successful) / NULLIF(SUM(enemy_lane_ganks), 0)
+                    AS enemy_success_rate,
+                100.0 * SUM(CASE WHEN enemy_lane_ganks >= 2 THEN 1 ELSE 0 END)
+                    / NULLIF(COUNT(*), 0) AS pressured_games_rate
             FROM per_game
             """,
             index_col=None,
@@ -379,7 +492,9 @@ class LolProfile(Extension):
         ).T
 
     @classmethod
-    def _teamfight_stats(cls, riot_id: str, riot_tag: str, mode: str, season_filter: int):
+    def _teamfight_stats(
+        cls, riot_id: str, riot_tag: str, mode: str, season_filter: int
+    ):
         conditions = cls._conditions(season_filter)
         params = cls._params(riot_id, riot_tag, mode, season_filter)
         return lire_bdd_perso(
@@ -410,8 +525,16 @@ class LolProfile(Extension):
             )
             SELECT
                 (SELECT COUNT(*) FROM fights) AS teamfights,
-                (SELECT 100.0 * SUM(CASE WHEN team = winner THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) FROM fights) AS teamfight_winrate,
-                (SELECT 100.0 * SUM(CASE WHEN survived = true THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) FROM fights) AS survival_rate,
+                (
+                    SELECT 100.0 * SUM(CASE WHEN team = winner THEN 1 ELSE 0 END)
+                        / NULLIF(COUNT(*), 0)
+                    FROM fights
+                ) AS teamfight_winrate,
+                (
+                    SELECT 100.0 * SUM(CASE WHEN survived = true THEN 1 ELSE 0 END)
+                        / NULLIF(COUNT(*), 0)
+                    FROM fights
+                ) AS survival_rate,
                 (SELECT AVG(damage_frame_window) FROM fights) AS avg_tf_damage,
                 (SELECT SUM(duels) FROM summaries) AS duels,
                 (SELECT SUM(duel_wins) FROM summaries) AS duel_wins,
@@ -429,32 +552,114 @@ class LolProfile(Extension):
         minutes, seconds = divmod(seconds, 60)
         return f"{minutes}:{seconds:02d}"
 
-    @slash_command(name="lol_profile", description="Profil statistique historique d'un joueur League of Legends", options=_profile_options())
-    async def lol_profile(self, ctx: SlashContext, riot_id: str, riot_tag: str = None, mode: str = "RANKED", season: int = saison):
+    @staticmethod
+    def _elo_lines(elo: pd.DataFrame) -> list[str]:
+        if elo.empty:
+            return []
+        work = elo.copy()
+        work["games"] = pd.to_numeric(work["games"], errors="coerce").fillna(0)
+        work["wins"] = pd.to_numeric(work["wins"], errors="coerce").fillna(0)
+        work["tier"] = work["tier"].fillna("").astype(str).str.upper()
+        work["rank"] = work["rank"].fillna("").astype(str).str.upper()
+        work = work[work["games"] > 0]
+        if work.empty:
+            return []
+
+        if len(work) > 5:
+            grouped = (
+                work.groupby("tier", as_index=False)[["games", "wins"]]
+                .sum()
+                .sort_values(
+                    "tier",
+                    key=lambda col: col.map(_tier_sort_key),
+                )
+            )
+            lines = []
+            for _, row in grouped.iterrows():
+                tier = str(row["tier"])
+                games = _int(row["games"])
+                wins = _int(row["wins"])
+                wr = 100.0 * wins / games if games else 0.0
+                lines.append(
+                    f"{emote_rank_discord.get(tier, '')} **{tier}** — "
+                    f"**{games}** games · **{wr:.1f}%** WR"
+                )
+            return lines
+
+        rows = list(work.iterrows())
+        rows.sort(
+            key=lambda item: (
+                _tier_sort_key(item[1].get("tier")),
+                _rank_sort_key(item[1].get("rank")),
+            )
+        )
+        lines = []
+        for _, row in rows:
+            tier = str(row.get("tier") or "").upper()
+            rank = str(row.get("rank") or "").upper()
+            games = _int(row.get("games"))
+            wins = _int(row.get("wins"))
+            wr = 100.0 * wins / games if games else 0.0
+            elo_label = f"{tier} {rank}".strip()
+            lines.append(
+                f"{emote_rank_discord.get(tier, '')} **{elo_label}** — "
+                f"**{games}** games · **{wr:.1f}%** WR"
+            )
+        return lines
+
+    @slash_command(
+        name="lol_profile",
+        description="Profil statistique historique d'un joueur League of Legends",
+        options=_profile_options(),
+    )
+    async def lol_profile(
+        self,
+        ctx: SlashContext,
+        riot_id: str,
+        riot_tag: str = None,
+        mode: str = "RANKED",
+        season: int = saison,
+    ):
         await ctx.defer(ephemeral=False)
         try:
             riot_id, riot_tag = self._resolve_account(riot_id, riot_tag)
         except (ValueError, KeyError, IndexError, AttributeError):
-            return await ctx.send("Compte introuvable ou Riot ID ambigu. Précise le tag.")
+            return await ctx.send(
+                "Compte introuvable ou Riot ID ambigu. Précise le tag."
+            )
 
         mode = str(mode or "RANKED").upper()
         season = saison if season is None else int(season)
         core = self._core_stats(riot_id, riot_tag, mode, season)
         if core is None or _int(core.get("games")) == 0:
-            return await ctx.send("Aucune partie enregistrée pour ce joueur sur ce périmètre.")
+            return await ctx.send(
+                "Aucune partie enregistrée pour ce joueur sur ce périmètre."
+            )
 
         games = _int(core.get("games"))
         wins = _int(core.get("wins"))
         winrate = 100.0 * wins / games if games else 0.0
         champions = self._champions(riot_id, riot_tag, mode, season)
         roles = self._role_stats(riot_id, riot_tag, mode, season)
-        main_role = str(roles.iloc[0].get("role") or "UNKNOWN").upper() if not roles.empty else "UNKNOWN"
-        top_champion = str(champions.iloc[0].get("champion") or "?") if not champions.empty else "?"
+        elo = self._elo_stats(riot_id, riot_tag, mode, season)
+        main_role = (
+            str(roles.iloc[0].get("role") or "UNKNOWN").upper()
+            if not roles.empty
+            else "UNKNOWN"
+        )
+        top_champion = (
+            str(champions.iloc[0].get("champion") or "?")
+            if not champions.empty
+            else "?"
+        )
 
         season_text = f"S{season}" if season != 0 else "toutes saisons"
         embed = interactions.Embed(
             title=f"Profil LoL — {riot_id.upper()} #{riot_tag}",
-            description=f"**{mode} · {season_text}** · {games} parties enregistrées · rôle principal **{main_role}**",
+            description=(
+                f"**{mode} · {season_text}** · {games} parties enregistrées · "
+                f"rôle principal **{main_role}**"
+            ),
             color=interactions.Color.random(),
         )
         icon = _champion_icon_url(top_champion)
@@ -465,12 +670,31 @@ class LolProfile(Extension):
             name="Vue d'ensemble",
             value=(
                 f"🏆 **{winrate:.1f}%** WR ({wins}–{games - wins})\n"
-                f"⚔️ K/D/A moyen **{_num(core.get('avg_kills')):.1f}/{_num(core.get('avg_deaths')):.1f}/{_num(core.get('avg_assists')):.1f}** · KDA **{_num(core.get('avg_kda')):.2f}**\n"
-                f"🎯 **{_int(core.get('avg_dpm'))}** DPM · 👻 **{_num(core.get('avg_cs_min')):.2f}** CS/min · 💰 **{_int(core.get('avg_gpm'))}** GPM\n"
-                f"🤝 KP **{_num(core.get('avg_kp')):.1f}%** · 👁️ vision/min **{_num(core.get('avg_vision_min')):.2f}**"
+                f"⚔️ K/D/A moyen **{_num(core.get('avg_kills')):.1f}/"
+                f"{_num(core.get('avg_deaths')):.1f}/"
+                f"{_num(core.get('avg_assists')):.1f}** · "
+                f"KDA **{_num(core.get('avg_kda')):.2f}**\n"
+                f"🎯 **{_int(core.get('avg_dpm'))}** DPM · "
+                f"👻 **{_num(core.get('avg_cs_min')):.2f}** CS/min · "
+                f"💰 **{_int(core.get('avg_gpm'))}** GPM\n"
+                f"🤝 KP **{_num(core.get('avg_kp')):.1f}%** · "
+                f"👁️ vision/min **{_num(core.get('avg_vision_min')):.2f}**"
             ),
             inline=False,
         )
+
+        elo_lines = self._elo_lines(elo)
+        if elo_lines:
+            grouped = len(elo) > 5
+            embed.add_field(
+                name=(
+                    "Elo des parties — par tier"
+                    if grouped
+                    else "Elo des parties — tier / rank"
+                ),
+                value="\n".join(elo_lines)[:1024],
+                inline=False,
+            )
 
         scoring = self._scoring_stats(riot_id, riot_tag, mode, season)
         if not scoring.empty and _int(scoring.iloc[0].get("games")) > 0:
@@ -478,9 +702,13 @@ class LolProfile(Extension):
             embed.add_field(
                 name="Scoring historique",
                 value=(
-                    f"⭐ Score moyen **{_num(row.get('avg_score')):.2f}/10** · MVP **{_pct(row.get('mvp_rate'))}**\n"
-                    f"⚔️ Combat **{_num(row.get('avg_combat')):.1f}** · 💰 Éco **{_num(row.get('avg_economy')):.1f}** · "
-                    f"🎯 Obj **{_num(row.get('avg_objectives')):.1f}** · ⚡ Tempo **{_num(row.get('avg_tempo')):.1f}** · 👑 Impact **{_num(row.get('avg_impact')):.1f}**"
+                    f"⭐ Score moyen **{_num(row.get('avg_score')):.2f}/10** · "
+                    f"MVP **{_pct(row.get('mvp_rate'))}**\n"
+                    f"⚔️ Combat **{_num(row.get('avg_combat')):.1f}** · "
+                    f"💰 Éco **{_num(row.get('avg_economy')):.1f}** · "
+                    f"🎯 Obj **{_num(row.get('avg_objectives')):.1f}** · "
+                    f"⚡ Tempo **{_num(row.get('avg_tempo')):.1f}** · "
+                    f"👑 Impact **{_num(row.get('avg_impact')):.1f}**"
                 ),
                 inline=False,
             )
@@ -492,43 +720,59 @@ class LolProfile(Extension):
                 embed.add_field(
                     name="Lane (TOP / MID / ADC)",
                     value=(
-                        f"Indice moyen **{_num(row.get('avg_lane_score')):.1f}/100** · domination 70+ sur **{_pct(row.get('dominant_rate'))}** des games\n"
-                        f"@15 : gold **{_signed(row.get('avg_gold_diff_15'), 'g')}** · CS **{_signed(row.get('avg_cs_diff_15'))}** · "
+                        f"Indice moyen **{_num(row.get('avg_lane_score')):.1f}/100** · "
+                        f"domination 70+ sur **{_pct(row.get('dominant_rate'))}** des games\n"
+                        f"@15 : gold **{_signed(row.get('avg_gold_diff_15'), 'g')}** · "
+                        f"CS **{_signed(row.get('avg_cs_diff_15'))}** · "
                         f"avantage gold sur **{_pct(row.get('gold_lead_rate'))}**"
                     ),
                     inline=False,
                 )
 
             if main_role == "JUNGLE":
-                ganks = self._jungler_gank_stats(riot_id, riot_tag, mode, season)
+                ganks = self._jungler_gank_stats(
+                    riot_id, riot_tag, mode, season
+                )
                 if not ganks.empty and _int(ganks.iloc[0].get("games")) > 0:
                     row = ganks.iloc[0]
                     embed.add_field(
-                        name="Jungle — activité de gank",
+                        name="Jungle — ganks avant 14 min",
                         value=(
-                            f"🗺️ **{_num(row.get('avg_ganks')):.2f}** tentatives/game · **{_num(row.get('avg_successful')):.2f}** réussies · succès **{_pct(row.get('avg_success_rate'))}**\n"
-                            f"⚪ **{_num(row.get('avg_failed')):.2f}** ratées · 🔁 **{_num(row.get('avg_counter_ganks')):.2f}** counter-ganks · early **{_num(row.get('avg_early_attempts')):.2f}**/game\n"
-                            f"⏱️ Premier gank moyen **{self._format_time_ms(row.get('avg_first_gank_time'))}**"
+                            f"🗺️ **{_num(row.get('avg_ganks')):.2f}** tentatives/game · "
+                            f"**{_num(row.get('avg_successful')):.2f}** succès stricts · "
+                            f"conversion **{_pct(row.get('avg_success_rate'))}**\n"
+                            f"🟡 **{_num(row.get('avg_trades')):.2f}** trades · "
+                            f"⚪ **{_num(row.get('avg_failed')):.2f}** ratées/mort jungler · "
+                            f"🔁 **{_num(row.get('avg_counter_ganks')):.2f}** counter-ganks/game\n"
+                            f"⏱️ Premier gank moyen "
+                            f"**{self._format_time_ms(row.get('avg_first_gank_time'))}**"
                         ),
                         inline=False,
                     )
-            else:
-                pressure = self._laner_gank_pressure(riot_id, riot_tag, mode, season)
+            elif main_role in ROLE_TO_LANE:
+                pressure = self._laner_gank_pressure(
+                    riot_id, riot_tag, mode, season
+                )
                 if not pressure.empty and _int(pressure.iloc[0].get("games")) > 0:
                     row = pressure.iloc[0]
                     embed.add_field(
-                        name="Pression jungle sur sa lane",
+                        name="Pression jungle sur sa lane — avant 14 min",
                         value=(
                             f"🔵 Appuis alliés **{_num(row.get('avg_ally_lane_ganks')):.2f}/game** · "
                             f"🔴 appuis ennemis **{_num(row.get('avg_enemy_lane_ganks')):.2f}/game**\n"
-                            f"Succès des ganks ennemis **{_pct(row.get('enemy_success_rate'))}** · "
-                            f"2+ tentatives ennemies sur **{_pct(row.get('pressured_games_rate'))}** des games"
+                            f"Succès stricts ennemis **{_pct(row.get('enemy_success_rate'))}** · "
+                            f"trades ennemis **{_num(row.get('avg_enemy_trades')):.2f}/game** · "
+                            f"2+ tentatives ennemies sur "
+                            f"**{_pct(row.get('pressured_games_rate'))}** des games"
                         ),
                         inline=False,
                     )
 
         teamfights = self._teamfight_stats(riot_id, riot_tag, mode, season)
-        if not teamfights.empty and _int(teamfights.iloc[0].get("teamfights")) > 0:
+        if (
+            not teamfights.empty
+            and _int(teamfights.iloc[0].get("teamfights")) > 0
+        ):
             row = teamfights.iloc[0]
             duels = _int(row.get("duels"))
             duel_wins = _int(row.get("duel_wins"))
@@ -536,8 +780,12 @@ class LolProfile(Extension):
             embed.add_field(
                 name="Combats",
                 value=(
-                    f"⚔️ **{_int(row.get('teamfights'))}** teamfights · WR **{_pct(row.get('teamfight_winrate'))}** · survie **{_pct(row.get('survival_rate'))}**\n"
-                    f"🎯 Dégâts moyens / TF **{_int(row.get('avg_tf_damage'))}** · 🥊 duels **{duel_wins}/{duels} ({duel_rate:.0f}%)** · 🔥 clutches **{_int(row.get('clutch_wins'))}**"
+                    f"⚔️ **{_int(row.get('teamfights'))}** teamfights · "
+                    f"WR **{_pct(row.get('teamfight_winrate'))}** · "
+                    f"survie **{_pct(row.get('survival_rate'))}**\n"
+                    f"🎯 Dégâts moyens / TF **{_int(row.get('avg_tf_damage'))}** · "
+                    f"🥊 duels **{duel_wins}/{duels} ({duel_rate:.0f}%)** · "
+                    f"🔥 clutches **{_int(row.get('clutch_wins'))}**"
                 ),
                 inline=False,
             )
@@ -547,18 +795,33 @@ class LolProfile(Extension):
             for _, row in champions.iterrows():
                 champion = str(row.get("champion") or "?")
                 lines.append(
-                    f"{_champion_emoji(champion)} **{champion}** — {_int(row.get('games'))} games · "
-                    f"{_pct(row.get('winrate'))} WR · KDA {_num(row.get('avg_kda')):.2f} · {_int(row.get('avg_dpm'))} DPM"
+                    f"{_champion_emoji(champion)} **{champion}** — "
+                    f"{_int(row.get('games'))} games · {_pct(row.get('winrate'))} WR · "
+                    f"KDA {_num(row.get('avg_kda')):.2f} · "
+                    f"{_int(row.get('avg_dpm'))} DPM"
                 )
-            embed.add_field(name="Champions les plus joués", value="\n".join(lines), inline=False)
+            embed.add_field(
+                name="Champions les plus joués",
+                value="\n".join(lines),
+                inline=False,
+            )
 
         if not roles.empty:
-            role_lines = [f"**{row.get('role')}** {_int(row.get('games'))}" for _, row in roles.iterrows()]
-            embed.add_field(name="Répartition des rôles", value=" · ".join(role_lines)[:1024], inline=False)
+            role_lines = [
+                f"**{row.get('role')}** {_int(row.get('games'))}"
+                for _, row in roles.iterrows()
+            ]
+            embed.add_field(
+                name="Répartition des rôles",
+                value=" · ".join(role_lines)[:1024],
+                inline=False,
+            )
 
         embed.set_footer(text=f"Données enregistrées par Marin · Version {Version}")
         await ctx.send(embeds=embed)
 
     @lol_profile.autocomplete("riot_id")
     async def autocomplete_profile(self, ctx: interactions.AutocompleteContext):
-        await ctx.send(choices=await autocomplete_riotid(int(ctx.guild.id), ctx.input_text))
+        await ctx.send(
+            choices=await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+        )
