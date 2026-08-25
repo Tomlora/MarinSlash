@@ -32,6 +32,41 @@ def is_strict_gank_success(outcome: Any) -> bool:
     return str(outcome or "").lower() == STRICT_SUCCESS_OUTCOME
 
 
+def apply_laning_gank_rules(ganks):
+    """Filtre une liste d'événements sur <14 min et applique le succès strict."""
+    filtered = []
+    for gank in ganks:
+        if not is_laning_gank_timestamp(getattr(gank, "timestamp", None)):
+            continue
+        gank.successful = is_strict_gank_success(getattr(gank, "outcome", None))
+        filtered.append(gank)
+
+    filtered.sort(key=lambda event: (event.timestamp, event.lane.value))
+    for index, gank in enumerate(filtered, start=1):
+        gank.gank_id = index
+    return filtered
+
+
+def strict_detection_counts(ganks) -> dict[str, int]:
+    """Compte exact/inféré/échecs sans classer un trade comme un échec."""
+    exact = sum(
+        str(getattr(gank, "detection_source", "")) == "exact_event"
+        for gank in ganks
+    )
+    return {
+        "exact": exact,
+        "inferred": len(ganks) - exact,
+        "failed": sum(
+            str(getattr(gank, "outcome", "")).lower() in FAILED_OUTCOMES
+            for gank in ganks
+        ),
+        "high_confidence": sum(
+            float(getattr(gank, "confidence", 0.0) or 0.0) >= 0.80
+            for gank in ganks
+        ),
+    }
+
+
 def install_gank_laning_rules(match_class) -> None:
     """Applique les règles V3 à la détection hybride déjà installée sur MatchLol.
 
@@ -66,44 +101,11 @@ def install_gank_laning_rules(match_class) -> None:
     except Exception:
         pass
 
-    # Le résumé V2 assimilait `not successful` à `failed`. Avec le succès strict,
-    # un trade ne doit devenir ni un succès ni un échec.
-    def strict_detection_counts(ganks):
-        exact = sum(
-            str(getattr(gank, "detection_source", "")) == "exact_event"
-            for gank in ganks
-        )
-        return {
-            "exact": exact,
-            "inferred": len(ganks) - exact,
-            "failed": sum(
-                str(getattr(gank, "outcome", "")).lower() in FAILED_OUTCOMES
-                for gank in ganks
-            ),
-            "high_confidence": sum(
-                float(getattr(gank, "confidence", 0.0) or 0.0) >= 0.80
-                for gank in ganks
-            ),
-        }
-
     match_class._hybrid_detection_counts = staticmethod(strict_detection_counts)
 
     def collect_laning_ganks(self, jungler_id, team_id, enemy_jungler_id):
         ganks = original_collect(self, jungler_id, team_id, enemy_jungler_id)
-        filtered = []
-        for gank in ganks:
-            if not is_laning_gank_timestamp(getattr(gank, "timestamp", None)):
-                continue
-
-            # V2 utilisait kills_for > 0 : un trade 1 pour 1 devenait donc un
-            # succès. En V3 seul outcome == success est un succès strict.
-            gank.successful = is_strict_gank_success(getattr(gank, "outcome", None))
-            filtered.append(gank)
-
-        filtered.sort(key=lambda event: (event.timestamp, event.lane.value))
-        for index, gank in enumerate(filtered, start=1):
-            gank.gank_id = index
-        return filtered
+        return apply_laning_gank_rules(ganks)
 
     collect_laning_ganks._laning_rules_installed = True
     collect_laning_ganks._original_collect_observed_ganks = original_collect
