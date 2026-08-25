@@ -27,6 +27,10 @@ TEAMFIGHT_RECORDS = [
     'tf_physical_damage_window',
     'tf_magic_damage_window',
     'tf_true_damage_window',
+    'tf_damage_taken_window',
+    'tf_physical_damage_taken_window',
+    'tf_magic_damage_taken_window',
+    'tf_true_damage_taken_window',
     'tf_physical_dead_damage',
     'tf_magic_dead_damage',
     'tf_true_dead_damage',
@@ -46,6 +50,10 @@ TEAMFIGHT_RECORD_LABELS = {
     'tf_physical_damage_window': 'DMG AD MAX EN TEAMFIGHT',
     'tf_magic_damage_window': 'DMG AP MAX EN TEAMFIGHT',
     'tf_true_damage_window': 'DMG TRUE MAX EN TEAMFIGHT',
+    'tf_damage_taken_window': 'DMG REÇUS MAX EN TEAMFIGHT',
+    'tf_physical_damage_taken_window': 'DMG PHYSIQUES REÇUS MAX EN TEAMFIGHT',
+    'tf_magic_damage_taken_window': 'DMG MAGIQUES REÇUS MAX EN TEAMFIGHT',
+    'tf_true_damage_taken_window': 'DMG TRUE REÇUS MAX EN TEAMFIGHT',
     'tf_physical_dead_damage': 'DMG AD SUR CIBLES MORTES',
     'tf_magic_dead_damage': 'DMG AP SUR CIBLES MORTES',
     'tf_true_dead_damage': 'DMG TRUE SUR CIBLES MORTES',
@@ -429,6 +437,10 @@ async def load_data(ctx, view, saison, mode, time_mini):
         'tf_match.tf_physical_damage_window',
         'tf_match.tf_magic_damage_window',
         'tf_match.tf_true_damage_window',
+        'tf_match.tf_damage_taken_window',
+        'tf_match.tf_physical_damage_taken_window',
+        'tf_match.tf_magic_damage_taken_window',
+        'tf_match.tf_true_damage_taken_window',
         'tf_match.tf_physical_dead_damage',
         'tf_match.tf_magic_dead_damage',
         'tf_match.tf_true_dead_damage',
@@ -484,6 +496,18 @@ async def load_data(ctx, view, saison, mode, time_mini):
                 MAX(mtd.true_damage_window_estimated) FILTER (
                     WHERE mtd.is_teamfight
                 ) AS tf_true_damage_window,
+                MAX(mtd.damage_taken_frame_window) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_damage_taken_window,
+                MAX(mtd.physical_damage_taken_frame_window) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_physical_damage_taken_window,
+                MAX(mtd.magic_damage_taken_frame_window) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_magic_damage_taken_window,
+                MAX(mtd.true_damage_taken_frame_window) FILTER (
+                    WHERE mtd.is_teamfight
+                ) AS tf_true_damage_taken_window,
                 MAX(mtd.physical_damage_on_dead_targets) FILTER (
                     WHERE mtd.is_teamfight
                 ) AS tf_physical_dead_damage,
