@@ -1,22 +1,17 @@
 """Backfill des dégâts reçus pendant les fenêtres de combat.
 
-Le script complète les quatre colonnes ajoutées à ``match_teamfight_damage`` :
+Complète les colonnes:
+- damage_taken_frame_window
+- physical_damage_taken_frame_window
+- magic_damage_taken_frame_window
+- true_damage_taken_frame_window
 
-- ``damage_taken_frame_window``
-- ``physical_damage_taken_frame_window``
-- ``magic_damage_taken_frame_window``
-- ``true_damage_taken_frame_window``
+Le script recalcule les combats depuis Riot et met à jour uniquement ces colonnes.
+Il refuse désormais d'écrire si le calculateur chargé ne renvoie pas explicitement
+les quatre nouvelles valeurs, afin d'éviter de transformer une clé absente en 0.
 
-Il sélectionne par défaut toutes les perspectives qui possèdent déjà des lignes
-Teamfight mais au moins une de ces valeurs à NULL, recharge le match et la
-timeline Riot, recalcule les combats avec ``calculate_teamfight_damage`` puis
-met à jour uniquement les nouvelles colonnes.
-
-La mise à jour d'une perspective est transactionnelle : si les combats
-recalculés ne correspondent pas aux lignes existantes, rien n'est validé pour
-cette perspective.
-
-Pré-requis : exécuter d'abord ``scripts/add_teamfight_damage_taken_columns.sql``.
+Pré-requis:
+    scripts/add_teamfight_damage_taken_columns.sql
 """
 
 from __future__ import annotations
@@ -48,10 +43,16 @@ TAKEN_COLUMNS = (
     "magic_damage_taken_frame_window",
     "true_damage_taken_frame_window",
 )
+RIOT_TAKEN_STATS = (
+    "totalDamageTaken",
+    "physicalDamageTaken",
+    "magicDamageTaken",
+    "trueDamageTaken",
+)
 
 
 def _load_teamfight_calculator():
-    """Charge teamfight_damage.py sans exécuter fonctions.match.__init__."""
+    """Charge explicitement le calculateur présent dans ce checkout."""
     module_path = REPO_ROOT / "fonctions" / "match" / "teamfight_damage.py"
     if not module_path.exists():
         raise ImportError(f"Fichier introuvable : {module_path}")
@@ -65,17 +66,10 @@ def _load_teamfight_calculator():
 
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.calculate_teamfight_damage
+    return module.calculate_teamfight_damage, module_path
 
 
-calculate_teamfight_damage = _load_teamfight_calculator()
-
-
-def _as_rows(df: pd.DataFrame) -> pd.DataFrame:
-    """Normalise la forme historique renvoyée par lire_bdd_perso."""
-    if df is None or df.empty:
-        return pd.DataFrame()
-    return df.T.reset_index(drop=True) if len(df.index) and not len(df.columns) else df.reset_index(drop=True)
+calculate_teamfight_damage, CALCULATOR_PATH = _load_teamfight_calculator()
 
 
 def _sql_list(values: Iterable[str]) -> str:
@@ -163,7 +157,6 @@ def load_matches(
     if df is None or df.empty:
         return pd.DataFrame()
 
-    # lire_bdd_perso transpose historiquement le résultat.
     if "match_id" in df.index and "match_id" not in df.columns:
         df = df.T
     return df.reset_index(drop=True)
@@ -184,6 +177,21 @@ def _tracked_team_id(match_detail: dict, analyzed_puuid: str) -> int:
     return int(tracked["teamId"])
 
 
+def _required_taken_value(player: dict, column: str) -> int:
+    """Interdit le fallback silencieux vers zéro en cas de calculateur obsolète."""
+    if column not in player:
+        raise RuntimeError(
+            f"Le calculateur {CALCULATOR_PATH} ne renvoie pas `{column}`. "
+            "Le checkout local n'est probablement pas à jour avec la PR #35."
+        )
+
+    value = player[column]
+    if value is None:
+        raise RuntimeError(f"`{column}` vaut None pour participant_id={player.get('participant_id')}")
+
+    return int(value)
+
+
 def _build_updates(
     match_id: str,
     analyzed_puuid: str,
@@ -193,6 +201,10 @@ def _build_updates(
 
     for fight in teamfights:
         for player in fight.get("players", []):
+            values = {
+                column: _required_taken_value(player, column)
+                for column in TAKEN_COLUMNS
+            }
             updates.append(
                 {
                     "match_id": match_id,
@@ -205,22 +217,83 @@ def _build_updates(
                     "estimation_window_end_ms": int(
                         fight["estimation_window_end_ms"]
                     ),
-                    "damage_taken_frame_window": int(
-                        player.get("damage_taken_frame_window", 0) or 0
-                    ),
-                    "physical_damage_taken_frame_window": int(
-                        player.get("physical_damage_taken_frame_window", 0) or 0
-                    ),
-                    "magic_damage_taken_frame_window": int(
-                        player.get("magic_damage_taken_frame_window", 0) or 0
-                    ),
-                    "true_damage_taken_frame_window": int(
-                        player.get("true_damage_taken_frame_window", 0) or 0
-                    ),
+                    **values,
                 }
             )
 
     return updates
+
+
+def _frame_by_timestamp(timeline: dict, timestamp: int) -> dict | None:
+    return next(
+        (
+            frame
+            for frame in timeline.get("info", {}).get("frames", [])
+            if int(frame.get("timestamp", -1)) == int(timestamp)
+        ),
+        None,
+    )
+
+
+def _debug_teamfights(
+    timeline: dict,
+    teamfights: list[dict],
+    analyzed_puuid: str,
+) -> None:
+    """Affiche les compteurs Riot bruts et les deltas calculés du joueur tracké."""
+    participants = timeline.get("metadata", {}).get("participants", [])
+    if analyzed_puuid not in participants:
+        print("  DEBUG - PUUID absent de metadata.participants")
+        return
+
+    participant_id = participants.index(analyzed_puuid) + 1
+    print(f"  DEBUG - calculateur: {CALCULATOR_PATH}")
+    print(f"  DEBUG - participant_id tracké: {participant_id}")
+
+    for fight in teamfights:
+        tracked = next(
+            (
+                player
+                for player in fight.get("players", [])
+                if int(player.get("participant_id", -1)) == participant_id
+            ),
+            None,
+        )
+        if tracked is None:
+            continue
+
+        start = int(fight["estimation_window_start_ms"])
+        end = int(fight["estimation_window_end_ms"])
+        before = _frame_by_timestamp(timeline, start) or {}
+        after = _frame_by_timestamp(timeline, end) or {}
+        before_stats = (
+            before.get("participantFrames", {})
+            .get(str(participant_id), {})
+            .get("damageStats", {})
+        )
+        after_stats = (
+            after.get("participantFrames", {})
+            .get(str(participant_id), {})
+            .get("damageStats", {})
+        )
+
+        print(
+            f"  DEBUG fight #{fight['fight_id']} "
+            f"window={start}->{end}"
+        )
+        for stat in RIOT_TAKEN_STATS:
+            print(
+                f"    {stat}: "
+                f"{before_stats.get(stat, '<absent>')} -> "
+                f"{after_stats.get(stat, '<absent>')}"
+            )
+        print(
+            "    calculé: "
+            + ", ".join(
+                f"{column}={tracked.get(column, '<absent>')}"
+                for column in TAKEN_COLUMNS
+            )
+        )
 
 
 UPDATE_SQL = text(
@@ -239,7 +312,6 @@ UPDATE_SQL = text(
       AND estimation_window_end_ms = :estimation_window_end_ms
     """
 )
-
 
 REMAINING_SQL = text(
     """
@@ -262,7 +334,6 @@ def save_backfill(
     analyzed_puuid: str,
     teamfights: list[dict],
 ) -> int:
-    """Met à jour une perspective et rollback si des lignes restent incomplètes."""
     updates = _build_updates(match_id, analyzed_puuid, teamfights)
     if not updates:
         raise RuntimeError("Aucun combat recalculé pour cette perspective")
@@ -296,6 +367,11 @@ async def backfill(args: argparse.Namespace) -> None:
     )
     if matches.empty:
         print("Aucune perspective de match à retraiter.")
+        if args.match_id and not args.force:
+            print(
+                "Astuce : si ce match a déjà été rempli avec des zéros, "
+                "relance avec --force."
+            )
         return
 
     print(f"{len(matches)} perspective(s) de match à retraiter.")
@@ -348,8 +424,19 @@ async def backfill(args: argparse.Namespace) -> None:
                     timeline,
                     allied_team_id=allied_team_id,
                 )
-                updated = save_backfill(match_id, puuid, teamfights)
 
+                # Validation AVANT toute écriture.
+                _build_updates(match_id, puuid, teamfights)
+
+                if args.debug:
+                    _debug_teamfights(timeline, teamfights, puuid)
+
+                if args.inspect_only:
+                    print("  INSPECT - aucune écriture BDD")
+                    success += 1
+                    continue
+
+                updated = save_backfill(match_id, puuid, teamfights)
                 success += 1
                 print(
                     f"  OK - {len(teamfights)} combat(s), "
@@ -374,7 +461,7 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         choices=DEFAULT_MODES,
         default=None,
-        help="Filtre facultatif sur les modes. Sans option : toutes les lignes Teamfight.",
+        help="Filtre facultatif sur les modes.",
     )
     parser.add_argument(
         "--season",
@@ -387,7 +474,7 @@ def parse_args() -> argparse.Namespace:
         "--match-id",
         type=str,
         default=None,
-        help="Ne traite qu'un match, pratique pour tester avant le backfill complet.",
+        help="Ne traite qu'un match.",
     )
     parser.add_argument(
         "--limit",
@@ -404,12 +491,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Recalcule aussi les perspectives dont les quatre colonnes sont déjà remplies.",
+        help="Recalcule aussi les perspectives déjà remplies.",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Affiche la sélection sans appeler Riot ni écrire en BDD.",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Affiche les compteurs Riot bruts avant/après chaque fenêtre du joueur tracké.",
+    )
+    parser.add_argument(
+        "--inspect-only",
+        action="store_true",
+        help="Recalcule et affiche éventuellement --debug, sans écrire en BDD.",
     )
     return parser.parse_args()
 
