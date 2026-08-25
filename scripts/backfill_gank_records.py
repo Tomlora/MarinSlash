@@ -10,6 +10,9 @@ Le script :
   ``match_gank_lane_stats``, ``match_gank_phase_stats`` et
   ``match_gank_summary`` via les méthodes de sauvegarde du détecteur.
 
+Comme ``backfill_teamfight_records.py``, le script évite d'importer ``MatchLol``
+et charge uniquement les modules gank nécessaires via ``importlib``.
+
 Aucune migration dédiée au backfill n'est nécessaire. Les tables gank V2 doivent
 cependant déjà posséder les colonnes enrichies utilisées par ``ganks_hybrid.py``.
 
@@ -23,7 +26,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib.util
 import sys
+import types
 from pathlib import Path
 from typing import Iterable
 
@@ -36,22 +41,59 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from fonctions.gestion_bdd import lire_bdd_perso
-from fonctions.match import ganks_hybrid as ganks_hybrid_module
-from fonctions.match.gank_laning_rules import (
-    GANK_ALGORITHM_VERSION,
-    GANK_WINDOW_END_MS,
-    apply_laning_gank_rules,
-    strict_detection_counts,
-)
-from fonctions.match.ganks_hybrid import HybridGankAnalysisMixin
 from utils.params import api_key_lol, region
 
 
-BACKFILL_VERSION = GANK_ALGORITHM_VERSION
 DEFAULT_MODES = ("RANKED", "FLEX", "SWIFTPLAY")
 
-# Les méthodes V2 sérialisent ``algorithm_version`` depuis le global du module.
-ganks_hybrid_module.ALGORITHM_VERSION = GANK_ALGORITHM_VERSION
+
+def _load_module(module_name: str, module_path: Path):
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Impossible de charger {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_gank_modules():
+    """Charge ganks.py/hybrid/rules sans exécuter fonctions.match.__init__."""
+    match_dir = REPO_ROOT / "fonctions" / "match"
+    package_name = "fonctions.match"
+
+    if package_name not in sys.modules:
+        package = types.ModuleType(package_name)
+        package.__package__ = package_name
+        package.__path__ = [str(match_dir)]
+        sys.modules[package_name] = package
+
+    legacy = _load_module(
+        f"{package_name}.ganks",
+        match_dir / "ganks.py",
+    )
+    hybrid = _load_module(
+        f"{package_name}.ganks_hybrid",
+        match_dir / "ganks_hybrid.py",
+    )
+    rules = _load_module(
+        f"{package_name}.gank_laning_rules",
+        match_dir / "gank_laning_rules.py",
+    )
+
+    # Les méthodes hybrides sérialisent algorithm_version depuis ce global.
+    hybrid.ALGORITHM_VERSION = rules.GANK_ALGORITHM_VERSION
+    return legacy, hybrid, rules
+
+
+_, GANKS_HYBRID, GANK_RULES = _load_gank_modules()
+HybridGankAnalysisMixin = GANKS_HYBRID.HybridGankAnalysisMixin
+GANK_ALGORITHM_VERSION = GANK_RULES.GANK_ALGORITHM_VERSION
+GANK_WINDOW_END_MS = GANK_RULES.GANK_WINDOW_END_MS
+apply_laning_gank_rules = GANK_RULES.apply_laning_gank_rules
+strict_detection_counts = GANK_RULES.strict_detection_counts
+
+BACKFILL_VERSION = GANK_ALGORITHM_VERSION
 
 
 class BackfillGankAnalyzer(HybridGankAnalysisMixin):
