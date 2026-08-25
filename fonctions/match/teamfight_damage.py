@@ -1,4 +1,4 @@
-"""Calcul des dégâts infligés par joueur pendant les combats."""
+"""Calcul des dégâts infligés et reçus par joueur pendant les combats."""
 
 from __future__ import annotations
 
@@ -79,12 +79,12 @@ def _is_near_fight(
     return False
 
 
-def _cumulative_champion_damage(
+def _cumulative_damage_stat(
     frame: dict[str, Any],
     participant_id: int,
-    stat: str = "totalDamageDoneToChampions",
+    stat: str,
 ) -> int:
-    """Lit un compteur cumulatif de dégâts aux champions d'une frame Riot."""
+    """Lit un compteur cumulatif de ``damageStats`` dans une frame Riot."""
     participant_frame = frame.get("participantFrames", {}).get(str(participant_id), {})
     return int(participant_frame.get("damageStats", {}).get(stat, 0) or 0)
 
@@ -96,8 +96,8 @@ def _damage_window(
     stat: str,
 ) -> int:
     """Retourne le delta positif d'un compteur de dégâts sur la fenêtre du combat."""
-    before = _cumulative_champion_damage(frame_before, participant_id, stat)
-    after = _cumulative_champion_damage(frame_after, participant_id, stat)
+    before = _cumulative_damage_stat(frame_before, participant_id, stat)
+    after = _cumulative_damage_stat(frame_after, participant_id, stat)
     return max(0, after - before)
 
 
@@ -148,9 +148,15 @@ def calculate_teamfight_damage(
     probables et ne modifient pas le ``fight_type``.
 
     ``damage_on_dead_targets`` est exact pour les cibles mortes présentes dans
-    les événements Riot. Les champs ``*_damage_window_estimated`` sont des
-    estimations par différence de compteurs entre les mêmes frames et ne doivent
-    pas être additionnés entre combats qui partagent la même fenêtre.
+    les événements Riot. Les données ``*_frame_window`` et
+    ``*_damage_window_estimated`` sont des deltas de compteurs Riot entre les
+    mêmes frames et ne doivent pas être additionnées entre combats qui partagent
+    la même fenêtre.
+
+    Les dégâts reçus utilisent ``totalDamageTaken`` et ses variantes physique,
+    magique et true. Ils sont donc individuels et fiables même si le joueur
+    survit, mais incluent volontairement toutes les sources de dégâts (champions,
+    sbires, monstres, tours, etc.).
     """
     frames = timeline.get("info", {}).get("frames", [])
     participants = match_detail.get("info", {}).get("participants", [])
@@ -225,7 +231,10 @@ def calculate_teamfight_damage(
                 source_id = damage.get("participantId")
                 if source_id not in team_by_pid:
                     continue
-                if victim_id in team_by_pid and team_by_pid[source_id] == team_by_pid[victim_id]:
+                if (
+                    victim_id in team_by_pid
+                    and team_by_pid[source_id] == team_by_pid[victim_id]
+                ):
                     continue
 
                 physical = int(damage.get("physicalDamage", 0) or 0)
@@ -275,8 +284,12 @@ def calculate_teamfight_damage(
 
         first_kill_ms = min(event["timestamp"] for event in events)
         last_kill_ms = max(event["timestamp"] for event in events)
-        before_frames = [frame for frame in frames if frame["timestamp"] <= first_kill_ms]
-        after_frames = [frame for frame in frames if frame["timestamp"] >= last_kill_ms]
+        before_frames = [
+            frame for frame in frames if frame["timestamp"] <= first_kill_ms
+        ]
+        after_frames = [
+            frame for frame in frames if frame["timestamp"] >= last_kill_ms
+        ]
         frame_before = before_frames[-1] if before_frames else frames[0]
         frame_after = after_frames[0] if after_frames else frames[-1]
 
@@ -318,6 +331,7 @@ def calculate_teamfight_damage(
         player_results = []
         for participant_id in sorted(involved):
             detailed_damage = damage_on_dead_targets[participant_id]
+
             damage_frame_window = _damage_window(
                 frame_before,
                 frame_after,
@@ -342,10 +356,40 @@ def calculate_teamfight_damage(
                 participant_id,
                 "trueDamageDoneToChampions",
             )
+
+            damage_taken_frame_window = _damage_window(
+                frame_before,
+                frame_after,
+                participant_id,
+                "totalDamageTaken",
+            )
+            physical_damage_taken_frame_window = _damage_window(
+                frame_before,
+                frame_after,
+                participant_id,
+                "physicalDamageTaken",
+            )
+            magic_damage_taken_frame_window = _damage_window(
+                frame_before,
+                frame_after,
+                participant_id,
+                "magicDamageTaken",
+            )
+            true_damage_taken_frame_window = _damage_window(
+                frame_before,
+                frame_after,
+                participant_id,
+                "trueDamageTaken",
+            )
+
             participant_team_id = team_by_pid[participant_id]
 
-            fight_kills = sum(event.get("killerId") == participant_id for event in events)
-            fight_deaths = sum(event.get("victimId") == participant_id for event in events)
+            fight_kills = sum(
+                event.get("killerId") == participant_id for event in events
+            )
+            fight_deaths = sum(
+                event.get("victimId") == participant_id for event in events
+            )
             fight_assists = sum(
                 participant_id in (event.get("assistingParticipantIds", []) or [])
                 for event in events
@@ -363,7 +407,11 @@ def calculate_teamfight_damage(
                     "puuid": puuid_by_pid[participant_id],
                     "player": player_by_pid[participant_id],
                     "champion": champion_by_pid[participant_id],
-                    "team": "Allié" if participant_team_id == allied_team_id else "Ennemi",
+                    "team": (
+                        "Allié"
+                        if participant_team_id == allied_team_id
+                        else "Ennemi"
+                    ),
                     "participation_source": _participation_source(
                         participant_id,
                         event_involved,
@@ -379,7 +427,9 @@ def calculate_teamfight_damage(
                     "fight_deaths": fight_deaths,
                     "fight_assists": fight_assists,
                     "survived": fight_deaths == 0,
-                    "enemies_damaged_count": len(damaged_victims_by_source[participant_id]),
+                    "enemies_damaged_count": len(
+                        damaged_victims_by_source[participant_id]
+                    ),
                     "damage_on_dead_targets": detailed_damage["total"],
                     "physical_damage_on_dead_targets": detailed_damage["physical"],
                     "magic_damage_on_dead_targets": detailed_damage["magic"],
@@ -390,6 +440,16 @@ def calculate_teamfight_damage(
                     "physical_damage_window_estimated": physical_damage_window,
                     "magic_damage_window_estimated": magic_damage_window,
                     "true_damage_window_estimated": true_damage_window,
+                    "damage_taken_frame_window": damage_taken_frame_window,
+                    "physical_damage_taken_frame_window": (
+                        physical_damage_taken_frame_window
+                    ),
+                    "magic_damage_taken_frame_window": (
+                        magic_damage_taken_frame_window
+                    ),
+                    "true_damage_taken_frame_window": (
+                        true_damage_taken_frame_window
+                    ),
                 }
             )
 
@@ -418,7 +478,9 @@ def calculate_teamfight_damage(
                 "proximity_allies": len(involved_allies - core_allies_set),
                 "proximity_enemies": len(involved_enemies - core_enemies_set),
                 "fight_type": f"{core_allies}v{core_enemies}",
-                "fight_type_with_proximity": f"{len(involved_allies)}v{len(involved_enemies)}",
+                "fight_type_with_proximity": (
+                    f"{len(involved_allies)}v{len(involved_enemies)}"
+                ),
                 "fight_category": _fight_category(core_allies, core_enemies),
                 "is_teamfight": min(core_allies, core_enemies) >= 3,
                 "is_outnumbered": is_outnumbered,
@@ -463,12 +525,16 @@ async def teamfight_damage(
         current_participant = next(
             (
                 participant
-                for participant in self.match_detail.get("info", {}).get("participants", [])
+                for participant in self.match_detail.get("info", {}).get(
+                    "participants", []
+                )
                 if participant.get("participantId") == current_participant_id
             ),
             None,
         )
-        allied_team_id = current_participant.get("teamId") if current_participant else None
+        allied_team_id = (
+            current_participant.get("teamId") if current_participant else None
+        )
 
     if allied_team_id is None:
         raise ValueError("Impossible de déterminer l'équipe alliée du joueur analysé")
