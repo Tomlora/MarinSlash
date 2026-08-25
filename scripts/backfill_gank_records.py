@@ -10,6 +10,10 @@ Le script :
   ``match_gank_lane_stats``, ``match_gank_phase_stats`` et
   ``match_gank_summary`` via les méthodes de sauvegarde du détecteur.
 
+Par défaut toutes les parties Ranked/Flex/Swiftplay >=15 min sont éligibles,
+car les commandes gank peuvent lire des parties qui ne participent pas aux records.
+``--records-only`` reproduit le périmètre restreint du backfill Teamfight.
+
 Comme ``backfill_teamfight_records.py``, le script évite d'importer ``MatchLol``
 et charge uniquement les modules gank nécessaires via ``importlib``.
 
@@ -19,6 +23,7 @@ cependant déjà posséder les colonnes enrichies utilisées par ``ganks_hybrid.
 Exemples :
     python scripts/backfill_gank_records.py --dry-run --season 15
     python scripts/backfill_gank_records.py --season 15 --limit 100
+    python scripts/backfill_gank_records.py --records-only --season 15
     python scripts/backfill_gank_records.py --match-id 1234567890 --force
 """
 
@@ -189,6 +194,7 @@ def load_matches(
     limit: int | None,
     force: bool,
     match_id: str | None,
+    records_only: bool,
 ) -> pd.DataFrame:
     season_filter = ""
     if seasons:
@@ -199,6 +205,14 @@ def load_matches(
         raw = str(match_id).replace("EUW1_", "")
         safe = raw.replace("'", "''")
         match_filter = f"AND CAST(m.match_id AS TEXT) = '{safe}'"
+
+    records_filter = ""
+    if records_only:
+        records_filter = """
+          AND m.records = TRUE
+          AND t.save_records = TRUE
+          AND t.banned = FALSE
+        """
 
     limit_sql = f"LIMIT {int(limit)}" if limit else ""
 
@@ -248,9 +262,7 @@ def load_matches(
             ON t.id_compte = m.joueur
         WHERE m.mode IN ({_sql_list(modes)})
           AND m.time >= 15
-          AND m.records = TRUE
-          AND t.save_records = TRUE
-          AND t.banned = FALSE
+          {records_filter}
           {season_filter}
           {match_filter}
           {stale_filter}
@@ -335,14 +347,16 @@ async def backfill(args: argparse.Namespace) -> None:
         args.limit,
         args.force,
         args.match_id,
+        args.records_only,
     )
     if matches.empty:
         print("Aucun match à retraiter.")
         return
 
+    scope = "records uniquement" if args.records_only else "toutes les games éligibles"
     print(
-        f"{len(matches)} match(s) à retraiter avec les règles gank V{BACKFILL_VERSION} "
-        f"(<14:00)."
+        f"{len(matches)} match(s) à retraiter avec les règles gank "
+        f"V{BACKFILL_VERSION} (<14:00) - {scope}."
     )
 
     if args.dry_run:
@@ -429,6 +443,11 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=3.0,
         help="Pause entre deux matchs, en secondes.",
+    )
+    parser.add_argument(
+        "--records-only",
+        action="store_true",
+        help="Limite le backfill aux parties éligibles aux records.",
     )
     parser.add_argument(
         "--force",
