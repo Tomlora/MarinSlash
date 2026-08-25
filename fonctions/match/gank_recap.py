@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from .gank_laning_rules import is_laning_gank_timestamp
+try:
+    from .gank_laning_rules import is_laning_gank_timestamp
+except ImportError:  # Chargement direct par importlib dans les tests unitaires.
+    def is_laning_gank_timestamp(timestamp_ms: Any) -> bool:
+        try:
+            timestamp = int(float(timestamp_ms))
+        except (TypeError, ValueError):
+            return False
+        return 0 <= timestamp < 14 * 60 * 1000
 
 
 LANE_LABELS = {
