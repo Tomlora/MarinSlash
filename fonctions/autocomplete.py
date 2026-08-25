@@ -10,6 +10,10 @@ RECORD_AUTOCOMPLETE_LABELS = {
     'tf_physical_damage_window': 'DMG AD MAX EN TEAMFIGHT',
     'tf_magic_damage_window': 'DMG AP MAX EN TEAMFIGHT',
     'tf_true_damage_window': 'DMG TRUE MAX EN TEAMFIGHT',
+    'tf_damage_taken_window': 'DMG REÇUS MAX EN TEAMFIGHT',
+    'tf_physical_damage_taken_window': 'DMG PHYSIQUES REÇUS MAX EN TEAMFIGHT',
+    'tf_magic_damage_taken_window': 'DMG MAGIQUES REÇUS MAX EN TEAMFIGHT',
+    'tf_true_damage_taken_window': 'DMG TRUE REÇUS MAX EN TEAMFIGHT',
     'tf_physical_dead_damage': 'DMG AD SUR CIBLES MORTES',
     'tf_magic_dead_damage': 'DMG AP SUR CIBLES MORTES',
     'tf_true_dead_damage': 'DMG TRUE SUR CIBLES MORTES',
@@ -88,9 +92,12 @@ async def autocomplete_record(record_id):
         'l_time', 'l_solokills',
         'tf_takedowns_survived', 'tf_teamfight_outnumbered_wins', 'tf_teamfights',
         'tf_clutches_won', 'tf_damage_window', 'tf_physical_damage_window',
-        'tf_magic_damage_window', 'tf_true_damage_window', 'tf_physical_dead_damage',
-        'tf_magic_dead_damage', 'tf_true_dead_damage', 'tf_dead_damage_share_pct',
-        'tf_damage_window_share_pct', 'tf_duels', 'tf_duels_won', 'tf_skirmishes',
+        'tf_magic_damage_window', 'tf_true_damage_window',
+        'tf_damage_taken_window', 'tf_physical_damage_taken_window',
+        'tf_magic_damage_taken_window', 'tf_true_damage_taken_window',
+        'tf_physical_dead_damage', 'tf_magic_dead_damage', 'tf_true_dead_damage',
+        'tf_dead_damage_share_pct', 'tf_damage_window_share_pct',
+        'tf_duels', 'tf_duels_won', 'tf_skirmishes',
     ]
 
     search = (record_id or '').lower().strip()
