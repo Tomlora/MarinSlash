@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from .gank_laning_rules import is_laning_gank_timestamp
+
 
 LANE_LABELS = {
     "top": "TOP",
@@ -17,6 +19,45 @@ def _safe_int(value: Any) -> int:
         return int(value or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _event_timestamp(event: Dict[str, Any]) -> Any:
+    return event.get("timestamp", event.get("timestamp_ms"))
+
+
+def _by_lane_from_events(gank_stats: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
+    """Reconstruit les appuis <14 min depuis les événements si disponibles.
+
+    Cette seconde barrière rend l'insight indépendant des agrégats ``by_lane`` :
+    même si ceux-ci étaient un jour calculés sur une fenêtre plus large, le récap
+    resterait strictement limité à la phase de lane.
+    """
+
+    events = gank_stats.get("events")
+    if not isinstance(events, dict):
+        return {}
+
+    by_lane = {
+        lane: {"ganks_made": 0, "ganks_received": 0}
+        for lane in ("top", "mid", "bot")
+    }
+    has_event_payload = False
+
+    for side, metric in (("ally", "ganks_made"), ("enemy", "ganks_received")):
+        side_events = events.get(side)
+        if not isinstance(side_events, list):
+            continue
+        has_event_payload = True
+        for event in side_events:
+            if not isinstance(event, dict):
+                continue
+            if not is_laning_gank_timestamp(_event_timestamp(event)):
+                continue
+            lane = str(event.get("lane") or "").lower()
+            if lane in by_lane:
+                by_lane[lane][metric] += 1
+
+    return by_lane if has_event_payload else {}
 
 
 def _clear_focus_lane(
@@ -59,7 +100,9 @@ def build_gank_pressure_insight(gank_stats: Any) -> str:
     if not isinstance(gank_stats, dict) or gank_stats.get("error"):
         return ""
 
-    by_lane = gank_stats.get("by_lane") or {}
+    # Priorité aux événements : ils permettent d'appliquer explicitement <14:00.
+    # Fallback sur by_lane pour les tests/anciens payloads sans liste d'événements.
+    by_lane = _by_lane_from_events(gank_stats) or (gank_stats.get("by_lane") or {})
     if not by_lane:
         return ""
 
@@ -95,8 +138,9 @@ def install_gank_recap(match_class) -> None:
     async def calcul_badges_with_gank_recap(self, sauvegarder):
         await original(self, sauvegarder)
 
-        # analyze_ganks n'est exécuté que sur les modes compatibles et les games
-        # suffisamment longues. L'absence de gank_stats est donc normale ailleurs.
+        # analyze_ganks est exécuté avant calcul_badges dans MatchLol.run().
+        # En V3 ses événements sont déjà filtrés <14:00 ; build_gank_pressure_insight
+        # réapplique malgré tout la fenêtre pour éviter toute régression future.
         insight = build_gank_pressure_insight(getattr(self, "gank_stats", None))
         if not insight:
             return
