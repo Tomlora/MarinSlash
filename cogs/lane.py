@@ -2,7 +2,13 @@ import re
 
 import interactions
 import pandas as pd
-from interactions import Extension, SlashCommandChoice, SlashCommandOption, SlashContext, slash_command
+from interactions import (
+    Extension,
+    SlashCommandChoice,
+    SlashCommandOption,
+    SlashContext,
+    slash_command,
+)
 
 from fonctions.autocomplete import autocomplete_riotid
 from fonctions.gestion_bdd import get_tag, lire_bdd_perso
@@ -17,6 +23,7 @@ from utils.params import Version, saison
 
 
 ELIGIBLE_ROLES = {"TOP", "MID", "ADC"}
+SUPPORTED_MODES = {"RANKED", "FLEX", "SWIFTPLAY"}
 
 
 def _normalize_champion(champion: str) -> str:
@@ -37,7 +44,10 @@ def _champion_icon_url(champion: str) -> str | None:
     match = re.search(r"<a?:[^:]+:(\d+)>", _champion_emoji(champion))
     if match is None:
         return None
-    return f"https://cdn.discordapp.com/emojis/{match.group(1)}.png?size=128&quality=lossless"
+    return (
+        f"https://cdn.discordapp.com/emojis/{match.group(1)}.png"
+        "?size=128&quality=lossless"
+    )
 
 
 def _number(value, default=0.0) -> float:
@@ -135,7 +145,12 @@ class LaneAnalysis(Extension):
         return riot_id, riot_tag.upper()
 
     @staticmethod
-    def _load_match(riot_id: str, riot_tag: str, numerogame: int, match_id: str | None):
+    def _load_match(
+        riot_id: str,
+        riot_tag: str,
+        numerogame: int,
+        match_id: str | None,
+    ):
         common_select = """
             SELECT
                 matchs.match_id,
@@ -161,6 +176,7 @@ class LaneAnalysis(Extension):
               AND UPPER(tracker.riot_tagline) = :riot_tag
         """
         params = {"riot_id": riot_id, "riot_tag": riot_tag}
+
         if match_id is not None and str(match_id).strip():
             requested = str(match_id).strip()
             params.update(
@@ -182,11 +198,20 @@ class LaneAnalysis(Extension):
             ORDER BY matchs.datetime DESC, matchs.match_id DESC
             LIMIT 1 OFFSET :offset
             """
+
         df = lire_bdd_perso(query, index_col=None, params=params).T
         return None if df.empty else df.iloc[0].to_dict()
 
     @staticmethod
-    def _history(riot_id: str, riot_tag: str, mode: str, season_filter: int):
+    def _history(
+        riot_id: str,
+        riot_tag: str,
+        mode: str,
+        season_filter: int,
+    ):
+        if mode not in SUPPORTED_MODES:
+            return pd.DataFrame()
+
         score_sql = lane_domination_sql("mps", "matchs")
         conditions = [
             "LOWER(tracker.riot_id) = :riot_id",
@@ -199,6 +224,7 @@ class LaneAnalysis(Extension):
         if season_filter != 0:
             conditions.append("matchs.season = :season")
             params["season"] = season_filter
+
         return lire_bdd_perso(
             f"""
             SELECT
@@ -224,23 +250,44 @@ class LaneAnalysis(Extension):
     async def lane(self, ctx: SlashContext):
         pass
 
-    @lane.subcommand("resume", sub_cmd_description="Analyse la lane d'une partie", options=_game_options())
-    async def resume(self, ctx: SlashContext, riot_id: str, riot_tag: str = None, numerogame: int = 0, match_id: str = None):
+    @lane.subcommand(
+        "resume",
+        sub_cmd_description="Analyse la lane d'une partie",
+        options=_game_options(),
+    )
+    async def resume(
+        self,
+        ctx: SlashContext,
+        riot_id: str,
+        riot_tag: str = None,
+        numerogame: int = 0,
+        match_id: str = None,
+    ):
         await ctx.defer(ephemeral=False)
         try:
             riot_id, riot_tag = self._resolve_account(riot_id, riot_tag)
         except (ValueError, KeyError, IndexError, AttributeError):
-            return await ctx.send("Compte introuvable ou Riot ID ambigu. Précise le tag.")
+            return await ctx.send(
+                "Compte introuvable ou Riot ID ambigu. Précise le tag."
+            )
 
         match = self._load_match(riot_id, riot_tag, numerogame, match_id)
         if match is None:
             return await ctx.send("Cette partie enregistrée est introuvable.")
 
+        mode = str(match.get("mode") or "").upper()
+        if mode not in SUPPORTED_MODES:
+            return await ctx.send(
+                "La domination de lane n'est disponible qu'en Ranked, Flex "
+                "et Swiftplay. Elle n'est pas calculée en ARAM."
+            )
+
         role = str(match.get("role") or "").upper()
         if role not in ELIGIBLE_ROLES:
             return await ctx.send(
-                f"L'indice de domination de lane n'est pas calculé pour le rôle **{role or 'inconnu'}**. "
-                "Il est réservé à TOP / MID / ADC pour éviter un score CS trompeur."
+                f"L'indice de domination de lane n'est pas calculé pour le rôle "
+                f"**{role or 'inconnu'}**. Il est réservé à TOP / MID / ADC pour "
+                "éviter un score CS trompeur."
             )
 
         gold_diff = _number(match.get("gold_diff_15"))
@@ -248,7 +295,13 @@ class LaneAnalysis(Extension):
         cs_peak = _number(match.get("cs_max_avantage"))
         level_peak = _number(match.get("level_max_avantage"))
         solo = _number(match.get("solokills"))
-        score = calculate_lane_domination_score(gold_diff, cs_diff, cs_peak, level_peak, solo)
+        score = calculate_lane_domination_score(
+            gold_diff,
+            cs_diff,
+            cs_peak,
+            level_peak,
+            solo,
+        )
         label = lane_domination_label(score)
         champion = str(match.get("champion") or "?")
 
@@ -275,45 +328,82 @@ class LaneAnalysis(Extension):
             value=(
                 f"💰 Gold diff **{_signed(gold_diff)}**\n"
                 f"👻 CS diff **{_signed(cs_diff)}**\n"
-                f"Stock personnel : **{int(_number(match.get('gold_at_15')))} gold** · **{int(_number(match.get('cs_at_15')))} CS**"
+                f"Stock personnel : **{int(_number(match.get('gold_at_15')))} gold** · "
+                f"**{int(_number(match.get('cs_at_15')))} CS**"
             ),
             inline=False,
         )
         embed.add_field(
             name="Signaux secondaires",
             value=(
-                f"Pic CS **{_signed(cs_peak)}** · Pic niveau **{_signed(level_peak)}** · "
+                f"Pic CS **{_signed(cs_peak)}** · "
+                f"Pic niveau **{_signed(level_peak)}** · "
                 f"Solokills **{int(solo)}**"
             ),
             inline=False,
         )
 
-        history = self._history(riot_id, riot_tag, str(match.get("mode") or "RANKED"), int(match.get("season") or saison))
+        history = self._history(
+            riot_id,
+            riot_tag,
+            mode,
+            int(match.get("season") or saison),
+        )
         if not history.empty:
-            scores = pd.to_numeric(history["lane_domination_score"], errors="coerce").dropna()
+            scores = pd.to_numeric(
+                history["lane_domination_score"], errors="coerce"
+            ).dropna()
             if not scores.empty:
                 avg = scores.mean()
                 percentile = 100.0 * (scores <= score).sum() / len(scores)
-                gold_series = pd.to_numeric(history["gold_diff_15"], errors="coerce").dropna()
-                lane_win = 100.0 * (gold_series > 0).sum() / len(gold_series) if len(gold_series) else 0.0
+                gold_series = pd.to_numeric(
+                    history["gold_diff_15"], errors="coerce"
+                ).dropna()
+                lane_win = (
+                    100.0 * (gold_series > 0).sum() / len(gold_series)
+                    if len(gold_series)
+                    else 0.0
+                )
                 embed.add_field(
                     name="Par rapport à son historique",
                     value=(
-                        f"Score moyen **{avg:.1f}** · cette game est au **{percentile:.0f}e percentile**\n"
-                        f"Avantage gold @15 sur **{lane_win:.0f}%** des {len(scores)} games analysées"
+                        f"Score moyen **{avg:.1f}** · cette game est au "
+                        f"**{percentile:.0f}e percentile**\n"
+                        f"Avantage gold @15 sur **{lane_win:.0f}%** des "
+                        f"{len(scores)} games analysées"
                     ),
                     inline=False,
                 )
 
-        embed.set_footer(text=f"Indice lane v{LANE_DOMINATION_VERSION} · Version {Version}")
+        embed.set_footer(
+            text=f"Indice lane v{LANE_DOMINATION_VERSION} · Version {Version}"
+        )
         await ctx.send(embeds=embed)
 
-    @lane.subcommand("records", sub_cmd_description="Records de domination de lane", options=_record_options())
-    async def records(self, ctx: SlashContext, mode: str = "RANKED", season: int = saison, scope: str = "server"):
+    @lane.subcommand(
+        "records",
+        sub_cmd_description="Records de domination de lane",
+        options=_record_options(),
+    )
+    async def records(
+        self,
+        ctx: SlashContext,
+        mode: str = "RANKED",
+        season: int = saison,
+        scope: str = "server",
+    ):
         await ctx.defer(ephemeral=False)
         mode = str(mode or "RANKED").upper()
         season = saison if season is None else int(season)
         scope = str(scope or "server").lower()
+
+        # Garde serveur en plus des choices Discord : même un appel forgé ne peut
+        # pas injecter l'ARAM dans les records de lane.
+        if mode not in SUPPORTED_MODES:
+            return await ctx.send(
+                "Les records de domination de lane sont limités à Ranked, Flex "
+                "et Swiftplay."
+            )
 
         conditions = [
             "tracker.banned = false",
@@ -356,7 +446,9 @@ class LaneAnalysis(Extension):
             params=params,
         ).T
         if df.empty:
-            return await ctx.send("Aucune donnée de lane disponible pour ce périmètre.")
+            return await ctx.send(
+                "Aucune donnée de lane disponible pour ce périmètre."
+            )
 
         title_scope = "serveur" if scope == "server" else "global"
         title_season = f"S{season}" if season != 0 else "toutes saisons"
@@ -366,7 +458,11 @@ class LaneAnalysis(Extension):
         )
 
         metrics = [
-            ("lane_domination_score", "PLUS GROS INDICE DE DOMINATION", "score"),
+            (
+                "lane_domination_score",
+                "PLUS GROS INDICE DE DOMINATION",
+                "score",
+            ),
             ("gold_diff_15", "PLUS GROS ÉCART GOLD @15", "gold"),
             ("cs_diff_15", "PLUS GROS ÉCART CS @15", "int"),
         ]
@@ -376,6 +472,7 @@ class LaneAnalysis(Extension):
             valid = valid[valid["_value"].notna()]
             if valid.empty:
                 continue
+
             best = valid["_value"].max()
             holders = valid[valid["_value"] == best].head(5)
             if fmt == "score":
@@ -384,23 +481,36 @@ class LaneAnalysis(Extension):
                 display = f"{int(best):+d} gold"
             else:
                 display = f"{int(best):+d}"
+
             lines = []
             for _, row in holders.iterrows():
                 champion = str(row.get("champion") or "?")
                 lines.append(
-                    f"{_champion_emoji(champion)} **{row.get('riot_id')} #{row.get('riot_tagline')}** · "
+                    f"{_champion_emoji(champion)} "
+                    f"**{row.get('riot_id')} #{row.get('riot_tagline')}** · "
                     f"{champion} ({row.get('role')}) · `{row.get('match_id')}`"
                 )
-            embed.add_field(name=f"{label} — {display}", value="\n".join(lines), inline=False)
+            embed.add_field(
+                name=f"{label} — {display}",
+                value="\n".join(lines),
+                inline=False,
+            )
 
         embed.add_field(
             name="Lecture de l'indice",
-            value="80+ domination totale · 70+ dominante · 60+ avantage net · 45–59 équilibrée · <45 en difficulté",
+            value=(
+                "80+ domination totale · 70+ dominante · 60+ avantage net · "
+                "45–59 équilibrée · <45 en difficulté"
+            ),
             inline=False,
         )
-        embed.set_footer(text=f"Indice lane v{LANE_DOMINATION_VERSION} · Version {Version}")
+        embed.set_footer(
+            text=f"Indice lane v{LANE_DOMINATION_VERSION} · Version {Version}"
+        )
         await ctx.send(embeds=embed)
 
     @resume.autocomplete("riot_id")
     async def autocomplete_resume(self, ctx: interactions.AutocompleteContext):
-        await ctx.send(choices=await autocomplete_riotid(int(ctx.guild.id), ctx.input_text))
+        await ctx.send(
+            choices=await autocomplete_riotid(int(ctx.guild.id), ctx.input_text)
+        )
