@@ -50,3 +50,34 @@ def test_both_clear_focuses_are_displayed():
     assert "TOP" in insight
     assert "Jungle ennemie" in insight
     assert "BOT" in insight
+
+
+def test_recap_ignores_events_at_or_after_fourteen_minutes():
+    stats = _stats((3, 0, 0), (0, 0, 0))
+    stats["events"] = {
+        "ally": [
+            {"timestamp": 5 * 60 * 1000, "lane": "top"},
+            {"timestamp": 14 * 60 * 1000, "lane": "top"},
+            {"timestamp": 18 * 60 * 1000, "lane": "top"},
+        ],
+        "enemy": [],
+    }
+    # by_lane prétend 3 ganks TOP, mais seul celui à 5:00 est éligible :
+    # l'insight doit donc rester vide (minimum 2 tentatives).
+    assert build_gank_pressure_insight(stats) == ""
+
+
+def test_recap_uses_only_pre_fourteen_events_for_focus_share():
+    stats = _stats((0, 0, 0), (0, 0, 0))
+    stats["events"] = {
+        "ally": [
+            {"timestamp": 4 * 60 * 1000, "lane": "bot"},
+            {"timestamp": 9 * 60 * 1000, "lane": "bot"},
+            {"timestamp": 16 * 60 * 1000, "lane": "mid"},
+        ],
+        "enemy": [],
+    }
+    insight = build_gank_pressure_insight(stats)
+    assert "Jungle alliée" in insight
+    assert "BOT" in insight
+    assert "2/2" in insight
