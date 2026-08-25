@@ -9,8 +9,8 @@ Le script :
 
 Il n'importe ni ``MatchLol`` ni un module API interne au package ``fonctions.match``.
 
-Pré-requis : exécuter d'abord
-``sql/migrations/20260818_add_teamfight_record_fields.sql``.
+Pour les dégâts reçus ajoutés en août 2026, exécuter d'abord
+``scripts/add_teamfight_damage_taken_columns.sql``.
 """
 
 from __future__ import annotations
@@ -276,6 +276,10 @@ def _build_rows(
                     "physical_damage_window_estimated": player.get("physical_damage_window_estimated", 0),
                     "magic_damage_window_estimated": player.get("magic_damage_window_estimated", 0),
                     "true_damage_window_estimated": player.get("true_damage_window_estimated", 0),
+                    "damage_taken_frame_window": player.get("damage_taken_frame_window", 0),
+                    "physical_damage_taken_frame_window": player.get("physical_damage_taken_frame_window", 0),
+                    "magic_damage_taken_frame_window": player.get("magic_damage_taken_frame_window", 0),
+                    "true_damage_taken_frame_window": player.get("true_damage_taken_frame_window", 0),
                 }
             )
 
@@ -309,7 +313,11 @@ INSERT_TEAMFIGHT_SQL = text(
         damage_window_estimated, damage_frame_window,
         physical_damage_window_estimated,
         magic_damage_window_estimated,
-        true_damage_window_estimated
+        true_damage_window_estimated,
+        damage_taken_frame_window,
+        physical_damage_taken_frame_window,
+        magic_damage_taken_frame_window,
+        true_damage_taken_frame_window
     ) VALUES (
         :match_id, :analyzed_puuid, :fight_id, :participant_id, :puuid,
         :player_name, :champion, :team, :participation_source,
@@ -335,7 +343,11 @@ INSERT_TEAMFIGHT_SQL = text(
         :damage_window_estimated, :damage_frame_window,
         :physical_damage_window_estimated,
         :magic_damage_window_estimated,
-        :true_damage_window_estimated
+        :true_damage_window_estimated,
+        :damage_taken_frame_window,
+        :physical_damage_taken_frame_window,
+        :magic_damage_taken_frame_window,
+        :true_damage_taken_frame_window
     )
     """
 )
