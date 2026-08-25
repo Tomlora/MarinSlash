@@ -168,7 +168,7 @@ class LolProfile(Extension):
         return lire_bdd_perso(
             f"""
             SELECT
-                COALESCE(mps.role, matchs.position) AS role,
+                COALESCE(mps.role, matchs.role) AS role,
                 COUNT(*) AS games
             FROM matchs
             INNER JOIN tracker ON tracker.id_compte = matchs.joueur
@@ -176,7 +176,7 @@ class LolProfile(Extension):
                 ON mps.match_id = matchs.match_id
                AND mps.player_index = matchs.id_participant
             WHERE {' AND '.join(conditions)}
-            GROUP BY COALESCE(mps.role, matchs.position)
+            GROUP BY COALESCE(mps.role, matchs.role)
             ORDER BY games DESC
             """,
             index_col=None,
