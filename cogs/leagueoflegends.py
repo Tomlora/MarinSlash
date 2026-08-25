@@ -69,6 +69,10 @@ TEAMFIGHT_RECORD_KEYS = [
     'tf_physical_damage_window',
     'tf_magic_damage_window',
     'tf_true_damage_window',
+    'tf_damage_taken_window',
+    'tf_physical_damage_taken_window',
+    'tf_magic_damage_taken_window',
+    'tf_true_damage_taken_window',
     'tf_physical_dead_damage',
     'tf_magic_dead_damage',
     'tf_true_dead_damage',
@@ -93,7 +97,7 @@ def _split_field_by_lines(text: str, max_len: int = 1024) -> list[str]:
         current = ''
 
         for line in text.split('\n'):
-            # +1 pour le \\n qu'on va rajouter
+            # +1 pour le \n qu'on va rajouter
             if current and len(current) + len(line) + 1 > max_len:
                 chunks.append(current.strip())
                 current = ''
@@ -121,7 +125,7 @@ def _max_numeric(current, candidate):
 
 
 def _get_current_teamfight_records(match_info) -> dict:
-    """Calcule les 16 records Teamfights du match courant avec les règles de recordslol.py."""
+    """Calcule les 20 records Teamfights du match courant avec les règles de recordslol.py."""
     result = {key: 0 for key in TEAMFIGHT_RECORD_KEYS}
     teamfights = getattr(match_info, 'teamfight_damage_data', None) or []
     tracked_puuid = str(getattr(match_info, 'puuid', '') or '')
@@ -135,6 +139,10 @@ def _get_current_teamfight_records(match_info) -> dict:
         'tf_physical_damage_window': None,
         'tf_magic_damage_window': None,
         'tf_true_damage_window': None,
+        'tf_damage_taken_window': None,
+        'tf_physical_damage_taken_window': None,
+        'tf_magic_damage_taken_window': None,
+        'tf_true_damage_taken_window': None,
         'tf_physical_dead_damage': None,
         'tf_magic_dead_damage': None,
         'tf_true_dead_damage': None,
@@ -208,6 +216,22 @@ def _get_current_teamfight_records(match_info) -> dict:
         max_values['tf_true_damage_window'] = _max_numeric(
             max_values['tf_true_damage_window'],
             tracked_player.get('true_damage_window_estimated')
+        )
+        max_values['tf_damage_taken_window'] = _max_numeric(
+            max_values['tf_damage_taken_window'],
+            tracked_player.get('damage_taken_frame_window')
+        )
+        max_values['tf_physical_damage_taken_window'] = _max_numeric(
+            max_values['tf_physical_damage_taken_window'],
+            tracked_player.get('physical_damage_taken_frame_window')
+        )
+        max_values['tf_magic_damage_taken_window'] = _max_numeric(
+            max_values['tf_magic_damage_taken_window'],
+            tracked_player.get('magic_damage_taken_frame_window')
+        )
+        max_values['tf_true_damage_taken_window'] = _max_numeric(
+            max_values['tf_true_damage_taken_window'],
+            tracked_player.get('true_damage_taken_frame_window')
         )
         max_values['tf_physical_dead_damage'] = _max_numeric(
             max_values['tf_physical_dead_damage'],
@@ -378,6 +402,10 @@ class LeagueofLegends(Extension):
                     'tf_match.tf_physical_damage_window',
                     'tf_match.tf_magic_damage_window',
                     'tf_match.tf_true_damage_window',
+                    'tf_match.tf_damage_taken_window',
+                    'tf_match.tf_physical_damage_taken_window',
+                    'tf_match.tf_magic_damage_taken_window',
+                    'tf_match.tf_true_damage_taken_window',
                     'tf_match.tf_physical_dead_damage',
                     'tf_match.tf_magic_dead_damage',
                     'tf_match.tf_true_dead_damage',
@@ -428,6 +456,18 @@ class LeagueofLegends(Extension):
                             MAX(mtd.true_damage_window_estimated) FILTER (
                                 WHERE mtd.is_teamfight
                             ) AS tf_true_damage_window,
+                            MAX(mtd.damage_taken_frame_window) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_damage_taken_window,
+                            MAX(mtd.physical_damage_taken_frame_window) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_physical_damage_taken_window,
+                            MAX(mtd.magic_damage_taken_frame_window) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_magic_damage_taken_window,
+                            MAX(mtd.true_damage_taken_frame_window) FILTER (
+                                WHERE mtd.is_teamfight
+                            ) AS tf_true_damage_taken_window,
                             MAX(mtd.physical_damage_on_dead_targets) FILTER (
                                 WHERE mtd.is_teamfight
                             ) AS tf_physical_dead_damage,
