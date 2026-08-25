@@ -3,11 +3,11 @@ import re
 import interactions
 import pandas as pd
 from interactions import Extension, SlashCommandOption, SlashContext, slash_command
+from interactions.ext.paginators import Paginator
 
 from fonctions.autocomplete import autocomplete_riotid
 from fonctions.gestion_bdd import get_tag, lire_bdd_perso
 from utils.emoji import emote_champ_discord
-from utils.params import Version
 
 
 TAKEN_COLUMNS = (
@@ -136,6 +136,32 @@ def _fight_label(row: pd.Series) -> str:
         return str(category)
 
     return "combat"
+
+
+def _compact_fight_label(row: pd.Series, tracked: pd.Series) -> str:
+    """Version courte pour la timeline de /teamfight combats."""
+    core = row.get("fight_type")
+    proximity = row.get("fight_type_with_proximity")
+    category = row.get("fight_category")
+
+    if _has_value(core) and str(core).strip():
+        label = str(core)
+    elif _has_value(category) and str(category).strip():
+        label = str(category)
+    else:
+        label = "combat"
+
+    if (
+        _has_value(proximity)
+        and str(proximity).strip()
+        and str(proximity) != label
+    ):
+        return f"**{label}** · prox {proximity}"
+
+    if _safe_bool(tracked.get("is_proximity_participant")):
+        return f"**{label}** · prox"
+
+    return f"**{label}**"
 
 
 def _tracked_row(fight_df: pd.DataFrame, analyzed_puuid: str) -> pd.Series | None:
@@ -457,14 +483,84 @@ class Teamfight(Extension):
         if icon_url:
             embed.set_thumbnail(url=icon_url)
 
-        embed.set_footer(
-            text=(
-                f"Version {Version} by Tomlora · "
-                "infligés = damage_frame_window · "
-                "reçus = damage_taken_frame_window"
-            )
-        )
         return embed
+
+    @classmethod
+    def _build_pages(
+        cls,
+        title: str,
+        champion: str,
+        selected_match_id,
+        numerogame: int,
+        requested_match_id: str | None,
+        fields: list[tuple[str, str, bool]],
+        max_content_chars: int = 4800,
+        max_fields: int = 20,
+    ) -> list[interactions.Embed]:
+        """Construit plusieurs embeds avant d'approcher les limites Discord."""
+        pages = []
+        current_fields = []
+        current_chars = 0
+
+        for name, value, inline in fields:
+            name = str(name)
+            value = str(value)
+            field_chars = len(name) + len(value)
+
+            if current_fields and (
+                len(current_fields) >= max_fields
+                or current_chars + field_chars > max_content_chars
+            ):
+                page = cls._base_embed(
+                    title,
+                    champion,
+                    selected_match_id,
+                    numerogame,
+                    requested_match_id,
+                )
+                for field_name, field_value, field_inline in current_fields:
+                    page.add_field(
+                        name=field_name,
+                        value=field_value,
+                        inline=field_inline,
+                    )
+                pages.append(page)
+                current_fields = []
+                current_chars = 0
+
+            current_fields.append((name, value, inline))
+            current_chars += field_chars
+
+        if current_fields or not pages:
+            page = cls._base_embed(
+                title,
+                champion,
+                selected_match_id,
+                numerogame,
+                requested_match_id,
+            )
+            for field_name, field_value, field_inline in current_fields:
+                page.add_field(
+                    name=field_name,
+                    value=field_value,
+                    inline=field_inline,
+                )
+            pages.append(page)
+
+        return pages
+
+    async def _send_pages(
+        self,
+        ctx: SlashContext,
+        pages: list[interactions.Embed],
+    ) -> None:
+        if len(pages) == 1:
+            await ctx.send(embeds=pages[0])
+            return
+
+        paginator = Paginator.create_from_embeds(self.bot, *pages)
+        paginator.show_select_menu = True
+        await paginator.send(ctx)
 
     @staticmethod
     def _add_missing_taken_warning(
@@ -638,7 +734,7 @@ class Teamfight(Extension):
                         f"{_format_timestamp(taken_first.get('end_ms'))}\n"
                         f"**{_fight_label(taken_first)}** · "
                         f"KDA **{_fight_kda(taken_player)}** · Survie {survived}\n"
-                        f"{_taken_breakdown(taken_player)}\n"
+                        f"🛡️ **{_format_damage_or_na(taken_player.get('damage_taken_frame_window'))} reçus**\n"
                         f"🎯 **{_format_damage(taken_player.get('damage_frame_window'))} infligés** · "
                         f"Ratio **{_damage_ratio(taken_player)}**"
                     ),
@@ -681,20 +777,12 @@ class Teamfight(Extension):
             )
 
         champion = str(player_fights[0][2].get("champion") or "?")
-        champion_emoji = _champion_emoji(champion)
-        embed = self._base_embed(
-            f"Combats — {riot_id.upper()} #{riot_tag} — {champion}",
-            champion,
-            match["match_id"],
-            numerogame,
-            match_id,
-        )
+        title = f"Combats — {riot_id.upper()} #{riot_tag} — {champion}"
 
-        lines = []
+        blocks = []
         for fight_id, fight_df, tracked in player_fights:
             first = fight_df.iloc[0]
             result_icon, _ = _fight_result(tracked)
-            icon = f"{champion_emoji} " if champion_emoji else ""
 
             flags = []
             if (
@@ -704,50 +792,76 @@ class Teamfight(Extension):
                     first.get("outnumbered_team"),
                 )
             ):
-                flags.append("🔥 infériorité")
-            if _safe_bool(tracked.get("is_proximity_participant")):
-                flags.append("proximité")
+                flags.append("🔥")
 
             suffix = f" · {' · '.join(flags)}" if flags else ""
-            lines.append(
-                f"{result_icon} **#{fight_id}** "
-                f"{_format_timestamp(first.get('start_ms'))} · "
-                f"**{_fight_label(first)}** · "
-                f"{icon}{_fight_kda(tracked)} · "
-                f"🎯 **{_format_damage(tracked.get('damage_frame_window'))}** · "
-                f"🛡️ **{_format_damage_or_na(tracked.get('damage_taken_frame_window'))}** · "
-                f"{_damage_share(fight_df, tracked):.1f}%{suffix}"
+            blocks.append(
+                (
+                    f"{result_icon} **#{fight_id}** · "
+                    f"{_format_timestamp(first.get('start_ms'))} · "
+                    f"{_compact_fight_label(first, tracked)} · "
+                    f"KDA **{_fight_kda(tracked)}**{suffix}\n"
+                    f"↳ 🎯 **{_format_damage(tracked.get('damage_frame_window'))}** "
+                    f"({_damage_share(fight_df, tracked):.1f}%) · "
+                    f"🛡️ **{_format_damage_or_na(tracked.get('damage_taken_frame_window'))}**"
+                )
             )
 
         chunks = []
         current = []
         current_length = 0
-        for line in lines:
-            extra = len(line) + (1 if current else 0)
-            if current and current_length + extra > 950:
-                chunks.append("\n".join(current))
+        for block in blocks:
+            extra = len(block) + (2 if current else 0)
+            if current and current_length + extra > 900:
+                chunks.append("\n\n".join(current))
                 current = []
                 current_length = 0
-            current.append(line)
+            current.append(block)
             current_length += extra
         if current:
-            chunks.append("\n".join(current))
+            chunks.append("\n\n".join(current))
 
+        fields = []
         for index, chunk in enumerate(chunks, start=1):
             field_name = "Combats" if index == 1 else f"Combats (suite {index})"
-            embed.add_field(name=field_name, value=chunk, inline=False)
+            fields.append((field_name, chunk, False))
 
-        embed.add_field(
-            name="Légende",
-            value=(
-                "🟢 gagné · 🔴 perdu · ⚪ égalité · "
-                "🎯 dégâts infligés · 🛡️ dégâts reçus (toutes sources)"
-            ),
-            inline=False,
+        fields.append(
+            (
+                "Légende",
+                (
+                    "🟢 gagné · 🔴 perdu · ⚪ égalité · 🔥 gagné en infériorité\n"
+                    "🎯 dégâts infligés (% équipe) · 🛡️ dégâts reçus (toutes sources) · "
+                    "prox = participants avec proximité"
+                ),
+                False,
+            )
         )
 
-        self._add_missing_taken_warning(embed, player_fights)
-        await ctx.send(embeds=embed)
+        if any(
+            not _damage_taken_available(tracked)
+            for _, _, tracked in player_fights
+        ):
+            fields.append(
+                (
+                    "⚠️ Dégâts reçus incomplets",
+                    (
+                        "Au moins un combat n'a pas encore été backfill. "
+                        "Les valeurs concernées sont affichées `N/A`."
+                    ),
+                    False,
+                )
+            )
+
+        pages = self._build_pages(
+            title,
+            champion,
+            match["match_id"],
+            numerogame,
+            match_id,
+            fields,
+        )
+        await self._send_pages(ctx, pages)
 
     @teamfight.subcommand(
         "detail",
@@ -810,22 +924,18 @@ class Teamfight(Extension):
             else "Égalité"
         )
 
-        embed = self._base_embed(
+        title = (
+            f"{result_icon} Teamfight #{fight} — "
+            f"{_format_timestamp(first.get('start_ms'))} → "
+            f"{_format_timestamp(first.get('end_ms'))}"
+        )
+        fields = [
             (
-                f"{result_icon} Teamfight #{fight} — "
-                f"{_format_timestamp(first.get('start_ms'))} → "
-                f"{_format_timestamp(first.get('end_ms'))}"
-            ),
-            champion,
-            match["match_id"],
-            numerogame,
-            match_id,
-        )
-        embed.add_field(
-            name="Combat",
-            value=f"**{_fight_label(first)}** · **{result_label}**",
-            inline=False,
-        )
+                "Combat",
+                f"**{_fight_label(first)}** · **{result_label}**",
+                False,
+            )
+        ]
 
         tracked_team = tracked.get("team")
         teams = list(dict.fromkeys(selected["team"].astype(str).tolist()))
@@ -872,37 +982,51 @@ class Teamfight(Extension):
                 if team == str(tracked_team)
                 else team
             )
-            embed.add_field(
-                name=team_title,
-                value="\n".join(player_lines) or "Aucun joueur",
-                inline=False,
+            fields.append(
+                (
+                    team_title,
+                    "\n".join(player_lines) or "Aucun joueur",
+                    False,
+                )
             )
 
         survived = "✅" if _safe_bool(tracked.get("survived")) else "❌"
         tracked_prefix = f"{champion_emoji} " if champion_emoji else ""
-        embed.add_field(
-            name=f"{tracked_prefix}{champion} — focus",
-            value=(
-                f"KDA **{_fight_kda(tracked)}** · Survie {survived}\n"
-                f"🎯 **{_format_damage(tracked.get('damage_frame_window'))} infligés** · "
-                f"**{_damage_share(selected, tracked):.1f}%** des dégâts de l'équipe\n"
-                f"{_taken_breakdown(tracked)}\n"
-                f"Ratio infligés/reçus : **{_damage_ratio(tracked)}**"
-            ),
-            inline=False,
+        fields.append(
+            (
+                f"{tracked_prefix}{champion} — focus",
+                (
+                    f"KDA **{_fight_kda(tracked)}** · Survie {survived}\n"
+                    f"🎯 **{_format_damage(tracked.get('damage_frame_window'))} infligés** · "
+                    f"**{_damage_share(selected, tracked):.1f}%** des dégâts de l'équipe\n"
+                    f"{_taken_breakdown(tracked)}\n"
+                    f"Ratio infligés/reçus : **{_damage_ratio(tracked)}**"
+                ),
+                False,
+            )
         )
 
         if not _damage_taken_available(tracked):
-            embed.add_field(
-                name="⚠️ Dégâts reçus non backfill",
-                value=(
-                    "Les colonnes de dégâts reçus sont encore NULL pour ce combat. "
-                    "Exécute le script de backfill pour obtenir une valeur fiable."
-                ),
-                inline=False,
+            fields.append(
+                (
+                    "⚠️ Dégâts reçus non backfill",
+                    (
+                        "Les colonnes de dégâts reçus sont encore NULL pour ce combat. "
+                        "Exécute le script de backfill pour obtenir une valeur fiable."
+                    ),
+                    False,
+                )
             )
 
-        await ctx.send(embeds=embed)
+        pages = self._build_pages(
+            title,
+            champion,
+            match["match_id"],
+            numerogame,
+            match_id,
+            fields,
+        )
+        await self._send_pages(ctx, pages)
 
     @resume.autocomplete("riot_id")
     async def autocomplete_resume(self, ctx: interactions.AutocompleteContext):
