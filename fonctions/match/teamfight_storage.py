@@ -105,7 +105,11 @@ async def save_teamfight_damage(
             damage_window_estimated, damage_frame_window,
             physical_damage_window_estimated,
             magic_damage_window_estimated,
-            true_damage_window_estimated
+            true_damage_window_estimated,
+            damage_taken_frame_window,
+            physical_damage_taken_frame_window,
+            magic_damage_taken_frame_window,
+            true_damage_taken_frame_window
         ) VALUES (
             :match_id, :analyzed_puuid, :fight_id, :participant_id, :puuid,
             :player_name, :champion, :team, :participation_source,
@@ -131,7 +135,11 @@ async def save_teamfight_damage(
             :damage_window_estimated, :damage_frame_window,
             :physical_damage_window_estimated,
             :magic_damage_window_estimated,
-            :true_damage_window_estimated
+            :true_damage_window_estimated,
+            :damage_taken_frame_window,
+            :physical_damage_taken_frame_window,
+            :magic_damage_taken_frame_window,
+            :true_damage_taken_frame_window
         )
     """
 
@@ -156,7 +164,10 @@ async def save_teamfight_damage(
             "end_minute": end_minute,
             "first_kill_ms": fight.get("first_kill_ms", fight["start_ms"]),
             "last_kill_ms": fight.get("last_kill_ms", fight["end_ms"]),
-            "kill_span_ms": fight.get("kill_span_ms", max(0, fight["end_ms"] - fight["start_ms"])),
+            "kill_span_ms": fight.get(
+                "kill_span_ms",
+                max(0, fight["end_ms"] - fight["start_ms"]),
+            ),
             "estimation_window_start_ms": fight["estimation_window_start_ms"],
             "estimation_window_end_ms": fight["estimation_window_end_ms"],
             "kills_allies": fight.get("kills_allies", allied_kills),
@@ -196,8 +207,12 @@ async def save_teamfight_damage(
                     "champion": player["champion"],
                     "team": player["team"],
                     "participation_source": player["participation_source"],
-                    "is_core_participant": player.get("is_core_participant", True),
-                    "is_proximity_participant": player.get("is_proximity_participant", False),
+                    "is_core_participant": player.get(
+                        "is_core_participant", True
+                    ),
+                    "is_proximity_participant": player.get(
+                        "is_proximity_participant", False
+                    ),
                     "was_killer": player.get("was_killer", False),
                     "was_victim": player.get("was_victim", False),
                     "was_assistant": player.get("was_assistant", False),
@@ -206,7 +221,9 @@ async def save_teamfight_damage(
                     "fight_deaths": player.get("fight_deaths", 0),
                     "fight_assists": player.get("fight_assists", 0),
                     "survived": player.get("survived", True),
-                    "enemies_damaged_count": player.get("enemies_damaged_count", 0),
+                    "enemies_damaged_count": player.get(
+                        "enemies_damaged_count", 0
+                    ),
                     "damage_on_dead_targets": player["damage_on_dead_targets"],
                     "physical_damage_on_dead_targets": player[
                         "physical_damage_on_dead_targets"
@@ -217,12 +234,34 @@ async def save_teamfight_damage(
                     "true_damage_on_dead_targets": player[
                         "true_damage_on_dead_targets"
                     ],
-                    "damage_share_on_dead_targets": player.get("damage_share_on_dead_targets", 0.0),
-                    "damage_window_estimated": player.get("damage_window_estimated", damage_frame_window),
+                    "damage_share_on_dead_targets": player.get(
+                        "damage_share_on_dead_targets", 0.0
+                    ),
+                    "damage_window_estimated": player.get(
+                        "damage_window_estimated", damage_frame_window
+                    ),
                     "damage_frame_window": damage_frame_window,
-                    "physical_damage_window_estimated": player.get("physical_damage_window_estimated", 0),
-                    "magic_damage_window_estimated": player.get("magic_damage_window_estimated", 0),
-                    "true_damage_window_estimated": player.get("true_damage_window_estimated", 0),
+                    "physical_damage_window_estimated": player.get(
+                        "physical_damage_window_estimated", 0
+                    ),
+                    "magic_damage_window_estimated": player.get(
+                        "magic_damage_window_estimated", 0
+                    ),
+                    "true_damage_window_estimated": player.get(
+                        "true_damage_window_estimated", 0
+                    ),
+                    "damage_taken_frame_window": player.get(
+                        "damage_taken_frame_window", 0
+                    ),
+                    "physical_damage_taken_frame_window": player.get(
+                        "physical_damage_taken_frame_window", 0
+                    ),
+                    "magic_damage_taken_frame_window": player.get(
+                        "magic_damage_taken_frame_window", 0
+                    ),
+                    "true_damage_taken_frame_window": player.get(
+                        "true_damage_taken_frame_window", 0
+                    ),
                 },
             )
 
