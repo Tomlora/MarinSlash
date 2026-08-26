@@ -407,7 +407,7 @@ def records_check3(fichier: pd.DataFrame,
                 break  # Un seul record par scope
 
     # Vérifier chaque scope
-    check_scope('general', fichier, 'discord', top_n=10)
+    check_scope('general', fichier, 'discord', top_n=5)
     check_scope('perso', fichier_joueur, 'riot_id', top_n=3)
     check_scope('alltime', fichier_all, 'discord', top_n=10)
     
