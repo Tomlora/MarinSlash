@@ -226,7 +226,10 @@ class RecordsCollector:
                 count = len(group_entries)
                 
                 # Lister les noms de stats avec les mêmes libellés que les embeds Records.
-                stats = sorted(RECORD_LABELS.get(e.category, e.category) for e in group_entries)
+                stats = sorted(
+                    RECORD_LABELS.get(e.category, e.category).lower()
+                    for e in group_entries
+                )
                 
                 # Limiter l'affichage si trop nombreuses
                 max_display = 4
@@ -284,7 +287,7 @@ def _format_record_line(entry: RecordEntry) -> str:
     """
     medal = MEDAL_EMOJIS.get(entry.place, f"`#{entry.place}`")
     cat_emoji = emote_v2.get(entry.category, '')
-    category_label = RECORD_LABELS.get(entry.category, entry.category)
+    category_label = RECORD_LABELS.get(entry.category, entry.category).lower()
     
     # Emoji du champion (si disponible)
     champ_emoji = ''
