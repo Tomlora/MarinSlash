@@ -74,12 +74,33 @@ PERCENT_RECORDS = {
     'tf_damage_window_share_pct',
 }
 
-# Catégories où l'égalisation n'est pas pertinente (objectifs binaires)
-CATEGORY_EXCLUSION_EGALITE: List[str] = [
-    'baron', 'herald', 'drake', 'first_double', 'first_triple', 'first_quadra',
-    'first_penta', 'first_horde', 'first_niveau_max', 'first_blood',
-    'tower', 'inhib', 'first_tower_time', 'LEVEL_UP_10'
-]
+# Catégories où une égalisation n'est pas assez significative pour le récap.
+CATEGORY_EXCLUSION_EGALITE: set[str] = {
+    # Objectifs / valeurs d'équipe très discrètes
+    'baron', 'herald', 'drake', 'tower', 'inhib',
+
+    # Timings : une égalité exacte n'apporte pas grand-chose au récap
+    'early_drake', 'early_baron', 'fourth_dragon', 'first_elder',
+    'first_horde', 'first_double', 'first_triple', 'first_quadra',
+    'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time',
+
+    # Valeurs fortement bornées
+    'LEVEL_UP_10', 'LEVEL_UP_20', 'LEVEL_UP_30',
+
+    # Objectifs individuels bornés / peu granulaires
+    'turrets_killed', 'turret_plates_taken', 'objectives_participated',
+}
+
+# Pour ces catégories, seule l'égalité à 1 est trop commune pour être affichée.
+CATEGORY_EXCLUSION_EGALITE_SI_UN: set[str] = {'quadra', 'penta'}
+
+
+def _is_excluded_tie(category: str, value: float) -> bool:
+    """Retourne True si une égalisation ne doit pas être ajoutée au récap."""
+    return (
+        category in CATEGORY_EXCLUSION_EGALITE
+        or (category in CATEGORY_EXCLUSION_EGALITE_SI_UN and value == 1)
+    )
 
 
 # ============================================================================
@@ -278,10 +299,7 @@ def _format_record_line(entry: RecordEntry) -> str:
     base = f"{medal} {cat_emoji}**{category_label}** → `{value_str}`"
     
     if entry.is_tie:
-        # Égalisation
-        if entry.category not in CATEGORY_EXCLUSION_EGALITE:
-            return f"{base} ・ Égalise {entry.old_holder} {champ_emoji}"
-        return base
+        return f"{base} ・ Égalise {entry.old_holder} {champ_emoji}"
     else:
         # Nouveau record - afficher l'ancien barré
         old_str = _format_value(entry.old_record, entry.category)
@@ -375,6 +393,9 @@ def records_check3(fichier: pd.DataFrame,
             
             # Égalisation
             if result_float == record_float:
+                if _is_excluded_tie(category, result_float):
+                    return
+
                 collector.add(RecordEntry(
                     scope=scope_key,
                     place=place,
