@@ -67,6 +67,172 @@ RECORD_LABELS: Dict[str, str] = {
     'tf_duels_won': '1V1 GAGNÉS',
     'tf_skirmishes': 'COMBATS 2V2 À 2V5 DISPUTÉS',
     'allie_feeder': "MORTS MAX D'UN COÉQUIPIER",
+
+    # Combat
+    'kda': 'kda',
+    'kp': 'participation kills',
+    'kills': 'kills',
+    'deaths': 'morts',
+    'assists': 'assists',
+    'double': 'double kills',
+    'triple': 'triple kills',
+    'quadra': 'quadra kills',
+    'penta': 'penta kills',
+    'solokills': 'solo kills',
+    'team_kills': 'kills équipe',
+    'team_deaths': 'morts équipe',
+    'kills+assists': 'kills + assists',
+    'kills_min': 'kills/min',
+    'deaths_min': 'morts/min',
+    'assists_min': 'assists/min',
+    'serie_kills': 'séries kills',
+    'longue_serie_kills': 'série kills max',
+    'ecart_kills': 'écart kills',
+    'ecart_deaths': 'écart morts',
+    'ecart_assists': 'écart assists',
+    'killsratio': '% kills',
+    'deathsratio': '% morts',
+    'solokillsratio': '% solokills',
+    'kills_avec_jgl_early': 'kills avec jungle',
+    'deaths_with_jgl_early': 'morts avec jungle',
+
+    # Dégâts / survie
+    'dmg': 'dégâts',
+    'dmg_ad': 'dégâts ad',
+    'dmg_ap': 'dégâts ap',
+    'dmg_true': 'dégâts bruts',
+    'dmg_min': 'dégâts/min',
+    'dmg/gold': 'dégâts/gold',
+    'crit_dmg': 'dégâts critiques',
+    'dmg_reduit': 'dégâts mitigés',
+    'dmg_tank': 'dégâts subis',
+    'damageratio': '% dégâts',
+    'tankratio': '% tanking',
+    'shield': 'boucliers',
+    'heal_total': 'soins totaux',
+    'heal_allies': 'soins alliés',
+    'ecart_dmg': 'écart dégâts',
+    'dmg_par_kills': 'dégâts/kill',
+
+    # Farm / économie
+    'cs': 'cs',
+    'cs_min': 'cs/min',
+    'cs_jungle': 'cs jungle',
+    'cs_dix_min': 'cs 10min',
+    'jgl_dix_min': 'jungle 10min',
+    'cs_max_avantage': 'avantage cs',
+    'cs_diff_15': 'écart cs 15m',
+    'gold': 'gold',
+    'gold_min': 'gold/min',
+    'gold_share': '% gold',
+    'gold_diff_15': 'écart gold 15m',
+    'ecart_gold_team': 'écart gold équipe',
+    'gold_avec_kills': 'gold des kills',
+    'biggest_comeback': 'comeback max',
+    'biggest_throw': 'throw max',
+
+    # Vision
+    'vision_score': 'score vision',
+    'vision_pink': 'pink wards',
+    'vision_wards': 'wards posées',
+    'vision_wards_killed': 'wards détruites',
+    'vision_min': 'vision/min',
+    'vision_avantage': 'avantage vision',
+
+    # Objectifs / timings
+    'baron': 'barons',
+    'herald': 'hérauts',
+    'drake': 'dragons',
+    'early_drake': 'dragon rapide',
+    'early_baron': 'baron rapide',
+    'dmg_tower': 'dégâts tours',
+    'fourth_dragon': '4e dragon',
+    'first_elder': 'premier elder',
+    'first_horde': 'première horde',
+    'first_double': 'premier double',
+    'first_triple': 'premier triple',
+    'first_quadra': 'premier quadra',
+    'first_penta': 'premier penta',
+    'first_niveau_max': 'niveau 18',
+    'first_blood': 'first blood',
+    'tower': 'tours',
+    'inhib': 'inhibiteurs',
+    'first_tower_time': 'première tour',
+    'objective_damage': 'dégâts objectifs',
+    'objectives_participated': 'objectifs participés',
+    'turrets_killed': 'tours détruites',
+    'turret_plates_taken': 'plaques prises',
+    'petales_sanglants': 'pétales sanglants',
+
+    # Utilitaire / divers
+    'time': 'durée',
+    'temps_dead': 'temps mort',
+    'temps_vivant': 'temps vivant',
+    'temps_avant_premiere_mort': 'première mort',
+    'level_max_avantage': 'avantage niveau',
+    'snowball': 'snowballs',
+    'skillshot_dodged': 'skillshots esquivés',
+    'skillshot_hit': 'skillshots touchés',
+    'temps_cc': 'temps cc',
+    'spells_used': 'sorts lancés',
+    'buffs_voles': 'buffs volés',
+    'immobilisation': 'immobilisations',
+    'temps_cc_inflige': 'cc infligé',
+    'shutdown_bounty': 'primes récupérées',
+
+    # Stats max timeline
+    'abilityHaste': 'accélération compétences',
+    'abilityPower': 'puissance magique',
+    'armor': 'armure',
+    'attackDamage': 'dégâts attaque',
+    'currentGold': 'gold actuel',
+    'healthMax': 'pv max',
+    'magicResist': 'résistance magique',
+    'movementSpeed': 'vitesse déplacement',
+
+    # Paliers timeline
+    'ASSISTS_10': 'assists 10min',
+    'ASSISTS_20': 'assists 20min',
+    'ASSISTS_30': 'assists 30min',
+    'BUILDING_KILL_20': 'bâtiments 20min',
+    'BUILDING_KILL_30': 'bâtiments 30min',
+    'CHAMPION_KILL_10': 'kills 10min',
+    'CHAMPION_KILL_20': 'kills 20min',
+    'CHAMPION_KILL_30': 'kills 30min',
+    'DEATHS_10': 'morts 10min',
+    'DEATHS_20': 'morts 20min',
+    'DEATHS_30': 'morts 30min',
+    'ELITE_MONSTER_KILL_10': 'élites 10min',
+    'ELITE_MONSTER_KILL_20': 'élites 20min',
+    'ELITE_MONSTER_KILL_30': 'élites 30min',
+    'LEVEL_UP_10': 'niveau 10min',
+    'LEVEL_UP_20': 'niveau 20min',
+    'LEVEL_UP_30': 'niveau 30min',
+    'TURRET_PLATE_DESTROYED_10': 'plaques 10min',
+    'TURRET_PLATE_DESTROYED_30': 'plaques 30min',
+    'WARD_KILL_10': 'wards détruites 10',
+    'WARD_KILL_20': 'wards détruites 20',
+    'WARD_KILL_30': 'wards détruites 30',
+    'WARD_PLACED_10': 'wards posées 10',
+    'WARD_PLACED_20': 'wards posées 20',
+    'WARD_PLACED_30': 'wards posées 30',
+    'TOTAL_CS_20': 'cs total 20',
+    'TOTAL_CS_30': 'cs total 30',
+    'TOTAL_GOLD_20': 'gold total 20',
+    'TOTAL_GOLD_30': 'gold total 30',
+    'TOTAL_DMG_10': 'dégâts total 10',
+    'TOTAL_DMG_20': 'dégâts total 20',
+    'TOTAL_DMG_30': 'dégâts total 30',
+    'TOTAL_DMG_TAKEN_10': 'dégâts subis 10',
+    'TOTAL_DMG_TAKEN_20': 'dégâts subis 20',
+    'TOTAL_DMG_TAKEN_30': 'dégâts subis 30',
+    'TRADE_EFFICIENCE_10': 'efficacité trade 10',
+    'TRADE_EFFICIENCE_20': 'efficacité trade 20',
+    'TRADE_EFFICIENCE_30': 'efficacité trade 30',
+    'CS_20': 'cs 20min',
+    'CS_30': 'cs 30min',
+    'JGL_20': 'jungle 20min',
+    'JGL_30': 'jungle 30min',
 }
 
 PERCENT_RECORDS = {
@@ -74,12 +240,33 @@ PERCENT_RECORDS = {
     'tf_damage_window_share_pct',
 }
 
-# Catégories où l'égalisation n'est pas pertinente (objectifs binaires)
-CATEGORY_EXCLUSION_EGALITE: List[str] = [
-    'baron', 'herald', 'drake', 'first_double', 'first_triple', 'first_quadra',
-    'first_penta', 'first_horde', 'first_niveau_max', 'first_blood',
-    'tower', 'inhib', 'first_tower_time', 'LEVEL_UP_10'
-]
+# Catégories où une égalisation n'est pas assez significative pour le récap.
+CATEGORY_EXCLUSION_EGALITE: set[str] = {
+    # Objectifs / valeurs d'équipe très discrètes
+    'baron', 'herald', 'drake', 'tower', 'inhib',
+
+    # Timings : une égalité exacte n'apporte pas grand-chose au récap
+    'early_drake', 'early_baron', 'fourth_dragon', 'first_elder',
+    'first_horde', 'first_double', 'first_triple', 'first_quadra',
+    'first_penta', 'first_niveau_max', 'first_blood', 'first_tower_time',
+
+    # Valeurs fortement bornées
+    'LEVEL_UP_10', 'LEVEL_UP_20', 'LEVEL_UP_30',
+
+    # Objectifs individuels bornés / peu granulaires
+    'turrets_killed', 'turret_plates_taken', 'objectives_participated',
+}
+
+# Pour ces catégories, seule l'égalité à 1 est trop commune pour être affichée.
+CATEGORY_EXCLUSION_EGALITE_SI_UN: set[str] = {'quadra', 'penta'}
+
+
+def _is_excluded_tie(category: str, value: float) -> bool:
+    """Retourne True si une égalisation ne doit pas être ajoutée au récap."""
+    return (
+        category in CATEGORY_EXCLUSION_EGALITE
+        or (category in CATEGORY_EXCLUSION_EGALITE_SI_UN and value == 1)
+    )
 
 
 # ============================================================================
@@ -205,7 +392,10 @@ class RecordsCollector:
                 count = len(group_entries)
                 
                 # Lister les noms de stats avec les mêmes libellés que les embeds Records.
-                stats = sorted(RECORD_LABELS.get(e.category, e.category) for e in group_entries)
+                stats = sorted(
+                    RECORD_LABELS.get(e.category, e.category).lower()
+                    for e in group_entries
+                )
                 
                 # Limiter l'affichage si trop nombreuses
                 max_display = 4
@@ -263,7 +453,7 @@ def _format_record_line(entry: RecordEntry) -> str:
     """
     medal = MEDAL_EMOJIS.get(entry.place, f"`#{entry.place}`")
     cat_emoji = emote_v2.get(entry.category, '')
-    category_label = RECORD_LABELS.get(entry.category, entry.category)
+    category_label = RECORD_LABELS.get(entry.category, entry.category).lower()
     
     # Emoji du champion (si disponible)
     champ_emoji = ''
@@ -278,10 +468,7 @@ def _format_record_line(entry: RecordEntry) -> str:
     base = f"{medal} {cat_emoji}**{category_label}** → `{value_str}`"
     
     if entry.is_tie:
-        # Égalisation
-        if entry.category not in CATEGORY_EXCLUSION_EGALITE:
-            return f"{base} ・ Égalise {entry.old_holder} {champ_emoji}"
-        return base
+        return f"{base} ・ Égalise {entry.old_holder} {champ_emoji}"
     else:
         # Nouveau record - afficher l'ancien barré
         old_str = _format_value(entry.old_record, entry.category)
@@ -375,6 +562,9 @@ def records_check3(fichier: pd.DataFrame,
             
             # Égalisation
             if result_float == record_float:
+                if _is_excluded_tie(category, result_float):
+                    return
+
                 collector.add(RecordEntry(
                     scope=scope_key,
                     place=place,

@@ -1,24 +1,9 @@
 from fonctions.gestion_bdd import lire_bdd_perso
+from fonctions.match.records_display import RECORD_LABELS as SHARED_RECORD_LABELS
 
 
 RECORD_AUTOCOMPLETE_LABELS = {
-    'tf_takedowns_survived': 'KILLS + ASSISTS EN TF SANS MOURIR',
-    'tf_teamfight_outnumbered_wins': 'TF GAGNÉS EN INFÉRIORITÉ',
-    'tf_teamfights': 'COMBATS 3V3+ DISPUTÉS',
-    'tf_clutches_won': 'COMBATS EN INFÉRIORITÉ GAGNÉS',
-    'tf_damage_window': 'DMG MAX EN TEAMFIGHT',
-    'tf_physical_damage_window': 'DMG AD MAX EN TEAMFIGHT',
-    'tf_magic_damage_window': 'DMG AP MAX EN TEAMFIGHT',
-    'tf_true_damage_window': 'DMG TRUE MAX EN TEAMFIGHT',
-    'tf_physical_dead_damage': 'DMG AD SUR CIBLES MORTES',
-    'tf_magic_dead_damage': 'DMG AP SUR CIBLES MORTES',
-    'tf_true_dead_damage': 'DMG TRUE SUR CIBLES MORTES',
-    'tf_dead_damage_share_pct': '% DMG SUR CIBLES MORTES (5 ALLIÉS IMPLIQUÉS)',
-    'tf_damage_window_share_pct': '% DMG ÉQUIPE EN TF (5 ALLIÉS IMPLIQUÉS)',
-    'tf_duels': '1V1 DISPUTÉS',
-    'tf_duels_won': '1V1 GAGNÉS',
-    'tf_skirmishes': 'COMBATS 2V2 À 2V5 DISPUTÉS',
-    'allie_feeder': "MORTS MAX D'UN COÉQUIPIER",
+    key.lower(): label for key, label in SHARED_RECORD_LABELS.items()
 }
 
 
@@ -80,6 +65,9 @@ async def autocomplete_record(record_id):
         'WARD_KILL_10', 'WARD_KILL_20', 'WARD_KILL_30', 'WARD_PLACED_10',
         'WARD_PLACED_20', 'WARD_PLACED_30', 'TOTAL_CS_20', 'TOTAL_CS_30',
         'TOTAL_GOLD_20', 'TOTAL_GOLD_30', 'CS_20', 'CS_30', 'JGL_20', 'JGL_30',
+        'TOTAL_DMG_10', 'TOTAL_DMG_20', 'TOTAL_DMG_30',
+        'TOTAL_DMG_TAKEN_10', 'TOTAL_DMG_TAKEN_20', 'TOTAL_DMG_TAKEN_30',
+        'TRADE_EFFICIENCE_10', 'TRADE_EFFICIENCE_20', 'TRADE_EFFICIENCE_30',
         'l_ecart_cs', 'l_ecart_gold', 'l_ecart_gold_min_durant_game',
         'l_ecart_gold_max_durant_game', 'l_kda', 'l_cs', 'l_cs_max_avantage',
         'l_level_max_avantage', 'l_ecart_gold_team', 'l_ecart_kills_team',
@@ -95,8 +83,11 @@ async def autocomplete_record(record_id):
 
     search = (record_id or '').lower().strip()
     choices = []
-    for record in sorted(liste_records, key=lambda item: RECORD_AUTOCOMPLETE_LABELS.get(item, item).lower()):
-        label = RECORD_AUTOCOMPLETE_LABELS.get(record, record)
+    for record in sorted(
+        liste_records,
+        key=lambda item: RECORD_AUTOCOMPLETE_LABELS.get(item.lower(), item).lower()
+    ):
+        label = RECORD_AUTOCOMPLETE_LABELS.get(record.lower(), record)
         if search in record.lower() or search in label.lower():
             choices.append({'name': label, 'value': record})
 

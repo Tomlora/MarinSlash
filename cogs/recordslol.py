@@ -9,6 +9,7 @@ from interactions.ext.paginators import Paginator
 from utils.params import Version, saison
 from fonctions.match.riot_api import get_champ_list, get_version
 from fonctions.match.records import trouver_records_multiples, get_stat_null_rules
+from fonctions.match.records_display import RECORD_LABELS as SHARED_RECORD_LABELS
 from utils.emoji import emote_champ_discord
 from aiohttp import ClientSession
 import plotly.express as px
@@ -60,9 +61,13 @@ RECORD_LABELS = {
     **TEAMFIGHT_RECORD_LABELS,
     'allie_feeder': "MORTS MAX D'UN COÉQUIPIER",
 }
+RECORD_LABELS.update(SHARED_RECORD_LABELS)
+RECORD_LABELS.update({
+    key.lower(): label for key, label in SHARED_RECORD_LABELS.items()
+})
 
 RECORD_KEYS_BY_LABEL = {
-    label.lower(): key for key, label in RECORD_LABELS.items()
+    label.lower(): key.lower() for key, label in RECORD_LABELS.items()
 }
 
 TEAMFIGHT_PERCENT_RECORDS = {
