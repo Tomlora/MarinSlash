@@ -1,11 +1,11 @@
 """Compatibility layer for TFT recaps across sets/patches.
 
 The historical recap code in :mod:`cogs.tft` resolves translated trait names
-against CommunityDragon's PBE snapshot.  That works for the current set, but an
+against CommunityDragon's PBE snapshot. That works for the current set, but an
 older match can contain trait IDs that no longer exist on PBE and the recap then
 fails on ``values[0]``.
 
-This extension is loaded automatically with the other cogs.  It patches only the
+This extension is loaded automatically with the other cogs. It patches only the
 two module-level data helpers used by ``stats_tft`` so the existing commands and
 DB writes keep their current behaviour.
 """
@@ -15,6 +15,7 @@ import re
 from typing import Iterable, Optional
 
 import pandas as pd
+from interactions import Extension
 
 import cogs.tft as tft_module
 
@@ -107,7 +108,7 @@ async def _get_versioned_traits(session, game_version: Optional[str], trait_ids:
                     data = candidate
                     break
         except Exception:
-            # Metadata is optional for the recap.  We can still display the raw
+            # Metadata is optional for the recap. We can still display the raw
             # Riot trait IDs if CommunityDragon is unavailable.
             continue
 
@@ -120,7 +121,7 @@ async def _get_versioned_traits(session, game_version: Optional[str], trait_ids:
         if isinstance(item, dict) and item.get("trait_id")
     }
 
-    # ``stats_tft`` expects every lookup to return at least one row.  Inject a
+    # ``stats_tft`` expects every lookup to return at least one row. Inject a
     # readable local fallback for any trait absent from the archived snapshot.
     for trait_id in trait_ids:
         if trait_id not in known_ids:
@@ -165,7 +166,11 @@ def _apply_patch():
     tft_module._version_agnostic_recap_patch = True
 
 
+class TFTVersionCompat(Extension):
+    def __init__(self, bot):
+        self.bot = bot
+        _apply_patch()
+
+
 def setup(bot):
-    # No extra Discord command is registered: this module only makes the
-    # existing TFT recap version-aware.
-    _apply_patch()
+    TFTVersionCompat(bot)
