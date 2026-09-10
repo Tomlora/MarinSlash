@@ -60,7 +60,7 @@ class SaveDataMixin:
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
             :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :turret_plates_taken_total, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
             :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit, :temps_cc_inflige, :tower, :inhib,
-            :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min, :records, :longue_serie_kills, :ecart_kills, :ecart_deaths, :ecart_assists, :ecart_dmg, :trade_efficience, :skillshots_dodge_min, :skillshots_hit_min, :dmg_par_kills,
+            :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min, :records, :longue_serie_kills, :ecart_kills, :ecart_deaths, :ecart_assists, :ecart_dmg, :trade_efficience, :skillshots_dodge_min, :skillshot_hit_min, :dmg_par_kills,
             :first_tower_time, :hardcarry, :teamcarry, :killsratio, :deathsratio, :solokillsratio);
             UPDATE tracker SET riot_id= :riot_id, riot_tagline= :riot_tagline where id_compte = :joueur;
             INSERT INTO public.matchs_updated(match_id, joueur, updated)
@@ -329,6 +329,7 @@ class SaveDataMixin:
                 continue
                 
             i = summary['index']
+            
             # Récupérer les infos du joueur
             riot_id = self.thisRiotIdListe[i] if i < len(self.thisRiotIdListe) else ''
             riot_tag = self.thisRiotTagListe[i] if i < len(self.thisRiotTagListe) else ''
@@ -396,7 +397,7 @@ class SaveDataMixin:
         Sauvegarde les données de participation aux objectifs dans la table match_objective_participation.
         
         À appeler après calculate_all_scores() si sauvegarder=True.
-        Nécessite: self.last_match, self.thisObjectivesParticipatedListe, etc.
+        Nécessite les listes extraites par _extract_objective_participations_from_timeline().
         
         Table SQL requise:
         CREATE TABLE IF NOT EXISTS match_objective_participation (
