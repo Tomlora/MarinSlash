@@ -1,4 +1,4 @@
-"""Rattrape ``matchs.turret_plates_taken`` à partir de Riot Match-V5.
+"""Rattrape ``matchs.turret_plates_taken_total`` à partir de Riot Match-V5.
 
 Le record « plaques prises » doit utiliser le total de plaques pris pendant
 l'ensemble de la partie, tel que renvoyé par
@@ -7,7 +7,7 @@ avec ``data_timeline_palier.TURRET_PLATE_DESTROYED_30``, qui ne couvre que les
 événements observés jusqu'à 30 minutes.
 
 Par défaut, le script retraite toutes les perspectives présentes dans ``matchs``
-dont ``turret_plates_taken`` est NULL. Les appels Riot sont mutualisés par
+dont ``turret_plates_taken_total`` est NULL. Les appels Riot sont mutualisés par
 ``match_id`` lorsqu'un même match existe pour plusieurs joueurs trackés.
 
 Exemples :
@@ -42,7 +42,7 @@ from fonctions.gestion_bdd import engine, lire_bdd_perso
 from utils.params import api_key_lol, region
 
 
-COLUMN_NAME = "turret_plates_taken"
+COLUMN_NAME = "turret_plates_taken_total"
 
 
 def _as_rows(df: pd.DataFrame) -> pd.DataFrame:
@@ -86,7 +86,7 @@ def ensure_column_exists() -> None:
             text(
                 """
                 ALTER TABLE public.matchs
-                ADD COLUMN IF NOT EXISTS turret_plates_taken INTEGER
+                ADD COLUMN IF NOT EXISTS turret_plates_taken_total INTEGER
                 """
             )
         )
@@ -183,12 +183,12 @@ def load_matches(
         season_sql = ", ".join(str(int(season)) for season in seasons)
         filters.append(f"m.season IN ({season_sql})")
     if has_column and not force:
-        filters.append("m.turret_plates_taken IS NULL")
+        filters.append("m.turret_plates_taken_total IS NULL")
 
     current_value = (
-        "m.turret_plates_taken"
+        "m.turret_plates_taken_total"
         if has_column
-        else "NULL::INTEGER AS turret_plates_taken"
+        else "NULL::INTEGER AS turret_plates_taken_total"
     )
     limit_sql = f"LIMIT {int(limit)}" if limit else ""
 
@@ -224,13 +224,13 @@ def update_turret_plates_taken(
             text(
                 """
                 UPDATE matchs
-                SET turret_plates_taken = :turret_plates_taken
+                SET turret_plates_taken_total = :turret_plates_taken_total
                 WHERE match_id = :match_id
                   AND joueur = :joueur
                 """
             ),
             {
-                "turret_plates_taken": int(value),
+                "turret_plates_taken_total": int(value),
                 "match_id": match_id,
                 "joueur": int(id_compte),
             },
@@ -244,7 +244,7 @@ async def backfill(args: argparse.Namespace) -> None:
     if not args.dry_run and not has_column:
         ensure_column_exists()
         has_column = True
-        print("Colonne matchs.turret_plates_taken créée.")
+        print("Colonne matchs.turret_plates_taken_total créée.")
 
     matches = load_matches(
         modes=args.modes,
@@ -263,7 +263,7 @@ async def backfill(args: argparse.Namespace) -> None:
     if args.dry_run:
         if not has_column:
             print(
-                "La colonne matchs.turret_plates_taken n'existe pas encore ; "
+                "La colonne matchs.turret_plates_taken_total n'existe pas encore ; "
                 "elle sera créée lors d'une exécution sans --dry-run."
             )
         columns = [
@@ -271,7 +271,7 @@ async def backfill(args: argparse.Namespace) -> None:
             "match_id",
             "mode",
             "season",
-            "turret_plates_taken",
+            "turret_plates_taken_total",
             "riot_id",
             "riot_tagline",
         ]
@@ -294,7 +294,7 @@ async def backfill(args: argparse.Namespace) -> None:
             riot_id = str(row["riot_id"])
             riot_tag = str(row["riot_tagline"])
 
-            old_raw = row.get("turret_plates_taken")
+            old_raw = row.get("turret_plates_taken_total")
             old_value = None if pd.isna(old_raw) else int(old_raw)
 
             print(
@@ -348,7 +348,7 @@ async def backfill(args: argparse.Namespace) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Rattrape matchs.turret_plates_taken depuis Riot Match-V5."
+        description="Rattrape matchs.turret_plates_taken_total depuis Riot Match-V5."
     )
     parser.add_argument(
         "--season",
@@ -378,7 +378,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Recalcule aussi les lignes où turret_plates_taken est déjà renseigné.",
+        help=(
+            "Recalcule aussi les lignes où turret_plates_taken_total est déjà renseigné."
+        ),
     )
     parser.add_argument(
         "--dry-run",
