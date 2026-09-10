@@ -49,7 +49,7 @@ class SaveDataMixin:
             gold, cs_min, vision_min, gold_min, dmg_min, solokills, dmg_reduit, heal_total, heal_allies, serie_kills, cs_dix_min, jgl_dix_min,
             baron, drake, team, herald, cs_max_avantage, level_max_avantage, afk, vision_avantage, early_drake, temps_dead,
             item1, item2, item3, item4, item5, item6, kp, kda, mode, season, date, damageratio, tankratio, rank, tier, lp, id_participant, dmg_tank, shield,
-            early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
+            early_baron, allie_feeder, snowball, temps_vivant, dmg_tower, turret_plates_taken, gold_share, mvp, ecart_gold_team, "kills+assists", datetime, temps_avant_premiere_mort, "dmg/gold", ecart_gold, ecart_gold_min,
             split, skillshot_dodged, temps_cc, spells_used, buffs_voles, s1cast, s2cast, s3cast, s4cast, horde, moba, kills_min, deaths_min, assists_min, ecart_cs, petales_sanglants, atakhan, crit_dmg, immobilisation, skillshot_hit, temps_cc_inflige, tower, inhib,
             dmg_true_all, dmg_true_all_min, dmg_ad_all, dmg_ad_all_min, dmg_ap_all, dmg_ap_all_min, dmg_all, dmg_all_min, records, longue_serie_kills, ecart_kills, ecart_deaths, ecart_assists, ecart_dmg, trade_efficience, skillshots_dodge_min, skillshots_hit_min, dmg_par_kills,
             first_tower_time, hardcarry, teamcarry, killsratio, deathsratio, solokillsratio)
@@ -58,7 +58,7 @@ class SaveDataMixin:
             :gold, :cs_min, :vision_min, :gold_min, :dmg_min, :solokills, :dmg_reduit, :heal_total, :heal_allies, :serie_kills, :cs_dix_min, :jgl_dix_min,
             :baron, :drake, :team, :herald, :cs_max_avantage, :level_max_avantage, :afk, :vision_avantage, :early_drake, :temps_dead,
             :item1, :item2, :item3, :item4, :item5, :item6, :kp, :kda, :mode, :season, :date, :damageratio, :tankratio, :rank, :tier, :lp, :id_participant, :dmg_tank, :shield,
-            :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
+            :early_baron, :allie_feeder, :snowball, :temps_vivant, :dmg_tower, :turret_plates_taken, :gold_share, :mvp, :ecart_gold_team, :ka, to_timestamp(:date), :time_first_death, :dmgsurgold, :ecart_gold_individuel, :ecart_gold_min,
             :split, :skillshot_dodged, :temps_cc, :spells_used, :buffs_voles, :s1cast, :s2cast, :s3cast, :s4cast, :horde, :moba, :kills_min, :deaths_min, :assists_min, :ecart_cs, :petales_sanglants, :atakhan, :crit_dmg, :immobilisation, :skillshot_hit, :temps_cc_inflige, :tower, :inhib,
             :dmg_true_all, :dmg_true_all_min, :dmg_ad_all, :dmg_ad_all_min, :dmg_ap_all, :dmg_ap_all_min, :dmg_all, :dmg_all_min, :records, :longue_serie_kills, :ecart_kills, :ecart_deaths, :ecart_assists, :ecart_dmg, :trade_efficience, :skillshots_dodge_min, :skillshot_hit_min, :dmg_par_kills,
             :first_tower_time, :hardcarry, :teamcarry, :killsratio, :deathsratio, :solokillsratio);
@@ -144,6 +144,7 @@ class SaveDataMixin:
             'snowball': self.snowball,
             'temps_vivant': self.thisTimeSpendAlive,
             'dmg_tower': self.thisDamageTurrets,
+            'turret_plates_taken': self.thisTurretPlatesTaken,
             'gold_share': self.gold_share,
             'mvp': self.player_score,
             'ecart_gold_team': self.ecart_gold_team,
@@ -328,7 +329,6 @@ class SaveDataMixin:
                 continue
                 
             i = summary['index']
-            
             # Récupérer les infos du joueur
             riot_id = self.thisRiotIdListe[i] if i < len(self.thisRiotIdListe) else ''
             riot_tag = self.thisRiotTagListe[i] if i < len(self.thisRiotTagListe) else ''
@@ -396,7 +396,7 @@ class SaveDataMixin:
         Sauvegarde les données de participation aux objectifs dans la table match_objective_participation.
         
         À appeler après calculate_all_scores() si sauvegarder=True.
-        Nécessite les listes extraites par _extract_objective_participations_from_timeline().
+        Nécessite: self.last_match, self.thisObjectivesParticipatedListe, etc.
         
         Table SQL requise:
         CREATE TABLE IF NOT EXISTS match_objective_participation (
