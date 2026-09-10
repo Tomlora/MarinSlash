@@ -245,12 +245,26 @@ def top_records(df, category, methode='max', identifiant='riot_id', top_n=10):
         Liste de tuples (joueur, champion, record, url_game)
     """
     try:
-        df[category] = pd.to_numeric(df[category], errors='coerce')
-        df = df[df[category].notna()]
-        df = df[df[category] != 0]
-        df = df[df[category] != 999]
+        # Le record « plaques prises » représente le total de la partie. Le
+        # champ timeline TURRET_PLATE_DESTROYED_30 reste disponible séparément
+        # pour les statistiques à 30 minutes.
+        source_category = category
+        if (
+            category == 'turret_plates_taken'
+            and 'turret_plates_taken_total' in df.columns
+        ):
+            source_category = 'turret_plates_taken_total'
 
-        df_sorted = df.sort_values(by=category, ascending=(methode != 'max')).head(top_n)
+        df = df.copy()
+        df[source_category] = pd.to_numeric(df[source_category], errors='coerce')
+        df = df[df[source_category].notna()]
+        df = df[df[source_category] != 0]
+        df = df[df[source_category] != 999]
+
+        df_sorted = df.sort_values(
+            by=source_category,
+            ascending=(methode != 'max')
+        ).head(top_n)
 
         records = []
         for _, lig in df_sorted.iterrows():
@@ -262,7 +276,7 @@ def top_records(df, category, methode='max', identifiant='riot_id', top_n=10):
                 joueur = 'inconnu'
 
             champion = lig.get('champion', 'inconnu')
-            record = lig[category]
+            record = lig[source_category]
             url_game = f'https://www.leagueofgraphs.com/fr/match/euw/{str(lig.get("match_id", ""))[5:]}#participant{int(lig.get("id_participant", 0)) + 1}'
 
             records.append((joueur, champion, record, url_game))
