@@ -406,6 +406,7 @@ async def load_data(ctx, view, saison, mode, time_mini):
         'data_timeline_palier."LEVEL_UP_10"', 'data_timeline_palier."LEVEL_UP_20"', 'data_timeline_palier."LEVEL_UP_30"',
         'data_timeline_palier."SKILL_LEVEL_UP_10"', 'data_timeline_palier."SKILL_LEVEL_UP_20"', 'data_timeline_palier."SKILL_LEVEL_UP_30"',
         'data_timeline_palier."TURRET_PLATE_DESTROYED_10"', 'data_timeline_palier."TURRET_PLATE_DESTROYED_20"',
+        'matchs.turret_plates_taken_total AS turret_plates_taken',
         'data_timeline_palier."WARD_KILL_10"', 'data_timeline_palier."WARD_KILL_20"', 'data_timeline_palier."WARD_KILL_30"',
         'data_timeline_palier."WARD_PLACED_10"', 'data_timeline_palier."WARD_PLACED_20"', 'data_timeline_palier."WARD_PLACED_30"',
         'data_timeline_palier."CHAMPION_TRANSFORM_10"', 'data_timeline_palier."CHAMPION_TRANSFORM_20"', 'data_timeline_palier."CHAMPION_TRANSFORM_30"',
@@ -840,7 +841,7 @@ class Recordslol(Extension):
         ),
         SlashCommandOption(
             name='champion',
-            description='focus sur un champion ?',
+            description='champion',
             type=interactions.OptionType.STRING,
             required=False
         )
@@ -1242,8 +1243,8 @@ class Recordslol(Extension):
             SlashCommandOption(name='mode', description='quel mode de jeu ?', type=interactions.OptionType.STRING, required=False, choices=[
                 SlashCommandChoice(name='ranked', value='RANKED'),
                 SlashCommandChoice(name='aram', value='ARAM'),
-                SlashCommandChoice(name='flex', value='FLEX'),
-                SlashCommandChoice(name='swiftplay', value='SWIFTPLAY')
+                SlashCommandChoice(name='swiftplay', value='SWIFTPLAY'),
+                SlashCommandChoice(name='flex', value='FLEX')
             ]),
             SlashCommandOption(name='champion', description='focus sur un champion ?', type=interactions.OptionType.STRING, required=False),
             SlashCommandOption(name='joueur', description='focus sur un joueur ?', type=interactions.OptionType.STRING, required=False),
