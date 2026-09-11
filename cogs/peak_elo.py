@@ -93,7 +93,7 @@ class PeakElo(Extension):
         )
 
     @lol_peak_elo.subcommand(
-        "season",
+        "saison",
         sub_cmd_description="Classement des meilleurs Elo atteints sur une saison",
         options=[
             SlashCommandOption(
