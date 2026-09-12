@@ -703,7 +703,6 @@ class Ganks(Extension):
             SELECT
                 matchs.match_id,
                 matchs.champion,
-                matchs.url,
                 matchs.season,
                 tracker.riot_id,
                 tracker.riot_tagline,
