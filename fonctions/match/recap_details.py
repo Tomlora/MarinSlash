@@ -237,7 +237,7 @@ def gold_series(match, points):
     if team is None:
         return []
     sign = 1 if team == 100 else -1
-    return [(p["minute"], sign * (p["blue"] - p["red"])) for p in points]
+    return [(p["minute"], sign * (p["blue"] - p["red"]) or 0) for p in points]
 
 
 GOLD_POSITIVE = "#2563eb"
