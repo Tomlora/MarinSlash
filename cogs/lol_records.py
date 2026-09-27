@@ -4,6 +4,7 @@ Les interactions de pagination sont autonomes : un redémarrage du bot ne rend
 pas les boutons des récapitulatifs publics inutilisables. Les réponses sont
 éphémères et les snapshots sont propres au match et au compte suivi.
 """
+import asyncio
 import logging
 import os
 import re
@@ -39,6 +40,7 @@ from fonctions.match.records_ui import (
 )
 
 log = logging.getLogger(__name__)
+RECORD_LOAD_TIMEOUT_SECONDS = 8
 
 OPEN_RE = re.compile(r"^lolrec_open_([A-Z0-9]+_[0-9]+)_([0-9]+)$")
 DEMO_OPEN_RE = re.compile(r"^lolrec_demo_open_([a-z0-9_]+)$")
@@ -318,15 +320,25 @@ class LolRecords(Extension):
         matched = DEMO_OPEN_RE.fullmatch(ctx.custom_id)
         if not matched or matched.group(1) not in DEMO_SCENARIOS:
             return await ctx.send("Scénario inconnu.", ephemeral=True)
+        # Même chemin d'acquittement que pour une vraie partie : le spinner
+        # de Discord doit toujours être remplacé par une réponse terminale.
+        await ctx.defer(ephemeral=True)
         scenario = matched.group(1)
-        pages = build_record_pages(
-            demo_collector(scenario), "EUW1_1234567890", "Marin#TEST", demo=True
-        )
-        await ctx.send(
-            embeds=pages[0][1],
-            components=_page_components("d", scenario, 0, pages, 0),
-            ephemeral=True,
-        )
+        try:
+            pages = build_record_pages(
+                demo_collector(scenario), "EUW1_1234567890", "Marin#TEST", demo=True
+            )
+            await ctx.send(
+                embeds=pages[0][1],
+                components=_page_components("d", scenario, 0, pages, 0),
+                ephemeral=True,
+            )
+        except Exception:
+            log.exception("Ouverture des records de démonstration impossible")
+            await ctx.send(
+                "Impossible d'afficher les records fictifs. Consulte les logs du bot.",
+                ephemeral=True,
+            )
 
     @component_callback(OPEN_RE)
     async def on_real_open(self, ctx: ComponentContext):
@@ -336,24 +348,37 @@ class LolRecords(Extension):
         match_id, joueur = matched.groups()
         await ctx.defer(ephemeral=True)
         try:
-            collector = load_record_snapshot(match_id, int(joueur))
+            # Les accès SQL synchrones bloquaient la boucle asyncio. Au-delà
+            # du délai, la réponse différée restait sur « réfléchit... ».
+            collector = await asyncio.wait_for(
+                asyncio.to_thread(load_record_snapshot, match_id, int(joueur)),
+                timeout=RECORD_LOAD_TIMEOUT_SECONDS,
+            )
+            if collector is None:
+                return await ctx.send(
+                    "Le détail de cette partie n'est pas disponible. "
+                    "Le snapshot doit être enregistré lors du récap.",
+                    ephemeral=True,
+                )
+            pages = build_record_pages(collector, match_id)
+            await ctx.send(
+                embeds=pages[0][1],
+                components=_page_components("r", match_id, joueur, pages, 0),
+                ephemeral=True,
+            )
+        except asyncio.TimeoutError:
+            log.warning("Timeout lecture du snapshot records %s / %s", match_id, joueur)
+            await ctx.send(
+                "La lecture des records prend trop de temps. Réessaie ou vérifie PostgreSQL.",
+                ephemeral=True,
+            )
         except Exception:
-            log.exception("Lecture impossible pour le bouton records")
-            return await ctx.send(
-                "Les records sont indisponibles : vérifie la migration match_records.",
+            log.exception("Ouverture des records impossible : %s / %s", match_id, joueur)
+            await ctx.send(
+                "Impossible d'afficher les records. L'erreur est enregistrée "
+                "dans les logs du bot.",
                 ephemeral=True,
             )
-        if collector is None:
-            return await ctx.send(
-                "Le détail de cette partie n'est plus disponible.",
-                ephemeral=True,
-            )
-        pages = build_record_pages(collector, match_id)
-        await ctx.send(
-            embeds=pages[0][1],
-            components=_page_components("r", match_id, joueur, pages, 0),
-            ephemeral=True,
-        )
 
     @component_callback(PAGE_RE)
     async def on_page(self, ctx: ComponentContext):
@@ -361,6 +386,10 @@ class LolRecords(Extension):
         if not matched:
             return
         kind, key, joueur, target = matched.groups()
+        # Modifier le message éphémère existant, et non créer un nouveau
+        # message. L'ACK immédiat empêche Discord de rester bloqué si la
+        # requête de records est lente.
+        await ctx.defer(edit_origin=True)
         try:
             if kind == "d":
                 collector = demo_collector(key)
@@ -368,23 +397,38 @@ class LolRecords(Extension):
                     collector, "EUW1_1234567890", "Marin#TEST", demo=True
                 )
             else:
-                collector = load_record_snapshot(key, int(joueur))
+                collector = await asyncio.wait_for(
+                    asyncio.to_thread(load_record_snapshot, key, int(joueur)),
+                    timeout=RECORD_LOAD_TIMEOUT_SECONDS,
+                )
                 if collector is None:
-                    return await ctx.send(
-                        "Le détail de ce match n'est plus disponible.",
-                        ephemeral=True,
+                    return await ctx.edit_origin(
+                        content="Le détail de ce match n'est plus disponible.",
+                        embeds=[],
+                        components=[],
                     )
                 pages = build_record_pages(collector, key)
-        except Exception:
-            log.exception("Pagination des records impossible")
-            return await ctx.send(
-                "Impossible de charger la page de records.", ephemeral=True
+            target_page = max(0, min(int(target), len(pages) - 1))
+            await ctx.edit_origin(
+                embeds=pages[target_page][1],
+                components=_page_components(kind, key, joueur, pages, target_page),
             )
-        target_page = max(0, min(int(target), len(pages) - 1))
-        await ctx.edit_origin(
-            embeds=pages[target_page][1],
-            components=_page_components(kind, key, joueur, pages, target_page),
-        )
+        except asyncio.TimeoutError:
+            log.warning("Timeout changement de page des records : %s", key)
+            await ctx.edit_origin(
+                content="PostgreSQL ne répond pas assez vite. "
+                "Relance /match_records ou réessaie plus tard.",
+                embeds=[],
+                components=[],
+            )
+        except Exception:
+            log.exception("Erreur lors de la pagination des records : %s", key)
+            await ctx.edit_origin(
+                content="Impossible de charger cette page. "
+                "Le détail de l'erreur figure dans les logs du bot.",
+                embeds=[],
+                components=[],
+            )
 
     @component_callback("lolrec_close")
     async def on_close(self, ctx: ComponentContext):
@@ -423,7 +467,10 @@ class LolRecords(Extension):
         await ctx.defer(ephemeral=True)
         try:
             match_id = _normalize_match_id(match_id)
-            accounts = get_match_record_accounts(match_id)
+            accounts = await asyncio.wait_for(
+                asyncio.to_thread(get_match_record_accounts, match_id),
+                timeout=RECORD_LOAD_TIMEOUT_SECONDS,
+            )
         except ValueError as error:
             return await ctx.send(str(error), ephemeral=True)
         except Exception:
@@ -461,20 +508,34 @@ class LolRecords(Extension):
             )
 
         account = accounts.iloc[0]
-        collector = load_record_snapshot(match_id, int(account["joueur"]))
-        if collector is None:
-            return await ctx.send("Aucune donnée pour ce compte.", ephemeral=True)
-        pages = build_record_pages(
-            collector, match_id,
-            player_name=f"{account.get('riot_id') or '?'}#{account.get('riot_tagline') or '?'}",
-        )
-        await ctx.send(
-            embeds=pages[0][1],
-            components=_page_components(
-                "r", match_id, int(account["joueur"]), pages, 0
-            ),
-            ephemeral=True,
-        )
+        try:
+            collector = await asyncio.wait_for(
+                asyncio.to_thread(
+                    load_record_snapshot, match_id, int(account["joueur"])
+                ),
+                timeout=RECORD_LOAD_TIMEOUT_SECONDS,
+            )
+            if collector is None:
+                return await ctx.send("Aucune donnée pour ce compte.", ephemeral=True)
+            pages = build_record_pages(
+                collector, match_id,
+                player_name=f"{account.get('riot_id') or '?'}#{account.get('riot_tagline') or '?'}",
+            )
+            await ctx.send(
+                embeds=pages[0][1],
+                components=_page_components(
+                    "r", match_id, int(account["joueur"]), pages, 0
+                ),
+                ephemeral=True,
+            )
+        except asyncio.TimeoutError:
+            await ctx.send(
+                "PostgreSQL prend trop de temps pour renvoyer ces records.",
+                ephemeral=True,
+            )
+        except Exception:
+            log.exception("Impossible de retrouver le snapshot de %s", match_id)
+            await ctx.send("Impossible de charger ces records.", ephemeral=True)
 
 
 def setup(bot):
