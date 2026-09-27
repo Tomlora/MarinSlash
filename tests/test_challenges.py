@@ -140,6 +140,13 @@ def test_native_buttons_coexist_with_records_and_remain_stable():
         assert all(len(b['custom_id']) <= 100 for b in buttons)
 
 
+def test_readable_dates_and_copyable_match_identifier():
+    snapshot = model.compare(None, observation(), PREFS)
+    pages = ui.match_pages(snapshot, 'EUW1_1234567890')
+    assert 'EUW1_1234567890' in pages[0].description
+    assert '27/09/2026 à 18:00 UTC' in pages[0].fields[1].value
+
+
 def test_cog_registers_real_commands_and_callbacks():
     client = interactions.Client(sync_interactions=False)
     extension = cog.Challenges(client)

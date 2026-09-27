@@ -1,10 +1,20 @@
 """Embeds Discord natifs, lisibles sur mobile et sans fichier image partagé."""
 import interactions
+from datetime import datetime, timezone
 
 from fonctions.challenge_progress import TIER_NAMES, clean, next_goal, number, objectives, visible
 
 COLOR = 0x29B6A8
 PAGE_SIZE = 5
+
+
+def when(value):
+    if not value:
+        return 'Premier relevé'
+    try:
+        return datetime.fromisoformat(value).astimezone(timezone.utc).strftime('%d/%m/%Y à %H:%M UTC')
+    except (TypeError, ValueError):
+        return clean(value, 50)
 
 
 def fmt(value):
@@ -86,8 +96,8 @@ def match_pages(snapshot, match_id):
         message = 'Paliers, progrès et mouvements de classement sont détaillés dans les pages suivantes.'
     summary.add_field(name='Le point sur tes défis', value=message, inline=False)
     summary.add_field(name='Période du relevé', value=(
-        f"Depuis : {clean(snapshot.get('since') or 'premier relevé', 50)}\n"
-        f"Observé : {clean(snapshot['observed_at'], 50)}\n"
+        f"Depuis : {when(snapshot.get('since'))}\n"
+        f"Observé : {when(snapshot['observed_at'])}\n"
         'Les compteurs Riot sont cumulés : cette évolution peut couvrir plusieurs parties.'), inline=False)
     pages = [summary]
     for title, entries in (
@@ -104,7 +114,7 @@ def match_pages(snapshot, match_id):
 def profile_pages(current, preferences, player_name, view='profil'):
     entries = visible(current['entries'], preferences)
     title = f"{clean(player_name, 65)} · Challenges"
-    description = f"Relevé : {clean(current['observed_at'], 50)} (UTC)"
+    description = f"Relevé : {when(current['observed_at'])}"
     if view == 'objectifs':
         return finish(pages_for_entries('🎯 Objectifs · ' + title, description,
             objectives(current['entries'], preferences, limit=25)), 'Favoris puis proximité du palier')

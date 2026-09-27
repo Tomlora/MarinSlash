@@ -18,7 +18,7 @@ def number(value, default=0):
 
 def clean(value, limit=200):
     value = re.sub(r'<[^>]+>', '', str(value or ''))
-    value = re.sub(r'[@*_`~|\\]', '', value)
+    value = re.sub(r'[@*`~|\\]', '', value)
     return ' '.join(value.split())[:limit]
 
 
