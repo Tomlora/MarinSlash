@@ -765,7 +765,7 @@ def test_match_buttons_and_navigation_have_unique_valid_ids():
         assert len(rows[0].components) == (2 if button is None else 3)
         for component in rows[0].components[-2:]:
             assert VIEW_COG.OPEN_RE.fullmatch(component.custom_id)
-    for kind in ("analysis", "progress"):
+    for kind in ("teamfight", "ganks", "analysis", "progress"):
         for total in (1, 2, 13):
             for index in range(total):
                 rows = VIEW_COG.page_components(kind, "EUW1_123", 5, index, total)
@@ -783,7 +783,7 @@ def test_match_view_callbacks_acknowledge_then_respond_and_handle_errors():
         pages = VIEWS.build_progress_pages(example_match(), [])
         VIEW_COG.load_pages = lambda *args: pages
         cog = VIEW_COG.LolMatchViews.__new__(VIEW_COG.LolMatchViews)
-        for kind in ("analysis", "progress"):
+        for kind in ("teamfight", "ganks", "analysis", "progress"):
             ctx = RecordingContext(f"lolview_open_{kind}_EUW1_123_5")
             asyncio.run(cog.on_open(ctx))
             assert ctx.calls[0] == ("defer", {"ephemeral": True})
@@ -819,3 +819,122 @@ def test_match_view_timeout_returns_a_terminal_response():
         assert "trop de temps" in ctx.calls[-1][1]["content"]
     finally:
         VIEW_COG.load_pages, VIEW_COG.LOAD_TIMEOUT = old_load, old_timeout
+
+
+def teamfight_rows(count=17):
+    rows = []
+    for index in range(count):
+        common = {"fight_id": index + 1, "start_ms": index * 60000, "end_ms": index * 60000 + 30000,
+                  "team": 100, "winner": "100", "is_teamfight": True, "fight_type": "3v3",
+                  "fight_kills": 2, "fight_deaths": 0, "fight_assists": 3}
+        rows.extend([
+            {**common, "tracked": True, "damage_frame_window": 1000,
+             "damage_window_estimated": 99999, "damage_taken_frame_window": None},
+            {**common, "tracked": False, "damage_frame_window": 3000},
+            {**common, "team": 200, "tracked": False, "damage_frame_window": 9000},
+        ])
+    return rows
+
+
+def test_teamfight_view_uses_frame_damage_correct_team_share_and_all_fights():
+    pages = VIEWS.build_teamfight_pages(example_match(), teamfight_rows())
+    assert "**17** teamfights" in pages[0].fields[0].value
+    assert "**17** gagnés" in pages[0].fields[0].value
+    chronology = [p for p in pages if "Chronologie" in p.title]
+    assert sum(len(p.fields) for p in chronology) == 17
+    for page in pages:
+        assert page.color == 0xE74C3C
+        assert len(page.fields) <= 5
+        assert all(len(f.value) <= 1024 for f in page.fields)
+        assert sum(len(f.name) + len(f.value) for f in page.fields) + len(page.description) + len(page.title) + len(page.footer) <= 6000
+    detail = chronology[0].fields[0].value
+    assert "**1 000**" in detail and "25 % équipe" in detail
+    assert "99 999" not in detail
+    assert "**—** reçus" in detail
+    no_participation = VIEWS.build_teamfight_pages(example_match(), [{"fight_id": 1, "tracked": False}])
+    assert "Aucun combat" in no_participation[0].fields[0].value
+    missing = VIEWS.build_teamfight_pages(example_match(), [], False)
+    assert "pas disponibles" in missing[0].fields[0].value
+
+
+def gank_events(count=17):
+    return [{"timestamp_ms": i * 30000, "lane": "mid", "team_id": 200,
+             "jungler_champion": "Viego", "outcome": "trade",
+             "detection_source": "inferred_combat", "confidence": 0.9,
+             "jungler_kills": 1, "jungler_deaths": 0, "jungler_assists": 1}
+            for i in range(count)]
+
+
+def test_ganks_use_player_team_strict_success_and_laning_window():
+    match = {**example_match(), "id_participant": 7}
+    events = gank_events() + [
+        {"timestamp_ms": 839999, "team_id": 100, "lane": "bot", "outcome": "success"},
+        {"timestamp_ms": 840000, "team_id": 200, "lane": "top", "outcome": "success"},
+        {"timestamp_ms": -1, "team_id": 200, "outcome": "success"},
+    ]
+    pages = VIEWS.build_gank_pages(match, {}, events)
+    assert "**17** tentatives" in pages[0].fields[0].value
+    assert "**0** succès stricts (0 %)" in pages[0].fields[0].value
+    assert "**17** échanges" in pages[0].fields[0].value
+    assert "**1** tentatives" in pages[0].fields[1].value
+    chronology = [p for p in pages if "Chronologie" in p.title]
+    assert sum(len(p.fields) for p in chronology) == 18
+    assert chronology[0].fields[0].name.startswith("🔵")
+    assert chronology[-1].fields[-1].name.startswith("🔴 13:59")
+    for page in pages:
+        assert page.color == 0x2ECC71
+        assert len(page.fields) <= 5
+        assert all(len(f.value) <= 1024 for f in page.fields)
+        assert sum(len(f.name) + len(f.value) for f in page.fields) + len(page.description) + len(page.title) + len(page.footer) <= 6000
+    assert VIEWS.tracked_team({"id_participant": 4}) == 100
+    assert VIEWS.tracked_team({"id_participant": 5}) == 200
+
+
+def test_ganks_handle_old_data_empty_unsupported_mode_and_unknown_team():
+    match = {**example_match(), "id_participant": 0}
+    assert VIEWS.gank_outcome({"successful": True}) == "Issue non renseignée"
+    old_event = {"timestamp_ms": 1000, "team_id": 100, "successful": True}
+    page = VIEWS.build_gank_pages(match, {}, [old_event])[0]
+    assert "**1** issues inconnues" in page.fields[0].value
+    assert "**0** succès stricts (—)" in page.fields[0].value
+    empty = VIEWS.build_gank_pages(match, {"total_ganks_made": 0}, [])[0]
+    assert "**0** tentatives" in empty.fields[0].value
+    missing = VIEWS.build_gank_pages(match, {}, [], False)[0]
+    assert "Données indisponibles" in missing.fields[0].name
+    unsupported = VIEWS.build_gank_pages({**match, "mode": "ARAM"}, {}, [])[0]
+    assert "Mode non pris en charge" in unsupported.fields[0].name
+    unknown = VIEWS.build_gank_pages(example_match(), {}, [])[0]
+    assert "Équipe inconnue" in unknown.fields[0].name
+
+
+def test_new_button_labels_colors_and_settings_are_user_facing():
+    buttons = VIEWS.make_match_buttons("EUW1_123", 5)[0].components
+    assert [b.label for b in buttons] == ["⚔️ Teamfight", "🌿 Ganks"]
+    assert [b.style for b in buttons] == [4, 3]
+    assert [b.custom_id for b in buttons] == ["lolview_open_teamfight_EUW1_123_5", "lolview_open_ganks_EUW1_123_5"]
+    source = (COG_DIR / "settings_records.py").read_text(encoding="utf-8")
+    assert "PR42" not in source and "PR43" not in source
+    for layout in ("compact", "sections"):
+        embed = SETTINGS.settings_embed(PREFS.RecordPreferences(layout))
+        assert "PR4" not in embed.fields[0].value
+
+
+def test_new_view_loaders_dispatch_and_preserve_legacy_views():
+    names = (("teamfight", "load_teamfights", "build_teamfight_pages", (example_match(), teamfight_rows(), True)),
+             ("ganks", "load_ganks", "build_gank_pages", ({**example_match(), "id_participant": 7}, {}, gank_events(), True)),
+             ("analysis", "load_analysis", "build_analysis_pages", (example_match(), [], False)),
+             ("progress", "load_progress", "build_progress_pages", (example_match(), [])))
+    for kind, loader_name, builder_name, data in names:
+        old = getattr(VIEW_COG, loader_name)
+        calls = []
+        def loader(match_id, joueur):
+            calls.append((match_id, joueur))
+            return data
+        try:
+            setattr(VIEW_COG, loader_name, loader)
+            actual = VIEW_COG.load_pages(kind, "EUW1_123", 5)
+            expected = getattr(VIEWS, builder_name)(*data)
+            assert [p.title for p in actual] == [p.title for p in expected]
+            assert calls == [("EUW1_123", 5)]
+        finally:
+            setattr(VIEW_COG, loader_name, old)

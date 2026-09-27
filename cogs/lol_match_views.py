@@ -1,4 +1,4 @@
-"""Boutons persistants d'analyse et de progression, paginés en réponse privée."""
+"""Vues persistantes Teamfight / Ganks et compatibilité des anciens boutons."""
 import asyncio
 import logging
 import re
@@ -8,12 +8,13 @@ from interactions import Extension, component_callback
 
 from fonctions.match.match_views import (
     load_analysis, load_progress, build_analysis_pages, build_progress_pages,
+    load_teamfights, load_ganks, build_teamfight_pages, build_gank_pages,
 )
 
 log = logging.getLogger(__name__)
-OPEN_RE = re.compile(r"^lolview_open_(analysis|progress)_([A-Z0-9]+_[0-9]+)_([0-9]+)$")
+OPEN_RE = re.compile(r"^lolview_open_(teamfight|ganks|analysis|progress)_([A-Z0-9]+_[0-9]+)_([0-9]+)$")
 PAGE_RE = re.compile(
-    r"^lolview_page_(analysis|progress)_([A-Z0-9]+_[0-9]+)_([0-9]+)_([0-9]+)_(?:prev|next)$"
+    r"^lolview_page_(teamfight|ganks|analysis|progress)_([A-Z0-9]+_[0-9]+)_([0-9]+)_([0-9]+)_(?:prev|next)$"
 )
 LOAD_TIMEOUT = 8
 
@@ -36,10 +37,15 @@ def page_components(kind, match_id, joueur, index, total):
 
 
 def load_pages(kind, match_id, joueur):
-    data = load_analysis(match_id, joueur) if kind == "analysis" else load_progress(match_id, joueur)
-    if data is None:
-        return None
-    return build_analysis_pages(*data) if kind == "analysis" else build_progress_pages(*data)
+    loaders = {
+        "teamfight": (load_teamfights, build_teamfight_pages),
+        "ganks": (load_ganks, build_gank_pages),
+        "analysis": (load_analysis, build_analysis_pages),
+        "progress": (load_progress, build_progress_pages),
+    }
+    loader, builder = loaders[kind]
+    data = loader(match_id, joueur)
+    return None if data is None else builder(*data)
 
 
 class LolMatchViews(Extension):

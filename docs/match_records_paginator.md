@@ -148,8 +148,8 @@ Chaque utilisateur peut modifier ses propres préférences, sans permission
 administrateur et sans pouvoir modifier celles d'un autre membre.
 
 - `/settings_records` : consulter ses réglages (réponse privée).
-- `/settings_records format:compact` : présentation PR42, valeur par défaut.
-- `/settings_records format:sections` : présentation PR43 par catégories.
+- `/settings_records format:compact` : présentation compacte par statistique, valeur par défaut.
+- `/settings_records format:sections` : présentation en sections par catégorie.
 - `/settings_records alltime:true saison:false perso:true` : deux catégories.
 - `/settings_records alltime:false saison:false perso:false` : aucune catégorie.
 - Les options omises conservent leur valeur. Les trois catégories sont activées
@@ -173,42 +173,48 @@ Un message Discord déjà publié ne change pas automatiquement. Une nouvelle
 publication ou le rechargement d'un récap avec snapshot applique les réglages
 courants. Les identifiants des anciens boutons restent compatibles.
 
-## Analyse du match et Ma progression
+## Teamfight et Ganks
 
-Sous un récap dont la ligne `matchs` a été sauvegardée, deux boutons
-supplémentaires ouvrent des **pages privées** avec Précédent, Suivant et Fermer.
-Ils restent disponibles même lorsque les records sont masqués et fonctionnent
-après redémarrage. Ils n'appellent pas Riot.
+Sous un récap dont la ligne `matchs` a été sauvegardée, les boutons
+**⚔️ Teamfight** (rouge) et **🌿 Ganks** (vert) ouvrent des pages privées :
+résumé, puis chronologie avec cinq champs maximum par page.
+Précédent, Suivant et Fermer restent disponibles. Les boutons fonctionnent
+après redémarrage, même lorsque les records sont masqués, sans appel Riot.
 
-**Analyse du match** : vue d'ensemble (KDA, dégâts, économie, vision),
-objectifs d'équipe et contribution individuelle, puis combats marquants
-et chronologie des teamfights, cinq champs maximum par page.
-Les dégâts des combats sont des estimations ; les fenêtres peuvent se chevaucher.
-Les lignes sont filtrées sur le joueur suivi et son point de vue.
-Si la table des combats ou les données du match manquent, un message l'indique.
+**Teamfight** reprend la lecture de la commande dédiée : bilan des teamfights,
+escarmouches, duels et victoires en infériorité ; meilleur teamfight en dégâts
+infligés et, si disponible, en dégâts reçus ; chronologie des combats du joueur.
+Les dégâts infligés utilisent `damage_frame_window`, comme la commande, et
+leur part est calculée sur les participants de la même équipe et du même point
+de vue sauvegardé. Les dégâts reçus sont toutes sources. Une valeur absente
+reste « — ». Les fenêtres de mesure peuvent se chevaucher.
 
-**Ma progression** : performances du **compte du récap**, comparées à ses
-**dix parties précédentes au maximum dans le même mode**.
-Le match consulté, les parties postérieures, les autres modes et les autres
-comptes sont exclus. Les pages distinguent combat, économie et vision, puis
-listent les matchs de référence. Les moyennes ignorent les valeurs absentes
-et indiquent le nombre de valeurs disponibles pour chaque métrique. Une
-référence nulle n'entraîne pas de division par zéro. Un historique de moins de
-trois matchs est signalé comme limité. Les écarts ne sont pas présentés comme
-une amélioration automatique, notamment pour les morts. Les rôles et champions
-peuvent différer.
+**Ganks** reprend le résumé des deux junglers, les appuis TOP/MID/BOT, la
+qualité de détection et les tentatives chronologiques entre **0:00 et 13:59**.
+Le point de vue allié/ennemi vient de l'index Riot du joueur du récap, y compris
+côté rouge. Le succès strict exclut les échanges de kills. Les anciennes données
+sans issue détaillée affichent « Issue non renseignée », sans déduire un succès
+du seul booléen historique. Ranked, Flex et Swiftplay sont pris en charge.
+Un mode incompatible, une équipe inconnue ou des tables/données absentes
+produisent un message explicite.
 
 Les clics sont acquittés avant les requêtes, exécutées hors de la boucle asyncio
-avec un délai maximal de huit secondes. Les erreurs retirent les anciens
-contrôles de la vue privée et invitent à rouvrir le bouton du récap.
+avec un délai maximal de huit secondes. Les erreurs retirent les contrôles
+de la vue privée et invitent à rouvrir le bouton du récap.
+
+Les nouveaux récaps affichent les nouveaux boutons. Les messages déjà envoyés
+ne sont pas modifiés automatiquement : leurs anciens boutons Analyse et
+Progression gardent leur fonctionnement. Aucun changement de schéma requis ;
+les deux nouvelles vues lisent les analyses déjà sauvegardées.
 
 ## Vérifications supplémentaires
 
 1. Tester les deux formats et les huit combinaisons de catégories.
 2. Vérifier avec deux utilisateurs que leurs choix restent indépendants.
 3. Masquer tous les records, puis les réactiver : le snapshot doit rester complet.
-4. Ouvrir Analyse et Progression, naviguer jusqu'à la dernière page, puis fermer.
-5. Tester un compte sans historique, un historique incomplet et des métriques à zéro.
-6. Redémarrer le bot puis utiliser les boutons d'un récap déjà publié.
-7. La CI exécute les tests Discord hors ligne et les requêtes réelles sur une
-   base PostgreSQL jetable `records_test`, sans connexion à la base du bot.
+4. Ouvrir Teamfight et Ganks, atteindre la dernière page, revenir puis fermer.
+5. Vérifier un match côté rouge, le seuil 14:00 et les issues de gank anciennes.
+6. Tester les données absentes, les colonnes de dégâts reçus manquantes et ARAM.
+7. Redémarrer le bot puis utiliser les boutons récents et anciens.
+8. La CI vérifie les composants Discord réels hors ligne et les requêtes sur
+   une base PostgreSQL jetable `records_test`, sans connexion à la base du bot.

@@ -21,8 +21,8 @@ def settings_embed(preferences):
         color=0x5865F2,
     )
     embed.add_field(name="Présentation", value=(
-        "Compacte par statistique (PR42)" if preferences.layout == "compact"
-        else "Sections All-Time / Saison / Personnel (PR43)"
+        "Compacte par statistique" if preferences.layout == "compact"
+        else "Sections All-Time / Saison / Personnel"
     ), inline=False)
     embed.add_field(name="Catégories affichées", value=(
         " · ".join(names[s] for s in preferences.scopes) or "Aucune — records masqués"
@@ -42,8 +42,8 @@ class SettingsRecords(Extension):
             SlashCommandOption(
                 name="format", description="Présentation du récap", type=interactions.OptionType.STRING,
                 required=False, choices=[
-                    SlashCommandChoice(name="Compact par statistique — PR42 (défaut)", value="compact"),
-                    SlashCommandChoice(name="Sections par catégorie — PR43", value="sections"),
+                    SlashCommandChoice(name="Compact par statistique (défaut)", value="compact"),
+                    SlashCommandChoice(name="Sections par catégorie", value="sections"),
                 ],
             ),
             *[SlashCommandOption(
