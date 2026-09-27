@@ -99,6 +99,17 @@ def test_real_demo_selector_renders_native_discord_components():
     assert embed.image.url == "attachment://scoreboard.png"
 
 
+def test_actual_file_wrapper_accepts_generated_demo_image():
+    import os
+
+    path = COG._demo_image()
+    try:
+        upload = interactions.File(path)
+        assert upload is not None
+    finally:
+        os.unlink(path)
+
+
 def test_actual_class_accepts_all_offline_scenarios():
     for scenario in COG.DEMO_SCENARIOS:
         collector = COG.demo_collector(scenario)
