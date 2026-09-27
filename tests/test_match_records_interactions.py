@@ -71,7 +71,7 @@ def test_real_embed_and_button_components():
     embed = interactions.Embed(title="Récap", color=0x5865F2)
     UI.add_featured_records(embed, collector)
     assert len(embed.fields) == 1
-    assert "Historique" in embed.fields[0].value
+    assert "Records All-Time" in embed.fields[0].value
 
     button = UI.make_open_button("EUW1_1234567890", 1234)
     discord_row = interactions.ActionRow(button).to_dict()

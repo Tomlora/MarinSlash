@@ -3,25 +3,36 @@
 ## Affichage public
 
 Après une analyse éligible (RANKED/FLEX/SWIFTPLAY d'au moins 15 min,
-ou ARAM d'au moins 10 min), le récap affiche au maximum **trois
-statistiques marquantes** plutôt que les mêmes exploits répétés dans
-All-Time / Saison / Personnel. Les scopes sont indiqués sur une seule ligne.
+ou ARAM d'au moins 10 min), le récap sélectionne au maximum **trois
+statistiques marquantes**, puis affiche leurs distinctions dans les sections
+**Records All-Time**, **Records Saison** et **Records Perso**, comme l'ancien
+affichage. Une statistique peut apparaître dans plusieurs sections : chaque
+ligne conserve son propre rang, score précédent, détenteur et logo du champion.
+Les sections vides sont omises et séparées par une ligne vide.
+
 Les records historiques absolus passent en priorité. Une diversité de
-statistiques est recherchée pour les autres places. Chaque ancien record
-affiché mentionne **son ancien détenteur et le logo de son champion** ;
-si les anciens détenteurs All-Time et Saison sont différents, deux lignes
-distinctes sont utilisées. Exemple :
+statistiques est recherchée pour les autres places. Le champ public reste
+limité à 960 caractères, titres et compteur inclus : si nécessaire, moins
+de trois statistiques sont affichées, sans couper une ligne ni retirer un
+scope d'une statistique affichée. Le compteur indique le total des données
+enregistrées et le nombre de statistiques restantes est annoncé.
+
+Exemple (les médailles et logos sont les emojis natifs du serveur) :
 
 ```
-🥇 **dégâts** → `14000`
-↳ 🏛️ Historique · 🥇 ~~12490~~ @JoueurA <:Viego:…>
-↳ 🏆 Saison · 🥇 ~~11980~~ @JoueurB <:Ahri:…>
+🏛️ Records All-Time
+⑤ dmg ad max en teamfight → 12536 · ~~12490~~ @Tomlora [logo]
+⑧ dmg max en teamfight → 13401 · ~~13364~~ @Tomlora [logo]
+
+👑 Records Saison
+⑤ dmg max en teamfight → 13401 · ~~13290~~ @Tomlora [logo]
+⑤ dmg ad max en teamfight → 12536 · ~~12490~~ @Tomlora [logo]
+
+4 distinctions · 2 statistiques
 ```
 
-Les balises `<:Viego:…>` et `<:Ahri:…>` représentent les emojis natifs
-chargés depuis `data_champion`, pas des noms entre parenthèses. Quand
-les scopes partagent le même ancien record et la même place, le score,
-l'ancien score barré, le détenteur et le logo restent sur une seule ligne.
+Le nom de la statistique est en gras, le score en code, et l'ancien score
+barré. Les logos proviennent de `data_champion`.
 
 Quand au moins une distinction a été détectée, un bouton **🏆 Voir tous
 les records** est attaché au message, sous l'embed et son image. Le bouton
@@ -107,8 +118,9 @@ La commande /lol_records existe déjà dans le cog des classements :
 
 1. Lancer /lol_records_demo, choisir « aucun record », puis ouvrir
    le détail : une seule page et aucun bouton Suivant actif.
-2. Choisir All-Time + personnel : une seule statistique dans le récap,
-   deux distinctions réparties dans leurs pages respectives.
+2. Choisir All-Time + personnel : une seule statistique sélectionnée,
+   deux lignes complètes réparties dans les sections All-Time et Perso,
+   puis dans leurs pages de détail respectives.
 3. Choisir 10, 25 puis 50 records : changer de scope, atteindre
    la dernière page, vérifier les limites de cinq champs par embed.
 4. Cliquer sur le bouton d'une véritable partie éligible : le
