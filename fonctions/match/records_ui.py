@@ -19,6 +19,7 @@ from fonctions.match.records_display import (
     RecordsCollector,
     _format_value,
 )
+from utils.emoji import emote_champ_discord, emote_v2
 
 log = logging.getLogger(__name__)
 
@@ -208,41 +209,46 @@ def _safe_line(text, limit=180):
     return value[:limit - 1] + "…" if len(value) > limit else value
 
 
-def _featured_line(category, entries):
-    """Conserver la valeur, l'ancien détenteur et son champion pour chaque scope.
+def _champion_icon(champion):
+    """Emoji du champion issu de data_champion, comme l'ancien récap."""
+    if not champion:
+        return ""
+    name = str(champion).strip()
+    # Les noms Riot peuvent comporter des majuscules internes (Kai'Sa, Lee Sin).
+    for key in (name, name.capitalize(), name.title()):
+        icon = emote_champ_discord.get(key)
+        if icon:
+            return str(icon)
+    return ""
 
-    Si deux scopes partagent exactement le même précédent record, ils peuvent
-    être affichés sur une seule ligne ; sinon ne pas attribuer le record
-    d'un scope à l'ancien détenteur d'un autre.
-    """
+
+def _former_holder(entry):
+    """Conserver mention du joueur et icône du champion, sans texte entre parenthèses."""
+    holder = _safe_line(entry.old_holder or "Détenteur inconnu", 48)
+    icon = _champion_icon(entry.old_champion)
+    return f"{holder} {icon}".rstrip()
+
+
+def _featured_line(category, entries):
+    """Présentation compacte de l'ancien embed avec scopes réunis proprement."""
     best = min(entries, key=_priority)
     medal = MEDAL_EMOJIS.get(best.place, f"#{best.place}")
-    status = (
-        "Égalisation" if best.is_tie
-        else "Nouveau record" if best.place == 1
-        else f"Top {best.place}"
-    )
+    stat_icon = emote_v2.get(category, "")
     value = _format_value(best.value, best.category)
-    lines = [f"{medal} **{status} : {display_label(category)}** — {value}"]
-
-    # Le joueur et le champion ne doivent pas être perdus par le regroupement.
-    # Fusionner seulement lorsque les précédents records sont identiques.
-    previous = {}
+    prefix = "🤝 " if best.is_tie else ""
+    lines = [f"{prefix}{medal} {stat_icon}**{display_label(category)}** → `{value}`"]
+    # Chaque scope peut avoir un détenteur et une valeur précédente différents.
+    # Fusionner uniquement les scopes qui partagent le même ancien record.
+    grouped = {}
     for entry in sorted(entries, key=lambda e: SCOPE_PRIORITY.get(e.scope, 99)):
         key = (entry.old_record, entry.old_holder, entry.old_champion, entry.is_tie)
-        previous.setdefault(key, []).append(entry.scope)
-
-    for (old_value, holder, champion, tie), scopes in previous.items():
-        scope_names = " · ".join(SCOPE_SHORT[scope] for scope in scopes)
-        name = _safe_line(holder or "Détenteur inconnu", 48)
-        champion_name = _safe_line(champion, 28) if champion else ""
-        previous_value = _format_value(old_value, best.category)
-        verb = "égalisé" if tie else "précédent"
-        suffix = f" ({champion_name})" if champion_name else ""
-        lines.append(
-            f"↳ {scope_names} · {verb} : {previous_value} "
-            f"— **{name}**{suffix}"
-        )
+        grouped.setdefault(key, []).append(entry)
+    for records in grouped.values():
+        entry = records[0]
+        scope_names = " · ".join(SCOPE_SHORT[e.scope] for e in records)
+        previous = _format_value(entry.old_record, entry.category)
+        result = f"Égalise {_former_holder(entry)}" if entry.is_tie else f"~~{previous}~~ {_former_holder(entry)}"
+        lines.append(f"↳ {scope_names} · {result}")
     return "\n".join(lines)
 
 
@@ -282,18 +288,19 @@ def add_featured_records(embed, collector, max_items=3):
 
 
 def _detail_field(entry):
+    """Même style que l'ancien récap : emoji stat, score en code, ancien barré,
+    ancien détenteur et emoji de champion natif du serveur.
+    """
     medal = MEDAL_EMOJIS.get(entry.place, f"#{entry.place}")
-    kind = "Égalisation" if entry.is_tie else "Nouveau record" if entry.place == 1 else f"Entrée Top {entry.place}"
-    name = f"{medal} {kind} · {display_label(entry.category)}"
+    stat_icon = emote_v2.get(entry.category, "")
+    category = display_label(entry.category)
     value = _format_value(entry.value, entry.category)
     previous = _format_value(entry.old_record, entry.category)
-    holder = _safe_line(entry.old_holder, 90)
-    champion = _safe_line(entry.old_champion, 35) if entry.old_champion else ""
-    relation = "Égalise" if entry.is_tie else "Devant"
+    status = "🤝 Égalisation" if entry.is_tie else ("Nouveau record" if entry.place == 1 else f"Top {entry.place}")
+    old = f"Égalise {_former_holder(entry)}" if entry.is_tie else f"~~{previous}~~ {_former_holder(entry)}"
     return (
-        _safe_line(name, 256),
-        f"**Valeur :** {value} · **Ancien score :** {previous}\n"
-        f"**{relation} :** {holder}" + (f" ({champion})" if champion else ""),
+        _safe_line(f"{medal} {stat_icon}{category}", 256),
+        f"`{value}` · {status} · {old}",
     )
 
 
