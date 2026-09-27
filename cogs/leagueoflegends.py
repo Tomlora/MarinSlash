@@ -1143,13 +1143,19 @@ class LeagueofLegends(Extension):
         riot_tag = riot_tag.upper()
         df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col='discord')
 
-        try:
-            check_records = bool(lire_bdd_perso(f'''SELECT riot_id, save_records from tracker WHERE riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''',
-                                               index_col='riot_id').T.loc[riot_id]['save_records'])
-            if check_records.empty:
-                check_records = False
-        except:
-            check_records = False
+        # bool n'a pas d'attribut .empty : l'ancien code désactivait /game
+        # et activait /game_multi sans tenir compte de save_records.
+        record_setting = lire_bdd_perso(
+            """SELECT save_records FROM tracker
+               WHERE riot_id = :riot_id AND riot_tagline = :riot_tag""",
+            index_col=None,
+            params={"riot_id": riot_id, "riot_tag": riot_tag},
+        ).T
+        check_records = (
+            not record_setting.empty
+            and pd.notna(record_setting.iloc[0]["save_records"])
+            and bool(record_setting.iloc[0]["save_records"])
+        )
 
         if df_banned.empty:
             try:
@@ -1240,13 +1246,19 @@ class LeagueofLegends(Extension):
         puuid = data_joueur.T.loc[riot_id]['puuid']
         id_compte = data_joueur.T.loc[riot_id]['id_compte']
 
-        try:
-            check_records = bool(lire_bdd_perso(f'''SELECT riot_id, save_records from tracker WHERE riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''',
-                                               index_col='riot_id').T.loc[riot_id]['save_records'])
-            if check_records.empty:
-                check_records = True
-        except:
-            check_records = True
+        # bool n'a pas d'attribut .empty : l'ancien code désactivait /game
+        # et activait /game_multi sans tenir compte de save_records.
+        record_setting = lire_bdd_perso(
+            """SELECT save_records FROM tracker
+               WHERE riot_id = :riot_id AND riot_tagline = :riot_tag""",
+            index_col=None,
+            params={"riot_id": riot_id, "riot_tag": riot_tag},
+        ).T
+        check_records = (
+            not record_setting.empty
+            and pd.notna(record_setting.iloc[0]["save_records"])
+            and bool(record_setting.iloc[0]["save_records"])
+        )
 
         if df_banned.empty:
             try:
