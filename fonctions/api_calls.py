@@ -43,7 +43,11 @@ async def get_live_match(summonerName: str, session:ClientSession):
 
     response = await getLiveGame(session, riot_id, riot_tag)
 
-    if response["data"]["getLiveGame"] == None:
+    if not isinstance(response, dict) or response.get('errors'):
+        raise ValueError("Réponse U.GG indisponible pour la partie en cours")
+    if not isinstance(response.get('data'), dict) or 'getLiveGame' not in response['data']:
+        raise ValueError("Réponse U.GG invalide pour la partie en cours")
+    if response["data"]["getLiveGame"] is None:
         return 'Aucun'
 
     live_game_data = {}
@@ -107,10 +111,12 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
         # url = f"https://championmastery.gg/summoner?summoner={summonerName_url}&region=EUW"
         url = f'https://championmastery.gg/player?riotId={riot_id}%23{riot_tag}&region=EUW&lang=en_US'
         
-        async with ClientSession() as session:
-            async with session.get(url) as resp:
-                text = await resp.text()
-                df = pd.read_html(text, header=0)[0].head(-1)
+        # La session appartient à l'appelant et doit rester ouverte pour le
+        # secours Riot si le scraping échoue.
+        async with session.get(url) as resp:
+            resp.raise_for_status()
+            text = await resp.text()
+            df = pd.read_html(text, header=0)[0].head(-1)
         
         mastery_list = []
         try:               
@@ -166,7 +172,7 @@ async def get_masteries(summonerName: str, championIds, session : ClientSession)
                 traceback_msg = ''.join(traceback_details)
                 print(summonerName, ' masteries ', traceback_msg, url)
     
-    except:
+    except Exception:
         print(f"Erreur Masteries {summonerName_url} : Retour à l'API")
         mastery_list = []
         me = await get_summoner_by_riot_id(session, riot_id_api, riot_tag_api)
