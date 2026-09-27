@@ -1,5 +1,6 @@
 """Smoke tests avec interactions.py 5.13.2 (vraies classes Discord, aucun réseau)."""
 import importlib.util
+import inspect
 import sys
 import types
 from pathlib import Path
@@ -116,3 +117,12 @@ def test_actual_class_accepts_all_offline_scenarios():
         pages = UI.build_record_pages(collector, "EUW1_1234567890", demo=True)
         assert pages
         assert all(len(embed.fields) <= 5 for _, embed in pages)
+
+
+def test_interactions_5132_supports_deferred_editing_and_ephemeral_response():
+    # Ces signatures viennent de la version réellement installée en CI.
+    defer = inspect.signature(interactions.ComponentContext.defer)
+    assert "ephemeral" in defer.parameters
+    assert "edit_origin" in defer.parameters
+    assert hasattr(interactions.ComponentContext, "edit_origin")
+    assert "ephemeral" in inspect.signature(interactions.ComponentContext.send).parameters
