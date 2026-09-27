@@ -29,5 +29,7 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip
       - run: python -m pip install pytest pandas Pillow discord-py-interactions==5.13.2
+      - name: Compile changed MatchLoL modules
+        run: python -m py_compile cogs/leagueoflegends.py cogs/lol_records.py fonctions/match/records_ui.py
       - name: Test all offline scenarios and Discord size limits
         run: python -m pytest -q tests/test_match_records_ui.py tests/test_match_records_interactions.py
