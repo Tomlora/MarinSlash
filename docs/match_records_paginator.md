@@ -7,7 +7,16 @@ ou ARAM d'au moins 10 min), le récap affiche au maximum **trois
 statistiques marquantes** plutôt que les mêmes exploits répétés dans
 All-Time / Saison / Personnel. Les scopes sont indiqués sur une seule ligne.
 Les records historiques absolus passent en priorité. Une diversité de
-statistiques est recherchée pour les autres places.
+statistiques est recherchée pour les autres places. Chaque ancien record
+affiché mentionne désormais aussi **son ancien détenteur et son champion** ;
+si les anciens détenteurs All-Time et Saison sont différents, deux lignes
+distinctes sont utilisées. Exemple :
+
+```
+🥇 Nouveau record : dégâts — 14 000
+↳ 🏛️ Historique · précédent : 12 490 — @JoueurA (Viego)
+↳ 🏆 Saison · précédent : 11 980 — @JoueurB (Ahri)
+```
 
 Quand au moins une distinction a été détectée, un bouton **🏆 Voir tous
 les records** est attaché au message, sous l'embed et son image. Le bouton
@@ -27,8 +36,12 @@ pas les clics ni les pages.
 Le callback du bouton public ainsi que les boutons de pagination utilisent
 des IDs déterministes. Les données sont rechargées depuis PostgreSQL à
 chaque interaction : le **bouton public reste utilisable après un
-redémarrage** du bot. Les réponses éphémères restent soumises aux durées
-d'accès imposées par Discord.
+redémarrage** du bot. La réponse au clic est acquittée immédiatement,
+puis PostgreSQL est interrogé dans un thread séparé. Un délai de huit
+secondes et un message d'erreur visible remplacent l'attente infinie en
+cas de base indisponible ou d'erreur lors de la construction du paginator.
+Les réponses éphémères restent soumises aux durées d'accès imposées
+par Discord.
 
 ## Sauvegarde et déploiement
 
@@ -96,3 +109,13 @@ La commande /lol_records existe déjà dans le cog des classements :
    depuis un message dont le snapshot existe toujours.
 6. Désactiver tracker.save_records pour un compte et vérifier
    qu'aucun record ni bouton trompeur n'apparaît dans /game.
+
+## Après une correction du code
+
+Un récap **déjà publié** sur Discord ne se met pas automatiquement à jour :
+le nouveau texte compact doit être publié de nouveau. En revanche, les
+snapshots `match_records` existants contiennent déjà `old_holder` et
+`old_champion` : le bouton de détail sur un ancien message peut être
+réutilisé après redémarrage, sans supprimer ni recalculer la partie. Pour
+revoir le récap public de la même partie, utiliser la procédure habituelle
+de suppression ciblée, puis relancer `/game` après déploiement.
