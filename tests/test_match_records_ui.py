@@ -1115,3 +1115,27 @@ def test_save_data_captures_details_after_match_save_on_new_and_existing_matches
         info._insert_participant_data = info._insert_other_match_data = info._insert_points_data = lambda: None
         asyncio.run(namespace["save_data"](info))
         assert calls == (["details"] if existing else ["match", "details"])
+
+
+def test_gold_curve_is_relative_to_tracked_team_and_splits_sign_changes():
+    points = [{"minute": 0, "blue": 1000, "red": 1000},
+              {"minute": 1, "blue": 1400, "red": 1000},
+              {"minute": 2, "blue": 1200, "red": 1600},
+              {"minute": 4, "blue": 2000, "red": 1000}]
+    blue, red = {**example_match(), "id_participant": 2}, {**example_match(), "id_participant": 7}
+    assert DETAILS.gold_series(blue, points) == [(0, 0), (1, 400), (2, -400), (4, 1000)]
+    assert DETAILS.gold_series(red, points) == [(0, 0), (1, -400), (2, 400), (4, -1000)]
+    segments, colors = DETAILS.gold_segments(DETAILS.gold_series(blue, points))
+    assert segments == [[(0, 0), (1, 400)], [(1, 400), (1.5, 0)], [(1.5, 0), (2, -400)]]
+    assert colors == [DETAILS.GOLD_POSITIVE, DETAILS.GOLD_POSITIVE, DETAILS.GOLD_NEGATIVE]
+    _, reverse = DETAILS.gold_segments(DETAILS.gold_series(red, points))
+    assert reverse == [DETAILS.GOLD_NEGATIVE, DETAILS.GOLD_NEGATIVE, DETAILS.GOLD_POSITIVE]
+    assert DETAILS.gold_segments([(0, 0), (1, 0)])[1] == [DETAILS.GOLD_ZERO]
+    assert DETAILS.gold_segments([(0, 500)]) == ([], [])
+    embed = DETAILS.gold_embed(red, points)
+    assert "**-1 000**" in embed.fields[1].value
+    assert "Alliés **400**" in embed.fields[2].value
+    assert "Adversaires **1 000**" in embed.fields[2].value
+    assert DETAILS.gold_series(example_match(), points) == []
+    unknown = DETAILS.gold_embed(example_match(), points)
+    assert unknown.fields[0].name == "Équipe inconnue" and unknown.image is None

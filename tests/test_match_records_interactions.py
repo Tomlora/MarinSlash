@@ -193,18 +193,22 @@ def test_real_score_pages_and_gold_image_upload_render_offline():
         assert all(len(f["value"]) <= 1024 for f in payload["fields"])
     from unittest.mock import patch
     from matplotlib.figure import Figure
-    import math
+    from matplotlib.collections import LineCollection
     original_save = Figure.savefig
-    curves = []
+    captured = {}
     def capture(figure, *args, **kwargs):
-        curves.extend([line.get_ydata().tolist() for line in figure.axes[0].lines[:2]])
+        ax = figure.axes[0]
+        collection = next(c for c in ax.collections if isinstance(c, LineCollection))
+        captured["segments"] = [s.tolist() for s in collection.get_segments()]
+        captured["labels"] = [text.get_text() for text in ax.texts]
+        captured["background"] = ax.get_facecolor()
         return original_save(figure, *args, **kwargs)
     with patch.object(Figure, "savefig", capture):
-        png = DETAILS.render_gold(data["gold"])
-    assert curves[0][:3] == [0, 500, 1000]
-    assert curves[1][:3] == [0, -500, -1000]
-    assert math.isnan(curves[0][3]) and math.isnan(curves[1][3])
-    assert curves[0][4] == 2000 and curves[1][4] == -2000
+        png = DETAILS.render_gold(match, data["gold"])
+    # Le compte est rouge : le différentiel bleu positif devient un retard allié.
+    assert captured["segments"] == [[[0, 0], [1, -500]], [[1, -500], [2, -1000]]]
+    assert captured["labels"] == ["+0", "-500", "-1 000", "-2 000"]
+    assert captured["background"] == (1, 1, 1, 1)
     with Image.open(BytesIO(png)) as image:
         assert image.size == (1440, 660) and image.format == "PNG"
         assert len(image.convert("RGB").getcolors(maxcolors=1000000)) > 100
@@ -217,8 +221,8 @@ def test_real_score_pages_and_gold_image_upload_render_offline():
     # Courbe à zéro et une seule minute : limites valides et PNG lisible.
     for points in ([{"minute": 0, "blue": 2500, "red": 2500}],
                    [{"minute": m, "blue": 2500, "red": 3500} for m in range(120)]):
-        with Image.open(BytesIO(DETAILS.render_gold(points))) as image:
-            assert image.size == (1440, 660)
+        with Image.open(BytesIO(DETAILS.render_gold(match, points))) as image:
+            assert image.width >= 1440 and image.height == 660
 
 
 def test_close_uses_deferred_webhook_edit_and_removes_attachment():

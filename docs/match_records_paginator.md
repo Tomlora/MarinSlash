@@ -232,12 +232,14 @@ classement des dix joueurs en deux pages. Les dimensions absentes restent « —
 La note globale et les dimensions sont celles sauvegardées lors du récap.
 
 **Différentiel d'or** ouvre un embed privé avec un PNG :
-- bleue moins rouge, et rouge moins bleue, sur deux courbes symétriques ;
+- une courbe alliés moins adversaires, comme `/lol_analyse_durant_la_game gold_team` ;
+- segments bleus en avantage allié, rouges en retard, coupure exacte au passage par zéro ;
+- fond clair et valeur affichée à chaque minute ;
 - somme du totalGold des cinq joueurs de chaque équipe Riot ;
 - un point par minute entière, avec une tolérance de retard de frame de 1 seconde ;
 - aucune extrapolation, interpolation ou remplacement d'une minute par une frame finale partielle ;
 - une interruption de la courbe lorsqu'une minute manque ;
-- dernière minute mesurée et avantage maximal de chaque équipe.
+- dernière minute mesurée et avantage maximal allié/adverse, du point de vue du compte du récap.
 
 Le graphique est généré en mémoire, sans fichier partagé entre utilisateurs.
 Le bouton Fermer retire aussi la pièce jointe. Les lectures SQL et le rendu

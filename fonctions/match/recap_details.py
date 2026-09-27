@@ -231,65 +231,108 @@ def load_gold(match_id, joueur):
     return match, [valid[m] for m in sorted(valid)]
 
 
+def gold_series(match, points):
+    """Une seule série alliés - adversaires, du point de vue du compte du récap."""
+    team = tracked_team(match)
+    if team is None:
+        return []
+    sign = 1 if team == 100 else -1
+    return [(p["minute"], sign * (p["blue"] - p["red"])) for p in points]
+
+
+GOLD_POSITIVE = "#2563eb"
+GOLD_NEGATIVE = "#dc2626"
+GOLD_ZERO = "#64748b"
+
+
+def gold_segments(series):
+    """Couper au passage par zéro et ne jamais relier deux minutes non consécutives."""
+    segments, colors = [], []
+    for (x1, y1), (x2, y2) in zip(series, series[1:]):
+        if x2 - x1 != 1:
+            continue
+        spans = [((x1, y1), (x2, y2))]
+        if y1 * y2 < 0:
+            zero = (x1 + (x2 - x1) * abs(y1) / (abs(y1) + abs(y2)), 0)
+            spans = [((x1, y1), zero), (zero, (x2, y2))]
+        for start, end in spans:
+            value = (start[1] + end[1]) / 2
+            segments.append([start, end])
+            colors.append(GOLD_POSITIVE if value > 0 else GOLD_NEGATIVE if value < 0 else GOLD_ZERO)
+    return segments, colors
+
+
 def gold_embed(match, points):
+    series = gold_series(match, points)
     if not points:
         fields = [("Données indisponibles", "Les totaux d'or par minute ne sont pas enregistrés pour cette partie. "
                    "Ils seront conservés dans les nouveaux récaps disposant d'une timeline.")]
+    elif not series:
+        fields = [("Équipe inconnue", "L'équipe du compte suivi n'est pas enregistrée pour ce match.")]
     else:
-        last = points[-1]
-        blue_lead = max(p["blue"] - p["red"] for p in points)
-        red_lead = max(p["red"] - p["blue"] for p in points)
-        team = tracked_team(match)
+        minute, last = series[-1]
+        ally_lead = max(value for _, value in series)
+        enemy_lead = max(-value for _, value in series)
         fields = [
-            ("Lecture", "🔵 Bleue − Rouge · 🔴 Rouge − Bleue\nAu-dessus de zéro : avantage d'or. "
-             "Les deux courbes sont symétriques."
-             + (f"\nTon équipe : **{'bleue' if team == 100 else 'rouge'}**." if team else "")),
-            ("Dernière minute mesurée", f"**{last['minute']}:00** · Bleue **{last['blue'] - last['red']:+,.0f}** or"
-             f" · Rouge **{last['red'] - last['blue']:+,.0f}** or"),
-            ("Avantage maximal observé", f"🔵 Bleue **{fmt(max(0, blue_lead), 0)}** or"
-             f" · 🔴 Rouge **{fmt(max(0, red_lead), 0)}** or"),
+            ("Lecture", "Or de ton équipe − or de l'équipe adverse.\n"
+             "🔵 Au-dessus de zéro : avantage allié · 🔴 En dessous : avantage adverse."),
+            ("Dernière minute mesurée", f"**{minute}:00** · Différentiel **{last:+,.0f}** or".replace(",", " ")),
+            ("Avantage maximal observé", f"Alliés **{fmt(max(0, ally_lead), 0)}** or"
+             f" · Adversaires **{fmt(max(0, enemy_lead), 0)}** or"),
         ]
     embed = _finish(make_pages("💰 Différentiel d'or", match, fields,
-                              "Un point par minute entière · Les minutes absentes ne sont pas interpolées.", 0xF1C40F))[0]
-    if points:
+                              "Un point par minute entière · Les minutes absentes restent des interruptions.", 0xF1C40F))[0]
+    if series:
         embed.set_image(url="attachment://gold_diff.png")
     return embed
 
 
-def render_gold(points):
-    """PNG en mémoire : pas de fichier partagé entre clics ni d'interface graphique."""
+def render_gold(match, points):
+    """Courbe gold_team : segments bleus/rouges et valeur affichée à chaque minute."""
     from matplotlib.figure import Figure
     from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.collections import LineCollection
+    from matplotlib.lines import Line2D
     from matplotlib.ticker import MultipleLocator, FuncFormatter
 
+    series = gold_series(match, points)
+    if not series:
+        return None
     with PLOT_LOCK:
-        fig = Figure(figsize=(12, 5.5), dpi=120, facecolor="#20232b")
+        first, last = series[0][0], series[-1][0]
+        # Garder les valeurs de chaque minute lisibles, même sur une longue partie.
+        width = max(12, min(36, (last - first + 1) * 0.3))
+        fig = Figure(figsize=(width, 5.5), dpi=120, facecolor="white")
         FigureCanvasAgg(fig)
         ax = fig.subplots()
-        ax.set_facecolor("#20232b")
-        lookup = {p["minute"]: p["blue"] - p["red"] for p in points}
-        minutes = list(range(min(lookup), max(lookup) + 1))
-        blue = [lookup.get(m, float("nan")) for m in minutes]
-        red = [-lookup[m] if m in lookup else float("nan") for m in minutes]
-        ax.plot(minutes, blue, color="#60a5fa", marker="o", markersize=3, linewidth=2, label="Bleue − Rouge")
-        ax.plot(minutes, red, color="#fb7185", marker="o", markersize=3, linewidth=2, linestyle="--", label="Rouge − Bleue")
-        ax.axhline(0, color="#cbd5e1", linewidth=1)
-        peak = max(abs(v) for v in lookup.values())
-        ax.set_ylim(-max(500, peak * 1.15), max(500, peak * 1.15))
-        ax.set_xlim(min(minutes) - 0.5, max(minutes) + 0.5)
-        ax.xaxis.set_major_locator(MultipleLocator(max(1, (len(minutes) + 39) // 40)))
-        ax.xaxis.set_minor_locator(MultipleLocator(1))
-        ax.yaxis.set_major_formatter(FuncFormatter(lambda value, pos: f"{value / 1000:+g} k" if value else "0"))
-        ax.set_xlabel("Minute de jeu · mesures toutes les 1 min", color="#e2e8f0")
-        ax.set_ylabel("Différentiel d'or", color="#e2e8f0")
-        ax.set_title("Avantage d'or de chaque équipe", color="#f8fafc", fontsize=16, pad=18)
-        ax.tick_params(colors="#cbd5e1", axis="both")
-        ax.grid(True, color="#475569", alpha=0.4)
+        ax.set_facecolor("white")
+        segments, colors = gold_segments(series)
+        ax.add_collection(LineCollection(segments, colors=colors, linewidths=2))
+        for minute, value in series:
+            color = GOLD_POSITIVE if value > 0 else GOLD_NEGATIVE if value < 0 else GOLD_ZERO
+            ax.scatter([minute], [value], color=color, s=14, zorder=3)
+            ax.annotate(f"{value:+,.0f}".replace(",", " "), (minute, value),
+                        xytext=(0, 8 if value >= 0 else -12), textcoords="offset points",
+                        ha="center", va="bottom" if value >= 0 else "top",
+                        fontsize=7, rotation=45, color=color)
+        ax.axhline(0, color=GOLD_ZERO, linewidth=1)
+        peak = max(abs(value) for _, value in series)
+        ax.set_ylim(-max(500, peak * 1.3), max(500, peak * 1.3))
+        ax.set_xlim(first - 0.75, last + 0.75)
+        ax.xaxis.set_major_locator(MultipleLocator(1))
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda value, pos: f"{value:+,.0f}".replace(",", " ") if value else "0"))
+        ax.set_xlabel("Minute de jeu", color="#334155")
+        ax.set_ylabel("Or allié − or adverse", color="#334155")
+        ax.set_title(f"Écart d'or · {str(match.get('player_name') or 'Compte suivi')[:65]}",
+                     color="#0f172a", fontsize=16, pad=18)
+        ax.tick_params(colors="#475569", axis="both", labelsize=8)
+        ax.grid(True, color="#cbd5e1", alpha=0.5)
         for spine in ax.spines.values():
-            spine.set_color("#475569")
-        legend = ax.legend(facecolor="#20232b", edgecolor="#475569", loc="upper left")
-        for text in legend.get_texts():
-            text.set_color("#e2e8f0")
+            spine.set_color("#cbd5e1")
+        ax.legend(handles=[
+            Line2D([0], [0], color=GOLD_POSITIVE, label="Avantage allié", linewidth=2),
+            Line2D([0], [0], color=GOLD_NEGATIVE, label="Avantage adverse", linewidth=2),
+        ], loc="upper left")
         fig.tight_layout()
         output = BytesIO()
         fig.savefig(output, format="png", facecolor=fig.get_facecolor())
@@ -301,4 +344,4 @@ def gold_response(match_id, joueur):
     if data is None:
         return None
     match, points = data
-    return gold_embed(match, points), render_gold(points) if points else None
+    return gold_embed(match, points), render_gold(match, points) if points else None
