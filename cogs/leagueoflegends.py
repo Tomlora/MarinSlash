@@ -50,6 +50,8 @@ from fonctions.match.records import top_records, get_id_account_bdd, get_stat_nu
 
 from fonctions.match.records_display import RecordsCollector, records_check3
 from fonctions.match.records_ui import add_featured_records, make_open_button, save_record_snapshot, load_record_snapshot
+from fonctions.match.records_preferences import load_account_preferences, filter_records
+from fonctions.match.match_views import make_match_buttons, load_match
 
 from utils.lol import label_rank, label_tier, dict_rankid
 from fonctions.channels_discord import chan_discord, rgb_to_discord
@@ -567,8 +569,10 @@ class LeagueofLegends(Extension):
                     return {}, 'Doublon', 0, None
 
             # Sauvegarde des données
+            match_saved = False
             if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ not in ['ARENA 2v2', 'SWARM']:
                 await match_info.save_data()
+                match_saved = True
 
                 # La timeline est analysée avant l'insertion de la ligne `matchs`.
                 # On rejoue donc la mise à jour une fois la ligne effectivement créée.
@@ -971,9 +975,16 @@ class LeagueofLegends(Extension):
             # === RECORDS : trois statistiques marquantes, détail paginé privé ===
             records_button = None
             if records_checked:
-                embed = add_featured_records(embed, records_collector)
-                if save_record_snapshot(match_info.last_match, id_compte, records_collector) and not records_collector.is_empty():
+                preferences = await asyncio.to_thread(load_account_preferences, id_compte)
+                embed = add_featured_records(embed, records_collector, preferences=preferences)
+                # Le snapshot complet est conservé même si l'affichage est masqué.
+                saved_records = await asyncio.to_thread(
+                    save_record_snapshot, match_info.last_match, id_compte, records_collector
+                )
+                if saved_records and not filter_records(records_collector, preferences).is_empty():
                     records_button = make_open_button(match_info.last_match, id_compte)
+            if match_saved:
+                records_button = make_match_buttons(match_info.last_match, id_compte, records_button)
 
             # === DÉTECTIONS + OBJECTIFS (uniquement ranked/flex) ===
             if match_info.thisQ in ['RANKED', 'FLEX']:
@@ -1808,12 +1819,25 @@ class LeagueofLegends(Extension):
         original_embed.set_image(url='attachment://resume_save.png')
 
         records_button = None
+        joueur = int(data['joueur'].values[0])
         try:
-            existing_records = load_record_snapshot(match_id, int(data['joueur'].values[0]))
-            if existing_records is not None and not existing_records.is_empty():
-                records_button = make_open_button(match_id, int(data['joueur'].values[0]))
+            preferences = await asyncio.to_thread(load_account_preferences, joueur)
+            existing_records = await asyncio.to_thread(load_record_snapshot, match_id, joueur)
+            if existing_records is not None:
+                original_embed.fields = [
+                    field for field in original_embed.fields
+                    if not field.name.startswith(("Exploits", "🏅 Exploits"))
+                ]
+                add_featured_records(original_embed, existing_records, preferences=preferences)
+                if not filter_records(existing_records, preferences).is_empty():
+                    records_button = make_open_button(match_id, joueur)
         except Exception:
-            pass  # L'ancien récap reste consultable si la table n'est pas migrée.
+            traceback.print_exc()  # Le récap sauvegardé reste consultable.
+        try:
+            if await asyncio.to_thread(load_match, match_id, joueur) is not None:
+                records_button = make_match_buttons(match_id, joueur, records_button)
+        except Exception:
+            traceback.print_exc()
         await ctx.send(embeds=original_embed, files=resume, components=records_button)
         os.remove('resume_save.png')
 

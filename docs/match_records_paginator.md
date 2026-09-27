@@ -4,9 +4,10 @@
 
 Après une analyse éligible (RANKED/FLEX/SWIFTPLAY d'au moins 15 min,
 ou ARAM d'au moins 10 min), le récap sélectionne au maximum **trois
-statistiques marquantes**, puis affiche leurs distinctions dans les sections
-**Records All-Time**, **Records Saison** et **Records Perso**, comme l'ancien
-affichage. Une statistique peut apparaître dans plusieurs sections : chaque
+statistiques marquantes** parmi les catégories activées. Par défaut, leurs
+distinctions sont regroupées par statistique (format compact de la PR42).
+L'utilisateur peut choisir les sections **Records All-Time**, **Records Saison**
+et **Records Perso**, comme l'ancien affichage (format PR43 décrit ci-dessous). Une statistique peut apparaître dans plusieurs sections : chaque
 ligne conserve son propre rang, score précédent, détenteur et logo du champion.
 Les sections vides sont omises et séparées par une ligne vide.
 
@@ -139,3 +140,75 @@ snapshots `match_records` existants contiennent déjà `old_holder` et
 réutilisé après redémarrage, sans supprimer ni recalculer la partie. Pour
 revoir le récap public de la même partie, utiliser la procédure habituelle
 de suppression ciblée, puis relancer `/game` après déploiement.
+
+
+## Préférences personnelles — /settings_records
+
+Chaque utilisateur peut modifier ses propres préférences, sans permission
+administrateur et sans pouvoir modifier celles d'un autre membre.
+
+- `/settings_records` : consulter ses réglages (réponse privée).
+- `/settings_records format:compact` : présentation PR42, valeur par défaut.
+- `/settings_records format:sections` : présentation PR43 par catégories.
+- `/settings_records alltime:true saison:false perso:true` : deux catégories.
+- `/settings_records alltime:false saison:false perso:false` : aucune catégorie.
+- Les options omises conservent leur valeur. Les trois catégories sont activées
+  par défaut. Les huit combinaisons sont prises en charge.
+
+Une nouvelle table `records_preferences`, indexée par identifiant Discord,
+évite de dupliquer les réglages entre les comptes Riot d'une même personne.
+Elle est créée à la première modification. Si le rôle SQL n'a pas le droit
+CREATE, appliquer `scripts/create_records_preferences.sql`.
+
+Les **nouveaux récaps publics** utilisent les réglages du propriétaire du compte
+`tracker`. Les **détails privés** et la démo utilisent les réglages de la personne
+qui clique. Les catégories sont filtrées avant la sélection des trois statistiques
+et la pagination. Sans catégorie, le champ public et son bouton de records sont
+masqués ; un ancien bouton reste consultable et explique comment les réactiver.
+Les snapshots restent complets, même quand toutes les catégories sont masquées.
+L'option existante `tracker.save_records` continue de contrôler le calcul des
+records ; ces nouvelles préférences contrôlent uniquement leur présentation.
+
+Un message Discord déjà publié ne change pas automatiquement. Une nouvelle
+publication ou le rechargement d'un récap avec snapshot applique les réglages
+courants. Les identifiants des anciens boutons restent compatibles.
+
+## Analyse du match et Ma progression
+
+Sous un récap dont la ligne `matchs` a été sauvegardée, deux boutons
+supplémentaires ouvrent des **pages privées** avec Précédent, Suivant et Fermer.
+Ils restent disponibles même lorsque les records sont masqués et fonctionnent
+après redémarrage. Ils n'appellent pas Riot.
+
+**Analyse du match** : vue d'ensemble (KDA, dégâts, économie, vision),
+objectifs d'équipe et contribution individuelle, puis combats marquants
+et chronologie des teamfights, cinq champs maximum par page.
+Les dégâts des combats sont des estimations ; les fenêtres peuvent se chevaucher.
+Les lignes sont filtrées sur le joueur suivi et son point de vue.
+Si la table des combats ou les données du match manquent, un message l'indique.
+
+**Ma progression** : performances du **compte du récap**, comparées à ses
+**dix parties précédentes au maximum dans le même mode**.
+Le match consulté, les parties postérieures, les autres modes et les autres
+comptes sont exclus. Les pages distinguent combat, économie et vision, puis
+listent les matchs de référence. Les moyennes ignorent les valeurs absentes
+et indiquent le nombre de valeurs disponibles pour chaque métrique. Une
+référence nulle n'entraîne pas de division par zéro. Un historique de moins de
+trois matchs est signalé comme limité. Les écarts ne sont pas présentés comme
+une amélioration automatique, notamment pour les morts. Les rôles et champions
+peuvent différer.
+
+Les clics sont acquittés avant les requêtes, exécutées hors de la boucle asyncio
+avec un délai maximal de huit secondes. Les erreurs retirent les anciens
+contrôles de la vue privée et invitent à rouvrir le bouton du récap.
+
+## Vérifications supplémentaires
+
+1. Tester les deux formats et les huit combinaisons de catégories.
+2. Vérifier avec deux utilisateurs que leurs choix restent indépendants.
+3. Masquer tous les records, puis les réactiver : le snapshot doit rester complet.
+4. Ouvrir Analyse et Progression, naviguer jusqu'à la dernière page, puis fermer.
+5. Tester un compte sans historique, un historique incomplet et des métriques à zéro.
+6. Redémarrer le bot puis utiliser les boutons d'un récap déjà publié.
+7. La CI exécute les tests Discord hors ligne et les requêtes réelles sur une
+   base PostgreSQL jetable `records_test`, sans connexion à la base du bot.

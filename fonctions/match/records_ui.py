@@ -1,7 +1,7 @@
 """Affichage compact, pagination et conservation des records d'une partie.
 
-Le récap sélectionne trois statistiques puis présente leurs distinctions
-par catégorie : All-Time, Saison et Personnel, comme l'ancien affichage.
+Le récap sélectionne trois statistiques parmi les catégories activées.
+Le format compact PR42 est proposé par défaut, les sections PR43 sur demande.
 Le snapshot évite de recalculer le classement lors d'un clic ultérieur.
 """
 import json
@@ -20,6 +20,7 @@ from fonctions.match.records_display import (
     RecordsCollector,
     _format_value,
 )
+from fonctions.match.records_preferences import RecordPreferences, filter_records
 from utils.emoji import emote_champ_discord, emote_v2
 
 log = logging.getLogger(__name__)
@@ -290,7 +291,7 @@ def _recap_sections(selected):
     return sections
 
 
-def add_featured_records(embed, collector, max_items=3):
+def _add_section_records(embed, collector, max_items=3):
     """Ancien affichage par scope, limité à trois statistiques marquantes."""
     if collector.is_empty():
         embed.add_field(
@@ -332,6 +333,41 @@ def add_featured_records(embed, collector, max_items=3):
     return embed
 
 
+def add_featured_records(embed, collector, max_items=3, preferences=None):
+    """PR42 par défaut, PR43 sur demande ; filtrage avant sélection des trois stats."""
+    preferences = preferences or RecordPreferences()
+    if not preferences.scopes:
+        return embed
+    collector = filter_records(collector, preferences)
+    if preferences.layout == "sections":
+        return _add_section_records(embed, collector, max_items)
+    if collector.is_empty():
+        embed.add_field(name="🏅 Exploits de la partie", value="Aucun record pour cette partie.", inline=False)
+        return embed
+    groups = grouped_records(collector)
+    chosen = featured_records(collector, max_items)
+    count = collector.count()
+    footer = (
+        f"{count} distinction{'s' if count > 1 else ''} · "
+        f"{len(groups)} statistique{'s' if len(groups) > 1 else ''}"
+    )
+
+    def render(selected):
+        blocks = [_featured_line(category, entries) for category, entries in selected]
+        hidden = len(groups) - len(selected)
+        if hidden:
+            blocks.append(f"**+{hidden} autre(s) statistique(s)** dans le détail.")
+        return "\n\n".join(blocks + [footer])
+
+    selected = []
+    for item in chosen:
+        if len(render(selected + [item])) > 960:
+            break
+        selected.append(item)
+    embed.add_field(name="🏅 Exploits de la partie", value=render(selected), inline=False)
+    return embed
+
+
 def _detail_field(entry):
     """Même style que l'ancien récap : emoji stat, score en code, ancien barré,
     ancien détenteur et emoji de champion natif du serveur.
@@ -349,8 +385,10 @@ def _detail_field(entry):
     )
 
 
-def build_record_pages(collector, match_id, player_name=None, demo=False):
+def build_record_pages(collector, match_id, player_name=None, demo=False, preferences=None):
     """Embeds Discord classiques : 5 lignes/page et jamais plus de 6 000 caractères."""
+    preferences = preferences or RecordPreferences()
+    collector = filter_records(collector, preferences)
     prefix = "🧪 DÉMO · " if demo else ""
     suffix = f" · {_safe_line(player_name, 55)}" if player_name else ""
     subject = f"{prefix}Match {_safe_line(match_id, 55)}{suffix}"
@@ -365,26 +403,21 @@ def build_record_pages(collector, match_id, player_name=None, demo=False):
         description=(
             f"{subject}\n\n"
             f"**{collector.count()} distinction(s)** sur **{len(groups)} statistique(s)**.\n"
-            f"🏛️ Historique : {scope_counts['alltime']}  ·  "
-            f"🏆 Saison : {scope_counts['general']}  ·  "
-            f"👤 Personnel : {scope_counts['perso']}"
+            + " · ".join(f"{SCOPE_SHORT[scope]} : {scope_counts[scope]}"
+                         for scope in SCOPES if scope in preferences.scopes)
         ),
         color=0x5865F2,
     )
     if collector.is_empty():
         summary.add_field(
             name="Aucun record",
-            value="Aucune distinction n'a été obtenue dans ce scénario."
-            if demo else "Aucune distinction enregistrée pour cette partie.",
+            value=("Records masqués dans tes préférences. Utilise /settings_records pour les réactiver."
+                   if not preferences.scopes else
+                   "Aucune distinction dans les catégories affichées pour cette partie."),
             inline=False,
         )
     else:
-        for category, entries in featured_records(collector, max_items=3):
-            summary.add_field(
-                name=_safe_line(display_label(category).title(), 256),
-                value=_featured_line(category, entries)[:1024],
-                inline=False,
-            )
+        add_featured_records(summary, collector, preferences=preferences)
     page_defs.append(("aperçu", summary))
 
     for scope in SCOPES:
