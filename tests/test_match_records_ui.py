@@ -1,4 +1,5 @@
 """Tests autonomes du récap de records : ni token Discord, ni base SQL, ni API Riot."""
+import asyncio
 import importlib.util
 import json
 import os
@@ -184,6 +185,127 @@ def test_simultaneous_scopes_are_one_highlight_but_multiple_details():
     assert "Historique" in embed.fields[0].value
     assert "Personnel" in embed.fields[0].value
     assert len(UI.build_record_pages(c, "DEMO")) == 3
+
+
+def test_previous_holder_and_champion_are_kept_in_featured_recaps():
+    collector = DISPLAY.RecordsCollector()
+    collector.add(DISPLAY.RecordEntry(
+        scope="alltime", place=1, category="dmg", value=14000,
+        old_record=12490, old_holder="JoueurHistorique",
+        old_champion="Viego",
+    ))
+    collector.add(DISPLAY.RecordEntry(
+        scope="general", place=1, category="dmg", value=14000,
+        old_record=11980, old_holder="JoueurSaison",
+        old_champion="Ahri",
+    ))
+    embed = FakeEmbed()
+    UI.add_featured_records(embed, collector)
+    value = embed.fields[0].value
+    assert "Historique" in value
+    assert "Saison" in value
+    assert "12 490" in value or "12490" in value
+    assert "JoueurHistorique" in value and "Viego" in value
+    assert "JoueurSaison" in value and "Ahri" in value
+    assert len(value) <= 1024
+
+
+def test_same_previous_record_is_not_repeated_across_scopes():
+    collector = DISPLAY.RecordsCollector()
+    for scope in ("alltime", "general", "perso"):
+        collector.add(DISPLAY.RecordEntry(
+            scope=scope, place=1, category="dmg", value=14000,
+            old_record=12490, old_holder="MemeJoueur",
+            old_champion="Viego",
+        ))
+    value = UI._featured_line("dmg", UI.grouped_records(collector)["dmg"])
+    assert value.count("MemeJoueur") == 1
+    assert "Historique" in value and "Saison" in value and "Personnel" in value
+
+
+class RecordingContext:
+    def __init__(self, custom_id):
+        self.custom_id = custom_id
+        self.calls = []
+
+    async def defer(self, **kwargs):
+        self.calls.append(("defer", kwargs))
+
+    async def send(self, content=None, **kwargs):
+        self.calls.append(("send", content, kwargs))
+
+    async def edit_origin(self, **kwargs):
+        self.calls.append(("edit_origin", kwargs))
+
+
+def test_real_open_always_finishes_its_deferred_response():
+    old_load = COG.load_record_snapshot
+    old_build = COG.build_record_pages
+    try:
+        COG.load_record_snapshot = lambda *_: COG.demo_collector("all_scopes")
+        cog = COG.LolRecords.__new__(COG.LolRecords)
+        ctx = RecordingContext("lolrec_open_EUW1_7996537266_5")
+        asyncio.run(cog.on_real_open(ctx))
+        assert ctx.calls[0] == ("defer", {"ephemeral": True})
+        assert ctx.calls[-1][0] == "send"
+        assert ctx.calls[-1][2]["ephemeral"] is True
+        assert "embeds" in ctx.calls[-1][2]
+
+        def raises(*args):
+            raise RuntimeError("Erreur de construction du paginator")
+
+        COG.build_record_pages = raises
+        failed_ctx = RecordingContext("lolrec_open_EUW1_7996537266_5")
+        asyncio.run(cog.on_real_open(failed_ctx))
+        assert failed_ctx.calls[0][0] == "defer"
+        assert failed_ctx.calls[-1][0] == "send"
+        assert "Impossible" in failed_ctx.calls[-1][1]
+    finally:
+        COG.load_record_snapshot = old_load
+        COG.build_record_pages = old_build
+
+
+def test_slow_database_returns_terminal_message_not_infinite_spinner():
+    import time
+
+    old_load = COG.load_record_snapshot
+    old_timeout = COG.RECORD_LOAD_TIMEOUT_SECONDS
+    try:
+        COG.load_record_snapshot = lambda *_: time.sleep(0.04)
+        COG.RECORD_LOAD_TIMEOUT_SECONDS = 0.001
+        ctx = RecordingContext("lolrec_open_EUW1_7996537266_5")
+        cog = COG.LolRecords.__new__(COG.LolRecords)
+        asyncio.run(cog.on_real_open(ctx))
+        assert ctx.calls[0][0] == "defer"
+        assert ctx.calls[-1][0] == "send"
+        assert "trop de temps" in ctx.calls[-1][1]
+    finally:
+        COG.load_record_snapshot = old_load
+        COG.RECORD_LOAD_TIMEOUT_SECONDS = old_timeout
+
+
+def test_navigation_defers_edit_and_acknowledges_database_errors():
+    old_load = COG.load_record_snapshot
+    try:
+        COG.load_record_snapshot = lambda *_: COG.demo_collector("ten")
+        cog = COG.LolRecords.__new__(COG.LolRecords)
+        ctx = RecordingContext("lolrec_page_r_EUW1_7996537266_5_1")
+        asyncio.run(cog.on_page(ctx))
+        assert ctx.calls[0] == ("defer", {"edit_origin": True})
+        assert ctx.calls[-1][0] == "edit_origin"
+        assert "embeds" in ctx.calls[-1][1]
+
+        def raises(*args):
+            raise RuntimeError("DB indisponible")
+
+        COG.load_record_snapshot = raises
+        failed_ctx = RecordingContext("lolrec_page_r_EUW1_7996537266_5_1")
+        asyncio.run(cog.on_page(failed_ctx))
+        assert failed_ctx.calls[0][0] == "defer"
+        assert failed_ctx.calls[-1][0] == "edit_origin"
+        assert "Impossible" in failed_ctx.calls[-1][1]["content"]
+    finally:
+        COG.load_record_snapshot = old_load
 
 
 def test_all_scopes_preserved_in_detail():
