@@ -181,14 +181,14 @@ def test_none_is_a_legitimate_one_page_result():
     assert controls[0].components[1].disabled is True
 
 
-def test_simultaneous_scopes_are_one_highlight_but_multiple_details():
+def test_simultaneous_scopes_are_one_selected_statistic_with_separate_sections():
     c = COG.demo_collector("alltime_personal")
     assert len(UI.grouped_records(c)) == 1
     assert len(UI.featured_records(c)) == 1
     embed = FakeEmbed()
     UI.add_featured_records(embed, c)
-    assert "Historique" in embed.fields[0].value
-    assert "Personnel" in embed.fields[0].value
+    assert "Records All-Time" in embed.fields[0].value
+    assert "Records Perso" in embed.fields[0].value
     assert len(UI.build_record_pages(c, "DEMO")) == 3
 
 
@@ -207,7 +207,7 @@ def test_previous_holder_and_champion_are_kept_in_featured_recaps():
     embed = FakeEmbed()
     UI.add_featured_records(embed, collector)
     value = embed.fields[0].value
-    assert "Historique" in value
+    assert "Records All-Time" in value
     assert "Saison" in value
     assert "12 490" in value or "12490" in value
     assert "JoueurHistorique <:Viego:123456789012345678>" in value
@@ -523,3 +523,80 @@ def test_new_controls_and_legacy_buttons_reach_the_expected_page():
     ctx = RecordingContext("lolrec_page_d_all_scopes_0_2")
     asyncio.run(cog.on_page(ctx))
     assert ctx.calls[-1][1]["embeds"].footer.startswith("Page 3/4")
+
+
+def test_public_recap_uses_old_scope_sections_and_complete_record_lines():
+    collector = DISPLAY.RecordsCollector()
+    for scope, place, category, score, old, champion in (
+        ("alltime", 5, "tf_physical_damage_window", 12536, 12490, "Ahri"),
+        ("alltime", 8, "tf_damage_window", 13401, 13364, "Viego"),
+        ("general", 5, "tf_physical_damage_window", 12536, 12490, "Ahri"),
+        ("general", 5, "tf_damage_window", 13401, 13290, "Ahri"),
+    ):
+        collector.add(DISPLAY.RecordEntry(
+            scope, place, category, score, old, "<@123456789012345678>", champion
+        ))
+    embed = FakeEmbed()
+    UI.add_featured_records(embed, collector)
+    field = embed.fields[0]
+    assert field.name == "Exploits"
+    alltime, season, footer = field.value.split("\n\n")
+    assert alltime.splitlines()[0] == DISPLAY.SCOPE_CONFIG["alltime"]["header"]
+    assert season.splitlines()[0] == DISPLAY.SCOPE_CONFIG["general"]["header"]
+    assert len(alltime.splitlines()) == len(season.splitlines()) == 3
+    assert "→ `12536` ・ ~~12490~~" in alltime
+    assert "→ `12536` ・ ~~12490~~" in season
+    assert "#8 **dmg max en teamfight** → `13401` ・ ~~13364~~" in alltime
+    assert "#5 **dmg max en teamfight** → `13401` ・ ~~13290~~" in season
+    for line in alltime.splitlines()[1:] + season.splitlines()[1:]:
+        assert "<@123456789012345678> <:" in line
+    assert footer == "4 distinctions · 2 statistiques"
+    assert "↳" not in field.value
+    assert "Records Perso" not in field.value
+
+
+def test_public_recap_limits_statistics_without_cutting_their_scopes():
+    import re
+
+    collectors = [COG.demo_collector(scenario) for scenario in COG.DEMO_SCENARIOS]
+    long = DISPLAY.RecordsCollector()
+    for category in (
+        "tf_dead_damage_share_pct", "tf_damage_window_share_pct", "vision_score", "gold_min"
+    ):
+        for scope in UI.SCOPES:
+            long.add(DISPLAY.RecordEntry(
+                scope, 1, category, 99, 88, "Détenteur" * 30, "Viego",
+            ))
+    collectors.append(long)
+    for collector in collectors:
+        embed = FakeEmbed()
+        UI.add_featured_records(embed, collector)
+        text = embed.fields[0].value
+        assert len(text) <= 960
+        shown = set(re.findall(r"\*\*([^*]+)\*\* →", text))
+        assert len(shown) <= 3
+        if collector.is_empty():
+            continue
+        assert shown
+        for scope in UI.SCOPES:
+            expected = [
+                entry for entry in collector.records.get(scope, [])
+                if UI.display_label(entry.category) in shown
+            ]
+            sections = [
+                section for section in text.split("\n\n")
+                if section.startswith(DISPLAY.SCOPE_CONFIG[scope]["header"])
+            ]
+            if not expected:
+                assert not sections
+                continue
+            assert len(sections) == 1
+            assert len(sections[0].splitlines()) - 1 == len(expected)
+            for entry in expected:
+                assert f"**{UI.display_label(entry.category)}** →" in sections[0]
+        hidden = len(UI.grouped_records(collector)) - len(shown)
+        if hidden:
+            assert f"**+{hidden} autre(s) statistique(s)**" in text
+        # Le détail reste exhaustif, même si le récap atteint son budget.
+        pages = UI.build_record_pages(collector, "EUW1_1234567890")
+        assert sum(len(page.fields) for _, page in pages[1:]) == collector.count()

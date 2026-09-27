@@ -1,7 +1,7 @@
 """Affichage compact, pagination et conservation des records d'une partie.
 
-Une distinction (alltime/saison/personnel) reste distincte en base, même
-lorsque plusieurs distinctions de la même statistique sont réunies à l'écran.
+Le récap sélectionne trois statistiques puis présente leurs distinctions
+par catégorie : All-Time, Saison et Personnel, comme l'ancien affichage.
 Le snapshot évite de recalculer le classement lors d'un clic ultérieur.
 """
 import json
@@ -15,6 +15,7 @@ from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 from fonctions.match.records_display import (
     MEDAL_EMOJIS,
     RECORD_LABELS,
+    SCOPE_CONFIG,
     RecordEntry,
     RecordsCollector,
     _format_value,
@@ -263,11 +264,37 @@ def _featured_line(category, entries):
     return "\n".join(lines)
 
 
+def _recap_sections(selected):
+    """Une section par scope, avec les lignes complètes de l'ancien récap."""
+    sections = []
+    for scope in SCOPES:
+        entries = sorted(
+            (entry for _, records in selected for entry in records if entry.scope == scope),
+            key=lambda entry: (entry.place, entry.is_tie, entry.category),
+        )
+        if not entries:
+            continue
+        lines = [SCOPE_CONFIG[scope]["header"]]
+        for entry in entries:
+            medal = MEDAL_EMOJIS.get(entry.place, f"#{entry.place}")
+            icon = emote_v2.get(entry.category, "")
+            label = display_label(entry.category)
+            value = _format_value(entry.value, entry.category)
+            previous = _format_value(entry.old_record, entry.category)
+            comparison = (
+                f"Égalise {_former_holder(entry)}" if entry.is_tie
+                else f"~~{previous}~~ {_former_holder(entry)}"
+            )
+            lines.append(f"{medal} {icon}**{label}** → `{value}` ・ {comparison}")
+        sections.append("\n".join(lines))
+    return sections
+
+
 def add_featured_records(embed, collector, max_items=3):
-    """Un seul champ court sur l'embed public, sans perdre les autres records."""
+    """Ancien affichage par scope, limité à trois statistiques marquantes."""
     if collector.is_empty():
         embed.add_field(
-            name="🏅 Exploits de la partie",
+            name="Exploits",
             value="Aucun record pour cette partie.",
             inline=False,
         )
@@ -275,28 +302,31 @@ def add_featured_records(embed, collector, max_items=3):
 
     groups = grouped_records(collector)
     chosen = featured_records(collector, max_items=max_items)
-    # Ne pas tronquer brutalement une ligne au milieu du nom ou du champion.
-    lines = []
-    rendered_count = 0
     count = collector.count()
     footer = (
         f"{count} distinction{'s' if count > 1 else ''} · "
         f"{len(groups)} statistique{'s' if len(groups) > 1 else ''}"
     )
-    for category, entries in chosen:
-        line = _featured_line(category, entries)
-        candidate = "\n\n".join(lines + [line, footer])
-        if len(candidate) > 960:
+
+    def render(selected):
+        sections = _recap_sections(selected)
+        hidden = len(groups) - len(selected)
+        if hidden:
+            sections.append(f"**+{hidden} autre(s) statistique(s)** dans le détail.")
+        sections.append(footer)
+        return "\n\n".join(sections)
+
+    # Conserver tous les scopes d'une statistique ou la laisser dans le détail.
+    # Compter les titres, espaces et compteur dans le budget du champ Discord.
+    selected = []
+    for item in chosen:
+        candidate = selected + [item]
+        if len(render(candidate)) > 960:
             break
-        lines.append(line)
-        rendered_count += 1
-    hidden = len(groups) - rendered_count
-    if hidden:
-        lines.append(f"**+{hidden} autre(s) statistique(s)** dans le détail.")
-    lines.append(footer)
+        selected = candidate
     embed.add_field(
-        name="🏅 Exploits de la partie",
-        value="\n\n".join(lines),
+        name="Exploits",
+        value=render(selected),
         inline=False,
     )
     return embed
