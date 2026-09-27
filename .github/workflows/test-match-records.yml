@@ -1,0 +1,31 @@
+name: Tests MatchLoL records
+
+on:
+  push:
+    paths:
+      - "cogs/lol_records.py"
+      - "fonctions/match/records_ui.py"
+      - "fonctions/match/records_display.py"
+      - "tests/test_match_records_ui.py"
+      - ".github/workflows/test-match-records.yml"
+  pull_request:
+    paths:
+      - "cogs/lol_records.py"
+      - "fonctions/match/records_ui.py"
+      - "fonctions/match/records_display.py"
+      - "tests/test_match_records_ui.py"
+      - ".github/workflows/test-match-records.yml"
+
+jobs:
+  offline-records:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install pytest pandas Pillow
+      - name: Test all offline scenarios and Discord size limits
+        run: python -m pytest -q tests/test_match_records_ui.py
