@@ -39,6 +39,17 @@ from fonctions.match.records_ui import (
     load_record_snapshot,
 )
 
+from fonctions.match.records_preferences import load_preferences, RecordPreferences
+
+async def _viewer_preferences(ctx):
+    discord_id = getattr(getattr(ctx, "author", None), "id", None)
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(load_preferences, discord_id), timeout=8)
+    except asyncio.TimeoutError:
+        log.warning("Lecture des préférences trop lente pour %s", discord_id)
+        return RecordPreferences()
+
+
 log = logging.getLogger(__name__)
 RECORD_LOAD_TIMEOUT_SECONDS = 8
 
@@ -142,7 +153,7 @@ def _normalize_match_id(value):
     return value
 
 
-def _demo_embed(scenario, image_url=None):
+def _demo_embed(scenario, image_url=None, preferences=None):
     collector = demo_collector(scenario)
     embed = interactions.Embed(
         title=f"🧪 [DÉMO] Marin#TEST · Victoire RANKED (Jungle)",
@@ -153,7 +164,7 @@ def _demo_embed(scenario, image_url=None):
         ),
         color=0x379C7A,
     )
-    add_featured_records(embed, collector)
+    add_featured_records(embed, collector, preferences=preferences)
     embed.add_field(
         name="🎯 Objectifs",
         value="Premier dragon · 3 dragons · 1 Baron · 6 tours",
@@ -292,9 +303,11 @@ class LolRecords(Extension):
     async def lol_records_demo(self, ctx: SlashContext, scenario: str = "none"):
         if scenario not in DEMO_SCENARIOS:
             scenario = "none"
+        await ctx.defer(ephemeral=True)
+        preferences = await _viewer_preferences(ctx)
         image_path = _demo_image()
         try:
-            embed = _demo_embed(scenario, f"attachment://{os.path.basename(image_path)}")
+            embed = _demo_embed(scenario, f"attachment://{os.path.basename(image_path)}", preferences)
             await ctx.send(
                 embeds=embed,
                 files=interactions.File(image_path),
@@ -310,6 +323,8 @@ class LolRecords(Extension):
         if scenario not in DEMO_SCENARIOS:
             return await ctx.send("Scénario inconnu.", ephemeral=True)
 
+        await ctx.defer(edit_origin=True)
+        preferences = await _viewer_preferences(ctx)
         # Conserver l'image déjà jointe au message : pas de nouvelle pièce jointe
         # à chaque changement de scénario.
         image_url = None
@@ -318,7 +333,7 @@ class LolRecords(Extension):
         except (AttributeError, IndexError, TypeError):
             pass
         await ctx.edit_origin(
-            embeds=_demo_embed(scenario, image_url),
+            embeds=_demo_embed(scenario, image_url, preferences),
             components=_demo_components(scenario),
         )
 
@@ -333,7 +348,8 @@ class LolRecords(Extension):
         scenario = matched.group(1)
         try:
             pages = build_record_pages(
-                demo_collector(scenario), "EUW1_1234567890", "Marin#TEST", demo=True
+                demo_collector(scenario), "EUW1_1234567890", "Marin#TEST", demo=True,
+                preferences=await _viewer_preferences(ctx)
             )
             await ctx.send(
                 embeds=pages[0][1],
@@ -367,7 +383,7 @@ class LolRecords(Extension):
                     "Le snapshot doit être enregistré lors du récap.",
                     ephemeral=True,
                 )
-            pages = build_record_pages(collector, match_id)
+            pages = build_record_pages(collector, match_id, preferences=await _viewer_preferences(ctx))
             await ctx.send(
                 embeds=pages[0][1],
                 components=_page_components("r", match_id, joueur, pages, 0),
@@ -401,7 +417,8 @@ class LolRecords(Extension):
             if kind == "d":
                 collector = demo_collector(key)
                 pages = build_record_pages(
-                    collector, "EUW1_1234567890", "Marin#TEST", demo=True
+                    collector, "EUW1_1234567890", "Marin#TEST", demo=True,
+                    preferences=await _viewer_preferences(ctx)
                 )
             else:
                 collector = await asyncio.wait_for(
@@ -414,7 +431,7 @@ class LolRecords(Extension):
                         embeds=[],
                         components=[],
                     )
-                pages = build_record_pages(collector, key)
+                pages = build_record_pages(collector, key, preferences=await _viewer_preferences(ctx))
             target_page = max(0, min(int(target), len(pages) - 1))
             await ctx.edit_origin(
                 embeds=pages[target_page][1],
@@ -527,6 +544,7 @@ class LolRecords(Extension):
             pages = build_record_pages(
                 collector, match_id,
                 player_name=f"{account.get('riot_id') or '?'}#{account.get('riot_tagline') or '?'}",
+                preferences=await _viewer_preferences(ctx),
             )
             await ctx.send(
                 embeds=pages[0][1],

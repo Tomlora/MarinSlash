@@ -24,7 +24,9 @@ def _load(name, path):
 def _load_bot_modules():
     names = (
         "fonctions", "fonctions.match", "fonctions.match.records_display",
-        "fonctions.match.records_ui", "fonctions.gestion_bdd", "utils",
+        "fonctions.match.records_ui", "fonctions.match.records_preferences",
+        "fonctions.match.match_views", "cogs.settings_records", "cogs.lol_match_views",
+        "fonctions.gestion_bdd", "utils",
         "utils.emoji", "cogs", "cogs.lol_records",
     )
     previous = {key: sys.modules.get(key) for key in names}
@@ -54,7 +56,11 @@ def _load_bot_modules():
         _load("fonctions.match.records_display", MATCH_DIR / "records_display.py")
         ui = _load("fonctions.match.records_ui", MATCH_DIR / "records_ui.py")
         cog = _load("cogs.lol_records", ROOT / "cogs" / "lol_records.py")
-        return ui, cog
+        preferences = sys.modules["fonctions.match.records_preferences"]
+        views = _load("fonctions.match.match_views", MATCH_DIR / "match_views.py")
+        view_cog = _load("cogs.lol_match_views", ROOT / "cogs" / "lol_match_views.py")
+        settings = _load("cogs.settings_records", ROOT / "cogs" / "settings_records.py")
+        return ui, cog, preferences, views, view_cog, settings
     finally:
         for name, old in previous.items():
             if old is None:
@@ -63,7 +69,7 @@ def _load_bot_modules():
                 sys.modules[name] = old
 
 
-UI, COG = _load_bot_modules()
+UI, COG, PREFS, VIEWS, VIEW_COG, SETTINGS = _load_bot_modules()
 
 
 def test_real_embed_and_button_components():
@@ -71,7 +77,7 @@ def test_real_embed_and_button_components():
     embed = interactions.Embed(title="Récap", color=0x5865F2)
     UI.add_featured_records(embed, collector)
     assert len(embed.fields) == 1
-    assert "Records All-Time" in embed.fields[0].value
+    assert "Historique" in embed.fields[0].value
 
     button = UI.make_open_button("EUW1_1234567890", 1234)
     discord_row = interactions.ActionRow(button).to_dict()
@@ -147,3 +153,25 @@ def test_serialized_component_ids_are_unique_across_all_rows():
                 for custom_id in ids:
                     if custom_id != "lolrec_close":
                         assert COG.PAGE_RE.fullmatch(custom_id)
+
+
+def test_new_views_serialize_native_components_and_bounded_embeds():
+    buttons = VIEWS.make_match_buttons("EUW1_1234567890", 123456789, UI.make_open_button("EUW1_1234567890", 123456789))
+    assert len(buttons[0].to_dict()["components"]) == 3
+    match = {"match_id": "EUW1_1234567890", "player_name": "Marin#TEST", "mode": "ARAM"}
+    pages = VIEWS.build_analysis_pages(match, [], False) + VIEWS.build_progress_pages(match, [])
+    for page in pages:
+        payload = page.to_dict()
+        assert len(payload["fields"]) <= 5
+        assert all(len(field["value"]) <= 1024 for field in payload["fields"])
+    for kind in ("analysis", "progress"):
+        for index in range(len(pages)):
+            rows = VIEW_COG.page_components(kind, "EUW1_1234567890", 123456789, index, len(pages))
+            ids = [b["custom_id"] for row in rows for b in row.to_dict()["components"]]
+            assert len(ids) == len(set(ids))
+    for layout in ("compact", "sections"):
+        prefs = PREFS.RecordPreferences(layout, ("perso",))
+        embed = interactions.Embed(title="Récap")
+        UI.add_featured_records(embed, COG.demo_collector("all_scopes"), preferences=prefs)
+        assert len(embed.to_dict()["fields"][0]["value"]) <= 960
+        assert isinstance(SETTINGS.settings_embed(prefs), interactions.Embed)
