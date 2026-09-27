@@ -213,9 +213,30 @@ def test_real_score_pages_and_gold_image_upload_render_offline():
     embed = DETAILS.gold_embed(match, data["gold"])
     assert embed.to_dict()["image"]["url"] == "attachment://gold_diff.png"
     assert "file" in inspect.signature(interactions.ComponentContext.send).parameters
-    assert "attachments" in inspect.signature(interactions.ComponentContext.edit_origin).parameters
+    assert "attachments" in inspect.signature(interactions.ComponentContext.edit).parameters
     # Courbe à zéro et une seule minute : limites valides et PNG lisible.
     for points in ([{"minute": 0, "blue": 2500, "red": 2500}],
                    [{"minute": m, "blue": 2500, "red": 3500} for m in range(120)]):
         with Image.open(BytesIO(DETAILS.render_gold(points))) as image:
             assert image.size == (1440, 660)
+
+
+def test_close_uses_deferred_webhook_edit_and_removes_attachment():
+    from unittest.mock import AsyncMock
+    import asyncio
+
+    http = types.SimpleNamespace(post_initial_response=AsyncMock(), edit_interaction_message=AsyncMock(return_value=None))
+    client = types.SimpleNamespace(http=http, app=types.SimpleNamespace(id=123))
+    ctx = types.SimpleNamespace(client=client, token="test-token", id=456, deferred=False, responded=False)
+    # Vraies méthodes SDK, seul le transport HTTP est simulé.
+    ctx.defer = types.MethodType(interactions.ComponentContext.defer, ctx)
+    ctx._defer = types.MethodType(interactions.ComponentContext._defer, ctx)
+    ctx.edit = types.MethodType(interactions.ComponentContext.edit, ctx)
+    cog = types.SimpleNamespace()
+    asyncio.run(VIEW_COG.LolMatchViews.on_close.callback(cog, ctx))
+    assert http.post_initial_response.await_count == 1
+    assert http.edit_interaction_message.await_count == 1
+    payload = http.edit_interaction_message.call_args.kwargs["payload"]
+    assert payload["attachments"] == []
+    assert payload["components"] == []
+    assert payload["embeds"] == []

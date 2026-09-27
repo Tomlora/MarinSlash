@@ -121,7 +121,8 @@ class LolMatchViews(Extension):
 
     @component_callback("lolview_close")
     async def on_close(self, ctx):
-        await ctx.edit_origin(content="Consultation terminée.", embeds=[], components=[], attachments=[])
+        await ctx.defer(edit_origin=True)
+        await ctx.edit(content="Consultation terminée.", embeds=[], components=[], attachments=[])
 
 
 def setup(bot):
