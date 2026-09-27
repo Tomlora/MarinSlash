@@ -159,12 +159,12 @@ def test_new_views_serialize_native_components_and_bounded_embeds():
     buttons = VIEWS.make_match_buttons("EUW1_1234567890", 123456789, UI.make_open_button("EUW1_1234567890", 123456789))
     assert len(buttons[0].to_dict()["components"]) == 3
     match = {"match_id": "EUW1_1234567890", "player_name": "Marin#TEST", "mode": "ARAM"}
-    pages = VIEWS.build_analysis_pages(match, [], False) + VIEWS.build_progress_pages(match, [])
+    pages = VIEWS.build_teamfight_pages(match, [], False) + VIEWS.build_gank_pages(match, {}, [])
     for page in pages:
         payload = page.to_dict()
         assert len(payload["fields"]) <= 5
         assert all(len(field["value"]) <= 1024 for field in payload["fields"])
-    for kind in ("analysis", "progress"):
+    for kind in ("teamfight", "ganks", "analysis", "progress"):
         for index in range(len(pages)):
             rows = VIEW_COG.page_components(kind, "EUW1_1234567890", 123456789, index, len(pages))
             ids = [b["custom_id"] for row in rows for b in row.to_dict()["components"]]
