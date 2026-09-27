@@ -556,10 +556,12 @@ class LeagueofLegends(Extension):
 
             # Vérification des doublons
             if check_doublon:
-                df_doublon = lire_bdd_perso(f'''SELECT match_id, joueur from matchs
-                            INNER JOIN tracker ON matchs.joueur = tracker.id_compte
-                            WHERE matchs.joueur = (SELECT id_compte WHERE riot_id = '{riot_id.lower()}' and riot_tagline = '{riot_tag.upper()}')
-                            AND match_id = '{match_info.last_match}' ''', index_col=None)
+                df_doublon = lire_bdd_perso(
+                    """SELECT 1 FROM matchs
+                       WHERE joueur = :joueur AND match_id = :match_id LIMIT 1""",
+                    index_col=None,
+                    params={"joueur": id_compte, "match_id": match_info.last_match},
+                )
 
                 if not df_doublon.empty:
                     return {}, 'Doublon', 0, None
