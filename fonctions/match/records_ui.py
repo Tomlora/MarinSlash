@@ -278,10 +278,14 @@ def add_featured_records(embed, collector, max_items=3):
     # Ne pas tronquer brutalement une ligne au milieu du nom ou du champion.
     lines = []
     rendered_count = 0
-    footer = f"Total : {collector.count()} distinction(s), {len(groups)} statistique(s)."
+    count = collector.count()
+    footer = (
+        f"{count} distinction{'s' if count > 1 else ''} · "
+        f"{len(groups)} statistique{'s' if len(groups) > 1 else ''}"
+    )
     for category, entries in chosen:
         line = _featured_line(category, entries)
-        candidate = "\n".join(lines + [line, footer])
+        candidate = "\n\n".join(lines + [line, footer])
         if len(candidate) > 960:
             break
         lines.append(line)
@@ -292,7 +296,7 @@ def add_featured_records(embed, collector, max_items=3):
     lines.append(footer)
     embed.add_field(
         name="🏅 Exploits de la partie",
-        value="\n".join(lines),
+        value="\n\n".join(lines),
         inline=False,
     )
     return embed
