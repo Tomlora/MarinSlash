@@ -1,0 +1,48 @@
+name: Tests des predictions LoL
+
+on:
+  push:
+    paths:
+      - 'cogs/predict.py'
+      - 'fonctions/api_calls.py'
+      - 'model/prediction_result.sav'
+      - 'tests/test_predictions.py'
+      - '.github/workflows/test-predictions.yml'
+  pull_request:
+    paths:
+      - 'cogs/predict.py'
+      - 'fonctions/api_calls.py'
+      - 'model/prediction_result.sav'
+      - 'tests/test_predictions.py'
+      - '.github/workflows/test-predictions.yml'
+
+jobs:
+  offline-predictions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install prediction dependencies compatible with the saved model
+        run: python -m pip install pytest numpy==1.23.1 pandas==1.4.3 scipy==1.8.1 scikit-learn==1.2.0 joblib aiohttp humanize==4.6.0 discord-py-interactions==5.13.2
+      - name: Compile prediction modules
+        run: python -m py_compile cogs/predict.py fonctions/api_calls.py
+      - name: Test offline regressions
+        run: python -m pytest -q tests/test_predictions.py
+      - name: Verify the actual persisted model and its probability convention
+        run: |
+          python - <<'PY'
+          import joblib
+          import numpy as np
+          model = joblib.load('model/prediction_result.sav')
+          assert model.n_features_in_ == 44
+          assert list(model.classes_) == [0, 1]
+          for features in ([0.] * 44, [1.] * 44):
+              probabilities = model.predict_proba([features])
+              assert probabilities.shape == (1, 2)
+              assert np.isfinite(probabilities).all()
+              assert np.isclose(probabilities.sum(), 1)
+          PY
+
