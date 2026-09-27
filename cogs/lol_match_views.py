@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import re
+from io import BytesIO
 
 import interactions
 from interactions import Extension, component_callback
@@ -11,10 +12,12 @@ from fonctions.match.match_views import (
     load_teamfights, load_ganks, build_teamfight_pages, build_gank_pages,
 )
 
+from fonctions.match.recap_details import load_score, build_score_pages, gold_response
+
 log = logging.getLogger(__name__)
-OPEN_RE = re.compile(r"^lolview_open_(teamfight|ganks|analysis|progress)_([A-Z0-9]+_[0-9]+)_([0-9]+)$")
+OPEN_RE = re.compile(r"^lolview_open_(teamfight|ganks|score|gold|analysis|progress)_([A-Z0-9]+_[0-9]+)_([0-9]+)$")
 PAGE_RE = re.compile(
-    r"^lolview_page_(teamfight|ganks|analysis|progress)_([A-Z0-9]+_[0-9]+)_([0-9]+)_([0-9]+)_(?:prev|next)$"
+    r"^lolview_page_(teamfight|ganks|score|gold|analysis|progress)_([A-Z0-9]+_[0-9]+)_([0-9]+)_([0-9]+)_(?:prev|next)$"
 )
 LOAD_TIMEOUT = 8
 
@@ -38,6 +41,7 @@ def page_components(kind, match_id, joueur, index, total):
 
 def load_pages(kind, match_id, joueur):
     loaders = {
+        "score": (load_score, build_score_pages),
         "teamfight": (load_teamfights, build_teamfight_pages),
         "ganks": (load_ganks, build_gank_pages),
         "analysis": (load_analysis, build_analysis_pages),
@@ -65,6 +69,19 @@ class LolMatchViews(Extension):
             return await ctx.send(**kwargs, ephemeral=True)
 
         try:
+            if kind == "gold":
+                data = await asyncio.wait_for(
+                    asyncio.to_thread(gold_response, match_id, int(joueur)), timeout=LOAD_TIMEOUT,
+                )
+                if data is None:
+                    return await reply(content="Les données sauvegardées de cette partie ne sont plus disponibles.",
+                                       embeds=[], components=[])
+                embed, png = data
+                kwargs = {"file": interactions.File(BytesIO(png), file_name="gold_diff.png")} if png else {}
+                return await reply(content="", embeds=embed, components=[interactions.ActionRow(
+                    interactions.Button(style=interactions.ButtonStyle.SECONDARY,
+                                        label="Fermer", custom_id="lolview_close"),
+                )], **kwargs)
             pages = await asyncio.wait_for(
                 asyncio.to_thread(load_pages, kind, match_id, int(joueur)), timeout=LOAD_TIMEOUT,
             )
@@ -104,7 +121,8 @@ class LolMatchViews(Extension):
 
     @component_callback("lolview_close")
     async def on_close(self, ctx):
-        await ctx.edit_origin(content="Consultation terminée.", embeds=[], components=[])
+        await ctx.defer(edit_origin=True)
+        await ctx.edit(content="Consultation terminée.", embeds=[], components=[], attachments=[])
 
 
 def setup(bot):

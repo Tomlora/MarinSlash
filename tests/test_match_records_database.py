@@ -6,7 +6,7 @@ from itertools import product
 import pandas as pd
 import pytest
 
-from test_match_records_ui import PREFS, VIEWS
+from test_match_records_ui import PREFS, VIEWS, DETAILS
 
 DSN = os.environ.get("TEST_POSTGRES_DSN")
 pytestmark = pytest.mark.skipif(not DSN, reason="PostgreSQL de test non configuré")
@@ -18,7 +18,7 @@ def database(monkeypatch):
 
     with psycopg.connect(DSN, autocommit=True) as conn:
         assert conn.execute("SELECT current_database()").fetchone()[0] == "records_test"
-        conn.execute("DROP TABLE IF EXISTS records_preferences, match_teamfight_damage, match_gank_summary, match_gank_events, matchs, tracker")
+        conn.execute("DROP TABLE IF EXISTS records_preferences, match_teamfight_damage, match_gank_summary, match_gank_events, match_recap_details, match_scoring, matchs_timestamp_gold, matchs, tracker")
         conn.execute("""CREATE TABLE tracker (
             id_compte BIGINT PRIMARY KEY, discord BIGINT, riot_id TEXT, riot_tagline TEXT, puuid TEXT
         )""")
@@ -39,6 +39,8 @@ def database(monkeypatch):
         monkeypatch.setattr(PREFS, "lire_bdd_perso", read)
         monkeypatch.setattr(PREFS, "requete_perso_bdd", execute)
         monkeypatch.setattr(VIEWS, "lire_bdd_perso", read)
+        monkeypatch.setattr(DETAILS, "lire_bdd_perso", read)
+        monkeypatch.setattr(DETAILS, "requete_perso_bdd", execute)
         yield conn
 
 
@@ -149,3 +151,55 @@ def test_gank_loader_matches_account_team_and_filters_boundary_on_old_schema(dat
     assert VIEWS.load_ganks("EUW1_100", 2) is None
     database.execute("UPDATE matchs SET mode = 'ARAM'")
     assert VIEWS.load_ganks("EUW1_100", 1)[3] is False
+
+
+def test_recap_details_roundtrip_is_per_account_and_keeps_true_team_colors(database):
+    from test_match_records_ui import sample_details_match
+    database.execute("INSERT INTO tracker VALUES (5,123,'Renamed','TEST','p7'), (6,456,'Other','TEST','p1')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri'), ('EUW1_123',6,'RANKED',100,800,TRUE,'Ahri')")
+    assert DETAILS.load_score("EUW1_123", 5)[1] == []
+    assert DETAILS.load_gold("EUW1_123", 5)[1] == []
+    assert DETAILS.save_recap_details(sample_details_match())
+    match, scores = DETAILS.load_score("EUW1_123", 5)
+    assert match["player_name"] == "Renamed#TEST"
+    tracked = next(p for p in scores if p["tracked"])
+    assert tracked["riot_id"] == "Player7" and tracked["team"] == 200
+    points = DETAILS.load_gold("EUW1_123", 5)[1]
+    assert [p["minute"] for p in points] == [0, 1, 2, 4]
+    assert points[1]["blue"] - points[1]["red"] == 500
+    assert DETAILS.load_score("EUW1_123", 6)[1] == []
+    assert DETAILS.load_gold("EUW1_123", 999) is None
+    # La réanalyse remplace le même snapshot sans créer de doublon.
+    assert DETAILS.save_recap_details(sample_details_match())
+    assert database.execute("SELECT COUNT(*) FROM match_recap_details").fetchone()[0] == 1
+
+
+def test_legacy_scoring_and_gold_use_riot_identity_and_account_perspective(database):
+    database.execute("INSERT INTO tracker VALUES (5,123,'Player7','TEST','p7')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri')")
+    database.execute("ALTER TABLE matchs ADD COLUMN id_participant INTEGER")
+    database.execute("UPDATE matchs SET id_participant = 7")
+    database.execute("""CREATE TABLE match_scoring (
+        match_id TEXT, player_index INTEGER, riot_id TEXT, riot_tag TEXT, team TEXT,
+        score DOUBLE PRECISION, combat_value DOUBLE PRECISION
+    )""")
+    database.execute("""INSERT INTO match_scoring VALUES
+        ('EUW1_123',2,'Player7','TEST','blue',8,7),
+        ('EUW1_123',7,'Other','TEST','red',9,8),
+        ('EUW1_999',2,'Player7','TEST','blue',1,1)
+    """)
+    scores = DETAILS.load_score("EUW1_123", 5)[1]
+    assert len(scores) == 2
+    assert [s["player_index"] for s in scores if s["tracked"]] == [2]
+    database.execute("""CREATE TABLE matchs_timestamp_gold (
+        match_id TEXT, riot_id BIGINT, timestamp DOUBLE PRECISION,
+        gold_allie DOUBLE PRECISION, gold_adv DOUBLE PRECISION
+    )""")
+    database.execute("""INSERT INTO matchs_timestamp_gold VALUES
+        ('EUW1_123',5,0,2500,2500), ('EUW1_123',5,1,3000,3500),
+        ('EUW1_123',5,1.45,3900,3999), ('EUW1_123',5,2,NULL,4000),
+        ('EUW1_123',6,1,99999,0), ('EUW1_999',5,1,99999,0)
+    """)
+    points = DETAILS.load_gold("EUW1_123", 5)[1]
+    assert points == [{"minute": 0, "blue": 2500, "red": 2500},
+                      {"minute": 1, "blue": 3500, "red": 3000}]

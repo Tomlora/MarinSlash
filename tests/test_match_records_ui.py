@@ -71,7 +71,7 @@ def _load_under_stubs():
     targets = (
         "fonctions", "fonctions.match", "fonctions.match.records_display",
         "fonctions.match.records_ui", "fonctions.match.records_preferences",
-        "fonctions.match.match_views", "cogs.settings_records", "cogs.lol_match_views",
+        "fonctions.match.match_views", "fonctions.match.recap_details", "cogs.settings_records", "cogs.lol_match_views",
         "fonctions.gestion_bdd", "interactions",
         "utils", "utils.emoji", "cogs", "cogs.lol_records",
     )
@@ -80,6 +80,7 @@ def _load_under_stubs():
 
     fake_discord = types.ModuleType("interactions")
     fake_discord.Embed = FakeEmbed
+    fake_discord.File = lambda file, **kwargs: types.SimpleNamespace(file=file, **kwargs)
     fake_discord.Button = FakeButton
     fake_discord.ActionRow = FakeActionRow
     fake_discord.StringSelectMenu = FakeSelect
@@ -138,9 +139,10 @@ def _load_under_stubs():
         cog = _load("cogs.lol_records", COG_DIR / "lol_records.py")
         preferences = sys.modules["fonctions.match.records_preferences"]
         views = _load("fonctions.match.match_views", MATCH_DIR / "match_views.py")
+        details = _load("fonctions.match.recap_details", MATCH_DIR / "recap_details.py")
         view_cog = _load("cogs.lol_match_views", COG_DIR / "lol_match_views.py")
         settings = _load("cogs.settings_records", COG_DIR / "settings_records.py")
-        return display, ui, cog, preferences, views, view_cog, settings
+        return display, ui, cog, preferences, views, view_cog, settings, details
     finally:
         for key, value in original.items():
             if value is None:
@@ -149,7 +151,7 @@ def _load_under_stubs():
                 sys.modules[key] = value
 
 
-DISPLAY, UI, COG, PREFS, VIEWS, VIEW_COG, SETTINGS = _load_under_stubs()
+DISPLAY, UI, COG, PREFS, VIEWS, VIEW_COG, SETTINGS, DETAILS = _load_under_stubs()
 
 COUNTS = {
     "none": 0,
@@ -762,10 +764,10 @@ def test_progression_handles_null_zero_and_short_history_without_invented_values
 def test_match_buttons_and_navigation_have_unique_valid_ids():
     for button in (None, UI.make_open_button("EUW1_123", 5)):
         rows = VIEWS.make_match_buttons("EUW1_123", 5, button)
-        assert len(rows[0].components) == (2 if button is None else 3)
+        assert len(rows[0].components) == (4 if button is None else 5)
         for component in rows[0].components[-2:]:
             assert VIEW_COG.OPEN_RE.fullmatch(component.custom_id)
-    for kind in ("teamfight", "ganks", "analysis", "progress"):
+    for kind in ("teamfight", "ganks", "score", "analysis", "progress"):
         for total in (1, 2, 13):
             for index in range(total):
                 rows = VIEW_COG.page_components(kind, "EUW1_123", 5, index, total)
@@ -909,9 +911,9 @@ def test_ganks_handle_old_data_empty_unsupported_mode_and_unknown_team():
 
 def test_new_button_labels_colors_and_settings_are_user_facing():
     buttons = VIEWS.make_match_buttons("EUW1_123", 5)[0].components
-    assert [b.label for b in buttons] == ["⚔️ Teamfight", "🌿 Ganks"]
-    assert [b.style for b in buttons] == [4, 3]
-    assert [b.custom_id for b in buttons] == ["lolview_open_teamfight_EUW1_123_5", "lolview_open_ganks_EUW1_123_5"]
+    assert [b.label for b in buttons] == ["⚔️ Teamfight", "🌿 Ganks", "📊 Détail du score", "💰 Différentiel d’or"]
+    assert [b.style for b in buttons] == [4, 3, 1, 2]
+    assert [b.custom_id for b in buttons] == [f"lolview_open_{kind}_EUW1_123_5" for kind in ("teamfight", "ganks", "score", "gold")]
     source = (COG_DIR / "settings_records.py").read_text(encoding="utf-8")
     assert "PR42" not in source and "PR43" not in source
     for layout in ("compact", "sections"):
@@ -938,3 +940,202 @@ def test_new_view_loaders_dispatch_and_preserve_legacy_views():
             assert calls == [("EUW1_123", 5)]
         finally:
             setattr(VIEW_COG, loader_name, old)
+
+
+def sample_details_match():
+    participants = [{"participantId": i + 1, "puuid": f"p{i}", "teamId": 100 if i < 5 else 200}
+                    for i in range(10)]
+    frames = []
+    for minute in (0, 1, 2, 4):
+        frames.append({"timestamp": minute * 60000, "participantFrames": {
+            str(i + 1): {"totalGold": 500 + minute * (200 if i < 5 else 100)} for i in range(10)
+        }})
+    # Le joueur suivi est rouge et la liste de scoring a déjà été réordonnée.
+    order = list(range(5, 10)) + list(range(5))
+    summaries = [{"index": i, "score": 9 - i * .5, "rank": i + 1, "is_mvp": i == 0,
+                  "is_ace": i == 5, "role": "MID",
+                  "breakdown": {key: 8 - i * .5 for key, _ in DETAILS.DIMENSIONS}} for i in range(10)]
+    return types.SimpleNamespace(
+        last_match="EUW1_123", id_compte=5, puuid="p7",
+        match_detail={"info": {"participants": participants}},
+        data_timeline={"info": {"frames": frames}},
+        thisPuuidListe=[f"p{i}" for i in order],
+        thisRiotIdListe=[f"Player{i}" for i in order], thisRiotTagListe=["TEST"] * 10,
+        thisChampNameListe=["Ahri"] * 10,
+        get_all_players_performance_summary=lambda: summaries,
+    )
+
+
+def test_gold_minute_sampling_uses_all_ten_actual_teams_and_preserves_gaps():
+    info = sample_details_match()
+    participants = info.match_detail["info"]["participants"]
+    original = info.data_timeline["info"]["frames"]
+    partial = {**original[2], "timestamp": 179000, "participantFrames": {
+        str(i + 1): {"totalGold": 99999} for i in range(10)
+    }}
+    incomplete = {"timestamp": 180000, "participantFrames": {"1": {"totalGold": 30000}}}
+    timeline = {"info": {"frames": [*original, partial, incomplete]}}
+    actual = DETAILS.minute_gold(timeline, participants)
+    assert [p["minute"] for p in actual] == [0, 1, 2, 4]
+    assert actual[1] == {"minute": 1, "blue": 3500, "red": 3000}
+    assert actual[2]["blue"] - actual[2]["red"] == 1000
+    assert DETAILS.minute_gold(timeline, participants[:9]) == []
+    assert DETAILS.minute_gold(None, participants) == []
+    # Une dernière frame partielle ne peut pas écraser la minute entière.
+    assert DETAILS.minute_gold({"info": {"frames": [original[1], {**partial, "timestamp": 60001}]}}, participants)[0]["blue"] == 3500
+
+
+def test_details_snapshot_uses_puuid_after_red_team_reordering_and_finite_scores():
+    import numpy as np
+    info = sample_details_match()
+    summaries = info.get_all_players_performance_summary()
+    summaries[2]["score"] = np.float64(8)
+    summaries[2]["rank"] = np.int64(3)
+    summaries[2]["is_mvp"] = np.bool_(False)
+    summaries[2]["breakdown"]["combat_value"] = float("nan")
+    info.get_all_players_performance_summary = lambda: summaries
+    data = DETAILS.snapshot(info)
+    tracked = [p for p in data["scores"] if p["tracked"]]
+    assert len(tracked) == 1
+    assert tracked[0]["riot_id"] == "Player7" and tracked[0]["player_index"] == 2
+    assert tracked[0]["team"] == 200 and data["scores"][5]["team"] == 100
+    assert tracked[0]["combat_value"] is None
+    json.dumps(data, allow_nan=False)
+    assert data["gold"][1]["blue"] - data["gold"][1]["red"] == 500
+
+
+def test_score_pages_show_dimensions_comparison_and_all_ten_players():
+    scores = DETAILS.snapshot(sample_details_match())["scores"]
+    pages = DETAILS.build_score_pages(example_match(), scores)
+    assert len(pages) == 4
+    assert "Player7#TEST" in pages[0].fields[0].value
+    assert "**8/10**" in pages[0].fields[0].value
+    assert "**3/10**" in pages[0].fields[0].value
+    assert all(label in pages[0].fields[1].value for _, label in DETAILS.DIMENSIONS)
+    assert "Player5#TEST" in pages[1].description
+    assert "Écart **-1.0 pt**" in pages[1].fields[0].value
+    assert sum(len(p.fields) for p in pages if "Classement" in p.title) == 10
+    for page in pages:
+        assert len(page.fields) <= 5
+        assert all(len(f.value) <= 1024 and len(f.name) <= 256 for f in page.fields)
+        assert sum(len(f.name) + len(f.value) for f in page.fields) + len(page.description) + len(page.title) + len(page.footer) <= 6000
+    assert "Données indisponibles" in DETAILS.build_score_pages(example_match(), [])[0].title
+    scores[2]["combat_value"] = None
+    assert "Écart **—**" in DETAILS.build_score_pages(example_match(), scores)[1].fields[0].value
+
+
+def test_gold_callback_acknowledges_before_loading_uploads_png_and_handles_missing_data():
+    old = VIEW_COG.gold_response
+    cog = VIEW_COG.LolMatchViews.__new__(VIEW_COG.LolMatchViews)
+    try:
+        ctx = RecordingContext("lolview_open_gold_EUW1_123_5")
+        embed = DETAILS.gold_embed({**example_match(), "id_participant": 7}, [{"minute": 1, "blue": 5000, "red": 4000}])
+        def load(match_id, joueur):
+            assert ctx.calls[0] == ("defer", {"ephemeral": True})
+            assert (match_id, joueur) == ("EUW1_123", 5)
+            return embed, b"fake-png"
+        VIEW_COG.gold_response = load
+        asyncio.run(cog.on_open(ctx))
+        payload = ctx.calls[-1][2]
+        assert payload["ephemeral"] is True and payload["embeds"] is embed
+        assert payload["file"].file_name == "gold_diff.png"
+        assert payload["file"].file.getvalue() == b"fake-png"
+        assert embed.image.url == "attachment://gold_diff.png"
+        assert len(payload["components"][0].components) == 1
+        VIEW_COG.gold_response = lambda *args: None
+        asyncio.run(cog.on_open(ctx))
+        assert "plus disponibles" in ctx.calls[-1][1]
+        VIEW_COG.gold_response = lambda *args: (DETAILS.gold_embed(example_match(), []), None)
+        asyncio.run(cog.on_open(ctx))
+        assert "file" not in ctx.calls[-1][2]
+        assert "Données indisponibles" in ctx.calls[-1][2]["embeds"].fields[0].name
+    finally:
+        VIEW_COG.gold_response = old
+
+
+def test_gold_callback_timeout_and_failure_end_the_response():
+    import time
+    old, timeout = VIEW_COG.gold_response, VIEW_COG.LOAD_TIMEOUT
+    cog = VIEW_COG.LolMatchViews.__new__(VIEW_COG.LolMatchViews)
+    try:
+        VIEW_COG.LOAD_TIMEOUT = .001
+        VIEW_COG.gold_response = lambda *args: time.sleep(.02)
+        ctx = RecordingContext("lolview_open_gold_EUW1_123_5")
+        asyncio.run(cog.on_open(ctx))
+        assert "trop de temps" in ctx.calls[-1][1]
+        def fail(*args):
+            raise RuntimeError("plot unavailable")
+        VIEW_COG.gold_response = fail
+        VIEW_COG.LOAD_TIMEOUT = timeout
+        asyncio.run(cog.on_open(ctx))
+        assert "Impossible" in ctx.calls[-1][1]
+        assert ctx.calls[-1][2]["components"] == []
+    finally:
+        VIEW_COG.gold_response, VIEW_COG.LOAD_TIMEOUT = old, timeout
+
+
+def test_recap_snapshot_storage_is_bound_and_failure_is_nonfatal():
+    old = DETAILS.requete_perso_bdd
+    calls = []
+    try:
+        DETAILS.requete_perso_bdd = lambda sql, params=None: calls.append((sql, params))
+        assert DETAILS.save_recap_details(sample_details_match())
+        assert "ON CONFLICT" in calls[-1][0]
+        assert calls[-1][1]["joueur"] == 5
+        assert json.loads(calls[-1][1]["data"])["gold"][1]["blue"] == 3500
+        def fail(*args):
+            raise RuntimeError("no CREATE permission")
+        DETAILS.requete_perso_bdd = fail
+        assert DETAILS.save_recap_details(sample_details_match()) is False
+    finally:
+        DETAILS.requete_perso_bdd = old
+
+
+def test_save_data_captures_details_after_match_save_on_new_and_existing_matches():
+    # Exécuter la vraie méthode en isolant les anciennes dépendances du bot.
+    import ast
+    source = (MATCH_DIR / "save_data.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "SaveDataMixin")
+    method = next(n for n in cls.body if isinstance(n, ast.AsyncFunctionDef) and n.name == "save_data")
+    calls = []
+    async def tags(*args):
+        return pd.DataFrame()
+    namespace = {"asyncio": asyncio, "get_data_champ_tags": tags,
+                 "sauvegarde_bdd": lambda *args, **kwargs: None,
+                 "save_recap_details": lambda obj: calls.append("details")}
+    code = ast.fix_missing_locations(ast.Module(body=[method], type_ignores=[]))
+    exec(compile(code, "save_data.py", "exec"), namespace)
+    for existing in (False, True):
+        calls.clear()
+        namespace["lire_bdd_perso"] = lambda *a, **kw: pd.DataFrame([{"match_id": "EUW1_123"}]) if existing else pd.DataFrame()
+        info = sample_details_match()
+        info.thisDeaths, info.thisKDA, info.session, info.version = 1, 2.0, None, {"n": {"champion": "test"}}
+        info._insert_match_data = lambda: calls.append("match")
+        info._insert_participant_data = info._insert_other_match_data = info._insert_points_data = lambda: None
+        asyncio.run(namespace["save_data"](info))
+        assert calls == (["details"] if existing else ["match", "details"])
+
+
+def test_gold_curve_is_relative_to_tracked_team_and_splits_sign_changes():
+    points = [{"minute": 0, "blue": 1000, "red": 1000},
+              {"minute": 1, "blue": 1400, "red": 1000},
+              {"minute": 2, "blue": 1200, "red": 1600},
+              {"minute": 4, "blue": 2000, "red": 1000}]
+    blue, red = {**example_match(), "id_participant": 2}, {**example_match(), "id_participant": 7}
+    assert DETAILS.gold_series(blue, points) == [(0, 0), (1, 400), (2, -400), (4, 1000)]
+    assert DETAILS.gold_series(red, points) == [(0, 0), (1, -400), (2, 400), (4, -1000)]
+    segments, colors = DETAILS.gold_segments(DETAILS.gold_series(blue, points))
+    assert segments == [[(0, 0), (1, 400)], [(1, 400), (1.5, 0)], [(1.5, 0), (2, -400)]]
+    assert colors == [DETAILS.GOLD_POSITIVE, DETAILS.GOLD_POSITIVE, DETAILS.GOLD_NEGATIVE]
+    _, reverse = DETAILS.gold_segments(DETAILS.gold_series(red, points))
+    assert reverse == [DETAILS.GOLD_NEGATIVE, DETAILS.GOLD_NEGATIVE, DETAILS.GOLD_POSITIVE]
+    assert DETAILS.gold_segments([(0, 0), (1, 0)])[1] == [DETAILS.GOLD_ZERO]
+    assert DETAILS.gold_segments([(0, 500)]) == ([], [])
+    embed = DETAILS.gold_embed(red, points)
+    assert "**-1 000**" in embed.fields[1].value
+    assert "Alliés **400**" in embed.fields[2].value
+    assert "Adversaires **1 000**" in embed.fields[2].value
+    assert DETAILS.gold_series(example_match(), points) == []
+    unknown = DETAILS.gold_embed(example_match(), points)
+    assert unknown.fields[0].name == "Équipe inconnue" and unknown.image is None

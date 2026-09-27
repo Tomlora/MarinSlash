@@ -236,7 +236,9 @@ def build_progress_pages(match, history):
 def make_match_buttons(match_id, joueur, records_button=None):
     buttons = [records_button] if records_button is not None else []
     for kind, label, style in (("teamfight", "⚔️ Teamfight", interactions.ButtonStyle.DANGER),
-                               ("ganks", "🌿 Ganks", interactions.ButtonStyle.SUCCESS)):
+                               ("ganks", "🌿 Ganks", interactions.ButtonStyle.SUCCESS),
+                               ("score", "📊 Détail du score", interactions.ButtonStyle.PRIMARY),
+                               ("gold", "💰 Différentiel d’or", interactions.ButtonStyle.SECONDARY)):
         buttons.append(interactions.Button(
             style=style, label=label,
             custom_id=f"lolview_open_{kind}_{match_id}_{int(joueur)}",

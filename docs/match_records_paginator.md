@@ -218,3 +218,57 @@ les deux nouvelles vues lisent les analyses déjà sauvegardées.
 7. Redémarrer le bot puis utiliser les boutons récents et anciens.
 8. La CI vérifie les composants Discord réels hors ligne et les requêtes sur
    une base PostgreSQL jetable `records_test`, sans connexion à la base du bot.
+
+## Détail du score et différentiel d'or
+
+La rangée du récap contient jusqu'à cinq boutons : Tous les records, Teamfight,
+Ganks, Détail du score et Différentiel d'or. Si les records sont masqués, les
+quatre autres restent disponibles.
+
+**Détail du score** ouvre des pages privées : note et cinq dimensions
+(Combat, Économie, Objectifs, Tempo, Impact), point fort / axe de progression,
+comparaison des dimensions avec le MVP (ou le meilleur autre coéquipier), puis
+classement des dix joueurs en deux pages. Les dimensions absentes restent « — ».
+La note globale et les dimensions sont celles sauvegardées lors du récap.
+
+**Différentiel d'or** ouvre un embed privé avec un PNG :
+- une courbe alliés moins adversaires, comme `/lol_analyse_durant_la_game gold_team` ;
+- segments bleus en avantage allié, rouges en retard, coupure exacte au passage par zéro ;
+- fond clair et valeur affichée à chaque minute ;
+- somme du totalGold des cinq joueurs de chaque équipe Riot ;
+- un point par minute entière, avec une tolérance de retard de frame de 1 seconde ;
+- aucune extrapolation, interpolation ou remplacement d'une minute par une frame finale partielle ;
+- une interruption de la courbe lorsqu'une minute manque ;
+- dernière minute mesurée et avantage maximal allié/adverse, du point de vue du compte du récap.
+
+Le graphique est généré en mémoire, sans fichier partagé entre utilisateurs.
+Le bouton Fermer retire aussi la pièce jointe. Les lectures SQL et le rendu
+précèdent la réponse privée mais suivent l'acquittement du clic.
+
+### Persistance
+
+`match_recap_details` stocke un JSONB par (match_id, joueur). Le snapshot est
+pris pendant la sauvegarde du match, avant l'envoi du récap, à partir des
+scores déjà calculés et de la timeline déjà chargée. Il n'ajoute aucun appel
+Riot. Les PUUID servent à identifier le joueur et à retrouver les vraies équipes
+malgré le réordonnancement des listes du scoring ; seuls les résultats utiles
+sont enregistrés, pas les PUUID.
+
+La table est créée à la première sauvegarde. Si le rôle PostgreSQL n'a pas le
+droit CREATE, appliquer `scripts/create_match_recap_details.sql`. Une erreur
+de cette sauvegarde optionnelle est journalisée sans bloquer le récap.
+
+Pour les anciens matchs, les vues essaient les tables existantes
+`match_scoring` et `matchs_timestamp_gold`. Le score historique est identifié
+par Riot ID + tag, jamais par l'index Riot brut ; l'or historique est filtré
+sur le compte et remis dans le sens bleu/rouge. En l'absence de données
+exploitables, le bouton l'indique explicitement. Les anciens messages doivent
+être rechargés ou republiés pour afficher les nouveaux boutons.
+
+### Recette
+
+- Vérifier les cinq boutons, les deux derniers même si tous les records sont masqués.
+- Naviguer dans le score jusqu'aux dix joueurs et contrôler le compte côté rouge.
+- Ouvrir simultanément deux courbes de matchs différents ; fermer chaque vue.
+- Vérifier les avantages positifs/négatifs, l'égalité, une seule minute et les trous.
+- Redémarrer le bot et rouvrir les deux vues sans rappeler Riot.

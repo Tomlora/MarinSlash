@@ -25,7 +25,7 @@ def _load_bot_modules():
     names = (
         "fonctions", "fonctions.match", "fonctions.match.records_display",
         "fonctions.match.records_ui", "fonctions.match.records_preferences",
-        "fonctions.match.match_views", "cogs.settings_records", "cogs.lol_match_views",
+        "fonctions.match.match_views", "fonctions.match.recap_details", "cogs.settings_records", "cogs.lol_match_views",
         "fonctions.gestion_bdd", "utils",
         "utils.emoji", "cogs", "cogs.lol_records",
     )
@@ -58,9 +58,10 @@ def _load_bot_modules():
         cog = _load("cogs.lol_records", ROOT / "cogs" / "lol_records.py")
         preferences = sys.modules["fonctions.match.records_preferences"]
         views = _load("fonctions.match.match_views", MATCH_DIR / "match_views.py")
+        details = _load("fonctions.match.recap_details", MATCH_DIR / "recap_details.py")
         view_cog = _load("cogs.lol_match_views", ROOT / "cogs" / "lol_match_views.py")
         settings = _load("cogs.settings_records", ROOT / "cogs" / "settings_records.py")
-        return ui, cog, preferences, views, view_cog, settings
+        return ui, cog, preferences, views, view_cog, settings, details
     finally:
         for name, old in previous.items():
             if old is None:
@@ -69,7 +70,7 @@ def _load_bot_modules():
                 sys.modules[name] = old
 
 
-UI, COG, PREFS, VIEWS, VIEW_COG, SETTINGS = _load_bot_modules()
+UI, COG, PREFS, VIEWS, VIEW_COG, SETTINGS, DETAILS = _load_bot_modules()
 
 
 def test_real_embed_and_button_components():
@@ -157,14 +158,14 @@ def test_serialized_component_ids_are_unique_across_all_rows():
 
 def test_new_views_serialize_native_components_and_bounded_embeds():
     buttons = VIEWS.make_match_buttons("EUW1_1234567890", 123456789, UI.make_open_button("EUW1_1234567890", 123456789))
-    assert len(buttons[0].to_dict()["components"]) == 3
+    assert len(buttons[0].to_dict()["components"]) == 5
     match = {"match_id": "EUW1_1234567890", "player_name": "Marin#TEST", "mode": "ARAM"}
     pages = VIEWS.build_teamfight_pages(match, [], False) + VIEWS.build_gank_pages(match, {}, [])
     for page in pages:
         payload = page.to_dict()
         assert len(payload["fields"]) <= 5
         assert all(len(field["value"]) <= 1024 for field in payload["fields"])
-    for kind in ("teamfight", "ganks", "analysis", "progress"):
+    for kind in ("teamfight", "ganks", "score", "analysis", "progress"):
         for index in range(len(pages)):
             rows = VIEW_COG.page_components(kind, "EUW1_1234567890", 123456789, index, len(pages))
             ids = [b["custom_id"] for row in rows for b in row.to_dict()["components"]]
@@ -175,3 +176,71 @@ def test_new_views_serialize_native_components_and_bounded_embeds():
         UI.add_featured_records(embed, COG.demo_collector("all_scopes"), preferences=prefs)
         assert len(embed.to_dict()["fields"][0]["value"]) <= 960
         assert isinstance(SETTINGS.settings_embed(prefs), interactions.Embed)
+
+
+def test_real_score_pages_and_gold_image_upload_render_offline():
+    from io import BytesIO
+    from PIL import Image
+    from test_match_records_ui import sample_details_match
+
+    data = DETAILS.snapshot(sample_details_match())
+    match = {"match_id": "EUW1_123", "player_name": "Player7#TEST", "mode": "RANKED", "id_participant": 7}
+    pages = DETAILS.build_score_pages(match, data["scores"])
+    assert len(pages) == 4
+    for page in pages:
+        payload = page.to_dict()
+        assert len(payload["fields"]) <= 5
+        assert all(len(f["value"]) <= 1024 for f in payload["fields"])
+    from unittest.mock import patch
+    from matplotlib.figure import Figure
+    from matplotlib.collections import LineCollection
+    original_save = Figure.savefig
+    captured = {}
+    def capture(figure, *args, **kwargs):
+        ax = figure.axes[0]
+        collection = next(c for c in ax.collections if isinstance(c, LineCollection))
+        captured["segments"] = [s.tolist() for s in collection.get_segments()]
+        captured["labels"] = [text.get_text() for text in ax.texts]
+        captured["background"] = ax.get_facecolor()
+        return original_save(figure, *args, **kwargs)
+    with patch.object(Figure, "savefig", capture):
+        png = DETAILS.render_gold(match, data["gold"])
+    # Le compte est rouge : le différentiel bleu positif devient un retard allié.
+    assert captured["segments"] == [[[0, 0], [1, -500]], [[1, -500], [2, -1000]]]
+    assert captured["labels"] == ["+0", "-500", "-1 000", "-2 000"]
+    assert captured["background"] == (1, 1, 1, 1)
+    with Image.open(BytesIO(png)) as image:
+        assert image.size == (1440, 660) and image.format == "PNG"
+        assert len(image.convert("RGB").getcolors(maxcolors=1000000)) > 100
+    file = interactions.File(BytesIO(png), file_name="gold_diff.png")
+    assert file.file_name == "gold_diff.png"
+    embed = DETAILS.gold_embed(match, data["gold"])
+    assert embed.to_dict()["image"]["url"] == "attachment://gold_diff.png"
+    assert "file" in inspect.signature(interactions.ComponentContext.send).parameters
+    assert "attachments" in inspect.signature(interactions.ComponentContext.edit).parameters
+    # Courbe à zéro et une seule minute : limites valides et PNG lisible.
+    for points in ([{"minute": 0, "blue": 2500, "red": 2500}],
+                   [{"minute": m, "blue": 2500, "red": 3500} for m in range(120)]):
+        with Image.open(BytesIO(DETAILS.render_gold(match, points))) as image:
+            assert image.width >= 1440 and image.height == 660
+
+
+def test_close_uses_deferred_webhook_edit_and_removes_attachment():
+    from unittest.mock import AsyncMock
+    import asyncio
+
+    http = types.SimpleNamespace(post_initial_response=AsyncMock(), edit_interaction_message=AsyncMock(return_value=None))
+    client = types.SimpleNamespace(http=http, app=types.SimpleNamespace(id=123))
+    ctx = types.SimpleNamespace(client=client, token="test-token", id=456, deferred=False, responded=False)
+    # Vraies méthodes SDK, seul le transport HTTP est simulé.
+    ctx.defer = types.MethodType(interactions.ComponentContext.defer, ctx)
+    ctx._defer = types.MethodType(interactions.ComponentContext._defer, ctx)
+    ctx.edit = types.MethodType(interactions.ComponentContext.edit, ctx)
+    cog = types.SimpleNamespace()
+    asyncio.run(VIEW_COG.LolMatchViews.on_close.callback(cog, ctx))
+    assert http.post_initial_response.await_count == 1
+    assert http.edit_interaction_message.await_count == 1
+    payload = http.edit_interaction_message.call_args.kwargs["payload"]
+    assert payload["attachments"] == []
+    assert payload["components"] == []
+    assert payload["embeds"] == []
