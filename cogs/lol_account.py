@@ -118,27 +118,14 @@ class LolAccount(Extension):
                     affichage = 'mode classique'
                 elif data['affichage'] == 2:
                     affichage = 'mode beta'
-                txt += f'\n**{data["riot_id"]} #{data["riot_tagline"]}** ({guild.name}): Tracking : **{data["activation"]}** ({affichage})  | Spectateur tracker : **{data["spec_tracker"]}** | Challenges : **{data["challenges"]}** (Affiché : {data["nb_challenges"]}) | Insights : **{data["insights"]}** | Records : **{data["save_records"]}**'
+                txt += f'\n**{data["riot_id"]} #{data["riot_tagline"]}** ({guild.name}): Tracking : **{data["activation"]}** ({affichage})  | Spectateur tracker : **{data["spec_tracker"]}** | Challenges : **{data["challenges"]}** (bouton paginé) | Insights : **{data["insights"]}** | Records : **{data["save_records"]}**'
 
             await ctx.send(txt, ephemeral=True)
 
         # Y a-t-il des challenges exclus ?
 
-        df_exclusion = lire_bdd_perso(f'''SELECT challenge_exclusion.*, challenges.name, tracker.riot_id from challenge_exclusion
-                            LEFT join tracker on challenge_exclusion.index = tracker.id_compte
-                            INNER join challenges on challenge_exclusion."challengeId" = challenges."challengeId"
-                            WHERE tracker.discord = '{int(ctx.author.id)}' or challenge_exclusion.index = -1 ''', index_col='id').transpose()
-
-        if df_exclusion.empty:
-            await ctx.send("Tu n'as aucun challenge exclu", ephemeral=True)
-        else:
-            df_exclusion.sort_values('index', inplace=True)
-            df_exclusion['riot_id'].fillna('TOUS', inplace=True)
-            txt_exclusion = ''.join(
-                f'\n- {data["riot_id"]} : **{data["name"]}** '
-                for row, data in df_exclusion.iterrows()
-            )
-            await ctx.send(f'Challenges exclus : {txt_exclusion}', ephemeral=True)
+        await ctx.send('Défis favoris et exclusions : `/lol_challenges preferences`. '
+                       'Pour les modifier : `/lol_challenges suivre`.', ephemeral=True)
 
     @lol_compte.subcommand('modifier_parametres',
                            sub_cmd_description='Activation/Désactivation du tracker',
@@ -168,12 +155,6 @@ class LolAccount(Extension):
                                                    description='Ranked en aram',
                                                    type=interactions.OptionType.BOOLEAN,
                                                    required=False),
-                               SlashCommandOption(name='nb_challenges',
-                                                  description='Nombre de challenges à afficher dans le recap (entre 1 et 20)',
-                                                  type=interactions.OptionType.INTEGER,
-                                                  required=False,
-                                                  min_value=1,
-                                                  max_value=20),
                                SlashCommandOption(name="insights",
                                                   description="Insights dans le recap",
                                                   type=interactions.OptionType.BOOLEAN,
@@ -191,7 +172,6 @@ class LolAccount(Extension):
                              tracker_challenges: bool = None,
                              ranked_aram: bool = None,
                              insights: bool = None,
-                             nb_challenges: int = None,
                              records: bool = None):
         
 
@@ -273,17 +253,6 @@ class LolAccount(Extension):
                 else:
                     await ctx.send('Joueur introuvable')
 
-            if nb_challenges != None:
-
-                nb_row = requete_perso_bdd('UPDATE tracker SET nb_challenges = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
-                    'activation': nb_challenges, 'riot_id': riot_id, 'riot_tag' : riot_tag}, get_row_affected=True)
-
-                if nb_row > 0:
-                    await ctx.send(f'Nombre de challenges affichés : ** {nb_challenges} ** !')
-
-                else:
-                    await ctx.send('Joueur introuvable')
-                    
             if records != None:
 
                 nb_row = requete_perso_bdd('UPDATE tracker SET save_records = :activation WHERE riot_id = :riot_id and riot_tagline = :riot_tag', {
@@ -301,7 +270,6 @@ class LolAccount(Extension):
                 and tracker_debut is None
                 and tracker_challenges is None
                 and insights is None
-                and nb_challenges is None
                 and ranked_aram is None
                 and records is None
             ):

@@ -10,7 +10,8 @@ from utils.emoji import emote_champ_discord, emote_rank_discord, emote_v2
 from fonctions.api_calls import getRankings
 from fonctions.api_moba import test_mobalytics_api
 from fonctions.permissions import isOwner_slash
-from fonctions.gestion_challenge import challengeslol
+from fonctions.gestion_challenge import recap_snapshot
+from fonctions.challenge_ui import recap_components
 from fonctions.autocomplete import autocomplete_riotid
 from fonctions.channels_discord import identifier_role_by_name
 from fonctions.timer import timer
@@ -279,7 +280,8 @@ class LeagueofLegends(Extension):
                         insights: bool = True,
                         affichage=1,
                         check_doublon: bool = True,
-                        check_records: bool = True):
+                        check_records: bool = True,
+                        capture_challenges: bool = False):
         """
         Fonction principale pour afficher les informations d'une partie.
         Utilise la nouvelle architecture modulaire MatchLol.
@@ -975,6 +977,16 @@ class LeagueofLegends(Extension):
                 if save_record_snapshot(match_info.last_match, id_compte, records_collector) and not records_collector.is_empty():
                     records_button = make_open_button(match_info.last_match, id_compte)
 
+            # Le détail challenges est persisté avant publication et reste séparé du récap.
+            challenge_snapshot = await recap_snapshot(
+                id_compte, match_info.puuid, match_info.last_match,
+                capture=capture_challenges,
+            )
+            records_button = recap_components(
+                records_button, match_info.last_match, id_compte,
+                available=challenge_snapshot is not None,
+            )
+
             # === DÉTECTIONS + OBJECTIFS (uniquement ranked/flex) ===
             if match_info.thisQ in ['RANKED', 'FLEX']:
                 # Objectifs personnels (condensés sur une ligne)
@@ -1358,13 +1370,8 @@ class LeagueofLegends(Extension):
                                                           me=me,
                                                           insights=insights,
                                                           affichage=1,
-                                                          check_records=check_records)
-
-        if tracker_challenges:
-            chal = challengeslol(id_compte, me['puuid'], session, nb_challenges=nbchallenges)
-            await chal.preparation_data()
-            await chal.comparaison()
-            embed = await chal.embedding_discord(embed)
+                                                          check_records=check_records,
+                                                          capture_challenges=tracker_challenges and not banned)
 
         if not banned:
             if mode_de_jeu in ['RANKED', 'FLEX']:
@@ -1380,8 +1387,6 @@ class LeagueofLegends(Extension):
                 await channel_tracklol.send(embeds=embed, files=resume, components=records_button)
                 os.remove('resume.png')
 
-                if tracker_challenges:
-                    await chal.sauvegarde()
         else:
             try:
                 os.remove('resume.png')
@@ -1814,6 +1819,13 @@ class LeagueofLegends(Extension):
                 records_button = make_open_button(match_id, int(data['joueur'].values[0]))
         except Exception:
             pass  # L'ancien récap reste consultable si la table n'est pas migrée.
+        challenge_snapshot = await recap_snapshot(
+            int(data['joueur'].values[0]), None, match_id,
+        )
+        records_button = recap_components(
+            records_button, match_id, int(data['joueur'].values[0]),
+            available=challenge_snapshot is not None,
+        )
         await ctx.send(embeds=original_embed, files=resume, components=records_button)
         os.remove('resume_save.png')
 

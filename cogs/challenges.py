@@ -1,435 +1,272 @@
-import pandas as pd
-import aiohttp
-import os
-from fonctions.gestion_bdd import (lire_bdd, lire_bdd_perso, requete_perso_bdd, get_tag)
-from fonctions.gestion_challenge import (get_data_joueur_challenges,
-                                         challengeslol)
-from utils.emoji import emote_rank_discord
-from fonctions.word import suggestion_word
+"""Hub challenges et consultation persistante depuis les récaps MatchLoL."""
+import asyncio
+import logging
+import re
+import secrets
 import time
-import plotly.express as px
-import plotly.graph_objects as go
-import dataframe_image as dfi
+from contextlib import asynccontextmanager
+
 import interactions
-from interactions import SlashCommandChoice, SlashCommandOption, Extension, SlashContext, slash_command, listen, Task, TimeTrigger
-from fonctions.permissions import isOwner_slash
+from interactions import (Extension, SlashContext, ComponentContext, SlashCommandOption,
+    SlashCommandChoice, slash_command, component_callback, listen, Task, TimeTrigger)
+
+from fonctions import challenge_store as store
+from fonctions.gestion_challenge import observe
+from fonctions.challenge_progress import clean
+from fonctions.challenge_ui import (COLOR, fmt, match_pages, profile_pages,
+    pages_for_entries, finish, page_components)
+
+log = logging.getLogger(__name__)
+OPEN_RE = re.compile(r'lolchal_open_([A-Za-z0-9]+_[0-9]+)_([0-9]+)')
+PAGE_RE = re.compile(r'lolchal_page_(match|session)_([A-Za-z0-9_]+)_([0-9]+)_([0-9]+)')
+
+
+def player_options():
+    return [SlashCommandOption(name='riot_id', description='Nom du compte suivi', type=3, required=True),
+            SlashCommandOption(name='riot_tag', description='Tag si plusieurs comptes ont le même nom', type=3)]
+
+
+def challenge_options(actions=False):
+    options = [player_options()[0], SlashCommandOption(name='defi',
+        description='Nom exact ou identifiant du défi (voir catalogue)', type=3, required=True)]
+    if actions:
+        options.append(SlashCommandOption(name='action', description='Préférence à modifier', type=3,
+            required=True, choices=[SlashCommandChoice(name=k, value=k)
+                for k in ('suivre', 'retirer', 'exclure', 'inclure')]))
+    return options + [player_options()[1]]
+
+
+async def db(function, *args, **kwargs):
+    return await asyncio.wait_for(asyncio.to_thread(function, *args, **kwargs), timeout=10)
+
+
+@asynccontextmanager
+async def response(ctx):
+    await ctx.defer(ephemeral=True)
+    try:
+        yield
+    except ValueError as exc:
+        await ctx.send(str(exc), ephemeral=True)
+    except Exception:
+        log.exception('Commande challenges indisponible')
+        await ctx.send('Les challenges sont momentanément indisponibles. Réessaie dans un instant.', ephemeral=True)
 
 
 class Challenges(Extension):
     def __init__(self, bot):
-        self.bot: interactions.Client = bot
-        self.defis = lire_bdd('challenges').transpose(
-        ).sort_values(by="name", ascending=True)
+        self.bot = bot
+        self.sessions = {}
 
     @listen()
     async def on_startup(self):
-
         self.challenges_maj.start()
 
     @Task.create(TimeTrigger(hour=6, minute=0))
     async def challenges_maj(self):
-        '''Chaque jour, à 6h, on actualise les challenges.
-        Cette requête est obligatoirement à faire une fois par jour, sur un créneau creux pour éviter de surcharger les requêtes Riot'''
-
-
-        session = aiohttp.ClientSession()
-            # Ceux dont les challenges sont activés, sont maj à chaque game
-        liste_summonername = lire_bdd_perso(
-                'SELECT * from tracker where challenges = false', 'dict', index_col='id_compte')
-
-        for id_compte, data in liste_summonername.items():
-
+        try:
+            accounts = await db(store.accounts, daily=True)
+        except Exception:
+            log.exception('Lecture des comptes challenges impossible')
+            return
+        for account in accounts:
             try:
-                challenges = challengeslol(
-                        id_compte, data['puuid'], session)
-                await challenges.preparation_data()
-                await challenges.sauvegarde()
+                # Les comptes suivis en live conservent leur référence entre deux matchs.
+                await asyncio.wait_for(observe(account['id_compte'], account['puuid'],
+                    initialize_only=bool(account['challenges'])), timeout=35)
+            except Exception:
+                log.exception('Mise à jour challenges impossible pour %s', account['id_compte'])
+            await asyncio.sleep(2)
 
-                time.sleep(10)
-            except KeyError:
-                pass
+    async def account(self, ctx, riot_id=None, riot_tag=None, joueur=None):
+        if not ctx.guild_id:
+            raise ValueError('Utilise cette commande dans le serveur de ton compte suivi.')
+        accounts = await db(store.accounts, int(ctx.guild_id))
+        if joueur is not None:
+            matches = [a for a in accounts if a['id_compte'] == int(joueur)]
+        else:
+            matches = [a for a in accounts if a['riot_id'].replace(' ', '').casefold() == riot_id.replace(' ', '').casefold()
+                       and (not riot_tag or a['riot_tagline'].casefold() == riot_tag.casefold())]
+        if not matches:
+            raise ValueError('Compte introuvable sur ce serveur.')
+        if len(matches) > 1:
+            raise ValueError('Plusieurs comptes portent ce nom : précise riot_tag.')
+        return matches[0]
 
-        await session.close()
-        print('Les challenges ont été mis à jour.')
-        
-    @slash_command(name='lol_challenges', description='Challenges League of Legends')
+    async def data(self, account):
+        current, preferences = await db(store.profile, account['id_compte'])
+        if current is None:
+            await asyncio.wait_for(observe(account['id_compte'], account['puuid'], initialize_only=True), timeout=35)
+            current, preferences = await db(store.profile, account['id_compte'])
+        return current, preferences
+
+    async def send_pages(self, ctx, pages):
+        now = time.monotonic()
+        self.sessions = {k: v for k, v in self.sessions.items() if v['expires'] > now}
+        if len(self.sessions) >= 256:
+            self.sessions.pop(next(iter(self.sessions)))
+        key = secrets.token_hex(8)
+        self.sessions[key] = {'pages': pages, 'author': int(ctx.author.id),
+                              'guild': int(ctx.guild_id), 'expires': now + 900}
+        await ctx.send(embeds=pages[0], components=page_components(key, 0, 0, len(pages), 'session'), ephemeral=True)
+
+    async def show_profile(self, ctx, riot_id, riot_tag, view):
+        async with response(ctx):
+            account = await self.account(ctx, riot_id, riot_tag)
+            current, preferences = await self.data(account)
+            await self.send_pages(ctx, profile_pages(current, preferences,
+                f"{account['riot_id']}#{account['riot_tagline']}", view))
+
+    @slash_command(name='lol_challenges', description='Tes défis, objectifs et évolutions League of Legends', dm_permission=False)
     async def lol_challenges(self, ctx: SlashContext):
         pass
 
-    @lol_challenges.subcommand("help",
-                   sub_cmd_description="Explication des challenges")
+    @lol_challenges.subcommand('profil', sub_cmd_description='Points, catégories, favoris et objectifs', options=player_options())
+    async def challenges_profil(self, ctx: SlashContext, riot_id: str, riot_tag: str = None):
+        await self.show_profile(ctx, riot_id, riot_tag, 'profil')
+
+    @lol_challenges.subcommand('objectifs', sub_cmd_description='Défis les plus proches du prochain palier', options=player_options())
+    async def challenges_objectifs(self, ctx: SlashContext, riot_id: str, riot_tag: str = None):
+        await self.show_profile(ctx, riot_id, riot_tag, 'objectifs')
+
+    @lol_challenges.subcommand('best', sub_cmd_description='Tes meilleurs classements Riot', options=player_options())
+    async def challenges_best(self, ctx: SlashContext, riot_id: str, riot_tag: str = None):
+        await self.show_profile(ctx, riot_id, riot_tag, 'best')
+
+    @lol_challenges.subcommand('catalogue', sub_cmd_description='Trouver un défi par son nom',
+        options=player_options() + [SlashCommandOption(name='recherche', description='Mot dans le nom ou la description', type=3)])
+    async def challenges_catalogue(self, ctx: SlashContext, riot_id: str, riot_tag: str = None, recherche: str = ''):
+        async with response(ctx):
+            account = await self.account(ctx, riot_id, riot_tag)
+            current, _ = await self.data(account)
+            entries = [e for e in current['entries'] if not e['aggregate'] and
+                       recherche.casefold() in (e['name'] + ' ' + e['description']).casefold()]
+            entries.sort(key=lambda e: e['name'].casefold())
+            await self.send_pages(ctx, finish(pages_for_entries('🔎 Catalogue des défis',
+                'Défis connus de ce compte · utilise le nom ou le numéro avec /lol_challenges suivre.', entries), 'Catalogue'))
+
+    @lol_challenges.subcommand('suivre', sub_cmd_description='Choisir les favoris ou masquer un défi', options=challenge_options(True))
+    async def challenges_suivre(self, ctx: SlashContext, riot_id: str, defi: str, action: str, riot_tag: str = None):
+        async with response(ctx):
+            account = await self.account(ctx, riot_id, riot_tag)
+            if str(account['discord']) != str(ctx.author.id):
+                raise ValueError('Seul le propriétaire du compte peut modifier ses défis.')
+            current, _ = await self.data(account)
+            found = [e for e in current['entries'] if str(e['id']) == defi.lstrip('#') or e['name'].casefold() == defi.casefold()]
+            if len(found) != 1:
+                raise ValueError('Défi introuvable ou nom ambigu. Utilise son numéro dans /lol_challenges catalogue.')
+            entry = found[0]
+            await db(store.set_preference, account['id_compte'], entry['id'], action)
+            await ctx.send(f"Préférence **{action}** enregistrée pour **{entry['name']}**. "
+                           'Elle s’applique aux prochains relevés ; les récaps sauvegardés restent inchangés.', ephemeral=True)
+
+    @lol_challenges.subcommand('preferences', sub_cmd_description='Voir les favoris et les exclusions du compte', options=player_options())
+    async def challenges_preferences(self, ctx: SlashContext, riot_id: str, riot_tag: str = None):
+        async with response(ctx):
+            account = await self.account(ctx, riot_id, riot_tag)
+            current, preferences = await self.data(account)
+            entries = {e['id']: e for e in current['entries']}
+            pages = []
+            for key, title in (('favorites', '⭐ Favoris'), ('excluded', '🙈 Défis masqués (dont exclusions globales)')):
+                ids = sorted(set(preferences[key]))
+                for start in range(0, max(1, len(ids)), 15):
+                    lines = [f"**#{cid}** · {entries.get(cid, {}).get('name', 'Défi absent du dernier relevé')}"
+                             for cid in ids[start:start + 15]]
+                    pages.append(interactions.Embed(title=title, description='\n'.join(lines) or 'Aucun défi.', color=COLOR))
+            await self.send_pages(ctx, finish(pages, 'Modifier avec /lol_challenges suivre'))
+
+    @lol_challenges.subcommand('manage', sub_cmd_description='Exclusions globales (propriétaires du bot)',
+        options=[SlashCommandOption(name='defi', description='Identifiant numérique du défi', type=4, required=True, min_value=1),
+                 SlashCommandOption(name='action', description='Action globale', type=3, required=True,
+                    choices=[SlashCommandChoice(name=k, value=k) for k in ('exclure', 'inclure')])])
+    async def challenges_manage(self, ctx: SlashContext, defi: int, action: str):
+        async with response(ctx):
+            from fonctions.permissions import isOwner_slash
+            if not await db(isOwner_slash, ctx):
+                raise ValueError('Cette commande est réservée aux propriétaires du bot.')
+            await db(store.set_preference, -1, defi, action)
+            await ctx.send(f'Préférence globale **{action}** enregistrée pour le défi **#{defi}**.', ephemeral=True)
+
+    @lol_challenges.subcommand('classement', sub_cmd_description='Les 20 meilleurs scores de challenges du serveur')
+    async def challenges_classement(self, ctx: SlashContext):
+        async with response(ctx):
+            rows = await db(store.leaderboard, int(ctx.guild_id))
+            lines = [f"**{i}. {clean(r['riot_id'], 40)}#{clean(r['riot_tagline'], 15)}** · {fmt(r['data']['total'].get('current'))} pts"
+                     for i, r in enumerate(rows, 1)]
+            embed = interactions.Embed(title='🏆 Challenges · Classement du serveur',
+                description='\n'.join(lines) or 'Aucun relevé disponible. Consulte un profil pour initialiser son suivi.', color=COLOR)
+            embed.set_footer(text='Dernier relevé de chaque compte · actualisation quotidienne ou après match')
+            await ctx.send(embeds=embed, ephemeral=True)
+
+    @lol_challenges.subcommand('historique', sub_cmd_description='Évolutions des 10 derniers récaps enregistrés', options=player_options())
+    async def challenges_historique(self, ctx: SlashContext, riot_id: str, riot_tag: str = None):
+        async with response(ctx):
+            account = await self.account(ctx, riot_id, riot_tag)
+            rows = await db(store.history, account['id_compte'])
+            pages = []
+            for match_id, snapshot in rows:
+                pages.extend(match_pages(snapshot, match_id))
+            if not pages:
+                return await ctx.send('Aucune évolution sauvegardée. Active les challenges dans /lol_compte modifier_parametres.', ephemeral=True)
+            await self.send_pages(ctx, finish(pages, 'Historique · compteurs Riot cumulés'))
+
+    @lol_challenges.subcommand('help', sub_cmd_description='Comprendre le suivi et les nouvelles commandes')
     async def challenges_help(self, ctx: SlashContext):
+        embed = interactions.Embed(title='✨ Ton espace Challenges', color=COLOR,
+            description='Des objectifs concrets, des progrès visibles et un historique par récap.')
+        embed.add_field(name='Explorer', value='`profil` : points et catégories\n`objectifs` : prochains paliers\n'
+            '`catalogue` : rechercher un défi\n`best` : meilleurs rangs\n`classement` : classement du serveur', inline=False)
+        embed.add_field(name='Personnaliser', value='`suivre` : favoris et exclusions de ton compte. '
+            'Les anciennes exclusions sont conservées. Une exclusion globale reste prioritaire.', inline=False)
+        embed.add_field(name='Après une partie', value='Active `tracker_challenges` dans `/lol_compte modifier_parametres`. '
+            'Le bouton **Challenges** ouvre les évolutions en privé. `historique` retrouve les 10 derniers récaps. '
+            'Un bouton grisé indique un relevé indisponible.', inline=False)
+        embed.add_field(name='Ce que mesure le bot', value='Évolution depuis le dernier relevé, parfois sur plusieurs parties. '
+            'Riot peut publier les mises à jour avec retard. Le premier relevé initialise la référence. '
+            'Les profils affichent leur date de relevé ; une consultation ne consomme pas la progression.', inline=False)
+        await ctx.send(embeds=embed, ephemeral=True)
 
-        nombre_de_defis = len(self.defis['name'].unique())
+    @component_callback(OPEN_RE)
+    async def on_open(self, ctx: ComponentContext):
+        matched = OPEN_RE.fullmatch(ctx.custom_id)
+        if not matched:
+            return
+        match_id, joueur = matched.groups()
+        async with response(ctx):
+            await self.account(ctx, joueur=joueur)
+            snapshot = await db(store.load_match, match_id, int(joueur))
+            if snapshot is None:
+                raise ValueError('Aucun relevé challenges enregistré pour cette partie.')
+            pages = match_pages(snapshot, match_id)
+            await ctx.send(embeds=pages[0], components=page_components(match_id, joueur, 0, len(pages)), ephemeral=True)
 
-        em = interactions.Embed(
-            title="Challenges", description="Explication des challenges", inline=False)
-        em.add_field(name="**Conditions**",
-                     value="`Avoir joué depuis le patch 12.9  \nDisponible dans tous les modes de jeu`", inline=False)
-        em.add_field(name="**Mise à jour des challenges**",
-                     value=f"`Mis à jour tous les jours à 6h`", inline=False)
-        em.add_field(name="**Defis disponibles**",
-                     value=f"`Il existe {nombre_de_defis} défis disponibles.`", inline=False)
-
-        await ctx.send(embeds=em)
-
-    @lol_challenges.subcommand("classement",
-                   sub_cmd_description="Classement des points de challenge",
-                   options=[
-                       SlashCommandOption(name='top',
-                                          description='Afficher le top X',
-                                          type=interactions.OptionType.INTEGER,
-                                          required=False,
-                                          min_value=5,
-                                          max_value=100),
-                       SlashCommandOption(name='view',
-                                          description='Vue du classement',
-                                          type=interactions.OptionType.STRING,
-                                          required=False,
-                                          choices=[
-                                              SlashCommandChoice(
-                                                  name='general', value='general'),
-                                              SlashCommandChoice(
-                                                  name='serveur', value='serveur')
-                                          ])
-                   ])
-    async def challenges_classement(self,
-                                    ctx: SlashContext,
-                                    top: int = None,
-                                    view: str = 'general'):
-
-        if view == 'general':
-            bdd_user_total = lire_bdd_perso(f'''SELECT challenges_total.* , tracker.riot_id
-                                            from challenges_total
-                        INNER join tracker on challenges_total.index = tracker.id_compte''',
-                        index_col='riot_id').transpose()
-            title = 'Classement général des points de défis'
-
-        else:
-            bdd_user_total = lire_bdd_perso(f'''SELECT challenges_total.* , tracker.riot_id
-                                            from challenges_total
-                        INNER join tracker on challenges_total.index = tracker.id_compte
-                        where tracker.server_id = {int(ctx.guild_id)} ''',
-                        index_col='riot_id').transpose()
-            title = f'Classement des points de défis du serveur {ctx.guild.name}'
-
-        await ctx.defer(ephemeral=False)
-
-        bdd_user_total.sort_values(by='current', ascending=False, inplace=True)
-
-        if top != None:
-            bdd_user_total = bdd_user_total.head(top)
-            title = f'{title} - Top {top}'
-
-        fig = px.pie(bdd_user_total, values="current",
-                     names=bdd_user_total.index, title=title)
-        fig.update_traces(textinfo='label+value')
-        fig.update_layout(showlegend=False)
-
-        fig.write_image(f'plot.png')
-        file = interactions.File(f'plot.png')
-        # On prépare l'embed
-        embed = interactions.Embed(color=interactions.Color.random())
-        embed.set_image(url=f'attachment://plot.png')
-        fig.write_image('plot.png')
-        await ctx.send(embeds=embed, files=file)
-        os.remove('plot.png')
-
-    @lol_challenges.subcommand("profil",
-                               sub_cmd_description="Profil du compte",
-                   options=[
-                       SlashCommandOption(name="riot_id",
-                                          description="Nom du joueur",
-                                          type=interactions.OptionType.STRING,
-                                          required=True),
-                        SlashCommandOption(name="riot_tag",
-                                          description="Nom du joueur",
-                                          type=interactions.OptionType.STRING,
-                                          required=False),
-                                          ])
-    async def challenges_profil(self,
-                                ctx: SlashContext,
-                                riot_id: str,
-                                riot_tag = None):
-
-        session = aiohttp.ClientSession()
-
-        if riot_tag == None:
-            try:
-                riot_tag = get_tag(riot_id)
-            except ValueError:
-                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
-        
-        riot_id = riot_id.replace(' ', '').lower()
-        riot_tag = riot_tag.upper()
-        
-        bdd = lire_bdd_perso(f'''select id_compte, puuid from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''', index_col=None).T
-        id_compte = bdd.iloc[0]['id_compte']
-        puuid = bdd.iloc[0]['puuid']
-        
-        total_user, total_category, total_challenges, total_to_save = await get_data_joueur_challenges(id_compte, session, puuid)
-
-        total_user = total_user[id_compte]
-
-        def stats(categorie):
-            level = total_category[categorie]['level']
-            points = total_category[categorie]['current']
-            max_points = total_category[categorie]['max']
-            # x100 car pourcentage. On retient deux chhiffres après la virgule.
-            percentile = round(total_category[categorie]['percentile']*100, 2)
-            liste_stats = [categorie, level, points, max_points, percentile]
-            return liste_stats
-
-        await ctx.defer(ephemeral=False)
-
-        liste_teamwork = stats('TEAMWORK')
-        liste_collection = stats('COLLECTION')
-        liste_expertise = stats('EXPERTISE')
-        liste_imagination = stats('IMAGINATION')
-        liste_veterancy = stats('VETERANCY')
-
-        msg = ""  # txt
-
-        fig = go.Figure()
-        i = 0
-
-        # dict de paramètres
-        domain = {0: [0, 0], 1: [0, 2], 2: [1, 1],
-                  3: [2, 0], 4: [2, 2]}  # position
-        color = ["red", "blue", "yellow", "magenta", "green"]  # color
-
-        for argument in [liste_teamwork, liste_collection, liste_expertise, liste_imagination, liste_veterancy]:
-            # dict de parametres
-
-            msg = msg + \
-                f"{argument[0]} : ** {argument[2]} ** points / ** {argument[3]} ** possibles (niveau {emote_rank_discord[argument[1]]}) . Seulement **{argument[4]}**% des joueurs font mieux \n"
-            fig.add_trace(go.Indicator(value=argument[2],
-                                       title={
-                                           'text': argument[0] + " (" + argument[1] + ")", 'font': {'size': 16}},
-                                       gauge={'axis': {'range': [0, argument[3]]},
-                                              'bar': {'color': color[i]}},
-                                       mode="number+gauge",
-                                       domain={'row': domain[i][0], 'column': domain[i][1]}))
-            fig.update_layout(
-                grid={'rows': 3, 'columns': 3, 'pattern': "independent"})
-            i = i+1
-
-        fig.write_image('plot.png')
-        # txt
-        await ctx.send(f'Le joueur {riot_id} a : \n{msg}\n __TOTAL__  : **{total_user["current"]}** / **{total_user["max"]}** (niveau {emote_rank_discord[total_user["level"]]}). Seulement **({round(total_user["percentile"]*100,2)}%** des joueurs font mieux.)', files=interactions.File('plot.png'))
-        await session.close()
-        os.remove('plot.png')
-
-    @lol_challenges.subcommand("best",
-                               sub_cmd_description="Meilleur classement pour les defis",
-                   options=[SlashCommandOption(name="riot_id",
-                                               description="Nom du joueur",
-                                               type=interactions.OptionType.STRING,
-                                               required=True),
-                            SlashCommandOption(name="riot_tag",
-                                               description="Tag du joueur",
-                                               type=interactions.OptionType.STRING,
-                                               required=False),
-                            SlashCommandOption(name='minimum',
-                                               description='Position minimum',
-                                               type=interactions.OptionType.INTEGER,
-                                               required=False,
-                                               min_value=1,
-                                               max_value=1000000)])
-    async def challenges_best(self,
-                              ctx: SlashContext,
-                              riot_id: str,
-                              riot_tag: str = None,
-                              minimum: int = 1000000):
-
-        # tous les summonername sont en minuscule :
-        riot_id = riot_id.lower().replace(' ', '')
-
-        if riot_tag == None:
-            try:
-                riot_tag = get_tag(riot_id)
-            except ValueError:
-                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
-        riot_tag = riot_tag.upper()
-        # charge la data
-        data = lire_bdd_perso(f'''SELECT "Joueur", value, percentile, level, level_number, position, challenges.*, tracker.riot_id
-                              from challenges_data
-                                          INNER JOIN challenges ON challenges_data."challengeId" = challenges."challengeId"
-                                          INNER JOIN tracker on tracker.id_compte = challenges_data."Joueur"
-                                          where tracker.riot_id = '{riot_id}' and tracker.riot_tagline = '{riot_tag}' ''').transpose()
-
-        # colonne position en float
-        data['position'] = data['position'].astype('float')
-        # on vire les non classements
-        data = data[data['position'] != 0]
-
-        if data.shape[0] != 0:  # s'il y a des données
-            # on trie
-            data.sort_values(['position'], ascending=True, inplace=True)
-            # on retient ce qui nous intéresse
-            data = data[['name', 'value', 'level',
-                         'shortDescription', 'position']]
-            
-            data = data[data['position'] <= minimum]
-            # index
-            data.set_index('name', inplace=True)
-            dfi.export(data, 'image.png', max_cols=-1,
-                       max_rows=-1, table_conversion="matplotlib")
-
-            await ctx.send(files=interactions.File('image.png'))
-
-            os.remove('image.png')
-        else:
-            await ctx.send(f"Pas de ranking pour {riot_id} :(.")
-
-    @lol_challenges.subcommand("tracker",
-                               sub_cmd_description="Modifier la liste des challenges à ajouter / exclure dans le tracker",
-                                    options=[
-                                            SlashCommandOption(name="riot_id",
-                                                       description="Nom du joueur",
-                                                       type=interactions.OptionType.STRING,
-                                                       required=True),
-                                            SlashCommandOption(name="nom_challenge",
-                                                       description="Nom du challenge à exclure",
-                                                       type=interactions.OptionType.STRING,
-                                                       required=True),
-                                            SlashCommandOption(name='action',
-                                                               description='Action à mener',
-                                                               type=interactions.OptionType.STRING,
-                                                               required=True,
-                                                               choices=[
-                                                                   SlashCommandChoice(name='inclure', value='inclure'),
-                                                                   SlashCommandChoice(name='exclure', value='exclure')
-                                                                   ]
-                                                               ),
-                                            SlashCommandOption(name='riot_tag',
-                                                               description='Tag du joueur',
-                                                               type=interactions.OptionType.STRING,
-                                                               required=False)
-                                            ]
-                                    )
-    async def modifier_challenges(self, ctx: SlashContext, riot_id, nom_challenge:str, action:str, riot_tag:str = None):
-
-        # traitement des variables :
-
-        riot_id = riot_id.lower().replace(' ', '')
-        nom_challenge = nom_challenge.lower()
-
-        await ctx.defer(ephemeral=True)
-
-        df = lire_bdd('challenges').transpose()
-        df['name'] = df['name'].str.lower()
-        df.set_index('name', inplace=True)
-        
-        if riot_tag == None:
-            try:
-                riot_tag = get_tag(riot_id)
-            except ValueError:
-                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
-        
-        riot_id = riot_id.replace(' ', '').lower()
-        riot_tag = riot_tag.upper()
-        
-        bdd = lire_bdd_perso(f'''select id_compte, puuid from tracker where riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''', index_col=None).T
-        id_compte = bdd.iloc[0]['id_compte']
-
+    @component_callback(PAGE_RE)
+    async def on_page(self, ctx: ComponentContext):
+        matched = PAGE_RE.fullmatch(ctx.custom_id)
+        if not matched:
+            return
+        kind, key, joueur, target = matched.groups()
+        await ctx.defer(edit_origin=True)
         try:
-            df.loc[nom_challenge, 'challengeId']
-        except:
-            suggestion = suggestion_word(nom_challenge, df.index.tolist())
-            await ctx.send(f"Ce challenge n'existe pas. Souhaitais-tu dire : **{suggestion}**", ephemeral=True)
-            return None
-
-        if action == 'exclure':
-
-            nb_row = requete_perso_bdd('''INSERT INTO challenge_exclusion("challengeId", index) VALUES (:challengeid, :summonername);''',
-                            dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
-                                        'summonername': id_compte},
-                            get_row_affected=True)
-
-            if nb_row > 0:
-                await ctx.send(f'Le challenge {nom_challenge} a été exclu du tracking', ephemeral=True)
+            if kind == 'session':
+                session = self.sessions.get(key)
+                if not session or session['expires'] <= time.monotonic():
+                    raise ValueError('Cette consultation a expiré. Relance la commande.')
+                if session['author'] != int(ctx.author.id) or session['guild'] != int(ctx.guild_id):
+                    raise ValueError('Cette consultation appartient à un autre utilisateur.')
+                pages = session['pages']
             else:
-                await ctx.send("Ce joueur ou le challenge n'existe pas", ephemeral=True)
-
-        elif action == 'inclure':
-
-            nb_row = requete_perso_bdd('''DELETE FROM challenge_exclusion WHERE "challengeId" = :challengeid AND index = :summonername;''',
-                            dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
-                                        'summonername': id_compte},
-                            get_row_affected=True)
-
-            if nb_row > 0:
-                await ctx.send(f'Le challenge {nom_challenge} a été réinclus au tracking', ephemeral=True)
-            else:
-                await ctx.send("Ce joueur n'existe pas ou ce challenge n'était pas exclu", ephemeral=True)
-
-    @lol_challenges.subcommand("manage",
-                               sub_cmd_description="Modifier la liste des challenges à ajouter / exclure dans le tracker. Admin only",
-                                    options=[SlashCommandOption(name="nom_challenge",
-                                                       description="Nom du challenge à exclure",
-                                                       type=interactions.OptionType.STRING,
-                                                       required=True),
-                                            SlashCommandOption(name='action',
-                                                               description='Action à mener',
-                                                               type=interactions.OptionType.STRING,
-                                                               required=True,
-                                                               choices=[
-                                                                   SlashCommandChoice(name='inclure', value='inclure'),
-                                                                   SlashCommandChoice(name='exclure', value='exclure')
-                                                                   ]
-                                                               )
-                                            ]
-                                    )
-    async def modifier_challenges_all(self, ctx: SlashContext, nom_challenge:str, action:str):
-
-        # traitement des variables :
-
-        if isOwner_slash(ctx):
-
-            id_compte = -1
-            nom_challenge = nom_challenge.lower()
-
-            await ctx.defer(ephemeral=False)
-
-            df = lire_bdd('challenges').transpose()
-            df['name'] = df['name'].str.lower()
-            df.set_index('name', inplace=True)
-
-            try:
-                df.loc[nom_challenge, 'challengeId']
-            except:
-                suggestion = suggestion_word(nom_challenge, df.index.tolist())
-                await ctx.send(f"Ce challenge n'existe pas. Souhaitais-tu dire : **{suggestion}**", ephemeral=True)
-                return None
-
-            if action == 'exclure':
-
-                nb_row = requete_perso_bdd('''INSERT INTO challenge_exclusion("challengeId", index) VALUES (:challengeid, :summonername);''',
-                                dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
-                                            'summonername': id_compte},
-                                get_row_affected=True)
-
-                if nb_row > 0:
-                    await ctx.send(f'Le challenge {nom_challenge} a été exclu du tracking pour tous les joueurs', ephemeral=True)
-                else:
-                    await ctx.send("Le challenge n'existe pas", ephemeral=True)
-
-            elif action == 'inclure':
-
-                nb_row = requete_perso_bdd('''DELETE FROM challenge_exclusion WHERE "challengeId" = :challengeid AND index = :summonername;''',
-                                dict_params={'challengeid':df.loc[nom_challenge, 'challengeId'],
-                                            'summonername': id_compte},
-                                get_row_affected=True)
-
-                if nb_row > 0:
-                    await ctx.send(f'Le challenge {nom_challenge} a été réinclus au tracking pour tous les joueurs', ephemeral=True)
-                else:
-                    await ctx.send("Ce challenge n'était pas exclu", ephemeral=True)
-        
-        else:
-            ctx.send("Tu n'as pas l'autorisation d'utiliser cette commande")
-
+                await self.account(ctx, joueur=joueur)
+                snapshot = await db(store.load_match, key, int(joueur))
+                if snapshot is None:
+                    raise ValueError('Le relevé de cette partie n’est plus disponible.')
+                pages = match_pages(snapshot, key)
+            page = max(0, min(int(target), len(pages) - 1))
+            await ctx.edit_origin(embeds=pages[page], components=page_components(key, joueur, page, len(pages), kind))
+        except ValueError as exc:
+            await ctx.edit_origin(content=str(exc), embeds=[], components=[])
+        except Exception:
+            log.exception('Pagination challenges indisponible')
+            await ctx.edit_origin(content='Impossible de charger cette page. Réouvre les challenges.', embeds=[], components=[])
 
 
 def setup(bot):
