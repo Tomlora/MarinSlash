@@ -1,0 +1,304 @@
+"""Détail des scores et or par minute, depuis les données du récap sauvegardé."""
+import json
+import logging
+from io import BytesIO
+from threading import Lock
+
+from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
+from fonctions.match.match_views import (
+    load_match, number, fmt, make_pages, _finish, _champion_icon, tracked_team, truth,
+)
+
+log = logging.getLogger(__name__)
+PLOT_LOCK = Lock()  # Matplotlib n'est pas thread-safe.
+SCHEMA = """CREATE TABLE IF NOT EXISTS match_recap_details (
+    match_id TEXT NOT NULL, joueur BIGINT NOT NULL, data JSONB NOT NULL,
+    PRIMARY KEY (match_id, joueur)
+)"""
+DIMENSIONS = (
+    ("combat_value", "⚔️ Combat"), ("economic_efficiency", "💰 Économie"),
+    ("objective_contribution", "🎯 Objectifs"), ("pace_rating", "⚡ Tempo"),
+    ("win_impact", "👑 Impact"),
+)
+
+
+def rows(sql, params):
+    return lire_bdd_perso(sql, index_col=None, params=params).T.to_dict("records")
+
+
+def object_data(value):
+    return json.loads(value) if isinstance(value, str) else dict(value)
+
+
+def minute_gold(timeline, participants):
+    """Totaux des dix joueurs aux minutes entières ; aucun remplissage des trous."""
+    teams = {str(p.get("participantId")): p.get("teamId") for p in participants}
+    if len(teams) != 10 or list(teams.values()).count(100) != 5 or list(teams.values()).count(200) != 5:
+        return []
+    frames = timeline.get("info", {}).get("frames", []) if isinstance(timeline, dict) else []
+    points = {}
+    for frame in frames:
+        stamp = number(frame.get("timestamp"))
+        if stamp is None or stamp < 0:
+            continue
+        minute = int(stamp // 60000)
+        drift = stamp - minute * 60000
+        # Les frames Riot peuvent dériver légèrement. La frame finale partielle
+        # ne doit pas remplacer celle de la minute précédente.
+        if drift > 1000:
+            continue
+        players = frame.get("participantFrames") or {}
+        totals = {100: 0, 200: 0}
+        valid = True
+        for pid, team in teams.items():
+            gold = number(players.get(pid, {}).get("totalGold"))
+            if gold is None or gold < 0:
+                valid = False
+                break
+            totals[team] += gold
+        if valid and (minute not in points or drift < points[minute][0]):
+            points[minute] = (drift, {"minute": minute, "blue": totals[100], "red": totals[200]})
+    return [points[m][1] for m in sorted(points)]
+
+
+def snapshot(match_info):
+    participants = getattr(match_info, "match_detail", {}).get("info", {}).get("participants", [])
+    teams = {p.get("puuid"): p.get("teamId") for p in participants if p.get("puuid")}
+    puuids = getattr(match_info, "thisPuuidListe", [])
+    scores = []
+    for summary in match_info.get_all_players_performance_summary():
+        if not summary:
+            continue
+        index = summary["index"]
+        if not 0 <= index < len(puuids):
+            continue
+        def at(name):
+            values = getattr(match_info, name, [])
+            return values[index] if index < len(values) else ""
+        scores.append({
+            "player_index": index, "riot_id": at("thisRiotIdListe"), "riot_tag": at("thisRiotTagListe"),
+            "champion": at("thisChampNameListe"), "role": summary.get("role"),
+            "team": teams.get(puuids[index]), "tracked": puuids[index] == match_info.puuid,
+            **{key: number(summary.get(key)) for key in ("score", "rank")},
+            **{key: truth(summary.get(key)) for key in ("is_mvp", "is_ace")},
+            **{key: number((summary.get("breakdown") or {}).get(key)) for key, _ in DIMENSIONS},
+        })
+    return {"scores": scores, "gold": minute_gold(getattr(match_info, "data_timeline", {}), participants)}
+
+
+def save_recap_details(match_info):
+    """Un échec de cette sauvegarde optionnelle ne bloque jamais le récap."""
+    try:
+        data = snapshot(match_info)
+        if not data["scores"] and not data["gold"]:
+            return False
+        requete_perso_bdd(SCHEMA)
+        requete_perso_bdd(
+            """INSERT INTO match_recap_details (match_id, joueur, data)
+               VALUES (:match_id, :joueur, CAST(:data AS JSONB))
+               ON CONFLICT (match_id, joueur) DO UPDATE SET data = EXCLUDED.data""",
+            {"match_id": match_info.last_match, "joueur": int(match_info.id_compte),
+             "data": json.dumps(data, ensure_ascii=False, allow_nan=False)},
+        )
+        return True
+    except Exception:
+        log.exception("Sauvegarde des détails du récap impossible pour %s", match_info.last_match)
+        return False
+
+
+def load_details(match_id, joueur):
+    match = load_match(match_id, joueur)
+    if match is None:
+        return None
+    tables = rows(
+        """SELECT to_regclass('public.match_recap_details') AS details,
+                  to_regclass('public.match_scoring') AS scoring,
+                  to_regclass('public.matchs_timestamp_gold') AS gold""", {},
+    )[0]
+    data = {}
+    params = {"match_id": match_id, "joueur": int(joueur)}
+    if tables["details"]:
+        found = rows("SELECT data FROM match_recap_details WHERE match_id = :match_id AND joueur = :joueur", params)
+        if found:
+            data = object_data(found[0]["data"])
+    return match, data, tables
+
+
+def load_score(match_id, joueur):
+    loaded = load_details(match_id, joueur)
+    if loaded is None:
+        return None
+    match, data, tables = loaded
+    scores = data.get("scores") or []
+    if not scores and tables["scoring"]:
+        # L'index de scoring est réordonné et peut venir d'un autre compte suivi.
+        # Identifier par Riot ID + tag, jamais par matchs.id_participant.
+        scores = [object_data(r["data"]) for r in rows(
+            "SELECT to_jsonb(s) AS data FROM match_scoring s WHERE s.match_id = :match_id ORDER BY s.player_index",
+            {"match_id": match_id},
+        )]
+        normalized = lambda v: str(v or "").replace(" ", "").casefold()
+        for score in scores:
+            score["tracked"] = normalized(f"{score.get('riot_id')}#{score.get('riot_tag')}") == normalized(match["player_name"])
+    return match, scores
+
+
+def player_label(player):
+    champ = str(player.get("champion") or "?")[:40]
+    name = str(player.get("riot_id") or "Joueur")[:40]
+    tag = str(player.get("riot_tag") or "")[:10]
+    return f"{_champion_icon(champ)} **{name}#{tag}** · {champ}"
+
+
+def score_order(player):
+    score = number(player.get("score"))
+    return -(score if score is not None else -1), number(player.get("player_index")) or 0
+
+
+def build_score_pages(match, scores):
+    def pages(title, fields):
+        return make_pages("📊 Détail du score · " + title, match, fields,
+                          "Scores sauvegardés pour cette partie · Dimensions sur 10.", 0x9B59B6)
+    tracked = [p for p in scores if truth(p.get("tracked"))]
+    if len(tracked) != 1:
+        return _finish(pages("Données indisponibles", [
+            ("Score du compte", "Le détail du score n'est pas enregistré ou le compte ne peut pas être identifié dans ces anciennes données.")
+        ]))
+    player = tracked[0]
+    known = [(label, number(player.get(key))) for key, label in DIMENSIONS if number(player.get(key)) is not None]
+    dimensions = "\n".join(f"{label} : **{fmt(player.get(key))}/10**" for key, label in DIMENSIONS)
+    fields = [
+        ("Performance", f"{player_label(player)} · {str(player.get('role') or '?')[:20]}\n"
+         f"Note **{fmt(player.get('score'))}/10** · Rang **{fmt(player.get('rank'), 0)}/{len(scores)}**"),
+        ("Dimensions", dimensions),
+    ]
+    if known:
+        best, weak = max(known, key=lambda p: p[1]), min(known, key=lambda p: p[1])
+        fields += [("💪 Point fort", f"{best[0]} · **{fmt(best[1])}/10**"),
+                   ("📉 Axe de progression", f"{weak[0]} · **{fmt(weak[1])}/10**")]
+    result = pages("Ta performance", fields)
+    others = [p for p in scores if p is not player and number(p.get("score")) is not None]
+    candidates = [p for p in others if truth(p.get("is_mvp"))]
+    if not candidates:
+        candidates = [p for p in others if p.get("team") == player.get("team")] or others
+    if candidates:
+        other = sorted(candidates, key=score_order)[0]
+        comparisons = []
+        for key, label in DIMENSIONS:
+            current, reference = number(player.get(key)), number(other.get(key))
+            delta = f"{current - reference:+.1f} pt" if current is not None and reference is not None else "—"
+            comparisons.append((label, f"Toi **{fmt(current)}** · Comparé **{fmt(reference)}** · Écart **{delta}**"))
+        result += make_pages("📊 Détail du score · Comparaison", match, comparisons,
+                             f"Face à {player_label(other)} · {fmt(other.get('score'))}/10\n"
+                             "Les rôles et champions peuvent différer.", 0x9B59B6)
+    ranking = []
+    for p in sorted(scores, key=score_order):
+        badge = " 🏆 MVP" if truth(p.get("is_mvp")) else " ⭐ ACE" if truth(p.get("is_ace")) else ""
+        team = ("Équipe du joueur" if p.get("team") == player.get("team") else "Équipe adverse") if p.get("team") is not None else "Équipe inconnue"
+        ranking.append((f"#{fmt(p.get('rank'), 0)} · {fmt(p.get('score'))}/10{badge}",
+                        f"{'▶ ' if truth(p.get('tracked')) else ''}{player_label(p)}\n"
+                        f"{team} · {str(p.get('role') or '?')[:20]}"))
+    result += pages("Classement du match", ranking)
+    return _finish(result)
+
+
+def load_gold(match_id, joueur):
+    loaded = load_details(match_id, joueur)
+    if loaded is None:
+        return None
+    match, data, tables = loaded
+    gold = data.get("gold") or []
+    if not gold and tables["gold"] and tracked_team(match) is not None:
+        # Ancienne table : totaux alliés/adverses et timestamp en minutes.
+        old = rows(
+            """SELECT to_jsonb(g) AS data FROM matchs_timestamp_gold g
+               WHERE g.match_id = :match_id AND g.riot_id = :joueur ORDER BY g.timestamp""",
+            {"match_id": match_id, "joueur": int(joueur)},
+        )
+        for row in old:
+            point = object_data(row["data"])
+            minute = number(point.get("timestamp"))
+            ally, enemy = number(point.get("gold_allie")), number(point.get("gold_adv"))
+            if minute is None or minute < 0 or minute != int(minute) or ally is None or enemy is None:
+                continue
+            blue, red = (ally, enemy) if tracked_team(match) == 100 else (enemy, ally)
+            gold.append({"minute": int(minute), "blue": blue, "red": red})
+    valid = {}
+    for p in gold:
+        minute, blue, red = (number(p.get(k)) for k in ("minute", "blue", "red"))
+        if minute is not None and minute >= 0 and minute == int(minute) and blue is not None and red is not None and min(blue, red) >= 0:
+            valid[int(minute)] = {"minute": int(minute), "blue": blue, "red": red}
+    return match, [valid[m] for m in sorted(valid)]
+
+
+def gold_embed(match, points):
+    if not points:
+        fields = [("Données indisponibles", "Les totaux d'or par minute ne sont pas enregistrés pour cette partie. "
+                   "Ils seront conservés dans les nouveaux récaps disposant d'une timeline.")]
+    else:
+        last = points[-1]
+        blue_lead = max(p["blue"] - p["red"] for p in points)
+        red_lead = max(p["red"] - p["blue"] for p in points)
+        team = tracked_team(match)
+        fields = [
+            ("Lecture", "🔵 Bleue − Rouge · 🔴 Rouge − Bleue\nAu-dessus de zéro : avantage d'or. "
+             "Les deux courbes sont symétriques."
+             + (f"\nTon équipe : **{'bleue' if team == 100 else 'rouge'}**." if team else "")),
+            ("Dernière minute mesurée", f"**{last['minute']}:00** · Bleue **{last['blue'] - last['red']:+,.0f}** or"
+             f" · Rouge **{last['red'] - last['blue']:+,.0f}** or"),
+            ("Avantage maximal observé", f"🔵 Bleue **{fmt(max(0, blue_lead), 0)}** or"
+             f" · 🔴 Rouge **{fmt(max(0, red_lead), 0)}** or"),
+        ]
+    embed = _finish(make_pages("💰 Différentiel d'or", match, fields,
+                              "Un point par minute entière · Les minutes absentes ne sont pas interpolées.", 0xF1C40F))[0]
+    if points:
+        embed.set_image(url="attachment://gold_diff.png")
+    return embed
+
+
+def render_gold(points):
+    """PNG en mémoire : pas de fichier partagé entre clics ni d'interface graphique."""
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.ticker import MultipleLocator, FuncFormatter
+
+    with PLOT_LOCK:
+        fig = Figure(figsize=(12, 5.5), dpi=120, facecolor="#20232b")
+        FigureCanvasAgg(fig)
+        ax = fig.subplots()
+        ax.set_facecolor("#20232b")
+        lookup = {p["minute"]: p["blue"] - p["red"] for p in points}
+        minutes = list(range(min(lookup), max(lookup) + 1))
+        blue = [lookup.get(m, float("nan")) for m in minutes]
+        red = [-lookup[m] if m in lookup else float("nan") for m in minutes]
+        ax.plot(minutes, blue, color="#60a5fa", marker="o", markersize=3, linewidth=2, label="Bleue − Rouge")
+        ax.plot(minutes, red, color="#fb7185", marker="o", markersize=3, linewidth=2, linestyle="--", label="Rouge − Bleue")
+        ax.axhline(0, color="#cbd5e1", linewidth=1)
+        peak = max(abs(v) for v in lookup.values())
+        ax.set_ylim(-max(500, peak * 1.15), max(500, peak * 1.15))
+        ax.set_xlim(min(minutes) - 0.5, max(minutes) + 0.5)
+        ax.xaxis.set_major_locator(MultipleLocator(max(1, (len(minutes) + 39) // 40)))
+        ax.xaxis.set_minor_locator(MultipleLocator(1))
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda value, pos: f"{value / 1000:+g} k" if value else "0"))
+        ax.set_xlabel("Minute de jeu · mesures toutes les 1 min", color="#e2e8f0")
+        ax.set_ylabel("Différentiel d'or", color="#e2e8f0")
+        ax.set_title("Avantage d'or de chaque équipe", color="#f8fafc", fontsize=16, pad=18)
+        ax.tick_params(colors="#cbd5e1", axis="both")
+        ax.grid(True, color="#475569", alpha=0.4)
+        for spine in ax.spines.values():
+            spine.set_color("#475569")
+        legend = ax.legend(facecolor="#20232b", edgecolor="#475569", loc="upper left")
+        for text in legend.get_texts():
+            text.set_color("#e2e8f0")
+        fig.tight_layout()
+        output = BytesIO()
+        fig.savefig(output, format="png", facecolor=fig.get_facecolor())
+        return output.getvalue()
+
+
+def gold_response(match_id, joueur):
+    data = load_gold(match_id, joueur)
+    if data is None:
+        return None
+    match, points = data
+    return gold_embed(match, points), render_gold(points) if points else None

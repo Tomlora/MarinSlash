@@ -2,6 +2,7 @@
 Classe matchlol - Partie 4: Sauvegarde des données en base de données.
 """
 
+import asyncio
 import numpy as np
 import pandas as pd
 import sqlalchemy.exc
@@ -10,6 +11,7 @@ import pickle
 from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, sauvegarde_bdd
 from .utils import fix_temps, load_timeline
 from .riot_api import get_data_champ_tags
+from .recap_details import save_recap_details
 
 
 class SaveDataMixin:
@@ -36,6 +38,8 @@ class SaveDataMixin:
             self._insert_participant_data()
             self._insert_other_match_data()
             self._insert_points_data()
+
+        await asyncio.to_thread(save_recap_details, self)
 
         df_data_champ = await get_data_champ_tags(self.session, self.version['n']['champion'])
         sauvegarde_bdd(df_data_champ, 'data_champion_tag', index=False)
