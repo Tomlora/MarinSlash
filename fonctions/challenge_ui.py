@@ -144,9 +144,42 @@ def open_button(match_id, joueur, available=True):
 
 
 def recap_components(existing, match_id, joueur, available):
-    buttons = [existing] if existing is not None else []
-    buttons.append(open_button(match_id, joueur, available))
-    return [interactions.ActionRow(*buttons)]
+    """Ajouter Challenges sans remplacer les contrôles ni modifier les lignes reçues.
+
+    Les vues MatchLoL fournissent déjà une liste d'ActionRow (jusqu'à cinq
+    boutons avec les records). Discord impose au plus cinq boutons par ligne.
+    """
+    items = existing if isinstance(existing, (list, tuple)) else [existing]
+    rows = []
+    for item in items:
+        if item is None:
+            continue
+        if isinstance(item, interactions.ActionRow):
+            rows.append(interactions.ActionRow(*item.components))
+        elif isinstance(item, interactions.Button):
+            if rows and len(rows[-1].components) < 5 and all(
+                isinstance(component, interactions.Button) for component in rows[-1].components
+            ):
+                rows[-1].components.append(item)
+            else:
+                rows.append(interactions.ActionRow(item))
+        else:
+            raise TypeError('Les contrôles du récap doivent être des boutons ou des ActionRow')
+    button = open_button(match_id, joueur, available)
+    for row in rows:
+        for index, component in enumerate(row.components):
+            if getattr(component, 'custom_id', None) == button.custom_id:
+                row.components[index] = button
+                return rows
+    if rows and len(rows[-1].components) < 5 and all(
+        isinstance(component, interactions.Button) for component in rows[-1].components
+    ):
+        rows[-1].components.append(button)
+    else:
+        if len(rows) >= 5:
+            raise ValueError('Le récap utilise déjà les cinq lignes de composants Discord')
+        rows.append(interactions.ActionRow(button))
+    return rows
 
 
 def page_components(key, joueur, page, total, kind='match'):

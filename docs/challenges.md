@@ -1,9 +1,14 @@
 # Challenges : objectifs, favoris et évolution depuis un récap
 
-Le bouton **Challenges**, placé à côté des records MatchLoL, ouvre un embed privé
+Le bouton **Challenges**, ajouté aux contrôles MatchLoL existants (records,
+Teamfight, Ganks, Détail du score, Différentiel d’or), ouvre un embed privé
 avec navigation : aperçu, paliers franchis, progrès, classements/autres évolutions,
 puis objectifs proches. Les défis sans rang Riot sont également affichés.
 Chaque page contient au plus cinq défis. Aucun fichier image temporaire n'est utilisé.
+Les cinq boutons existants restent sur la première ligne; Challenges occupe une
+deuxième ligne lorsque les records sont présents. Sans bouton de records, les
+quatre vues et Challenges tiennent sur une ligne. Cette composition s'applique
+aux nouveaux récaps comme aux récaps sauvegardés rechargés.
 
 ## Commandes
 
