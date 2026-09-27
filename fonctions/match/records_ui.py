@@ -209,23 +209,41 @@ def _safe_line(text, limit=180):
 
 
 def _featured_line(category, entries):
+    """Conserver la valeur, l'ancien détenteur et son champion pour chaque scope.
+
+    Si deux scopes partagent exactement le même précédent record, ils peuvent
+    être affichés sur une seule ligne ; sinon ne pas attribuer le record
+    d'un scope à l'ancien détenteur d'un autre.
+    """
     best = min(entries, key=_priority)
     medal = MEDAL_EMOJIS.get(best.place, f"#{best.place}")
-    scopes = " · ".join(
-        SCOPE_SHORT[scope] for scope in SCOPES
-        if any(entry.scope == scope for entry in entries)
-    )
     status = (
         "Égalisation" if best.is_tie
         else "Nouveau record" if best.place == 1
         else f"Top {best.place}"
     )
     value = _format_value(best.value, best.category)
-    old = _format_value(best.old_record, best.category)
-    return (
-        f"{medal} **{status} : {display_label(category)}** — {value}\n"
-        f"   {scopes} · précédent : {old}"
-    )
+    lines = [f"{medal} **{status} : {display_label(category)}** — {value}"]
+
+    # Le joueur et le champion ne doivent pas être perdus par le regroupement.
+    # Fusionner seulement lorsque les précédents records sont identiques.
+    previous = {}
+    for entry in sorted(entries, key=lambda e: SCOPE_PRIORITY.get(e.scope, 99)):
+        key = (entry.old_record, entry.old_holder, entry.old_champion, entry.is_tie)
+        previous.setdefault(key, []).append(entry.scope)
+
+    for (old_value, holder, champion, tie), scopes in previous.items():
+        scope_names = " · ".join(SCOPE_SHORT[scope] for scope in scopes)
+        name = _safe_line(holder or "Détenteur inconnu", 48)
+        champion_name = _safe_line(champion, 28) if champion else ""
+        previous_value = _format_value(old_value, best.category)
+        verb = "égalisé" if tie else "précédent"
+        suffix = f" ({champion_name})" if champion_name else ""
+        lines.append(
+            f"↳ {scope_names} · {verb} : {previous_value} "
+            f"— **{name}**{suffix}"
+        )
+    return "\n".join(lines)
 
 
 def add_featured_records(embed, collector, max_items=3):
@@ -240,14 +258,24 @@ def add_featured_records(embed, collector, max_items=3):
 
     groups = grouped_records(collector)
     chosen = featured_records(collector, max_items=max_items)
-    lines = [_featured_line(category, entries) for category, entries in chosen]
-    hidden = len(groups) - len(chosen)
+    # Ne pas tronquer brutalement une ligne au milieu du nom ou du champion.
+    lines = []
+    rendered_count = 0
+    footer = f"Total : {collector.count()} distinction(s), {len(groups)} statistique(s)."
+    for category, entries in chosen:
+        line = _featured_line(category, entries)
+        candidate = "\n".join(lines + [line, footer])
+        if len(candidate) > 960:
+            break
+        lines.append(line)
+        rendered_count += 1
+    hidden = len(groups) - rendered_count
     if hidden:
         lines.append(f"**+{hidden} autre(s) statistique(s)** dans le détail.")
-    lines.append(f"Total : {collector.count()} distinction(s), {len(groups)} statistique(s).")
+    lines.append(footer)
     embed.add_field(
         name="🏅 Exploits de la partie",
-        value="\n".join(lines)[:1024],
+        value="\n".join(lines),
         inline=False,
     )
     return embed
