@@ -48,7 +48,8 @@ from fonctions.match.riot_api import (
 
 from fonctions.match.records import top_records, get_id_account_bdd, get_stat_null_rules
 
-from fonctions.match.records_display import RecordsCollector, records_check3, add_records_to_embed
+from fonctions.match.records_display import RecordsCollector, records_check3
+from fonctions.match.records_ui import add_featured_records, make_open_button, save_record_snapshot, load_record_snapshot
 
 from utils.lol import label_rank, label_tier, dict_rankid
 from fonctions.channels_discord import chan_discord, rgb_to_discord
@@ -561,7 +562,7 @@ class LeagueofLegends(Extension):
                             AND match_id = '{match_info.last_match}' ''', index_col=None)
 
                 if not df_doublon.empty:
-                    return {}, 'Doublon', 0
+                    return {}, 'Doublon', 0, None
 
             # Sauvegarde des données
             if sauvegarder and match_info.thisTime >= 10.0 and match_info.thisQ not in ['ARENA 2v2', 'SWARM']:
@@ -590,13 +591,13 @@ class LeagueofLegends(Extension):
                     
             # Gestion des modes spéciaux
             if match_info.thisQId == 900:  # URF
-                return {}, 'URF', 0
+                return {}, 'URF', 0, None
             elif match_info.thisQId == 1300:  # Nexus Blitz
-                return {}, 'NexusBlitz', 0
+                return {}, 'NexusBlitz', 0, None
             elif match_info.thisQId == 840:  # Bot game
-                return {}, 'Bot', 0
+                return {}, 'Bot', 0, None
             elif match_info.thisTime <= 3.0:  # Remake
-                return {}, 'Remake', 0
+                return {}, 'Remake', 0, None
 
             # Suivi des LP
             suivi = lire_bdd(f'suivi_s{saison}', 'dict')
@@ -627,9 +628,11 @@ class LeagueofLegends(Extension):
 
             # Vérification des records
             records_collector = RecordsCollector()
-            
+            records_checked = False
+
             if ((match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY'] and match_info.thisTime >= 15) or 
                 (match_info.thisQ == "ARAM" and match_info.thisTime >= 10)) and check_records:
+                records_checked = True
 
                 # Si la sauvegarde Teamfights a échoué, on recalcule en mémoire pour
                 # que la comparaison live reste disponible.
@@ -963,8 +966,12 @@ class LeagueofLegends(Extension):
                 match_info.observations = ''
                 match_info.observations2 = ''
 
-            # === RECORDS (inchangés) ===
-            embed = add_records_to_embed(embed, records_collector, title="Exploits")
+            # === RECORDS : trois statistiques marquantes, détail paginé privé ===
+            records_button = None
+            if records_checked:
+                embed = add_featured_records(embed, records_collector)
+                if save_record_snapshot(match_info.last_match, id_compte, records_collector) and not records_collector.is_empty():
+                    records_button = make_open_button(match_info.last_match, id_compte)
 
             # === DÉTECTIONS + OBJECTIFS (uniquement ranked/flex) ===
             if match_info.thisQ in ['RANKED', 'FLEX']:
@@ -1019,7 +1026,7 @@ class LeagueofLegends(Extension):
 
         match_info.sauvegarde_embed(embed)
 
-        return embed, match_info.thisQ, resume
+        return embed, match_info.thisQ, resume, records_button
 
     async def updaterank(self,
                          key,
@@ -1150,7 +1157,7 @@ class LeagueofLegends(Extension):
             except IndexError:
                 return await ctx.send("Ce compte n'existe pas ou n'est pas enregistré")
             
-            embed, mode_de_jeu, resume = await self.printInfo(id_compte,
+            embed, mode_de_jeu, resume, records_button = await self.printInfo(id_compte,
                                                               riot_id,
                                                               riot_tag,
                                                               idgames=numerogame,
@@ -1175,7 +1182,7 @@ class LeagueofLegends(Extension):
                 channel_tracklol = ctx
 
             if embed != {}:
-                await channel_tracklol.send(embeds=embed, files=resume)
+                await channel_tracklol.send(embeds=embed, files=resume, components=records_button)
                 os.remove('resume.png')
         else:
             await ctx.send("Tu n'as pas l'autorisation d'utiliser cette commande.")
@@ -1269,7 +1276,7 @@ class LeagueofLegends(Extension):
             for num, game in enumerate(matchs_manquants):
                 await msg.edit(content=f"Il y a {len(matchs_manquants)} games à charger : {matchs_manquants} : Game {game} en cours... ({num+1}/{len(matchs_manquants)})")
                 try:
-                    embed, mode_de_jeu, resume = await self.printInfo(id_compte,
+                    embed, mode_de_jeu, resume, records_button = await self.printInfo(id_compte,
                                                                       riot_id,
                                                                       riot_tag,
                                                                       idgames=0,
@@ -1290,7 +1297,7 @@ class LeagueofLegends(Extension):
                     channel_tracklol = await self.bot.fetch_channel(tracklol)
 
                     if embed != {}:
-                        await channel_tracklol.send(embeds=embed, files=resume)
+                        await channel_tracklol.send(embeds=embed, files=resume, components=records_button)
                         os.remove('resume.png')
 
                 except Exception:
@@ -1327,7 +1334,7 @@ class LeagueofLegends(Extension):
                         banned=False,
                         check_records=True):
 
-        embed, mode_de_jeu, resume = await self.printInfo(id_compte,
+        embed, mode_de_jeu, resume, records_button = await self.printInfo(id_compte,
                                                           riot_id,
                                                           riot_tag,
                                                           idgames=0,
@@ -1356,7 +1363,7 @@ class LeagueofLegends(Extension):
             channel_tracklol = await self.bot.fetch_channel(tracklol)
 
             if embed != {}:
-                await channel_tracklol.send(embeds=embed, files=resume)
+                await channel_tracklol.send(embeds=embed, files=resume, components=records_button)
                 os.remove('resume.png')
 
                 if tracker_challenges:
@@ -1786,7 +1793,14 @@ class LeagueofLegends(Extension):
         resume = interactions.File('resume_save.png')
         original_embed.set_image(url='attachment://resume_save.png')
 
-        await ctx.send(embeds=original_embed, files=resume)
+        records_button = None
+        try:
+            existing_records = load_record_snapshot(match_id, int(data['joueur'].values[0]))
+            if existing_records is not None and not existing_records.is_empty():
+                records_button = make_open_button(match_id, int(data['joueur'].values[0]))
+        except Exception:
+            pass  # L'ancien récap reste consultable si la table n'est pas migrée.
+        await ctx.send(embeds=original_embed, files=resume, components=records_button)
         os.remove('resume_save.png')
 
 
