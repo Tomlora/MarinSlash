@@ -107,7 +107,12 @@ def _load_under_stubs():
     utils = types.ModuleType("utils")
     utils.__path__ = [str(ROOT / "utils")]
     fake_emoji = types.ModuleType("utils.emoji")
-    fake_emoji.emote_champ_discord = {}
+    fake_emoji.emote_champ_discord = {
+        "Viego": "<:Viego:123456789012345678>",
+        "Ahri": "<:Ahri:234567890123456789>",
+        "Kaisa": "<:Kaisa:345678901234567890>",
+        "LeeSin": "<:LeeSin:456789012345678901>",
+    }
     fake_emoji.emote_v2 = {}
     fake_emoji.dict_place = {1: "🥇", 2: "🥈", 3: "🥉"}
 
@@ -205,8 +210,9 @@ def test_previous_holder_and_champion_are_kept_in_featured_recaps():
     assert "Historique" in value
     assert "Saison" in value
     assert "12 490" in value or "12490" in value
-    assert "JoueurHistorique" in value and "Viego" in value
-    assert "JoueurSaison" in value and "Ahri" in value
+    assert "JoueurHistorique <:Viego:123456789012345678>" in value
+    assert "JoueurSaison <:Ahri:234567890123456789>" in value
+    assert "(Viego)" not in value and "(Ahri)" not in value
     assert len(value) <= 1024
 
 
@@ -231,10 +237,20 @@ class RecordingContext:
     async def defer(self, **kwargs):
         self.calls.append(("defer", kwargs))
 
+    def validate_components(self, kwargs):
+        ids = [
+            component.custom_id
+            for row in kwargs.get("components", [])
+            for component in row.components
+        ]
+        assert len(ids) == len(set(ids)), "component_custom_id_duplicated"
+
     async def send(self, content=None, **kwargs):
+        self.validate_components(kwargs)
         self.calls.append(("send", content, kwargs))
 
     async def edit_origin(self, **kwargs):
+        self.validate_components(kwargs)
         self.calls.append(("edit_origin", kwargs))
 
 
@@ -320,12 +336,12 @@ def test_ties_and_podiums_are_labeled_differently():
     tie = UI.build_record_pages(COG.demo_collector("tie"), "DEMO")
     podium = UI.build_record_pages(COG.demo_collector("podium"), "DEMO")
     assert any(
-        "Égalisation" in field.name
+        "Égalisation" in field.value
         for _, page in tie[1:]
         for field in page.fields
     )
     assert any(
-        "Entrée Top" in field.name
+        "Top " in field.value
         for _, page in podium[1:]
         for field in page.fields
     )
@@ -431,3 +447,79 @@ def test_demo_scoreboard_is_generated_offline():
             assert image.format == "PNG"
     finally:
         os.unlink(path)
+
+
+def test_every_paginator_message_has_unique_ids_and_valid_targets():
+    for scenario in COG.DEMO_SCENARIOS:
+        pages = UI.build_record_pages(COG.demo_collector(scenario), "EUW1_1234567890")
+        for kind, key in (("d", scenario), ("r", "EUW1_1234567890")):
+            for index in range(len(pages)):
+                rows = COG._page_components(kind, key, 123456789, pages, index)
+                buttons = [button for row in rows for button in row.components]
+                ids = [button.custom_id for button in buttons]
+                assert len(ids) == len(set(ids)), (scenario, kind, index, ids)
+                for button in buttons:
+                    assert len(button.custom_id) <= 100
+                    if button.custom_id == "lolrec_close":
+                        continue
+                    match = COG.PAGE_RE.fullmatch(button.custom_id)
+                    assert match is not None, button.custom_id
+                    parsed_kind, parsed_key, player, target = match.groups()
+                    assert (parsed_kind, parsed_key, player) == (kind, key, "123456789")
+                    assert 0 <= int(target) < len(pages)
+
+
+def test_compact_record_line_keeps_score_holder_and_champion_together():
+    entry = DISPLAY.RecordEntry(
+        scope="general", place=5, category="tf_damage_window", value=13401,
+        old_record=13290, old_holder="<@123456789012345678>", old_champion="Ahri",
+    )
+    line = UI._featured_line(entry.category, [entry])
+    first_line = line.splitlines()[0]
+    assert "**dmg max en teamfight** → `13401`" in first_line
+    assert "~~13290~~ <@123456789012345678> <:Ahri:234567890123456789>" in first_line
+    assert "(Ahri)" not in line
+    _, detail = UI._detail_field(entry)
+    assert "→ `13401` ・ ~~13290~~" in detail
+    assert "<:Ahri:234567890123456789>" in detail
+    assert "Top 5" in detail
+    entry.is_tie = True
+    entry.old_record = entry.value
+    assert "Égalise" in UI._featured_line(entry.category, [entry])
+    assert "~~" not in UI._detail_field(entry)[1]
+
+
+def test_champion_icons_tolerate_riot_spelling_and_missing_icons():
+    for name, key in (("aHrI", "Ahri"), ("Kai'Sa", "Kaisa"), ("Lee Sin", "LeeSin")):
+        assert UI._champion_icon(name) == UI.emote_champ_discord[key]
+    assert UI._champion_icon(None) == ""
+    assert UI._champion_icon("Unknown champion") == ""
+
+
+def test_new_controls_and_legacy_buttons_reach_the_expected_page():
+    cog = COG.LolRecords.__new__(COG.LolRecords)
+    for scenario in COG.DEMO_SCENARIOS:
+        pages = UI.build_record_pages(COG.demo_collector(scenario), "EUW1_1234567890")
+        ctx = RecordingContext(f"lolrec_demo_open_{scenario}")
+        asyncio.run(cog.on_demo_open(ctx))
+        assert ctx.calls[0] == ("defer", {"ephemeral": True})
+        assert "embeds" in ctx.calls[-1][2]
+        for index in range(len(pages)):
+            for row in COG._page_components("d", scenario, 0, pages, index):
+                for button in row.components:
+                    if getattr(button, "disabled", False):
+                        continue
+                    if button.custom_id == "lolrec_close":
+                        continue
+                    match = COG.PAGE_RE.fullmatch(button.custom_id)
+                    target = int(match.group(4))
+                    ctx = RecordingContext(button.custom_id)
+                    asyncio.run(cog.on_page(ctx))
+                    assert ctx.calls[0] == ("defer", {"edit_origin": True})
+                    assert ctx.calls[-1][0] == "edit_origin"
+                    assert ctx.calls[-1][1]["embeds"].footer.startswith(
+                        f"Page {target + 1}/{len(pages)}"
+                    )
+    ctx = RecordingContext("lolrec_page_d_all_scopes_0_2")
+    asyncio.run(cog.on_page(ctx))
+    assert ctx.calls[-1][1]["embeds"].footer.startswith("Page 3/4")

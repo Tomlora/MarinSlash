@@ -219,6 +219,11 @@ def _champion_icon(champion):
         icon = emote_champ_discord.get(key)
         if icon:
             return str(icon)
+    # Tolérer aussi les identifiants Riot sans espaces ni apostrophes.
+    normalized = "".join(char for char in name.casefold() if char.isalnum())
+    for key, icon in emote_champ_discord.items():
+        if normalized == "".join(char for char in str(key).casefold() if char.isalnum()):
+            return str(icon) if icon else ""
     return ""
 
 
@@ -236,19 +241,25 @@ def _featured_line(category, entries):
     stat_icon = emote_v2.get(category, "")
     value = _format_value(best.value, best.category)
     prefix = "🤝 " if best.is_tie else ""
-    lines = [f"{prefix}{medal} {stat_icon}**{display_label(category)}** → `{value}`"]
+    headline = f"{prefix}{medal} {stat_icon}**{display_label(category)}** → `{value}`"
+    lines = [headline]
     # Chaque scope peut avoir un détenteur et une valeur précédente différents.
     # Fusionner uniquement les scopes qui partagent le même ancien record.
     grouped = {}
     for entry in sorted(entries, key=lambda e: SCOPE_PRIORITY.get(e.scope, 99)):
-        key = (entry.old_record, entry.old_holder, entry.old_champion, entry.is_tie)
+        key = (entry.place, entry.old_record, entry.old_holder, entry.old_champion, entry.is_tie)
         grouped.setdefault(key, []).append(entry)
     for records in grouped.values():
         entry = records[0]
         scope_names = " · ".join(SCOPE_SHORT[e.scope] for e in records)
         previous = _format_value(entry.old_record, entry.category)
         result = f"Égalise {_former_holder(entry)}" if entry.is_tie else f"~~{previous}~~ {_former_holder(entry)}"
-        lines.append(f"↳ {scope_names} · {result}")
+        if len(grouped) == 1:
+            # Ancien style : score, précédent barré, détenteur et logo.
+            lines = [f"{headline} ・ {result}", f"↳ {scope_names}"]
+        else:
+            scope_medal = MEDAL_EMOJIS.get(entry.place, f"#{entry.place}")
+            lines.append(f"↳ {scope_names} · {scope_medal} {result}")
     return "\n".join(lines)
 
 
@@ -300,7 +311,7 @@ def _detail_field(entry):
     old = f"Égalise {_former_holder(entry)}" if entry.is_tie else f"~~{previous}~~ {_former_holder(entry)}"
     return (
         _safe_line(f"{medal} {stat_icon}{category}", 256),
-        f"`{value}` · {status} · {old}",
+        f"→ `{value}` ・ {old}\n{status}",
     )
 
 

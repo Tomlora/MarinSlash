@@ -8,15 +8,20 @@ statistiques marquantes** plutôt que les mêmes exploits répétés dans
 All-Time / Saison / Personnel. Les scopes sont indiqués sur une seule ligne.
 Les records historiques absolus passent en priorité. Une diversité de
 statistiques est recherchée pour les autres places. Chaque ancien record
-affiché mentionne désormais aussi **son ancien détenteur et son champion** ;
+affiché mentionne **son ancien détenteur et le logo de son champion** ;
 si les anciens détenteurs All-Time et Saison sont différents, deux lignes
 distinctes sont utilisées. Exemple :
 
 ```
-🥇 Nouveau record : dégâts — 14 000
-↳ 🏛️ Historique · précédent : 12 490 — @JoueurA (Viego)
-↳ 🏆 Saison · précédent : 11 980 — @JoueurB (Ahri)
+🥇 **dégâts** → `14000`
+↳ 🏛️ Historique · 🥇 ~~12490~~ @JoueurA <:Viego:…>
+↳ 🏆 Saison · 🥇 ~~11980~~ @JoueurB <:Ahri:…>
 ```
+
+Les balises `<:Viego:…>` et `<:Ahri:…>` représentent les emojis natifs
+chargés depuis `data_champion`, pas des noms entre parenthèses. Quand
+les scopes partagent le même ancien record et la même place, le score,
+l'ancien score barré, le détenteur et le logo restent sur une seule ligne.
 
 Quand au moins une distinction a été détectée, un bouton **🏆 Voir tous
 les records** est attaché au message, sous l'embed et son image. Le bouton
@@ -34,7 +39,10 @@ pas les clics ni les pages.
   Discord natifs (pas un panneau flottant ou des onglets HTML).
 
 Le callback du bouton public ainsi que les boutons de pagination utilisent
-des IDs déterministes. Les données sont rechargées depuis PostgreSQL à
+des IDs déterministes et uniques dans chaque message, y compris pour
+les boutons désactivés. Chaque contrôle possède un suffixe propre :
+Précédent, Suivant et les raccourcis peuvent viser la même page sans
+provoquer `component_custom_id_duplicated`. Les anciens IDs restent reconnus. Les données sont rechargées depuis PostgreSQL à
 chaque interaction : le **bouton public reste utilisable après un
 redémarrage** du bot. La réponse au clic est acquittée immédiatement,
 puis PostgreSQL est interrogé dans un thread séparé. Un délai de huit

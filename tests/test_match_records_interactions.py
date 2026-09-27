@@ -126,3 +126,24 @@ def test_interactions_5132_supports_deferred_editing_and_ephemeral_response():
     assert "edit_origin" in defer.parameters
     assert hasattr(interactions.ComponentContext, "edit_origin")
     assert "ephemeral" in inspect.signature(interactions.ComponentContext.send).parameters
+
+
+def test_serialized_component_ids_are_unique_across_all_rows():
+    # Les classes Discord sérialisent les composants mais ne détectent pas
+    # les collisions entre rangées : vérifier le payload envoyé à l'API.
+    for scenario in COG.DEMO_SCENARIOS:
+        pages = UI.build_record_pages(COG.demo_collector(scenario), "EUW1_1234567890")
+        for kind, key in (("d", scenario), ("r", "EUW1_1234567890")):
+            for index in range(len(pages)):
+                rows = COG._page_components(kind, key, 123456789, pages, index)
+                components = [
+                    component
+                    for row in rows
+                    for component in row.to_dict()["components"]
+                ]
+                ids = [component["custom_id"] for component in components]
+                assert len(ids) == len(set(ids)), (scenario, kind, index, ids)
+                assert all(len(custom_id) <= 100 for custom_id in ids)
+                for custom_id in ids:
+                    if custom_id != "lolrec_close":
+                        assert COG.PAGE_RE.fullmatch(custom_id)

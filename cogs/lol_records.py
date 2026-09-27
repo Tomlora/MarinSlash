@@ -44,7 +44,12 @@ RECORD_LOAD_TIMEOUT_SECONDS = 8
 
 OPEN_RE = re.compile(r"^lolrec_open_([A-Z0-9]+_[0-9]+)_([0-9]+)$")
 DEMO_OPEN_RE = re.compile(r"^lolrec_demo_open_([a-z0-9_]+)$")
-PAGE_RE = re.compile(r"^lolrec_page_([rd])_([A-Za-z0-9_]+)_([0-9]+)_([0-9]+)$")
+# Distinguer les contrôles visant la même page. Le suffixe facultatif
+# conserve la compatibilité avec les boutons déjà publiés.
+PAGE_RE = re.compile(
+    r"^lolrec_page_([rd])_([A-Za-z0-9_]+)_([0-9]+)_([0-9]+)"
+    r"(?:_(?:prev|next|overview|alltime|general|perso))?$"
+)
 
 # Ces scénarios sont volontairement indépendants de Riot et de PostgreSQL.
 DEMO_SCENARIOS = {
@@ -229,13 +234,13 @@ def _page_components(kind, key, joueur, pages, index):
     previous = Button(
         style=ButtonStyle.SECONDARY,
         label="◀ Précédent",
-        custom_id=f"lolrec_page_{token}_{max(0, index - 1)}",
+        custom_id=f"lolrec_page_{token}_{max(0, index - 1)}_prev",
         disabled=index <= 0,
     )
     following = Button(
         style=ButtonStyle.PRIMARY,
         label="Suivant ▶",
-        custom_id=f"lolrec_page_{token}_{min(index + 1, len(pages) - 1)}",
+        custom_id=f"lolrec_page_{token}_{min(index + 1, len(pages) - 1)}_next",
         disabled=index >= len(pages) - 1,
     )
     close = Button(
@@ -253,10 +258,12 @@ def _page_components(kind, key, joueur, pages, index):
                            if kind_of_page == scope), None)
         if first_page is None:
             continue
+        # Unicité exigée sur tout le message, même pour un bouton désactivé.
+        control = "overview" if scope == "aperçu" else scope
         shortcuts.append(Button(
             style=ButtonStyle.SUCCESS if first_page == index else ButtonStyle.SECONDARY,
             label=label,
-            custom_id=f"lolrec_page_{token}_{first_page}",
+            custom_id=f"lolrec_page_{token}_{first_page}_{control}",
             disabled=first_page == index,
         ))
     if shortcuts:
