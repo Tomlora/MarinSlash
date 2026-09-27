@@ -1,0 +1,205 @@
+"""Intégration SQL sur la base PostgreSQL jetable du workflow (aucune base du bot)."""
+import os
+import re
+from itertools import product
+
+import pandas as pd
+import pytest
+
+from test_match_records_ui import PREFS, VIEWS, DETAILS
+
+DSN = os.environ.get("TEST_POSTGRES_DSN")
+pytestmark = pytest.mark.skipif(not DSN, reason="PostgreSQL de test non configuré")
+
+
+@pytest.fixture
+def database(monkeypatch):
+    import psycopg
+
+    with psycopg.connect(DSN, autocommit=True) as conn:
+        assert conn.execute("SELECT current_database()").fetchone()[0] == "records_test"
+        conn.execute("DROP TABLE IF EXISTS records_preferences, match_teamfight_damage, match_gank_summary, match_gank_events, match_recap_details, match_scoring, matchs_timestamp_gold, matchs, tracker")
+        conn.execute("""CREATE TABLE tracker (
+            id_compte BIGINT PRIMARY KEY, discord BIGINT, riot_id TEXT, riot_tagline TEXT, puuid TEXT
+        )""")
+        conn.execute("""CREATE TABLE matchs (
+            match_id TEXT, joueur BIGINT, mode TEXT, date BIGINT,
+            dmg_min DOUBLE PRECISION, victoire BOOLEAN, champion TEXT
+        )""")
+
+        def execute(sql, params=None):
+            # Adapter uniquement le style de paramètres, sans réécrire la requête testée.
+            sql = re.sub(r"(?<!:):([a-z_]+)", r"%(\1)s", sql)
+            return conn.execute(sql, params or {})
+
+        def read(sql, index_col=None, params=None):
+            cursor = execute(sql, params)
+            return pd.DataFrame(cursor.fetchall(), columns=[col.name for col in cursor.description]).T
+
+        monkeypatch.setattr(PREFS, "lire_bdd_perso", read)
+        monkeypatch.setattr(PREFS, "requete_perso_bdd", execute)
+        monkeypatch.setattr(VIEWS, "lire_bdd_perso", read)
+        monkeypatch.setattr(DETAILS, "lire_bdd_perso", read)
+        monkeypatch.setattr(DETAILS, "requete_perso_bdd", execute)
+        yield conn
+
+
+def test_preferences_roundtrip_partial_updates_and_account_ownership(database):
+    # La table n'existe pas encore : défaut PR42 avec tous les scopes.
+    assert PREFS.load_preferences(123, strict=True) == PREFS.RecordPreferences()
+    for layout in PREFS.LAYOUTS:
+        for enabled in product((False, True), repeat=3):
+            PREFS.save_preferences(123, layout, *enabled)
+            actual = PREFS.load_preferences(123, strict=True)
+            assert actual.layout == layout
+            assert actual.scopes == tuple(s for s, show in zip(PREFS.SCOPES, enabled) if show)
+    PREFS.save_preferences(123, "sections", False, False, False)
+    PREFS.save_preferences(123, perso=True)
+    assert PREFS.load_preferences(123, strict=True) == PREFS.RecordPreferences("sections", ("perso",))
+    assert PREFS.load_preferences(456, strict=True) == PREFS.RecordPreferences()
+    database.execute("INSERT INTO tracker VALUES (1,123,'Marin','TEST','puuid1'), (2,456,'Autre','TEST','puuid2')")
+    assert PREFS.load_account_preferences(1).layout == "sections"
+    assert PREFS.load_account_preferences(2).layout == "compact"
+
+
+def test_progression_uses_only_ten_earlier_matches_same_account_and_mode(database):
+    database.execute("INSERT INTO tracker VALUES (1,123,'Marin','TEST','puuid1')")
+    for index in range(15):
+        database.execute("INSERT INTO matchs VALUES (%s,1,'RANKED',%s,800,TRUE,'Ahri')", (f"EUW1_{index}", index))
+    database.execute("INSERT INTO matchs VALUES ('EUW1_100',1,'RANKED',100,900,TRUE,'Ahri')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_101',1,'RANKED',101,9999,TRUE,'Ahri')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_102',1,'ARAM',99,9999,TRUE,'Ahri')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_103',2,'RANKED',99,9999,TRUE,'Ahri')")
+    current, history = VIEWS.load_progress("EUW1_100", 1)
+    assert current["player_name"] == "Marin#TEST"
+    assert [row["date"] for row in history] == list(range(14, 4, -1))
+    assert len(history) == 10
+    assert all(row["mode"] == "RANKED" and row["joueur"] == 1 for row in history)
+    assert "+100" in VIEWS.comparison(current, history, "dmg_min")
+    assert VIEWS.load_progress("EUW1_100", 2) is None
+
+
+def test_teamfight_query_keeps_only_the_tracked_player_and_perspective(database):
+    database.execute("INSERT INTO tracker VALUES (1,123,'Marin','TEST','puuid1')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_100',1,'RANKED',100,900,TRUE,'Ahri')")
+    _, fights, available = VIEWS.load_analysis("EUW1_100", 1)
+    assert fights == [] and not available
+    database.execute("""CREATE TABLE match_teamfight_damage (
+        match_id TEXT, analyzed_puuid TEXT, puuid TEXT, is_teamfight BOOLEAN,
+        start_ms INTEGER, fight_id INTEGER, damage_window_estimated INTEGER
+    )""")
+    database.execute("""INSERT INTO match_teamfight_damage VALUES
+        ('EUW1_100','puuid1','puuid1',TRUE,1000,1,500),
+        ('EUW1_100','puuid1','other',TRUE,1000,1,9999),
+        ('EUW1_100','other','puuid1',TRUE,1000,1,9999),
+        ('EUW1_100','puuid1','puuid1',FALSE,2000,2,9999),
+        ('EUW1_999','puuid1','puuid1',TRUE,1000,1,9999)
+    """)
+    _, fights, available = VIEWS.load_analysis("EUW1_100", 1)
+    assert available and len(fights) == 1
+    assert fights[0]["damage_window_estimated"] == 500
+
+
+def test_new_teamfight_loader_keeps_teammates_but_excludes_other_perspectives(database):
+    database.execute("INSERT INTO tracker VALUES (1,123,'Marin','TEST','puuid1')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_100',1,'RANKED',100,900,TRUE,'Ahri')")
+    assert VIEWS.load_teamfights("EUW1_100", 1)[2] is False
+    database.execute("""CREATE TABLE match_teamfight_damage (
+        match_id TEXT, analyzed_puuid TEXT, puuid TEXT, start_ms INTEGER, fight_id INTEGER,
+        team INTEGER, damage_frame_window INTEGER, is_teamfight BOOLEAN
+    )""")
+    database.execute("""INSERT INTO match_teamfight_damage VALUES
+        ('EUW1_100','puuid1','puuid1',1000,1,100,1000,TRUE),
+        ('EUW1_100','puuid1','teammate',1000,1,100,3000,TRUE),
+        ('EUW1_100','other','puuid1',1000,1,100,9999,TRUE),
+        ('EUW1_100','puuid1','puuid1',2000,2,100,200,FALSE),
+        ('EUW1_999','puuid1','puuid1',1000,1,100,9999,TRUE)
+    """)
+    match, rows, available = VIEWS.load_teamfights("EUW1_100", 1)
+    assert available and len(rows) == 3
+    assert sum(row["tracked"] for row in rows) == 2
+    pages = VIEWS.build_teamfight_pages(match, rows, available)
+    assert "25 % équipe" in pages[-1].fields[0].value
+    assert VIEWS.load_teamfights("EUW1_100", 2) is None
+
+
+def test_gank_loader_matches_account_team_and_filters_boundary_on_old_schema(database):
+    database.execute("INSERT INTO tracker VALUES (1,123,'Marin','TEST','puuid1')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_100',1,'RANKED',100,900,TRUE,'Ahri')")
+    database.execute("ALTER TABLE matchs ADD COLUMN id_participant INTEGER")
+    database.execute("UPDATE matchs SET id_participant = 7")
+    assert VIEWS.load_ganks("EUW1_100", 1)[3] is False
+    # Pas de colonnes hybrides : lecture compatible avec les données anciennes.
+    database.execute("""CREATE TABLE match_gank_summary (
+        match_id TEXT, team_id INTEGER, ally_jungler_champion TEXT
+    )""")
+    database.execute("""CREATE TABLE match_gank_events (
+        match_id TEXT, team_id INTEGER, timestamp_ms INTEGER, successful BOOLEAN
+    )""")
+    database.execute("""INSERT INTO match_gank_summary VALUES
+        ('EUW1_100',100,'LeeSin'), ('EUW1_100',200,'Viego')
+    """)
+    database.execute("""INSERT INTO match_gank_events VALUES
+        ('EUW1_100',200,0,TRUE), ('EUW1_100',100,839999,FALSE),
+        ('EUW1_100',200,840000,TRUE), ('EUW1_100',200,-1,TRUE),
+        ('EUW1_999',200,1000,TRUE)
+    """)
+    match, summary, events, available = VIEWS.load_ganks("EUW1_100", 1)
+    assert summary["ally_jungler_champion"] == "Viego"
+    assert available and [e["timestamp_ms"] for e in events] == [0, 839999]
+    assert "issues inconnues" in VIEWS.build_gank_pages(match, summary, events, available)[0].fields[0].value
+    assert VIEWS.load_ganks("EUW1_100", 2) is None
+    database.execute("UPDATE matchs SET mode = 'ARAM'")
+    assert VIEWS.load_ganks("EUW1_100", 1)[3] is False
+
+
+def test_recap_details_roundtrip_is_per_account_and_keeps_true_team_colors(database):
+    from test_match_records_ui import sample_details_match
+    database.execute("INSERT INTO tracker VALUES (5,123,'Renamed','TEST','p7'), (6,456,'Other','TEST','p1')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri'), ('EUW1_123',6,'RANKED',100,800,TRUE,'Ahri')")
+    assert DETAILS.load_score("EUW1_123", 5)[1] == []
+    assert DETAILS.load_gold("EUW1_123", 5)[1] == []
+    assert DETAILS.save_recap_details(sample_details_match())
+    match, scores = DETAILS.load_score("EUW1_123", 5)
+    assert match["player_name"] == "Renamed#TEST"
+    tracked = next(p for p in scores if p["tracked"])
+    assert tracked["riot_id"] == "Player7" and tracked["team"] == 200
+    points = DETAILS.load_gold("EUW1_123", 5)[1]
+    assert [p["minute"] for p in points] == [0, 1, 2, 4]
+    assert points[1]["blue"] - points[1]["red"] == 500
+    assert DETAILS.load_score("EUW1_123", 6)[1] == []
+    assert DETAILS.load_gold("EUW1_123", 999) is None
+    # La réanalyse remplace le même snapshot sans créer de doublon.
+    assert DETAILS.save_recap_details(sample_details_match())
+    assert database.execute("SELECT COUNT(*) FROM match_recap_details").fetchone()[0] == 1
+
+
+def test_legacy_scoring_and_gold_use_riot_identity_and_account_perspective(database):
+    database.execute("INSERT INTO tracker VALUES (5,123,'Player7','TEST','p7')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri')")
+    database.execute("ALTER TABLE matchs ADD COLUMN id_participant INTEGER")
+    database.execute("UPDATE matchs SET id_participant = 7")
+    database.execute("""CREATE TABLE match_scoring (
+        match_id TEXT, player_index INTEGER, riot_id TEXT, riot_tag TEXT, team TEXT,
+        score DOUBLE PRECISION, combat_value DOUBLE PRECISION
+    )""")
+    database.execute("""INSERT INTO match_scoring VALUES
+        ('EUW1_123',2,'Player7','TEST','blue',8,7),
+        ('EUW1_123',7,'Other','TEST','red',9,8),
+        ('EUW1_999',2,'Player7','TEST','blue',1,1)
+    """)
+    scores = DETAILS.load_score("EUW1_123", 5)[1]
+    assert len(scores) == 2
+    assert [s["player_index"] for s in scores if s["tracked"]] == [2]
+    database.execute("""CREATE TABLE matchs_timestamp_gold (
+        match_id TEXT, riot_id BIGINT, timestamp DOUBLE PRECISION,
+        gold_allie DOUBLE PRECISION, gold_adv DOUBLE PRECISION
+    )""")
+    database.execute("""INSERT INTO matchs_timestamp_gold VALUES
+        ('EUW1_123',5,0,2500,2500), ('EUW1_123',5,1,3000,3500),
+        ('EUW1_123',5,1.45,3900,3999), ('EUW1_123',5,2,NULL,4000),
+        ('EUW1_123',6,1,99999,0), ('EUW1_999',5,1,99999,0)
+    """)
+    points = DETAILS.load_gold("EUW1_123", 5)[1]
+    assert points == [{"minute": 0, "blue": 2500, "red": 2500},
+                      {"minute": 1, "blue": 3500, "red": 3000}]

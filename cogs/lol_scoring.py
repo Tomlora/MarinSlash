@@ -10,7 +10,6 @@ from utils.emoji import emote_champ_discord, emote_rank_discord, emote_v2
 from fonctions.api_calls import getRankings
 from fonctions.api_moba import test_mobalytics_api
 from fonctions.permissions import isOwner_slash
-from fonctions.gestion_challenge import challengeslol
 from fonctions.autocomplete import autocomplete_riotid
 from fonctions.channels_discord import identifier_role_by_name
 from datetime import datetime
