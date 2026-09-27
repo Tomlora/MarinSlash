@@ -24,6 +24,18 @@ import scipy.stats
 logger = logging.getLogger(__name__)
 MODEL_PATH = Path(__file__).resolve().parents[1] / 'model' / 'prediction_result.sav'
 
+# U.GG est indisponible. Ne pas réactiver sans une source fiable et un budget
+# d'appels explicite ; aucune collecte Riot de remplacement n'est lancée.
+PREDICTIONS_ENABLED = False
+PREDICTIONS_DISABLED_MESSAGE = (
+    "Les nouvelles prédictions sont temporairement désactivées : U.GG est indisponible. "
+    "Les anciennes prédictions restent consultables avec /predict_victory."
+)
+
+
+class PredictionDisabledError(RuntimeError):
+    """Une nouvelle prédiction a été demandée alors que la collecte est arrêtée."""
+
 async def add_stats(raw_data) -> list:
     if len(raw_data) != 5 or not np.isfinite(raw_data).all():
         raise ValueError("La prédiction exige cinq valeurs finies par équipe")
@@ -51,6 +63,8 @@ async def add_stats(raw_data) -> list:
 
 
 async def predict_match(match_id, match, champion, session : aiohttp.ClientSession, ctx : SlashContext = None):
+    if not PREDICTIONS_ENABLED:
+        raise PredictionDisabledError(PREDICTIONS_DISABLED_MESSAGE)
     
     participants = match["participants"]
     if (len(participants) != 10
@@ -237,6 +251,8 @@ async def predict_match(match_id, match, champion, session : aiohttp.ClientSessi
 
 
 async def _get_current_prediction(summoner_name, match_id, session, ctx=None):
+    if not PREDICTIONS_ENABLED:
+        raise PredictionDisabledError(PREDICTIONS_DISABLED_MESSAGE)
     # Éviter les appels Data Dragon et modèle quand aucune partie n'est active.
     match = await api_calls.get_live_match(summoner_name, session)
     if match == 'Aucun':
@@ -286,7 +302,10 @@ class predict(Extension):
 
     @listen()
     async def on_startup(self):
-        self.update_predict.start()
+        if PREDICTIONS_ENABLED:
+            self.update_predict.start()
+        else:
+            logger.info("Collecte des prédictions désactivée : U.GG indisponible")
 
     # @slash_command(name='predict_victory',
     #                                 description='Predit le resultat de la game',
@@ -430,6 +449,8 @@ class predict(Extension):
 
     @Task.create(IntervalTrigger(minutes=5))
     async def update_predict(self):
+        if not PREDICTIONS_ENABLED:
+            return
 
         data_joueur = get_data_bdd(
             '''SELECT DISTINCT tracker.riot_id, tracker.riot_tagline
@@ -482,6 +503,8 @@ class predict(Extension):
                           ctx: SlashContext,
                           summonername: str,
                           tagline: str):
+        if not PREDICTIONS_ENABLED:
+            return await ctx.send(PREDICTIONS_DISABLED_MESSAGE, ephemeral=True)
         
         await ctx.defer(ephemeral=False)
         
@@ -531,6 +554,8 @@ class predict(Extension):
                                        riot_id,
                                        riot_tag,
                                        match_id = '      en cours'):
+        if not PREDICTIONS_ENABLED:
+            return
 
 
 

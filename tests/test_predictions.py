@@ -22,7 +22,7 @@ def load_module(name, path):
 
 
 @pytest.fixture
-def modules(monkeypatch):
+def _modules(monkeypatch):
     # Aucun import de MatchLol (qui charge les modèles et la BDD au démarrage).
     fonctions = types.ModuleType('fonctions')
     fonctions.__path__ = [str(ROOT / 'fonctions')]
@@ -45,6 +45,76 @@ def modules(monkeypatch):
     fonctions.api_calls = api
     cog = load_module('prediction_tests', ROOT / 'cogs/predict.py')
     return cog, api
+
+
+@pytest.fixture
+def modules(_modules, monkeypatch):
+    # Les régressions du moteur restent testées pour une future réactivation.
+    monkeypatch.setattr(_modules[0], 'PREDICTIONS_ENABLED', True)
+    return _modules
+
+
+def test_disabled_by_default_starts_no_task(_modules):
+    cog, _ = _modules
+    assert cog.PREDICTIONS_ENABLED is False
+    task = types.SimpleNamespace(start=Mock())
+    asyncio.run(cog.predict.on_startup.callback(types.SimpleNamespace(update_predict=task)))
+    task.start.assert_not_called()
+
+
+def test_disabled_batch_and_auto_do_no_work(_modules, monkeypatch):
+    cog, api = _modules
+    session_factory = Mock(side_effect=AssertionError('HTTP session forbidden'))
+    monkeypatch.setattr(cog.aiohttp, 'ClientSession', session_factory)
+    api.get_live_match = AsyncMock(side_effect=AssertionError('API forbidden'))
+    asyncio.run(cog.predict.update_predict.callback(None))
+    asyncio.run(cog.predict.predict_probability_auto(None, None, 'name', 'EUW'))
+    session_factory.assert_not_called()
+    api.get_live_match.assert_not_awaited()
+    cog.get_data_bdd.assert_not_called()
+    cog.lire_bdd_perso.assert_not_called()
+    cog.sauvegarde_bdd.assert_not_called()
+
+
+def test_disabled_direct_command_explains_without_http(_modules, monkeypatch):
+    cog, _ = _modules
+    session_factory = Mock(side_effect=AssertionError('HTTP session forbidden'))
+    monkeypatch.setattr(cog.aiohttp, 'ClientSession', session_factory)
+    ctx = types.SimpleNamespace(defer=AsyncMock(), send=AsyncMock())
+    asyncio.run(cog.predict.predict_probability_direct.callback(None, ctx, 'name', 'EUW'))
+    ctx.send.assert_awaited_once_with(cog.PREDICTIONS_DISABLED_MESSAGE, ephemeral=True)
+    ctx.defer.assert_not_awaited()
+    session_factory.assert_not_called()
+
+
+@pytest.mark.parametrize('entry', ['manual', 'automatic', 'engine'])
+def test_disabled_helpers_cannot_bypass_pause(_modules, entry):
+    cog, api = _modules
+    api.get_live_match = AsyncMock(side_effect=AssertionError('API forbidden'))
+    api.get_winrates = AsyncMock(side_effect=AssertionError('API forbidden'))
+    api.get_masteries = AsyncMock(side_effect=AssertionError('Riot fallback forbidden'))
+    calls = {
+        'manual': lambda: cog.get_current_match_prediction(None, 'a#EUW', 'live', None),
+        'automatic': lambda: cog.get_current_match_prediction_auto('a#EUW', 'live', None),
+        'engine': lambda: cog.predict_match('live', {}, {}, None),
+    }
+    with pytest.raises(cog.PredictionDisabledError):
+        asyncio.run(calls[entry]())
+    api.get_live_match.assert_not_awaited()
+    api.get_winrates.assert_not_awaited()
+    api.get_masteries.assert_not_awaited()
+
+
+def test_disabled_history_still_displays_saved_prediction(_modules):
+    cog, _ = _modules
+    cog.lire_bdd_perso.return_value = pd.DataFrame([
+        {'text': 'Ancienne prédiction', 'victory_predicted': True, 'victoire': True}
+    ]).T
+    ctx = types.SimpleNamespace(defer=AsyncMock(), send=AsyncMock())
+    asyncio.run(cog.predict.predict_probability.callback(None, ctx, 'name', 'EUW', 'EUW1_1'))
+    text = ctx.send.call_args.args[0]
+    assert 'Ancienne prédiction' in text and 'correcte' in text
+    cog.sauvegarde_bdd.assert_not_called()
 
 
 @pytest.mark.parametrize('values', [[0] * 5, [0.5] * 5, [1234] * 5])
