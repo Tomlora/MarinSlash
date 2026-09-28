@@ -1,3 +1,4 @@
+import asyncio
 from fonctions.gestion_bdd import lire_bdd_perso
 from fonctions.match.records_display import RECORD_LABELS as SHARED_RECORD_LABELS
 
@@ -8,6 +9,10 @@ RECORD_AUTOCOMPLETE_LABELS = {
 
 
 async def autocomplete_riotid(serverid, input_txt):
+    return await asyncio.to_thread(_autocomplete_riotid, serverid, input_txt)
+
+
+def _autocomplete_riotid(serverid, input_txt):
     df = lire_bdd_perso(
         f'''select riot_id from tracker where server_id = '{serverid}' ''',
         index_col=None

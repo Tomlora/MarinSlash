@@ -1,4 +1,6 @@
-import os
+from pathlib import Path
+import logging
+from fonctions.match_worker import run_match_job, fetch_rows
 import sys
 import aiohttp
 import pandas as pd
@@ -24,7 +26,6 @@ from collections import Counter, defaultdict
 import re 
 from utils.emoji import dict_place
 import io 
-from PIL import Image
 import pickle
 import asyncio
 import numpy as np
@@ -268,6 +269,8 @@ class LeagueofLegends(Extension):
         self.update.start()
         self.lolsuivi.start()
         self.compte_loading = set()
+        self._recap_counts = Counter()
+        self._recap_tasks = set()
 
 
     async def printInfo(self,
@@ -284,6 +287,63 @@ class LeagueofLegends(Extension):
                         check_doublon: bool = True,
                         check_records: bool = True,
                         capture_challenges: bool = False):
+        # Keep the task alive through cancellation: SQL and file cleanup must finish.
+        async def prepare():
+            key = riot_id.lower()
+            self._recap_counts[key] += 1
+            self.compte_loading.add(key)
+            try:
+                result = await run_match_job(
+                    self._build_recap, id_compte, riot_id, riot_tag, idgames,
+                    sauvegarder, identifiant_game=identifiant_game,
+                    guild_id=guild_id, me=me, insights=insights, affichage=affichage,
+                    check_doublon=check_doublon, check_records=check_records,
+                )
+                embed, mode, image_bytes, components, match_id, puuid = result
+                if embed == {}:
+                    return embed, mode, 0, components
+                # Challenge locks and sessions stay on the bot loop, shared with /challenges.
+                snapshot = await recap_snapshot(
+                    id_compte, puuid, match_id, capture=capture_challenges,
+                )
+                components = recap_components(
+                    components, match_id, id_compte, available=snapshot is not None,
+                )
+                return embed, mode, interactions.File(io.BytesIO(image_bytes), file_name='resume.png'), components
+            finally:
+                self._recap_counts[key] -= 1
+                if not self._recap_counts[key]:
+                    del self._recap_counts[key]
+                    self.compte_loading.discard(key)
+
+        task = asyncio.create_task(prepare(), name=f"matchlol:{id_compte}")
+        self._recap_tasks.add(task)
+
+        def finished(completed):
+            self._recap_tasks.discard(completed)
+            if not completed.cancelled() and (error := completed.exception()) is not None:
+                logging.getLogger(__name__).error(
+                    "MatchLoL failed for account %s", id_compte,
+                    exc_info=(type(error), error, error.__traceback__),
+                )
+
+        task.add_done_callback(finished)
+        return await asyncio.shield(task)
+
+    async def _build_recap(self,
+                        id_compte,
+                        riot_id,
+                        riot_tag,
+                        idgames: int,
+                        sauvegarder: bool,
+                        identifiant_game=None,
+                        guild_id: int = 0,
+                        me=None,
+                        insights: bool = True,
+                        affichage=1,
+                        check_doublon: bool = True,
+                        check_records: bool = True,
+                        *, image_path: str):
         """
         Fonction principale pour afficher les informations d'une partie.
         Utilise la nouvelle architecture modulaire MatchLol.
@@ -306,7 +366,6 @@ class LeagueofLegends(Extension):
         )
 
         try:
-            self.compte_loading.add(riot_id.lower())
             
             # 1. Récupération des données Riot
             await match_info.get_data_riot()
@@ -568,7 +627,7 @@ class LeagueofLegends(Extension):
                 )
 
                 if not df_doublon.empty:
-                    return {}, 'Doublon', 0, None
+                    return {}, 'Doublon', None, None, None, None
 
             # Sauvegarde des données
             match_saved = False
@@ -599,13 +658,13 @@ class LeagueofLegends(Extension):
                     
             # Gestion des modes spéciaux
             if match_info.thisQId == 900:  # URF
-                return {}, 'URF', 0, None
+                return {}, 'URF', None, None, None, None
             elif match_info.thisQId == 1300:  # Nexus Blitz
-                return {}, 'NexusBlitz', 0, None
+                return {}, 'NexusBlitz', None, None, None, None
             elif match_info.thisQId == 840:  # Bot game
-                return {}, 'Bot', 0, None
+                return {}, 'Bot', None, None, None, None
             elif match_info.thisTime <= 3.0:  # Remake
-                return {}, 'Remake', 0, None
+                return {}, 'Remake', None, None, None, None
 
             # Suivi des LP
             suivi = lire_bdd(f'suivi_s{saison}', 'dict')
@@ -989,16 +1048,6 @@ class LeagueofLegends(Extension):
             if match_saved:
                 records_button = make_match_buttons(match_info.last_match, id_compte, records_button)
 
-            # Le détail challenges est persisté avant publication et reste séparé du récap.
-            challenge_snapshot = await recap_snapshot(
-                id_compte, match_info.puuid, match_info.last_match,
-                capture=capture_challenges,
-            )
-            records_button = recap_components(
-                records_button, match_info.last_match, id_compte,
-                available=challenge_snapshot is not None,
-            )
-
             # === DÉTECTIONS + OBJECTIFS (uniquement ranked/flex) ===
             if match_info.thisQ in ['RANKED', 'FLEX']:
                 # Objectifs personnels (condensés sur une ligne)
@@ -1040,19 +1089,21 @@ class LeagueofLegends(Extension):
                     embed.add_field(name=name, value=chunk, inline=False)
 
             # === IMAGE DE RÉSUMÉ ===
-            embed = await match_info.resume_general('resume', embed, difLP)
+            embed = await match_info.resume_general(image_path, embed, difLP)
         finally:
-            self.compte_loading.discard(riot_id.lower())
+            session = getattr(match_info, 'session', None)
+            if session is not None and not session.closed:
+                await session.close()
 
         # Chargement de l'image
-        resume = interactions.File('resume.png')
+        image_bytes = Path(f'{image_path}.png').read_bytes()
         embed.set_image(url='attachment://resume.png')
 
         embed.set_footer(text=f'by Tomlora - Match {str(match_info.last_match)}')
 
         match_info.sauvegarde_embed(embed)
 
-        return embed, match_info.thisQ, resume, records_button
+        return embed, match_info.thisQ, image_bytes, records_button, match_info.last_match, match_info.puuid
 
     async def updaterank(self,
                          key,
@@ -1063,7 +1114,7 @@ class LeagueofLegends(Extension):
                          puuid,
                          discord_id=None):
 
-        suivirank = lire_bdd(f'suivi_s{saison}', 'dict')
+        suivirank = (await asyncio.to_thread(lire_bdd, f'suivi_s{saison}', 'dict'))
 
         stats = await get_league_by_puuid(session, puuid)
 
@@ -1105,11 +1156,11 @@ class LeagueofLegends(Extension):
                         print('Channel impossible')
                         print(sys.exc_info())
 
-                    requete_perso_bdd(f'UPDATE suivi_s{saison} SET tier = :tier, rank = :rank where index = :joueur', {
+                    (await asyncio.to_thread(requete_perso_bdd, f'UPDATE suivi_s{saison} SET tier = :tier, rank = :rank where index = :joueur', {
                         'tier': stats[i]['tier'],
                         'rank': stats[i]['rank'],
                         'joueur': key
-                    })
+                    }))
             except UnboundLocalError:
                 pass
 
@@ -1157,26 +1208,26 @@ class LeagueofLegends(Extension):
 
         if riot_tag is None:
             try:
-                riot_tag = get_tag(riot_id)
+                riot_tag = (await asyncio.to_thread(get_tag, riot_id))
             except ValueError:
                 return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
 
         server_id = int(ctx.guild_id)
-        discord_server_id = chan_discord(int(server_id))
+        discord_server_id = (await asyncio.to_thread(chan_discord, int(server_id)))
 
         discord_id = int(ctx.author.id)
         riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper()
-        df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col='discord')
+        df_banned = (await asyncio.to_thread(lire_bdd_perso, f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col='discord'))
 
         # bool n'a pas d'attribut .empty : l'ancien code désactivait /game
         # et activait /game_multi sans tenir compte de save_records.
-        record_setting = lire_bdd_perso(
+        record_setting = (await asyncio.to_thread(lire_bdd_perso,
             """SELECT save_records FROM tracker
                WHERE riot_id = :riot_id AND riot_tagline = :riot_tag""",
             index_col=None,
             params={"riot_id": riot_id, "riot_tag": riot_tag},
-        ).T
+        )).T
         check_records = (
             not record_setting.empty
             and pd.notna(record_setting.iloc[0]["save_records"])
@@ -1185,7 +1236,7 @@ class LeagueofLegends(Extension):
 
         if df_banned.empty:
             try:
-                id_compte = get_id_account_bdd(riot_id, riot_tag)
+                id_compte = (await asyncio.to_thread(get_id_account_bdd, riot_id, riot_tag))
             except IndexError:
                 return await ctx.send("Ce compte n'existe pas ou n'est pas enregistré")
             
@@ -1215,7 +1266,6 @@ class LeagueofLegends(Extension):
 
             if embed != {}:
                 await channel_tracklol.send(embeds=embed, files=resume, components=records_button)
-                os.remove('resume.png')
         else:
             await ctx.send("Tu n'as pas l'autorisation d'utiliser cette commande.")
 
@@ -1255,31 +1305,31 @@ class LeagueofLegends(Extension):
 
         if riot_tag is None:
             try:
-                riot_tag = get_tag(riot_id)
+                riot_tag = (await asyncio.to_thread(get_tag, riot_id))
             except ValueError:
                 return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
 
         server_id = int(ctx.guild_id)
-        discord_server_id = chan_discord(int(server_id))
+        discord_server_id = (await asyncio.to_thread(chan_discord, int(server_id)))
 
         discord_id = int(ctx.author.id)
         riot_id = riot_id.lower().replace(' ', '')
         riot_tag = riot_tag.upper()
-        df_banned = lire_bdd_perso(f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col='discord')
-        data_joueur = lire_bdd_perso(f'''SELECT riot_id, puuid, id_compte from tracker WHERE riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''',
-                                     index_col='riot_id')
+        df_banned = (await asyncio.to_thread(lire_bdd_perso, f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col='discord'))
+        data_joueur = (await asyncio.to_thread(lire_bdd_perso, f'''SELECT riot_id, puuid, id_compte from tracker WHERE riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''',
+                                     index_col='riot_id'))
 
         puuid = data_joueur.T.loc[riot_id]['puuid']
         id_compte = data_joueur.T.loc[riot_id]['id_compte']
 
         # bool n'a pas d'attribut .empty : l'ancien code désactivait /game
         # et activait /game_multi sans tenir compte de save_records.
-        record_setting = lire_bdd_perso(
+        record_setting = (await asyncio.to_thread(lire_bdd_perso,
             """SELECT save_records FROM tracker
                WHERE riot_id = :riot_id AND riot_tagline = :riot_tag""",
             index_col=None,
             params={"riot_id": riot_id, "riot_tag": riot_tag},
-        ).T
+        )).T
         check_records = (
             not record_setting.empty
             and pd.notna(record_setting.iloc[0]["save_records"])
@@ -1288,7 +1338,7 @@ class LeagueofLegends(Extension):
 
         if df_banned.empty:
             try:
-                id_compte = get_id_account_bdd(riot_id, riot_tag)
+                id_compte = (await asyncio.to_thread(get_id_account_bdd, riot_id, riot_tag))
             except IndexError:
                 return await ctx.send("Ce compte n'existe pas ou n'est pas enregistré")
 
@@ -1301,7 +1351,7 @@ class LeagueofLegends(Extension):
             )
             liste_matchs_riot: list = list(set(ranked + flex + aram))
             await session.close()
-            liste_matchs_save: pd.DataFrame = lire_bdd_perso(f'''SELECT distinct match_id from matchs where joueur = {id_compte}''', index_col=None).T
+            liste_matchs_save: pd.DataFrame = (await asyncio.to_thread(lire_bdd_perso, f'''SELECT distinct match_id from matchs where joueur = {id_compte}''', index_col=None)).T
 
             matchs_manquants = pd.Series(liste_matchs_riot)[~pd.Series(liste_matchs_riot).isin(liste_matchs_save['match_id'].tolist())].tolist()
 
@@ -1336,7 +1386,6 @@ class LeagueofLegends(Extension):
 
                     if embed != {}:
                         await channel_tracklol.send(embeds=embed, files=resume, components=records_button)
-                        os.remove('resume.png')
 
                 except Exception:
                     print(f"erreur {riot_id}")
@@ -1397,13 +1446,7 @@ class LeagueofLegends(Extension):
 
             if embed != {}:
                 await channel_tracklol.send(embeds=embed, files=resume, components=records_button)
-                os.remove('resume.png')
 
-        else:
-            try:
-                os.remove('resume.png')
-            except:
-                pass
 
     @Task.create(IntervalTrigger(minutes=5))
     async def update(self):
@@ -1412,7 +1455,7 @@ class LeagueofLegends(Extension):
             return
         
         async with self._update_lock:
-            data = get_data_bdd(
+            data = (await asyncio.to_thread(fetch_rows,
                 '''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, tracker.id, tracker.server_id,
                 tracker.spec_tracker, tracker.spec_send, tracker.discord, tracker.puuid, tracker.challenges,
                 tracker.insights, tracker.nb_challenges, tracker.affichage,
@@ -1421,7 +1464,7 @@ class LeagueofLegends(Extension):
                                 INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                                 where tracker.activation = true
                                 and channels_module.league_ranked = true'''
-            ).fetchall()
+            ))
             timeout = aiohttp.ClientTimeout(total=60*5)
             session = aiohttp.ClientSession(timeout=timeout)
 
@@ -1430,30 +1473,30 @@ class LeagueofLegends(Extension):
                 id_last_game = await getId_with_puuid(puuid, session)
 
                 if str(last_game) != id_last_game:
-                    requete_perso_bdd(
+                    (await asyncio.to_thread(requete_perso_bdd,
                         'UPDATE tracker SET id = :id, spec_send = :spec WHERE id_compte = :id_compte',
-                        {'id': id_last_game, 'id_compte': id_compte, 'spec': False})
+                        {'id': id_last_game, 'id_compte': id_compte, 'spec': False}))
 
                     try:
                         me = await get_summoner_by_puuid(puuid, session)
 
                         if riot_id != me['gameName'].replace(" ", "").lower() or riot_tag != me['tagLine']:
-                            requete_perso_bdd(
+                            (await asyncio.to_thread(requete_perso_bdd,
                                 'UPDATE tracker SET riot_id = :riot_id, riot_tagline = :riot_tag WHERE id_compte = :id_compte',
                                 {'id_compte': id_compte, 'riot_id': me['gameName'].lower().replace(" ", ""), 'riot_tag': me['tagLine'].upper()},
-                            )
+                            ))
                             riot_id = me['gameName'].lower().replace(" ", "")
                             riot_tag = me['tagLine'].upper()
 
                     except KeyError:
                         print(f'Erreur de maj de pseudo {riot_id}')
-                        requete_perso_bdd(
+                        (await asyncio.to_thread(requete_perso_bdd,
                             'UPDATE tracker SET id = :id WHERE id_compte = :id_compte',
-                            {'id': last_game, 'id_compte': id_compte})
+                            {'id': last_game, 'id_compte': id_compte}))
                         continue
 
                     try:
-                        discord_server_id = chan_discord(int(server_id))
+                        discord_server_id = (await asyncio.to_thread(chan_discord, int(server_id)))
 
                         await self.printLive(id_compte,
                                             riot_id,
@@ -1470,9 +1513,9 @@ class LeagueofLegends(Extension):
 
                         await self.updaterank(id_compte, riot_id, riot_tag, discord_server_id, session, puuid, discord_id)
                     except TypeError:
-                        requete_perso_bdd(
+                        (await asyncio.to_thread(requete_perso_bdd,
                             'UPDATE tracker SET id = :id WHERE id_compte = :id_compte',
-                            {'id': last_game, 'id_compte': id_compte})
+                            {'id': last_game, 'id_compte': id_compte}))
                         print(f"erreur TypeError {riot_id}")
                         exc_type, exc_value, exc_traceback = sys.exc_info()
                         traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
@@ -1507,10 +1550,10 @@ class LeagueofLegends(Extension):
 
                                 await member.send(embeds=embed)
 
-                                requete_perso_bdd(
+                                (await asyncio.to_thread(requete_perso_bdd,
                                     'UPDATE tracker SET spec_send = :spec WHERE id_compte = :id_compte',
                                     {'spec': True, 'id_compte': id_compte},
-                                )
+                                ))
                     except TypeError:
                         continue
                     except Exception:
@@ -1518,15 +1561,15 @@ class LeagueofLegends(Extension):
             await session.close()
 
     async def update_24h(self):
-        data = get_data_bdd(
+        data = (await asyncio.to_thread(fetch_rows,
             '''SELECT DISTINCT tracker.server_id from tracker
                     INNER JOIN channels_module on tracker.server_id = channels_module.server_id
                     where channels_module.league_ranked = true and tracker.banned = false'''
-        ).fetchall()
+        ))
 
-        params = lire_bdd_perso('select * from settings',
+        params = (await asyncio.to_thread(lire_bdd_perso, 'select * from settings',
                                 format='dict',
-                                index_col='parametres')
+                                index_col='parametres'))
 
         saison = int(params['saison']['value'])
 
@@ -1534,15 +1577,15 @@ class LeagueofLegends(Extension):
 
         for server_id in data:
             guild = await self.bot.fetch_guild(server_id[0])
-            chan_discord_id = chan_discord(int(guild.id))
+            chan_discord_id = (await asyncio.to_thread(chan_discord, int(guild.id)))
 
-            df = lire_bdd_perso(f'''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, suivi.wins_jour, suivi.losses_jour, suivi."LP_jour", suivi.tier_jour, suivi.rank_jour, suivi.classement_euw, suivi.classement_percent_euw, tracker.server_id from suivi_s{saison} as suivi
+            df = (await asyncio.to_thread(lire_bdd_perso, f'''SELECT tracker.id_compte, tracker.riot_id, tracker.riot_tagline, suivi.wins, suivi.losses, suivi."LP", suivi.tier, suivi.rank, suivi.wins_jour, suivi.losses_jour, suivi."LP_jour", suivi.tier_jour, suivi.rank_jour, suivi.classement_euw, suivi.classement_percent_euw, tracker.server_id from suivi_s{saison} as suivi
                                     INNER join tracker ON tracker.id_compte = suivi.index
                                     where suivi.tier != 'Non-classe'
                                     and tracker.server_id = {int(guild.id)}
                                     and tracker.banned = false
                                     and tracker.activation = true ''',
-                               index_col='id_compte')
+                               index_col='id_compte'))
 
             if df.shape[1] > 0:
                 df = df.transpose().reset_index()
@@ -1587,14 +1630,14 @@ class LeagueofLegends(Extension):
                     totalgames = totalwin + totaldef
 
                     # Score moyen de la journée
-                    df_score = lire_bdd_perso('''
+                    df_score = (await asyncio.to_thread(lire_bdd_perso, '''
                         SELECT AVG(ms.score) as score_moyen FROM match_scoring ms
                         INNER JOIN matchs m ON ms.match_id = m.match_id AND ms.role = m.role
                         INNER JOIN tracker t ON t.riot_id = REPLACE(ms.riot_id, ' ', '')
                         WHERE m.joueur = :id_compte
                         AND m.datetime >= NOW() - INTERVAL '24 hours'
                         AND m.mode IN ('RANKED')
-                    ''', params={'id_compte': key}, index_col=None).T
+                    ''', params={'id_compte': key}, index_col=None)).T
 
                     score_moyen = round(float(df_score['score_moyen'].values[0]), 1) if not df_score.empty and df_score['score_moyen'].values[0] is not None else None
                     scores_joueurs[key] = score_moyen
@@ -1633,13 +1676,13 @@ class LeagueofLegends(Extension):
                             difLP_display = "0"
 
                     # Barre chronologique depuis matchs
-                    df_games = lire_bdd_perso('''
+                    df_games = (await asyncio.to_thread(lire_bdd_perso, '''
                         SELECT victoire FROM matchs
                         WHERE joueur = :id_compte
                         AND mode IN ('RANKED')
                         AND datetime >= NOW() - INTERVAL '24 hours'
                         ORDER BY datetime ASC
-                    ''', params={'id_compte': key}, index_col=None).T
+                    ''', params={'id_compte': key}, index_col=None)).T
 
                     if not df_games.empty:
                         MAX_BAR = 20
@@ -1692,7 +1735,7 @@ class LeagueofLegends(Extension):
                 # Meilleure game individuelle
                 best_game_line = ""
                 if len(joueur) > 0:
-                    df_best = lire_bdd_perso('''
+                    df_best = (await asyncio.to_thread(lire_bdd_perso, '''
                         SELECT m.joueur, ms.score as best_score, ms.match_id, ms.player_index FROM match_scoring ms
                         INNER JOIN matchs m ON ms.match_id = m.match_id AND ms.role = m.role
                         INNER JOIN tracker t ON t.riot_id = REPLACE(ms.riot_id, ' ', '')
@@ -1701,7 +1744,7 @@ class LeagueofLegends(Extension):
                         AND m.mode IN ('RANKED')
                         ORDER BY ms.score DESC
                         LIMIT 1
-                    ''', params={'joueurs': tuple(joueur)}, index_col=None).T
+                    ''', params={'joueurs': tuple(joueur)}, index_col=None)).T
 
                     if not df_best.empty and df_best['best_score'].values[0] is not None:
                         best_key = df_best['joueur'].values[0]
@@ -1717,7 +1760,7 @@ class LeagueofLegends(Extension):
                 embed.set_footer(text=f'Version {Version} by Tomlora')
 
                 if sql != '':
-                    requete_perso_bdd(sql)
+                    (await asyncio.to_thread(requete_perso_bdd, sql))
 
                 global_wr = round(totalwin / totalgames * 100) if totalgames > 0 else 0
                 embed.description = (
@@ -1736,20 +1779,20 @@ class LeagueofLegends(Extension):
                         attempts += 1
                         await sleep(5)
 
-                df_journalier = lire_bdd_perso(f'''select index, wins, losses, "LP", tier, rank, classement_euw from suivi_s{saison} where tier != 'Non-classe' ''', index_col=None).T
+                df_journalier = (await asyncio.to_thread(lire_bdd_perso, f'''select index, wins, losses, "LP", tier, rank, classement_euw from suivi_s{saison} where tier != 'Non-classe' ''', index_col=None)).T
                 date = datetime.now()
                 df_journalier['datetime'] = pd.to_datetime(f'{date.day}/{date.month}/{date.year}', format='%d/%m/%Y')
                 df_journalier['classement_euw'] = df_journalier['classement_euw'].astype(int)
                 df_journalier['saison'] = saison
 
                 try:
-                    sauvegarde_bdd(df_journalier, 'suivi_rank', 'append', index=False)
+                    (await asyncio.to_thread(sauvegarde_bdd, df_journalier, 'suivi_rank', 'append', index=False))
                 except Exception:
-                    requete_perso_bdd('''
+                    (await asyncio.to_thread(requete_perso_bdd, '''
                         INSERT INTO suivi_rank (index, wins, losses, "LP", tier, rank, classement_euw, datetime, saison)
                         VALUES (:index, :wins, :losses, :LP, :tier, :rank, :classement_euw, :datetime, :saison)
                         ON CONFLICT (index, datetime, saison) DO NOTHING
-                    ''', df_journalier.to_dict(orient='records'))
+                    ''', df_journalier.to_dict(orient='records')))
 
     @Task.create(TimeTrigger(hour=6))
     async def lolsuivi(self):
@@ -1788,15 +1831,9 @@ class LeagueofLegends(Extension):
     async def load_resume(self, ctx: SlashContext, match_id):
         await ctx.defer()
 
-        data = lire_bdd_perso(f'''SELECT * from match_images where match_id = '{match_id}' ''', index_col='match_id').T
+        data = (await asyncio.to_thread(lire_bdd_perso, f'''SELECT * from match_images where match_id = '{match_id}' ''', index_col='match_id')).T
         image_bytes = data['image'].values[0]
-        image: Image.Image = Image.open(io.BytesIO(image_bytes))
-
-        image.save('resume_save.png')
-
-        await ctx.send(file='resume_save.png')
-
-        os.remove('resume_save.png')
+        await ctx.send(files=interactions.File(io.BytesIO(image_bytes), file_name='resume_save.png'))
 
     @chargement_ancienne_game.subcommand('resume_complet',
                                           sub_cmd_description="Charger le résumé d'une partie",
@@ -1808,20 +1845,16 @@ class LeagueofLegends(Extension):
     async def load_embed(self, ctx: SlashContext, match_id):
         await ctx.defer()
 
-        data = lire_bdd_perso(f'''SELECT match_embed.match_id, match_images.image, match_embed.joueur, match_embed.data from match_embed
+        data = (await asyncio.to_thread(lire_bdd_perso, f'''SELECT match_embed.match_id, match_images.image, match_embed.joueur, match_embed.data from match_embed
                               inner join match_images on match_embed.match_id = match_images.match_id
-                              where match_embed.match_id = '{match_id}' and match_images.match_id = '{match_id}' ''', index_col='match_id').T
+                              where match_embed.match_id = '{match_id}' and match_images.match_id = '{match_id}' ''', index_col='match_id')).T
 
         data_binary = data['data'].values[0]
 
-        original_embed = pickle.loads(data_binary)
+        original_embed = (await asyncio.to_thread(pickle.loads, data_binary))
 
         image_bytes = data['image'].values[0]
-        image: Image.Image = Image.open(io.BytesIO(image_bytes))
-
-        image.save('resume_save.png')
-
-        resume = interactions.File('resume_save.png')
+        resume = interactions.File(io.BytesIO(image_bytes), file_name='resume_save.png')
         original_embed.set_image(url='attachment://resume_save.png')
 
         records_button = None
@@ -1850,7 +1883,6 @@ class LeagueofLegends(Extension):
             available=challenge_snapshot is not None,
         )
         await ctx.send(embeds=original_embed, files=resume, components=records_button)
-        os.remove('resume_save.png')
 
 
 def setup(bot):
