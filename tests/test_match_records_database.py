@@ -249,7 +249,8 @@ def test_calculation_save_data_postgres_and_score_button_keep_five_explanations(
     asyncio.run(cog.on_open(ctx))
     pages = []
     for _ in range(25):
-        response = ctx.calls[-1][2]
+        assert ctx.calls[-1][0] in ('send', 'edit_origin')
+        response = ctx.calls[-1][-1]
         assert 'embeds' in response and response['embeds']
         pages.append(response['embeds'])
         next_button = response['components'][0].components[1]
