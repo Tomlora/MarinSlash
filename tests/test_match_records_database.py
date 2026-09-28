@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from test_match_records_ui import PREFS, VIEWS, DETAILS
+from test_match_scoring import modules as scoring_modules, match_fixture, calculate
 
 DSN = os.environ.get("TEST_POSTGRES_DSN")
 pytestmark = pytest.mark.skipif(not DSN, reason="PostgreSQL de test non configuré")
@@ -191,6 +192,7 @@ def test_legacy_scoring_and_gold_use_riot_identity_and_account_perspective(datab
     scores = DETAILS.load_score("EUW1_123", 5)[1]
     assert len(scores) == 2
     assert [s["player_index"] for s in scores if s["tracked"]] == [2]
+    assert next(s for s in scores if s['tracked'])['explanation_status'] == 'snapshot_unavailable'
     database.execute("""CREATE TABLE matchs_timestamp_gold (
         match_id TEXT, riot_id BIGINT, timestamp DOUBLE PRECISION,
         gold_allie DOUBLE PRECISION, gold_adv DOUBLE PRECISION
@@ -203,3 +205,61 @@ def test_legacy_scoring_and_gold_use_riot_identity_and_account_perspective(datab
     points = DETAILS.load_gold("EUW1_123", 5)[1]
     assert points == [{"minute": 0, "blue": 2500, "red": 2500},
                       {"minute": 1, "blue": 3500, "red": 3000}]
+
+
+@pytest.mark.parametrize('tracked,minutes', [(1, 20), (1, 40), (7, 20), (7, 40)])
+@pytest.mark.parametrize('existing', [False, True])
+def test_calculation_save_data_postgres_and_score_button_keep_five_explanations(
+        database, scoring_modules, tracked, minutes, existing):
+    """Actual calculation -> save_data -> JSONB -> load_score -> button pagination."""
+    import ast
+    import asyncio
+    from test_match_records_ui import MATCH_DIR, VIEW_COG, RecordingContext
+
+    match = calculate(match_fixture(scoring_modules, tracked=tracked, duration=minutes*60))
+    match.last_match, match.id_compte = 'EUW1_123', 5
+    database.execute("INSERT INTO tracker VALUES (5,123,'Renamed','TEST',%s)", (match.puuid,))
+    def insert_match():
+        database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri')")
+    if existing:
+        insert_match()
+    match._insert_match_data = insert_match
+    match._insert_participant_data = match._insert_other_match_data = match._insert_points_data = lambda: None
+    match.thisKDA, match.session, match.version = 3., None, {'n': {'champion': 'test'}}
+    tree = ast.parse((MATCH_DIR / 'save_data.py').read_text(encoding='utf-8'))
+    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'SaveDataMixin')
+    method = next(n for n in cls.body if isinstance(n, ast.AsyncFunctionDef) and n.name == 'save_data')
+    async def tags(*args):
+        return pd.DataFrame()
+    env = dict(asyncio=asyncio, lire_bdd_perso=DETAILS.lire_bdd_perso,
+               save_recap_details=DETAILS.save_recap_details, get_data_champ_tags=tags,
+               sauvegarde_bdd=lambda *a, **kw: None)
+    exec(compile(ast.Module(body=[method], type_ignores=[]), 'save_data.py', 'exec'), env)
+    asyncio.run(env['save_data'](match))
+    # No live calculation object is available when a user opens the button later.
+    match.player_metrics_liste.clear()
+    payload = database.execute("SELECT data FROM match_recap_details WHERE joueur=5").fetchone()[0]
+    saved = [p for p in payload['scores'] if 'dimension_explanations' in p]
+    assert len(saved) == 1 and saved[0]['riot_id'] == f'Player{tracked}'
+    assert saved[0]['explanation_status'] == 'available'
+    assert saved[0]['dimension_explanations']['duration_minutes'] == minutes
+    assert len(saved[0]['dimension_explanations']['dimensions']) == 5
+    cog = VIEW_COG.LolMatchViews.__new__(VIEW_COG.LolMatchViews)
+    ctx = RecordingContext('lolview_open_score_EUW1_123_5')
+    asyncio.run(cog.on_open(ctx))
+    pages = []
+    for _ in range(25):
+        response = ctx.calls[-1][2]
+        assert 'embeds' in response and response['embeds']
+        pages.append(response['embeds'])
+        next_button = response['components'][0].components[1]
+        if next_button.disabled:
+            break
+        ctx = RecordingContext(next_button.custom_id)
+        asyncio.run(cog.on_page(ctx))
+    else:
+        pytest.fail('Pagination does not end')
+    assert sum(f.name == 'Comment retrouver la note' for p in pages for f in p.fields) == 5
+    explained = [p for p in pages if 'Pourquoi cette note' in p.title]
+    assert all(f'Player{tracked}#TEST' in p.description for p in explained)
+    assert not any('anomalie' in f.value for p in pages for f in p.fields)

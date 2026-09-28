@@ -1045,7 +1045,7 @@ def test_score_pages_show_dimensions_comparison_and_all_ten_players():
 
 def test_explanations_are_saved_only_for_tracked_puuid_and_render_within_limits(monkeypatch):
     info = sample_details_match()
-    info.player_metrics_liste = [object() for _ in range(10)]
+    info.player_metrics_liste = [types.SimpleNamespace(explanation_context={'version': 1}) for _ in range(10)]
     calls = []
     detail = {'version': 1, 'dimensions': [
         {'key': key, 'title': title, 'score': 2, 'summary': 'Ce qui limite la note : critère suivi.',
@@ -1081,11 +1081,49 @@ def test_explanations_are_saved_only_for_tracked_puuid_and_render_within_limits(
 
 def test_old_recap_explains_why_details_are_missing():
     scores = DETAILS.snapshot(sample_details_match())['scores']
+    scores[2].pop('explanation_status', None)
     for version in (None, 999):
         scores[2]['dimension_explanations'] = {'version': version, 'dimensions': []}
         pages = DETAILS.build_score_pages(example_match(), scores)
         assert not any('Pourquoi cette note' in p.title for p in pages)
         assert any("n'ont pas été sauvegardés" in f.value for p in pages for f in p.fields)
+
+
+@pytest.mark.parametrize('failure', ['missing_metrics', 'missing_context', 'inconsistent_context', 'invalid_context'])
+def test_fresh_recap_records_explanation_failure_without_losing_other_data(scoring_modules, caplog, failure):
+    match = calculate(match_fixture(scoring_modules, tracked=7))
+    match.last_match, match.id_compte = 'EUW1_123', 5
+    index = match.thisPuuidListe.index(match.puuid)
+    metrics = match.player_metrics_liste[index]
+    # Keep the computed summaries available, as with mixed loaded module versions.
+    summaries = match.get_all_players_performance_summary()
+    match.get_all_players_performance_summary = lambda: summaries
+    if failure == 'missing_metrics':
+        match.player_metrics_liste = []
+    elif failure == 'missing_context':
+        metrics.explanation_context = {}
+    elif failure == 'inconsistent_context':
+        metrics.combat_value += 1
+    else:
+        metrics.explanation_context['dimensions'][0]['components'][0]['points'] = float('nan')
+    data = DETAILS.snapshot(match)
+    json.dumps(data, allow_nan=False)
+    assert len(data['scores']) == 10
+    player = next(p for p in data['scores'] if p['tracked'])
+    assert player['explanation_status'] == failure
+    assert 'dimension_explanations' not in player
+    assert f'match=EUW1_123 compte=5 index={index} scoring=4.0 raison={failure}' in caplog.text
+    values = '\n'.join(f.value for p in DETAILS.build_score_pages(example_match(), data['scores']) for f in p.fields)
+    assert "anomalie à vérifier" in values
+    assert "inclura leur explication" not in values
+
+
+def test_unknown_old_recap_does_not_claim_that_age_explains_missing_details():
+    scores = DETAILS.snapshot(sample_details_match())['scores']
+    for player in scores:
+        player.pop('explanation_status', None)
+    values = '\n'.join(f.value for p in DETAILS.build_score_pages(example_match(), scores) for f in p.fields)
+    assert "ne permettent pas de savoir" in values
 
 
 @pytest.mark.parametrize('tracked', [1, 6, 10])
