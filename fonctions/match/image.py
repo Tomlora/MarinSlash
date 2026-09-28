@@ -452,7 +452,7 @@ class ImageGenerationMixin:
         array_scoring = np.array([]) # qu'on va mettre du plus grand au plus petit
         liste = []  # en ordre en fonction des joueurs
         for i in range(0,10):
-            liste.append(self.calcul_scoring(i))
+            liste.append(self.calcul_scoring(i) if self.thisQ in ('ARAM', 'CLASH ARAM') else self._get_player_rank(i))
             scoring_joueur = liste[i]
             array_scoring = np.append(array_scoring, scoring_joueur)
 
@@ -551,7 +551,8 @@ class ImageGenerationMixin:
                         tier_joueur), font=font, fill=fill)
 
 
-            scoring = np.where(array_scoring_trie == liste[i])[0][0] + 1
+            scoring = (np.where(array_scoring_trie == liste[i])[0][0] + 1
+                       if self.thisQ in ('ARAM', 'CLASH ARAM') else self._get_player_rank(i))
             if self.thisRiotIdListe[i].lower().replace(' ', '') == self.riot_id:
                 requete_perso_bdd('''UPDATE matchs
                                       SET mvp = :mvp 

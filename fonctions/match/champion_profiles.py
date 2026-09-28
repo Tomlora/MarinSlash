@@ -7,7 +7,10 @@ Ce module permet d'ajuster les baselines et les poids selon le profil du champio
 
 from enum import Enum
 from typing import Dict, Tuple, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
+import json
+import math
+from pathlib import Path
 
 
 class ChampionProfile(Enum):
@@ -62,7 +65,7 @@ def get_champion_profile(tags: list, role: str) -> ChampionProfile:
     primary_tag = tags[0]
     secondary_tag = tags[1] if len(tags) > 1 else None
     
-    role = role.upper()
+    role = {"UTILITY": "SUPPORT", "MIDDLE": "MID", "BOTTOM": "ADC"}.get(role.upper(), role.upper())
     
     # === SUPPORT ===
     if role == "SUPPORT":
@@ -213,132 +216,40 @@ def load_profile_adjustments() -> Dict[Tuple[str, ChampionProfile], ProfileAdjus
     if _PROFILE_ADJUSTMENTS_CACHE:
         return _PROFILE_ADJUSTMENTS_CACHE
     
+    # Seed all 21 profiles before applying valid database overrides.
+    _load_default_profile_adjustments()
     try:
         from fonctions.gestion_bdd import lire_bdd_perso
-        
-        df = lire_bdd_perso(
-            "SELECT * FROM scoring_profile_ratios",
-            index_col=None
-        ).T
-        
+        df = lire_bdd_perso("SELECT * FROM scoring_profile_ratios", index_col=None).T
         for _, row in df.iterrows():
-            role = row.get('role', '').upper()
-            profile_str = row.get('profile', '').upper()
-            
-            # Convertir le string en enum
+            role = str(row.get('role', '')).upper()
+            role = {"UTILITY": "SUPPORT", "MIDDLE": "MID", "BOTTOM": "ADC"}.get(role, role)
             try:
-                profile = ChampionProfile(profile_str)
+                profile = ChampionProfile(str(row.get('profile', '')).upper())
             except ValueError:
                 continue
-            
-            adjustments = ProfileAdjustments(
-                damage_per_min_mult=float(row.get('damage_per_min_mult', 1.0)),
-                damage_share_mult=float(row.get('damage_share_mult', 1.0)),
-                cs_per_min_mult=float(row.get('cs_per_min_mult', 1.0)),
-                gold_per_min_mult=float(row.get('gold_per_min_mult', 1.0)),
-                vision_mult=float(row.get('vision_mult', 1.0)),
-                kp_mult=float(row.get('kp_mult', 1.0)),
-                damage_taken_share_mult=float(row.get('damage_taken_share_mult', 1.0)),
-                combat_weight_adj=float(row.get('combat_weight_adj', 0.0)),
-                economic_weight_adj=float(row.get('economic_weight_adj', 0.0)),
-                objective_weight_adj=float(row.get('objective_weight_adj', 0.0)),
-                tempo_weight_adj=float(row.get('tempo_weight_adj', 0.0)),
-                impact_weight_adj=float(row.get('impact_weight_adj', 0.0)),
-            )
-            
-            _PROFILE_ADJUSTMENTS_CACHE[(role, profile)] = adjustments
-                
-    except Exception as e:
-        print(f"Warning: Error loading profile adjustments from database: {e}")
-        # Fallback sur les valeurs par défaut hardcodées
-        _load_default_profile_adjustments()
-    
+            base = _PROFILE_ADJUSTMENTS_CACHE.get((role, profile), ProfileAdjustments())
+            values = {}
+            for item in fields(ProfileAdjustments):
+                try:
+                    value = float(row.get(item.name, getattr(base, item.name)))
+                    if not math.isfinite(value) or (item.name.endswith('_mult') and value <= 0):
+                        raise ValueError(item.name)
+                except (TypeError, ValueError):
+                    value = getattr(base, item.name)
+                values[item.name] = value
+            _PROFILE_ADJUSTMENTS_CACHE[(role, profile)] = ProfileAdjustments(**values)
+    except Exception as exc:
+        print(f"Warning: using scoring profile defaults: {exc}")
     return _PROFILE_ADJUSTMENTS_CACHE
 
 
 def _load_default_profile_adjustments():
-    """Charge les valeurs par défaut si la BDD n'est pas disponible."""
-    global _PROFILE_ADJUSTMENTS_CACHE
-    
-    defaults = {
-        # === TOP LANE ===
-        ("TOP", ChampionProfile.TANK): ProfileAdjustments(
-            damage_per_min_mult=0.75, damage_share_mult=0.80, cs_per_min_mult=0.90,
-            damage_taken_share_mult=1.30, combat_weight_adj=-0.05, objective_weight_adj=0.05,
-        ),
-        ("TOP", ChampionProfile.FIGHTER): ProfileAdjustments(damage_taken_share_mult=1.10),
-        ("TOP", ChampionProfile.ASSASSIN): ProfileAdjustments(
-            damage_per_min_mult=1.15, damage_share_mult=1.10, cs_per_min_mult=1.05,
-            damage_taken_share_mult=0.80, combat_weight_adj=0.05, economic_weight_adj=0.05,
-        ),
-        ("TOP", ChampionProfile.MAGE): ProfileAdjustments(
-            damage_per_min_mult=1.10, damage_share_mult=1.05, damage_taken_share_mult=0.70, vision_mult=1.10,
-        ),
-        ("TOP", ChampionProfile.MARKSMAN): ProfileAdjustments(
-            damage_per_min_mult=1.20, damage_share_mult=1.15, cs_per_min_mult=1.10,
-            damage_taken_share_mult=0.60, combat_weight_adj=0.05, tempo_weight_adj=0.05,
-        ),
-        
-        # === JUNGLE ===
-        ("JUNGLE", ChampionProfile.TANK): ProfileAdjustments(
-            damage_per_min_mult=0.70, damage_share_mult=0.75, damage_taken_share_mult=1.30,
-            kp_mult=1.10, combat_weight_adj=-0.05, objective_weight_adj=0.10,
-        ),
-        ("JUNGLE", ChampionProfile.FIGHTER): ProfileAdjustments(damage_taken_share_mult=1.05),
-        ("JUNGLE", ChampionProfile.ASSASSIN): ProfileAdjustments(
-            damage_per_min_mult=1.15, damage_share_mult=1.10, damage_taken_share_mult=0.70,
-            kp_mult=0.95, combat_weight_adj=0.10, objective_weight_adj=-0.05,
-        ),
-        ("JUNGLE", ChampionProfile.MAGE): ProfileAdjustments(
-            damage_per_min_mult=1.10, damage_share_mult=1.05, cs_per_min_mult=1.10,
-            damage_taken_share_mult=0.60, tempo_weight_adj=0.05,
-        ),
-        ("JUNGLE", ChampionProfile.MARKSMAN): ProfileAdjustments(
-            damage_per_min_mult=1.15, damage_share_mult=1.10, damage_taken_share_mult=0.65,
-            combat_weight_adj=0.05, tempo_weight_adj=0.05,
-        ),
-        
-        # === MID LANE ===
-        ("MID", ChampionProfile.MAGE): ProfileAdjustments(),
-        ("MID", ChampionProfile.ASSASSIN): ProfileAdjustments(
-            damage_per_min_mult=0.90, cs_per_min_mult=0.90, kp_mult=1.15,
-            combat_weight_adj=0.10, economic_weight_adj=-0.10, tempo_weight_adj=0.05,
-        ),
-        ("MID", ChampionProfile.FIGHTER): ProfileAdjustments(
-            damage_per_min_mult=1.05, damage_taken_share_mult=1.20, cs_per_min_mult=1.05, combat_weight_adj=0.05,
-        ),
-        
-        # === ADC ===
-        ("ADC", ChampionProfile.MARKSMAN): ProfileAdjustments(),
-        ("ADC", ChampionProfile.ASSASSIN): ProfileAdjustments(
-            damage_per_min_mult=1.05, kp_mult=1.10, cs_per_min_mult=0.95, combat_weight_adj=0.05,
-        ),
-        ("ADC", ChampionProfile.MAGE): ProfileAdjustments(cs_per_min_mult=0.95, vision_mult=1.10),
-        
-        # === SUPPORT ===
-        ("SUPPORT", ChampionProfile.TANK): ProfileAdjustments(
-            damage_per_min_mult=0.80, damage_taken_share_mult=1.40, kp_mult=1.10, vision_mult=0.90,
-            combat_weight_adj=0.05, objective_weight_adj=0.05,
-        ),
-        ("SUPPORT", ChampionProfile.SUPPORT_UTILITY): ProfileAdjustments(
-            damage_per_min_mult=0.60, damage_share_mult=0.50, damage_taken_share_mult=0.80,
-            vision_mult=1.15, kp_mult=1.05, objective_weight_adj=0.10, combat_weight_adj=-0.10,
-        ),
-        ("SUPPORT", ChampionProfile.MAGE): ProfileAdjustments(
-            damage_per_min_mult=1.80, damage_share_mult=1.50, damage_taken_share_mult=0.70,
-            vision_mult=0.85, kp_mult=1.05, combat_weight_adj=0.15, economic_weight_adj=0.10, objective_weight_adj=-0.10,
-        ),
-        ("SUPPORT", ChampionProfile.ASSASSIN): ProfileAdjustments(
-            damage_per_min_mult=1.20, kp_mult=1.20, gold_per_min_mult=1.10, vision_mult=0.80,
-            combat_weight_adj=0.15, tempo_weight_adj=0.10, objective_weight_adj=-0.10,
-        ),
-        ("SUPPORT", ChampionProfile.MARKSMAN): ProfileAdjustments(
-            damage_per_min_mult=1.40, damage_share_mult=1.20, gold_per_min_mult=1.10, vision_mult=0.95,
-            combat_weight_adj=0.05, tempo_weight_adj=0.05,
-        ),
-    }
-    
-    _PROFILE_ADJUSTMENTS_CACHE.update(defaults)
+    """Fallback synchronized with the supplied BDD export (2026-09-28)."""
+    path = Path(__file__).with_name('scoring_profile_defaults.json')
+    for row in json.loads(path.read_text(encoding='utf-8')):
+        values = {item.name: row[item.name] for item in fields(ProfileAdjustments)}
+        _PROFILE_ADJUSTMENTS_CACHE[(row['role'], ChampionProfile(row['profile']))] = ProfileAdjustments(**values)
 
 
 def get_profile_adjustments(role: str, profile: ChampionProfile) -> ProfileAdjustments:
@@ -347,13 +258,7 @@ def get_profile_adjustments(role: str, profile: ChampionProfile) -> ProfileAdjus
     if not _PROFILE_ADJUSTMENTS_CACHE:
         load_profile_adjustments()
     
-    role = role.upper()
-    if role == "BOTTOM":
-        role = "ADC"
-    elif role == "UTILITY":
-        role = "SUPPORT"
-    elif role == "MIDDLE":
-        role = "MID"
+    role = {"UTILITY": "SUPPORT", "MIDDLE": "MID", "BOTTOM": "ADC"}.get(role.upper(), role.upper())
     
     key = (role, profile)
     return _PROFILE_ADJUSTMENTS_CACHE.get(key, ProfileAdjustments())

@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 import pickle
 from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, sauvegarde_bdd
 from .utils import fix_temps, load_timeline
+from .scoring_inputs import storage_index
 from .riot_api import get_data_champ_tags
 from .recap_details import save_recap_details
 
@@ -150,7 +151,7 @@ class SaveDataMixin:
             'dmg_tower': self.thisDamageTurrets,
             'turret_plates_taken_total': self.thisTurretPlatesTaken,
             'gold_share': self.gold_share,
-            'mvp': self.player_score,
+            'mvp': self.player_rank,
             'ecart_gold_team': self.ecart_gold_team,
             'ka': self.thisKills + self.thisAssists,
             'time_first_death': self.thisTimeLiving,
@@ -358,6 +359,8 @@ class SaveDataMixin:
                     :worst_dimension, :worst_dimension_score
                 )
                 ON CONFLICT (match_id, player_index) DO UPDATE SET
+                    riot_id = EXCLUDED.riot_id, riot_tag = EXCLUDED.riot_tag,
+                    champion = EXCLUDED.champion, team = EXCLUDED.team, role = EXCLUDED.role,
                     score = EXCLUDED.score,
                     rank = EXCLUDED.rank,
                     is_mvp = EXCLUDED.is_mvp,
@@ -374,7 +377,7 @@ class SaveDataMixin:
                 ''',
                 {
                     'match_id': self.last_match,
-                    'player_index': i,
+                    'player_index': storage_index(self, i),
                     'riot_id': riot_id.lower() if riot_id else '',
                     'riot_tag': riot_tag.upper() if riot_tag else '',
                     'champion': champion,
@@ -477,6 +480,7 @@ class SaveDataMixin:
                     :wards_placed, :wards_killed, :pinks_bought
                 )
                 ON CONFLICT (match_id, player_index) DO UPDATE SET
+                    riot_id = EXCLUDED.riot_id, riot_tag = EXCLUDED.riot_tag, champion = EXCLUDED.champion,
                     objectives_participated = EXCLUDED.objectives_participated,
                     total_objectives = EXCLUDED.total_objectives,
                     dragon_participation = EXCLUDED.dragon_participation,
@@ -493,7 +497,7 @@ class SaveDataMixin:
                 ''',
                 {
                     'match_id': self.last_match,
-                    'player_index': i,
+                    'player_index': storage_index(self, i),
                     'riot_id': riot_id.lower() if riot_id else '',
                     'riot_tag': riot_tag.upper() if riot_tag else '',
                     'champion': champion,
@@ -514,5 +518,4 @@ class SaveDataMixin:
                     'pinks_bought': pinks_bought,
                 }
             )
-
 

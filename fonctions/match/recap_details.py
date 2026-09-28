@@ -78,6 +78,10 @@ def snapshot(match_info):
         scores.append({
             "player_index": index, "riot_id": at("thisRiotIdListe"), "riot_tag": at("thisRiotTagListe"),
             "champion": at("thisChampNameListe"), "role": summary.get("role"),
+            "scoring_version": summary.get("scoring_version", "legacy"),
+            **{key: number(summary.get(key)) for key in ("statistical_score", "contribution_score", "utility_score")},
+            "timeline_available": summary.get("timeline_available"),
+            "scoring_inputs": summary.get("scoring_inputs", {}),
             "team": teams.get(puuids[index]), "tracked": puuids[index] == match_info.puuid,
             **{key: number(summary.get(key)) for key in ("score", "rank")},
             **{key: truth(summary.get(key)) for key in ("is_mvp", "is_ace")},
@@ -172,6 +176,11 @@ def build_score_pages(match, scores):
          f"Note **{fmt(player.get('score'))}/10** · Rang **{fmt(player.get('rank'), 0)}/{len(scores)}**"),
         ("Dimensions", dimensions),
     ]
+    if player.get("scoring_version") == "3.0":
+        fields.append(("Calcul de la note", f"70 % statistiques ({fmt(player.get('statistical_score'))})"
+                       f" + 30 % contribution ({fmt(player.get('contribution_score'))}) · v3.0"))
+        if player.get("timeline_available") is False:
+            fields.append(("Données manquantes", "Timeline indisponible : composantes temporelles neutralisées."))
     if known:
         best, weak = max(known, key=lambda p: p[1]), min(known, key=lambda p: p[1])
         fields += [("💪 Point fort", f"{best[0]} · **{fmt(best[1])}/10**"),

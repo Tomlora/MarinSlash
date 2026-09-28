@@ -1004,6 +1004,23 @@ def test_details_snapshot_uses_puuid_after_red_team_reordering_and_finite_scores
     assert data["gold"][1]["blue"] - data["gold"][1]["red"] == 500
 
 
+def test_v3_score_snapshot_keeps_formula_inputs_and_explains_missing_timeline():
+    info = sample_details_match()
+    original = info.get_all_players_performance_summary()
+    for summary in original:
+        summary.update(scoring_version='3.0', statistical_score=7.25, contribution_score=6.5,
+                       utility_score=8, timeline_available=False,
+                       scoring_inputs={'ally_healing': 12000, 'ally_shielding': 4000, 'cc_seconds': 30})
+    data = DETAILS.snapshot(info)
+    assert data['scores'][0]['scoring_version'] == '3.0'
+    assert data['scores'][0]['scoring_inputs']['ally_healing'] == 12000
+    pages = DETAILS.build_score_pages(example_match(), data['scores'])
+    values = '\n'.join(field.value for page in pages for field in page.fields)
+    assert '70 % statistiques' in values
+    assert '30 % contribution' in values
+    assert 'Timeline indisponible' in values
+
+
 def test_score_pages_show_dimensions_comparison_and_all_ten_players():
     scores = DETAILS.snapshot(sample_details_match())["scores"]
     pages = DETAILS.build_score_pages(example_match(), scores)

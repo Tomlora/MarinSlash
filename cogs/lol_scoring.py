@@ -795,6 +795,12 @@ class LolScore(Extension):
                 color=0x00FF00 if match_info.thisWinBool else 0xFF4444
             )
             
+            embed1.add_field(
+                name="Calcul de la note",
+                value=f"70 % statistiques ({player_summary['statistical_score']}/10) + "
+                      f"30 % contribution ({player_summary['contribution_score']}/10) · v3.0",
+                inline=False,
+            )
             # Tes dimensions
             dims_text = []
             for dim_key, dim_name, emoji in [
@@ -989,8 +995,8 @@ class LolScore(Extension):
             if show_baselines:
                 # Récupérer les metrics du joueur si disponible
                 player_metrics = None
-                if hasattr(match_info, 'player_metrics_list') and player_idx < len(match_info.player_metrics_list):
-                    player_metrics = match_info.player_metrics_list[player_idx]
+                if hasattr(match_info, 'player_metrics_liste') and player_idx < len(match_info.player_metrics_liste):
+                    player_metrics = match_info.player_metrics_liste[player_idx]
                 
                 embed4 = generate_role_baselines_embed(
                     player_summary, player_stats,
@@ -1194,8 +1200,8 @@ class LolScore(Extension):
             
             # Récupérer les metrics du joueur si disponible
             player_metrics = None
-            if hasattr(match_info, 'player_metrics_list') and player_idx < len(match_info.player_metrics_list):
-                player_metrics = match_info.player_metrics_list[player_idx]
+            if hasattr(match_info, 'player_metrics_liste') and player_idx < len(match_info.player_metrics_liste):
+                player_metrics = match_info.player_metrics_liste[player_idx]
             
             # Générer l'embed des barèmes
             embed = generate_role_baselines_embed(
