@@ -162,7 +162,8 @@ class MatchLol(
             Embed enrichi avec les résultats
         """
         # Session HTTP
-        self.session = aiohttp.ClientSession()
+        if self.session is None or self.session.closed:
+            self.session = aiohttp.ClientSession()
         self.save = save
 
         try:
