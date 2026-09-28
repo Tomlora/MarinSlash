@@ -8,6 +8,8 @@ import types
 from pathlib import Path
 
 import pandas as pd
+import pytest
+from test_match_scoring import modules as scoring_modules, match_fixture, calculate
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,7 +73,7 @@ def _load_under_stubs():
     targets = (
         "fonctions", "fonctions.match", "fonctions.match.records_display",
         "fonctions.match.records_ui", "fonctions.match.records_preferences",
-        "fonctions.match.match_views", "fonctions.match.recap_details", "cogs.settings_records", "cogs.lol_match_views",
+        "fonctions.match.match_views", "fonctions.match.recap_details", "fonctions.match.score_explanations", "cogs.settings_records", "cogs.lol_match_views",
         "fonctions.gestion_bdd", "interactions",
         "utils", "utils.emoji", "cogs", "cogs.lol_records",
     )
@@ -1039,6 +1041,131 @@ def test_score_pages_show_dimensions_comparison_and_all_ten_players():
     assert "Données indisponibles" in DETAILS.build_score_pages(example_match(), [])[0].title
     scores[2]["combat_value"] = None
     assert "Écart **—**" in DETAILS.build_score_pages(example_match(), scores)[1].fields[0].value
+
+
+def test_explanations_are_saved_only_for_tracked_puuid_and_render_within_limits(monkeypatch):
+    info = sample_details_match()
+    info.player_metrics_liste = [types.SimpleNamespace(explanation_context={'version': 1}) for _ in range(10)]
+    calls = []
+    detail = {'version': 1, 'dimensions': [
+        {'key': key, 'title': title, 'score': 2, 'summary': 'Ce qui limite la note : critère suivi.',
+         'components': [{'label': f'Critère {i}', 'score': 2, 'weight': 1/7, 'points': 2/7,
+                         'neutral': False, 'observation': 'Observation du joueur suivi.',
+                         'reference': 'Barème sauvegardé de cette partie.'} for i in range(7)]}
+        for key, title in DETAILS.DIMENSIONS]}
+    def explain(metrics):
+        calls.append(metrics)
+        return detail
+    monkeypatch.setattr(DETAILS, 'build_dimension_explanations', explain)
+    data = json.loads(json.dumps(DETAILS.snapshot(info), allow_nan=False))
+    assert calls == [info.player_metrics_liste[2]]
+    assert [p['player_index'] for p in data['scores'] if 'dimension_explanations' in p] == [2]
+    # Never render another player's detailed data, even if present in an old payload.
+    data['scores'][0]['dimension_explanations'] = {'version': 1, 'dimensions': [
+        {'title': 'NEVER DISPLAY', 'score': 10}]}
+    pages = DETAILS.build_score_pages(example_match(), data['scores'])
+    explained = [p for p in pages if 'Pourquoi cette note' in p.title]
+    assert len(explained) == 10
+    for _, title in DETAILS.DIMENSIONS:
+        assert sum(title in p.title for p in explained) == 2
+    assert all('Player7#TEST' in p.description for p in explained)
+    assert all('NEVER DISPLAY' not in p.title for p in pages)
+    for page in pages:
+        assert len(page.fields) <= 5
+        assert all(len(f.value) <= 900 and len(f.name) <= 256 for f in page.fields)
+        assert sum(len(f.name) + len(f.value) for f in page.fields) + len(page.description) + len(page.title) + len(page.footer) <= 6000
+    assert sum('Comment retrouver la note' == f.name for p in pages for f in p.fields) == 5
+    assert len([p for p in pages if 'Comparaison' in p.title]) == 1
+    assert sum(len(p.fields) for p in pages if 'Classement' in p.title) == 10
+
+
+def test_old_recap_explains_why_details_are_missing():
+    scores = DETAILS.snapshot(sample_details_match())['scores']
+    scores[2].pop('explanation_status', None)
+    for version in (None, 999):
+        scores[2]['dimension_explanations'] = {'version': version, 'dimensions': []}
+        pages = DETAILS.build_score_pages(example_match(), scores)
+        assert not any('Pourquoi cette note' in p.title for p in pages)
+        assert any("n'ont pas été sauvegardés" in f.value for p in pages for f in p.fields)
+
+
+@pytest.mark.parametrize('failure', ['missing_metrics', 'missing_context', 'inconsistent_context', 'invalid_context'])
+def test_fresh_recap_records_explanation_failure_without_losing_other_data(scoring_modules, caplog, failure):
+    match = calculate(match_fixture(scoring_modules, tracked=7))
+    match.last_match, match.id_compte = 'EUW1_123', 5
+    index = match.thisPuuidListe.index(match.puuid)
+    metrics = match.player_metrics_liste[index]
+    # Keep the computed summaries available, as with mixed loaded module versions.
+    summaries = match.get_all_players_performance_summary()
+    match.get_all_players_performance_summary = lambda: summaries
+    if failure == 'missing_metrics':
+        match.player_metrics_liste = []
+    elif failure == 'missing_context':
+        metrics.explanation_context = {}
+    elif failure == 'inconsistent_context':
+        metrics.combat_value += 1
+    else:
+        metrics.explanation_context['dimensions'][0]['components'][0]['points'] = float('nan')
+    data = DETAILS.snapshot(match)
+    json.dumps(data, allow_nan=False)
+    assert len(data['scores']) == 10
+    player = next(p for p in data['scores'] if p['tracked'])
+    assert player['explanation_status'] == failure
+    assert 'dimension_explanations' not in player
+    assert f'match=EUW1_123 compte=5 index={index} scoring=4.0 raison={failure}' in caplog.text
+    values = '\n'.join(f.value for p in DETAILS.build_score_pages(example_match(), data['scores']) for f in p.fields)
+    assert "anomalie à vérifier" in values
+    assert "inclura leur explication" not in values
+
+
+def test_unknown_old_recap_does_not_claim_that_age_explains_missing_details():
+    scores = DETAILS.snapshot(sample_details_match())['scores']
+    for player in scores:
+        player.pop('explanation_status', None)
+    values = '\n'.join(f.value for p in DETAILS.build_score_pages(example_match(), scores) for f in p.fields)
+    assert "ne permettent pas de savoir" in values
+
+
+@pytest.mark.parametrize('tracked', [1, 6, 10])
+def test_real_scoring_snapshot_roundtrip_explains_only_recap_player(scoring_modules, tracked):
+    match = calculate(match_fixture(scoring_modules, tracked=tracked))
+    scores = json.loads(json.dumps(DETAILS.snapshot(match), allow_nan=False))['scores']
+    saved = [p for p in scores if 'dimension_explanations' in p]
+    assert len(saved) == 1 and saved[0]['tracked']
+    assert saved[0]['riot_id'] == f'Player{tracked}'
+    for dimension in saved[0]['dimension_explanations']['dimensions']:
+        assert dimension['score'] == pytest.approx(saved[0][dimension['key']], abs=.051)
+    pages = DETAILS.build_score_pages(example_match(), scores)
+    assert any('Pourquoi cette note' in p.title for p in pages)
+    assert sum(f.name == 'Comment retrouver la note' for p in pages for f in p.fields) == 5
+
+
+def test_v4_command_displays_current_duration_references(scoring_modules):
+    import ast
+    tree = ast.parse((COG_DIR / 'lol_scoring.py').read_text(encoding='utf-8'))
+    function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'generate_role_baselines_embed')
+    env = {'interactions': types.SimpleNamespace(Embed=FakeEmbed), 'BREAKDOWN_BASELINES': None}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), 'lol_scoring.py', 'exec'), env)
+    match = calculate(match_fixture(scoring_modules, tracked=6, duration=1200))
+    m = match.player_metrics_liste[0]
+    embed = env['generate_role_baselines_embed'](match.get_performance_summary_for_player(0), {}, m, match, 0)
+    assert '20.0 min' in embed.description and 'v4' in embed.description
+    assert len(embed.fields) == 5
+    assert all(len(f.value) < 1000 for f in embed.fields)
+    assert '1.0` - `3.0' not in '\n'.join(f.value for f in embed.fields)
+
+
+def test_v4_snapshot_keeps_original_duration_and_bonus_points(scoring_modules):
+    match = calculate(match_fixture(scoring_modules, tracked=6, duration=1200))
+    scores = json.loads(json.dumps(DETAILS.snapshot(match), allow_nan=False))['scores']
+    player = next(p for p in scores if p['tracked'])
+    assert player['scoring_version'] == '4.0'
+    assert player['dimension_explanations']['duration_minutes'] == 20
+    match.player_metrics_liste[0].game_minutes = 40
+    pages = DETAILS.build_score_pages(example_match(), scores)
+    text = '\n'.join(p.description + '\n' + '\n'.join(f.value for f in p.fields) for p in pages)
+    assert 'v4.0' in text and 'Durée : 20 min' in text
+    assert '+0,60 point(s)' in text  # two first actions and one early solo kill
 
 
 def test_gold_callback_acknowledges_before_loading_uploads_png_and_handles_missing_data():

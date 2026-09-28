@@ -130,7 +130,7 @@ def get_champion_profile(tags: list, role: str) -> ChampionProfile:
         elif primary_tag == "Marksman":
             return ChampionProfile.MARKSMAN
         elif primary_tag == 'Support': # Ivern
-            return ChampionProfile.TANK
+            return ChampionProfile.SUPPORT_UTILITY
         else:
             return ChampionProfile.FIGHTER
     
@@ -153,7 +153,7 @@ def get_champion_profile(tags: list, role: str) -> ChampionProfile:
         # Marksman standard
         if primary_tag == "Marksman":
             if secondary_tag == "Assassin":
-                return ChampionProfile.MARKSMAN  # Samira, Lucian, Tristana - Cela reste des ADC
+                return ChampionProfile.ASSASSIN  # Use the configured aggressive ADC profile
             else:
                 return ChampionProfile.MARKSMAN
         # Mage ADC (Ziggs, Cassio bot)
@@ -261,7 +261,13 @@ def get_profile_adjustments(role: str, profile: ChampionProfile) -> ProfileAdjus
     role = {"UTILITY": "SUPPORT", "MIDDLE": "MID", "BOTTOM": "ADC"}.get(role.upper(), role.upper())
     
     key = (role, profile)
-    return _PROFILE_ADJUSTMENTS_CACHE.get(key, ProfileAdjustments())
+    fallback = ProfileAdjustments()
+    if key == ('ADC', ChampionProfile.FIGHTER):
+        fallback = ProfileAdjustments(damage_per_min_mult=1.05, damage_taken_share_mult=1.1)
+    elif key == ('JUNGLE', ChampionProfile.SUPPORT_UTILITY):
+        fallback = ProfileAdjustments(damage_per_min_mult=.5, damage_share_mult=.5,
+                                      cs_per_min_mult=.85, gold_per_min_mult=.85, kp_mult=1.1)
+    return _PROFILE_ADJUSTMENTS_CACHE.get(key, fallback)
 
 
 # =============================================================================
@@ -339,6 +345,11 @@ def get_profile_for_champion(champion_name: str, role: str) -> ChampionProfile:
     Returns:
         ChampionProfile correspondant
     """
+    key = champion_name.lower().replace(' ', '').replace("'", '')
+    if key == 'ivern' and role.upper() in ('JUNGLE', 'JGL'):
+        return ChampionProfile.SUPPORT_UTILITY
+    if role.upper() in ('ADC', 'BOTTOM') and key in ('samira', 'lucian', 'draven'):
+        return ChampionProfile.ASSASSIN
     tags = get_champion_tags(champion_name)
     return get_champion_profile(tags, role)
 

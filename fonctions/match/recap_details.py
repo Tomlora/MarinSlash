@@ -3,6 +3,7 @@ import json
 import logging
 from io import BytesIO
 from threading import Lock
+from .score_explanations import build_dimension_explanations, explanation_fields
 
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 from fonctions.match.match_views import (
@@ -79,6 +80,7 @@ def snapshot(match_info):
             "player_index": index, "riot_id": at("thisRiotIdListe"), "riot_tag": at("thisRiotTagListe"),
             "champion": at("thisChampNameListe"), "role": summary.get("role"),
             "scoring_version": summary.get("scoring_version", "legacy"),
+            "scoring_supported": summary.get("scoring_supported", True),
             **{key: number(summary.get(key)) for key in ("statistical_score", "contribution_score", "utility_score")},
             "timeline_available": summary.get("timeline_available"),
             "scoring_inputs": summary.get("scoring_inputs", {}),
@@ -87,6 +89,31 @@ def snapshot(match_info):
             **{key: truth(summary.get(key)) for key in ("is_mvp", "is_ace")},
             **{key: number((summary.get("breakdown") or {}).get(key)) for key, _ in DIMENSIONS},
         })
+        if puuids[index] == match_info.puuid:
+            metrics = getattr(match_info, 'player_metrics_liste', [])
+            status = 'missing_metrics'
+            if index < len(metrics):
+                status = 'missing_context'
+                if getattr(metrics[index], 'explanation_context', None):
+                    status = 'inconsistent_context'
+                    try:
+                        explanations = build_dimension_explanations(metrics[index])
+                        if explanations:
+                            # Check the explanation separately: one bad detail must
+                            # not discard the scores and gold snapshot as well.
+                            json.dumps(explanations, allow_nan=False)
+                            scores[-1]['dimension_explanations'] = explanations
+                            status = 'available'
+                    except (KeyError, TypeError, ValueError, AttributeError):
+                        status = 'invalid_context'
+                        log.exception('Explication du score invalide pour %s / compte %s / index %s',
+                                      getattr(match_info, 'last_match', '?'),
+                                      getattr(match_info, 'id_compte', '?'), index)
+            scores[-1]['explanation_status'] = status
+            if status != 'available':
+                log.warning('Explication du score absente : match=%s compte=%s index=%s scoring=%s raison=%s',
+                            getattr(match_info, 'last_match', '?'), getattr(match_info, 'id_compte', '?'),
+                            index, summary.get('scoring_version', 'legacy'), status)
     return {"scores": scores, "gold": minute_gold(getattr(match_info, "data_timeline", {}), participants)}
 
 
@@ -106,7 +133,8 @@ def save_recap_details(match_info):
         )
         return True
     except Exception:
-        log.exception("Sauvegarde des détails du récap impossible pour %s", match_info.last_match)
+        log.exception("Sauvegarde des détails du récap impossible pour %s / compte %s",
+                      match_info.last_match, match_info.id_compte)
         return False
 
 
@@ -144,6 +172,8 @@ def load_score(match_id, joueur):
         normalized = lambda v: str(v or "").replace(" ", "").casefold()
         for score in scores:
             score["tracked"] = normalized(f"{score.get('riot_id')}#{score.get('riot_tag')}") == normalized(match["player_name"])
+            if score['tracked']:
+                score['explanation_status'] = 'snapshot_unavailable'
     return match, scores
 
 
@@ -176,16 +206,48 @@ def build_score_pages(match, scores):
          f"Note **{fmt(player.get('score'))}/10** · Rang **{fmt(player.get('rank'), 0)}/{len(scores)}**"),
         ("Dimensions", dimensions),
     ]
-    if player.get("scoring_version") == "3.0":
+    if player.get("scoring_version") in ("3.0", "4.0"):
         fields.append(("Calcul de la note", f"70 % statistiques ({fmt(player.get('statistical_score'))})"
-                       f" + 30 % contribution ({fmt(player.get('contribution_score'))}) · v3.0"))
+                       f" + 30 % contribution ({fmt(player.get('contribution_score'))}) · v{player['scoring_version']}"))
         if player.get("timeline_available") is False:
             fields.append(("Données manquantes", "Timeline indisponible : composantes temporelles neutralisées."))
     if known:
         best, weak = max(known, key=lambda p: p[1]), min(known, key=lambda p: p[1])
         fields += [("💪 Point fort", f"{best[0]} · **{fmt(best[1])}/10**"),
                    ("📉 Axe de progression", f"{weak[0]} · **{fmt(weak[1])}/10**")]
+    explanation = player.get('dimension_explanations') or {}
+    details = explanation.get('dimensions', []) if explanation.get('version') in (1, 2) else []
+    if not details:
+        reasons = {
+            'missing_metrics': "Le calcul n'a pas fourni les valeurs détaillées du joueur pour la sauvegarde.",
+            'missing_context': "Le calcul a fourni les notes, mais pas leurs explications. Cela peut arriver si le moteur de calcul chargé ne correspond pas à la version de l'affichage.",
+            'inconsistent_context': "Les explications calculées ne correspondent pas aux notes : le bot les a écartées pour ne pas afficher un détail faux.",
+            'invalid_context': "Une erreur a empêché d'enregistrer les explications calculées. Les notes ont été conservées.",
+            'snapshot_unavailable': "Les notes proviennent de la table des scores : la sauvegarde détaillée de ce récap est absente ou ne contient pas de scores.",
+        }
+        reason = reasons.get(player.get('explanation_status'),
+            "Les valeurs et barèmes nécessaires à cette explication n'ont pas été sauvegardés avec ce récap. "
+            "Les données disponibles ne permettent pas de savoir si le calcul était ancien ou si un problème est survenu.")
+        fields.append(("Pourquoi ces notes ?", reason + " Les notes restent consultables. "
+                       "Si ce récap vient d'être calculé, c'est une anomalie à vérifier dans les logs du bot ; "
+                       "recréer le récap sans corriger la cause ne garantit pas les explications."))
+    if player.get('scoring_supported') is False:
+        fields.append(("Mode ou rôle non évalué", "Les références ne couvrent pas ce mode ou ce rôle inconnu : valeurs neutres, sans jugement de performance."))
     result = pages("Ta performance", fields)
+    for detail in details:
+        note = (f"{player_label(player)} · **{fmt(detail['score'])}/10**\n"
+                "Les pourcentages indiquent ce qui compte le plus dans cette dimension. "
+                "Chaque critère reste entre 0 et 10. "
+                "Barèmes du bot appliqués lors de cette partie, adaptés au rôle et au profil du champion. "
+                "Ces dimensions expliquent la partie « contribution » de la note globale (30 %).")
+        if explanation.get('version') == 2:
+            note += f" Durée : {fmt(explanation['duration_minutes'])} min. Repères provisoires : une valeur attendue vaut 5/10."
+        dimension_pages = make_pages("📊 Pourquoi cette note · " + detail['title'], match,
+                                     explanation_fields(detail), note, 0x9B59B6)
+        if len(dimension_pages) > 1:
+            for part, page in enumerate(dimension_pages, 1):
+                page.title += f" · {part}/{len(dimension_pages)}"
+        result += dimension_pages
     others = [p for p in scores if p is not player and number(p.get("score")) is not None]
     candidates = [p for p in others if truth(p.get("is_mvp"))]
     if not candidates:

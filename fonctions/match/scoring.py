@@ -1,13 +1,13 @@
 """
-Mixin de scoring pour MatchLol - VERSION 3.0.
+Mixin de scoring pour MatchLol - VERSION 4.0.
 
 Intègre deux systèmes complémentaires avec logique d'ajustement unifiée:
 - Statistiques : z-scores bornés, 70 % de la note MVP/ACE
 - Contribution : cinq dimensions, 30 % de la note MVP/ACE
 
-Les ratios BDD ajustent les références du rôle. Les profils TANK/FIGHTER
-valorisent l'absorption ; les supports utilitaires intègrent aussi les soins,
-boucliers aux alliés et contrôles. Voir docs/matchlol-scoring-v3.md.
+Les ratios BDD et la durée ajustent les références du rôle. L'utilité ne
+demande que les capacités pertinentes pour le kit/profil. Le calcul effectif
+et ses courbes provisoires sont dans scoring_v4.py. Voir docs/matchlol-scoring-v4.md.
 
 Usage dans MatchLol:
     class MatchLol(ScoringMixin, ...):
@@ -24,7 +24,7 @@ import math
 
 from .scoring_inputs import game_minutes, participant_indices, extract_early_game, tracked_index, storage_index
 
-SCORING_VERSION = "3.0"
+SCORING_VERSION = "4.0"
 STATISTICAL_WEIGHT = 0.70
 CONTRIBUTION_WEIGHT = 0.30
 
@@ -180,7 +180,14 @@ class PlayerMetrics:
     cc_seconds: Optional[float] = None
     utility_score: float = 5.0
     utility_available: bool = False
+    utility_references: dict = field(default_factory=dict)
+    utility_parts: list = field(default_factory=list)
+    objective_opportunities: dict = field(default_factory=dict)
+    objective_presence: dict = field(default_factory=dict)
+    observed_team_kills: int = 0
+    scoring_supported: bool = True
     performance_score: float = 5.0
+    explanation_context: dict = field(default_factory=dict)
     
     # === EARLY GAME ===
     gold_at_15: int = 0
@@ -515,6 +522,10 @@ class ScoringMixin:
         for name in names:
             setattr(self, name, [0.0] * count)
         self.thisTotalObjectives = 0.0
+        self.scoring_objective_opportunities = {100: {'epic': 0, 'tower': 0}, 200: {'epic': 0, 'tower': 0}}
+        self.scoring_objective_presence = [{'epic': 0, 'tower': 0} for _ in range(count)]
+        id_teams = {p.get('participantId'): p.get('teamId') for p in
+                    getattr(self, 'match_detail', {}).get('info', {}).get('participants', [])}
         mapping = participant_indices(self)
         timeline = getattr(self, 'data_timeline', None)
         frames = timeline.get('info', {}).get('frames', []) if isinstance(timeline, dict) else []
@@ -538,9 +549,20 @@ class ScoringMixin:
                 self.thisTotalObjectives += weight
                 participants = set(event.get('assistingParticipantIds') or [])
                 participants.add(event.get('killerId'))
+                team = id_teams.get(event.get('killerId'))
+                if team not in (100, 200):
+                    team = next((id_teams.get(pid) for pid in participants if id_teams.get(pid) in (100, 200)), None)
+                if team not in (100, 200):
+                    team = (300-event['teamId'] if objective == 'TOWER' and event.get('teamId') in (100, 200)
+                            else event.get('killerTeamId'))
+                category = 'tower' if objective == 'TOWER' else 'epic'
+                if team in (100, 200):
+                    self.scoring_objective_opportunities[team][category] += 1
                 for pid in participants:
                     index = mapping.get(pid)
                     if index is not None:
+                        if team in (100, 200) and id_teams.get(pid) == team:
+                            self.scoring_objective_presence[index][category] += 1
                         self.thisObjectivesParticipatedListe[index] += weight
                         if objective in lists:
                             getattr(self, lists[objective])[index] += 1
@@ -622,7 +644,13 @@ class ScoringMixin:
         metrics.dpg = metrics.damage / max(metrics.gold, 1)
         
         metrics.kda = (metrics.kills + metrics.assists) / max(metrics.deaths, 1)
+        metrics.observed_team_kills = sum(self.thisKillsListe[(0 if i < 5 else 5):(5 if i < 5 else 10)])
         metrics.timeline_available = getattr(self, 'scoring_timeline_available', False)
+        team = getattr(self, 'thisTeamIdListe', [100]*5+[200]*5)[i]
+        metrics.objective_opportunities = dict(getattr(self, 'scoring_objective_opportunities', {}).get(team, {}))
+        presence = getattr(self, 'scoring_objective_presence', [])
+        metrics.objective_presence = dict(presence[i]) if i < len(presence) else {}
+        metrics.scoring_supported = metrics.role != 'UNKNOWN' and getattr(self, 'thisQ', '') in ('RANKED', 'FLEX', 'NORMAL', 'SWIFTPLAY', 'CLASH')
         participants = getattr(self, 'scoring_participants', [])
         if i < len(participants):
             participant = participants[i]
@@ -706,383 +734,21 @@ class ScoringMixin:
         except Exception:
             pass
         
-        utility = []
-        if metrics.role_enum == Role.SUPPORT and metrics.profile in ('SUPPORT_UTILITY', 'TANK'):
-            if metrics.ally_healing is not None and metrics.ally_shielding is not None:
-                # Per-minute allies-only healing/shielding, not self healing.
-                reference = 400.0 if metrics.profile == 'SUPPORT_UTILITY' else 100.0
-                utility.append(linear_scale((metrics.ally_healing + metrics.ally_shielding) / metrics.game_minutes,
-                                            0, reference * 2))
-            if metrics.cc_seconds is not None:
-                reference = 1.5 if metrics.profile == 'TANK' else 0.6
-                utility.append(linear_scale(metrics.cc_seconds / metrics.game_minutes, 0, reference * 2))
-        if utility:
-            metrics.utility_available = True
-            metrics.utility_score = sum(utility) / len(utility)
+        from .scoring_v4 import compute_utility
+        compute_utility(metrics)
         return metrics
 
     def _calculate_zscores(self, metrics: PlayerMetrics):
-        """
-        Calcule tous les z-scores pour un joueur.
-        
-        Les valeurs extrêmes sont bornées avant agrégation. Le profil du
-        champion détermine le sens de la métrique d'absorption des dégâts.
-        """
-        role = metrics.role_enum
-        baseline = ROLE_BASELINES.get(role, ROLE_BASELINES[Role.MID])
-        weights = ROLE_WEIGHTS.get(role, ROLE_WEIGHTS[Role.MID])
-        
-        # Baselines ajustées selon le profil
-        adj_baseline_dpm = (baseline.damage_per_min[0] * metrics.dpm_mult, baseline.damage_per_min[1] * metrics.dpm_mult)
-        adj_baseline_dmg_share = (baseline.damage_share[0] * metrics.dmg_share_mult, baseline.damage_share[1] * metrics.dmg_share_mult)
-        adj_baseline_cs = (baseline.cs_per_min[0] * metrics.cs_mult, baseline.cs_per_min[1] * metrics.cs_mult)
-        adj_baseline_gpm = (baseline.gold_per_min[0] * metrics.gpm_mult, baseline.gold_per_min[1] * metrics.gpm_mult)
-        adj_baseline_vision = (baseline.vision_score_per_min[0] * metrics.vision_mult, baseline.vision_score_per_min[1] * metrics.vision_mult)
-        adj_baseline_kp = (baseline.kp[0] * metrics.kp_mult, baseline.kp[1] * metrics.kp_mult)
-        adj_baseline_tank = (baseline.damage_taken_share[0] * metrics.tank_mult, baseline.damage_taken_share[1] * metrics.tank_mult)
-        
-        # Calcul des z-scores
-        metrics.z_kda = calculate_z_score(metrics.kda, baseline.kda[0], baseline.kda[1])
-        metrics.z_cs_per_min = calculate_z_score(metrics.cs_per_min, adj_baseline_cs[0], adj_baseline_cs[1])
-        metrics.z_damage_per_min = calculate_z_score(metrics.damage_per_min, adj_baseline_dpm[0], adj_baseline_dpm[1])
-        metrics.z_damage_share = calculate_z_score(metrics.damage_share, adj_baseline_dmg_share[0], adj_baseline_dmg_share[1])
-        metrics.z_gold_per_min = calculate_z_score(metrics.gold_per_min, adj_baseline_gpm[0], adj_baseline_gpm[1])
-        metrics.z_vision_per_min = calculate_z_score(metrics.vision_per_min, adj_baseline_vision[0], adj_baseline_vision[1])
-        metrics.z_kp = calculate_z_score(metrics.kp, adj_baseline_kp[0], adj_baseline_kp[1])
-        metrics.z_damage_taken_share = calculate_z_score(metrics.damage_taken_share, adj_baseline_tank[0], adj_baseline_tank[1])
-        
-        # Only tank/fighter profiles benefit from damage absorption.
-        if metrics.profile not in ('TANK', 'FIGHTER'):
-            metrics.z_damage_taken_share = -metrics.z_damage_taken_share
-        
-        # Z-score pondéré
-        z_scores = {
-            'kda': metrics.z_kda,
-            'cs_per_min': metrics.z_cs_per_min,
-            'damage_per_min': metrics.z_damage_per_min,
-            'damage_share': metrics.z_damage_share,
-            'gold_per_min': metrics.z_gold_per_min,
-            'vision_score_per_min': metrics.z_vision_per_min,
-            'kp': metrics.z_kp,
-            'damage_taken_share': metrics.z_damage_taken_share,
-        }
-        
-        metrics.weighted_z = sum(z_scores[metric] * weights[metric] for metric in weights)
-        metrics.zscore_score = sigmoid_transform(metrics.weighted_z)
-        if metrics.utility_available:
-            metrics.zscore_score = max(1.0, 0.8 * metrics.zscore_score + 0.2 * metrics.utility_score)
+        from .scoring_v4 import statistical_score
+        statistical_score(metrics)
 
     def _calculate_breakdown_scores(self, metrics: PlayerMetrics):
-        """
-        Calcule tous les scores de breakdown pour un joueur.
-        
-        HARMONISATION v2.0: Toutes les métriques utilisent maintenant des bornes ajustées
-        par les multiplicateurs de profil, alignées avec la logique du z-score.
-        """
-        role = metrics.role_enum
-        baselines = BREAKDOWN_BASELINES
-        
-        # ===== DIMENSION 1: COMBAT VALUE =====
-        metrics.kp_score = linear_scale_adjusted(
-            metrics.kp,
-            baselines['kp']['min'], baselines['kp']['max'],
-            metrics.kp_mult
-        )
-        
-
-            # Tank: absorber plus de dégâts/morts est normal → PAS d'inversion
-        metrics.death_score = linear_scale_inverted_adjusted(
-                metrics.death_share,
-                baselines['death_share']['min'], baselines['death_share']['max'],
-                metrics.tank_mult  # > 1.0 = bornes plus larges (indulgent), < 1.0 = bornes strictes
-)
-
-
-        # Nouveau score pour les tanks
-        if metrics.profile in ('TANK', 'FIGHTER'):
-            # Ratio dégâts absorbés / morts — un tank efficace absorbe beaucoup en mourant peu
-            tank_efficiency = metrics.damage_taken_share / max(metrics.death_share, 0.05)
-            metrics.tank_efficiency_score = linear_scale(tank_efficiency, baselines['tank_efficiency']['min'], baselines['tank_efficiency']['max'])
-        else:
-            metrics.tank_efficiency_score = 5.0  # Neutre pour non-tanks       
-
-
-        metrics.kda_score = linear_scale(
-            metrics.kda,
-            baselines['kda']['min'], baselines['kda']['max']
-        )
-
-        if metrics.profile in ('TANK', 'FIGHTER'):
-            metrics.combat_value = (
-                metrics.kp_score * 0.25 +
-                metrics.death_score * 0.20 +
-                metrics.kda_score * 0.25 +
-                metrics.tank_efficiency_score * 0.30  # Nouvelle dimension
-            )    
-
-        else:    
-            metrics.combat_value = (
-                metrics.kp_score * 0.35 +
-                metrics.death_score * 0.30 +
-                metrics.kda_score * 0.35
-            )
-        
-        # ===== DIMENSION 2: ECONOMIC EFFICIENCY =====
-        metrics.dpg_score = linear_scale(
-            metrics.dpg,
-            baselines['dpg']['min'], baselines['dpg']['max']
-        )
-        
-        efficiency_ratio = metrics.damage_share / metrics.gold_share if metrics.gold_share > 0 else 1.0
-        metrics.efficiency_score = linear_scale_adjusted(
-            efficiency_ratio,
-            baselines['efficiency']['min'], baselines['efficiency']['max'],
-            metrics.dmg_share_mult
-        )
-        
-        expected_cs = EXPECTED_CS_BY_ROLE.get(role.value, 6.0)
-        expected_cs_adjusted = expected_cs * metrics.cs_mult
-        cs_ratio = metrics.cs_per_min / expected_cs_adjusted if expected_cs_adjusted > 0 else 1.0
-        metrics.cs_score = linear_scale(
-            cs_ratio,
-            baselines['cs_ratio']['min'], baselines['cs_ratio']['max']
-        )
-        
-        if role == Role.SUPPORT:
-            metrics.economic_efficiency = (
-                metrics.dpg_score * 0.5 +
-                metrics.efficiency_score * 0.5
-            )
-        else:
-            metrics.economic_efficiency = (
-                metrics.dpg_score * 0.35 +
-                metrics.efficiency_score * 0.35 +
-                metrics.cs_score * 0.30
-            )
-        
-        # ===== DIMENSION 3: OBJECTIVE CONTRIBUTION =====
-        expected_vis = EXPECTED_VISION_BY_ROLE.get(role, 1.0)
-        expected_vis_adjusted = expected_vis * metrics.vision_mult
-        vision_ratio = metrics.vision_per_min / expected_vis_adjusted if expected_vis_adjusted > 0 else 1.0
-        metrics.vision_score = linear_scale(
-            vision_ratio,
-            baselines['vision_ratio']['min'], baselines['vision_ratio']['max']
-        )
-        
-        metrics.turret_score = linear_scale(
-            metrics.turret_damage * 30 / metrics.game_minutes,
-            baselines['turret_damage']['min'], baselines['turret_damage']['max']
-        )
-        metrics.obj_damage_score = linear_scale(
-            metrics.objective_damage * 30 / metrics.game_minutes,
-            baselines['obj_damage']['min'], baselines['obj_damage']['max']
-        )
-        
-        expected_pinks = EXPECTED_PINKS_BY_ROLE.get(role, 2)
-        pink_ratio = metrics.pinks * 30 / metrics.game_minutes / max(expected_pinks, 1)
-        metrics.pink_score = linear_scale(
-            pink_ratio,
-            baselines['pink_ratio']['min'], baselines['pink_ratio']['max']
-        )
-        
-        if metrics.timeline_available and metrics.total_objectives > 0:
-            obj_ratio = metrics.objectives_participated / metrics.total_objectives
-            metrics.obj_participation_score = linear_scale(
-                obj_ratio,
-                baselines['obj_participation']['min'], baselines['obj_participation']['max']
-            )
-        else:
-            metrics.obj_participation_score = 5.0
-        
-        metrics.dragon_score = linear_scale(
-            metrics.dragon_participation,
-            baselines['dragon']['min'], baselines['dragon']['max']
-        )
-        metrics.baron_score = linear_scale(
-            metrics.baron_participation,
-            baselines['baron']['min'], baselines['baron']['max']
-        )
-        metrics.turrets_killed_score = linear_scale(
-            metrics.turrets_killed,
-            baselines['turrets_killed']['min'], baselines['turrets_killed']['max']
-        )
-        metrics.tower_participation_score = linear_scale(
-            metrics.tower_participation,
-            baselines['tower_participation']['min'], baselines['tower_participation']['max']
-        )
-        
-        if not metrics.timeline_available or metrics.total_objectives == 0:
-            metrics.dragon_score = metrics.baron_score = metrics.tower_participation_score = 5.0
-
-        # Objective Contribution final (pondération par rôle)
-        if role == Role.SUPPORT:
-            metrics.objective_contribution = (
-                metrics.vision_score * 0.35 +
-                metrics.pink_score * 0.20 +
-                metrics.obj_participation_score * 0.25 +
-                metrics.dragon_score * 0.10 +
-                metrics.tower_participation_score * 0.10
-            ) + metrics.first_objective_bonus
-        elif role == Role.JUNGLE:
-            metrics.objective_contribution = (
-                metrics.dragon_score * 0.25 +
-                metrics.baron_score * 0.20 +
-                metrics.obj_participation_score * 0.20 +
-                metrics.obj_damage_score * 0.15 +
-                metrics.vision_score * 0.10 +
-                metrics.pink_score * 0.10
-            ) + metrics.first_objective_bonus * 1.5
-        elif role == Role.ADC:
-            metrics.objective_contribution = (
-                metrics.turret_score * 0.30 +
-                metrics.turrets_killed_score * 0.15 +
-                metrics.tower_participation_score * 0.15 +
-                metrics.obj_damage_score * 0.20 +
-                metrics.obj_participation_score * 0.10 +
-                metrics.dragon_score * 0.10
-            ) + metrics.first_objective_bonus
-        elif role == Role.TOP:
-            metrics.objective_contribution = (
-                metrics.turret_score * 0.25 +
-                metrics.turrets_killed_score * 0.15 +
-                metrics.tower_participation_score * 0.15 +
-                metrics.obj_damage_score * 0.15 +
-                metrics.obj_participation_score * 0.15 +
-                metrics.vision_score * 0.15
-            ) + metrics.first_objective_bonus
-        else:  # MID
-            metrics.objective_contribution = (
-                metrics.obj_participation_score * 0.25 +
-                metrics.dragon_score * 0.15 +
-                metrics.turret_score * 0.15 +
-                metrics.tower_participation_score * 0.15 +
-                metrics.vision_score * 0.15 +
-                metrics.pink_score * 0.15
-            ) + metrics.first_objective_bonus
-        
-        metrics.objective_contribution = min(10.0, max(0.0, metrics.objective_contribution))
-        
-        # ===== DIMENSION 4: PACE RATING =====
-        # Expected team resource shares are computed from role AND champion profile.
+        from .scoring_v4 import contribution_score, references
         start = 0 if metrics.player_index < 5 else 5
-        teammates = self.player_metrics_liste[start:start + 5]
-        expected_gold = [ROLE_BASELINES[m.role_enum].gold_per_min[0] * m.gpm_mult for m in teammates]
-        expected_damage = [ROLE_BASELINES[m.role_enum].damage_per_min[0] * m.dpm_mult for m in teammates]
-        gold_total = sum(expected_gold)
-        damage_total = sum(expected_damage)
-        own_gold = ROLE_BASELINES[role].gold_per_min[0] * metrics.gpm_mult
-        own_damage = ROLE_BASELINES[role].damage_per_min[0] * metrics.dpm_mult
-        metrics.expected_gold_share = own_gold / gold_total if gold_total else 0.2
-        expected_damage_share = own_damage / damage_total if damage_total else 0.2
-        metrics.gold_share_ratio = metrics.gold_share / metrics.expected_gold_share
-        metrics.gpm_relative_score = linear_scale(metrics.gold_share_ratio, 0.7, 1.3)
-        metrics.dpm_relative_score = linear_scale(metrics.damage_share / expected_damage_share, 0.7, 1.3)
-        if role == Role.SUPPORT and metrics.profile in ('TANK', 'SUPPORT_UTILITY'):
-            metrics.dpm_relative_score = metrics.utility_score
-
-        metrics.fb_score = 10.0 if metrics.has_first_blood else (7.0 if metrics.has_first_blood_assist else 0.0)
-        metrics.ft_score = 10.0 if metrics.has_first_tower else (6.0 if metrics.has_first_tower_assist else 0.0)
-        
-        if metrics.gold_15_available:
-            metrics.gold_15_score = linear_scale(
-                metrics.gold_diff_15,
-                baselines['gold_diff_15']['min'], baselines['gold_diff_15']['max']
-            )
-        else:
-            metrics.gold_15_score = 5.0
-        metrics.cs_15_score = (linear_scale(metrics.cs_diff_15, -30, 30)
-                               if metrics.cs_15_available else 5.0)
-        if not metrics.timeline_available:
-            metrics.fb_score = metrics.ft_score = 5.0
-        
-        metrics.early_pressure_score = (
-            metrics.fb_score * 0.25 +
-            metrics.ft_score * 0.25 +
-            metrics.gold_15_score * 0.30 +
-            metrics.cs_15_score * 0.20
-        )
-        
-        role_str = role.value if hasattr(role, 'value') else str(role).upper()
-        if role_str in ['TOP', 'MID', 'MIDDLE']:
-            metrics.solo_kills_score = linear_scale(
-                metrics.early_solo_kills,
-                baselines['solo_kills']['min'], baselines['solo_kills']['max']
-            )
-            metrics.pace_rating = (
-                metrics.gpm_relative_score * 0.25 +
-                metrics.dpm_relative_score * 0.25 +
-                metrics.early_pressure_score * 0.45 +
-                (metrics.solo_kills_score if metrics.timeline_available else 5.0) * 0.05
-            )
-        else:
-            metrics.pace_rating = (
-                metrics.gpm_relative_score * 0.25 +
-                metrics.dpm_relative_score * 0.25 +
-                metrics.early_pressure_score * 0.50
-            )
-        
-        metrics.pace_rating = max(0.0, min(10.0, metrics.pace_rating))
-        
-        # ===== DIMENSION 5: WIN IMPACT =====
-        gold_advantage = (metrics.team_gold - metrics.enemy_gold) / max(metrics.enemy_gold, 1)
-        metrics.advantage_score = linear_scale(
-            gold_advantage,
-            baselines['gold_advantage']['min'], baselines['gold_advantage']['max']
-        )
-        
-
-        metrics.contribution_to_lead = linear_scale(
-            metrics.gold_share_ratio,
-            baselines['contribution_to_lead']['min'], baselines['contribution_to_lead']['max'],  # 70% à 130% de l'attendu
-
-        )      
-
-        metrics.win_impact = (
-            metrics.efficiency_score * 0.4 +
-            metrics.contribution_to_lead * 0.3 +
-            metrics.kp_score * 0.3
-        )
-        
-        # ===== CALCUL DES POIDS FINAUX =====
-        base_weights = DIMENSION_WEIGHTS.get(role, DIMENSION_WEIGHTS[Role.UNKNOWN])
-        
-        adjusted_weights = {
-            'combat_value': max(0, base_weights['combat_value'] + metrics.combat_weight_adj),
-            'economic_efficiency': max(0, base_weights['economic_efficiency'] + metrics.economic_weight_adj),
-            'objective_contribution': max(0, base_weights['objective_contribution'] + metrics.objective_weight_adj),
-            'pace_rating': max(0, base_weights['pace_rating'] + metrics.tempo_weight_adj),
-            'win_impact': max(0, base_weights['win_impact'] + metrics.impact_weight_adj),
-        }
-        
-        # Utility supports should not need damage/gold to earn an economy score.
-        if role == Role.SUPPORT and metrics.profile in ('TANK', 'SUPPORT_UTILITY'):
-            metrics.economic_efficiency = (
-                metrics.utility_score * 0.6 + metrics.gpm_relative_score * 0.4)
-            metrics.combat_value = 0.75 * metrics.combat_value + 0.25 * metrics.utility_score
-            metrics.win_impact = (
-                metrics.utility_score * 0.4 + metrics.kp_score * 0.3 +
-                metrics.contribution_to_lead * 0.3)
-        total_weight = sum(adjusted_weights.values())
-        if total_weight <= 0:
-            adjusted_weights = dict(base_weights)
-            total_weight = sum(adjusted_weights.values())
-        if total_weight > 0:
-            metrics.final_combat_weight = adjusted_weights['combat_value'] / total_weight
-            metrics.final_economic_weight = adjusted_weights['economic_efficiency'] / total_weight
-            metrics.final_objective_weight = adjusted_weights['objective_contribution'] / total_weight
-            metrics.final_tempo_weight = adjusted_weights['pace_rating'] / total_weight
-            metrics.final_impact_weight = adjusted_weights['win_impact'] / total_weight
-        
-        # ===== SCORE FINAL BREAKDOWN =====
-        metrics.breakdown_score = (
-            metrics.combat_value * metrics.final_combat_weight +
-            metrics.economic_efficiency * metrics.final_economic_weight +
-            metrics.objective_contribution * metrics.final_objective_weight +
-            metrics.pace_rating * metrics.final_tempo_weight +
-            metrics.win_impact * metrics.final_impact_weight
-        )
-        
-        metrics.breakdown_score = max(1.0, min(10.0, metrics.breakdown_score))
+        expected = sum(references(m)['gold'] for m in self.player_metrics_liste[start:start+5])
+        metrics.expected_gold_share = references(metrics)['gold']/expected if expected else .2
+        metrics.gold_share_ratio = metrics.gold_share/metrics.expected_gold_share
+        contribution_score(metrics)
 
     async def calculate_all_scores(self):
         """Calcule les scores de tous les joueurs."""
@@ -1195,6 +861,7 @@ class ScoringMixin:
             'role': self.thisPositionListe[player_index] if player_index < len(self.thisPositionListe) else 'UNKNOWN',
             'score': score,
             'scoring_version': SCORING_VERSION,
+            'scoring_supported': self.player_metrics_liste[player_index].scoring_supported,
             'statistical_score': round(self.player_metrics_liste[player_index].zscore_score, 2),
             'contribution_score': round(self.player_metrics_liste[player_index].breakdown_score, 2),
             'utility_score': round(self.player_metrics_liste[player_index].utility_score, 2),
