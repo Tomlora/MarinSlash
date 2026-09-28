@@ -1,0 +1,27 @@
+name: Tests scoring MatchLoL
+
+on:
+  push:
+    paths:
+      - 'fonctions/match/**'
+      - 'cogs/lol_scoring.py'
+      - 'tests/test_match_scoring.py'
+      - '.github/workflows/test-match-scoring.yml'
+  pull_request:
+    paths:
+      - 'fonctions/match/**'
+      - 'cogs/lol_scoring.py'
+      - 'tests/test_match_scoring.py'
+      - '.github/workflows/test-match-scoring.yml'
+
+jobs:
+  scoring:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install pytest
+      - run: python -m py_compile fonctions/match/scoring.py fonctions/match/scoring_inputs.py fonctions/match/champion_profiles.py fonctions/match/matchlol_team.py fonctions/match/timeline.py fonctions/match/save_data.py fonctions/match/recap_details.py fonctions/match/image.py cogs/lol_scoring.py cogs/leagueoflegends.py
+      - run: python -m pytest -q tests/test_match_scoring.py

@@ -1,15 +1,13 @@
 """
-Mixin de scoring pour MatchLol - VERSION HARMONISÉE.
+Mixin de scoring pour MatchLol - VERSION 3.0.
 
 Intègre deux systèmes complémentaires avec logique d'ajustement unifiée:
-- PerformanceScorer (z-score): Score principal 1-10 pour ranking MVP/ACE
-- ContributionScorer (impact): Breakdown détaillé pour insights/badges
+- Statistiques : z-scores bornés, 70 % de la note MVP/ACE
+- Contribution : cinq dimensions, 30 % de la note MVP/ACE
 
-HARMONISATION v2.0:
-- Les deux systèmes utilisent la même logique : ajuster les BASELINES/BORNES avec les multiplicateurs
-- Z-Score : baseline ajustée = baseline * multiplicateur
-- Breakdown : bornes ajustées = bornes * multiplicateur
-- Inversion damage_taken_share basée sur tank_mult (< 1.0 = non-tank) au lieu du rôle
+Les ratios BDD ajustent les références du rôle. Les profils TANK/FIGHTER
+valorisent l'absorption ; les supports utilitaires intègrent aussi les soins,
+boucliers aux alliés et contrôles. Voir docs/matchlol-scoring-v3.md.
 
 Usage dans MatchLol:
     class MatchLol(ScoringMixin, ...):
@@ -23,6 +21,12 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
 import math
+
+from .scoring_inputs import game_minutes, participant_indices, extract_early_game, tracked_index, storage_index
+
+SCORING_VERSION = "3.0"
+STATISTICAL_WEIGHT = 0.70
+CONTRIBUTION_WEIGHT = 0.30
 
 from fonctions.match.champion_profiles import (
     get_profile_for_champion,
@@ -167,7 +171,16 @@ class PlayerMetrics:
     herald_participation: int = 0
     tower_participation: float = 0.0
     first_objective_bonus: float = 0.0
-    total_objectives: float = 1.0
+    total_objectives: float = 0.0
+    timeline_available: bool = False
+    gold_15_available: bool = False
+    cs_15_available: bool = False
+    ally_healing: Optional[float] = None
+    ally_shielding: Optional[float] = None
+    cc_seconds: Optional[float] = None
+    utility_score: float = 5.0
+    utility_available: bool = False
+    performance_score: float = 5.0
     
     # === EARLY GAME ===
     gold_at_15: int = 0
@@ -179,6 +192,7 @@ class PlayerMetrics:
     has_first_tower: bool = False
     has_first_tower_assist: bool = False
     solo_kills: int = 0
+    early_solo_kills: int = 0
     opponent_index: Optional[int] = None
     
     # === PROFIL CHAMPION ===
@@ -431,7 +445,7 @@ def calculate_z_score(value: float, mean: float, std: float) -> float:
     """Calcule le z-score d'une valeur."""
     if std == 0 or std is None:
         return 0.0
-    return (value - mean) / std
+    return max(-3.0, min(3.0, (value - mean) / std))
 
 
 def sigmoid_transform(weighted_z: float, k: float = 1.2) -> float:
@@ -493,115 +507,56 @@ class ScoringMixin:
     """Mixin de scoring pour MatchLol."""
     
     def _extract_objective_participations_from_timeline(self):
-        """Extrait les participations individuelles aux objectifs depuis la timeline."""
-        self.thisObjectivesParticipatedListe = [0] * 10
-        self.thisDragonParticipationListe = [0] * 10
-        self.thisBaronParticipationListe = [0] * 10
-        self.thisHeraldParticipationListe = [0] * 10
-        self.thisTowerParticipationListe = [0] * 10
-        self.thisFirstObjectiveBonusListe = [0.0] * 10
-        self.thisTotalObjectives = 0
-        
-        if not hasattr(self, 'data_timeline') or not self.data_timeline:
-            return
-        
-        try:
-            frames = self.data_timeline.get('info', {}).get('frames', [])
-        except (AttributeError, TypeError):
-            return
-        
-        first_dragon_taken = False
-        first_herald_taken = False
-        first_baron_taken = False
-        first_tower_taken = False
-        
+        """Credit all recorded participants equally, in display order."""
+        count = len(self.thisKillsListe)
+        names = ('thisObjectivesParticipatedListe', 'thisDragonParticipationListe',
+                 'thisBaronParticipationListe', 'thisHeraldParticipationListe',
+                 'thisTowerParticipationListe', 'thisFirstObjectiveBonusListe')
+        for name in names:
+            setattr(self, name, [0.0] * count)
+        self.thisTotalObjectives = 0.0
+        mapping = participant_indices(self)
+        timeline = getattr(self, 'data_timeline', None)
+        frames = timeline.get('info', {}).get('frames', []) if isinstance(timeline, dict) else []
+        weights = {'DRAGON': 1.0, 'BARON_NASHOR': 2.0, 'BARON': 2.0,
+                   'RIFTHERALD': 1.0, 'HORDE': 0.5, 'ATAKHAN': 2.0}
+        lists = {'DRAGON': 'thisDragonParticipationListe', 'BARON_NASHOR': 'thisBaronParticipationListe',
+                 'BARON': 'thisBaronParticipationListe', 'RIFTHERALD': 'thisHeraldParticipationListe',
+                 'TOWER': 'thisTowerParticipationListe'}
         for frame in frames:
-            events = frame.get('events', [])
-            for event in events:
-                event_type = event.get('type', '')
-                
-                if event_type == 'ELITE_MONSTER_KILL':
-                    monster_type = event.get('monsterType', '')
-                    killer_id = event.get('killerId', 0)
-                    assists = event.get('assistingParticipantIds', []) or []
-                    
-                    participants = []
-                    if killer_id and 1 <= killer_id <= 10:
-                        participants.append(killer_id - 1)
-                    for assist_id in assists:
-                        if assist_id and 1 <= assist_id <= 10:
-                            participants.append(assist_id - 1)
-                    
-                    if monster_type == 'DRAGON':
-                        self.thisTotalObjectives += 1
-                        for p in participants:
-                            self.thisObjectivesParticipatedListe[p] += 1
-                            self.thisDragonParticipationListe[p] += 1
-                        if not first_dragon_taken and killer_id:
-                            first_dragon_taken = True
-                            if 1 <= killer_id <= 10:
-                                self.thisFirstObjectiveBonusListe[killer_id - 1] += 0.5
-                                
-                    elif monster_type in ['BARON_NASHOR', 'BARON']:
-                        self.thisTotalObjectives += 2
-                        for p in participants:
-                            self.thisObjectivesParticipatedListe[p] += 2
-                            self.thisBaronParticipationListe[p] += 1
-                        if not first_baron_taken and killer_id:
-                            first_baron_taken = True
-                            if 1 <= killer_id <= 10:
-                                self.thisFirstObjectiveBonusListe[killer_id - 1] += 1.0
-                                
-                    elif monster_type == 'RIFTHERALD':
-                        self.thisTotalObjectives += 1
-                        for p in participants:
-                            self.thisObjectivesParticipatedListe[p] += 1
-                            self.thisHeraldParticipationListe[p] += 1
-                        if not first_herald_taken and killer_id:
-                            first_herald_taken = True
-                            if 1 <= killer_id <= 10:
-                                self.thisFirstObjectiveBonusListe[killer_id - 1] += 0.3
-                                
-                    elif monster_type == 'HORDE':
-                        for p in participants:
-                            self.thisObjectivesParticipatedListe[p] += 0.5
-                            
-                    elif monster_type == 'ATAKHAN':
-                        self.thisTotalObjectives += 2
-                        for p in participants:
-                            self.thisObjectivesParticipatedListe[p] += 2
-                
-                elif event_type == 'BUILDING_KILL':
-                    building_type = event.get('buildingType', '')
-                    if building_type == 'TOWER_BUILDING':
-                        killer_id = event.get('killerId', 0)
-                        assists = event.get('assistingParticipantIds', []) or []
-                        
-                        self.thisTotalObjectives += 0.5
-                        
-                        if killer_id and 1 <= killer_id <= 10:
-                            self.thisTowerParticipationListe[killer_id - 1] += 1
-                            self.thisObjectivesParticipatedListe[killer_id - 1] += 0.5
-                        for assist_id in assists:
-                            if assist_id and 1 <= assist_id <= 10:
-                                self.thisTowerParticipationListe[assist_id - 1] += 0.5
-                                self.thisObjectivesParticipatedListe[assist_id - 1] += 0.25
-                        
-                        if not first_tower_taken and killer_id:
-                            first_tower_taken = True
-                            if 1 <= killer_id <= 10:
-                                self.thisFirstObjectiveBonusListe[killer_id - 1] += 0.3
-        
-        self.thisObjectivesParticipatedListe = [round(x, 1) for x in self.thisObjectivesParticipatedListe]
-        self.thisTotalObjectives = max(1, round(self.thisTotalObjectives, 1))
-    
+            for event in frame.get('events', []):
+                kind = event.get('type')
+                if kind == 'ELITE_MONSTER_KILL':
+                    objective = event.get('monsterType')
+                    weight = weights.get(objective, 0)
+                elif kind == 'BUILDING_KILL' and event.get('buildingType') == 'TOWER_BUILDING':
+                    objective, weight = 'TOWER', 0.5
+                else:
+                    continue
+                if not weight:
+                    continue
+                self.thisTotalObjectives += weight
+                participants = set(event.get('assistingParticipantIds') or [])
+                participants.add(event.get('killerId'))
+                for pid in participants:
+                    index = mapping.get(pid)
+                    if index is not None:
+                        self.thisObjectivesParticipatedListe[index] += weight
+                        if objective in lists:
+                            getattr(self, lists[objective])[index] += 1
+        # No last-hit bonus: a jungler smiting an objective does not invalidate
+        # the contribution of allies present in Riot's assistingParticipantIds.
+
     def _init_scoring_attributes(self):
         """Initialise les attributs de scoring."""
         self.scores_liste = []
+        self.raw_scores_liste = []
+        self.mvp_indices = []
+        self.ace_indices = []
         self.breakdowns_liste = []
         self.player_metrics_liste: List[PlayerMetrics] = []
-        self.mvp_index = 0
-        self.ace_index = 5
+        self.mvp_index = -1
+        self.ace_index = -1
         self.player_score = 5.0
         self.player_rank = 5
         self.player_breakdown = None
@@ -614,6 +569,7 @@ class ScoringMixin:
         metrics.champion = self.thisChampNameListe[i] if i < len(self.thisChampNameListe) else ""
         metrics.role = self.thisPositionListe[i] if i < len(self.thisPositionListe) else "UNKNOWN"
         metrics.role_enum = normalize_position(metrics.role)
+        metrics.role = metrics.role_enum.value
         if metrics.role_enum == Role.UNKNOWN:
             metrics.role_enum = Role.MID
         
@@ -639,36 +595,40 @@ class ScoringMixin:
         # === STATS D'ÉQUIPE ===
         if i < 5:
             metrics.team_kills = max(getattr(self, 'thisTeamKills', 1), 1)
-            metrics.team_deaths = max(getattr(self, 'thisTeamKillsOp', 1), 1)
+            metrics.team_deaths = max(sum(self.thisDeathsListe[:5]), 1)
             metrics.team_damage = max(getattr(self, 'thisDamage_team1', 1), 1)
             metrics.team_tank = max(getattr(self, 'thisTank_team1', 1), 1)
             metrics.team_gold = max(getattr(self, 'thisGold_team1', 1), 1)
             metrics.enemy_gold = max(getattr(self, 'thisGold_team2', 1), 1)
         else:
             metrics.team_kills = max(getattr(self, 'thisTeamKillsOp', 1), 1)
-            metrics.team_deaths = max(getattr(self, 'thisTeamKills', 1), 1)
+            metrics.team_deaths = max(sum(self.thisDeathsListe[5:]), 1)
             metrics.team_damage = max(getattr(self, 'thisDamage_team2', 1), 1)
             metrics.team_tank = max(getattr(self, 'thisTank_team2', 1), 1)
             metrics.team_gold = max(getattr(self, 'thisGold_team2', 1), 1)
             metrics.enemy_gold = max(getattr(self, 'thisGold_team1', 1), 1)
         
         # === MÉTRIQUES DÉRIVÉES ===
-        metrics.game_minutes = max(getattr(self, 'thisTime', 25), 5)
+        metrics.game_minutes = game_minutes(self)
         metrics.cs_per_min = metrics.cs / metrics.game_minutes
         metrics.damage_per_min = metrics.damage / metrics.game_minutes
         metrics.gold_per_min = metrics.gold / metrics.game_minutes
         metrics.vision_per_min = metrics.vision / metrics.game_minutes
         metrics.damage_share = metrics.damage / metrics.team_damage
         metrics.damage_taken_share = metrics.damage_taken / metrics.team_tank
-        metrics.kp = (metrics.kills + metrics.assists) / metrics.team_kills
+        metrics.kp = min(1.0, (metrics.kills + metrics.assists) / metrics.team_kills)
         metrics.death_share = metrics.deaths / max(metrics.team_deaths, 1)
         metrics.gold_share = metrics.gold / metrics.team_gold
         metrics.dpg = metrics.damage / max(metrics.gold, 1)
         
-        if metrics.deaths == 0:
-            metrics.kda = (metrics.kills + metrics.assists) * 1.5
-        else:
-            metrics.kda = (metrics.kills + metrics.assists) / metrics.deaths
+        metrics.kda = (metrics.kills + metrics.assists) / max(metrics.deaths, 1)
+        metrics.timeline_available = getattr(self, 'scoring_timeline_available', False)
+        participants = getattr(self, 'scoring_participants', [])
+        if i < len(participants):
+            participant = participants[i]
+            metrics.ally_healing = participant.get('totalHealsOnTeammates')
+            metrics.ally_shielding = participant.get('totalDamageShieldedOnTeammates')
+            metrics.cc_seconds = participant.get('timeCCingOthers')
         
         # === OBJECTIFS (TIMELINE) ===
         if hasattr(self, 'thisObjectivesParticipatedListe') and i < len(self.thisObjectivesParticipatedListe):
@@ -683,7 +643,7 @@ class ScoringMixin:
             metrics.tower_participation = self.thisTowerParticipationListe[i]
         if hasattr(self, 'thisFirstObjectiveBonusListe') and i < len(self.thisFirstObjectiveBonusListe):
             metrics.first_objective_bonus = self.thisFirstObjectiveBonusListe[i]
-        metrics.total_objectives = max(getattr(self, 'thisTotalObjectives', 1), 1)
+        metrics.total_objectives = getattr(self, 'thisTotalObjectives', 0)
         
         # === EARLY GAME ===
         if hasattr(self, 'thisGoldAt15Liste') and i < len(self.thisGoldAt15Liste):
@@ -692,6 +652,7 @@ class ScoringMixin:
             metrics.cs_at_15 = self.thisCsAt15Liste[i]
         if hasattr(self, 'thisSoloKillsListe') and i < len(self.thisSoloKillsListe):
             metrics.solo_kills = self.thisSoloKillsListe[i]
+            metrics.early_solo_kills = self.thisEarlySoloKillsListe[i]
         
         if hasattr(self, 'firstBloodKillIndex') and self.firstBloodKillIndex == i:
             metrics.has_first_blood = True
@@ -710,6 +671,13 @@ class ScoringMixin:
             if hasattr(self, 'thisCsAt15Liste') and metrics.opponent_index < len(self.thisCsAt15Liste):
                 metrics.cs_diff_15 = metrics.cs_at_15 - self.thisCsAt15Liste[metrics.opponent_index]
         
+        if metrics.opponent_index is not None:
+            opponent = metrics.opponent_index
+            gold_available = getattr(self, 'thisEarlyGoldAvailableListe', [])
+            cs_available = getattr(self, 'thisEarlyCsAvailableListe', [])
+            metrics.gold_15_available = bool(gold_available and gold_available[i] and gold_available[opponent])
+            metrics.cs_15_available = bool(cs_available and cs_available[i] and cs_available[opponent])
+
         # === PROFIL CHAMPION ===
         try:
             from fonctions.match.champion_profiles import (
@@ -738,27 +706,40 @@ class ScoringMixin:
         except Exception:
             pass
         
+        utility = []
+        if metrics.role_enum == Role.SUPPORT and metrics.profile in ('SUPPORT_UTILITY', 'TANK'):
+            if metrics.ally_healing is not None and metrics.ally_shielding is not None:
+                # Per-minute allies-only healing/shielding, not self healing.
+                reference = 400.0 if metrics.profile == 'SUPPORT_UTILITY' else 100.0
+                utility.append(linear_scale((metrics.ally_healing + metrics.ally_shielding) / metrics.game_minutes,
+                                            0, reference * 2))
+            if metrics.cc_seconds is not None:
+                reference = 1.5 if metrics.profile == 'TANK' else 0.6
+                utility.append(linear_scale(metrics.cc_seconds / metrics.game_minutes, 0, reference * 2))
+        if utility:
+            metrics.utility_available = True
+            metrics.utility_score = sum(utility) / len(utility)
         return metrics
 
     def _calculate_zscores(self, metrics: PlayerMetrics):
         """
         Calcule tous les z-scores pour un joueur.
         
-        HARMONISATION: Utilise tank_mult pour déterminer si le joueur est un tank,
-        au lieu de se baser uniquement sur le rôle.
+        Les valeurs extrêmes sont bornées avant agrégation. Le profil du
+        champion détermine le sens de la métrique d'absorption des dégâts.
         """
         role = metrics.role_enum
         baseline = ROLE_BASELINES.get(role, ROLE_BASELINES[Role.MID])
         weights = ROLE_WEIGHTS.get(role, ROLE_WEIGHTS[Role.MID])
         
         # Baselines ajustées selon le profil
-        adj_baseline_dpm = (baseline.damage_per_min[0] * metrics.dpm_mult, baseline.damage_per_min[1])
-        adj_baseline_dmg_share = (baseline.damage_share[0] * metrics.dmg_share_mult, baseline.damage_share[1])
-        adj_baseline_cs = (baseline.cs_per_min[0] * metrics.cs_mult, baseline.cs_per_min[1])
-        adj_baseline_gpm = (baseline.gold_per_min[0] * metrics.gpm_mult, baseline.gold_per_min[1])
-        adj_baseline_vision = (baseline.vision_score_per_min[0] * metrics.vision_mult, baseline.vision_score_per_min[1])
-        adj_baseline_kp = (baseline.kp[0] * metrics.kp_mult, baseline.kp[1])
-        adj_baseline_tank = (baseline.damage_taken_share[0] * metrics.tank_mult, baseline.damage_taken_share[1])
+        adj_baseline_dpm = (baseline.damage_per_min[0] * metrics.dpm_mult, baseline.damage_per_min[1] * metrics.dpm_mult)
+        adj_baseline_dmg_share = (baseline.damage_share[0] * metrics.dmg_share_mult, baseline.damage_share[1] * metrics.dmg_share_mult)
+        adj_baseline_cs = (baseline.cs_per_min[0] * metrics.cs_mult, baseline.cs_per_min[1] * metrics.cs_mult)
+        adj_baseline_gpm = (baseline.gold_per_min[0] * metrics.gpm_mult, baseline.gold_per_min[1] * metrics.gpm_mult)
+        adj_baseline_vision = (baseline.vision_score_per_min[0] * metrics.vision_mult, baseline.vision_score_per_min[1] * metrics.vision_mult)
+        adj_baseline_kp = (baseline.kp[0] * metrics.kp_mult, baseline.kp[1] * metrics.kp_mult)
+        adj_baseline_tank = (baseline.damage_taken_share[0] * metrics.tank_mult, baseline.damage_taken_share[1] * metrics.tank_mult)
         
         # Calcul des z-scores
         metrics.z_kda = calculate_z_score(metrics.kda, baseline.kda[0], baseline.kda[1])
@@ -770,10 +751,8 @@ class ScoringMixin:
         metrics.z_kp = calculate_z_score(metrics.kp, adj_baseline_kp[0], adj_baseline_kp[1])
         metrics.z_damage_taken_share = calculate_z_score(metrics.damage_taken_share, adj_baseline_tank[0], adj_baseline_tank[1])
         
-        # HARMONISATION: Inversion basée sur tank_mult au lieu du rôle
-        # tank_mult >= 1.0 = profil tank (plus de dégâts pris = mieux)
-        # tank_mult < 1.0 = profil non-tank (moins de dégâts pris = mieux)
-        if metrics.tank_mult < 1.0:
+        # Only tank/fighter profiles benefit from damage absorption.
+        if metrics.profile not in ('TANK', 'FIGHTER'):
             metrics.z_damage_taken_share = -metrics.z_damage_taken_share
         
         # Z-score pondéré
@@ -790,6 +769,8 @@ class ScoringMixin:
         
         metrics.weighted_z = sum(z_scores[metric] * weights[metric] for metric in weights)
         metrics.zscore_score = sigmoid_transform(metrics.weighted_z)
+        if metrics.utility_available:
+            metrics.zscore_score = max(1.0, 0.8 * metrics.zscore_score + 0.2 * metrics.utility_score)
 
     def _calculate_breakdown_scores(self, metrics: PlayerMetrics):
         """
@@ -818,7 +799,7 @@ class ScoringMixin:
 
 
         # Nouveau score pour les tanks
-        if metrics.tank_mult > 1.0:
+        if metrics.profile in ('TANK', 'FIGHTER'):
             # Ratio dégâts absorbés / morts — un tank efficace absorbe beaucoup en mourant peu
             tank_efficiency = metrics.damage_taken_share / max(metrics.death_share, 0.05)
             metrics.tank_efficiency_score = linear_scale(tank_efficiency, baselines['tank_efficiency']['min'], baselines['tank_efficiency']['max'])
@@ -831,7 +812,7 @@ class ScoringMixin:
             baselines['kda']['min'], baselines['kda']['max']
         )
 
-        if metrics.tank_mult > 1.0:
+        if metrics.profile in ('TANK', 'FIGHTER'):
             metrics.combat_value = (
                 metrics.kp_score * 0.25 +
                 metrics.death_score * 0.20 +
@@ -889,33 +870,29 @@ class ScoringMixin:
         )
         
         metrics.turret_score = linear_scale(
-            metrics.turret_damage,
+            metrics.turret_damage * 30 / metrics.game_minutes,
             baselines['turret_damage']['min'], baselines['turret_damage']['max']
         )
         metrics.obj_damage_score = linear_scale(
-            metrics.objective_damage,
+            metrics.objective_damage * 30 / metrics.game_minutes,
             baselines['obj_damage']['min'], baselines['obj_damage']['max']
         )
         
         expected_pinks = EXPECTED_PINKS_BY_ROLE.get(role, 2)
-        pink_ratio = metrics.pinks / max(expected_pinks, 1)
+        pink_ratio = metrics.pinks * 30 / metrics.game_minutes / max(expected_pinks, 1)
         metrics.pink_score = linear_scale(
             pink_ratio,
             baselines['pink_ratio']['min'], baselines['pink_ratio']['max']
         )
         
-        if metrics.total_objectives > 0:
+        if metrics.timeline_available and metrics.total_objectives > 0:
             obj_ratio = metrics.objectives_participated / metrics.total_objectives
             metrics.obj_participation_score = linear_scale(
                 obj_ratio,
                 baselines['obj_participation']['min'], baselines['obj_participation']['max']
             )
         else:
-            metrics.obj_participation_score = linear_scale_adjusted(
-                metrics.kp,
-                baselines['kp']['min'], baselines['kp']['max'],
-                metrics.kp_mult
-            )
+            metrics.obj_participation_score = 5.0
         
         metrics.dragon_score = linear_scale(
             metrics.dragon_participation,
@@ -934,6 +911,9 @@ class ScoringMixin:
             baselines['tower_participation']['min'], baselines['tower_participation']['max']
         )
         
+        if not metrics.timeline_available or metrics.total_objectives == 0:
+            metrics.dragon_score = metrics.baron_score = metrics.tower_participation_score = 5.0
+
         # Objective Contribution final (pondération par rôle)
         if role == Role.SUPPORT:
             metrics.objective_contribution = (
@@ -983,40 +963,37 @@ class ScoringMixin:
         metrics.objective_contribution = min(10.0, max(0.0, metrics.objective_contribution))
         
         # ===== DIMENSION 4: PACE RATING =====
-        team_avg_gpm = (metrics.team_gold / 5) / metrics.game_minutes
-        team_avg_dpm = (metrics.team_damage / 5) / metrics.game_minutes
-        
-        actual_gpm_ratio = metrics.gold_per_min / team_avg_gpm if team_avg_gpm > 0 else 1.0
-        expected_gpm_ratio = 1.0 * metrics.gpm_mult
-        gpm_performance = actual_gpm_ratio / expected_gpm_ratio if expected_gpm_ratio > 0 else 1.0
-        metrics.gpm_relative_score = linear_scale(
-            gpm_performance,
-            baselines['resource_ratio']['min'], baselines['resource_ratio']['max']
-        )
-        
-        actual_dpm_ratio = metrics.damage_per_min / team_avg_dpm if team_avg_dpm > 0 else 1.0
-        expected_dpm_ratio = 1.0 * metrics.dpm_mult
-        dpm_performance = actual_dpm_ratio / expected_dpm_ratio if expected_dpm_ratio > 0 else 1.0
-        metrics.dpm_relative_score = linear_scale(
-            dpm_performance,
-            baselines['resource_ratio']['min'], baselines['resource_ratio']['max']
-        )
-        
+        # Expected team resource shares are computed from role AND champion profile.
+        start = 0 if metrics.player_index < 5 else 5
+        teammates = self.player_metrics_liste[start:start + 5]
+        expected_gold = [ROLE_BASELINES[m.role_enum].gold_per_min[0] * m.gpm_mult for m in teammates]
+        expected_damage = [ROLE_BASELINES[m.role_enum].damage_per_min[0] * m.dpm_mult for m in teammates]
+        gold_total = sum(expected_gold)
+        damage_total = sum(expected_damage)
+        own_gold = ROLE_BASELINES[role].gold_per_min[0] * metrics.gpm_mult
+        own_damage = ROLE_BASELINES[role].damage_per_min[0] * metrics.dpm_mult
+        metrics.expected_gold_share = own_gold / gold_total if gold_total else 0.2
+        expected_damage_share = own_damage / damage_total if damage_total else 0.2
+        metrics.gold_share_ratio = metrics.gold_share / metrics.expected_gold_share
+        metrics.gpm_relative_score = linear_scale(metrics.gold_share_ratio, 0.7, 1.3)
+        metrics.dpm_relative_score = linear_scale(metrics.damage_share / expected_damage_share, 0.7, 1.3)
+        if role == Role.SUPPORT and metrics.profile in ('TANK', 'SUPPORT_UTILITY'):
+            metrics.dpm_relative_score = metrics.utility_score
+
         metrics.fb_score = 10.0 if metrics.has_first_blood else (7.0 if metrics.has_first_blood_assist else 0.0)
         metrics.ft_score = 10.0 if metrics.has_first_tower else (6.0 if metrics.has_first_tower_assist else 0.0)
         
-        if metrics.opponent_index is not None:
+        if metrics.gold_15_available:
             metrics.gold_15_score = linear_scale(
                 metrics.gold_diff_15,
                 baselines['gold_diff_15']['min'], baselines['gold_diff_15']['max']
             )
-            metrics.cs_15_score = linear_scale(
-                metrics.cs_diff_15,
-                baselines['cs_diff_15']['min'], baselines['cs_diff_15']['max']
-            )
         else:
             metrics.gold_15_score = 5.0
-            metrics.cs_15_score = 5.0
+        metrics.cs_15_score = (linear_scale(metrics.cs_diff_15, -30, 30)
+                               if metrics.cs_15_available else 5.0)
+        if not metrics.timeline_available:
+            metrics.fb_score = metrics.ft_score = 5.0
         
         metrics.early_pressure_score = (
             metrics.fb_score * 0.25 +
@@ -1028,14 +1005,14 @@ class ScoringMixin:
         role_str = role.value if hasattr(role, 'value') else str(role).upper()
         if role_str in ['TOP', 'MID', 'MIDDLE']:
             metrics.solo_kills_score = linear_scale(
-                metrics.solo_kills,
+                metrics.early_solo_kills,
                 baselines['solo_kills']['min'], baselines['solo_kills']['max']
             )
             metrics.pace_rating = (
                 metrics.gpm_relative_score * 0.25 +
                 metrics.dpm_relative_score * 0.25 +
                 metrics.early_pressure_score * 0.45 +
-                metrics.solo_kills_score * 0.05
+                (metrics.solo_kills_score if metrics.timeline_available else 5.0) * 0.05
             )
         else:
             metrics.pace_rating = (
@@ -1053,8 +1030,6 @@ class ScoringMixin:
             baselines['gold_advantage']['min'], baselines['gold_advantage']['max']
         )
         
-        metrics.expected_gold_share = 0.20 * metrics.gpm_mult  # 0.20 = 1/5
-        metrics.gold_share_ratio = metrics.gold_share / metrics.expected_gold_share if metrics.expected_gold_share > 0 else 1.0
 
         metrics.contribution_to_lead = linear_scale(
             metrics.gold_share_ratio,
@@ -1063,7 +1038,7 @@ class ScoringMixin:
         )      
 
         metrics.win_impact = (
-            metrics.advantage_score * 0.4 +
+            metrics.efficiency_score * 0.4 +
             metrics.contribution_to_lead * 0.3 +
             metrics.kp_score * 0.3
         )
@@ -1079,7 +1054,18 @@ class ScoringMixin:
             'win_impact': max(0, base_weights['win_impact'] + metrics.impact_weight_adj),
         }
         
+        # Utility supports should not need damage/gold to earn an economy score.
+        if role == Role.SUPPORT and metrics.profile in ('TANK', 'SUPPORT_UTILITY'):
+            metrics.economic_efficiency = (
+                metrics.utility_score * 0.6 + metrics.gpm_relative_score * 0.4)
+            metrics.combat_value = 0.75 * metrics.combat_value + 0.25 * metrics.utility_score
+            metrics.win_impact = (
+                metrics.utility_score * 0.4 + metrics.kp_score * 0.3 +
+                metrics.contribution_to_lead * 0.3)
         total_weight = sum(adjusted_weights.values())
+        if total_weight <= 0:
+            adjusted_weights = dict(base_weights)
+            total_weight = sum(adjusted_weights.values())
         if total_weight > 0:
             metrics.final_combat_weight = adjusted_weights['combat_value'] / total_weight
             metrics.final_economic_weight = adjusted_weights['economic_efficiency'] / total_weight
@@ -1105,17 +1091,21 @@ class ScoringMixin:
         if not hasattr(self, 'thisKillsListe') or not self.thisKillsListe:
             return
         
+        extract_early_game(self)
         self._extract_objective_participations_from_timeline()
         
         nb_players = min(len(self.thisKillsListe), getattr(self, 'nb_joueur', 10))
         
-        for i in range(nb_players):
-            metrics = self._build_player_metrics(i)
+        self.player_metrics_liste = [self._build_player_metrics(i) for i in range(nb_players)]
+        for metrics in self.player_metrics_liste:
             self._calculate_zscores(metrics)
             self._calculate_breakdown_scores(metrics)
             
-            self.player_metrics_liste.append(metrics)
-            self.scores_liste.append(round(metrics.zscore_score, 1))
+            metrics.performance_score = (
+                STATISTICAL_WEIGHT * metrics.zscore_score +
+                CONTRIBUTION_WEIGHT * metrics.breakdown_score)
+            self.raw_scores_liste.append(metrics.performance_score)
+            self.scores_liste.append(round(metrics.performance_score, 1))
             
             breakdown = ContributionBreakdown(
                 combat_value=round(metrics.combat_value, 1),
@@ -1129,71 +1119,35 @@ class ScoringMixin:
         
         self._identify_mvp_ace()
         
-        if hasattr(self, 'thisId') and self.thisId < len(self.scores_liste):
-            if self.thisId > 4:
-                id_player = self.thisId - 5
-            else:
-                id_player = self.thisId
+        if hasattr(self, 'thisId'):
+            index = tracked_index(self)
+            if 0 <= index < len(self.scores_liste):
+                self.player_score = self.scores_liste[index]
+                self.player_breakdown = self.breakdowns_liste[index]
+                self.player_rank = self._get_player_rank(index)
 
-            self.player_score = self.scores_liste[id_player]
-            self.player_breakdown = self.breakdowns_liste[id_player]
-            self.player_rank = self._get_player_rank(id_player)
+    def _ranking_scores(self):
+        raw = getattr(self, 'raw_scores_liste', [])
+        return [round(v, 12) for v in (raw if len(raw) == len(self.scores_liste) else self.scores_liste)]
 
     def _identify_mvp_ace(self):
-        """Identifie le MVP (meilleur global) et l'ACE (meilleur perdant)."""
-        if not self.scores_liste:
+        """Equal full-precision scores share rank; IDs select a stable representative."""
+        scores = self._ranking_scores()
+        if not scores:
             return
-        
-        self.mvp_index = max(range(len(self.scores_liste)), key=lambda i: self.scores_liste[i])
-        
-        if hasattr(self, 'thisWinBool'):
-            if self.thisWinBool:
-                losing_indices = range(5, min(10, len(self.scores_liste)))
-            else:
-                losing_indices = range(0, min(5, len(self.scores_liste)))
-            
-            if losing_indices:
-                self.ace_index = max(losing_indices, key=lambda i: self.scores_liste[i])
-        else:
-            if len(self.scores_liste) > 5:
-                self.ace_index = max(range(5, len(self.scores_liste)), key=lambda i: self.scores_liste[i])
-    
+        self.mvp_indices = [i for i, score in enumerate(scores) if score == max(scores)]
+        ids = getattr(self, 'thisParticipantIdListe', list(range(len(scores))))
+        self.mvp_index = min(self.mvp_indices, key=lambda i: ids[i])
+        losing = list(range(5, len(scores))) if getattr(self, 'thisWinBool', False) else list(range(min(5, len(scores))))
+        self.ace_indices = [i for i in losing if scores[i] == max(scores[j] for j in losing)] if losing else []
+        self.ace_index = min(self.ace_indices, key=lambda i: ids[i]) if self.ace_indices else -1
+
     def _get_player_rank(self, player_index: int) -> int:
-        """Retourne le rang d'un joueur (1 = MVP, 10 = dernier)."""
-        if not self.scores_liste:
+        scores = self._ranking_scores()
+        if not 0 <= player_index < len(scores):
             return 5
-        
-        sorted_indices = sorted(range(len(self.scores_liste)), 
-                                key=lambda i: self.scores_liste[i], reverse=True)
-        
-        for rank, idx in enumerate(sorted_indices, 1):
-            if idx == player_index:
-                return rank
-        return len(self.scores_liste)
-    
-    def _find_lane_opponent(self, player_index: int) -> Optional[int]:
-        """Trouve l'adversaire direct d'un joueur."""
-        if not hasattr(self, 'thisPositionListe') or player_index >= len(self.thisPositionListe):
-            return None
-        
-        my_role = self.thisPositionListe[player_index].upper()
-        role_map = {'BOTTOM': 'ADC', 'UTILITY': 'SUPPORT', 'MIDDLE': 'MID'}
-        my_role = role_map.get(my_role, my_role)
-        
-        if player_index < 5:
-            search_range = range(5, 10)
-        else:
-            search_range = range(0, 5)
-        
-        for opp_index in search_range:
-            if opp_index < len(self.thisPositionListe):
-                opp_role = self.thisPositionListe[opp_index].upper()
-                opp_role = role_map.get(opp_role, opp_role)
-                if opp_role == my_role:
-                    return opp_index
-        
-        return None
-    
+        return 1 + sum(value > scores[player_index] for value in scores)
+
     def get_score_emoji(self, score: float) -> str:
         """Retourne un emoji basé sur le score."""
         if score >= 9.0:
@@ -1237,9 +1191,23 @@ class ScoringMixin:
         
         return {
             'index': player_index,
-            'team': 'blue' if player_index < 5 else 'red',
+            'team': 'blue' if getattr(self, 'thisTeamIdListe', [100] * 5 + [200] * 5)[player_index] == 100 else 'red',
             'role': self.thisPositionListe[player_index] if player_index < len(self.thisPositionListe) else 'UNKNOWN',
             'score': score,
+            'scoring_version': SCORING_VERSION,
+            'statistical_score': round(self.player_metrics_liste[player_index].zscore_score, 2),
+            'contribution_score': round(self.player_metrics_liste[player_index].breakdown_score, 2),
+            'utility_score': round(self.player_metrics_liste[player_index].utility_score, 2),
+            'timeline_available': self.player_metrics_liste[player_index].timeline_available,
+            'scoring_inputs': {
+                'ally_healing': self.player_metrics_liste[player_index].ally_healing,
+                'ally_shielding': self.player_metrics_liste[player_index].ally_shielding,
+                'cc_seconds': self.player_metrics_liste[player_index].cc_seconds,
+                'early_solo_kills': self.player_metrics_liste[player_index].early_solo_kills,
+                'utility_available': self.player_metrics_liste[player_index].utility_available,
+                'gold_15_available': self.player_metrics_liste[player_index].gold_15_available,
+                'cs_15_available': self.player_metrics_liste[player_index].cs_15_available,
+            },
             'rank': rank,
             'rank_text': self.get_rank_text(rank),
             'emoji': self.get_score_emoji(score),
@@ -1248,8 +1216,8 @@ class ScoringMixin:
             'best_dimension_emoji': breakdown.get_badge_emoji(),
             'worst_dimension': worst_dim,
             'worst_dimension_score': worst_val,
-            'is_mvp': player_index == self.mvp_index,
-            'is_ace': player_index == self.ace_index,
+            'is_mvp': player_index in self.mvp_indices,
+            'is_ace': player_index in self.ace_indices,
             'breakdown': breakdown.to_dict()
         }
 
@@ -1262,29 +1230,6 @@ class ScoringMixin:
             self.get_performance_summary_for_player(i) 
             for i in range(len(self.scores_liste))
         ]
-
-    def get_player_performance_summary(self) -> dict:
-        """Retourne un résumé de la performance du joueur."""
-        if not hasattr(self, 'player_breakdown') or self.player_breakdown is None:
-            return {}
-        
-        best_dim, best_val = self.player_breakdown.get_best_dimension()
-        worst_dim, worst_val = self.player_breakdown.get_weakest_dimension()
-        
-        return {
-            'score': self.player_score,
-            'rank': self.player_rank,
-            'rank_text': self.get_rank_text(self.player_rank),
-            'emoji': self.get_score_emoji(self.player_score),
-            'best_dimension': best_dim,
-            'best_dimension_score': best_val,
-            'best_dimension_emoji': self.player_breakdown.get_badge_emoji(),
-            'worst_dimension': worst_dim,
-            'worst_dimension_score': worst_val,
-            'is_mvp': self.player_rank == 1,
-            'is_ace': hasattr(self, 'thisId') and self.thisId == self.ace_index,
-            'breakdown': self.player_breakdown.to_dict()
-        }
 
     def get_player_scoring_profile_summary(self, player_index: int) -> dict:
         """Retourne un résumé du profil de scoring appliqué à un joueur."""
@@ -1319,6 +1264,8 @@ class ScoringMixin:
             return None
         
         my_role = self.thisPositionListe[player_index].upper()
+        if normalize_position(my_role) == Role.UNKNOWN:
+            return None
         
         role_map = {'BOTTOM': 'ADC', 'UTILITY': 'SUPPORT', 'MIDDLE': 'MID'}
         my_role = role_map.get(my_role, my_role)
@@ -1502,7 +1449,7 @@ class ScoringMixin:
                 
                 params = {
                     'match_id': match_id,
-                    'player_index': metrics.player_index,
+                    'player_index': storage_index(self, metrics.player_index),
                     'riot_id': riot_id,
                     'riot_tag': riot_tag,
                     'champion': metrics.champion,
@@ -1740,7 +1687,7 @@ class ScoringMixin:
                     
                     params = {
                         'match_id': match_id,
-                        'player_index': i,
+                        'player_index': storage_index(self, i),
                         'riot_id': riot_id,
                         'riot_tag': riot_tag,
                         'champion': champion,
@@ -1775,24 +1722,6 @@ class ScoringMixin:
 
 
     def get_player_performance_summary(self) -> dict:
-        """Retourne un résumé de la performance du joueur."""
-        if not hasattr(self, 'player_breakdown') or self.player_breakdown is None:
+        if not getattr(self, 'scores_liste', []):
             return {}
-        
-        best_dim, best_val = self.player_breakdown.get_best_dimension()
-        worst_dim, worst_val = self.player_breakdown.get_weakest_dimension()
-        
-        return {
-            'score': self.player_score,
-            'rank': self.player_rank,
-            'rank_text': self.get_rank_text(self.player_rank),
-            'emoji': self.get_score_emoji(self.player_score),
-            'best_dimension': best_dim,
-            'best_dimension_score': best_val,
-            'best_dimension_emoji': self.player_breakdown.get_badge_emoji(),
-            'worst_dimension': worst_dim,
-            'worst_dimension_score': worst_val,
-            'is_mvp': self.player_rank == 1,
-            'is_ace': hasattr(self, 'thisId') and self.thisId == self.ace_index,
-            'breakdown': self.player_breakdown.to_dict()
-        }
+        return self.get_performance_summary_for_player(tracked_index(self))

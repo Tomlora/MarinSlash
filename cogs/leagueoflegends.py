@@ -724,11 +724,12 @@ class LeagueofLegends(Extension):
                 param_records.update(_get_current_teamfight_records(match_info))
 
                 tracked_metrics = None
+                tracked_index = match_info.thisPuuidListe.index(match_info.puuid)
                 if (
                     hasattr(match_info, 'player_metrics_liste')
-                    and 0 <= match_info.thisId < len(match_info.player_metrics_liste)
+                    and 0 <= tracked_index < len(match_info.player_metrics_liste)
                 ):
-                    tracked_metrics = match_info.player_metrics_liste[match_info.thisId]
+                    tracked_metrics = match_info.player_metrics_liste[tracked_index]
 
                 # Paramètres spécifiques aux ranked
                 if match_info.thisQ in ['RANKED', 'FLEX', 'SWIFTPLAY']:

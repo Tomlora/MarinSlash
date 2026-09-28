@@ -14,6 +14,7 @@ import pandas as pd
 import aiohttp
 
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
+from .scoring_inputs import game_minutes
 from .riot_api import get_champion_masteries
 from .masteries import get_masteries_old, get_stat_champion_by_player
 
@@ -60,7 +61,13 @@ class MatchLolTeamData:
         self.thisQuadraListe = []
         self.thisPentaListe = []
         self.thisJungleMonsterKilledListe = []
-        self.thisPositionListe = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] * 2
+        positions = {'MIDDLE': 'MID', 'BOTTOM': 'ADC', 'UTILITY': 'SUPPORT'}
+        self.thisPositionListe = [positions.get(p.get('teamPosition'), p.get('teamPosition') or 'UNKNOWN') for p in participants]
+        self.thisParticipantIdListe = [p['participantId'] for p in participants]
+        self.thisTeamIdListe = [p['teamId'] for p in participants]
+        self.scoring_participants = participants
+        self.thisTeamDeaths = sum(p.get('deaths', 0) for p in participants[:5])
+        self.thisTeamDeathsOp = sum(p.get('deaths', 0) for p in participants[5:])
         self.thisPuuidListe = []
         self.thisPinkListe = []
         self.allie_feeder = 0
@@ -135,11 +142,11 @@ class MatchLolTeamData:
             self.thisDamageTakenRatioListe.append(damage_taken / team_tank if team_tank > 0 else 0)
 
             # Stats par minute
-            game_minutes = self.thisTime / 60
-            self.thisDamagePerMinuteListe.append(round(damage / game_minutes, 1) if game_minutes > 0 else 0)
-            self.thisMinionPerMinListe.append(round((participant.get('totalMinionsKilled', 0) + participant.get('neutralMinionsKilled', 0)) / game_minutes, 1) if game_minutes > 0 else 0)
-            self.thisVisionPerMinListe.append(round(participant.get('visionScore', 0) / game_minutes, 2) if game_minutes > 0 else 0)
-            self.thisTankPerMinListe.append(round(damage_taken / game_minutes, 1) if game_minutes > 0 else 0)
+            minutes = game_minutes(self)
+            self.thisDamagePerMinuteListe.append(round(damage / minutes, 1) if minutes > 0 else 0)
+            self.thisMinionPerMinListe.append(round((participant.get('totalMinionsKilled', 0) + participant.get('neutralMinionsKilled', 0)) / minutes, 1) if minutes > 0 else 0)
+            self.thisVisionPerMinListe.append(round(participant.get('visionScore', 0) / minutes, 2) if minutes > 0 else 0)
+            self.thisTankPerMinListe.append(round(damage_taken / minutes, 1) if minutes > 0 else 0)
 
             # KDA
             deaths = participant.get('deaths', 0)
