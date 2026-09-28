@@ -4,6 +4,7 @@ Uses the actual intermediate scores, never reruns the scoring when a button is
 opened. Weights mirror v3's dimension formulas; parity tests cover all profiles.
 """
 import math
+from copy import deepcopy
 
 
 def fmt(value, digits=1):
@@ -15,6 +16,11 @@ def build_dimension_explanations(m):
     context = getattr(m, "explanation_context", None)
     if not context:
         return None
+    if context.get('version') == 2:
+        if any(not math.isclose(d['score'], getattr(m, d['key']), abs_tol=1e-8)
+               for d in context['dimensions']):
+            return None
+        return deepcopy(context)
     b = context["baselines"]
     role = m.role_enum.value
     tank = m.profile in ("TANK", "FIGHTER")
@@ -191,6 +197,9 @@ def explanation_fields(dimension):
     """Discord-independent renderer; the existing paginator enforces page limits."""
     fields = [("Pourquoi cette note ?", dimension["summary"])]
     for part in dimension["components"]:
+        if part.get('bonus'):
+            fields.append((part['label'], f"{part['observation']}\n{part['reference']}\n**+{fmt(part['points'],2)} point(s)**."))
+            continue
         fields.append((
             f"{part['label']} · {fmt(part['weight']*100,1)} %",
             f"{part['observation']}\n{part['reference']}\n"

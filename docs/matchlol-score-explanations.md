@@ -1,5 +1,9 @@
 # Explication des cinq dimensions du score
 
+La v4 ajoute les références de durée et les bonus réellement appliqués. Voir
+[le barème v4](matchlol-scoring-v4.md). Les anciennes explications v3 sauvegardées
+restent lisibles ; les descriptions ci-dessous couvrent le fonctionnement général.
+
 Le bouton **Détail du score** présente, après la vue d'ensemble, des pages pour
 Combat, Économie, Objectifs, Tempo et Impact. Elles concernent uniquement le
 joueur du récap ; la comparaison et le classement existants restent à la suite.
@@ -30,7 +34,7 @@ calcul et de ses références, puis conservées dans le JSON existant
 `match_recap_details.data`, sur la seule entrée du joueur suivi par PUUID.
 Ouvrir le bouton ne recalcule rien : les futurs changements de ratios en BDD
 ne modifient pas l'explication enregistrée. Aucun appel Riot supplémentaire
-ni migration SQL n'est nécessaire ; les formules du scoring restent identiques.
+ni migration SQL n'est nécessaire. Ouvrir le bouton ne change pas la note sauvegardée.
 
 Un ancien récap sans ces données affiche une explication de cette limite.
 Ses notes restent consultables, mais les détails ne sont pas reconstruits

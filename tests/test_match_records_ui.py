@@ -1102,6 +1102,34 @@ def test_real_scoring_snapshot_roundtrip_explains_only_recap_player(scoring_modu
     assert sum(f.name == 'Comment retrouver la note' for p in pages for f in p.fields) == 5
 
 
+def test_v4_command_displays_current_duration_references(scoring_modules):
+    import ast
+    tree = ast.parse((COG_DIR / 'lol_scoring.py').read_text(encoding='utf-8'))
+    function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'generate_role_baselines_embed')
+    env = {'interactions': types.SimpleNamespace(Embed=FakeEmbed), 'BREAKDOWN_BASELINES': None}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), 'lol_scoring.py', 'exec'), env)
+    match = calculate(match_fixture(scoring_modules, tracked=6, duration=1200))
+    m = match.player_metrics_liste[0]
+    embed = env['generate_role_baselines_embed'](match.get_performance_summary_for_player(0), {}, m, match, 0)
+    assert '20.0 min' in embed.description and 'v4' in embed.description
+    assert len(embed.fields) == 5
+    assert all(len(f.value) < 1000 for f in embed.fields)
+    assert '1.0` - `3.0' not in '\n'.join(f.value for f in embed.fields)
+
+
+def test_v4_snapshot_keeps_original_duration_and_bonus_points(scoring_modules):
+    match = calculate(match_fixture(scoring_modules, tracked=6, duration=1200))
+    scores = json.loads(json.dumps(DETAILS.snapshot(match), allow_nan=False))['scores']
+    player = next(p for p in scores if p['tracked'])
+    assert player['scoring_version'] == '4.0'
+    assert player['dimension_explanations']['duration_minutes'] == 20
+    match.player_metrics_liste[0].game_minutes = 40
+    pages = DETAILS.build_score_pages(example_match(), scores)
+    text = '\n'.join(p.description + '\n' + '\n'.join(f.value for f in p.fields) for p in pages)
+    assert 'v4.0' in text and 'Durée : 20 min' in text
+    assert '+0,60 point(s)' in text  # two first actions and one early solo kill
+
+
 def test_gold_callback_acknowledges_before_loading_uploads_png_and_handles_missing_data():
     old = VIEW_COG.gold_response
     cog = VIEW_COG.LolMatchViews.__new__(VIEW_COG.LolMatchViews)

@@ -80,6 +80,7 @@ def snapshot(match_info):
             "player_index": index, "riot_id": at("thisRiotIdListe"), "riot_tag": at("thisRiotTagListe"),
             "champion": at("thisChampNameListe"), "role": summary.get("role"),
             "scoring_version": summary.get("scoring_version", "legacy"),
+            "scoring_supported": summary.get("scoring_supported", True),
             **{key: number(summary.get(key)) for key in ("statistical_score", "contribution_score", "utility_score")},
             "timeline_available": summary.get("timeline_available"),
             "scoring_inputs": summary.get("scoring_inputs", {}),
@@ -183,9 +184,9 @@ def build_score_pages(match, scores):
          f"Note **{fmt(player.get('score'))}/10** · Rang **{fmt(player.get('rank'), 0)}/{len(scores)}**"),
         ("Dimensions", dimensions),
     ]
-    if player.get("scoring_version") == "3.0":
+    if player.get("scoring_version") in ("3.0", "4.0"):
         fields.append(("Calcul de la note", f"70 % statistiques ({fmt(player.get('statistical_score'))})"
-                       f" + 30 % contribution ({fmt(player.get('contribution_score'))}) · v3.0"))
+                       f" + 30 % contribution ({fmt(player.get('contribution_score'))}) · v{player['scoring_version']}"))
         if player.get("timeline_available") is False:
             fields.append(("Données manquantes", "Timeline indisponible : composantes temporelles neutralisées."))
     if known:
@@ -193,11 +194,13 @@ def build_score_pages(match, scores):
         fields += [("💪 Point fort", f"{best[0]} · **{fmt(best[1])}/10**"),
                    ("📉 Axe de progression", f"{weak[0]} · **{fmt(weak[1])}/10**")]
     explanation = player.get('dimension_explanations') or {}
-    details = explanation.get('dimensions', []) if explanation.get('version') == 1 else []
+    details = explanation.get('dimensions', []) if explanation.get('version') in (1, 2) else []
     if not details:
         fields.append(("Pourquoi ces notes ?", "Les valeurs et barèmes nécessaires à cette explication n'ont pas été sauvegardés "
                        "avec ce récap. Les notes restent consultables ; un nouveau récap calculé avec cette fonctionnalité "
                        "inclura leur explication. Aucun détail n'est déduit des seules notes."))
+    if player.get('scoring_supported') is False:
+        fields.append(("Mode ou rôle non évalué", "Les références ne couvrent pas ce mode ou ce rôle inconnu : valeurs neutres, sans jugement de performance."))
     result = pages("Ta performance", fields)
     for detail in details:
         note = (f"{player_label(player)} · **{fmt(detail['score'])}/10**\n"
@@ -205,6 +208,8 @@ def build_score_pages(match, scores):
                 "Chaque critère reste entre 0 et 10. "
                 "Barèmes du bot appliqués lors de cette partie, adaptés au rôle et au profil du champion. "
                 "Ces dimensions expliquent la partie « contribution » de la note globale (30 %).")
+        if explanation.get('version') == 2:
+            note += f" Durée : {fmt(explanation['duration_minutes'])} min. Repères provisoires : une valeur attendue vaut 5/10."
         dimension_pages = make_pages("📊 Pourquoi cette note · " + detail['title'], match,
                                      explanation_fields(detail), note, 0x9B59B6)
         if len(dimension_pages) > 1:

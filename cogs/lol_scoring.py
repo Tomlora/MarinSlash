@@ -204,6 +204,8 @@ def generate_comparison_text(player_summary: dict, other_summary: dict,
     Returns:
         list: Liste de lignes explicatives
     """
+    if player_summary.get('scoring_version') == '4.0':
+        return ['Les notes utilisent les références du rôle, du profil et de la durée. Les différences entre deux champions ne sont pas attribuables à une seule statistique.']
     lines = []
     
     p_breakdown = player_summary.get('breakdown', {})
@@ -284,6 +286,12 @@ def generate_detailed_breakdown(player_summary: dict, other_summary: dict,
         color=0x5865F2
     )
     
+    if player_summary.get('scoring_version') == '4.0':
+        for key in ('combat_value', 'economic_efficiency', 'objective_contribution', 'pace_rating', 'win_impact'):
+            embed.add_field(name=get_dim_name_fr(key),
+                value=f"{player_name} : {player_summary.get('breakdown', {}).get(key, 0):.1f}/10 ; {other_name} : {other_summary.get('breakdown', {}).get(key, 0):.1f}/10", inline=False)
+        embed.description += '\nRéférences adaptées au rôle, au profil et à la durée. Les barèmes personnels expliquent les critères effectivement utilisés.'
+        return embed
     p_breakdown = player_summary.get('breakdown', {})
     o_breakdown = other_summary.get('breakdown', {})
     
@@ -373,6 +381,15 @@ def generate_role_baselines_embed(player_summary: dict, player_stats: dict,
         color=0x9B59B6
     )
     
+    context = getattr(metrics, 'explanation_context', {}) if metrics else {}
+    if context.get('version') == 2:
+        embed.description = f"**{champ}** · {context['duration_minutes']:.1f} min · Références provisoires v4 : l'attendu vaut 5/10."
+        for dimension in context['dimensions']:
+            lines = [f"{part['label']} : {part['score']:.1f}/10, poids {part['weight']*100:.0f} %. {part['reference'].split('. ')[0]}."
+                     for part in dimension['components'] if part['weight'] > 0]
+            embed.add_field(name=dimension['title'], value='\n'.join(lines)[:1000] or 'Aucun critère disponible.', inline=False)
+        embed.set_footer(text="Les bonus rares ne donnent aucun malus en leur absence. Détail personnel complet dans le bouton du récap.")
+        return embed
     # Vérifier si on a accès aux baselines
     if BREAKDOWN_BASELINES is None:
         embed.add_field(
@@ -798,7 +815,7 @@ class LolScore(Extension):
             embed1.add_field(
                 name="Calcul de la note",
                 value=f"70 % statistiques ({player_summary['statistical_score']}/10) + "
-                      f"30 % contribution ({player_summary['contribution_score']}/10) · v3.0",
+                      f"30 % contribution ({player_summary['contribution_score']}/10) · v{player_summary['scoring_version']}",
                 inline=False,
             )
             # Tes dimensions

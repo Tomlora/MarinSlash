@@ -144,12 +144,12 @@ def test_explanations_reconcile_all_profiles_and_missing_data(modules, explanati
         neutral = [p for d in detail['dimensions'] for p in d['components'] if p['neutral']]
         assert neutral and all(p['score'] == 5 for p in neutral)
     if role == 'SUPPORT' and profile in ('TANK', 'SUPPORT_UTILITY'):
-        utility = detail['dimensions'][1]['components'][0]
+        utility = detail['dimensions'][4]['components'][0]
         assert utility['label'] == 'Aide apportée aux alliés'
         if data_state == 'zero':
             assert utility['score'] == 0 and not utility['neutral']
         elif data_state == 'complete':
-            assert 'Soins aux alliés : 12 000' in utility['observation']
+            assert 'Contrôles' in utility['observation']
 
 
 def test_explanations_freeze_references_and_refuse_inconsistent_formulas(modules, explanations):
@@ -168,11 +168,11 @@ def test_explanations_use_adjusted_thresholds_and_actual_points(modules, explana
     match = calculate(match_fixture(modules, tracked=6))
     m = by_id(match)[6]
     detail = explanations.build_dimension_explanations(m)
-    kp = detail['dimensions'][0]['components'][0]
-    assert '60,0 %' in kp['observation']
-    expected = modules[0].BREAKDOWN_BASELINES['kp']['max'] * m.kp_mult * 100
-    assert f'{explanations.fmt(expected)} % → 10/10' in kp['reference']
-    assert kp['points'] == pytest.approx(m.kp_score * .25)
+    kp = detail['dimensions'][0]['components'][1]
+    assert '60.00 %' in kp['observation']
+    expected = detail['references']['kp']*100
+    assert f'{expected:.2f} %' in kp['reference']
+    assert kp['points'] == pytest.approx(m.kp_score * .35)
 
 
 def test_partial_support_data_explains_exclusion_without_neutralizing_observed_zero(modules, explanations):
@@ -180,11 +180,11 @@ def test_partial_support_data_explains_exclusion_without_neutralizing_observed_z
     match.match_detail['info']['participants'][9]['timeCCingOthers'] = 0
     calculate(match)
     detail = explanations.build_dimension_explanations(by_id(match)[10])
-    utility = detail['dimensions'][1]['components'][0]
+    utility = detail['dimensions'][4]['components'][0]
     assert utility['score'] == 0 and not utility['neutral']
-    assert 'incomplets' in utility['observation']
-    assert 'exclu' in utility['observation']
-    assert 'Contrôles : 0,0 s/min' in utility['observation']
+    assert 'donnée absente' in utility['observation']
+    assert 'exclue' in utility['observation']
+    assert 'Contrôles (secondes) : 0.00/min' in utility['observation']
 
 
 def test_same_match_from_both_sides_has_identical_metrics_and_rank(modules):
@@ -280,7 +280,7 @@ def test_objectives_now_increase_final_score(modules):
 def test_kda_extreme_cannot_dominate_and_deathless_has_no_bonus(modules):
     scoring, _, _, cls = modules
     baseline = scoring.ROLE_BASELINES[scoring.Role.MID]
-    m = scoring.PlayerMetrics(0, role_enum=scoring.Role.MID, profile="MAGE")
+    m = scoring.PlayerMetrics(0, role_enum=scoring.Role.MID, profile="MAGE", game_minutes=30)
     for target, source in (("kda","kda"),("cs_per_min","cs_per_min"),("damage_per_min","damage_per_min"),
                            ("damage_share","damage_share"),("gold_per_min","gold_per_min"),
                            ("vision_per_min","vision_score_per_min"),("kp","kp"),("damage_taken_share","damage_taken_share")):
