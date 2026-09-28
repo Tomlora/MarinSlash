@@ -8,6 +8,8 @@ import types
 from pathlib import Path
 
 import pandas as pd
+import pytest
+from test_match_scoring import modules as scoring_modules, match_fixture, calculate
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,7 +73,7 @@ def _load_under_stubs():
     targets = (
         "fonctions", "fonctions.match", "fonctions.match.records_display",
         "fonctions.match.records_ui", "fonctions.match.records_preferences",
-        "fonctions.match.match_views", "fonctions.match.recap_details", "cogs.settings_records", "cogs.lol_match_views",
+        "fonctions.match.match_views", "fonctions.match.recap_details", "fonctions.match.score_explanations", "cogs.settings_records", "cogs.lol_match_views",
         "fonctions.gestion_bdd", "interactions",
         "utils", "utils.emoji", "cogs", "cogs.lol_records",
     )
@@ -1039,6 +1041,65 @@ def test_score_pages_show_dimensions_comparison_and_all_ten_players():
     assert "Données indisponibles" in DETAILS.build_score_pages(example_match(), [])[0].title
     scores[2]["combat_value"] = None
     assert "Écart **—**" in DETAILS.build_score_pages(example_match(), scores)[1].fields[0].value
+
+
+def test_explanations_are_saved_only_for_tracked_puuid_and_render_within_limits(monkeypatch):
+    info = sample_details_match()
+    info.player_metrics_liste = [object() for _ in range(10)]
+    calls = []
+    detail = {'version': 1, 'dimensions': [
+        {'key': key, 'title': title, 'score': 2, 'summary': 'Ce qui limite la note : critère suivi.',
+         'components': [{'label': f'Critère {i}', 'score': 2, 'weight': 1/7, 'points': 2/7,
+                         'neutral': False, 'observation': 'Observation du joueur suivi.',
+                         'reference': 'Barème sauvegardé de cette partie.'} for i in range(7)]}
+        for key, title in DETAILS.DIMENSIONS]}
+    def explain(metrics):
+        calls.append(metrics)
+        return detail
+    monkeypatch.setattr(DETAILS, 'build_dimension_explanations', explain)
+    data = json.loads(json.dumps(DETAILS.snapshot(info), allow_nan=False))
+    assert calls == [info.player_metrics_liste[2]]
+    assert [p['player_index'] for p in data['scores'] if 'dimension_explanations' in p] == [2]
+    # Never render another player's detailed data, even if present in an old payload.
+    data['scores'][0]['dimension_explanations'] = {'version': 1, 'dimensions': [
+        {'title': 'NEVER DISPLAY', 'score': 10}]}
+    pages = DETAILS.build_score_pages(example_match(), data['scores'])
+    explained = [p for p in pages if 'Pourquoi cette note' in p.title]
+    assert len(explained) == 10
+    for _, title in DETAILS.DIMENSIONS:
+        assert sum(title in p.title for p in explained) == 2
+    assert all('Player7#TEST' in p.description for p in explained)
+    assert all('NEVER DISPLAY' not in p.title for p in pages)
+    for page in pages:
+        assert len(page.fields) <= 5
+        assert all(len(f.value) <= 900 and len(f.name) <= 256 for f in page.fields)
+        assert sum(len(f.name) + len(f.value) for f in page.fields) + len(page.description) + len(page.title) + len(page.footer) <= 6000
+    assert sum('Comment retrouver la note' == f.name for p in pages for f in p.fields) == 5
+    assert len([p for p in pages if 'Comparaison' in p.title]) == 1
+    assert sum(len(p.fields) for p in pages if 'Classement' in p.title) == 10
+
+
+def test_old_recap_explains_why_details_are_missing():
+    scores = DETAILS.snapshot(sample_details_match())['scores']
+    for version in (None, 999):
+        scores[2]['dimension_explanations'] = {'version': version, 'dimensions': []}
+        pages = DETAILS.build_score_pages(example_match(), scores)
+        assert not any('Pourquoi cette note' in p.title for p in pages)
+        assert any("n'ont pas été sauvegardés" in f.value for p in pages for f in p.fields)
+
+
+@pytest.mark.parametrize('tracked', [1, 6, 10])
+def test_real_scoring_snapshot_roundtrip_explains_only_recap_player(scoring_modules, tracked):
+    match = calculate(match_fixture(scoring_modules, tracked=tracked))
+    scores = json.loads(json.dumps(DETAILS.snapshot(match), allow_nan=False))['scores']
+    saved = [p for p in scores if 'dimension_explanations' in p]
+    assert len(saved) == 1 and saved[0]['tracked']
+    assert saved[0]['riot_id'] == f'Player{tracked}'
+    for dimension in saved[0]['dimension_explanations']['dimensions']:
+        assert dimension['score'] == pytest.approx(saved[0][dimension['key']], abs=.051)
+    pages = DETAILS.build_score_pages(example_match(), scores)
+    assert any('Pourquoi cette note' in p.title for p in pages)
+    assert sum(f.name == 'Comment retrouver la note' for p in pages for f in p.fields) == 5
 
 
 def test_gold_callback_acknowledges_before_loading_uploads_png_and_handles_missing_data():

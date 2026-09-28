@@ -3,6 +3,7 @@ import json
 import logging
 from io import BytesIO
 from threading import Lock
+from .score_explanations import build_dimension_explanations, explanation_fields
 
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 from fonctions.match.match_views import (
@@ -87,6 +88,12 @@ def snapshot(match_info):
             **{key: truth(summary.get(key)) for key in ("is_mvp", "is_ace")},
             **{key: number((summary.get("breakdown") or {}).get(key)) for key, _ in DIMENSIONS},
         })
+        if puuids[index] == match_info.puuid:
+            metrics = getattr(match_info, 'player_metrics_liste', [])
+            if index < len(metrics):
+                explanations = build_dimension_explanations(metrics[index])
+                if explanations:
+                    scores[-1]['dimension_explanations'] = explanations
     return {"scores": scores, "gold": minute_gold(getattr(match_info, "data_timeline", {}), participants)}
 
 
@@ -185,7 +192,25 @@ def build_score_pages(match, scores):
         best, weak = max(known, key=lambda p: p[1]), min(known, key=lambda p: p[1])
         fields += [("💪 Point fort", f"{best[0]} · **{fmt(best[1])}/10**"),
                    ("📉 Axe de progression", f"{weak[0]} · **{fmt(weak[1])}/10**")]
+    explanation = player.get('dimension_explanations') or {}
+    details = explanation.get('dimensions', []) if explanation.get('version') == 1 else []
+    if not details:
+        fields.append(("Pourquoi ces notes ?", "Les valeurs et barèmes nécessaires à cette explication n'ont pas été sauvegardés "
+                       "avec ce récap. Les notes restent consultables ; un nouveau récap calculé avec cette fonctionnalité "
+                       "inclura leur explication. Aucun détail n'est déduit des seules notes."))
     result = pages("Ta performance", fields)
+    for detail in details:
+        note = (f"{player_label(player)} · **{fmt(detail['score'])}/10**\n"
+                "Les pourcentages indiquent ce qui compte le plus dans cette dimension. "
+                "Chaque critère reste entre 0 et 10. "
+                "Barèmes du bot appliqués lors de cette partie, adaptés au rôle et au profil du champion. "
+                "Ces dimensions expliquent la partie « contribution » de la note globale (30 %).")
+        dimension_pages = make_pages("📊 Pourquoi cette note · " + detail['title'], match,
+                                     explanation_fields(detail), note, 0x9B59B6)
+        if len(dimension_pages) > 1:
+            for part, page in enumerate(dimension_pages, 1):
+                page.title += f" · {part}/{len(dimension_pages)}"
+        result += dimension_pages
     others = [p for p in scores if p is not player and number(p.get("score")) is not None]
     candidates = [p for p in others if truth(p.get("is_mvp"))]
     if not candidates:

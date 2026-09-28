@@ -98,6 +98,95 @@ def by_id(match):
     return dict(zip(match.thisParticipantIdListe, match.player_metrics_liste))
 
 
+@pytest.fixture
+def explanations():
+    spec = importlib.util.spec_from_file_location('score_explanations_test', MATCH / 'score_explanations.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+PROFILE_CASES = [(row['role'], row['profile']) for row in
+                 json.loads((MATCH / 'scoring_profile_defaults.json').read_text(encoding='utf-8'))]
+
+
+@pytest.mark.parametrize('role,profile', PROFILE_CASES)
+@pytest.mark.parametrize('data_state', ['complete', 'missing', 'zero'])
+def test_explanations_reconcile_all_profiles_and_missing_data(modules, explanations, monkeypatch, role, profile, data_state):
+    profiles = modules[1]
+    original = profiles.get_profile_for_champion
+    monkeypatch.setattr(profiles, 'get_profile_for_champion',
+                        lambda champ, r: profiles.ChampionProfile(profile) if r == role else original(champ, r))
+    match = match_fixture(modules, tracked=6)
+    if data_state == 'missing':
+        match.data_timeline = None
+    else:
+        for p in match.match_detail['info']['participants']:
+            p.update(totalHealsOnTeammates=12000 if data_state == 'complete' else 0,
+                     totalDamageShieldedOnTeammates=6000 if data_state == 'complete' else 0,
+                     timeCCingOthers=45 if data_state == 'complete' else 0)
+    calculate(match)
+    m = next(m for m in match.player_metrics_liste if m.role == role)
+    assert m.profile == profile
+    detail = explanations.build_dimension_explanations(m)
+    assert detail is not None
+    assert len(detail['dimensions']) == 5
+    json.dumps(detail, allow_nan=False)
+    for dimension in detail['dimensions']:
+        parts = dimension['components']
+        assert sum(p['weight'] for p in parts) == pytest.approx(1)
+        assert sum(p['points'] for p in parts) == pytest.approx(getattr(m, dimension['key']))
+        assert all(0 <= p['score'] <= 10 for p in parts)
+        fields = explanations.explanation_fields(dimension)
+        assert all(len(name) <= 256 and len(value) <= 900 for name, value in fields)
+        assert 'Additionne' in fields[-1][1]
+    if data_state == 'missing':
+        neutral = [p for d in detail['dimensions'] for p in d['components'] if p['neutral']]
+        assert neutral and all(p['score'] == 5 for p in neutral)
+    if role == 'SUPPORT' and profile in ('TANK', 'SUPPORT_UTILITY'):
+        utility = detail['dimensions'][1]['components'][0]
+        assert utility['label'] == 'Aide apportée aux alliés'
+        if data_state == 'zero':
+            assert utility['score'] == 0 and not utility['neutral']
+        elif data_state == 'complete':
+            assert 'Soins aux alliés : 12 000' in utility['observation']
+
+
+def test_explanations_freeze_references_and_refuse_inconsistent_formulas(modules, explanations):
+    match = calculate(match_fixture(modules))
+    m = by_id(match)[1]
+    detail = explanations.build_dimension_explanations(m)
+    before = json.dumps(detail, ensure_ascii=False)
+    modules[0].BREAKDOWN_BASELINES['kp']['max'] = 1234
+    assert json.dumps(explanations.build_dimension_explanations(m), ensure_ascii=False) == before
+    assert explanations.build_dimension_explanations(types.SimpleNamespace()) is None
+    m.combat_value += 1
+    assert explanations.build_dimension_explanations(m) is None
+
+
+def test_explanations_use_adjusted_thresholds_and_actual_points(modules, explanations):
+    match = calculate(match_fixture(modules, tracked=6))
+    m = by_id(match)[6]
+    detail = explanations.build_dimension_explanations(m)
+    kp = detail['dimensions'][0]['components'][0]
+    assert '60,0 %' in kp['observation']
+    expected = modules[0].BREAKDOWN_BASELINES['kp']['max'] * m.kp_mult * 100
+    assert f'{explanations.fmt(expected)} % → 10/10' in kp['reference']
+    assert kp['points'] == pytest.approx(m.kp_score * .25)
+
+
+def test_partial_support_data_explains_exclusion_without_neutralizing_observed_zero(modules, explanations):
+    match = match_fixture(modules, tracked=10)
+    match.match_detail['info']['participants'][9]['timeCCingOthers'] = 0
+    calculate(match)
+    detail = explanations.build_dimension_explanations(by_id(match)[10])
+    utility = detail['dimensions'][1]['components'][0]
+    assert utility['score'] == 0 and not utility['neutral']
+    assert 'incomplets' in utility['observation']
+    assert 'exclu' in utility['observation']
+    assert 'Contrôles : 0,0 s/min' in utility['observation']
+
+
 def test_same_match_from_both_sides_has_identical_metrics_and_rank(modules):
     blue = calculate(match_fixture(modules, 1))
     red = calculate(match_fixture(modules, 6))

@@ -180,7 +180,9 @@ class PlayerMetrics:
     cc_seconds: Optional[float] = None
     utility_score: float = 5.0
     utility_available: bool = False
+    utility_references: dict = field(default_factory=dict)
     performance_score: float = 5.0
+    explanation_context: dict = field(default_factory=dict)
     
     # === EARLY GAME ===
     gold_at_15: int = 0
@@ -711,10 +713,12 @@ class ScoringMixin:
             if metrics.ally_healing is not None and metrics.ally_shielding is not None:
                 # Per-minute allies-only healing/shielding, not self healing.
                 reference = 400.0 if metrics.profile == 'SUPPORT_UTILITY' else 100.0
+                metrics.utility_references['healing_shielding'] = reference
                 utility.append(linear_scale((metrics.ally_healing + metrics.ally_shielding) / metrics.game_minutes,
                                             0, reference * 2))
             if metrics.cc_seconds is not None:
                 reference = 1.5 if metrics.profile == 'TANK' else 0.6
+                metrics.utility_references['cc'] = reference
                 utility.append(linear_scale(metrics.cc_seconds / metrics.game_minutes, 0, reference * 2))
         if utility:
             metrics.utility_available = True
@@ -1083,6 +1087,14 @@ class ScoringMixin:
         )
         
         metrics.breakdown_score = max(1.0, min(10.0, metrics.breakdown_score))
+        # Freeze the actual references used here, before any later BDD/profile change.
+        metrics.explanation_context = {
+            'baselines': {key: dict(value) for key, value in baselines.items()},
+            'expected_cs': expected_cs_adjusted,
+            'expected_vision': expected_vis_adjusted,
+            'expected_pinks': expected_pinks,
+            'expected_damage_share': expected_damage_share,
+        }
 
     async def calculate_all_scores(self):
         """Calcule les scores de tous les joueurs."""
