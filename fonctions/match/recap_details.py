@@ -206,7 +206,7 @@ def build_score_pages(match, scores):
          f"Note **{fmt(player.get('score'))}/10** · Rang **{fmt(player.get('rank'), 0)}/{len(scores)}**"),
         ("Dimensions", dimensions),
     ]
-    if player.get("scoring_version") in ("3.0", "4.0"):
+    if player.get("scoring_version") in ("3.0", "4.0", "5.0"):
         fields.append(("Calcul de la note", f"70 % statistiques ({fmt(player.get('statistical_score'))})"
                        f" + 30 % contribution ({fmt(player.get('contribution_score'))}) · v{player['scoring_version']}"))
         if player.get("timeline_available") is False:
@@ -242,8 +242,19 @@ def build_score_pages(match, scores):
                 "Ces dimensions expliquent la partie « contribution » de la note globale (30 %).")
         if explanation.get('version') == 2:
             note += f" Durée : {fmt(explanation['duration_minutes'])} min. Repères provisoires : une valeur attendue vaut 5/10."
+        if explanation.get('scoring_version') == '5.0':
+            profile = {'MARKSMAN':'Tireur','ASSASSIN':'Assassin','FIGHTER':'Combattant',
+                       'MAGE':'Mage','TANK':'Tank','SUPPORT_UTILITY':'Utilitaire'}.get(explanation['profile'], 'Inconnu')
+            note = (f"{player_label(player)} · **{fmt(detail['score'])}/10** · "
+                    f"Durée : {fmt(explanation['duration_minutes']).replace('.', ',')} min\n"
+                    f"Rôle : {explanation['role']} · Profil : {profile}. "
+                    "Repères provisoires du bot : 5 = référence, 8 = très bon, 10 = excellent. "
+                    "La durée adapte les repères de production et de survie. "
+                    "Les points ci-dessous s’additionnent pour former cette note. "
+                    "Les cinq dimensions composent les 30 % de contribution de la note globale.")
         dimension_pages = make_pages("📊 Pourquoi cette note · " + detail['title'], match,
-                                     explanation_fields(detail), note, 0x9B59B6)
+                                     explanation_fields(detail), note, 0x9B59B6,
+                                     fields_per_page=6 if explanation.get('scoring_version') == '5.0' else 5)
         if len(dimension_pages) > 1:
             for part, page in enumerate(dimension_pages, 1):
                 page.title += f" · {part}/{len(dimension_pages)}"

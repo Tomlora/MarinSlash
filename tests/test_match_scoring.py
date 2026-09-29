@@ -169,9 +169,9 @@ def test_explanations_use_adjusted_thresholds_and_actual_points(modules, explana
     m = by_id(match)[6]
     detail = explanations.build_dimension_explanations(m)
     kp = detail['dimensions'][0]['components'][1]
-    assert '60.00 %' in kp['observation']
+    assert '60,0 %' in kp['observation']
     expected = detail['references']['kp']*100
-    assert f'{expected:.2f} %' in kp['reference']
+    assert f'{expected:.1f} %'.replace('.', ',') in kp['reference']
     assert kp['points'] == pytest.approx(m.kp_score * .35)
 
 
@@ -184,7 +184,7 @@ def test_partial_support_data_explains_exclusion_without_neutralizing_observed_z
     assert utility['score'] == 0 and not utility['neutral']
     assert 'donnée absente' in utility['observation']
     assert 'exclue' in utility['observation']
-    assert 'Contrôles (secondes) : 0.00/min' in utility['observation']
+    assert 'Contrôles (secondes) : 0,00/min' in utility['observation']
 
 
 def test_same_match_from_both_sides_has_identical_metrics_and_rank(modules):

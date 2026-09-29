@@ -204,7 +204,7 @@ def generate_comparison_text(player_summary: dict, other_summary: dict,
     Returns:
         list: Liste de lignes explicatives
     """
-    if player_summary.get('scoring_version') == '4.0':
+    if player_summary.get('scoring_version') in ('4.0', '5.0'):
         return ['Les notes utilisent les références du rôle, du profil et de la durée. Les différences entre deux champions ne sont pas attribuables à une seule statistique.']
     lines = []
     
@@ -286,7 +286,7 @@ def generate_detailed_breakdown(player_summary: dict, other_summary: dict,
         color=0x5865F2
     )
     
-    if player_summary.get('scoring_version') == '4.0':
+    if player_summary.get('scoring_version') in ('4.0', '5.0'):
         for key in ('combat_value', 'economic_efficiency', 'objective_contribution', 'pace_rating', 'win_impact'):
             embed.add_field(name=get_dim_name_fr(key),
                 value=f"{player_name} : {player_summary.get('breakdown', {}).get(key, 0):.1f}/10 ; {other_name} : {other_summary.get('breakdown', {}).get(key, 0):.1f}/10", inline=False)
@@ -383,7 +383,7 @@ def generate_role_baselines_embed(player_summary: dict, player_stats: dict,
     
     context = getattr(metrics, 'explanation_context', {}) if metrics else {}
     if context.get('version') == 2:
-        embed.description = f"**{champ}** · {context['duration_minutes']:.1f} min · Références provisoires v4 : l'attendu vaut 5/10."
+        embed.description = f"**{champ}** · {context['duration_minutes']:.1f} min · Références provisoires v{context.get('scoring_version', '4.0')} : le repère vaut 5/10."
         for dimension in context['dimensions']:
             lines = [f"{part['label']} : {part['score']:.1f}/10, poids {part['weight']*100:.0f} %. {part['reference'].split('. ')[0]}."
                      for part in dimension['components'] if part['weight'] > 0]

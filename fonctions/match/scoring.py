@@ -1,13 +1,13 @@
 """
-Mixin de scoring pour MatchLol - VERSION 4.0.
+Mixin de scoring pour MatchLol - VERSION 5.0.
 
 Intègre deux systèmes complémentaires avec logique d'ajustement unifiée:
-- Statistiques : z-scores bornés, 70 % de la note MVP/ACE
+- Statistiques : moyenne de critères notés sur 10, 70 % de la note MVP/ACE
 - Contribution : cinq dimensions, 30 % de la note MVP/ACE
 
 Les ratios BDD et la durée ajustent les références du rôle. L'utilité ne
 demande que les capacités pertinentes pour le kit/profil. Le calcul effectif
-et ses courbes provisoires sont dans scoring_v4.py. Voir docs/matchlol-scoring-v4.md.
+et ses courbes provisoires sont dans scoring_v5.py. Voir docs/matchlol-scoring-v5.md.
 
 Usage dans MatchLol:
     class MatchLol(ScoringMixin, ...):
@@ -24,7 +24,7 @@ import math
 
 from .scoring_inputs import game_minutes, participant_indices, extract_early_game, tracked_index, storage_index
 
-SCORING_VERSION = "4.0"
+SCORING_VERSION = "5.0"
 STATISTICAL_WEIGHT = 0.70
 CONTRIBUTION_WEIGHT = 0.30
 
@@ -734,16 +734,16 @@ class ScoringMixin:
         except Exception:
             pass
         
-        from .scoring_v4 import compute_utility
+        from .scoring_v5 import compute_utility
         compute_utility(metrics)
         return metrics
 
     def _calculate_zscores(self, metrics: PlayerMetrics):
-        from .scoring_v4 import statistical_score
+        from .scoring_v5 import statistical_score
         statistical_score(metrics)
 
     def _calculate_breakdown_scores(self, metrics: PlayerMetrics):
-        from .scoring_v4 import contribution_score, references
+        from .scoring_v5 import contribution_score, references
         start = 0 if metrics.player_index < 5 else 5
         expected = sum(references(m)['gold'] for m in self.player_metrics_liste[start:start+5])
         metrics.expected_gold_share = references(metrics)['gold']/expected if expected else .2

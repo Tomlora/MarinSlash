@@ -1105,14 +1105,14 @@ def test_fresh_recap_records_explanation_failure_without_losing_other_data(scori
     elif failure == 'inconsistent_context':
         metrics.combat_value += 1
     else:
-        metrics.explanation_context['dimensions'][0]['components'][0]['points'] = float('nan')
+        metrics.explanation_context['unserializable'] = {object()}
     data = DETAILS.snapshot(match)
     json.dumps(data, allow_nan=False)
     assert len(data['scores']) == 10
     player = next(p for p in data['scores'] if p['tracked'])
     assert player['explanation_status'] == failure
     assert 'dimension_explanations' not in player
-    assert f'match=EUW1_123 compte=5 index={index} scoring=4.0 raison={failure}' in caplog.text
+    assert f'match=EUW1_123 compte=5 index={index} scoring=5.0 raison={failure}' in caplog.text
     values = '\n'.join(f.value for p in DETAILS.build_score_pages(example_match(), data['scores']) for f in p.fields)
     assert "anomalie à vérifier" in values
     assert "inclura leur explication" not in values
@@ -1149,7 +1149,7 @@ def test_v4_command_displays_current_duration_references(scoring_modules):
     match = calculate(match_fixture(scoring_modules, tracked=6, duration=1200))
     m = match.player_metrics_liste[0]
     embed = env['generate_role_baselines_embed'](match.get_performance_summary_for_player(0), {}, m, match, 0)
-    assert '20.0 min' in embed.description and 'v4' in embed.description
+    assert '20.0 min' in embed.description and 'v5' in embed.description
     assert len(embed.fields) == 5
     assert all(len(f.value) < 1000 for f in embed.fields)
     assert '1.0` - `3.0' not in '\n'.join(f.value for f in embed.fields)
@@ -1159,13 +1159,35 @@ def test_v4_snapshot_keeps_original_duration_and_bonus_points(scoring_modules):
     match = calculate(match_fixture(scoring_modules, tracked=6, duration=1200))
     scores = json.loads(json.dumps(DETAILS.snapshot(match), allow_nan=False))['scores']
     player = next(p for p in scores if p['tracked'])
-    assert player['scoring_version'] == '4.0'
+    assert player['scoring_version'] == '5.0'
     assert player['dimension_explanations']['duration_minutes'] == 20
     match.player_metrics_liste[0].game_minutes = 40
     pages = DETAILS.build_score_pages(example_match(), scores)
     text = '\n'.join(p.description + '\n' + '\n'.join(f.value for f in p.fields) for p in pages)
-    assert 'v4.0' in text and 'Durée : 20 min' in text
+    assert 'v5.0' in text and 'Durée : 20 min' in text
     assert '+0,60 point(s)' in text  # two first actions and one early solo kill
+
+
+def test_v5_has_one_complete_page_per_dimension_and_keeps_legacy_snapshots(scoring_modules):
+    match = calculate(match_fixture(scoring_modules, tracked=4))
+    scores = json.loads(json.dumps(DETAILS.snapshot(match), allow_nan=False))['scores']
+    player = next(p for p in scores if p['tracked'])
+    original = json.dumps(scores)
+    pages = DETAILS.build_score_pages(example_match(), scores)
+    explained = [p for p in pages if 'Pourquoi cette note' in p.title]
+    assert len(explained) == 5
+    for p in explained:
+        assert 1 < len(p.fields) <= 6
+        assert p.fields[-1].name == 'Comment retrouver la note'
+        assert all(len(f.value) <= 900 for f in p.fields)
+        assert sum(len(f.name)+len(f.value) for f in p.fields)+len(p.description)+len(p.title)+len(p.footer) < 6000
+    assert json.dumps(scores) == original
+    # Persisted historical values never run through today's curves.
+    player['scoring_version'] = '4.0'
+    player['dimension_explanations']['scoring_version'] = '4.0'
+    player['dimension_explanations']['dimensions'][0]['score'] = 1.234
+    pages = DETAILS.build_score_pages(example_match(), scores)
+    assert any('affiché **1,2/10**' in f.value for p in pages for f in p.fields)
 
 
 def test_gold_callback_acknowledges_before_loading_uploads_png_and_handles_missing_data():
