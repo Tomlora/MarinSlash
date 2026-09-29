@@ -110,14 +110,14 @@ def subject(match):
     return f"**{name}** · {str(match.get('mode') or 'Mode inconnu')[:30]}\n{match['match_id']}"
 
 
-def make_pages(title, match, fields, note="", color=0x5865F2):
+def make_pages(title, match, fields, note="", color=0x5865F2, *, fields_per_page=5):
     pages = []
     fields = fields or [("Aucune donnée", "Les données de cette section ne sont pas disponibles.")]
-    for start in range(0, len(fields), 5):
+    for start in range(0, len(fields), fields_per_page):
         page = interactions.Embed(
             title=title, description=subject(match) + ("\n" + note if note else ""), color=color,
         )
-        for name, value in fields[start:start + 5]:
+        for name, value in fields[start:start + fields_per_page]:
             page.add_field(name=str(name)[:256], value=str(value)[:900] or "—", inline=False)
         pages.append(page)
     return pages

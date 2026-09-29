@@ -18,6 +18,7 @@ def build_dimension_explanations(m):
         return None
     if context.get('version') == 2:
         if any(not math.isclose(d['score'], getattr(m, d['key']), abs_tol=1e-8)
+               or not math.isclose(sum(p['points'] for p in d['components']), d['score'], abs_tol=1e-8)
                for d in context['dimensions']):
             return None
         return deepcopy(context)
@@ -197,6 +198,9 @@ def explanation_fields(dimension):
     """Discord-independent renderer; the existing paginator enforces page limits."""
     fields = [("Pourquoi cette note ?", dimension["summary"])]
     for part in dimension["components"]:
+        if part.get('neutral') and part['weight'] == 0:
+            fields.append((part['label'] + ' · non évalué', part['reference'] + '\nAucun point retiré pour cette donnée absente.'))
+            continue
         if part.get('bonus'):
             fields.append((part['label'], f"{part['observation']}\n{part['reference']}\n**+{fmt(part['points'],2)} point(s)**."))
             continue
