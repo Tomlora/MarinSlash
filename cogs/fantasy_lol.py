@@ -44,6 +44,8 @@ def format_lineup(view: LineupView) -> str:
         label = entry.player.handle if entry.player else entry.team.name
         asset_id = entry.player.player_id if entry.player else entry.team.team_id
         locked = " 🔒" if asset.competition in view.locked else ""
+        if asset.competition in view.stale:
+            locked += " ⚠️ calendrier non vérifié"
         unavailable = " ⚠️ indisponible" if entry.player and asset_id in view.unavailable_players else ""
         slot = "Banc" if entry.slot == RosterSlot.BENCH else entry.slot.value
         role = f" / {entry.player.role.value}" if entry.slot == RosterSlot.BENCH else ""

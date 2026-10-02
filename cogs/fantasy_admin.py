@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+import asyncio
+import logging
+import os
 
 import interactions
 from interactions import (
@@ -10,33 +12,53 @@ from interactions import (
     SlashCommandOption,
     SlashContext,
     slash_command,
+    listen,
 )
 from sqlalchemy import text
 
 from fonctions.fantasy.database import get_engine, schema_issues
-from fonctions.fantasy.providers.leaguepedia import (
-    LeaguepediaPlayerProvider,
-    LeaguepediaProviderError,
-)
-from fonctions.fantasy.providers.oracles_elixir import (
-    OracleElixirPlayerProvider,
-    OracleElixirProviderError,
-)
-from fonctions.fantasy.providers.schedule import (
-    FallbackScheduleProvider,
-    LeaguepediaScheduleProvider,
-    RiotEsportsScheduleProvider,
-    ScheduleProviderError,
-)
-from fonctions.fantasy.schedule_sync import FantasyScheduleSyncError, sync_schedule
-from fonctions.fantasy.sync import FantasySyncError, sync_player_pool
+from fonctions.fantasy.automation import run_sync, read_sync_status, SyncBusyError
+
 
 
 class FantasyAdmin(Extension):
     def __init__(self, bot):
         self.bot: interactions.Client = bot
-        self.sync_running = False
-        self.schedule_sync_running = False
+        self._sync_task = None
+        self._last_errors = {}
+        if bot.is_ready:
+            self._start_sync_loop()
+
+    def _start_sync_loop(self):
+        if os.environ.get("FANTASY_AUTO_SYNC_ENABLED", "0").lower() not in {"1", "true", "yes"}:
+            return
+        if self._sync_task is None or self._sync_task.done():
+            self._sync_task = asyncio.create_task(self._sync_loop())
+
+    @listen()
+    async def on_ready(self):
+        self._start_sync_loop()
+
+    async def _sync_loop(self):
+        while True:
+            for kind in ("schedule", "pool"):
+                try:
+                    await run_sync(kind, automatic=True)
+                except SyncBusyError:
+                    pass
+                except Exception as exc:
+                    error = type(exc).__name__
+                    if self._last_errors.get(kind) != error:
+                        logging.getLogger(__name__).warning("Fantasy %s sync failed: %s", kind, error)
+                    self._last_errors[kind] = error
+                else:
+                    self._last_errors.pop(kind, None)
+            await asyncio.sleep(900)
+
+    def drop(self):
+        if self._sync_task is not None:
+            self._sync_task.cancel()
+        super().drop()
 
     @slash_command(
         name="fantasy_update_db",
@@ -56,35 +78,18 @@ class FantasyAdmin(Extension):
         ],
     )
     async def fantasy_update_db(self, ctx: SlashContext, source: str = "oracle_elixir"):
-        if self.sync_running:
-            return await ctx.send(
-                "Une synchronisation Fantasy est déjà en cours.", ephemeral=True
-            )
-
         await ctx.defer(ephemeral=True)
-        self.sync_running = True
         try:
-            if source == "leaguepedia":
-                provider = LeaguepediaPlayerProvider()
-                source_label = "Leaguepedia"
-            else:
-                provider = OracleElixirPlayerProvider()
-                source_label = "Oracle's Elixir"
-
-            result = await sync_player_pool(provider)
-        except (
-            LeaguepediaProviderError,
-            OracleElixirProviderError,
-            FantasySyncError,
-        ) as exc:
-            return await ctx.send(f"❌ Synchronisation annulée : {exc}", ephemeral=True)
+            outcome = await run_sync("pool", source=source)
+            result, source_label = outcome.result, outcome.source
+        except SyncBusyError as exc:
+            return await ctx.send(str(exc), ephemeral=True)
         except Exception as exc:
             return await ctx.send(
-                f"❌ Erreur inattendue pendant la synchronisation : `{type(exc).__name__}`.",
+                f"❌ Synchronisation annulée : `{type(exc).__name__}`. "
+                "Consulte /fantasy_sync_status.",
                 ephemeral=True,
             )
-        finally:
-            self.sync_running = False
 
         await ctx.send(
             f"✅ **Base Fantasy mise à jour depuis {source_label}**\n"
@@ -103,42 +108,19 @@ class FantasyAdmin(Extension):
         default_member_permissions=interactions.Permissions.ADMINISTRATOR,
     )
     async def fantasy_update_schedule(self, ctx: SlashContext):
-        if self.schedule_sync_running:
-            return await ctx.send(
-                "Une synchronisation du calendrier Fantasy est déjà en cours.",
-                ephemeral=True,
-            )
-
         await ctx.defer(ephemeral=True)
-        self.schedule_sync_running = True
-        provider = FallbackScheduleProvider(
-            LeaguepediaScheduleProvider(),
-            RiotEsportsScheduleProvider(),
-        )
-        now = datetime.now(timezone.utc)
         try:
-            result = await sync_schedule(
-                provider,
-                start=now - timedelta(hours=12),
-                end=now + timedelta(days=21),
-            )
-        except (ScheduleProviderError, FantasyScheduleSyncError) as exc:
-            return await ctx.send(f"❌ Synchronisation calendrier annulée : {exc}", ephemeral=True)
+            outcome = await run_sync("schedule")
+            result, provider_label = outcome.result, outcome.source
+        except SyncBusyError as exc:
+            return await ctx.send(str(exc), ephemeral=True)
         except Exception as exc:
             return await ctx.send(
-                f"❌ Erreur inattendue pendant la synchro calendrier : `{type(exc).__name__}`.",
+                f"❌ Synchronisation calendrier annulée : `{type(exc).__name__}`. "
+                "Consulte /fantasy_sync_status et vérifie la migration 20261002_fantasy_sync.sql.",
                 ephemeral=True,
             )
-        finally:
-            self.schedule_sync_running = False
-
-        provider_label = {
-            "LeaguepediaScheduleProvider": "Leaguepedia Cargo",
-            "RiotEsportsScheduleProvider": "LoL Esports",
-        }.get(provider.last_provider_name or "", provider.last_provider_name or "inconnu")
-        fallback_note = ""
-        if provider.errors:
-            fallback_note = "\n⚠️ Source primaire indisponible, fallback utilisé."
+        fallback_note = "\n⚠️ Source primaire indisponible, fallback utilisé." if outcome.fallback else ""
 
         await ctx.send(
             f"✅ **Calendrier Fantasy mis à jour via {provider_label}**\n"
@@ -149,6 +131,38 @@ class FantasyAdmin(Extension):
             f"{fallback_note}",
             ephemeral=True,
         )
+
+    @slash_command(
+        name="fantasy_sync_status",
+        description="[Admin] Affiche la fraîcheur et les erreurs des synchronisations Fantasy",
+        default_member_permissions=interactions.Permissions.ADMINISTRATOR,
+    )
+    async def fantasy_sync_status(self, ctx: SlashContext):
+        await ctx.defer(ephemeral=True)
+        try:
+            status = await asyncio.to_thread(read_sync_status)
+            rows = status['jobs']
+        except Exception:
+            return await ctx.send(
+                "Diagnostic indisponible : vérifie PostgreSQL et applique la migration "
+                "`20261002_fantasy_sync.sql`.", ephemeral=True,
+            )
+        enabled = os.environ.get("FANTASY_AUTO_SYNC_ENABLED", "0").lower() in {"1", "true", "yes"}
+        lines = ["**Synchronisations Fantasy**", "Automatisation : " + ("activée" if enabled else "désactivée")]
+        for row in rows:
+            success = row["last_success_at"]
+            attempt = row["last_attempt_at"]
+            lines.append(f"• **{row['kind']}** — succès : " + (f"<t:{int(success.timestamp())}:R>" if success else "jamais"))
+            if attempt:
+                lines.append(f"  Dernière tentative : <t:{int(attempt.timestamp())}:R>")
+            if row["last_error"]:
+                lines.append(f"  Erreur : `{row['last_error']}`")
+        if not rows:
+            lines.append("Aucune synchronisation enregistrée.")
+        lines.append("Calendrier non vérifié : " + (", ".join(status['stale']) or "aucun championnat"))
+        lines.append("Calendrier : toutes les heures ; pool : toutes les 24 h. "
+                     "Les championnats non vérifiés depuis 3 h bloquent les remplacements.")
+        await ctx.send("\n".join(lines), ephemeral=True)
 
     @slash_command(
         name="fantasy_db_status",

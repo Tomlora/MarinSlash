@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import text
 
 from .database import transaction
+from .freshness import stale_competitions
 from .locks import PARIS_TIMEZONE, ScheduledMatch, locked_competitions
 from .models import Competition, PlayerAsset, PlayerRole, RosterEntry, RosterSlot, TeamAsset
 from .roster import RosterValidationError, promote_bench_player
@@ -21,6 +22,7 @@ class LineupView:
     entries: tuple[RosterEntry, ...]
     locked: frozenset[Competition]
     unavailable_players: frozenset[int]
+    stale: frozenset[Competition] = frozenset()
 
 
 def _context(connection, league_id, guild_id, discord_user_id, *, editing=False):
@@ -99,7 +101,8 @@ def get_lineup(*, league_id: int, guild_id: int, discord_user_id: int) -> Lineup
         league, season, manager_id = _context(connection, league_id, guild_id, discord_user_id)
         now = connection.execute(text("SELECT clock_timestamp()")).scalar_one()
         entries, unavailable = _load_entries(connection, int(season.id), manager_id, now)
-        return LineupView(league.name, season.name, tuple(entries), _locks(connection, now), unavailable)
+        return LineupView(league.name, season.name, tuple(entries), _locks(connection, now), unavailable,
+                          stale_competitions(connection, now))
 
 
 def set_starter(*, league_id: int, guild_id: int, discord_user_id: int, player_id: int) -> LineupView:
@@ -111,7 +114,8 @@ def set_starter(*, league_id: int, guild_id: int, discord_user_id: int, player_i
         # SHARE also covers new schedule rows, which row locks cannot protect.
         connection.execute(text("""
             LOCK TABLE fantasy.pro_team, fantasy.pro_player,
-                       fantasy.pro_player_team_history, fantasy.match_schedule IN SHARE MODE
+                       fantasy.pro_player_team_history, fantasy.match_schedule,
+                       fantasy.schedule_coverage IN SHARE MODE
         """))
         # Read the clock after lock waits, including waits across Paris midnight.
         now = connection.execute(text("SELECT clock_timestamp()")).scalar_one()
@@ -119,11 +123,17 @@ def set_starter(*, league_id: int, guild_id: int, discord_user_id: int, player_i
         if player_id in unavailable:
             raise FantasyServiceError("Ce joueur n'est plus actif dans le pool synchronisé.")
         locked = _locks(connection, now)
+        stale = stale_competitions(connection, now)
         try:
             updated = promote_bench_player(entries, player_id, locked)
         except RosterValidationError as exc:
             raise FantasyServiceError(str(exc)) from exc
         changes = [(old, new) for old, new in zip(entries, updated) if old.slot != new.slot]
+        if any(old.player.competition in stale for old, new in changes):
+            raise FantasyServiceError(
+                "Calendrier trop ancien ou non vérifié pour ce remplacement. "
+                "Un administrateur doit lancer /fantasy_update_schedule."
+            )
         # Free the starter slot before promoting the bench player (unique index).
         changes.sort(key=lambda pair: pair[1].slot != RosterSlot.BENCH)
         for old, new in changes:
@@ -146,4 +156,4 @@ def set_starter(*, league_id: int, guild_id: int, discord_user_id: int, player_i
                     (season_id, manager_id, player_id, slot, valid_from, reason)
                 VALUES (:season_id, :manager_id, :player_id, :slot, :now, 'lineup')
             """), params)
-        return LineupView(league.name, season.name, tuple(updated), locked, unavailable)
+        return LineupView(league.name, season.name, tuple(updated), locked, unavailable, stale)

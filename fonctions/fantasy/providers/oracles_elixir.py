@@ -16,7 +16,7 @@ from .base import PlayerProvider, ProviderPlayer, ProviderTeam
 
 
 OE_DATA_URL_TEMPLATE = (
-    "https://oe-datasets.s3.us-west-2.amazonaws.com/LoL/"
+    "https://oe-datasets.s3.amazonaws.com/LoL/"
     "{year}_LoL_esports_match_data_from_OraclesElixir.csv"
 )
 
@@ -136,7 +136,7 @@ class OracleElixirPlayerProvider(PlayerProvider):
         try:
             async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
                 async with session.get(self.data_url) as response:
-                    if response.status >= 400:
+                    if response.status != 200:
                         raise OracleElixirProviderError(
                             f"Oracle's Elixir a répondu HTTP {response.status}."
                         )
@@ -144,14 +144,16 @@ class OracleElixirPlayerProvider(PlayerProvider):
                         async for chunk in response.content.iter_chunked(1024 * 1024):
                             output.write(chunk)
             return path
-        except aiohttp.ClientError as exc:
+        except BaseException as exc:
             try:
                 os.remove(path)
             except OSError:
                 pass
-            raise OracleElixirProviderError(
-                f"Impossible de télécharger Oracle's Elixir : {type(exc).__name__}."
-            ) from exc
+            if isinstance(exc, aiohttp.ClientError):
+                raise OracleElixirProviderError(
+                    f"Impossible de télécharger Oracle's Elixir : {type(exc).__name__}."
+                ) from exc
+            raise
 
     @staticmethod
     def _parse_file(

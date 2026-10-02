@@ -99,25 +99,38 @@ async def sync_schedule(
     if not matches:
         raise FantasyScheduleSyncError("Le provider n'a retourné aucun championnat supporté.")
 
+    for match in matches:
+        if match.scheduled_at_utc.tzinfo is None or not start <= match.scheduled_at_utc < end:
+            raise FantasyScheduleSyncError("Le calendrier contient une date invalide ou hors fenêtre.")
+        if match.status not in {"scheduled", "live", "completed", "cancelled", "postponed"}:
+            raise FantasyScheduleSyncError("Le calendrier contient un statut inconnu.")
+    identities = [_canonical_external_id(match) for match in matches]
+    if len(identities) != len(set(identities)):
+        raise FantasyScheduleSyncError("Le calendrier contient des matchs en doublon.")
+
     competitions_updated = tuple(sorted({match.competition for match in matches}, key=lambda c: c.value))
     teams_resolved = 0
     teams_unresolved = 0
 
     with transaction() as connection:
-        # Replace only mutable rows for competitions for which the provider gave
-        # us actual data. Completed rows are preserved for history/scoring.
+        connection.execute(text("SET LOCAL lock_timeout = '5s'"))
+        connection.execute(text("SET LOCAL statement_timeout = '30s'"))
+        # Keep row identities and historical games. Only cancel missing scheduled
+        # matches in the imported window; live/completed games remain immutable.
         connection.execute(
             text(
                 """
-                DELETE FROM fantasy.match_schedule
+                UPDATE fantasy.match_schedule SET status = 'cancelled', updated_at = NOW()
                 WHERE competition_code = ANY(:competitions)
                   AND scheduled_at_utc >= :start
                   AND scheduled_at_utc < :end
-                  AND status <> 'completed'
+                  AND status = 'scheduled'
+                  AND NOT (external_id = ANY(:identities))
                 """
             ),
             {
                 "competitions": [competition.value for competition in competitions_updated],
+                "identities": identities,
                 "start": start.astimezone(timezone.utc),
                 "end": end.astimezone(timezone.utc),
             },
@@ -157,8 +170,11 @@ async def sync_schedule(
                         scheduled_at_utc = EXCLUDED.scheduled_at_utc,
                         team1_id = COALESCE(EXCLUDED.team1_id, fantasy.match_schedule.team1_id),
                         team2_id = COALESCE(EXCLUDED.team2_id, fantasy.match_schedule.team2_id),
-                        status = EXCLUDED.status,
+                        status = CASE WHEN fantasy.match_schedule.status = 'live'
+                                      AND EXCLUDED.status = 'scheduled'
+                                      THEN 'live' ELSE EXCLUDED.status END,
                         updated_at = NOW()
+                    WHERE fantasy.match_schedule.status <> 'completed'
                     """
                 ),
                 {
@@ -171,6 +187,14 @@ async def sync_schedule(
                     "status": match.status,
                 },
             )
+
+        for competition in competitions_updated:
+            connection.execute(text("""
+                INSERT INTO fantasy.schedule_coverage (competition_code, refreshed_at, window_start, window_end)
+                VALUES (:competition, clock_timestamp(), :start, :end)
+                ON CONFLICT (competition_code) DO UPDATE SET refreshed_at = EXCLUDED.refreshed_at,
+                    window_start = EXCLUDED.window_start, window_end = EXCLUDED.window_end
+            """), {"competition": competition.value, "start": start, "end": end})
 
     return ScheduleSyncResult(
         matches_seen=len(matches),

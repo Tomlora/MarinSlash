@@ -83,6 +83,8 @@ async def sync_player_pool(provider: PlayerProvider) -> PlayerPoolSyncResult:
     players_deactivated = 0
 
     with transaction() as connection:
+        connection.execute(text("SET LOCAL lock_timeout = '5s'"))
+        connection.execute(text("SET LOCAL statement_timeout = '30s'"))
         team_ids: dict[tuple[Competition, str], int] = {}
         seen_team_ids: set[int] = set()
 

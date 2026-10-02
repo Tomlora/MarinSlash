@@ -131,21 +131,23 @@ class LeaguepediaScheduleProvider(ScheduleProvider):
         if not isinstance(raw_rows, list):
             raise ScheduleProviderError("Leaguepedia n'a pas retourné de résultat Cargo valide.")
 
+        if len(raw_rows) >= 1000:
+            raise ScheduleProviderError("Calendrier Leaguepedia potentiellement tronqué (limite Cargo).")
         matches: list[ProviderMatch] = []
         for item in raw_rows:
             title = item.get("title", {}) if isinstance(item, dict) else {}
             if not isinstance(title, dict):
-                continue
+                raise ScheduleProviderError("Ligne calendrier Leaguepedia invalide.")
             competition = reverse_names.get(str(title.get("League") or ""))
             if competition is None:
-                continue
+                raise ScheduleProviderError("Championnat Leaguepedia inconnu dans la réponse.")
             raw_date = str(title.get("DateTimeUTC") or "").strip()
             if not raw_date:
-                continue
+                raise ScheduleProviderError("Date Leaguepedia absente.")
             try:
                 scheduled_at = _parse_datetime(raw_date)
-            except ValueError:
-                continue
+            except ValueError as exc:
+                raise ScheduleProviderError("Date Leaguepedia invalide.") from exc
             team1 = str(title.get("Team1") or "").strip() or None
             team2 = str(title.get("Team2") or "").strip() or None
             match_id = str(title.get("MatchId") or "").strip()
@@ -235,40 +237,52 @@ class RiotEsportsScheduleProvider(ScheduleProvider):
             base_params.extend(("leagueId", league_id) for league_id in league_ids)
 
             events_by_id: dict[str, dict] = {}
-            page_token: str | None = None
-            # The initial page is generally centred around the current schedule.
-            # Follow a few newer pages so a 21-day Fantasy window is not silently
-            # truncated when several leagues are requested together.
-            for _ in range(6):
+            seen_tokens = set()
+            requests = 0
+
+            async def read_page(token=None):
+                nonlocal requests
+                if requests >= 6:
+                    raise ScheduleProviderError("Calendrier LoL Esports tronqué : budget de 6 pages atteint.")
+                if token is not None:
+                    if token in seen_tokens:
+                        raise ScheduleProviderError("Pagination LoL Esports répétée.")
+                    seen_tokens.add(token)
+                requests += 1
                 params = list(base_params)
-                if page_token:
-                    params.append(("pageToken", page_token))
+                if token:
+                    params.append(("pageToken", token))
                 payload = await self._get_json(session, "getSchedule", params)
-                schedule = ((payload or {}).get("data") or {}).get("schedule") or {}
-                events = schedule.get("events") or []
-                page_max: datetime | None = None
-                for event in events:
+                schedule = ((payload or {}).get("data") or {}).get("schedule")
+                if not isinstance(schedule, dict) or not isinstance(schedule.get("events"), list):
+                    raise ScheduleProviderError("Réponse calendrier LoL Esports invalide.")
+                dates = []
+                for event in schedule["events"]:
                     if not isinstance(event, dict):
-                        continue
+                        raise ScheduleProviderError("Événement LoL Esports invalide.")
+                    try:
+                        dates.append(_parse_datetime(event["startTime"]))
+                    except (KeyError, ValueError, TypeError) as exc:
+                        raise ScheduleProviderError("Date LoL Esports invalide.") from exc
                     event_id = str(event.get("id") or (event.get("match") or {}).get("id") or "")
+                    if event.get("type") == "match" and not event_id:
+                        raise ScheduleProviderError("Identifiant match LoL Esports absent.")
                     if event_id:
                         events_by_id[event_id] = event
-                    raw_start = event.get("startTime")
-                    if raw_start:
-                        try:
-                            event_time = _parse_datetime(str(raw_start))
-                        except ValueError:
-                            event_time = None
-                        if event_time is not None and (page_max is None or event_time > page_max):
-                            page_max = event_time
+                return schedule.get("pages") or {}, dates
 
-                if page_max is not None and page_max >= end.astimezone(timezone.utc):
-                    break
-                newer = (schedule.get("pages") or {}).get("newer")
-                newer = str(newer or "").strip()
-                if not newer or newer == page_token:
-                    break
-                page_token = newer
+            first_pages, first_dates = await read_page()
+            # Cover BOTH bounds. The default page may omit earlier matches today.
+            for direction, bound in (("older", start), ("newer", end)):
+                pages, dates = first_pages, first_dates
+                while True:
+                    if dates and ((direction == "older" and min(dates) <= bound)
+                                  or (direction == "newer" and max(dates) >= bound)):
+                        break
+                    token = str(pages.get(direction) or "").strip()
+                    if not token:
+                        break
+                    pages, dates = await read_page(token)
 
         matches: list[ProviderMatch] = []
         for event in events_by_id.values():
@@ -351,6 +365,8 @@ class FallbackScheduleProvider(ScheduleProvider):
         for provider in self.providers:
             try:
                 matches = await provider.fetch_schedule(requested, start, end)
+                if not matches:
+                    raise ScheduleProviderError("Calendrier vide ; absence de matchs non vérifiable.")
                 self.last_provider_name = type(provider).__name__
                 self.errors = tuple(errors)
                 return matches

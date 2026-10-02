@@ -10,6 +10,8 @@ from sqlalchemy.engine import Connection
 
 
 REQUIRED_SCHEMA_COLUMNS = {
+    "sync_job": {"kind", "last_attempt_at", "last_success_at", "last_error", "source"},
+    "schedule_coverage": {"competition_code", "refreshed_at", "window_start", "window_end"},
     "competition": {"code", "display_name", "timezone", "active"},
     "league": {
         "id",
