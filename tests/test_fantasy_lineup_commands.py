@@ -1,4 +1,3 @@
-import asyncio
 import threading
 import unittest
 from types import SimpleNamespace

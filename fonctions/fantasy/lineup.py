@@ -110,7 +110,7 @@ def set_starter(*, league_id: int, guild_id: int, discord_user_id: int, player_i
         # Prevent pool/calendar sync from changing eligibility during validation.
         # SHARE also covers new schedule rows, which row locks cannot protect.
         connection.execute(text("""
-            LOCK TABLE fantasy.pro_player, fantasy.pro_team,
+            LOCK TABLE fantasy.pro_team, fantasy.pro_player,
                        fantasy.pro_player_team_history, fantasy.match_schedule IN SHARE MODE
         """))
         # Read the clock after lock waits, including waits across Paris midnight.
