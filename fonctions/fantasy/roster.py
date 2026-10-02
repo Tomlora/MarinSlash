@@ -4,7 +4,7 @@ from collections import Counter
 from itertools import product
 from typing import Iterable, Sequence
 
-from .models import PlayerAsset, PlayerRole, RosterEntry, RosterSlot, STARTER_SLOTS, TeamAsset
+from .models import Competition, PlayerAsset, PlayerRole, RosterEntry, RosterSlot, STARTER_SLOTS, TeamAsset
 
 
 EXPECTED_PLAYER_COUNT = 8
@@ -13,6 +13,42 @@ EXPECTED_BENCH_COUNT = 3
 
 class RosterValidationError(ValueError):
     pass
+
+
+def promote_bench_player(
+    entries: Sequence[RosterEntry], player_id: int,
+    locked: Iterable[Competition] = (),
+) -> list[RosterEntry]:
+    """Return a validated lineup without mutating the original roster."""
+    incoming = next((entry for entry in entries
+                     if entry.player and entry.player.player_id == player_id), None)
+    if incoming is None:
+        raise RosterValidationError("Ce joueur n'appartient pas à ton roster.")
+    if incoming.slot != RosterSlot.BENCH:
+        raise RosterValidationError("Ce joueur est déjà titulaire.")
+    target_slot = RosterSlot(incoming.player.role.value)
+    outgoing = next((entry for entry in entries if entry.slot == target_slot), None)
+    if outgoing is None or outgoing.player is None:
+        raise RosterValidationError("Le titulaire à remplacer est introuvable.")
+    blocked = {incoming.player.competition, outgoing.player.competition} & set(locked)
+    if blocked:
+        raise RosterValidationError(
+            "Remplacement impossible : " + ", ".join(sorted(c.value for c in blocked))
+            + " verrouillé pour la journée (Europe/Paris)."
+        )
+    result = [
+        RosterEntry(target_slot, player=entry.player) if entry is incoming
+        else RosterEntry(RosterSlot.BENCH, player=entry.player) if entry is outgoing
+        else entry
+        for entry in entries
+    ]
+    try:
+        validate_final_roster(result)
+    except RosterValidationError as exc:
+        raise RosterValidationError(
+            "Le remplacement doit conserver un titulaire par rôle et au moins deux championnats."
+        ) from exc
+    return result
 
 
 def _expected_role(slot: RosterSlot) -> PlayerRole:

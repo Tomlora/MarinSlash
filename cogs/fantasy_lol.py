@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections import defaultdict
 
 import interactions
@@ -13,6 +14,8 @@ from interactions import (
 )
 
 from fonctions.fantasy.database import active_competitions, schema_is_ready
+from fonctions.fantasy.lineup import LineupView, get_lineup, set_starter
+from fonctions.fantasy.models import RosterSlot, STARTER_SLOTS
 from fonctions.fantasy.service import (
     FantasyServiceError,
     create_league,
@@ -31,6 +34,23 @@ STATUS_LABELS = {
     "finished": "Terminée",
     "cancelled": "Annulée",
 }
+
+
+def format_lineup(view: LineupView) -> str:
+    lines = [f"🏆 **{view.league_name[:80]} — {view.season_name[:80]}**", "**Titulaires**"]
+    order = {slot: index for index, slot in enumerate((*STARTER_SLOTS, RosterSlot.BENCH, RosterSlot.TEAM))}
+    for entry in sorted(view.entries, key=lambda item: order[item.slot]):
+        asset = entry.player or entry.team
+        label = entry.player.handle if entry.player else entry.team.name
+        asset_id = entry.player.player_id if entry.player else entry.team.team_id
+        locked = " 🔒" if asset.competition in view.locked else ""
+        unavailable = " ⚠️ indisponible" if entry.player and asset_id in view.unavailable_players else ""
+        slot = "Banc" if entry.slot == RosterSlot.BENCH else entry.slot.value
+        role = f" / {entry.player.role.value}" if entry.slot == RosterSlot.BENCH else ""
+        lines.append(f"• **{slot}{role}** : {label[:60]} (`{asset_id}`) — {asset.competition.value}{locked}{unavailable}")
+    lines.append("\n`/fantasy lineup league_id:… joueur_id:…` pour titulariser un joueur du banc.")
+    lines.append("🔒 Verrouillage toute la journée à Paris, selon le calendrier synchronisé.")
+    return "\n".join(lines)
 
 
 class FantasyLoL(Extension):
@@ -54,6 +74,39 @@ class FantasyLoL(Extension):
     @slash_command(name="fantasy", description="Fantasy League of Legends")
     async def fantasy(self, ctx: SlashContext):
         pass
+
+    @fantasy.subcommand(
+        "roster", sub_cmd_description="Affiche tes titulaires, ton banc et les verrouillages",
+        options=[SlashCommandOption(name="league_id", description="ID de la Fantasy",
+                                    type=OptionType.INTEGER, required=True, min_value=1)],
+    )
+    async def fantasy_roster(self, ctx: SlashContext, league_id: int):
+        await ctx.defer(ephemeral=True)
+        try:
+            view = await asyncio.to_thread(get_lineup, league_id=int(league_id),
+                                           guild_id=self._guild_id(ctx), discord_user_id=int(ctx.author_id))
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        await ctx.send(format_lineup(view), ephemeral=True)
+
+    @fantasy.subcommand(
+        "lineup", sub_cmd_description="Titularise un joueur du banc à son rôle",
+        options=[
+            SlashCommandOption(name="league_id", description="ID de la Fantasy",
+                               type=OptionType.INTEGER, required=True, min_value=1),
+            SlashCommandOption(name="joueur_id", description="ID du joueur du banc affiché par /fantasy roster",
+                               type=OptionType.INTEGER, required=True, min_value=1),
+        ],
+    )
+    async def fantasy_lineup(self, ctx: SlashContext, league_id: int, joueur_id: int):
+        await ctx.defer(ephemeral=True)
+        try:
+            view = await asyncio.to_thread(set_starter, league_id=int(league_id),
+                                           guild_id=self._guild_id(ctx), discord_user_id=int(ctx.author_id),
+                                           player_id=int(joueur_id))
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        await ctx.send("✅ Remplacement enregistré.\n" + format_lineup(view), ephemeral=True)
 
     @fantasy.subcommand("status", sub_cmd_description="Vérifie le socle Fantasy LoL")
     async def fantasy_status(self, ctx: SlashContext):
