@@ -30,7 +30,9 @@ def position(value):
 
 def build_map_snapshot(detail, timeline):
     """Identités Riot natives, jamais les index réordonnés du scoring."""
-    info = (detail or {}).get("info", {})
+    # MatchLol conserve le détail en DataFrame ; .get fonctionne aussi sur le
+    # dict Riot brut, sans tester la valeur booléenne ambiguë d'un DataFrame.
+    info = detail.get("info", {}) if detail is not None else {}
     participants = info.get("participants") or []
     if info.get("mapId") != 11 or len(participants) != 10:
         return None

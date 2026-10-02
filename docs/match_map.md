@@ -25,6 +25,8 @@ est réutilisée : **aucun nouvel appel Riot**, au récap ou au clic.
 
 La carte utilise le fond existant `img/map2.jpg`, schématique, et accepte uniquement
 la Faille de l'invocateur (`mapId=11`) avec dix participants, cinq par équipe.
+Le pipeline actuel charge cette timeline pour Ranked, Flex et Swiftplay ; les
+autres modes ne déclenchent pas de téléchargement supplémentaire pour la carte.
 Les récaps anciens sans snapshot et les autres cartes affichent une explication,
 sans tenter de reconstruire les dix joueurs depuis les anciennes données du seul
 compte suivi. Les trous restent des trous ; les relevés à une frontière sont visibles

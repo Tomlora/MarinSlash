@@ -183,6 +183,7 @@ def test_ten_player_map_roundtrip_in_existing_jsonb_snapshot(database):
     info = sample_details_match()
     info.match_detail, info.data_timeline = riot_fixture()
     expected = MAP.build_map_snapshot(info.match_detail, info.data_timeline)
+    info.match_detail = pd.DataFrame(info.match_detail)
     assert DETAILS.save_recap_details(info)
     assert DETAILS.load_details('EUW1_123', 5)[1]['map'] == expected
     assert DETAILS.save_recap_details(info)

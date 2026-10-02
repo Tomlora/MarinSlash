@@ -72,6 +72,13 @@ def test_missing_positions_are_gaps_and_invalid_death_positions_remain_explicit(
     json.dumps(data, allow_nan=False)
 
 
+def test_production_match_detail_dataframe_is_supported():
+    import pandas as pd
+    detail, timeline = riot_fixture()
+    match = types.SimpleNamespace(match_detail=pd.DataFrame(detail), data_timeline=timeline)
+    assert MAP.snapshot_for_match(match) == MAP.build_map_snapshot(detail, timeline)
+
+
 @pytest.mark.parametrize("map_id,players", [(12, 10), (11, 8)])
 def test_unsupported_maps_or_rosters_are_not_projected_on_summoners_rift(map_id, players):
     detail, timeline = riot_fixture()
