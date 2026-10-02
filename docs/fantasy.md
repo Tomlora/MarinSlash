@@ -142,14 +142,101 @@ tests réinitialisent son schéma `fantasy`. Ne jamais utiliser une base du bot.
 Le workflow `Fantasy tests` crée cette base sur PostgreSQL 16 et utilise
 Python 3.10, SQLAlchemy 2.0.4 et interactions.py 5.13.2.
 
+## Résultats et scores historiques
+
+Appliquer également **`sql/migrations/20261003_fantasy_results.sql`**. Cette
+migration additive et réexécutable ajoute les snapshots de résultats, le barème
+figé de la saison, le suivi des parties calculées et les contributions des managers.
+Elle autorise aussi le diagnostic des imports de résultats dans `sync_job`.
+Elle ne modifie ni les rosters ni les scores existants.
+
+Parcours après rechargement des extensions et synchronisation des commandes :
+
+1. Un administrateur lance
+   `/fantasy_import_results debut:2026-08-01 fin:2026-08-08`.
+   Les dates sont UTC, début inclus et fin exclue, sur 31 jours maximum dans une
+   même année. Le CSV annuel correspond à l'année demandée, sauf surcharge par
+   `FANTASY_OE_DATA_URL`. Aucun import de résultats automatique n'est activé.
+2. Le propriétaire de la ligue lance `/fantasy calculate league_id:1`.
+   Un lot traite au maximum 200 nouvelles parties ; la réponse indique s'il faut
+   relancer. Un second calcul sans nouvelle partie ne change rien.
+3. Les membres consultent `/fantasy standings league_id:1` et
+   `/fantasy scores league_id:1 page:1`. Les réponses sont privées.
+
+### Validation des données
+
+L'adaptateur cible le CSV moderne : `gameid`, `league`, `date` avec heure,
+`datacompleteness=complete`, `side`, `position`, `playername`, `teamname`,
+`gamelength` **en secondes entières**, `result`, `kills`, `deaths`, `assists`,
+`total cs`, `triplekills`, `quadrakills`, `pentakills`, `barons`, `dragons`, `towers`
+et `firstblood`. Les identifiants `playerid` et `teamid` utilisent les mêmes règles
+de résolution que le pool Oracle's Elixir. Une date sans fuseau est interprétée
+en UTC ; une date sans heure est refusée. Le format historique aux anciens noms
+de colonnes et durées en minutes n'est pas pris en charge.
+
+Le [dictionnaire Oracle's Elixir](https://lol.timsevenhuysen.com/matchdata/match-data-dictionary/)
+décrit les concepts ; il présente aussi des anciens formats. L'auteur signale
+les changements de colonnes dans ses
+[notes de format](https://www.patreon.com/oracleselixir/posts/downloadable-59096881).
+La compatibilité du CSV réel courant reste à vérifier lors du premier import réussi.
+
+Chaque partie doit contenir exactement dix joueurs distincts et deux équipes,
+cinq rôles par côté, un vainqueur, une date et une durée cohérentes. Une valeur
+vide, négative, non entière ou non finie ne devient jamais zéro. Une partie
+incomplète, dupliquée, future ou encore en cours bloque tout le lot. Une fenêtre
+vide est signalée sans rafraîchir le succès. Au maximum 1000 parties par import.
+
+Le worker et le verrou PostgreSQL des synchronisations sont partagés avec le
+pool et le calendrier. Les écritures du lot sont atomiques. Les identifiants de
+partie incluent le championnat et l'année. Les statistiques utilisées pour le
+scoring sont conservées dans un snapshot canonique avec empreinte SHA-256.
+Réimporter le même contenu est sans effet ; un contenu modifié est refusé sans
+écraser les anciens résultats. La correction contrôlée de résultats reste à
+implémenter. Aucun rapprochement approximatif avec le calendrier n'est effectué.
+
+Les identités absentes du pool sont créées **inactives**, sans affectation
+professionnelle courante. Les données historiques ne changent donc ni l'activité,
+ni le rôle, ni le nom, ni l'équipe actuels des joueurs connus. Seuls les mêmes
+identifiants externes relient un résultat à un joueur déjà drafté : pas de fusion
+approximative par pseudo entre les sources.
+
+### Attribution et classement
+
+Le calcul utilise le barème JSON de `season.scoring_rule_version`, validé et figé
+au premier calcul. Modifier cette version ou ses coefficients bloque les calculs
+suivants ; les scores publiés ne sont pas recalculés à la consultation.
+
+Le barème existant `riot_classic_v1` reste inchangé : joueur = 2×kills − 0,5×morts
++ 1,5×assists + 0,01×CS + 2×triples + 5×quadras + 10×pentas ; un bonus unique de
+2 points si kills **ou** assists atteignent 10. Équipe = 2×victoire + 2×barons
++ dragons + tours + 2×first blood + 2 si victoire en **moins de** 1800 secondes.
+Les points sont arrondis à trois décimales, y compris les scores négatifs.
+
+Seules les parties débutant dans `[season.starts_at, season.ends_at[` sont
+retenues (pas de borne finale si elle est absente). Le roster est lu à l'heure
+de début de chaque partie, sur `[valid_from, valid_until[`. À l'instant exact
+d'un transfert, le nouveau propriétaire reçoit les points. Le banc ne marque
+pas ; un transfert ultérieur ne déplace pas des points déjà attribués. Les
+historiques se chevauchant provoquent un rollback plutôt qu'un double comptage.
+La contribution conserve manager, slot, actif, nom, points, version du barème et
+référence d'historique. Les remplacements et les calculs partagent le verrou de ligue.
+
+Le classement est une **somme provisoire des contributions importées**, avec
+ex æquo sur les points. Il affiche les parties calculées et celles encore en
+attente ; il ne garantit pas la complétude des sources. Les managers sans
+contribution apparaissent à zéro. Ce classement ne représente pas les victoires
+des confrontations. Le mode `normalized` est explicitement refusé en attendant
+sa définition, sans lui substituer le mode classique.
+
 ## Prochaines étapes
 
 1. Rétablir/valider l'accès aux providers réels, puis activer les synchronisations
    et observer leur fraîcheur ainsi que la latence du bot en production.
 2. Valider les parcours de marché et d'échange sur le bot déployé.
-3. Importer les résultats Oracle's Elixir et calculer les scores versionnés en
-   utilisant le roster historique au moment des matchs.
-4. Relier les périodes de confrontation aux scores, puis exposer le classement.
+3. Valider l'import de résultats sur un CSV réel et prévoir la correction
+   contrôlée des résultats déjà figés.
+4. Relier les périodes de confrontation aux contributions, puis exposer leurs
+   victoires/défaites ; définir et implémenter le mode normalisé.
 
 Le déploiement Discord et la validation des sources réelles restent distincts
 des tests automatisés ; ce changement ne déploie pas le bot.

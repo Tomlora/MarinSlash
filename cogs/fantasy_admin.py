@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from datetime import datetime, timezone
 
 import interactions
 from interactions import (
@@ -59,6 +60,32 @@ class FantasyAdmin(Extension):
         if self._sync_task is not None:
             self._sync_task.cancel()
         super().drop()
+
+    @slash_command(
+        name='fantasy_import_results',
+        description='[Admin] Importe les résultats Oracle Elixir sur une fenêtre UTC (31 jours maximum)',
+        default_member_permissions=interactions.Permissions.ADMINISTRATOR,
+        options=[SlashCommandOption(name='debut', description='Date UTC incluse, AAAA-MM-JJ', type=OptionType.STRING, required=True),
+                 SlashCommandOption(name='fin', description='Date UTC exclue, AAAA-MM-JJ', type=OptionType.STRING, required=True)],
+    )
+    async def fantasy_import_results(self, ctx: SlashContext, debut: str, fin: str):
+        await ctx.defer(ephemeral=True)
+        # Unlike display permissions, this check cannot be relaxed by command overrides.
+        if ctx.guild_id is None or not (ctx.author.has_permission(interactions.Permissions.ADMINISTRATOR)):
+            return await ctx.send('Commande réservée aux administrateurs sur un serveur.', ephemeral=True)
+        try:
+            window = tuple(datetime.strptime(value, '%Y-%m-%d').replace(tzinfo=timezone.utc) for value in (debut, fin))
+        except ValueError:
+            return await ctx.send('Utilise le format AAAA-MM-JJ pour les deux dates UTC.', ephemeral=True)
+        try:
+            outcome = await run_sync('results', window=window)
+        except Exception as exc:
+            from fonctions.fantasy.service import FantasyServiceError
+            message = str(exc) if isinstance(exc, (FantasyServiceError, SyncBusyError)) else (
+                f'Import annulé : `{type(exc).__name__}`. Vérifie /fantasy_sync_status et la migration 20261003_fantasy_results.sql.')
+            return await ctx.send(message, ephemeral=True)
+        await ctx.send(f'Résultats : **{outcome.result.imported}** parties ajoutées, **{outcome.result.unchanged}** inchangées.\n'
+                       'Le propriétaire de chaque ligue peut lancer `/fantasy calculate`, puis consulter `/fantasy standings`.', ephemeral=True)
 
     @slash_command(
         name="fantasy_update_db",

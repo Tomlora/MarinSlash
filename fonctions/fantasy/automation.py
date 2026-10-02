@@ -18,8 +18,8 @@ from .schedule_sync import sync_schedule
 from .sync import sync_player_pool
 
 SYNC_LOCK_ID = 70612026
-INTERVALS = {'pool': timedelta(hours=24), 'schedule': timedelta(hours=1)}
-RETRIES = {'pool': timedelta(hours=6), 'schedule': timedelta(hours=1)}
+INTERVALS = {'pool': timedelta(hours=24), 'schedule': timedelta(hours=1), 'results': timedelta(hours=1)}
+RETRIES = {'pool': timedelta(hours=6), 'schedule': timedelta(hours=1), 'results': timedelta(hours=1)}
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='fantasy-sync')
 _busy = Lock()
 
@@ -42,7 +42,12 @@ def is_due(kind, row, now):
     return now - row.last_attempt_at >= delay
 
 
-async def _fetch_and_sync(kind, source, now):
+async def _fetch_and_sync(kind, source, now, window=None):
+    if kind == 'results':
+        from .providers.results import fetch_results
+        from .results import import_results
+        games = await fetch_results(*window)
+        return SyncOutcome(import_results(games), 'OracleElixirResults')
     if kind == 'pool':
         provider = LeaguepediaPlayerProvider() if source == 'leaguepedia' else OracleElixirPlayerProvider()
         result = await sync_player_pool(provider)
@@ -52,7 +57,7 @@ async def _fetch_and_sync(kind, source, now):
     return SyncOutcome(result, provider.last_provider_name or 'unknown', bool(provider.errors))
 
 
-def _run_job(kind, source, automatic):
+def _run_job(kind, source, automatic, window=None):
     # Session lock covers HTTP + database writes, also across bot processes.
     with get_engine().connect().execution_options(isolation_level='AUTOCOMMIT') as connection:
         acquired = connection.execute(text('SELECT pg_try_advisory_lock(:key)'), {'key': SYNC_LOCK_ID}).scalar_one()
@@ -75,7 +80,8 @@ def _run_job(kind, source, automatic):
             '''), {'kind': kind, 'now': now, 'source': source})
             try:
                 # SQL and parsing also run here, never on the Discord loop.
-                outcome = asyncio.run(asyncio.wait_for(_fetch_and_sync(kind, source, now), timeout=300))
+                options = {'window': window} if window is not None else {}
+                outcome = asyncio.run(asyncio.wait_for(_fetch_and_sync(kind, source, now, **options), timeout=300))
             except Exception as exc:
                 # Store only the exception type: provider URLs/credentials never enter status.
                 connection.execute(text('UPDATE fantasy.sync_job SET last_error = :error WHERE kind = :kind'),
@@ -95,20 +101,29 @@ def _run_job(kind, source, automatic):
                 raise
 
 
-def _guarded_job(kind, source, automatic):
+def _guarded_job(kind, source, automatic, window=None):
     try:
-        return _run_job(kind, source, automatic)
+        options = {'window': window} if window is not None else {}
+        return _run_job(kind, source, automatic, **options)
     finally:
         _busy.release()
 
 
-async def run_sync(kind: str, *, source='oracle_elixir', automatic=False):
+async def run_sync(kind: str, *, source='oracle_elixir', automatic=False, window=None):
     if kind not in INTERVALS or source not in ('oracle_elixir', 'leaguepedia'):
         raise ValueError('Source ou synchronisation inconnue.')
+    if kind == 'results':
+        from .providers.results import result_window
+        if automatic or source != 'oracle_elixir' or window is None:
+            raise ValueError('Les résultats nécessitent un import manuel Oracle\'s Elixir avec une fenêtre explicite.')
+        window = result_window(*window)
+    elif window is not None:
+        raise ValueError('Fenêtre réservée aux résultats.')
     if not _busy.acquire(blocking=False):
         raise SyncBusyError('Une synchronisation Fantasy est déjà en cours.')
     try:
-        future = asyncio.wrap_future(_executor.submit(_guarded_job, kind, source, automatic))
+        options = {'window': window} if window is not None else {}
+        future = asyncio.wrap_future(_executor.submit(_guarded_job, kind, source, automatic, **options))
     except BaseException:
         _busy.release()
         raise

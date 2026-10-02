@@ -17,6 +17,7 @@ from fonctions.fantasy.database import active_competitions, schema_is_ready
 from fonctions.fantasy.lineup import LineupView, get_lineup, set_starter
 from fonctions.fantasy.models import Competition, PlayerRole, RosterSlot, STARTER_SLOTS
 from fonctions.fantasy.market import claim_free_agent, list_free_agents, list_trades, offer_trade, respond_trade
+from fonctions.fantasy.results import calculate_scores, standings, score_details
 from fonctions.fantasy.service import (
     FantasyServiceError,
     create_league,
@@ -104,6 +105,55 @@ class FantasyLoL(Extension):
     @slash_command(name="fantasy", description="Fantasy League of Legends")
     async def fantasy(self, ctx: SlashContext):
         pass
+
+    @fantasy.subcommand('calculate', sub_cmd_description='[Propriétaire] Calcule les nouvelles parties de la saison', options=[_league_option()])
+    async def fantasy_calculate(self, ctx: SlashContext, league_id: int):
+        await ctx.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(calculate_scores, league_id=league_id, guild_id=self._guild_id(ctx), discord_user_id=int(ctx.author_id))
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        message = f"**{result['calculated']}** nouvelles parties calculées — barème `{result['version'][:80]}`."
+        if result['has_more']:
+            message += '\nRelance la commande pour traiter le lot suivant (200 parties maximum par calcul).'
+        await ctx.send(message, ephemeral=True)
+
+    @fantasy.subcommand('standings', sub_cmd_description='Classement provisoire des points importés de la saison', options=[_league_option()])
+    async def fantasy_standings(self, ctx: SlashContext, league_id: int):
+        await ctx.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(standings, league_id=league_id, guild_id=self._guild_id(ctx), discord_user_id=int(ctx.author_id))
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        lines = ['**Classement provisoire — somme des points**',
+                 f"{result['calculated']}/{result['imported']} parties importées calculées. Les parties absentes des imports ne sont pas comptées."]
+        previous, rank = None, 0
+        for position, row in enumerate(result['rows'], 1):
+            if row['score'] != previous:
+                rank = position
+            previous = row['score']
+            lines.append(f"**{rank}.** <@{row['discord_user_id']}> — **{row['score']:.3f} pts** ({row['contributions']} contributions joueur/équipe)")
+        lines.append('Le banc ne marque pas de points. Détail : `/fantasy scores`.')
+        await ctx.send('\n'.join(lines), ephemeral=True)
+
+    @fantasy.subcommand('scores', sub_cmd_description='Détaille tes points attribués selon ton roster historique',
+                       options=[_league_option(), _integer_option('page', 'Page des contributions', required=False)])
+    async def fantasy_scores(self, ctx: SlashContext, league_id: int, page: int = 1):
+        await ctx.defer(ephemeral=True)
+        try:
+            rows, more = await asyncio.to_thread(score_details, league_id=league_id, guild_id=self._guild_id(ctx),
+                                                discord_user_id=int(ctx.author_id), page=page)
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        lines = [f'**Tes contributions — page {page}**']
+        for row in rows:
+            lines.append(f"• Partie `{row['game_id']}` — <t:{int(row['started_at'].timestamp())}:d> — {row['slot']} "
+                         f"**{row['asset_name'][:35]}** : {row['score']:.3f} pts (`{row['rule_version'][:30]}`)")
+        if not rows:
+            lines.append('Aucune contribution calculée sur cette page.')
+        if more:
+            lines.append(f'Suite : `page:{page+1}`.')
+        await ctx.send('\n'.join(lines), ephemeral=True)
 
     @fantasy.subcommand(
         "roster", sub_cmd_description="Affiche tes titulaires, ton banc et les verrouillages",

@@ -10,6 +10,10 @@ from sqlalchemy.engine import Connection
 
 
 REQUIRED_SCHEMA_COLUMNS = {
+    "result_snapshot": {"game_id", "content_hash", "payload", "imported_at"},
+    "season_scoring_snapshot": {"season_id", "rule_version", "rules"},
+    "season_game_scored": {"season_id", "game_id", "calculated_at"},
+    "manager_game_score": {"season_id", "game_id", "manager_id", "roster_history_id", "slot", "player_id", "team_id", "asset_name", "score", "rule_version"},
     "trade": {"id", "season_id", "proposer_manager_id", "recipient_manager_id", "status", "created_at", "resolved_at"},
     "trade_asset": {"id", "trade_id", "from_manager_id", "player_id", "team_id"},
     "sync_job": {"kind", "last_attempt_at", "last_success_at", "last_error", "source"},
