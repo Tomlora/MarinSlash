@@ -98,7 +98,7 @@ class LeaguepediaScheduleProvider(ScheduleProvider):
             ),
             "join_on": "MS.OverviewPage=T.OverviewPage",
             "order_by": "MS.DateTime_UTC ASC",
-            "limit": "1000",
+            "limit": "500",
         }
 
         timeout = aiohttp.ClientTimeout(total=self.timeout_seconds)
@@ -126,12 +126,14 @@ class LeaguepediaScheduleProvider(ScheduleProvider):
                 "Leaguepedia a refusé la requête "
                 f"({error.get('code', 'unknown')}) : {error.get('info', '')}".strip()
             )
+        if payload.get("warnings"):
+            raise ScheduleProviderError("Leaguepedia a émis un avertissement : calendrier non vérifié.")
 
         raw_rows = payload.get("cargoquery")
         if not isinstance(raw_rows, list):
             raise ScheduleProviderError("Leaguepedia n'a pas retourné de résultat Cargo valide.")
 
-        if len(raw_rows) >= 1000:
+        if len(raw_rows) >= 500:
             raise ScheduleProviderError("Calendrier Leaguepedia potentiellement tronqué (limite Cargo).")
         matches: list[ProviderMatch] = []
         for item in raw_rows:

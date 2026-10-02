@@ -6,12 +6,12 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fonctions.fantasy import automation
 from fonctions.fantasy.models import Competition
 from fonctions.fantasy.providers.oracles_elixir import OracleElixirPlayerProvider
-from fonctions.fantasy.providers.schedule import FallbackScheduleProvider, RiotEsportsScheduleProvider, ScheduleProviderError
+from fonctions.fantasy.providers.schedule import FallbackScheduleProvider, LeaguepediaScheduleProvider, RiotEsportsScheduleProvider, ScheduleProviderError
 
 
 class DueTests(unittest.TestCase):
@@ -52,6 +52,12 @@ class WorkerTests(unittest.IsolatedAsyncioTestCase):
             finally:
                 release.set()
                 await asyncio.wrap_future(automation._executor.submit(lambda: None))
+        self.assertFalse(automation._busy.locked())
+
+    async def test_error_releases_worker_gate(self):
+        with patch.object(automation, '_run_job', side_effect=RuntimeError('error')):
+            with self.assertRaises(RuntimeError):
+                await automation.run_sync('pool')
         self.assertFalse(automation._busy.locked())
 
 
@@ -96,14 +102,20 @@ class AdminLifecycleTests(unittest.IsolatedAsyncioTestCase):
             await FantasyAdmin.fantasy_sync_status.callback(object.__new__(FantasyAdmin), ctx)
         self.assertIn('LCS', ctx.send.call_args.args[0])
 
-    async def test_error_releases_worker_gate(self):
-        with patch.object(automation, '_run_job', side_effect=RuntimeError('error')):
-            with self.assertRaises(RuntimeError):
-                await automation.run_sync('pool')
-        self.assertFalse(automation._busy.locked())
-
-
 class ProviderBoundsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cargo_full_page_or_warning_is_not_treated_as_complete(self):
+        for payload in ({'cargoquery': [{}] * 500}, {'cargoquery': [], 'warnings': {'main': 'limit clamped'}}):
+            response = SimpleNamespace(status=200, json=AsyncMock(return_value=payload))
+            request = AsyncMock()
+            request.__aenter__.return_value = response
+            session = AsyncMock()
+            session.__aenter__.return_value.get = MagicMock(return_value=request)
+            with patch('aiohttp.ClientSession', return_value=session):
+                with self.assertRaises(ScheduleProviderError):
+                    await LeaguepediaScheduleProvider().fetch_schedule(
+                        (Competition.LEC,), datetime(2026, 10, 1, tzinfo=timezone.utc),
+                        datetime(2026, 10, 4, tzinfo=timezone.utc))
+
     async def test_empty_primary_tries_fallback(self):
         primary = SimpleNamespace(fetch_schedule=AsyncMock(return_value=[]))
         fallback = SimpleNamespace(fetch_schedule=AsyncMock(return_value=['match']))
