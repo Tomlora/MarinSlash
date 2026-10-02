@@ -41,6 +41,50 @@ de la réponse n'est pas considéré comme vérifié, même si d'autres champion
 ont été importés. Cela peut également bloquer les remplacements hors saison :
 l'absence de matchs ne prouve pas à elle seule que le provider est complet.
 
+## Agents libres et échanges
+
+Le marché ouvre après la draft, lorsque la ligue est active. Les opérations
+utilisent les tables du schéma initial : aucune migration supplémentaire après
+`20261002_fantasy_sync.sql` n'est nécessaire pour ce module.
+
+- `/fantasy market league_id:1 type:Joueur` liste les joueurs libres de la saison,
+  avec filtres de rôle et de championnat et pagination de 20 résultats.
+  Le type Équipe liste les équipes professionnelles libres.
+- `/fantasy claim league_id:1 type:Joueur libere_id:6 recrute_id:90` remplace un
+  joueur possédé par un joueur libre. Le recrutement et la libération sont
+  indissociables, sans période de waivers ni budget d'enchères. La première
+  transaction validée obtient le joueur si plusieurs managers le demandent.
+- `/fantasy roster league_id:1 manager:@AutreManager` permet à un membre de la
+  ligue de consulter les identifiants du roster d'un autre membre.
+- `/fantasy trade_offer league_id:1 type:Joueur manager:@AutreManager offert_id:6 demande_id:16`
+  crée une offre persistante à un contre un. Les équipes peuvent être échangées
+  entre elles ; les échanges joueur contre équipe ou à plusieurs assets ne sont
+  pas pris en charge. Les assets restent détenus par leurs managers jusqu'à
+  l'acceptation ; une offre ne les réserve pas.
+- `/fantasy trades league_id:1` affiche les offres envoyées/reçues, puis les
+  échanges terminés, par pages de 10. Les réponses sont privées ; aucun DM
+  automatique n'est envoyé au destinataire.
+- `/fantasy trade_reply league_id:1 trade_id:1 action:Accepter` valide une offre
+  reçue. Seul son destinataire peut l'accepter ou la refuser ; seul son auteur
+  peut l'annuler. Refus et annulation restent possibles si le calendrier devient
+  périmé ou si la ligue n'est plus active.
+
+L'asset reçu occupe la place de l'asset cédé : un recrutement à la place d'un
+titulaire doit donc correspondre à son rôle. Un joueur reçu à la place d'un
+remplaçant reste sur le banc. Le roster complet et la diversité des championnats
+sont validés pour **les deux managers**, sans réorganisation automatique.
+
+Les championnats de tous les assets transférés doivent être déverrouillés et
+leurs calendriers vérifiés. L'activité, la propriété et les règles du roster sont
+revérifiées à l'acceptation. Les offres concurrentes impliquant un asset libéré
+ou transféré sont invalidées, même s'il est recruté de nouveau ultérieurement.
+
+Les écritures de propriété, d'historique et d'état d'échange partagent une seule
+transaction. Le verrou de ligue est commun à la draft, aux remplacements et au
+marché ; deux recrutements ou acceptations simultanés ne peuvent pas transférer
+deux fois le même asset. Les commandes accusent réception avant le travail SQL,
+exécuté hors de la boucle Discord.
+
 ## Synchronisations automatiques
 
 L'activation se fait avec `FANTASY_AUTO_SYNC_ENABLED=1`, après application de la
@@ -102,7 +146,7 @@ Python 3.10, SQLAlchemy 2.0.4 et interactions.py 5.13.2.
 
 1. Rétablir/valider l'accès aux providers réels, puis activer les synchronisations
    et observer leur fraîcheur ainsi que la latence du bot en production.
-2. Ajouter les agents libres et les échanges, avec propriété exclusive et locks.
+2. Valider les parcours de marché et d'échange sur le bot déployé.
 3. Importer les résultats Oracle's Elixir et calculer les scores versionnés en
    utilisant le roster historique au moment des matchs.
 4. Relier les périodes de confrontation aux scores, puis exposer le classement.

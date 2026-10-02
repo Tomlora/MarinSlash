@@ -96,13 +96,31 @@ def _locks(connection, now):
     ], now=now))
 
 
-def get_lineup(*, league_id: int, guild_id: int, discord_user_id: int) -> LineupView:
+def get_lineup(*, league_id: int, guild_id: int, discord_user_id: int,
+               target_discord_id: int | None = None) -> LineupView:
     with transaction() as connection:
         league, season, manager_id = _context(connection, league_id, guild_id, discord_user_id)
+        if target_discord_id is not None and target_discord_id != discord_user_id:
+            # Authenticate the caller first, then restrict the target to this league.
+            target = connection.execute(text('''
+                SELECT id FROM fantasy.manager WHERE league_id = :league_id AND discord_user_id = :target
+            '''), {'league_id': league_id, 'target': target_discord_id}).first()
+            if target is None:
+                raise FantasyServiceError("Ce manager n'est pas inscrit dans cette Fantasy.")
+            manager_id = int(target.id)
         now = connection.execute(text("SELECT clock_timestamp()")).scalar_one()
         entries, unavailable = _load_entries(connection, int(season.id), manager_id, now)
         return LineupView(league.name, season.name, tuple(entries), _locks(connection, now), unavailable,
                           stale_competitions(connection, now))
+
+
+def _lock_pool_and_calendar(connection):
+    # Same order as pool synchronization. Table locks also protect new schedules.
+    connection.execute(text('''
+        LOCK TABLE fantasy.pro_team, fantasy.pro_player,
+                   fantasy.pro_player_team_history, fantasy.match_schedule,
+                   fantasy.schedule_coverage IN SHARE MODE
+    '''))
 
 
 def set_starter(*, league_id: int, guild_id: int, discord_user_id: int, player_id: int) -> LineupView:
@@ -112,11 +130,7 @@ def set_starter(*, league_id: int, guild_id: int, discord_user_id: int, player_i
         )
         # Prevent pool/calendar sync from changing eligibility during validation.
         # SHARE also covers new schedule rows, which row locks cannot protect.
-        connection.execute(text("""
-            LOCK TABLE fantasy.pro_team, fantasy.pro_player,
-                       fantasy.pro_player_team_history, fantasy.match_schedule,
-                       fantasy.schedule_coverage IN SHARE MODE
-        """))
+        _lock_pool_and_calendar(connection)
         # Read the clock after lock waits, including waits across Paris midnight.
         now = connection.execute(text("SELECT clock_timestamp()")).scalar_one()
         entries, unavailable = _load_entries(connection, int(season.id), manager_id, now)

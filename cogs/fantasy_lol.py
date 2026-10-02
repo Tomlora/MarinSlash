@@ -15,7 +15,8 @@ from interactions import (
 
 from fonctions.fantasy.database import active_competitions, schema_is_ready
 from fonctions.fantasy.lineup import LineupView, get_lineup, set_starter
-from fonctions.fantasy.models import RosterSlot, STARTER_SLOTS
+from fonctions.fantasy.models import Competition, PlayerRole, RosterSlot, STARTER_SLOTS
+from fonctions.fantasy.market import claim_free_agent, list_free_agents, list_trades, offer_trade, respond_trade
 from fonctions.fantasy.service import (
     FantasyServiceError,
     create_league,
@@ -34,6 +35,33 @@ STATUS_LABELS = {
     "finished": "Terminée",
     "cancelled": "Annulée",
 }
+
+TRADE_STATUS_LABELS = {
+    'pending': 'En attente', 'accepted': 'Accepté', 'declined': 'Refusé',
+    'cancelled': 'Annulé', 'invalidated': 'Invalidé',
+}
+
+
+def _integer_option(name, description, required=True):
+    return SlashCommandOption(name=name, description=description, type=OptionType.INTEGER,
+                              required=required, min_value=1)
+
+
+def _league_option():
+    return _integer_option('league_id', 'ID de la Fantasy')
+
+
+def _asset_type_option():
+    return SlashCommandOption(name='type', description="Joueur ou équipe professionnelle", type=OptionType.STRING,
+                              required=True, choices=[SlashCommandChoice(name='Joueur', value='player'),
+                                                      SlashCommandChoice(name='Équipe', value='team')])
+
+
+def format_trade(trade):
+    kind = 'Joueurs' if trade.asset_type == 'player' else 'Équipes'
+    return (f"**#{trade.trade_id} — {TRADE_STATUS_LABELS[trade.status]}** ({kind})\n"
+            f"<@{trade.proposer_discord_id}> : {trade.offered_name[:40]} (`{trade.offered_id}`) ↔ "
+            f"<@{trade.recipient_discord_id}> : {trade.requested_name[:40]} (`{trade.requested_id}`)")
 
 
 def format_lineup(view: LineupView) -> str:
@@ -80,16 +108,134 @@ class FantasyLoL(Extension):
     @fantasy.subcommand(
         "roster", sub_cmd_description="Affiche tes titulaires, ton banc et les verrouillages",
         options=[SlashCommandOption(name="league_id", description="ID de la Fantasy",
-                                    type=OptionType.INTEGER, required=True, min_value=1)],
+                                    type=OptionType.INTEGER, required=True, min_value=1),
+                 SlashCommandOption(name="manager", description="Consulter le roster d'un autre manager de la ligue",
+                                    type=OptionType.USER, required=False)],
     )
-    async def fantasy_roster(self, ctx: SlashContext, league_id: int):
+    async def fantasy_roster(self, ctx: SlashContext, league_id: int, manager: interactions.User = None):
         await ctx.defer(ephemeral=True)
         try:
             view = await asyncio.to_thread(get_lineup, league_id=int(league_id),
-                                           guild_id=self._guild_id(ctx), discord_user_id=int(ctx.author_id))
+                                           guild_id=self._guild_id(ctx), discord_user_id=int(ctx.author_id),
+                                           target_discord_id=int(manager.id) if manager is not None else None)
         except Exception as exc:
             return await self._error(ctx, exc)
-        await ctx.send(format_lineup(view), ephemeral=True)
+        owner = int(manager.id) if manager is not None else int(ctx.author_id)
+        await ctx.send(f"Roster de <@{owner}>\n" + format_lineup(view), ephemeral=True)
+
+    @fantasy.subcommand(
+        "market", sub_cmd_description="Liste les joueurs ou équipes libres après la draft",
+        options=[_league_option(), _asset_type_option(),
+                 SlashCommandOption(name='role', description='Filtrer les joueurs par rôle', type=OptionType.STRING,
+                                    choices=[SlashCommandChoice(name=r.value, value=r.value) for r in PlayerRole]),
+                 SlashCommandOption(name='championnat', description='Filtrer par championnat', type=OptionType.STRING,
+                                    choices=[SlashCommandChoice(name=c.value, value=c.value) for c in Competition]),
+                 _integer_option('page', 'Page du marché', required=False)],
+    )
+    async def fantasy_market(self, ctx: SlashContext, league_id: int, type: str,
+                             role: str = None, championnat: str = None, page: int = 1):
+        await ctx.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(list_free_agents, league_id=league_id, guild_id=self._guild_id(ctx),
+                                            discord_user_id=int(ctx.author_id), asset_type=type,
+                                            role=role, competition=championnat, page=page)
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        lines = [f"**Marché — page {result.page}**"]
+        for asset in result.assets:
+            if type == 'player':
+                lines.append(f"• `{asset.player_id}` **{asset.handle[:40]}** — {asset.role.value} / {asset.competition.value}")
+            else:
+                lines.append(f"• `{asset.team_id}` **{asset.name[:40]}** — {asset.competition.value}")
+        if not result.assets:
+            lines.append("Aucun résultat sur cette page.")
+        if result.has_more:
+            lines.append(f"Suite : relance la commande avec `page:{page + 1}`.")
+        lines.append("`/fantasy claim` pour recruter en libérant un joueur ou une équipe de ton roster.\n"
+                     "Disponibilité et calendrier revérifiés au recrutement.")
+        # Max 20 bounded names; split if unusually large IDs exceed Discord's limit.
+        message = '\n'.join(lines)
+        if len(message) > 1950:
+            await ctx.send('\n'.join(lines[:11]), ephemeral=True)
+            message = '\n'.join(lines[11:])
+        await ctx.send(message, ephemeral=True)
+
+    @fantasy.subcommand(
+        "claim", sub_cmd_description="Recrute un agent libre et libère un asset du même type",
+        options=[_league_option(), _asset_type_option(),
+                 _integer_option('libere_id', 'ID du joueur ou de l’équipe à libérer'),
+                 _integer_option('recrute_id', 'ID du joueur ou de l’équipe libre à recruter')],
+    )
+    async def fantasy_claim(self, ctx: SlashContext, league_id: int, type: str, libere_id: int, recrute_id: int):
+        await ctx.defer(ephemeral=True)
+        try:
+            view = await asyncio.to_thread(claim_free_agent, league_id=league_id, guild_id=self._guild_id(ctx),
+                                          discord_user_id=int(ctx.author_id), asset_type=type,
+                                          released_id=libere_id, incoming_id=recrute_id)
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        await ctx.send("✅ Recrutement enregistré.\n" + format_lineup(view), ephemeral=True)
+
+    @fantasy.subcommand(
+        "trade_offer", sub_cmd_description="Propose un échange à un autre manager",
+        options=[_league_option(), _asset_type_option(),
+                 SlashCommandOption(name='manager', description='Manager destinataire', type=OptionType.USER, required=True),
+                 _integer_option('offert_id', 'ID du joueur ou de l’équipe que tu proposes'),
+                 _integer_option('demande_id', 'ID du joueur ou de l’équipe que tu demandes')],
+    )
+    async def fantasy_trade_offer(self, ctx: SlashContext, league_id: int, type: str,
+                                  manager: interactions.User, offert_id: int, demande_id: int):
+        await ctx.defer(ephemeral=True)
+        try:
+            trade = await asyncio.to_thread(offer_trade, league_id=league_id, guild_id=self._guild_id(ctx),
+                                           discord_user_id=int(ctx.author_id), recipient_discord_id=int(manager.id),
+                                           asset_type=type, offered_id=offert_id, requested_id=demande_id)
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        await ctx.send(format_trade(trade) + "\nLe destinataire retrouve cette offre avec `/fantasy trades`. "
+                       "Aucun transfert avant son acceptation.", ephemeral=True)
+
+    @fantasy.subcommand(
+        "trades", sub_cmd_description="Consulte tes offres reçues, envoyées et terminées",
+        options=[_league_option(), _integer_option('page', 'Page des échanges', required=False)],
+    )
+    async def fantasy_trades(self, ctx: SlashContext, league_id: int, page: int = 1):
+        await ctx.defer(ephemeral=True)
+        try:
+            trades, more = await asyncio.to_thread(list_trades, league_id=league_id, guild_id=self._guild_id(ctx),
+                                                  discord_user_id=int(ctx.author_id), page=page)
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        message = f"**Échanges — page {page}**\n"
+        for trade in trades:
+            block = format_trade(trade) + '\n'
+            if len(message) + len(block) > 1800:
+                await ctx.send(message, ephemeral=True)
+                message = ''
+            message += block
+        if not trades:
+            message += "Aucun échange sur cette page.\n"
+        if more:
+            message += f"Suite : `page:{page + 1}`.\n"
+        message += "`/fantasy trade_reply` pour accepter, refuser ou annuler une offre."
+        await ctx.send(message, ephemeral=True)
+
+    @fantasy.subcommand(
+        "trade_reply", sub_cmd_description="Accepte, refuse ou annule un échange",
+        options=[_league_option(), _integer_option('trade_id', 'ID de l’échange'),
+                 SlashCommandOption(name='action', description='Action à effectuer', type=OptionType.STRING, required=True,
+                                    choices=[SlashCommandChoice(name='Accepter', value='accept'),
+                                             SlashCommandChoice(name='Refuser', value='decline'),
+                                             SlashCommandChoice(name='Annuler mon offre', value='cancel')])],
+    )
+    async def fantasy_trade_reply(self, ctx: SlashContext, league_id: int, trade_id: int, action: str):
+        await ctx.defer(ephemeral=True)
+        try:
+            trade = await asyncio.to_thread(respond_trade, league_id=league_id, guild_id=self._guild_id(ctx),
+                                           discord_user_id=int(ctx.author_id), trade_id=trade_id, action=action)
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        await ctx.send(format_trade(trade), ephemeral=True)
 
     @fantasy.subcommand(
         "lineup", sub_cmd_description="Titularise un joueur du banc à son rôle",
