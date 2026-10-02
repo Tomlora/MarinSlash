@@ -4,6 +4,7 @@ import logging
 from io import BytesIO
 from threading import Lock
 from .score_explanations import build_dimension_explanations, explanation_fields
+from .map_view import snapshot_for_match
 
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 from fonctions.match.match_views import (
@@ -114,14 +115,15 @@ def snapshot(match_info):
                 log.warning('Explication du score absente : match=%s compte=%s index=%s scoring=%s raison=%s',
                             getattr(match_info, 'last_match', '?'), getattr(match_info, 'id_compte', '?'),
                             index, summary.get('scoring_version', 'legacy'), status)
-    return {"scores": scores, "gold": minute_gold(getattr(match_info, "data_timeline", {}), participants)}
+    return {"scores": scores, "gold": minute_gold(getattr(match_info, "data_timeline", {}), participants),
+            "map": snapshot_for_match(match_info)}
 
 
 def save_recap_details(match_info):
     """Un échec de cette sauvegarde optionnelle ne bloque jamais le récap."""
     try:
         data = snapshot(match_info)
-        if not data["scores"] and not data["gold"]:
+        if not data["scores"] and not data["gold"] and not data["map"]:
             return False
         requete_perso_bdd(SCHEMA)
         requete_perso_bdd(

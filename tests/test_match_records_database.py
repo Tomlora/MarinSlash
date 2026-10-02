@@ -175,6 +175,22 @@ def test_recap_details_roundtrip_is_per_account_and_keeps_true_team_colors(datab
     assert database.execute("SELECT COUNT(*) FROM match_recap_details").fetchone()[0] == 1
 
 
+def test_ten_player_map_roundtrip_in_existing_jsonb_snapshot(database):
+    from test_match_records_ui import sample_details_match
+    from test_match_map import riot_fixture, MAP
+    database.execute("INSERT INTO tracker VALUES (5,123,'Player7','TEST','p7')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri')")
+    info = sample_details_match()
+    info.match_detail, info.data_timeline = riot_fixture()
+    expected = MAP.build_map_snapshot(info.match_detail, info.data_timeline)
+    info.match_detail = pd.DataFrame(info.match_detail)
+    assert DETAILS.save_recap_details(info)
+    assert DETAILS.load_details('EUW1_123', 5)[1]['map'] == expected
+    assert DETAILS.save_recap_details(info)
+    assert database.execute("SELECT COUNT(*) FROM match_recap_details").fetchone()[0] == 1
+    assert DETAILS.load_details('EUW1_123', 999) is None
+
+
 def test_legacy_scoring_and_gold_use_riot_identity_and_account_perspective(database):
     database.execute("INSERT INTO tracker VALUES (5,123,'Player7','TEST','p7')")
     database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri')")
