@@ -10,6 +10,8 @@ from sqlalchemy.engine import Connection
 
 
 REQUIRED_SCHEMA_COLUMNS = {
+    "matchup": {"id", "season_id", "round_number", "manager1_id", "manager2_id", "starts_at", "ends_at"},
+    "manager_period_score": {"matchup_id", "manager_id", "score", "calculated_at"},
     "result_snapshot": {"game_id", "content_hash", "payload", "imported_at"},
     "season_scoring_snapshot": {"season_id", "rule_version", "rules"},
     "season_game_scored": {"season_id", "game_id", "calculated_at"},

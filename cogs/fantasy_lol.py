@@ -18,6 +18,7 @@ from fonctions.fantasy.lineup import LineupView, get_lineup, set_starter
 from fonctions.fantasy.models import Competition, PlayerRole, RosterSlot, STARTER_SLOTS
 from fonctions.fantasy.market import claim_free_agent, list_free_agents, list_trades, offer_trade, respond_trade
 from fonctions.fantasy.results import calculate_scores, standings, score_details
+from fonctions.fantasy.confrontations import create_schedule, resolve_round, view_round, league_ranking
 from fonctions.fantasy.service import (
     FantasyServiceError,
     create_league,
@@ -105,6 +106,83 @@ class FantasyLoL(Extension):
     @slash_command(name="fantasy", description="Fantasy League of Legends")
     async def fantasy(self, ctx: SlashContext):
         pass
+
+    @fantasy.subcommand('fixtures', sub_cmd_description='[Propriétaire] Crée un cycle de confrontations pour la saison',
+                       options=[_league_option(),
+                                SlashCommandOption(name='debut', description='Premier jour à minuit à Paris, AAAA-MM-JJ', type=OptionType.STRING, required=True),
+                                SlashCommandOption(name='jours', description='Durée de chaque tour en jours (7 par défaut)', type=OptionType.INTEGER,
+                                                   required=False, min_value=1, max_value=28)])
+    async def fantasy_fixtures(self, ctx: SlashContext, league_id: int, debut: str, jours: int = 7):
+        await ctx.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(create_schedule, league_id=league_id, guild_id=self._guild_id(ctx),
+                                            discord_user_id=int(ctx.author_id), start_date=debut, days=jours)
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        label = 'créé' if result['created'] else 'déjà présent'
+        await ctx.send(f"Calendrier {label} : **{result['rounds']} tours**. Chaque manager rencontre tous les autres une fois.\n"
+                       'Consulte `/fantasy matchups tour:1`. Les bornes sont à minuit à Paris.', ephemeral=True)
+
+    @fantasy.subcommand('matchups', sub_cmd_description='Affiche les confrontations et les scores du tour',
+                       options=[_league_option(), _integer_option('tour', 'Tour à consulter (actuel ou prochain par défaut)', required=False)])
+    async def fantasy_matchups(self, ctx: SlashContext, league_id: int, tour: int = None):
+        await ctx.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(view_round, league_id=league_id, guild_id=self._guild_id(ctx),
+                                            discord_user_id=int(ctx.author_id), round_number=tour)
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        labels = {'closed': 'Clôturé — scores figés', 'scheduled': 'À venir', 'live': 'En cours — provisoire',
+                  'awaiting_close': 'Terminé — clôture du propriétaire attendue'}
+        lines = [f"**Tour {result['round']} — {labels[result['state']]}**",
+                 f"Du <t:{int(result['start'].timestamp())}:f> au <t:{int(result['end'].timestamp())}:f> (fin exclue)."]
+        for match in result['matches']:
+            if match['user1'] is None or match['user2'] is None:
+                lines.append(f"• <@{match['user1'] or match['user2']}> : exempt ce tour (aucune victoire automatique).")
+            else:
+                lines.append(f"• <@{match['user1']}> **{match['score1']:.3f} — {match['score2']:.3f}** <@{match['user2']}>")
+        lines.append(f"Parties importées calculées : **{result['calculated']}/{result['imported']}**. La complétude des sources reste à vérifier.")
+        if result['state'] == 'closed' and result['calculated'] < result['imported']:
+            lines.append('⚠️ Résultats tardifs : le propriétaire doit réouvrir le tour avant le calcul et une nouvelle clôture.')
+        await ctx.send('\n'.join(lines), ephemeral=True)
+
+    @fantasy.subcommand('round', sub_cmd_description='[Propriétaire] Clôture ou réouvre un tour',
+                       options=[_league_option(), _integer_option('tour', 'Numéro du tour'),
+                                SlashCommandOption(name='action', description='Action sur le tour', type=OptionType.STRING, required=True,
+                                                   choices=[SlashCommandChoice(name='Clôturer', value='close'), SlashCommandChoice(name='Réouvrir', value='reopen')]),
+                                SlashCommandOption(name='confirmer_complet', description="J'ai vérifié que tous les résultats de la période sont importés", type=OptionType.BOOLEAN, required=False)])
+    async def fantasy_round(self, ctx: SlashContext, league_id: int, tour: int, action: str, confirmer_complet: bool = False):
+        await ctx.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(resolve_round, league_id=league_id, guild_id=self._guild_id(ctx),
+                                            discord_user_id=int(ctx.author_id), round_number=tour,
+                                            action=action, confirm_complete=confirmer_complet)
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        message = (f'Tour {tour} clôturé : scores figés, classement mis à jour.' if result['closed'] else
+                   f'Tour {tour} ouvert : ses victoires/défaites sont retirées du classement jusqu’à la prochaine clôture.\n'
+                   'Lance `/fantasy calculate` pour intégrer les résultats tardifs.')
+        if not result['changed']:
+            message += '\nLe tour était déjà dans cet état.'
+        await ctx.send(message, ephemeral=True)
+
+    @fantasy.subcommand('ranking', sub_cmd_description='Classement en victoires, nuls et défaites des tours clôturés', options=[_league_option()])
+    async def fantasy_ranking(self, ctx: SlashContext, league_id: int):
+        await ctx.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(league_ranking, league_id=league_id, guild_id=self._guild_id(ctx), discord_user_id=int(ctx.author_id))
+        except Exception as exc:
+            return await self._error(ctx, exc)
+        lines = [f"**Classement des confrontations — {result['closed']}/{result['rounds']} tours clôturés**"]
+        if not result['rounds']:
+            lines.append('Calendrier à créer avec `/fantasy fixtures`.')
+        for row in result['rows']:
+            lines.append(f"**{row['rank']}.** <@{row['user']}> — **{row['points']} pts** | {row['wins']} V / {row['draws']} N / {row['losses']} D | "
+                         f"{row['byes']} exempt. | Diff. {row['for']-row['against']:+.3f} | Pour {row['for']:.3f}")
+        lines.append('Victoire : 3 pts ; nul : 1 pt. Exemption : 0 pt. Départage : différence puis points marqués ; ex æquo ensuite.')
+        if result['pending']:
+            lines.append(f"⚠️ {result['pending']} partie(s) tardive(s) à traiter dans des tours clôturés : scores figés en attendant leur réouverture.")
+        await ctx.send('\n'.join(lines), ephemeral=True)
 
     @fantasy.subcommand('calculate', sub_cmd_description='[Propriétaire] Calcule les nouvelles parties de la saison', options=[_league_option()])
     async def fantasy_calculate(self, ctx: SlashContext, league_id: int):

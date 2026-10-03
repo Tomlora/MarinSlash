@@ -132,6 +132,8 @@ def calculate_scores(*, league_id, guild_id, discord_user_id):
             AND NOT EXISTS (SELECT 1 FROM fantasy.season_game_scored s WHERE s.season_id = :season AND s.game_id = g.id)
             ORDER BY g.started_at, g.id LIMIT 201'''),
             {'season': season.id, 'start': season.starts_at, 'end': season.ends_at}).all()
+        from .confrontations import ensure_periods_open
+        ensure_periods_open(c, season.id, [game.id for game in games[:200]])
         for game in games[:200]:
             _score_game(c, season.id, game, season.scoring_rule_version, player_rules, team_rules)
         return {'calculated': min(len(games), 200), 'has_more': len(games) > 200, 'version': season.scoring_rule_version}

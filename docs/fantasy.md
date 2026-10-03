@@ -228,6 +228,84 @@ contribution apparaissent à zéro. Ce classement ne représente pas les victoir
 des confrontations. Le mode `normalized` est explicitement refusé en attendant
 sa définition, sans lui substituer le mode classique.
 
+## Confrontations et classement en victoires/défaites
+
+Ce module réutilise `matchup` et `manager_period_score` du schéma initial ainsi
+que les contributions de la migration `20261003_fantasy_results.sql` : **aucune
+migration supplémentaire**. Recharger `cogs.fantasy_lol` et synchroniser les
+commandes Discord pour exposer les quatre nouvelles sous-commandes.
+
+1. Après la draft, le propriétaire lance
+   `/fantasy fixtures league_id:1 debut:2026-10-05 jours:7` (choisir une date
+   future). Un cycle fait rencontrer chaque paire de managers une fois.
+   L'ordre suit les positions de draft, puis les identifiants. Avec un nombre
+   impair de managers, chacun reçoit exactement une exemption sur le cycle.
+2. `/fantasy matchups league_id:1 tour:1` affiche les adversaires et scores.
+   Sans `tour`, la commande choisit le tour courant ou le prochain, puis le
+   dernier si le calendrier est terminé. Tous les membres de la ligue peuvent
+   consulter les confrontations ; les réponses restent privées.
+3. Après la fin d'un tour, importer les résultats et lancer `/fantasy calculate`.
+   Le propriétaire vérifie leur complétude, puis lance
+   `/fantasy round league_id:1 tour:1 action:Clôturer confirmer_complet:True`.
+4. `/fantasy ranking league_id:1` affiche les victoires, nuls, défaites et
+   exemptions des **seuls tours clôturés**. `/fantasy standings` conserve son
+   rôle distinct : somme provisoire des contributions de toute la saison.
+
+Les périodes durent de 1 à 28 jours calendaires, sept par défaut. Leurs bornes
+sont à minuit **Europe/Paris**, converties en UTC pour PostgreSQL. Une semaine
+du changement d'heure dure donc 167 ou 169 heures. Le début est inclus et la fin
+exclue ; chaque partie est rattachée selon son heure de début, sans double
+comptage à la frontière. Le premier tour doit commencer dans le futur et après
+le début de saison ; le cycle ne doit pas dépasser une fin de saison renseignée.
+
+Répéter la création avec les mêmes paramètres est sans effet. Un calendrier
+existant ne peut pas être écrasé ou décalé ; les tours sont insérés ensemble
+dans une transaction sous le verrou de ligue. Cette version crée un cycle
+simple, sans matchs retour ni playoffs.
+
+### Clôture et imports tardifs
+
+Les scores ouverts proviennent des contributions historiques déjà calculées.
+Ils restent provisoires, y compris après la date de fin du tour. La clôture
+requiert la fin de période, le calcul de toutes les parties importées de cette
+période et l'attestation explicite du propriétaire. Le nombre de parties
+importées ne prouve pas à lui seul que la source est complète. Une période
+réellement sans partie peut être clôturée à zéro après cette même vérification.
+Une égalité à zéro compte alors comme un nul, sauf exemption.
+
+La clôture enregistre ensemble les scores des participants dans
+`manager_period_score`. La présence de l'ensemble de ces lignes signifie
+« clôturé » ; leur absence signifie « ouvert ». Une clôture partielle incohérente
+est refusée. Les calculs, changements de roster, créations et clôtures partagent
+le verrou de ligue ; la clôture prend aussi le verrou de l'import des résultats.
+Une double clôture ne crée pas de victoire supplémentaire. La lecture utilise
+un snapshot PostgreSQL cohérent et ne modifie aucun résultat.
+
+Si de nouvelles parties sont importées dans une période clôturée, ses scores
+restent figés, et `/fantasy matchups` ainsi que `/fantasy ranking` signalent les
+résultats en attente. Le calcul les refuse jusqu'à la réouverture du tour :
+
+1. `/fantasy round league_id:1 tour:1 action:Réouvrir` ;
+2. `/fantasy calculate league_id:1` (relancer si plusieurs lots sont nécessaires) ;
+3. revérifier la complétude, puis clôturer de nouveau.
+
+La réouverture retire les résultats de ce tour du classement en attendant sa
+nouvelle clôture. Elle conserve les contributions historiques et le calendrier.
+Elle ne permet pas de corriger les statistiques d'une partie déjà importée :
+ce parcours de correction reste à implémenter. Aucun tour n'est clôturé
+automatiquement et aucune notification n'est envoyée aux managers.
+
+### Règles du classement
+
+- Victoire : 3 points ; nul : 1 point ; défaite : 0 point.
+- Exemption : comptée séparément, sans victoire ni points de classement.
+  Ses contributions ne gonflent ni les points marqués ni la différence du
+  classement des confrontations ; elles restent dans le total de saison.
+- Départage : points de classement, puis différence points marqués − encaissés,
+  puis points marqués. Si ces trois critères sont égaux, rang partagé ; l'ordre
+  des identifiants ne sert qu'à stabiliser l'affichage des ex æquo.
+- Le mode `normalized` reste refusé tant que ses règles ne sont pas définies.
+
 ## Prochaines étapes
 
 1. Rétablir/valider l'accès aux providers réels, puis activer les synchronisations
@@ -235,8 +313,8 @@ sa définition, sans lui substituer le mode classique.
 2. Valider les parcours de marché et d'échange sur le bot déployé.
 3. Valider l'import de résultats sur un CSV réel et prévoir la correction
    contrôlée des résultats déjà figés.
-4. Relier les périodes de confrontation aux contributions, puis exposer leurs
-   victoires/défaites ; définir et implémenter le mode normalisé.
+4. Valider les confrontations sur Discord, puis définir et implémenter le mode
+   normalisé ; étendre les cycles/playoffs si nécessaire.
 
 Le déploiement Discord et la validation des sources réelles restent distincts
 des tests automatisés ; ce changement ne déploie pas le bot.
