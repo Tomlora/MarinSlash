@@ -67,23 +67,25 @@ class LolMatchViews(Extension):
 
         async def reply(**kwargs):
             if edit:
+                if kind == "gold":
+                    return await ctx.edit(attachments=[], **kwargs)
                 return await ctx.edit_origin(**kwargs)
             return await ctx.send(**kwargs, ephemeral=True)
 
         try:
             if kind == "gold":
+                index = max(0, min(int(target), 2))
                 data = await asyncio.wait_for(
-                    asyncio.to_thread(gold_response, match_id, int(joueur)), timeout=LOAD_TIMEOUT,
+                    asyncio.to_thread(gold_response, match_id, int(joueur), index), timeout=LOAD_TIMEOUT,
                 )
                 if data is None:
                     return await reply(content="Les données sauvegardées de cette partie ne sont plus disponibles.",
                                        embeds=[], components=[])
                 embed, png = data
-                kwargs = {"file": interactions.File(BytesIO(png), file_name="gold_diff.png")} if png else {}
-                return await reply(content="", embeds=embed, components=[interactions.ActionRow(
-                    interactions.Button(style=interactions.ButtonStyle.SECONDARY,
-                                        label="Fermer", custom_id="lolview_close"),
-                )], **kwargs)
+                filename = ("gold_diff.png", "gold_roles.png", "gold_players.png")[index]
+                kwargs = {"file": interactions.File(BytesIO(png), file_name=filename)} if png else {}
+                return await reply(content="", embeds=embed,
+                                   components=page_components(kind, match_id, joueur, index, 3), **kwargs)
             pages = await asyncio.wait_for(
                 asyncio.to_thread(load_pages, kind, match_id, int(joueur)), timeout=LOAD_TIMEOUT,
             )
