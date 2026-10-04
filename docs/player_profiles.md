@@ -1,5 +1,14 @@
 # Caractéristiques des dix joueurs
 
+Cette version intègre la carte de la PR #53 et teste les deux fonctionnalités
+ensemble. Ordre de fusion validé : **PR #53 avec « Create a merge commit », puis
+PR #54**. Un squash/rebase de la PR #53 réécrit l'historique : mettre alors la PR
+#54 à jour sur le nouveau master avant de la fusionner. Les deux boutons
+coexistent avec Records, Teamfight, Ganks, Score, Or et Challenges sur deux lignes
+(cinq boutons puis trois quand tout est présent). Les snapshots `data.map` et
+`data.players` sont écrits ensemble dans la même ligne JSONB ; un test vérifie
+leur conservation lors d'une réanalyse.
+
 Le bouton **Caractéristiques des joueurs** du récap ouvre une réponse privée avec
 deux pages : cinq **alliés**, puis cinq **adversaires**. L'équipe du compte suivi
 est identifiée par son PUUID et son véritable `teamId` Riot ; jouer côté rouge

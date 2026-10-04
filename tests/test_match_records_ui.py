@@ -766,9 +766,9 @@ def test_progression_handles_null_zero_and_short_history_without_invented_values
 def test_match_buttons_and_navigation_have_unique_valid_ids():
     for button in (None, UI.make_open_button("EUW1_123", 5)):
         rows = VIEWS.make_match_buttons("EUW1_123", 5, button)
-        assert [len(row.components) for row in rows] == ([5] if button is None else [5, 1])
-        for component in rows[0].components[-2:]:
-            assert VIEW_COG.OPEN_RE.fullmatch(component.custom_id)
+        assert [len(row.components) for row in rows] == ([5, 1] if button is None else [5, 2])
+        for component in [c for row in rows for c in row.components if c.custom_id.startswith("lolview_open_")]:
+            assert VIEW_COG.OPEN_RE.fullmatch(component.custom_id) or component.custom_id == "lolview_open_map_EUW1_123_5"
     for kind in ("teamfight", "ganks", "score", "analysis", "progress"):
         for total in (1, 2, 13):
             for index in range(total):
@@ -912,10 +912,10 @@ def test_ganks_handle_old_data_empty_unsupported_mode_and_unknown_team():
 
 
 def test_new_button_labels_colors_and_settings_are_user_facing():
-    buttons = VIEWS.make_match_buttons("EUW1_123", 5)[0].components
-    assert [b.label for b in buttons] == ["⚔️ Teamfight", "🌿 Ganks", "📊 Détail du score", "💰 Différentiel d’or", "👥 Caractéristiques des joueurs"]
-    assert [b.style for b in buttons] == [4, 3, 1, 2, 2]
-    assert [b.custom_id for b in buttons] == [f"lolview_open_{kind}_EUW1_123_5" for kind in ("teamfight", "ganks", "score", "gold", "players")]
+    buttons = [button for row in VIEWS.make_match_buttons("EUW1_123", 5) for button in row.components]
+    assert [b.label for b in buttons] == ["⚔️ Teamfight", "🌿 Ganks", "📊 Détail du score", "💰 Différentiel d’or", "🗺️ Carte de la partie", "👥 Caractéristiques des joueurs"]
+    assert [b.style for b in buttons] == [4, 3, 1, 2, 2, 2]
+    assert [b.custom_id for b in buttons] == [f"lolview_open_{kind}_EUW1_123_5" for kind in ("teamfight", "ganks", "score", "gold", "map", "players")]
     source = (COG_DIR / "settings_records.py").read_text(encoding="utf-8")
     assert "PR42" not in source and "PR43" not in source
     for layout in ("compact", "sections"):

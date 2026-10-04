@@ -86,16 +86,18 @@ def test_challenges_are_added_to_all_existing_match_buttons():
             before = [button for row in original for button in row['components']]
             after = [button for row in payload for button in row['components']]
             assert after[:-1] == before  # IDs, labels, styles et états intégralement conservés.
-            assert [button['label'] for button in after[-6:]] == [
-                '⚔️ Teamfight', '🌿 Ganks', '📊 Détail du score', '💰 Différentiel d’or', '👥 Caractéristiques des joueurs', 'Challenges',
+            assert [button['label'] for button in after[-7:]] == [
+                '⚔️ Teamfight', '🌿 Ganks', '📊 Détail du score', '💰 Différentiel d’or', '🗺️ Carte de la partie', '👥 Caractéristiques des joueurs', 'Challenges',
             ]
             assert after[-1]['disabled'] is not available
-            assert [len(row['components']) for row in payload] == ([5, 2] if with_records else [5, 1])
+            assert [len(row['components']) for row in payload] == ([5, 3] if with_records else [5, 2])
             assert [row.to_dict() for row in existing] == original
             assert [row.to_dict() for row in recap_components(rows, 'EUW1_123', 45, available)] == payload
             # Les handlers des quatre vues restent enregistrés avec le même routage.
-            for button in before[-5:]:
-                assert VIEW_COG.OPEN_RE.fullmatch(button['custom_id'])
+            for button in before[-6:]:
+                assert VIEW_COG.OPEN_RE.fullmatch(button['custom_id']) or button['custom_id'] == 'lolview_open_map_EUW1_123_45'
+            assert before[-2]['custom_id'] == 'lolview_open_map_EUW1_123_45'
+            assert before[-1]['custom_id'] == 'lolview_open_players_EUW1_123_45'
 
 
 def test_reloaded_recap_sends_existing_views_and_challenges_together():
@@ -139,11 +141,11 @@ def test_reloaded_recap_sends_existing_views_and_challenges_together():
         asyncio.run(namespace['load_embed'](None, ctx, 'EUW1_123'))
         rows = ctx.send.call_args.kwargs['components']
         buttons = [button for row in rows for button in row.to_dict()['components']]
-        assert len(buttons) == 7
+        assert len(buttons) == 8
         assert [button['custom_id'] for button in buttons] == [
             'lolrec_open_EUW1_123_45', 'lolview_open_teamfight_EUW1_123_45',
             'lolview_open_ganks_EUW1_123_45', 'lolview_open_score_EUW1_123_45',
-            'lolview_open_gold_EUW1_123_45', 'lolview_open_players_EUW1_123_45', 'lolchal_open_EUW1_123_45',
+            'lolview_open_gold_EUW1_123_45', 'lolview_open_map_EUW1_123_45', 'lolview_open_players_EUW1_123_45', 'lolchal_open_EUW1_123_45',
         ]
         assert buttons[-1]['disabled'] is not has_challenges
         assert all(not button.get('disabled', False) for button in buttons[:-1])

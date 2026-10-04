@@ -159,6 +159,26 @@ def test_private_callback_acknowledges_before_load_and_paginates(render_modules,
     assert ctx.edit_origin.call_args.kwargs['embeds'].title.endswith('Adversaires')
 
 
+def test_map_and_profiles_are_saved_together_on_reanalysis(render_modules, monkeypatch):
+    from test_match_map import riot_fixture, MAP
+    _, _, details = render_modules
+    queries = []
+    monkeypatch.setattr(details, 'requete_perso_bdd', lambda sql, params=None: queries.append((sql, params)))
+    match = filled_match()
+    match.match_detail.loc['mapId', 'info'] = 11
+    match.data_timeline = riot_fixture()[1]
+    expected_map = MAP.build_map_snapshot(match.match_detail, match.data_timeline)
+    assert expected_map is not None
+    for wins in (30, 31):
+        PROFILES.capture_global(match, 2, {'wins': wins, 'losses': 30}, 'Mobalytics')
+        assert details.save_recap_details(match)
+        data = json.loads(queries[-1][1]['data'])
+        assert data['map'] == expected_map
+        assert data['players'] == PROFILES.snapshot_players(match)
+        assert data['players']['players'][7]['global']['wins'] == wins
+        assert len(data['map']['players']) == len(data['players']['players']) == 10
+
+
 def method(name, dependencies):
     tree = ast.parse((ROOT / 'fonctions/match/external_data.py').read_text(encoding='utf-8'))
     cls = next(n for n in tree.body if isinstance(n, ast.ClassDef))

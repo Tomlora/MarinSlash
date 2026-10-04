@@ -190,6 +190,42 @@ def test_player_profiles_roundtrip_keeps_ten_players_and_red_allies(database):
     assert database.execute('SELECT COUNT(*) FROM match_recap_details').fetchone()[0] == 1
 
 
+def test_ten_player_map_roundtrip_in_existing_jsonb_snapshot(database):
+    from test_match_records_ui import sample_details_match
+    from test_match_map import riot_fixture, MAP
+    database.execute("INSERT INTO tracker VALUES (5,123,'Player7','TEST','p7')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri')")
+    info = sample_details_match()
+    info.match_detail, info.data_timeline = riot_fixture()
+    expected = MAP.build_map_snapshot(info.match_detail, info.data_timeline)
+    info.match_detail = pd.DataFrame(info.match_detail)
+    assert DETAILS.save_recap_details(info)
+    assert DETAILS.load_details('EUW1_123', 5)[1]['map'] == expected
+    assert DETAILS.save_recap_details(info)
+    assert database.execute("SELECT COUNT(*) FROM match_recap_details").fetchone()[0] == 1
+    assert DETAILS.load_details('EUW1_123', 999) is None
+
+
+def test_map_and_profiles_share_one_jsonb_row_without_overwriting_each_other(database):
+    from test_player_profiles import filled_match, PROFILES
+    from test_match_map import riot_fixture, MAP
+    database.execute("INSERT INTO tracker VALUES (5,123,'Player7','TEST','p7')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri')")
+    match = filled_match()
+    match.match_detail.loc['mapId', 'info'] = 11
+    match.data_timeline = riot_fixture()[1]
+    expected_map = MAP.build_map_snapshot(match.match_detail, match.data_timeline)
+    assert expected_map is not None
+    for wins in (30, 31):
+        PROFILES.capture_global(match, 2, {'wins': wins, 'losses': 30}, 'Mobalytics')
+        assert DETAILS.save_recap_details(match)
+        data = DETAILS.load_details('EUW1_123', 5)[1]
+        assert data['map'] == expected_map
+        assert data['players'] == PROFILES.snapshot_players(match)
+        assert data['players']['players'][7]['global']['wins'] == wins
+        assert database.execute('SELECT COUNT(*) FROM match_recap_details').fetchone()[0] == 1
+
+
 def test_legacy_scoring_and_gold_use_riot_identity_and_account_perspective(database):
     database.execute("INSERT INTO tracker VALUES (5,123,'Player7','TEST','p7')")
     database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri')")

@@ -238,7 +238,8 @@ def make_match_buttons(match_id, joueur, records_button=None):
     for kind, label, style in (("teamfight", "⚔️ Teamfight", interactions.ButtonStyle.DANGER),
                                ("ganks", "🌿 Ganks", interactions.ButtonStyle.SUCCESS),
                                ("score", "📊 Détail du score", interactions.ButtonStyle.PRIMARY),
-                               ("gold", "💰 Différentiel d’or", interactions.ButtonStyle.SECONDARY)):
+                               ("gold", "💰 Différentiel d’or", interactions.ButtonStyle.SECONDARY),
+                               ("map", "🗺️ Carte de la partie", interactions.ButtonStyle.SECONDARY)):
         buttons.append(interactions.Button(
             style=style, label=label,
             custom_id=f"lolview_open_{kind}_{match_id}_{int(joueur)}",
@@ -251,7 +252,7 @@ def make_match_buttons(match_id, joueur, records_button=None):
 
 
 # Les anciennes vues restent accessibles depuis les messages déjà publiés.
-# Les nouveaux récaps exposent uniquement Teamfight et Ganks.
+# Les vues historiques Analyse et Progression ne sont plus proposées aux nouveaux récaps.
 TEAMFIGHT_COLOR = 0xE74C3C
 GANKS_COLOR = 0x2ECC71
 GANK_END_MS = 14 * 60 * 1000
