@@ -4,6 +4,7 @@ import logging
 from io import BytesIO
 from threading import Lock
 from .score_explanations import build_dimension_explanations, explanation_fields
+from .player_profiles import snapshot_players
 
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 from fonctions.match.match_views import (
@@ -121,7 +122,8 @@ def save_recap_details(match_info):
     """Un échec de cette sauvegarde optionnelle ne bloque jamais le récap."""
     try:
         data = snapshot(match_info)
-        if not data["scores"] and not data["gold"]:
+        data["players"] = snapshot_players(match_info)
+        if not data["scores"] and not data["gold"] and not data["players"]:
             return False
         requete_perso_bdd(SCHEMA)
         requete_perso_bdd(

@@ -175,6 +175,21 @@ def test_recap_details_roundtrip_is_per_account_and_keeps_true_team_colors(datab
     assert database.execute("SELECT COUNT(*) FROM match_recap_details").fetchone()[0] == 1
 
 
+def test_player_profiles_roundtrip_keeps_ten_players_and_red_allies(database):
+    from test_player_profiles import filled_match, PROFILES
+    database.execute("INSERT INTO tracker VALUES (5,123,'Player7','TEST','p7'), (6,456,'Other','TEST','p1')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri'), ('EUW1_123',6,'RANKED',100,800,TRUE,'Ahri')")
+    match = filled_match()
+    assert DETAILS.save_recap_details(match)
+    saved = DETAILS.load_details('EUW1_123', 5)[1]['players']
+    assert saved == PROFILES.snapshot_players(match)
+    assert saved['allied_team'] == 200 and len(saved['players']) == 10
+    assert saved['players'][7]['global']['wins'] == 30
+    assert 'players' not in DETAILS.load_details('EUW1_123', 6)[1]
+    assert DETAILS.save_recap_details(match)
+    assert database.execute('SELECT COUNT(*) FROM match_recap_details').fetchone()[0] == 1
+
+
 def test_legacy_scoring_and_gold_use_riot_identity_and_account_perspective(database):
     database.execute("INSERT INTO tracker VALUES (5,123,'Player7','TEST','p7')")
     database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri')")

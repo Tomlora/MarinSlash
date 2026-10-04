@@ -243,7 +243,11 @@ def make_match_buttons(match_id, joueur, records_button=None):
             style=style, label=label,
             custom_id=f"lolview_open_{kind}_{match_id}_{int(joueur)}",
         ))
-    return [interactions.ActionRow(*buttons)]
+    buttons.append(interactions.Button(
+        style=interactions.ButtonStyle.SECONDARY, label="👥 Caractéristiques des joueurs",
+        custom_id=f"lolview_open_players_{match_id}_{int(joueur)}",
+    ))
+    return [interactions.ActionRow(*buttons[i:i + 5]) for i in range(0, len(buttons), 5)]
 
 
 # Les anciennes vues restent accessibles depuis les messages déjà publiés.
