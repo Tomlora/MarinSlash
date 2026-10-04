@@ -90,8 +90,8 @@ def test_role_diffs_use_same_minute_native_teams_and_reject_ambiguity():
     assert x == [0, 1, 2] and math.isnan(y[1])
 
 
-@pytest.mark.parametrize('kind,charts', [('roles', 5), ('players', 10)])
-def test_real_charts_have_separate_panels_common_scales_labels_and_valid_png(kind, charts, monkeypatch):
+@pytest.mark.parametrize('kind,charts', [('roles', 5), ('players', 1)])
+def test_real_charts_have_expected_panels_common_scales_labels_and_valid_png(kind, charts, monkeypatch):
     figures = []
     original = GOLD._png
     def capture(fig):
@@ -105,14 +105,53 @@ def test_real_charts_have_separate_panels_common_scales_labels_and_valid_png(kin
     assert len(fig.axes) == charts
     assert len({ax.get_ylim() for ax in fig.axes}) == 1
     assert len({ax.get_xlim() for ax in fig.axes}) == 1
-    assert all(ax.get_title(loc='left') for ax in fig.axes)
-    if kind == 'players':
-        assert 'Garen' in fig.axes[0].get_title(loc='left')
-        assert 'Ornn' in fig.axes[1].get_title(loc='left')
-        assert all(len(ax.lines) == 1 for ax in fig.axes)
+    if kind == 'roles':
+        assert all(ax.get_title(loc='left') for ax in fig.axes)
+    else:
+        assert len(fig.axes[0].lines) == 10
+        assert len({line.get_color() for line in fig.axes[0].lines}) == 10
+        assert [line.get_linestyle() for line in fig.axes[0].lines] == ['-'] * 5 + ['--'] * 5
+        legend = [t.get_text() for t in fig.legends[0].get_texts()]
+        assert len(legend) == 10 and 'Garen' in legend[0] and 'Ornn' in legend[5]
+        assert all('or (60:00)' in text for text in legend)
     assert len(png) < 8 * 1024 * 1024
     with Image.open(BytesIO(png)) as image:
-        assert image.width >= 1600 and image.height >= 1700
+        assert image.width >= 1600 and image.height >= (1700 if kind == 'roles' else 1200)
+
+
+@pytest.mark.parametrize('end,step', [(25, 5), (30, 6), (60, 12), (3, 1)])
+def test_role_annotations_follow_duration_and_never_fill_gaps(end, step, monkeypatch):
+    from matplotlib.text import Annotation
+    figures = []
+    monkeypatch.setattr(GOLD, '_png', lambda fig: figures.append(fig))
+    snapshot = data(end + 1)
+    # Remove a scheduled point on one side of TOP: no invented annotation.
+    snapshot['players'][0]['points'] = [p for p in snapshot['players'][0]['points'] if p[0] != step]
+    GOLD.render_roles(snapshot, 200, DETAILS.gold_segments)
+    fig = figures[0]
+    fig.canvas.draw()
+    for index, ax in enumerate(fig.axes):
+        annotations = [t for t in ax.texts if isinstance(t, Annotation)]
+        expected = [m for m in range(0, end + 1, step) if index != 0 or m != step]
+        assert [a.xy[0] for a in annotations] == expected
+        assert all(a.get_text() == f'{a.xy[1]:+,.0f}'.replace(',', ' ') for a in annotations)
+        for a in annotations:
+            box = a.get_window_extent(fig.canvas.get_renderer())
+            assert box.y0 >= ax.bbox.y0 and box.y1 <= ax.bbox.y1
+
+
+def test_single_player_chart_keeps_missing_gold_explicit_and_gaps(monkeypatch):
+    figures = []
+    monkeypatch.setattr(GOLD, '_png', lambda fig: figures.append(fig))
+    snapshot = data(4)
+    snapshot['players'][5]['points'].pop(1)
+    snapshot['players'][6]['points'] = []
+    GOLD.render_players(snapshot, 200)
+    fig = figures[0]
+    assert len(fig.axes) == 1 and len(fig.axes[0].lines) == 10
+    assert math.isnan(fig.axes[0].lines[0].get_ydata()[1])
+    assert len(fig.axes[0].lines[1].get_ydata()) == 0
+    assert 'non enregistré' in fig.legends[0].get_texts()[1].get_text()
 
 
 def test_page_one_reuses_original_graph_unchanged_and_clamps_page(monkeypatch):

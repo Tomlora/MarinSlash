@@ -10,12 +10,16 @@ redémarrage. Précédent / Suivant parcourt exactement trois pages :
    courbe calcule l'or du joueur allié moins celui de son vis-à-vis à la même
    minute. Les noms/champions des deux joueurs et le dernier écart sont indiqués.
    Les cinq axes partagent les mêmes échelles, avec bleu positif et rouge négatif.
-3. **Or de chaque joueur** : dix graphiques séparés en deux colonnes, alliés à
-   gauche puis adversaires à droite, rangés par poste. Une courbe par joueur,
-   avec nom, champion, dernier relevé et mêmes échelles sur les dix graphiques.
+   Les annotations chiffrées suivent un palier de `ceil(dernière minute / 5)` :
+   toutes les 5 minutes pour 25 minutes, 6 pour 30, etc. Seules les minutes
+   mesurées sont annotées, sans reconstitution des valeurs absentes.
+3. **Or de chaque joueur** : un seul graphique avec les dix courbes. Chaque
+   joueur a sa couleur ; les alliés sont en traits pleins avec cercles, les
+   adversaires en tirets avec triangles. La légende sous le graphique regroupe
+   les alliés puis les adversaires et indique poste, champion, nom et dernier relevé.
 
-Les deux nouveaux PNG ont une résolution de 1690 × 1820 et 2080 × 1820 pixels,
-sans superposition de dix courbes ni étiquettes à chaque minute. Les graduations
+Les deux nouveaux PNG ont une résolution de 1690 × 1820 et 2080 × 1300 pixels.
+Les annotations par poste sont espacées et la légende des dix joueurs reste hors des courbes. Les graduations
 restent espacées même sur une partie longue ; les noms trop longs sont tronqués.
 L'image peut être ouverte en grand dans Discord.
 

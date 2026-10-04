@@ -1,5 +1,6 @@
 """Or individuel sauvegardé et graphiques par poste/joueur du récap."""
 import logging
+import math
 from io import BytesIO
 
 from .map_view import finite
@@ -124,13 +125,15 @@ def _png(fig):
 
 def render_roles(data, team, gold_segments):
     from matplotlib.collections import LineCollection
+    from matplotlib.ticker import MultipleLocator
     # Réutiliser seulement la coloration et la gestion des trous du graphique historique.
     series = role_series(data, team)
     all_points = [point for _, _, _, points in series for point in points]
     if not all_points:
         return None
-    peak = max(500, max(abs(v) for _, v in all_points) * 1.3)
+    peak = max(500, max(abs(v) for _, v in all_points) * 1.7)
     end = max(m for m, _ in all_points)
+    step = max(1, math.ceil(end / 5))
     fig, axes = _figure(5, 1, "Écart d'or par poste",
                         "Or allié − or adverse  |  Bleu : avantage allié · Rouge : avantage adverse  |  Même échelle partout")
     for ax, (role, ally, enemy, points) in zip(axes.flat, series):
@@ -141,11 +144,20 @@ def render_roles(data, team, gold_segments):
         ax.axhline(0, color=MUTED, linewidth=1)
         ax.set_xlim(-.5, max(1, end) + max(1, end * .025))
         ax.set_ylim(-peak, peak)
+        ax.xaxis.set_major_locator(MultipleLocator(step))
         if points:
             segments, colors = gold_segments(points)
             ax.add_collection(LineCollection(segments, colors=colors, linewidths=2.4))
             ax.scatter([m for m, _ in points], [v for _, v in points], s=12,
                        c=[BLUE if v > 0 else RED if v < 0 else MUTED for _, v in points], zorder=3)
+            for minute, value in points:
+                if minute % step == 0:
+                    color = BLUE if value > 0 else RED if value < 0 else MUTED
+                    ax.annotate(f"{value:+,.0f}".replace(",", " "), (minute, value),
+                                xytext=(0, 9 if value >= 0 else -10), textcoords="offset points",
+                                ha="center", va="bottom" if value >= 0 else "top",
+                                fontsize=10, color=color, weight="bold",
+                                bbox=dict(facecolor="white", edgecolor="none", alpha=.85, pad=1.5))
             minute, value = points[-1]
             ax.text(1, 1.22, f"{minute}:00 · {value:+,.0f} or".replace(",", " "),
                     transform=ax.transAxes, ha="right", fontsize=12, weight="bold", color=BLUE if value >= 0 else RED)
@@ -156,27 +168,54 @@ def render_roles(data, team, gold_segments):
 
 
 def render_players(data, team):
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.ticker import MaxNLocator, FuncFormatter
+
     points = [point for p in data["players"] for point in p["points"]]
     if not points:
         return None
     end = max(m for m, _ in points)
     peak = max(1000, max(v for _, v in points) * 1.15)
-    fig, axes = _figure(5, 2, "Courbes d'or des 10 joueurs",
-                        "ALLIÉS à gauche · ADVERSAIRES à droite  |  Une courbe par joueur · Échelles communes")
+    fig = Figure(figsize=(16, 10), dpi=130, facecolor="white")
+    FigureCanvasAgg(fig)
+    ax = fig.subplots()
+    fig.suptitle("Or des dix joueurs", fontsize=23, color="#0f172a", y=.97, weight="bold")
+    ax.set_facecolor("#f8fafc")
+    ax.grid(True, color="#cbd5e1", alpha=.6)
+    ax.set_xlim(-.5, max(1, end) + max(1, end * .025))
+    ax.set_ylim(0, peak)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=10, integer=True))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda n, _: f"{n / 1000:g} k" if n else "0"))
+    ax.tick_params(labelsize=12, colors="#475569")
+    ax.set_xlabel("Minute de jeu", fontsize=13)
+    ax.set_ylabel("Or total", fontsize=13)
+    for spine in ax.spines.values():
+        spine.set_color("#cbd5e1")
+    colors = ("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+              "#8c564b", "#e377c2", "#555555", "#929900", "#17becf")
+    handles, labels = [], []
     for col, side in enumerate((team, 300 - team)):
-        color = BLUE if col == 0 else RED
-        for ax, player in zip(axes[:, col], ordered_players(data, side)):
-            ax.set_title(f"{player['role'] or '?'} · {label(player)}", loc="left", fontsize=12,
-                         weight="bold", pad=11, color=color, parse_math=False)
-            ax.set_xlim(-.5, max(1, end) + max(1, end * .025))
-            ax.set_ylim(0, peak)
+        for index, player in enumerate(ordered_players(data, side)):
+            color = colors[col * 5 + index]
             x, y = with_gaps(player["points"])
-            if x:
-                ax.plot(x, y, color=color, linewidth=2.3, marker=".", markersize=4)
+            line, = ax.plot(x, y, color=color, linewidth=2.2, linestyle="-" if col == 0 else "--",
+                            marker="o" if col == 0 else "^", markersize=4,
+                            markevery=(index, max(1, math.ceil(max(1, end) / 8))))
+            handles.append(line)
+            text = f"{player['role'] or '?'} · {label(player)}"
+            if player["points"]:
                 minute, value = player["points"][-1]
-                ax.text(.025, .89, f"{minute}:00 · {value:,.0f} or".replace(",", " "),
-                        transform=ax.transAxes, fontsize=11, color=color, weight="bold")
+                text += f" — {value:,.0f} or ({minute}:00)".replace(",", " ")
             else:
-                ax.text(.5, .5, "Or non enregistré", transform=ax.transAxes, ha="center", color=MUTED)
-        axes[-1, col].set_xlabel("Minute de jeu", fontsize=12)
+                text += " — non enregistré"
+            labels.append(text)
+    fig.subplots_adjust(left=.065, right=.98, bottom=.32, top=.90)
+    fig.text(.27, .23, "ALLIÉS · traits pleins / cercles", ha="center", fontsize=13, weight="bold", color="#334155")
+    fig.text(.75, .23, "ADVERSAIRES · tirets / triangles", ha="center", fontsize=13, weight="bold", color="#334155")
+    legend = fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(.51, .035),
+                        ncol=2, frameon=False, fontsize=10.5, handlelength=3,
+                        columnspacing=2.5, labelspacing=1.1)
+    for text in legend.get_texts():
+        text.set_parse_math(False)
     return _png(fig)

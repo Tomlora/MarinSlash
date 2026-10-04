@@ -447,8 +447,8 @@ def gold_response(match_id, joueur, page=0):
                     png = render_roles(individual, team, gold_segments) if page == 1 else render_players(individual, team)
                 fields = [("Lecture", "Un graphique par poste · Or allié − or adverse. "
                            "Un poste absent ou ambigu n'est pas comparé." if page == 1 else
-                           "Une courbe par joueur · Alliés à gauche, adversaires à droite. "
-                           "Les dix graphiques partagent les mêmes échelles.")]
+                           "Les dix joueurs sur un seul graphique, chacun avec sa couleur. "
+                           "Alliés en traits pleins, adversaires en tirets ; légende sous le graphique.")]
                 if not png:
                     fields.append(("Données insuffisantes", "Aucune minute exploitable pour ce graphique."))
             else:
