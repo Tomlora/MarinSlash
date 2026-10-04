@@ -13,11 +13,12 @@ from fonctions.match.match_views import (
 )
 
 from fonctions.match.recap_details import load_score, build_score_pages, gold_response
+from fonctions.match.player_profiles import load_players, build_player_pages
 
 log = logging.getLogger(__name__)
-OPEN_RE = re.compile(r"^lolview_open_(teamfight|ganks|score|gold|analysis|progress)_([A-Z0-9]+_[0-9]+)_([0-9]+)$")
+OPEN_RE = re.compile(r"^lolview_open_(teamfight|ganks|score|gold|analysis|progress|players)_([A-Z0-9]+_[0-9]+)_([0-9]+)$")
 PAGE_RE = re.compile(
-    r"^lolview_page_(teamfight|ganks|score|gold|analysis|progress)_([A-Z0-9]+_[0-9]+)_([0-9]+)_([0-9]+)_(?:prev|next)$"
+    r"^lolview_page_(teamfight|ganks|score|gold|analysis|progress|players)_([A-Z0-9]+_[0-9]+)_([0-9]+)_([0-9]+)_(?:prev|next)$"
 )
 LOAD_TIMEOUT = 8
 
@@ -41,6 +42,7 @@ def page_components(kind, match_id, joueur, index, total):
 
 def load_pages(kind, match_id, joueur):
     loaders = {
+        "players": (load_players, build_player_pages),
         "score": (load_score, build_score_pages),
         "teamfight": (load_teamfights, build_teamfight_pages),
         "ganks": (load_ganks, build_gank_pages),

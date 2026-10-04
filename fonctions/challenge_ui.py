@@ -146,7 +146,7 @@ def open_button(match_id, joueur, available=True):
 def recap_components(existing, match_id, joueur, available):
     """Ajouter Challenges sans remplacer les contrôles ni modifier les lignes reçues.
 
-    Les vues MatchLoL fournissent déjà une liste d'ActionRow (jusqu'à six
+    Les vues MatchLoL fournissent déjà une liste d'ActionRow (jusqu'à sept
     boutons avec les records). Discord impose au plus cinq boutons par ligne.
     """
     items = existing if isinstance(existing, (list, tuple)) else [existing]

@@ -14,6 +14,7 @@ from fonctions.api_moba import (
 )
 from fonctions.gestion_bdd import lire_bdd_perso
 from .masteries import get_stat_champion_by_player
+from .player_profiles import capture_global, capture_champions, capture_roles
 
 
 class ExternalDataMixin:
@@ -21,6 +22,7 @@ class ExternalDataMixin:
 
     async def prepare_data_moba(self):
         """Prépare les données depuis Mobalytics."""
+        self.player_profiles_raw = {}
         # self.liste_rank = []
         # self.liste_tier = []
         # self.liste_lp = []
@@ -88,6 +90,7 @@ class ExternalDataMixin:
                     wr_res = await get_wr_ranked(self.session, riot_id, riot_tag)
                     stats = wr_res['data']['lol']['player']['queuesStats']['items']
                     ranked_stats = next((q for q in stats if q.get('virtualQueue', '') == 'RANKED_SOLO'), None)
+                    capture_global(self, i, ranked_stats, 'Mobalytics')
                     if ranked_stats:
                         wr = int(round(ranked_stats.get('winrate', 0) * 100))
                         nbgames = ranked_stats.get('gamesCount', 0)
@@ -100,6 +103,7 @@ class ExternalDataMixin:
                 try:
                     self.df_data_stat = await get_stat_champion_by_player_mobalytics(self.session, riot_id, riot_tag)
                     self.df_data_stat['championId'] = self.df_data_stat['championId'].astype(str).replace(self.champ_dict)
+                    capture_champions(self, i, self.df_data_stat, 'Mobalytics')
 
                     champ_name = self.thisChampNameListe[i]
                     dict_data_stat = ''
@@ -131,6 +135,7 @@ class ExternalDataMixin:
                 # --- ROLE PREF ---
                 try:
                     data_pref_role = await get_role_stats(self.session, self.thisRiotIdListe[i], self.thisRiotTagListe[i])
+                    capture_roles(self, i, data_pref_role, 'Mobalytics')
                     if not data_pref_role.empty:
                         data_pref_role = data_pref_role.sort_values('poids_role', ascending=False)
                         self.role_pref[riot_id] = {
@@ -248,6 +253,7 @@ class ExternalDataMixin:
 
     async def prepare_data_ugg(self):
         """Prépare les données depuis UGG."""
+        self.player_profiles_raw = {}
         # self.liste_rank = []
         # self.liste_tier = []
         
@@ -278,6 +284,7 @@ class ExternalDataMixin:
 
             
 
+            self.df_rank = None  # Ne jamais réutiliser le rang du joueur précédent.
             self.data_rank = await getRanks(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), season=self.season_ugg)
 
  
@@ -288,8 +295,12 @@ class ExternalDataMixin:
                     self.df_rank = pd.DataFrame(self.data_rank['data']['fetchProfileRanks']['rankScores'])
                 except TypeError:
                     self.df_rank = ''
+            if isinstance(self.df_rank, pd.DataFrame) and 'queueType' in self.df_rank:
+                ranked = self.df_rank[self.df_rank['queueType'] == 'ranked_solo_5x5']
+                capture_global(self, i, None if ranked.empty else ranked.iloc[0].to_dict(), 'U.GG')
             
             self.df_data_stat = await get_stat_champion_by_player(self.session, self.champ_dict, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower(), self.list_season_ugg)
+            capture_champions(self, i, self.df_data_stat, 'U.GG')
 
            
             if isinstance(self.df_data_stat, pd.DataFrame):
@@ -345,6 +356,7 @@ class ExternalDataMixin:
             ###
 
             self.data_pref_role = await get_role(self.session, self.thisRiotIdListe[i].lower(), self.thisRiotTagListe[i].lower())
+            capture_roles(self, i, self.data_pref_role, 'U.GG')
 
             if isinstance(self.data_pref_role, dict):
 
