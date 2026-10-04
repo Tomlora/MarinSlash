@@ -48,6 +48,7 @@ def test_snapshot_keeps_native_identity_dataframe_and_per_player_gaps():
     original = copy.deepcopy(detail)
     snapshot = GOLD.build_snapshot(pd.DataFrame(detail), timeline, 'p8')
     assert snapshot['tracked_team'] == 200
+    assert snapshot['tracked_player'] == 8
     assert [p['id'] for p in snapshot['players']] == list(range(1, 11))
     assert [m for m, _ in snapshot['players'][0]['points']] == [0, 1, 3, 4]
     assert [m for m, _ in snapshot['players'][1]['points']] == [0, 1, 2, 4]
@@ -165,6 +166,84 @@ def test_page_one_reuses_original_graph_unchanged_and_clamps_page(monkeypatch):
     assert 'Page 1/3' in str(embed.footer)
 
 
+def test_relative_gold_exact_differences_reference_and_missing_minutes():
+    snapshot = data(5)
+    original = copy.deepcopy(snapshot)
+    reference = GOLD.reference_player(snapshot, 200, 0)
+    assert reference['id'] == 8  # Saved PUUID wins over any legacy index.
+    relative = GOLD.player_series(snapshot, 8)
+    base = dict(reference['points'])
+    assert all(v == 0 for _, v in relative[8])
+    for player in snapshot['players']:
+        assert relative[player['id']] == [(m, g - base[m]) for m, g in player['points']]
+    assert snapshot == original
+    snapshot['players'][7]['points'].pop(2)
+    assert all(2 not in dict(points) for points in GOLD.player_series(snapshot, 8).values())
+    snapshot.pop('tracked_player')
+    assert GOLD.reference_player(snapshot, 200, 7)['id'] == 8
+    assert GOLD.reference_player(snapshot, 200, 0) is None
+    assert GOLD.reference_player(snapshot, 200, None) is None
+    assert GOLD.player_series(snapshot, 99) == {}
+
+
+def test_relative_graph_shows_ten_curves_one_zero_reference_and_signed_legend(monkeypatch):
+    figures = []
+    monkeypatch.setattr(GOLD, '_png', lambda fig: figures.append(fig))
+    snapshot = data(31)
+    GOLD.render_players(snapshot, 200, 8)
+    fig = figures[0]
+    assert len(fig.axes) == 1 and len(fig.axes[0].lines) == 10
+    ax = fig.axes[0]
+    assert ax.get_ylim()[0] < 0 < ax.get_ylim()[1]
+    assert ax.get_ylabel() == "Écart d'or au joueur suivi"
+    assert set(ax.lines[2].get_ydata()) == {0}
+    assert ax.lines[2].get_color() == '#111827'
+    texts = [t.get_text() for t in fig.legends[0].get_texts()]
+    assert 'Référence (0)' in texts[2]
+    assert any(' — +' in t for t in texts) and any(' — -' in t for t in texts)
+    assert any('Syndra' in t.get_text() and 'Zéro' in t.get_text() for t in fig.texts)
+
+
+def test_relative_page_can_switch_to_total_without_known_reference(monkeypatch):
+    from test_match_records_interactions import DETAILS as real
+    snapshot = data(3)
+    snapshot['tracked_player'] = None
+    match = {'match_id': 'EUW1_123', 'mode': 'RANKED'}
+    monkeypatch.setattr(real, 'load_details', lambda *args: (match, {'gold_players': snapshot}, {}))
+    embed, png = real.gold_response('EUW1_123', 5, 2)
+    assert png is None and embed.fields[0].name == 'Référence inconnue'
+    embed, png = real.gold_response('EUW1_123', 5, 2, 'total')
+    assert png and embed.title == '💰 Or de chaque joueur'
+
+
+def test_relative_total_controls_acknowledge_replace_image_and_keep_three_pages(monkeypatch):
+    from test_match_records_interactions import VIEW_COG as module
+    acknowledgements, loads = [], []
+    async def defer(**kwargs):
+        acknowledgements.append(kwargs)
+    def load(match_id, joueur, page, mode):
+        assert acknowledgements[-1] == {'edit_origin': True}
+        loads.append((match_id, joueur, page, mode))
+        return interactions.Embed(title=mode), b'png'
+    monkeypatch.setattr(module, 'gold_response', load)
+    cog = object.__new__(module.LolMatchViews)
+    ctx = types.SimpleNamespace(custom_id='lolview_page_gold_EUW1_123_5_2_next',
+                                defer=defer, send=AsyncMock(), edit=AsyncMock())
+    asyncio.run(module.LolMatchViews.on_page.callback(cog, ctx))
+    for current, target in [('relative', 'total'), ('total', 'relative')]:
+        result = ctx.edit.call_args.kwargs
+        assert result['attachments'] == [] and result['file'].file_name == 'gold_players.png'
+        rows = [row.to_dict()['components'] for row in result['components']]
+        assert len(rows) == 2 and rows[0][1]['disabled']
+        ids = [b['custom_id'] for row in rows for b in row]
+        assert len(ids) == len(set(ids)) and all(len(i) <= 100 for i in ids)
+        buttons = {b['custom_id'].split('_')[1]: b for b in rows[1]}
+        assert buttons[current]['disabled'] and not buttons[target]['disabled']
+        ctx.custom_id = buttons[target]['custom_id']
+        asyncio.run(module.LolMatchViews.on_gold_mode.callback(cog, ctx))
+        assert loads[-1] == ('EUW1_123', 5, 2, target)
+
+
 def test_new_pages_handle_missing_and_ambiguous_roles_and_keep_individual_curves(monkeypatch):
     from test_match_records_interactions import DETAILS as real
     match = {'match_id': 'EUW1_123', 'mode': 'RANKED', 'id_participant': 7}
@@ -202,7 +281,7 @@ def test_real_callbacks_page_forward_back_replace_files_and_clear_on_empty_or_er
     calls = []
     async def defer(**kw):
         calls.append(kw)
-    def load(match_id, joueur, page):
+    def load(match_id, joueur, page, mode="relative"):
         assert calls
         embed = interactions.Embed(title=f'Page {page + 1}')
         return embed, b'png' if page != 2 else None

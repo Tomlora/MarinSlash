@@ -21,6 +21,7 @@ PAGE_RE = re.compile(
     r"^lolview_page_(teamfight|ganks|score|gold|analysis|progress|players)_([A-Z0-9]+_[0-9]+)_([0-9]+)_([0-9]+)_(?:prev|next)$"
 )
 LOAD_TIMEOUT = 8
+GOLD_MODE_RE = re.compile(r"^lolgold_(relative|total)_([A-Z0-9]+_[0-9]+)_([0-9]+)$")
 
 
 def page_components(kind, match_id, joueur, index, total):
@@ -58,7 +59,7 @@ class LolMatchViews(Extension):
     def __init__(self, bot):
         self.bot = bot
 
-    async def _show(self, ctx, kind, match_id, joueur, target=0, edit=False):
+    async def _show(self, ctx, kind, match_id, joueur, target=0, edit=False, gold_mode="relative"):
         # L'ACK précède toute requête SQL. Le message public n'est jamais modifié.
         if edit:
             await ctx.defer(edit_origin=True)
@@ -76,7 +77,7 @@ class LolMatchViews(Extension):
             if kind == "gold":
                 index = max(0, min(int(target), 2))
                 data = await asyncio.wait_for(
-                    asyncio.to_thread(gold_response, match_id, int(joueur), index), timeout=LOAD_TIMEOUT,
+                    asyncio.to_thread(gold_response, match_id, int(joueur), index, gold_mode), timeout=LOAD_TIMEOUT,
                 )
                 if data is None:
                     return await reply(content="Les données sauvegardées de cette partie ne sont plus disponibles.",
@@ -84,8 +85,15 @@ class LolMatchViews(Extension):
                 embed, png = data
                 filename = ("gold_diff.png", "gold_roles.png", "gold_players.png")[index]
                 kwargs = {"file": interactions.File(BytesIO(png), file_name=filename)} if png else {}
+                controls = page_components(kind, match_id, joueur, index, 3)
+                if index == 2:
+                    controls.append(interactions.ActionRow(*[
+                        interactions.Button(style=interactions.ButtonStyle.PRIMARY if mode == gold_mode else interactions.ButtonStyle.SECONDARY,
+                                            label=label, custom_id=f"lolgold_{mode}_{match_id}_{joueur}", disabled=mode == gold_mode)
+                        for mode, label in (("relative", "Écart au joueur suivi"), ("total", "Or total"))
+                    ]))
                 return await reply(content="", embeds=embed,
-                                   components=page_components(kind, match_id, joueur, index, 3), **kwargs)
+                                   components=controls, **kwargs)
             pages = await asyncio.wait_for(
                 asyncio.to_thread(load_pages, kind, match_id, int(joueur)), timeout=LOAD_TIMEOUT,
             )
@@ -127,6 +135,13 @@ class LolMatchViews(Extension):
     async def on_close(self, ctx):
         await ctx.defer(edit_origin=True)
         await ctx.edit(content="Consultation terminée.", embeds=[], components=[], attachments=[])
+
+    @component_callback(GOLD_MODE_RE)
+    async def on_gold_mode(self, ctx):
+        match = GOLD_MODE_RE.fullmatch(ctx.custom_id)
+        if match:
+            mode, match_id, joueur = match.groups()
+            await self._show(ctx, "gold", match_id, joueur, target=2, edit=True, gold_mode=mode)
 
 
 def setup(bot):

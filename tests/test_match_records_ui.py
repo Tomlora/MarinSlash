@@ -1196,9 +1196,9 @@ def test_gold_callback_acknowledges_before_loading_uploads_png_and_handles_missi
     try:
         ctx = RecordingContext("lolview_open_gold_EUW1_123_5")
         embed = DETAILS.gold_embed({**example_match(), "id_participant": 7}, [{"minute": 1, "blue": 5000, "red": 4000}])
-        def load(match_id, joueur, page):
+        def load(match_id, joueur, page, mode):
             assert ctx.calls[0] == ("defer", {"ephemeral": True})
-            assert (match_id, joueur, page) == ("EUW1_123", 5, 0)
+            assert (match_id, joueur, page, mode) == ("EUW1_123", 5, 0, "relative")
             return embed, b"fake-png"
         VIEW_COG.gold_response = load
         asyncio.run(cog.on_open(ctx))

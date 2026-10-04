@@ -17,6 +17,18 @@ redémarrage. Précédent / Suivant parcourt exactement trois pages :
    joueur a sa couleur ; les alliés sont en traits pleins avec cercles, les
    adversaires en tirets avec triangles. La légende sous le graphique regroupe
    les alliés puis les adversaires et indique poste, champion, nom et dernier relevé.
+   La vue par défaut **Écart au joueur suivi** retire l'or du compte suivi à
+   chaque minute : sa courbe noire est à zéro, les autres affichent leur avance
+   ou retard. Cela retire la progression commune des totaux pour mieux distinguer
+   les écarts. Le bouton **Or total** retrouve les courbes cumulées sur la même page.
+
+Pour la vue des écarts, on calcule exactement `or_joueur(t) - or_suivi(t)`.
+La distance verticale entre deux joueurs reste leur différence d'or. Seules les
+minutes communes sont comparées ; si le relevé du joueur de référence manque,
+les dix courbes sont interrompues à cette minute. L'identité de référence est
+sauvegardée par PUUID ; pour un ancien snapshot, l'index Riot original est accepté
+uniquement s'il désigne un joueur de l'équipe suivie. Une référence inconnue est
+signalée, avec accès à Or total. Aucune valeur n'est reconstituée.
 
 Les deux nouveaux PNG ont une résolution de 1690 × 1820 et 2080 × 1300 pixels.
 Les annotations par poste sont espacées et la légende des dix joueurs reste hors des courbes. Les graduations
@@ -49,5 +61,6 @@ remplace l'ancienne pièce jointe via `ctx.edit(attachments=[])`, y compris quan
 le graphique suivant est absent ou si le chargement échoue.
 
 Après déploiement, vérifier 1 → 2 → 3 → 2 → 1, les pièces jointes, Fermer,
-un compte côté rouge, une partie longue et un ancien récap. Comparer la première
+le basculement Écart au joueur suivi / Or total, un compte côté rouge, une partie
+longue et un ancien récap. Comparer la première
 image à l'ancien affichage. Les tests locaux ne valident pas le rendu du client Discord.

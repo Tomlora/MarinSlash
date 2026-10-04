@@ -7,7 +7,7 @@ from .score_explanations import build_dimension_explanations, explanation_fields
 from .player_profiles import snapshot_players
 from .map_view import snapshot_for_match
 from .jungle_proximity import snapshot_for_match as proximity_snapshot
-from .gold_player_views import snapshot_for_match as gold_players_snapshot, render_roles, render_players
+from .gold_player_views import snapshot_for_match as gold_players_snapshot, render_roles, render_players, reference_player
 
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 from fonctions.match.match_views import (
@@ -429,7 +429,7 @@ def render_gold(match, points):
         return output.getvalue()
 
 
-def gold_response(match_id, joueur, page=0):
+def gold_response(match_id, joueur, page=0, mode="relative"):
     page = min(2, max(0, int(page)))
     if page:
         loaded = load_details(match_id, joueur)
@@ -443,17 +443,32 @@ def gold_response(match_id, joueur, page=0):
         if individual and individual.get("version") == 1:
             team = individual.get("tracked_team") or tracked_team(match)
             if team in (100, 200):
+                reference = reference_player(individual, team, match.get("id_participant"))
                 with PLOT_LOCK:
-                    png = render_roles(individual, team, gold_segments) if page == 1 else render_players(individual, team)
+                    if page == 1:
+                        png = render_roles(individual, team, gold_segments)
+                    elif mode == "total":
+                        png = render_players(individual, team)
+                    elif reference is not None:
+                        png = render_players(individual, team, reference["id"])
                 fields = [("Lecture", "Un graphique par poste · Or allié − or adverse. "
                            "Un poste absent ou ambigu n'est pas comparé." if page == 1 else
                            "Les dix joueurs sur un seul graphique, chacun avec sa couleur. "
                            "Alliés en traits pleins, adversaires en tirets ; légende sous le graphique.")]
+                if page == 2 and mode != "total":
+                    fields = [("Lecture", "Zéro = ton or à chaque minute. +1 000 = ce joueur a 1 000 or de plus que toi ; "
+                               "−1 000 = 1 000 de moins. La distance entre deux courbes est leur écart d'or. "
+                               "Le bouton « Or total » affiche les montants cumulés.")]
+                    if reference is None:
+                        fields = [("Référence inconnue", "Le joueur suivi ne peut pas être identifié. "
+                                   "Utilise « Or total » pour afficher les dix courbes.")]
                 if not png:
                     fields.append(("Données insuffisantes", "Aucune minute exploitable pour ce graphique."))
             else:
                 fields = [("Équipe inconnue", "L'équipe du compte suivi n'est pas enregistrée pour ce match.")]
         title = "💰 Écart d'or par poste" if page == 1 else "💰 Or de chaque joueur"
+        if page == 2 and mode != "total":
+            title = "💰 Écart d'or au joueur suivi"
         embed = make_pages(title, match, fields,
                            "Un point par minute entière · Les minutes absentes restent des interruptions.", 0xF1C40F)[0]
         embed.set_footer(text=f"Page {page + 1}/3 · Données sauvegardées du compte du récap")

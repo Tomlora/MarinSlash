@@ -46,7 +46,8 @@ def build_snapshot(detail, timeline, puuid):
                         "champion": str(p.get("championName") or "Champion inconnu")[:40],
                         "points": [[m, values[pid][m][1]] for m in sorted(values[pid])]})
     tracked = next((p["teamId"] for p in participants if puuid and p.get("puuid") == puuid), None)
-    return {"version": 1, "tracked_team": tracked, "players": players}
+    tracked_player = next((p["participantId"] for p in participants if puuid and p.get("puuid") == puuid), None)
+    return {"version": 1, "tracked_team": tracked, "tracked_player": tracked_player, "players": players}
 
 
 def snapshot_for_match(match):
@@ -167,29 +168,63 @@ def render_roles(data, team, gold_segments):
     return _png(fig)
 
 
-def render_players(data, team):
+def reference_player(data, team, participant_index=None):
+    """PUUID sauvegardé en priorité ; index Riot natif pour les anciens snapshots."""
+    pid = data.get("tracked_player")
+    if pid is None:
+        index = finite(participant_index)
+        if index is not None and index == int(index) and 0 <= index <= 9:
+            pid = int(index) + 1
+    return next((p for p in data["players"] if p["id"] == pid and p["team"] == team), None)
+
+
+def player_series(data, reference_id=None):
+    """Comparer aux mêmes minutes ; aucune estimation lorsque la référence manque."""
+    if reference_id is None:
+        return {p["id"]: list(p["points"]) for p in data["players"]}
+    reference = next((p for p in data["players"] if p["id"] == reference_id), None)
+    if reference is None:
+        return {}
+    base = dict(reference["points"])
+    return {p["id"]: [(m, value - base[m]) for m, value in p["points"] if m in base]
+            for p in data["players"]}
+
+
+def render_players(data, team, reference_id=None):
     from matplotlib.figure import Figure
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     from matplotlib.ticker import MaxNLocator, FuncFormatter
 
-    points = [point for p in data["players"] for point in p["points"]]
+    series = player_series(data, reference_id)
+    points = [point for points in series.values() for point in points]
     if not points:
         return None
     end = max(m for m, _ in points)
     peak = max(1000, max(v for _, v in points) * 1.15)
+    relative = reference_id is not None
     fig = Figure(figsize=(16, 10), dpi=130, facecolor="white")
     FigureCanvasAgg(fig)
     ax = fig.subplots()
-    fig.suptitle("Or des dix joueurs", fontsize=23, color="#0f172a", y=.97, weight="bold")
+    title = "Avance ou retard des dix joueurs" if relative else "Or des dix joueurs"
+    fig.suptitle(title, fontsize=23, color="#0f172a", y=.97, weight="bold")
     ax.set_facecolor("#f8fafc")
     ax.grid(True, color="#cbd5e1", alpha=.6)
     ax.set_xlim(-.5, max(1, end) + max(1, end * .025))
-    ax.set_ylim(0, peak)
+    if relative:
+        low = min(0, min(v for _, v in points))
+        high = max(0, max(v for _, v in points))
+        margin = max(300, (high - low) * .08)
+        ax.set_ylim(low - margin, high + margin)
+        reference = next(p for p in data["players"] if p["id"] == reference_id)
+        fig.text(.5, .918, f"Zéro = {label(reference)}  |  Au-dessus : plus d'or · En dessous : moins d'or",
+                 ha="center", fontsize=12, color="#475569", parse_math=False)
+    else:
+        ax.set_ylim(0, peak)
     ax.xaxis.set_major_locator(MaxNLocator(nbins=10, integer=True))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda n, _: f"{n / 1000:g} k" if n else "0"))
     ax.tick_params(labelsize=12, colors="#475569")
     ax.set_xlabel("Minute de jeu", fontsize=13)
-    ax.set_ylabel("Or total", fontsize=13)
+    ax.set_ylabel("Écart d'or au joueur suivi" if relative else "Or total", fontsize=13)
     for spine in ax.spines.values():
         spine.set_color("#cbd5e1")
     colors = ("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
@@ -198,19 +233,25 @@ def render_players(data, team):
     for col, side in enumerate((team, 300 - team)):
         for index, player in enumerate(ordered_players(data, side)):
             color = colors[col * 5 + index]
-            x, y = with_gaps(player["points"])
-            line, = ax.plot(x, y, color=color, linewidth=2.2, linestyle="-" if col == 0 else "--",
+            is_reference = player["id"] == reference_id
+            if is_reference:
+                color = "#111827"
+            values = series.get(player["id"], [])
+            x, y = with_gaps(values)
+            line, = ax.plot(x, y, color=color, linewidth=3 if is_reference else 2.2, linestyle="-" if col == 0 else "--",
                             marker="o" if col == 0 else "^", markersize=4,
                             markevery=(index, max(1, math.ceil(max(1, end) / 8))))
             handles.append(line)
             text = f"{player['role'] or '?'} · {label(player)}"
-            if player["points"]:
-                minute, value = player["points"][-1]
-                text += f" — {value:,.0f} or ({minute}:00)".replace(",", " ")
+            if values:
+                minute, value = values[-1]
+                amount = f"{value:+,.0f}" if relative and value else f"{value:,.0f}"
+                text += (" — Référence (0)" if is_reference else
+                         f" — {amount} or ({minute}:00)".replace(",", " "))
             else:
-                text += " — non enregistré"
+                text += " — non comparable" if relative else " — non enregistré"
             labels.append(text)
-    fig.subplots_adjust(left=.065, right=.98, bottom=.32, top=.90)
+    fig.subplots_adjust(left=.065, right=.98, bottom=.32, top=.875 if relative else .90)
     fig.text(.27, .23, "ALLIÉS · traits pleins / cercles", ha="center", fontsize=13, weight="bold", color="#334155")
     fig.text(.75, .23, "ADVERSAIRES · tirets / triangles", ha="center", fontsize=13, weight="bold", color="#334155")
     legend = fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(.51, .035),
