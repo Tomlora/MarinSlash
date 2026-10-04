@@ -154,6 +154,51 @@ def test_gank_loader_matches_account_team_and_filters_boundary_on_old_schema(dat
     assert VIEWS.load_ganks("EUW1_100", 1)[3] is False
 
 
+def test_jungle_proximity_persists_with_other_snapshots_and_loads_without_gank_tables(database):
+    from test_player_profiles import filled_match
+    from test_jungle_proximity import proximity_fixture
+    database.execute("INSERT INTO tracker VALUES (5,123,'Marin','TEST','p7'), (6,456,'Autre','TEST','p0')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri'), ('EUW1_123',6,'RANKED',100,900,TRUE,'Ahri')")
+    match = filled_match()
+    match.match_detail.loc['mapId', 'info'] = 11
+    match.data_timeline = proximity_fixture()[1]
+    for _ in range(2):
+        assert DETAILS.save_recap_details(match)
+        loaded, summary, events, available = VIEWS.load_ganks('EUW1_123', 5)
+        assert loaded['jungle_proximity']['tracked_team'] == 200
+        assert not available and summary == {} and events == []
+        assert VIEWS.build_gank_pages(loaded, summary, events, available)[1].title.endswith('Alliés')
+    payload = database.execute("SELECT data FROM match_recap_details WHERE joueur=5").fetchone()[0]
+    assert payload['map'] and payload['scores'] and len(payload['players']['players']) == 10
+    assert payload['jungle_proximity']['players'][0]['own']['percent'] == 66.7
+    assert database.execute("SELECT count(*) FROM match_recap_details").fetchone()[0] == 1
+    other = VIEWS.load_ganks('EUW1_123', 6)[0]
+    assert other.get('jungle_proximity') is None
+
+
+def test_individual_gold_roundtrip_resave_and_historical_pages(database):
+    from test_player_profiles import filled_match
+    from test_gold_paginator import fixture
+    database.execute("INSERT INTO tracker VALUES (5,123,'Marin','TEST','p7'), (6,456,'Autre','TEST','p0')")
+    database.execute("INSERT INTO matchs VALUES ('EUW1_123',5,'RANKED',100,900,TRUE,'Ahri'), ('EUW1_123',6,'RANKED',100,900,TRUE,'Ahri')")
+    match = filled_match()
+    match.match_detail.loc['mapId', 'info'] = 11
+    match.data_timeline = fixture(3)[1]
+    for value in (999, 1234):
+        match.data_timeline['info']['frames'][1]['participantFrames']['1']['totalGold'] = value
+        assert DETAILS.save_recap_details(match)
+        payload = DETAILS.load_details('EUW1_123', 5)[1]
+        assert payload['gold_players']['players'][0]['points'][1] == [1, value]
+        assert payload['gold_players']['tracked_team'] == 200
+        assert len(payload['gold_players']['players']) == len(payload['players']['players']) == 10
+        assert payload['jungle_proximity'] and payload['scores'] and payload['gold']
+    assert database.execute("SELECT count(*) FROM match_recap_details").fetchone()[0] == 1
+    assert DETAILS.load_details('EUW1_123', 6)[1] == {}
+    for page in (1, 2):
+        embed, png = DETAILS.gold_response('EUW1_123', 6, page)
+        assert png is None and embed.fields[0].name == 'Données indisponibles'
+
+
 def test_recap_details_roundtrip_is_per_account_and_keeps_true_team_colors(database):
     from test_match_records_ui import sample_details_match
     database.execute("INSERT INTO tracker VALUES (5,123,'Renamed','TEST','p7'), (6,456,'Other','TEST','p1')")

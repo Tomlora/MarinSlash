@@ -6,6 +6,8 @@ from threading import Lock
 from .score_explanations import build_dimension_explanations, explanation_fields
 from .player_profiles import snapshot_players
 from .map_view import snapshot_for_match
+from .jungle_proximity import snapshot_for_match as proximity_snapshot
+from .gold_player_views import snapshot_for_match as gold_players_snapshot, render_roles, render_players, reference_player
 
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 from fonctions.match.match_views import (
@@ -125,7 +127,9 @@ def save_recap_details(match_info):
     try:
         data = snapshot(match_info)
         data["players"] = snapshot_players(match_info)
-        if not data["scores"] and not data["gold"] and not data["players"] and not data["map"]:
+        data["jungle_proximity"] = proximity_snapshot(match_info)
+        data["gold_players"] = gold_players_snapshot(match_info)
+        if not any(data.get(key) for key in ("scores", "gold", "players", "map", "jungle_proximity", "gold_players")):
             return False
         requete_perso_bdd(SCHEMA)
         requete_perso_bdd(
@@ -425,9 +429,56 @@ def render_gold(match, points):
         return output.getvalue()
 
 
-def gold_response(match_id, joueur):
+def gold_response(match_id, joueur, page=0, mode="relative"):
+    page = min(2, max(0, int(page)))
+    if page:
+        loaded = load_details(match_id, joueur)
+        if loaded is None:
+            return None
+        match, data, _ = loaded
+        individual = data.get("gold_players")
+        png = None
+        fields = [("Données indisponibles", "L'or individuel n'est pas enregistré pour ce récap. "
+                   "Une réanalyse ou une prochaine partie avec timeline permettra ces graphiques.")]
+        if individual and individual.get("version") == 1:
+            team = individual.get("tracked_team") or tracked_team(match)
+            if team in (100, 200):
+                reference = reference_player(individual, team, match.get("id_participant"))
+                with PLOT_LOCK:
+                    if page == 1:
+                        png = render_roles(individual, team, gold_segments)
+                    elif mode == "total":
+                        png = render_players(individual, team)
+                    elif reference is not None:
+                        png = render_players(individual, team, reference["id"])
+                fields = [("Lecture", "Un graphique par poste · Or allié − or adverse. "
+                           "Un poste absent ou ambigu n'est pas comparé." if page == 1 else
+                           "Les dix joueurs sur un seul graphique, chacun avec sa couleur. "
+                           "Alliés en traits pleins, adversaires en tirets ; légende sous le graphique.")]
+                if page == 2 and mode != "total":
+                    fields = [("Lecture", "Zéro = ton or à chaque minute. +1 000 = ce joueur a 1 000 or de plus que toi ; "
+                               "−1 000 = 1 000 de moins. La distance entre deux courbes est leur écart d'or. "
+                               "Le bouton « Or total » affiche les montants cumulés.")]
+                    if reference is None:
+                        fields = [("Référence inconnue", "Le joueur suivi ne peut pas être identifié. "
+                                   "Utilise « Or total » pour afficher les dix courbes.")]
+                if not png:
+                    fields.append(("Données insuffisantes", "Aucune minute exploitable pour ce graphique."))
+            else:
+                fields = [("Équipe inconnue", "L'équipe du compte suivi n'est pas enregistrée pour ce match.")]
+        title = "💰 Écart d'or par poste" if page == 1 else "💰 Or de chaque joueur"
+        if page == 2 and mode != "total":
+            title = "💰 Écart d'or au joueur suivi"
+        embed = make_pages(title, match, fields,
+                           "Un point par minute entière · Les minutes absentes restent des interruptions.", 0xF1C40F)[0]
+        embed.set_footer(text=f"Page {page + 1}/3 · Données sauvegardées du compte du récap")
+        if png:
+            embed.set_image(url=f"attachment://gold_{'roles' if page == 1 else 'players'}.png")
+        return embed, png
     data = load_gold(match_id, joueur)
     if data is None:
         return None
     match, points = data
-    return gold_embed(match, points), render_gold(match, points) if points else None
+    embed = gold_embed(match, points)
+    embed.set_footer(text="Page 1/3 · Données sauvegardées du compte du récap")
+    return embed, render_gold(match, points) if points else None
