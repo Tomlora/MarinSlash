@@ -293,13 +293,23 @@ def load_ganks(match_id, joueur):
     match = load_match(match_id, joueur)
     if match is None:
         return None
-    team = tracked_team(match)
-    if str(match.get("mode")).upper() not in GANK_MODES or team is None:
+    if str(match.get("mode")).upper() not in GANK_MODES:
         return match, {}, [], False
     tables = _rows(
         """SELECT to_regclass('public.match_gank_summary') AS summary_table,
-                  to_regclass('public.match_gank_events') AS events_table""", {},
+                  to_regclass('public.match_gank_events') AS events_table,
+                  to_regclass('public.match_recap_details') AS details_table""", {},
     )[0]
+    if tables["details_table"]:
+        details = _rows(
+            "SELECT data FROM match_recap_details WHERE match_id = :match_id AND joueur = :joueur",
+            {"match_id": match_id, "joueur": int(joueur)},
+        )
+        if details:
+            match["jungle_proximity"] = _object(details[0]["data"]).get("jungle_proximity")
+    team = (match.get("jungle_proximity") or {}).get("tracked_team") or tracked_team(match)
+    if team is None:
+        return match, {}, [], False
     summary = {}
     if tables["summary_table"]:
         rows = _rows(
@@ -404,17 +414,44 @@ def gank_outcome(event):
     return GANK_OUTCOMES.get(event.get("outcome"), "Issue non renseignée")
 
 
+def build_proximity_pages(match, data, team):
+    title = "🌿 Ganks · Jungle proximity"
+    if not data or data.get("version") != 1:
+        return make_pages(title, match, [("Données indisponibles",
+            "Proximité non enregistrée pour ce récap. Disponible après réanalyse ou pour les prochaines parties.")], color=GANKS_COLOR)
+    note = ("**2:00–13:59 · rayon 2 000 unités**\n"
+            "Part des relevés où le jungler est proche (~1 relevé/min), pas un temps exact ni un gank confirmé. "
+            "Les deux joueurs doivent être vivants et hors des bases. Positions/santé absentes exclues.\n"
+            "Les deux junglers sont ceux de l'équipe du joueur affiché et de son adversaire.")
+    def metric(stats):
+        if stats["jungler"] is None:
+            return "— (jungler non identifié)"
+        if not stats["valid"]:
+            return "— (aucun relevé utilisable)"
+        return (f"**{fmt(stats['percent'])} %** · {stats['near']}/{stats['valid']} proches "
+                f"· {stats['valid']}/{data['samples']} relevés retenus")
+    pages = []
+    for side, label in ((team, "Alliés"), (300 - team, "Adversaires")):
+        fields = [(f"{p['role']} · {_champion_icon(p['champion'])} {p['name']} · {p['champion']}",
+                   f"Son jungler : {metric(p['own'])}\nJungler adverse : {metric(p['opponent'])}")
+                  for p in data["players"] if p["team"] == side]
+        pages += make_pages(title + " · " + label, match, fields, note, GANKS_COLOR)
+    return pages
+
+
 def build_gank_pages(match, summary, events, available=True):
     note = "Ganks entre **0:00 et 13:59** · Succès strict = kill sans échange retour."
     def pages(title, fields):
         return make_pages("🌿 Ganks · " + title, match, fields, note, GANKS_COLOR)
     if str(match.get("mode")).upper() not in GANK_MODES:
         return _finish(pages("Résumé", [("Mode non pris en charge", "Disponible en Ranked, Flex et Swiftplay.")]))
-    team = tracked_team(match)
+    proximity = match.get("jungle_proximity")
+    team = (proximity or {}).get("tracked_team") or tracked_team(match)
     if team is None:
         return _finish(pages("Résumé", [("Équipe inconnue", "L'équipe du compte suivi n'est pas enregistrée pour ce match.")]))
     if not available:
-        return _finish(pages("Résumé", [("Données indisponibles", "Aucune analyse de ganks exploitable n'est enregistrée pour cette partie.")]))
+        return _finish(pages("Résumé", [("Données indisponibles", "Aucune analyse de ganks exploitable n'est enregistrée pour cette partie.")])
+                       + build_proximity_pages(match, proximity, team))
     # Même filtre à l'affichage pour les appels directs et les données historiques.
     events = [e for e in events if number(e.get("timestamp_ms")) is not None
               and 0 <= number(e["timestamp_ms"]) < GANK_END_MS and number(e.get("team_id")) in (100, 200)]
@@ -452,6 +489,7 @@ def build_gank_pages(match, summary, events, available=True):
                    f"Jungle alliée : **{exact}** exactes · **{inferred}** inférées · **{high}** haute confiance\n"
                    "La conversion est observée : les passages sans kill ni signal de dégâts sont moins bien détectés."))
     result = pages("Résumé", fields)
+    result += build_proximity_pages(match, proximity, team)
     details = []
     for event in events:
         side = "🔵" if number(event.get("team_id")) == team else "🔴"

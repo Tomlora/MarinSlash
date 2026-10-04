@@ -10,6 +10,8 @@ on:
       - "cogs/lol_match_views.py"
       - "cogs/lol_match_map.py"
       - "fonctions/match/map_view.py"
+      - "fonctions/match/jungle_proximity.py"
+      - "tests/test_jungle_proximity.py"
       - "tests/test_match_map.py"
       - "img/map2.jpg"
       - "fonctions/match/records_preferences.py"
@@ -43,6 +45,8 @@ on:
       - "cogs/lol_match_views.py"
       - "cogs/lol_match_map.py"
       - "fonctions/match/map_view.py"
+      - "fonctions/match/jungle_proximity.py"
+      - "tests/test_jungle_proximity.py"
       - "tests/test_match_map.py"
       - "img/map2.jpg"
       - "fonctions/match/records_preferences.py"
@@ -96,6 +100,6 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install pytest pandas Pillow matplotlib discord-py-interactions==5.13.2 'psycopg[binary]'
       - name: Compile changed MatchLoL modules
-        run: python -m py_compile cogs/lol_match_map.py fonctions/match/map_view.py fonctions/match/player_profiles.py fonctions/match/external_data.py cogs/leagueoflegends.py cogs/lol_records.py cogs/settings_records.py cogs/lol_match_views.py fonctions/match/records_ui.py fonctions/match/records_preferences.py fonctions/match/match_views.py fonctions/match/recap_details.py fonctions/match/save_data.py
+        run: python -m py_compile fonctions/match/jungle_proximity.py cogs/lol_match_map.py fonctions/match/map_view.py fonctions/match/player_profiles.py fonctions/match/external_data.py cogs/leagueoflegends.py cogs/lol_records.py cogs/settings_records.py cogs/lol_match_views.py fonctions/match/records_ui.py fonctions/match/records_preferences.py fonctions/match/match_views.py fonctions/match/recap_details.py fonctions/match/save_data.py
       - name: Test all offline scenarios and Discord size limits
-        run: python -m pytest -q tests/test_match_map.py tests/test_player_profiles.py tests/test_match_records_ui.py tests/test_match_records_interactions.py tests/test_match_records_database.py
+        run: python -m pytest -q tests/test_jungle_proximity.py tests/test_match_map.py tests/test_player_profiles.py tests/test_match_records_ui.py tests/test_match_records_interactions.py tests/test_match_records_database.py

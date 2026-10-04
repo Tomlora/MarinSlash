@@ -6,6 +6,7 @@ from threading import Lock
 from .score_explanations import build_dimension_explanations, explanation_fields
 from .player_profiles import snapshot_players
 from .map_view import snapshot_for_match
+from .jungle_proximity import snapshot_for_match as proximity_snapshot
 
 from fonctions.gestion_bdd import lire_bdd_perso, requete_perso_bdd
 from fonctions.match.match_views import (
@@ -125,7 +126,8 @@ def save_recap_details(match_info):
     try:
         data = snapshot(match_info)
         data["players"] = snapshot_players(match_info)
-        if not data["scores"] and not data["gold"] and not data["players"] and not data["map"]:
+        data["jungle_proximity"] = proximity_snapshot(match_info)
+        if not any(data.get(key) for key in ("scores", "gold", "players", "map", "jungle_proximity")):
             return False
         requete_perso_bdd(SCHEMA)
         requete_perso_bdd(
