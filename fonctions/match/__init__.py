@@ -21,6 +21,8 @@ Structure des modules:
 - analysis.py: Analyses avancées (skirmishes, roam, etc.)
 - ganks.py: Implémentation historique de l'analyse des ganks
 - ganks_hybrid.py: Détection hybride des tentatives de gank
+- gank_laning_rules.py: Règles V3 phase de lane (<14 min, succès strict)
+- gank_recap.py: Insight de focus jungle dans le récap
 - teamfight_damage.py: Dégâts par joueur pendant les teamfights
 - teamfight_storage.py: Sauvegarde PostgreSQL des dégâts de teamfight
 - detection.py: Détection de patterns joueurs
@@ -53,6 +55,8 @@ from .teamfight_storage import install_teamfight_storage
 from .timeline_persistence import install_timeline_persistence
 from .ganks import GankAnalysisMixin as LegacyGankAnalysisMixin
 from .ganks_hybrid import install_hybrid_ganks
+from .gank_laning_rules import install_gank_laning_rules
+from .gank_recap import install_gank_recap
 from .riot_api import (
     get_version,
     get_champ_list,
@@ -200,11 +204,21 @@ install_modern_recap(MatchLol)
 # exacts et aux deltas de dégâts entre frames.
 install_hybrid_ganks(MatchLol)
 
+# V3 : on ne conserve comme ganks que les tentatives de phase de lane (<14:00),
+# un trade n'est plus un succès et le rappel des tentatives ratées est augmenté.
+# Cette installation doit intervenir APRES install_hybrid_ganks, puisqu'elle
+# enveloppe la méthode _collect_observed_ganks installée par la V2.
+install_gank_laning_rules(MatchLol)
+
 # _compute_timing_insights utilise super() dans la classe hybride lorsqu'elle est
 # instanciée directement. MatchLol reçoit les méthodes par installation dynamique,
 # donc on conserve ici l'implémentation historique compatible pour l'agrégation
-# temporelle (les détails V2 restent disponibles dans gank_stats['events']).
+# temporelle. Elle reçoit désormais uniquement les événements filtrés V3.
 MatchLol._compute_timing_insights = LegacyGankAnalysisMixin._compute_timing_insights
+
+# Installe directement l'insight de focus jungle sur MatchLol. L'appel identique
+# dans cogs/ganks.py reste sans effet supplémentaire grâce au garde idempotent.
+install_gank_recap(MatchLol)
 
 # Ajoute le calcul puis la sauvegarde automatique des dégâts de teamfight.
 install_teamfight_damage(MatchLol)
