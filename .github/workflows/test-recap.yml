@@ -6,12 +6,16 @@ on:
       - 'cogs/lol_recap.py'
       - 'fonctions/recap_filters.py'
       - 'tests/test_recap_filters.py'
+      - 'tests/test_recap_timezones.py'
+      - 'requirements.txt'
       - '.github/workflows/test-recap.yml'
   pull_request:
     paths:
       - 'cogs/lol_recap.py'
       - 'fonctions/recap_filters.py'
       - 'tests/test_recap_filters.py'
+      - 'tests/test_recap_timezones.py'
+      - 'requirements.txt'
       - '.github/workflows/test-recap.yml'
 
 jobs:
@@ -40,4 +44,24 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install pytest pandas discord-py-interactions==5.13.2 'psycopg[binary]' tzdata
       - run: python -m py_compile cogs/lol_recap.py fonctions/recap_filters.py
-      - run: python -m pytest -q tests/test_recap_filters.py
+      - run: python -m pytest -q tests/test_recap_filters.py tests/test_recap_timezones.py
+
+  windows-timezones:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: python -m pip install pytest
+      - name: Install timezone dependency from production requirements
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess
+          import sys
+          requirements = Path('requirements.txt').read_text(encoding='utf-8').splitlines()
+          dependency = next(line for line in requirements if line.strip() == 'tzdata')
+          subprocess.check_call([sys.executable, '-m', 'pip', 'install', dependency])
+      - run: python -m pytest -q tests/test_recap_timezones.py

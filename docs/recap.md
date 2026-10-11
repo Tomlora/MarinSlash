@@ -37,3 +37,16 @@ La CI exécute aussi ces tests avec PostgreSQL 16 (`RECAP_TEST_DSN`, base jetabl
 Après fusion, recharger l'extension et synchroniser les commandes slash selon la
 procédure habituelle du bot. Vérifier dans Discord les deux exemples, un champion
 sans résultat et les deux observations fournies ensemble. Aucune migration SQL.
+
+Sous Windows, installer aussi la dépendance `tzdata` déclarée dans
+`requirements.txt`, dans l'environnement Python du bot. Elle fournit les fuseaux
+IANA nécessaires à l'option Aujourd'hui. Pour mettre à jour une installation
+existante depuis le dossier du bot :
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install tzdata
+```
+
+Redémarrer ensuite le bot. Les observations par nombre de parties et durée
+glissante sont calculées sans charger Europe/Paris. Les tests dédiés vérifient
+Python 3.10 sous Windows et forcent un système sans base de fuseaux IANA.

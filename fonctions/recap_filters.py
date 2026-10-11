@@ -24,7 +24,6 @@ def recap_query(riot_id, riot_tag, mode=None, observation=None,
         if observation not in (*DURATION_DAYS, 'today'):
             raise ValueError("Durée d'observation inconnue.")
 
-    now = (now or datetime.now(timezone.utc)).astimezone(ZoneInfo('Europe/Paris'))
     params = {'riot_id': riot_id.lower().replace(' ', ''), 'riot_tag': riot_tag.upper()}
     filters = ['tracker.riot_id = :riot_id', 'tracker.riot_tagline = :riot_tag']
     if mode:
@@ -42,9 +41,11 @@ def recap_query(riot_id, riot_tag, mode=None, observation=None,
         params['limit'] = observation_parties
         limit = 'LIMIT :limit'
     else:
+        now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
         limit = ''
         if observation == 'today':
-            start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            start = now.astimezone(ZoneInfo('Europe/Paris')).replace(
+                hour=0, minute=0, second=0, microsecond=0)
             label = "Aujourd'hui"
         else:
             # Les durées glissantes restent exactes lors des changements d'heure.
