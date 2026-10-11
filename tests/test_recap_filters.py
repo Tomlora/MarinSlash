@@ -209,6 +209,7 @@ def test_command_statistics_selection_pagination_and_discord_limits(module, data
     assert f'**{count * 5}**' in next(field.value for field in fields if field.name == 'KDA')
     history = ''.join(field.value for field in fields if field.name.startswith('Historique'))
     assert history.count('leagueofgraphs.com') == count
+    assert 'P : ' not in history  # Aucune prédiction disponible : pas de pourcentage NaN/None.
     for embed in embeds:
         assert len(embed.title) <= 256
         assert len(embed.fields) <= 25
@@ -230,3 +231,17 @@ def test_champion_autocomplete_and_slash_registration(module):
     assert options['champion'].autocomplete
     assert [choice.value for choice in options['observation_parties'].choices] == list(GAME_COUNTS)
     assert len(module.LoLRecap.my_recap.to_dict()['description']) <= 100
+
+
+def test_many_champions_and_long_history_fit_discord(module):
+    champions = ' | '.join(f'<:Champion{i}:123456789012345678> : **1** (20 LP)' for i in range(100))
+    line = '[11/10 12:00](https://www.leagueofgraphs.com/fr/match/euw/123456789012#participant10) ' + 'x' * 200 + '\n'
+    fields = [('Champions', champions), ('Historique (100 parties)', line * 100)]
+    pages = module.recap_pages('Recap', 0, '100 parties', fields)
+    assert ''.join(field.value for page in pages for field in page.fields if field.name == 'Champions') == champions
+    assert ''.join(field.value for page in pages for field in page.fields if field.name.startswith('Historique')) == line * 100
+    for page in pages:
+        assert len(page) <= 6000
+        assert len(page.fields) <= 25
+        assert all(len(field.value) <= 1024 for field in page.fields)
+        page.to_dict()
