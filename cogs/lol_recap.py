@@ -1,3 +1,4 @@
+import asyncio
 import aiohttp
 import pandas as pd
 import warnings
@@ -7,8 +8,7 @@ from fonctions.match.riot_api import get_version
 from utils.emoji import emote_champ_discord, emote_rank_discord
 from fonctions.match.timeline import fix_temps
 from fonctions.autocomplete import autocomplete_riotid
-from datetime import datetime, timedelta
-from dateutil import tz
+from fonctions.recap_filters import GAME_COUNTS, normalize_champion, recap_query
 from interactions.ext.paginators import Paginator
 import ast
 
@@ -25,7 +25,7 @@ class LoLRecap(Extension):
         self.bot: interactions.Client = bot
 
     @slash_command(name='recap',
-                   description='Mon recap sur un laps de temps',
+                   description='Mon récap par durée ou nombre de parties, avec filtre champion',
                    options=[
                        SlashCommandOption(
                            name='riot_id',
@@ -51,7 +51,7 @@ class LoLRecap(Extension):
                        ),
                        SlashCommandOption(
                            name='observation',
-                           description='Quelle vision ?',
+                           description='Observation (Durée), 24h par défaut. Incompatible avec observation_parties.',
                            type=interactions.OptionType.STRING,
                            required=False,
                            choices=[
@@ -64,98 +64,47 @@ class LoLRecap(Extension):
                                SlashCommandChoice(name="Aujourd'hui", value='today')
                                 
                            ]
-                       )])
+                       ),
+                       SlashCommandOption(
+                           name='observation_parties',
+                           description='Observation (Nombre de parties). Incompatible avec observation (Durée).',
+                           type=interactions.OptionType.INTEGER,
+                           required=False,
+                           choices=[SlashCommandChoice(name=f'{count} parties', value=count)
+                                    for count in GAME_COUNTS]),
+                       SlashCommandOption(
+                           name='champion',
+                           description='Limiter le récap aux parties jouées avec ce champion',
+                           type=interactions.OptionType.STRING,
+                           required=False,
+                           autocomplete=True)
+                   ])
     async def my_recap(self,
                        ctx: SlashContext,
                        riot_id: str,
                        riot_tag: str = None,
                        mode: str = None,
-                       observation: str = '24h'):
-
-
-        timezone = tz.gettz('Europe/Paris')
-
-        dict_timedelta = {'24h': timedelta(days=1),
-                          '48h': timedelta(days=2),
-                          '72h': timedelta(days=3),
-                          '96h': timedelta(days=4),
-                          'Semaine': timedelta(days=7),
-                          'Mois': timedelta(days=30)}
-
+                       observation: str = None,
+                       observation_parties: int = None,
+                       champion: str = None):
         await ctx.defer(ephemeral=False)
 
-        if riot_tag == None:
+        # Valider les options avant toute lecture de la base.
+        try:
+            sql, params, observation_label = recap_query(
+                riot_id, riot_tag or '', mode, observation, observation_parties, champion)
+        except ValueError as error:
+            return await ctx.send(str(error))
+
+        if riot_tag is None:
             try:
-                riot_tag = get_tag(riot_id)
+                riot_tag = await asyncio.to_thread(get_tag, riot_id)
             except ValueError:
                 return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
-        
         riot_tag = riot_tag.upper()
-
-        if mode is None:
-            df = (
-                lire_bdd_perso(
-                    f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team, prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
-                      from matchs
-                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
-						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
-                                   where datetime >= :date
-                                   and tracker.riot_id ='{riot_id.lower().replace(" ", "")}' 
-                                   and tracker.riot_tagline = '{riot_tag}' ''',
-                    params={
-                        'date': datetime.now(timezone)
-                        - dict_timedelta.get(observation)
-                    },
-                    index_col='id',
-                ).transpose()
-                if observation != 'today'
-                else lire_bdd_perso(
-                    f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team,  prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
-                      from matchs
-                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
-						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
-                                where EXTRACT(DAY FROM datetime) = :jour
-                                AND EXTRACT(MONTH FROM datetime) = :mois
-                                AND EXTRACT(YEAR FROM datetime) = :annee
-                                and tracker.riot_id ='{riot_id.lower().replace(" ", "")}' 
-                                and tracker.riot_tagline = '{riot_tag}' ''',
-                    params={
-                        'jour': datetime.now(timezone).day,
-                        'mois': datetime.now(timezone).month,
-                        'annee': datetime.now(timezone).year,
-                    },
-                    index_col='id',
-                ).transpose()
-            )
-        elif observation != 'today':
-            df = lire_bdd_perso(f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team,  prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
-                                 from matchs
-                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
-						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
-                                   where datetime >= :date
-                                and tracker.riot_id ='{riot_id.lower().replace(" ", "")}' 
-                                and tracker.riot_tagline = '{riot_tag}'
-                                   and mode = '{mode}' ''',
-                                params={'date': datetime.now(
-                                    timezone) - dict_timedelta.get(observation)},
-                                index_col='id').transpose()
-
-        else:
-
-            df = lire_bdd_perso(f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team, prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
-                                 from matchs
-                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
-						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
-                                where EXTRACT(DAY FROM datetime) = :jour
-                                AND EXTRACT(MONTH FROM datetime) = :mois
-                                AND EXTRACT(YEAR FROM datetime) = :annee
-                                and tracker.riot_id ='{riot_id.lower().replace(" ", "")}' 
-                                and tracker.riot_tagline = '{riot_tag}'
-                                and mode = '{mode}' ''',
-                                params={'jour': datetime.now(timezone).day,
-                                        'mois': datetime.now(timezone).month,
-                                        'annee': datetime.now(timezone).year},
-                                index_col='id').transpose()
+        params['riot_tag'] = riot_tag
+        df = (await asyncio.to_thread(
+            lire_bdd_perso, sql, params=params, index_col='id')).transpose()
 
         if df.shape[0] >= 1:
 
@@ -245,7 +194,10 @@ class LoLRecap(Extension):
 
             # On crée l'embed
             embed = interactions.Embed(
-                title=f" Recap **{riot_id.upper()} # {riot_tag} ** {observation.upper()}", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
+                title=f" Recap **{riot_id.upper()} # {riot_tag} ** {observation_label}", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
+
+            if observation_parties is not None:
+                embed.description = f'{len(df)} parties disponibles sur {observation_parties} demandées.'
 
             txt = ''
             n = 1
@@ -308,7 +260,7 @@ class LoLRecap(Extension):
                 
                     embeds.append(embed)
                     embed = interactions.Embed(
-                        title=f" Recap **{riot_id.upper()} #{riot_tag} ** {observation.upper()} Part {part}", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
+                        title=f" Recap **{riot_id.upper()} #{riot_tag} ** {observation_label} Part {part}", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
                     part = part + 1
 
                 # Vérifier si l'index est un multiple de 3
@@ -363,8 +315,18 @@ class LoLRecap(Extension):
                 await paginator.send(ctx)
 
         else:
-            await ctx.send('Pas de game enregistré sur les dernières 24h pour ce joueur')
+            await ctx.send(f'Aucune partie enregistrée pour {riot_id}#{riot_tag} — {observation_label}.')
 
+
+    @my_recap.autocomplete('champion')
+    async def autocomplete_recap_champion(self, ctx: interactions.AutocompleteContext):
+        search = normalize_champion(ctx.input_text)
+        choices = [
+            {'name': name, 'value': name}
+            for name in sorted(emote_champ_discord)
+            if search in normalize_champion(name)
+        ]
+        await ctx.send(choices=choices[:25])
 
     @my_recap.autocomplete('riot_id')
 
