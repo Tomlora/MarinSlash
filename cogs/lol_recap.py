@@ -1,3 +1,4 @@
+import asyncio
 import aiohttp
 import pandas as pd
 import warnings
@@ -7,8 +8,7 @@ from fonctions.match.riot_api import get_version
 from utils.emoji import emote_champ_discord, emote_rank_discord
 from fonctions.match.timeline import fix_temps
 from fonctions.autocomplete import autocomplete_riotid
-from datetime import datetime, timedelta
-from dateutil import tz
+from fonctions.recap_filters import GAME_COUNTS, normalize_champion, recap_query
 from interactions.ext.paginators import Paginator
 import ast
 
@@ -18,6 +18,27 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 
 
+def recap_pages(title, color, description, fields):
+    """Découper les champs et les pages sans dépasser les limites Discord."""
+    pages = [interactions.Embed(title=title[:256], color=color, description=description)]
+    for name, value in fields:
+        while value:
+            end = len(value)
+            if end > 1024:
+                end = value.rfind('\n', 0, 1024) + 1
+                if end <= 0:
+                    end = value.rfind(' | ', 0, 1024) + 3
+                if end <= 2:
+                    end = 1024
+            chunk, value = value[:end], value[end:]
+            page = pages[-1]
+            if len(page.fields) >= 25 or len(page) + len(name) + len(chunk) > 5800:
+                page = interactions.Embed(title=title[:256], color=color)
+                pages.append(page)
+            page.add_field(name=name, value=chunk)
+    return pages
+
+
 
 
 class LoLRecap(Extension):
@@ -25,7 +46,7 @@ class LoLRecap(Extension):
         self.bot: interactions.Client = bot
 
     @slash_command(name='recap',
-                   description='Mon recap sur un laps de temps',
+                   description='Mon récap par durée ou nombre de parties, avec filtre champion',
                    options=[
                        SlashCommandOption(
                            name='riot_id',
@@ -51,7 +72,7 @@ class LoLRecap(Extension):
                        ),
                        SlashCommandOption(
                            name='observation',
-                           description='Quelle vision ?',
+                           description='Observation (Durée), 24h par défaut. Incompatible avec observation_parties.',
                            type=interactions.OptionType.STRING,
                            required=False,
                            choices=[
@@ -64,98 +85,47 @@ class LoLRecap(Extension):
                                SlashCommandChoice(name="Aujourd'hui", value='today')
                                 
                            ]
-                       )])
+                       ),
+                       SlashCommandOption(
+                           name='observation_parties',
+                           description='Observation (Nombre de parties). Incompatible avec observation (Durée).',
+                           type=interactions.OptionType.INTEGER,
+                           required=False,
+                           choices=[SlashCommandChoice(name=f'{count} parties', value=count)
+                                    for count in GAME_COUNTS]),
+                       SlashCommandOption(
+                           name='champion',
+                           description='Limiter le récap aux parties jouées avec ce champion',
+                           type=interactions.OptionType.STRING,
+                           required=False,
+                           autocomplete=True)
+                   ])
     async def my_recap(self,
                        ctx: SlashContext,
                        riot_id: str,
                        riot_tag: str = None,
                        mode: str = None,
-                       observation: str = '24h'):
-
-
-        timezone = tz.gettz('Europe/Paris')
-
-        dict_timedelta = {'24h': timedelta(days=1),
-                          '48h': timedelta(days=2),
-                          '72h': timedelta(days=3),
-                          '96h': timedelta(days=4),
-                          'Semaine': timedelta(days=7),
-                          'Mois': timedelta(days=30)}
-
+                       observation: str = None,
+                       observation_parties: int = None,
+                       champion: str = None):
         await ctx.defer(ephemeral=False)
 
-        if riot_tag == None:
+        # Valider les options avant toute lecture de la base.
+        try:
+            sql, params, observation_label = recap_query(
+                riot_id, riot_tag or '', mode, observation, observation_parties, champion)
+        except ValueError as error:
+            return await ctx.send(str(error))
+
+        if riot_tag is None:
             try:
-                riot_tag = get_tag(riot_id)
+                riot_tag = await asyncio.to_thread(get_tag, riot_id)
             except ValueError:
                 return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
-        
         riot_tag = riot_tag.upper()
-
-        if mode is None:
-            df = (
-                lire_bdd_perso(
-                    f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team, prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
-                      from matchs
-                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
-						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
-                                   where datetime >= :date
-                                   and tracker.riot_id ='{riot_id.lower().replace(" ", "")}' 
-                                   and tracker.riot_tagline = '{riot_tag}' ''',
-                    params={
-                        'date': datetime.now(timezone)
-                        - dict_timedelta.get(observation)
-                    },
-                    index_col='id',
-                ).transpose()
-                if observation != 'today'
-                else lire_bdd_perso(
-                    f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team,  prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
-                      from matchs
-                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
-						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
-                                where EXTRACT(DAY FROM datetime) = :jour
-                                AND EXTRACT(MONTH FROM datetime) = :mois
-                                AND EXTRACT(YEAR FROM datetime) = :annee
-                                and tracker.riot_id ='{riot_id.lower().replace(" ", "")}' 
-                                and tracker.riot_tagline = '{riot_tag}' ''',
-                    params={
-                        'jour': datetime.now(timezone).day,
-                        'mois': datetime.now(timezone).month,
-                        'annee': datetime.now(timezone).year,
-                    },
-                    index_col='id',
-                ).transpose()
-            )
-        elif observation != 'today':
-            df = lire_bdd_perso(f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team,  prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
-                                 from matchs
-                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
-						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
-                                   where datetime >= :date
-                                and tracker.riot_id ='{riot_id.lower().replace(" ", "")}' 
-                                and tracker.riot_tagline = '{riot_tag}'
-                                   and mode = '{mode}' ''',
-                                params={'date': datetime.now(
-                                    timezone) - dict_timedelta.get(observation)},
-                                index_col='id').transpose()
-
-        else:
-
-            df = lire_bdd_perso(f'''SELECT matchs.id, matchs.match_id, prev_lol.win as "proba1", prev_lol.lose as "proba2", prev_lol.team, prev_lol.victory_predicted, matchs.champion, id_participant, mvp, time, kills, deaths, assists, quadra, penta, tier, rank, mode, kp, kda, victoire, ecart_lp, ecart_gold, solokills, datetime
-                                 from matchs
-                        INNER JOIN tracker on tracker.id_compte = matchs.joueur
-						 LEFT JOIN prev_lol on tracker.riot_id = prev_lol.riot_id and tracker.riot_tagline = prev_lol.riot_tag and matchs.match_id = prev_lol.match_id
-                                where EXTRACT(DAY FROM datetime) = :jour
-                                AND EXTRACT(MONTH FROM datetime) = :mois
-                                AND EXTRACT(YEAR FROM datetime) = :annee
-                                and tracker.riot_id ='{riot_id.lower().replace(" ", "")}' 
-                                and tracker.riot_tagline = '{riot_tag}'
-                                and mode = '{mode}' ''',
-                                params={'jour': datetime.now(timezone).day,
-                                        'mois': datetime.now(timezone).month,
-                                        'annee': datetime.now(timezone).year},
-                                index_col='id').transpose()
+        params['riot_tag'] = riot_tag
+        df = (await asyncio.to_thread(
+            lire_bdd_perso, sql, params=params, index_col='id')).transpose()
 
         if df.shape[0] >= 1:
 
@@ -166,7 +136,7 @@ class LoLRecap(Extension):
             df['datetime'] = pd.to_datetime(
                 df['datetime'], utc=True).dt.tz_convert('Europe/Paris')
 
-            df.sort_values(by='datetime', ascending=False, inplace=True)
+            df.sort_values(by='datetime', ascending=False, kind='stable', inplace=True)
 
             df['datetime'] = df['datetime'].dt.strftime('%d/%m %H:%M')
 
@@ -243,25 +213,31 @@ class LoLRecap(Extension):
                 {'riot_id': riot_id.lower().replace(' ', ''), 'riot_tag' : riot_tag},
             ).fetchall()
 
-            # On crée l'embed
-            embed = interactions.Embed(
-                title=f" Recap **{riot_id.upper()} # {riot_tag} ** {observation.upper()}", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
-
+            title = f"Recap **{riot_id.upper()} #{riot_tag}** {observation_label}"
+            color = interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2])
+            description = (f'{len(df)} parties disponibles sur {observation_parties} demandées.'
+                           if observation_parties is not None else None)
+            fields = [
+                ('KDA', total_kda),
+                ('Gold', f'Moyenne : {gold_moyen} (V : {gold_moyen_v} | D : {gold_moyen_d})'),
+                ('Champions', txt_champ),
+                ('Ratio', total_victoire),
+                ('Autres', f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}**'
+                 + (f' | Solo kills : **{solokills}**' if solokills > 0 else '')),
+            ]
+            if total_quadra + total_penta > 0:
+                fields.append(('Série de kills', f'Quadra : **{total_quadra}** | Penta : **{total_penta}**'))
             txt = ''
-            n = 1
-            count = 0
-            part = 1
-            embeds = []
-            
+
             emote_status_match = {'Victoire' : ':green_circle:', 'Défaite' : ':red_circle:'}
 
             df['mode'] = df['mode'].replace({'ARAM': 'A',
                                              'RANKED': 'R',
                                              'SWIFTPLAY': 'S'})
             
-            df['proba1'].fillna(-1, inplace=True)
-            df['proba2'].fillna(-1, inplace=True)
-            df['team'].fillna('BLUE', inplace=True)
+            df['proba1'] = df['proba1'].fillna(-1)
+            df['proba2'] = df['proba2'].fillna(-1)
+            df['team'] = df['team'].fillna('BLUE')
 
             df['proba_win'] = df.apply(lambda x : x['proba2'] if x['team'] == 'BLUE' else x['proba1'], axis=1)
            
@@ -286,85 +262,29 @@ class LoLRecap(Extension):
                     else:
                         txt += f'[{match["datetime"]}]({url_game}) {champ_img} [{mode}] | {rank_img} {match["rank"]}] | {emote_status_match[match["victoire"]]} | MVP **{match["mvp"]}** | {kda} | **{match["ecart_lp"]}** | G : {match["ecart_gold"]} | P : {match["proba_win"]}% \n'
 
-                if embed.fields and len(txt) + sum(len(field.value) for field in embed.fields) > 4000:
-                    embed.add_field(name='KDA', value=total_kda)
-                    embed.add_field(name='Gold', value=f'Moyenne : {gold_moyen} (V : {gold_moyen_v} | D : {gold_moyen_d})' )
-                    embed.add_field(name='Champions', value=txt_champ)
-                    embed.add_field(
-                        name='Ratio', value=f'{total_victoire}')
-
-                    if solokills > 0:
-
-                        embed.add_field(
-                        name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}** | Solo kills : **{solokills}**')
-                
-                    else:
-                        embed.add_field(
-                        name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}**')
-
-                    if (total_quadra + total_penta) > 0:
-                        embed.add_field(
-                            name='Série', value=f'Quadra : **{total_quadra}** | Penta : **{total_penta}**')
-                
-                    embeds.append(embed)
-                    embed = interactions.Embed(
-                        title=f" Recap **{riot_id.upper()} #{riot_tag} ** {observation.upper()} Part {part}", color=interactions.Color.from_rgb(data[0][0], data[0][1], data[0][2]))
-                    part = part + 1
-
-                # Vérifier si l'index est un multiple de 3
-                if count % 3 == 0 and count != 0:
-
-                    if n == 1:
-                        embed.add_field(
-                            name=f'Historique ({df.shape[0]} parties)', value=txt)
-                    else:
-                        embed.add_field(name='Historique (suite)', value=txt)
-                    n = n+1
-                    txt = ''
-
-                count = count + 1
-
-            # Vérifier si la variable txt contient des données non ajoutées
-            if txt:
-                embed.add_field(name='Historique (suite)', value=txt)
-
-            # on ajoute les champs dans l'embed
-            # embed.add_field(name=f'Historique ({df.shape[0]} parties)', value=txt)
-
-            # On envoie l'embed
-            if not embeds:  # si il n'y a qu'un seul embed, on l'envoie normalement
-                # on ajoute ces champs dans le premier embed
-                embed.add_field(name='KDA', value=total_kda)
-                embed.add_field(name='Gold', value=f'Moyenne : {gold_moyen} (V : {gold_moyen_v} | D : {gold_moyen_d})' )
-                embed.add_field(name='Champions', value=txt_champ)
-                embed.add_field(
-                    name='Ratio', value=f'{total_victoire}')
-                if solokills > 0:
-
-                    embed.add_field(
-                        name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}** | Solo kills : **{solokills}**')
-                
-                else:
-                    embed.add_field(
-                        name='Autres', value=f'Durée moyenne : **{duree_moyenne:.0f}**m | MVP : **{mvp_moyenne:.1f}**')
-
-                if (total_quadra + total_penta) > 0:
-                    embed.add_field(
-                        name='Série de kills', value=f'Quadra : **{total_quadra}** | Penta : **{total_penta}**')
-                await ctx.send(embeds=embed)
-            else:  # sinon on utilise le paginator
-                embeds.append(embed)  # on ajoute le dernier embed
-
-                paginator = Paginator.create_from_embeds(
-                    self.bot,
-                    *embeds)
-
-                paginator.show_select_menu = True
+            fields.append((f'Historique ({len(df)} parties)', txt))
+            embeds = recap_pages(title, color, description, fields)
+            if len(embeds) == 1:
+                await ctx.send(embeds=embeds[0])
+            else:
+                paginator = Paginator.create_from_embeds(self.bot, *embeds)
+                # Discord limite les menus de sélection à 25 choix.
+                paginator.show_select_menu = len(embeds) <= 25
                 await paginator.send(ctx)
 
         else:
-            await ctx.send('Pas de game enregistré sur les dernières 24h pour ce joueur')
+            await ctx.send(f'Aucune partie enregistrée pour {riot_id}#{riot_tag} — {observation_label}.')
 
+
+    @my_recap.autocomplete('champion')
+    async def autocomplete_recap_champion(self, ctx: interactions.AutocompleteContext):
+        search = normalize_champion(ctx.input_text)
+        choices = [
+            {'name': name, 'value': name}
+            for name in sorted(emote_champ_discord)
+            if search in normalize_champion(name)
+        ]
+        await ctx.send(choices=choices[:25])
 
     @my_recap.autocomplete('riot_id')
 
@@ -528,4 +448,4 @@ class LoLRecap(Extension):
 
         paginator.show_select_menu = True
         
-        await paginator.send(ctx)   
+        await paginator.send(ctx)
