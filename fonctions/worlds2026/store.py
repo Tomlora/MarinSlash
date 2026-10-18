@@ -217,7 +217,7 @@ class Store:
                             self._audit(conn, guild, "conflit_match", {"match": match_id, "source": fixture.source,
                                         "before": old, "incoming": values})
                             raise WorldsError(f"Match #{match_id} : équipes ou format modifiés ; contrôle manuel requis.")
-                        if (old["state"] == "finished" and fixture.state in ("finished", "cancelled")
+                        if (old["state"] in ("finished", "cancelled") and fixture.state in ("finished", "cancelled")
                                 and (old["score1"], old["score2"], old["state"]) !=
                                 (fixture.score1, fixture.score2, fixture.state)):
                             conn.execute(matches.update().where(matches.c.id == match_id).values(state="disputed"))

@@ -146,11 +146,19 @@ class LoLEsports:
                 params["pageToken"] = token
             payload = await get_json(session, self.base + "getSchedule", params, headers)
             schedule = payload["data"]["schedule"]
+            dates = []
             for event in schedule["events"]:
                 # Le filtre API est aussi vérifié dans la réponse.
                 if event.get("league", {}).get("slug") == "worlds" and event.get("type") == "match":
                     events[str(event["match"]["id"])] = event
-            for next_token in schedule.get("pages", {}).values():
+                    dates.append(timestamp(event["startTime"]))
+            # Le calendrier est paginé sur plusieurs saisons : ne pas parcourir
+            # tout l'historique Worlds ni rejeter 2026 parce qu'il dépasse 12 pages.
+            for direction, next_token in schedule.get("pages", {}).items():
+                if dates and direction == "older" and min(dates) < timestamp("2026-10-01T00:00:00Z"):
+                    continue
+                if dates and direction == "newer" and max(dates) >= timestamp("2026-12-01T00:00:00Z"):
+                    continue
                 if next_token and next_token not in seen and next_token not in queue:
                     queue.append(next_token)
         if queue:

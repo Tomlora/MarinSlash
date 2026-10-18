@@ -408,3 +408,37 @@ def test_real_command_records_score_and_private_confirmation(store):
         assert store.predictions(10, 1)[0]["score1"] == 2
     finally:
         cog.drop()
+
+
+def test_cancellation_then_final_from_other_source_is_a_conflict(store, clock):
+    add(store)
+    clock[0] = START + 7200
+    store.ingest(10, [fixture(state="cancelled")])
+    report = store.ingest(10, [fixture(source="pandascore", source_id="42", state="finished", score1=2, score2=0)])
+    assert report["errors"]
+    assert store.list_matches(10)[0]["state"] == "disputed"
+
+
+def test_riot_pagination_stops_at_season_boundaries(monkeypatch):
+    calls = []
+    async def fake(session, url, params=None, headers=None):
+        if url.endswith("getLeagues"):
+            return {"data": {"leagues": [{"slug": "worlds", "id": "1"}]}}
+        token = params.get("pageToken")
+        calls.append(token)
+        event = riot_event()
+        if token == "past":
+            event["startTime"], event["match"]["id"] = "2025-11-01T17:00:00Z", "past"
+            links = {"older": "ancient", "newer": "present"}
+        elif token == "future":
+            event["startTime"], event["match"]["id"] = "2027-10-01T17:00:00Z", "future"
+            links = {"older": "present", "newer": "distant"}
+        else:
+            assert token in (None, "present")
+            links = {"older": "past", "newer": "future"}
+        return {"data": {"schedule": {"events": [event], "pages": links}}}
+    monkeypatch.setattr("fonctions.worlds2026.sources.get_json", fake)
+    result = asyncio.run(LoLEsports("key").fetch(None))
+    assert len(result.fixtures) == 1
+    assert len(calls) == 4
+    assert "ancient" not in calls and "distant" not in calls
