@@ -163,7 +163,13 @@ def test_real_interactions_command_defers_and_handles_results(monkeypatch, resul
         assert ctx.send.call_args.args[0] == "Filtre invalide"
     else:
         assert "temporairement indisponible" in ctx.send.call_args.args[0]
-    assert {o.name for o in cog.LolRadar.lol_radar.options if o.required} == {"riot_id", "riot_tag"}
+
+
+def test_only_account_identifiers_are_required_by_discord(monkeypatch):
+    cog = load_cog(monkeypatch)
+    options = [o.to_dict() for o in cog.LolRadar.lol_radar.options]
+    assert {o['name'] for o in options if o['required']} == {"riot_id", "riot_tag"}
+    assert {o['name'] for o in options if not o['required']} == {"parties", "mode", "role", "champion", "saison"}
 
 
 def test_render_full_partial_empty_and_concurrent():
