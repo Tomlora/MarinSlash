@@ -129,7 +129,9 @@ def save_recap_details(match_info):
         data["players"] = snapshot_players(match_info)
         data["jungle_proximity"] = proximity_snapshot(match_info)
         data["gold_players"] = gold_players_snapshot(match_info)
-        if not any(data.get(key) for key in ("scores", "gold", "players", "map", "jungle_proximity", "gold_players")):
+        from fonctions.lol_radar import snapshot_for_match as radar_snapshot
+        data["radar"] = radar_snapshot(match_info)
+        if not any(data.get(key) for key in ("scores", "gold", "players", "map", "jungle_proximity", "gold_players", "radar")):
             return False
         requete_perso_bdd(SCHEMA)
         requete_perso_bdd(
