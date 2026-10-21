@@ -155,8 +155,15 @@ def test_real_interactions_command_defers_and_handles_results(monkeypatch, resul
     monkeypatch.setattr(cog, "build_radar", build)
     asyncio.run(cog.LolRadar.lol_radar.callback(None, ctx, "player", "EUW"))
     assert ctx.send.await_count == 1
-    if result == b"png": assert "file" in ctx.send.call_args.kwargs
-    assert len(cog.LolRadar.lol_radar.options) == 8
+    if result == b"png":
+        assert "file" in ctx.send.call_args.kwargs
+    elif result is None:
+        assert "Aucune partie" in ctx.send.call_args.args[0]
+    elif isinstance(result, ValueError):
+        assert ctx.send.call_args.args[0] == "Filtre invalide"
+    else:
+        assert "temporairement indisponible" in ctx.send.call_args.args[0]
+    assert {o.name for o in cog.LolRadar.lol_radar.options if o.required} == {"riot_id", "riot_tag"}
 
 
 def test_render_full_partial_empty_and_concurrent():
