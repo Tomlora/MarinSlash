@@ -144,6 +144,9 @@ def test_snapshot_survives_resave_with_map_and_profiles(monkeypatch):
         assert data['jungle_proximity'] == PROX.snapshot_for_match(match)
         assert data['map'] and len(data['players']['players']) == 10
         assert data['jungle_proximity']['tracked_team'] == 200
+        from fonctions.lol_radar import snapshot_for_match
+        assert data['radar'] == snapshot_for_match(match)
+        assert data['radar']['version'] == 1
 
 
 def test_private_gank_callback_acknowledges_and_navigates_proximity(monkeypatch):
