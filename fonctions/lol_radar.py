@@ -15,7 +15,6 @@ AXES = (
 )
 ROLES = {"TOP": "TOP", "JUNGLE": "JUNGLE", "MIDDLE": "MID", "MID": "MID",
          "BOTTOM": "ADC", "ADC": "ADC", "UTILITY": "SUPPORT", "SUPPORT": "SUPPORT"}
-MODES = ("RANKED", "FLEX", "NORMAL", "SWIFTPLAY")
 
 
 def number(value):
@@ -172,15 +171,16 @@ def aggregate(rows):
     return result
 
 
-def radar_query(riot_id, riot_tag, guild_id, games=20, mode="RANKED", role_filter=None,
-                champion=None, season=None, has_details=True):
-    if isinstance(games, bool) or not isinstance(games, int) or not 1 <= games <= 100:
-        raise ValueError("Choisis entre 1 et 100 parties.")
-    if mode not in MODES or (role_filter and role_filter not in set(ROLES.values())):
-        raise ValueError("Mode ou rôle non pris en charge.")
+def radar_query(riot_id, riot_tag, guild_id, season, role_filter=None,
+                champion=None, has_details=True):
+    if isinstance(season, bool) or not isinstance(season, int) or season < 1:
+        raise ValueError("Choisis un numéro de saison supérieur ou égal à 1.")
+    if role_filter and role_filter not in set(ROLES.values()):
+        raise ValueError("Rôle non pris en charge.")
     params = {"riot_id": riot_id.lower().replace(" ", ""), "tag": riot_tag.strip().lstrip("#").upper(),
-              "guild": int(guild_id), "mode": mode, "limit": games * 2}
-    filters = ["t.riot_id = :riot_id", "t.riot_tagline = :tag", "t.server_id = :guild", "m.mode = :mode"]
+              "guild": int(guild_id), "season": season, "previous_season": season - 1}
+    filters = ["t.riot_id = :riot_id", "t.riot_tagline = :tag", "t.server_id = :guild",
+               "m.mode = 'RANKED'", "m.season IN (:season, :previous_season)"]
     if role_filter:
         filters.append("m.role = :role")
         params["role"] = role_filter
@@ -190,9 +190,6 @@ def radar_query(riot_id, riot_tag, guild_id, games=20, mode="RANKED", role_filte
         if not params["champion"]:
             raise ValueError("Précise un nom de champion.")
         filters.append("REGEXP_REPLACE(LOWER(m.champion), '[^a-z0-9]', '', 'g') = :champion")
-    if season is not None:
-        filters.append("m.season = :season")
-        params["season"] = season
     join = "LEFT JOIN match_recap_details d ON d.match_id = m.match_id AND d.joueur = m.joueur" if has_details else ""
     details = "d.data" if has_details else "NULL"
     sql = f"""WITH deduplicated AS (
@@ -201,21 +198,21 @@ def radar_query(riot_id, riot_tag, guild_id, games=20, mode="RANKED", role_filte
         WHERE {' AND '.join(filters)}
     ), selected AS (
         SELECT * FROM deduplicated WHERE rn = 1
-        ORDER BY datetime DESC NULLS LAST, id DESC LIMIT :limit
     ) SELECT to_jsonb(m) AS match, {details} AS details FROM selected m {join}
       ORDER BY m.datetime DESC NULLS LAST, m.id DESC"""
     return sql, params
 
 
-def load_radar(riot_id, riot_tag, guild_id, games=20, mode="RANKED", role_filter=None, champion=None, season=None):
+def load_radar(riot_id, riot_tag, guild_id, season, role_filter=None, champion=None):
     from fonctions.gestion_bdd import lire_bdd_perso
     exists = lire_bdd_perso("SELECT to_regclass('match_recap_details') AS relation", index_col=None).T
     has_details = not exists.empty and isinstance(exists.iloc[0]["relation"], str)
-    sql, params = radar_query(riot_id, riot_tag, guild_id, games, mode, role_filter, champion, season, has_details)
+    sql, params = radar_query(riot_id, riot_tag, guild_id, season, role_filter, champion, has_details)
     rows = lire_bdd_perso(sql, index_col=None, params=params).T.to_dict("records")
-    current, previous = rows[:games], rows[games:]
+    current = [r for r in rows if number(object_data(r.get("match")).get("season")) == season]
+    previous = [r for r in rows if number(object_data(r.get("match")).get("season")) == season - 1]
     return {"current": aggregate(current), "previous": aggregate(previous),
-            "games": len(current), "previous_games": len(previous)}
+            "games": len(current), "previous_games": len(previous), "season": season, "previous_season": season - 1}
 
 
 def render_radar(data, title, subtitle):
@@ -233,7 +230,8 @@ def render_radar(data, title, subtitle):
     white, muted, cyan = "#eef3ff", "#a2b2cc", "#22e6ef"
     draw.text((48, 30), title[:65], font=font(34), fill=white)
     draw.text((48, 82), subtitle[:110], font=font(20), fill=muted)
-    draw.text((48, 119), f"Récent : {data['games']} parties   •   Précédent : {data['previous_games']} parties", font=font(20), fill=muted)
+    current_label, previous_label = f"Saison {data['season']}", f"Saison {data['previous_season']}"
+    draw.text((48, 119), f"{current_label} : {data['games']} parties   •   {previous_label} : {data['previous_games']} parties", font=font(20), fill=muted)
     cx, cy, radius = 400, 480, 255
     def point(i, value):
         angle = -math.pi / 2 + i * math.tau / 8
@@ -267,8 +265,8 @@ def render_radar(data, title, subtitle):
     polygon(data["current"], cyan)
     polygon(data["previous"], white, True)
     draw.text((820, 211), "VALEURS MOYENNES", font=font(23), fill=white)
-    draw.text((1000, 257), "Récent", font=font(18), fill=cyan)
-    draw.text((1180, 257), "Précédent", font=font(18), fill=white)
+    draw.text((1000, 257), current_label, font=font(18), fill=cyan)
+    draw.text((1180, 257), previous_label, font=font(18), fill=white)
     for i, (key, label, cap, unit) in enumerate(AXES):
         y = 300 + i * 53
         draw.text((820, y), label, font=font(21), fill=white)
@@ -277,7 +275,7 @@ def render_radar(data, title, subtitle):
             value = "N/D" if item["value"] is None else f"{item['value']:.2f}{unit}"
             draw.text((x, y), value, font=font(18), fill=color)
             draw.text((x, y+23), f"n={item['n']}", font=font(14), fill=muted)
-    draw.text((48, 820), "Cyan : période récente   •   Pointillés : période précédente du même compte", font=font(21), fill=white)
+    draw.text((48, 820), f"Cyan : {current_label}   •   Pointillés : {previous_label} du même compte   •   RANKED uniquement", font=font(21), fill=white)
     lines = ["Échelle 0–100 : valeur / plafond. KDA : 10 • VSPM : 4 • K+A@15 : 10 • Autres : 100%.",
              "Ce sont des repères graphiques, pas des percentiles ni une note globale. N/D : non disponible / non applicable.",
              "Proximités : relevés valides entre 2 et 14 min, distance ≤ 2 000. Une proximité élevée n'est pas toujours meilleure."]

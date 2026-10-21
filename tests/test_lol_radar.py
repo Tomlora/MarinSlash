@@ -108,29 +108,34 @@ def test_legacy_duration_and_aggregation_raw_values_not_clipped():
     assert radar.aggregate([row])["kda"]["value"] is None
 
 
-def test_query_is_parameterized_filtered_before_limit_and_optional_table():
-    sql, params = radar.radar_query("A'B", "#euw", 123, 10, role_filter="SUPPORT", champion="Kai'Sa", season=16)
+def test_query_forces_ranked_and_full_seasons_with_optional_table():
+    sql, params = radar.radar_query("A'B", "#euw", 123, 16, role_filter="SUPPORT", champion="Kai'Sa")
     assert "A'B" not in sql and params["riot_id"] == "a'b"
-    assert params["champion"] == "kaisa" and params["limit"] == 20 and params["tag"] == "EUW"
+    assert params["champion"] == "kaisa" and params["tag"] == "EUW"
+    assert params["season"] == 16 and params["previous_season"] == 15
     assert "t.server_id = :guild" in sql
-    assert sql.index("m.role = :role") < sql.index("LIMIT")
+    assert "m.mode = 'RANKED'" in sql and "mode" not in params
+    assert "m.season IN (:season, :previous_season)" in sql and "LIMIT" not in sql
     assert "PARTITION BY m.match_id" in sql and "d.joueur = m.joueur" in sql
-    assert "match_recap_details" not in radar.radar_query("a", "b", 1, has_details=False)[0]
-    with pytest.raises(ValueError): radar.radar_query("a", "b", 1, games=101)
-    with pytest.raises(ValueError): radar.radar_query("a", "b", 1, mode="ARAM")
+    assert "match_recap_details" not in radar.radar_query("a", "b", 1, 16, has_details=False)[0]
+    for season in (0, -1, None, True, 1.5):
+        with pytest.raises(ValueError): radar.radar_query("a", "b", 1, season)
+    with pytest.raises(TypeError): radar.radar_query("a", "b", 1, 16, mode="FLEX")
 
 
-def test_loader_separates_windows_and_respects_search_path(monkeypatch):
+def test_loader_uses_complete_seasons_and_respects_search_path(monkeypatch):
     calls = []
     def read(sql, **kwargs):
         calls.append(sql)
         if "to_regclass" in sql:
             return pd.DataFrame([{"relation": None}]).T
-        return pd.DataFrame([{"match": {"kills": v, "assists": 0, "deaths": 1}, "details": None}
-                             for v in (10, 8, 2)]).T
+        # Deliberately interleaved: assignment must depend on season, not row position.
+        return pd.DataFrame([{"match": {"kills": v, "assists": 0, "deaths": 1, "season": s}, "details": None}
+                             for v, s in [(10, 16), (2, 15), (8, 16)] * 60]).T
     monkeypatch.setitem(sys.modules, "fonctions.gestion_bdd", types.SimpleNamespace(lire_bdd_perso=read))
-    data = radar.load_radar("a", "b", 1, games=2)
-    assert data["games"] == 2 and data["previous_games"] == 1
+    data = radar.load_radar("a", "b", 1, 16)
+    assert data["games"] == 120 and data["previous_games"] == 60
+    assert data['season'] == 16 and data['previous_season'] == 15
     assert data["current"]["kda"]["value"] == 9 and data["previous"]["kda"]["value"] == 2
     assert "public." not in calls[0] and "match_recap_details" not in calls[1]
 
@@ -153,7 +158,7 @@ def test_real_interactions_command_defers_and_handles_results(monkeypatch, resul
         if isinstance(result, Exception): raise result
         return result
     monkeypatch.setattr(cog, "build_radar", build)
-    asyncio.run(cog.LolRadar.lol_radar.callback(None, ctx, "player", "EUW"))
+    asyncio.run(cog.LolRadar.lol_radar.callback(None, ctx, "player", "EUW", 16))
     assert ctx.send.await_count == 1
     if result == b"png":
         assert "file" in ctx.send.call_args.kwargs
@@ -165,11 +170,11 @@ def test_real_interactions_command_defers_and_handles_results(monkeypatch, resul
         assert "temporairement indisponible" in ctx.send.call_args.args[0]
 
 
-def test_only_account_identifiers_are_required_by_discord(monkeypatch):
+def test_discord_requires_season_and_removes_games_and_mode(monkeypatch):
     cog = load_cog(monkeypatch)
     options = [o.to_dict() for o in cog.LolRadar.lol_radar.options]
-    assert {o['name'] for o in options if o['required']} == {"riot_id", "riot_tag"}
-    assert {o['name'] for o in options if not o['required']} == {"parties", "mode", "role", "champion", "saison"}
+    assert {o['name'] for o in options if o['required']} == {"riot_id", "riot_tag", "saison"}
+    assert {o['name'] for o in options if not o['required']} == {"role", "champion"}
 
 
 def test_render_full_partial_empty_and_concurrent():
@@ -179,7 +184,7 @@ def test_render_full_partial_empty_and_concurrent():
     detail, timeline = fixture()
     row = {"match": {}, "details": {"radar": radar.build_snapshot(detail, timeline, "p5")}}
     full = radar.aggregate([row])
-    data = {"current": full, "previous": full, "games": 1, "previous_games": 1}
+    data = {"current": full, "previous": full, "games": 1, "previous_games": 1, "season": 16, "previous_season": 15}
     with ThreadPoolExecutor(max_workers=2) as pool:
         images = list(pool.map(lambda _: radar.render_radar(data, "Test#EUW", "RANKED • SUPPORT"), range(2)))
     assert images[0] == images[1]
@@ -205,10 +210,17 @@ def test_postgres_query_dedup_guild_filters_and_search_path():
         conn.execute("INSERT INTO tracker VALUES (1,'alice','EUW',123),(2,'alice','EUW',456)")
         for i, mid, who, role in [(1,'a',1,'SUPPORT'),(2,'a',1,'SUPPORT'),(3,'b',1,'SUPPORT'),(4,'c',1,'MID'),(5,'d',2,'SUPPORT')]:
             conn.execute("INSERT INTO matchs VALUES (%s,%s,%s,now(), 'RANKED',%s,'Ahri',16)", (i, mid, who, role))
+        for i, mode, season in [(6, 'FLEX', 16), (7, 'NORMAL', 16), (8, 'RANKED', 14), (9, 'RANKED', 15),
+                                (10, 'FLEX', 15), (11, 'ARAM', 16), (12, 'SWIFTPLAY', 16)]:
+            conn.execute("INSERT INTO matchs VALUES (%s,%s,1,now(),%s,'SUPPORT','Ahri',%s)", (i, str(i), mode, season))
+        for i in range(20, 140):
+            conn.execute("INSERT INTO matchs VALUES (%s,%s,1,now(),'RANKED','SUPPORT','Ahri',16)", (i, str(i)))
         conn.execute("INSERT INTO match_recap_details VALUES ('b',1,'{\"radar\":{\"version\":1}}')")
-        query, params = radar.radar_query("alice", "EUW", 123, games=1, role_filter="SUPPORT", champion="Ahri", season=16)
+        query, params = radar.radar_query("alice", "EUW", 123, 16, role_filter="SUPPORT", champion="Ahri")
         rows = conn.execute(re.sub(r":(\w+)", r"%(\1)s", query), params).fetchall()
-        assert [r[0]["match_id"] for r in rows] == ['b', 'a']
-        assert rows[0][1]["radar"]["version"] == 1
+        assert len(rows) == 123
+        assert {r[0]["match_id"] for r in rows} == {'b', 'a', '9'} | {str(i) for i in range(20, 140)}
+        assert all(r[0]['mode'] == 'RANKED' and r[0]['season'] in (15, 16) for r in rows)
+        assert next(r for r in rows if r[0]['match_id'] == 'b')[1]["radar"]["version"] == 1
         assert conn.execute("SELECT to_regclass('match_recap_details')").fetchone()[0]
         conn.rollback()

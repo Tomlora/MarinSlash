@@ -1,13 +1,15 @@
 # Radar de compte LoL
 
-`/lol_radar riot_id:MonPseudo riot_tag:EUW parties:20 mode:RANKED role:SUPPORT`
+`/lol_radar riot_id:MonPseudo riot_tag:EUW saison:16 role:SUPPORT`
 
-Compte enregistré dans `tracker` sur le serveur courant. Filtres optionnels : rôle,
-champion et saison. RANKED par défaut, 1 à 100 parties (20 par défaut), toutes saisons
-si aucune n'est précisée. Les filtres s'appliquent avant déduplication et limitation.
-Les N derniers matchs distincts sont comparés aux N précédents, sans chevauchement.
-Le nombre réel est affiché si l'historique est plus court. Le tag est obligatoire pour
-distinguer deux comptes homonymes. Les modes hors Faille de l'invocateur sont exclus.
+Compte enregistré dans `tracker` sur le serveur courant. La saison est obligatoire
+(numéro enregistré dans `matchs.season`, par exemple 16). Filtres optionnels : rôle
+et champion. Le SQL impose toujours `mode = 'RANKED'` : aucun choix de file de jeu.
+Tous les matchs distincts enregistrés de la saison choisie sont pris en compte,
+sans limite de nombre de parties, et comparés à la saison précédente (S − 1).
+Les mêmes filtres s'appliquent aux deux saisons avant déduplication. Les effectifs
+réels sont affichés ; sans données de la saison précédente, les pointillés restent
+absents et ses valeurs indiquent N/D. Le tag distingue les comptes homonymes.
 
 ## Mesures (version 1)
 
