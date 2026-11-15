@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import aiohttp
 import pandas as pd
@@ -11,6 +12,7 @@ import traceback
 import psycopg2.errors
 from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, get_tag
 from fonctions.autocomplete import autocomplete_riotid
+from fonctions.lol_accounts import set_recap_color
 from fonctions.match.riot_api import getId_with_puuid, get_summonerinfo_by_puuid, get_summoner_by_riot_id
 from utils.emoji import emote_rank_discord
 from utils.lol import label_rank, label_tier
@@ -319,28 +321,13 @@ class LolAccount(Extension):
 
         await ctx.defer(ephemeral=False)
 
-        if riot_tag == None:
-            try:
-                riot_tag = get_tag(riot_id)
-            except ValueError:
-                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
+        try:
+            account = await asyncio.to_thread(set_recap_color, ctx.guild_id, ctx.author.id,
+                                              riot_id, riot_tag, rouge, vert, bleu)
+        except ValueError as error:
+            return await ctx.send(str(error), ephemeral=True)
 
-        riot_id = riot_id.lower().replace(' ', '')
-        riot_tag = riot_tag.upper()
-
-        params = {'rouge': rouge, 'vert': vert,
-                  'bleu': bleu, 'riot_id': riot_id.lower(), 'riot_tagline' : riot_tag}
-        nb_row = requete_perso_bdd(
-            'UPDATE tracker SET "R" = :rouge, "G" = :vert, "B" = :bleu WHERE riot_id = :riot_id and riot_tagline = :riot_tagline',
-            params,
-            get_row_affected=True,
-        )
-
-        if nb_row > 0:
-            await ctx.send(f' La couleur du joueur {riot_id} a été modifiée.')
-        else:
-            await ctx.send(f" Le joueur {riot_id} n'est pas dans la base de données.")
-
+        await ctx.send(f"La couleur de {account['riot_id']}#{account['riot_tagline']} a été modifiée.")
 
     @lolcolor.autocomplete("riot_id")
     async def autocomplete_lolcolor(self, ctx: interactions.AutocompleteContext):
