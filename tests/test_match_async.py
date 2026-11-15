@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 import threading
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 import aiohttp
 import interactions
@@ -188,7 +189,7 @@ def test_actual_printinfo_cancellation_keeps_account_busy_until_cleanup():
             task.cancel()
             with pytest.raises(asyncio.CancelledError):
                 await task
-            assert "player" in owner.compte_loading
+            assert 1 in owner.compte_loading
             assert len(owner._recap_tasks) == 1
         finally:
             release.set()
@@ -278,6 +279,45 @@ def test_actual_game_does_sql_off_loop_and_sends_on_discord_loop():
         assert sent[0]["components"] is components
 
     asyncio.run(scenario())
+
+
+def test_catchup_rejects_foreign_account_before_riot_or_channel_access():
+    ctx = SimpleNamespace(guild_id=10, author=SimpleNamespace(id=17), defer=AsyncMock(), send=AsyncMock())
+    account = Mock(side_effect=ValueError("Compte introuvable sur ce serveur."))
+    channels, riot = Mock(), AsyncMock()
+    handler = method("game_multi", guild_account=account, lire_bdd_perso=Mock(return_value=pd.DataFrame()),
+                     chan_discord=channels, get_list_matchs_with_puuid=riot)
+    asyncio.run(handler(SimpleNamespace(), ctx, "Player", "ALT"))
+    account.assert_called_once_with(10, "Player", "ALT")
+    ctx.send.assert_awaited_once_with("Compte introuvable sur ce serveur.", ephemeral=True)
+    channels.assert_not_called()
+    riot.assert_not_awaited()
+
+
+def test_catchup_can_publish_for_another_member_of_the_same_guild():
+    ctx = SimpleNamespace(guild_id=10, author=SimpleNamespace(id=17), defer=AsyncMock(), send=AsyncMock())
+    local = {"id_compte": 42, "puuid": "puuid-42", "server_id": 10, "discord": "29",
+             "riot_id": "player", "riot_tagline": "EUW", "save_records": False}
+    channels = Mock(return_value=SimpleNamespace(tracklol=123))
+    channel = SimpleNamespace(send=AsyncMock())
+    cog = SimpleNamespace(compte_loading={99}, printInfo=AsyncMock(return_value=("embed", "RANKED", "file", [])),
+                          bot=SimpleNamespace(fetch_channel=AsyncMock(return_value=channel)))
+    def read(query, **kwargs):
+        if "match_id" in query:
+            return pd.DataFrame(columns=["match_id"]).T
+        return pd.DataFrame()
+
+    riot = AsyncMock(side_effect=[["EUW1_1"], [], []])
+    handler = method("game_multi", guild_account=Mock(return_value=local), lire_bdd_perso=read,
+                     chan_discord=channels, get_list_matchs_with_puuid=riot, sleep=AsyncMock())
+    asyncio.run(handler(cog, ctx, "Player"))
+    channels.assert_called_once_with(10)
+    assert [call.args[1] for call in riot.await_args_list] == ["puuid-42"] * 3
+    cog.printInfo.assert_awaited_once_with(42, "player", "EUW", idgames=0, sauvegarder=True,
+                                          identifiant_game="EUW1_1", guild_id=10, affichage=1,
+                                          check_doublon=True, check_records=False)
+    cog.bot.fetch_channel.assert_awaited_once_with(123)
+    channel.send.assert_awaited_once_with(embeds="embed", files="file", components=[])
 
 
 @pytest.mark.parametrize("mode,channel", [("RANKED", 10), ("ARENA 2v2", 20), ("ARAM", 30)])

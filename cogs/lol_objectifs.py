@@ -1,53 +1,29 @@
-import sys
-import aiohttp
-import pandas as pd
-import warnings
+import asyncio
+
 import interactions
 from interactions import SlashCommandOption, Extension, SlashContext, slash_command
-from utils.params import saison
-from fonctions.channels_discord import verif_module
-from fonctions.permissions import isOwner_slash
-import traceback
-import psycopg2.errors
-from fonctions.gestion_bdd import requete_perso_bdd, lire_bdd_perso, get_tag
+
 from fonctions.autocomplete import autocomplete_riotid
-from fonctions.match.riot_api import getId_with_puuid, get_summonerinfo_by_puuid, get_summoner_by_riot_id
+from fonctions.gestion_bdd import lire_bdd_perso
+from fonctions.lol_accounts import guild_account, set_active_objective
 
 
+async def parametrer_objectif(ctx, riot_id, riot_tag, objectif_id, valeur, supprimer):
+    await ctx.defer()
+    if valeur is None and not supprimer:
+        return await ctx.send("Merci de préciser une valeur ou de cocher l’option supprimer.", ephemeral=True)
 
+    try:
+        await asyncio.to_thread(set_active_objective, ctx.guild_id, ctx.author.id, riot_id, riot_tag,
+                                objectif_id, None if supprimer else valeur)
+    except ValueError as error:
+        return await ctx.send(str(error), ephemeral=True)
 
-warnings.simplefilter(action='ignore', category=FutureWarning)
-pd.options.mode.chained_assignment = None  # default='warn'
+    if supprimer:
+        return await ctx.send("✅ Ton objectif a été supprimé.")
+    unite = {1: "cs/min", 2: "% KP", 3: "KDA", 4: "morts max"}[objectif_id]
+    await ctx.send(f"🎯 Ton objectif de **{valeur} {unite}** est enregistré pour toutes tes parties !")
 
-
-async def parametrer_objectif(ctx, riot_id, riot_tag, objectif_id, valeur=None, supprimer=False):
-
-        if supprimer:
-                requete_perso_bdd("""
-                    DELETE FROM objectifs_lol_suivi
-                    WHERE id_compte = (select id_compte from tracker where tracker.riot_id = :riot_id and tracker.riot_tagline = :riot_tag)
-                    AND match_id IS NULL
-                    AND objectif_id = :objectif_id
-                """, {'riot_id': riot_id, 'riot_tag' : riot_tag, 'objectif_id': objectif_id})
-                await ctx.send("✅ Ton objectif a été supprimé : tu n'as plus d'objectif actif.")
-                return
-
-        if valeur is None:
-                await ctx.send("Merci de préciser une valeur ou de cocher l’option supprimer.", ephemeral=True)
-                return
-
-            # Supprime l'ancien objectif s'il existe, puis ajoute le nouveau
-        requete_perso_bdd("""
-                DELETE FROM objectifs_lol_suivi
-                WHERE id_compte = (select id_compte from tracker where tracker.riot_id = :riot_id and tracker.riot_tagline = :riot_tag)
-                AND match_id IS NULL
-                AND objectif_id = :objectif_id
-            """, {'riot_id': riot_id, 'riot_tag' : riot_tag, 'objectif_id': objectif_id})
-
-        requete_perso_bdd("""
-                INSERT INTO objectifs_lol_suivi (id_compte, objectif_id, valeur_attendue, match_id)
-                VALUES ((select id_compte from tracker where tracker.riot_id = :riot_id and tracker.riot_tagline = :riot_tag), :objectif_id, :valeur_attendue, NULL)
-            """, {'riot_id': riot_id, 'riot_tag' : riot_tag, 'objectif_id': objectif_id, 'valeur_attendue': valeur})
 
 class LoLObjectifs(Extension):
     def __init__(self, bot):
@@ -94,27 +70,7 @@ class LoLObjectifs(Extension):
                              riot_tag: str = None,
                              valeur = None,
                              supprimer: bool = False):
-        
-
-        if riot_tag is None:
-            try:
-                riot_tag = get_tag(riot_id)
-            except ValueError:
-                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
-
-        riot_id = riot_id.lower().replace(' ', '')
-        riot_tag = riot_tag.upper()
-        objectif_id = 1  # CS/min
-
-        await ctx.defer(ephemeral=False)
-
-        # Appelle la logique métier
-        await parametrer_objectif(ctx, riot_id, riot_tag, objectif_id, valeur, supprimer)
-
-        # Seulement si on ne supprime pas et qu'il y a une valeur (pour éviter le double message)
-        if not supprimer and valeur is not None:
-            await ctx.send(f"🎯 Ton objectif de **{valeur} cs/min** est enregistré pour toutes tes parties !")
-
+        await parametrer_objectif(ctx, riot_id, riot_tag, 1, valeur, supprimer)
 
     @objectif_cs_min.autocomplete("riot_id")
     async def autocomplete_trackerconfig(self, ctx: interactions.AutocompleteContext):
@@ -133,21 +89,7 @@ class LoLObjectifs(Extension):
             SlashCommandOption(name="supprimer", description="Coche pour supprimer l'objectif KP", type=interactions.OptionType.BOOLEAN, required=False),
         ])
     async def objectif_kp(self, ctx: SlashContext, riot_id: str, riot_tag: str = None, valeur=None, supprimer: bool = False):
-        if riot_tag is None:
-            try:
-                riot_tag = get_tag(riot_id)
-            except ValueError:
-                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
-
-        riot_id = riot_id.lower().replace(' ', '')
-        riot_tag = riot_tag.upper()
-        objectif_id = 2  # KP
-
-        await ctx.defer(ephemeral=False)
-        await parametrer_objectif(ctx, riot_id, riot_tag, objectif_id, valeur, supprimer)
-        if not supprimer and valeur is not None:
-            await ctx.send(f"🎯 Ton objectif de **{valeur}% KP** est enregistré pour toutes tes parties !")
-
+        await parametrer_objectif(ctx, riot_id, riot_tag, 2, valeur, supprimer)
 
     @objectif_kp.autocomplete("riot_id")
     async def autocomplete_trackerconfig(self, ctx: interactions.AutocompleteContext):
@@ -167,22 +109,7 @@ class LoLObjectifs(Extension):
             SlashCommandOption(name="supprimer", description="Coche pour supprimer l'objectif KDA", type=interactions.OptionType.BOOLEAN, required=False),
         ])
     async def objectif_kda(self, ctx: SlashContext, riot_id: str, riot_tag: str = None, valeur=None, supprimer: bool = False):
-        if riot_tag is None:
-            try:
-                riot_tag = get_tag(riot_id)
-            except ValueError:
-                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
-
-        riot_id = riot_id.lower().replace(' ', '')
-        riot_tag = riot_tag.upper()
-        objectif_id = 3  # KDA
-
-        await ctx.defer(ephemeral=False)
-        await parametrer_objectif(ctx, riot_id, riot_tag, objectif_id, valeur, supprimer)
-        if not supprimer and valeur is not None:
-            await ctx.send(f"🎯 Ton objectif de **{valeur} KDA** est enregistré pour toutes tes parties !")
-
-
+        await parametrer_objectif(ctx, riot_id, riot_tag, 3, valeur, supprimer)
 
     @objectif_kda.autocomplete("riot_id")
     async def autocomplete_trackerconfig(self, ctx: interactions.AutocompleteContext):
@@ -201,20 +128,7 @@ class LoLObjectifs(Extension):
             SlashCommandOption(name="supprimer", description="Coche pour supprimer l\'objectif deaths", type=interactions.OptionType.BOOLEAN, required=False),
         ])
     async def objectif_deaths(self, ctx: SlashContext, riot_id: str, riot_tag: str = None, valeur=None, supprimer: bool = False):
-        if riot_tag is None:
-            try:
-                riot_tag = get_tag(riot_id)
-            except ValueError:
-                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
-
-        riot_id = riot_id.lower().replace(' ', '')
-        riot_tag = riot_tag.upper()
-        objectif_id = 4  # Deaths
-
-        await ctx.defer(ephemeral=False)
-        await parametrer_objectif(ctx, riot_id, riot_tag, objectif_id, valeur, supprimer)
-        if not supprimer and valeur is not None:
-            await ctx.send(f"🎯 Ton objectif de **{valeur} morts max** est enregistré pour toutes tes parties !")
+        await parametrer_objectif(ctx, riot_id, riot_tag, 4, valeur, supprimer)
 
     @objectif_deaths.autocomplete("riot_id")
     async def autocomplete_trackerconfig(self, ctx: interactions.AutocompleteContext):
@@ -234,25 +148,17 @@ class LoLObjectifs(Extension):
 
         await ctx.defer()
 
-        # 🔹 Formatage de l'identité
-        if riot_tag is None:
-            try:
-                riot_tag = get_tag(riot_id)
-            except ValueError:
-                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
+        try:
+            account = await asyncio.to_thread(guild_account, ctx.guild_id, riot_id, riot_tag)
+        except ValueError as error:
+            return await ctx.send(str(error), ephemeral=True)
 
-        riot_id = riot_id.lower().replace(' ', '')
-        riot_tag = riot_tag.upper()
-
-
-        # 🔹 Récupérer les objectifs du jour
-        df = lire_bdd_perso(f"""
+        df = (await asyncio.to_thread(lire_bdd_perso, """
             SELECT suiv.*, types.nom, types.description
             FROM objectifs_lol_suivi suiv
             JOIN objectifs_lol_types types ON suiv.objectif_id = types.id
-            WHERE id_compte = (SELECT id_compte FROM tracker WHERE riot_id = '{riot_id}' AND riot_tagline = '{riot_tag}')
-            AND date_partie::date = CURRENT_DATE
-        """, index_col=None).transpose()
+            WHERE suiv.id_compte = :account AND date_partie::date = CURRENT_DATE
+        """, index_col=None, params={"account": account["id_compte"]})).transpose()
 
         if df.empty:
             return await ctx.send("Aucun objectif enregistré pour aujourd'hui.")
