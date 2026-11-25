@@ -15,6 +15,7 @@ from fonctions.permissions import isOwner_slash
 from fonctions.gestion_challenge import recap_snapshot
 from fonctions.challenge_ui import recap_components
 from fonctions.autocomplete import autocomplete_riotid
+from fonctions.lol_accounts import guild_account
 from fonctions.channels_discord import identifier_role_by_name
 from fonctions.timer import timer
 from fonctions.match.matchlol import get_profile_emoji, get_profile_name_fr
@@ -289,7 +290,7 @@ class LeagueofLegends(Extension):
                         capture_challenges: bool = False):
         # Keep the task alive through cancellation: SQL and file cleanup must finish.
         async def prepare():
-            key = riot_id.lower()
+            key = id_compte
             self._recap_counts[key] += 1
             self.compte_loading.add(key)
             try:
@@ -1300,47 +1301,23 @@ class LeagueofLegends(Extension):
 
         await ctx.defer(ephemeral=False)
 
-        if riot_id.lower() in self.compte_loading:
-            return await ctx.send("Une partie est déjà en cours de chargement pour ce joueur. Veuillez patienter.")
-
-        if riot_tag is None:
-            try:
-                riot_tag = (await asyncio.to_thread(get_tag, riot_id))
-            except ValueError:
-                return await ctx.send('Plusieurs comptes avec ce riot_id, merci de préciser le tag')
-
-        server_id = int(ctx.guild_id)
-        discord_server_id = (await asyncio.to_thread(chan_discord, int(server_id)))
-
-        discord_id = int(ctx.author.id)
-        riot_id = riot_id.lower().replace(' ', '')
-        riot_tag = riot_tag.upper()
-        df_banned = (await asyncio.to_thread(lire_bdd_perso, f'''SELECT discord, banned from tracker WHERE discord = '{discord_id}' and banned = true''', index_col='discord'))
-        data_joueur = (await asyncio.to_thread(lire_bdd_perso, f'''SELECT riot_id, puuid, id_compte from tracker WHERE riot_id = '{riot_id}' and riot_tagline = '{riot_tag}' ''',
-                                     index_col='riot_id'))
-
-        puuid = data_joueur.T.loc[riot_id]['puuid']
-        id_compte = data_joueur.T.loc[riot_id]['id_compte']
-
-        # bool n'a pas d'attribut .empty : l'ancien code désactivait /game
-        # et activait /game_multi sans tenir compte de save_records.
-        record_setting = (await asyncio.to_thread(lire_bdd_perso,
-            """SELECT save_records FROM tracker
-               WHERE riot_id = :riot_id AND riot_tagline = :riot_tag""",
-            index_col=None,
-            params={"riot_id": riot_id, "riot_tag": riot_tag},
-        )).T
-        check_records = (
-            not record_setting.empty
-            and pd.notna(record_setting.iloc[0]["save_records"])
-            and bool(record_setting.iloc[0]["save_records"])
+        df_banned = await asyncio.to_thread(
+            lire_bdd_perso, "SELECT discord FROM tracker WHERE discord = :discord AND banned = true",
+            params={"discord": str(ctx.author.id)}, index_col=None,
         )
-
         if df_banned.empty:
             try:
-                id_compte = (await asyncio.to_thread(get_id_account_bdd, riot_id, riot_tag))
-            except IndexError:
-                return await ctx.send("Ce compte n'existe pas ou n'est pas enregistré")
+                account = await asyncio.to_thread(guild_account, ctx.guild_id, riot_id, riot_tag)
+            except ValueError as error:
+                return await ctx.send(str(error), ephemeral=True)
+            id_compte = account["id_compte"]
+            if id_compte in self.compte_loading:
+                return await ctx.send("Une partie est déjà en cours de chargement pour ce joueur. Veuillez patienter.")
+
+            riot_id, riot_tag = account["riot_id"], account["riot_tagline"]
+            puuid = account["puuid"]
+            check_records = bool(account["save_records"])
+            discord_server_id = await asyncio.to_thread(chan_discord, account["server_id"])
 
             session = aiohttp.ClientSession()
 
