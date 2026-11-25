@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import interactions
 import pandas as pd
@@ -40,6 +40,7 @@ from fonctions.proplay_manual import (
     add_manual_player,
     get_player_names,
 )
+from fonctions.proplay_schedule import is_proplay_week_complete, record_completed_proplay_week
 from fonctions.proplay_sources import (
     DEFAULT_PRO_LEAGUES,
     fetch_trackingthepros_accounts,
@@ -61,11 +62,10 @@ class LoLProplay(Extension):
     @listen()
     async def on_startup(self):
         self.update_pro_database.start()
+        await self.update_pro_database()
 
     @Task.create(IntervalTrigger(hours=12))
     async def update_pro_database(self):
-        if datetime.now().weekday() != 0:  # Que le lundi
-            return
         await self._run_pro_database_update(trigger="hebdo")
 
     @staticmethod
@@ -216,6 +216,9 @@ class LoLProplay(Extension):
         async with self._pro_update_lock:
             timezone = tz.gettz("Europe/Paris")
             updated_at = datetime.now(timezone)
+            week_start = updated_at.date() - timedelta(days=updated_at.weekday())
+            if trigger == "hebdo" and is_proplay_week_complete(week_start):
+                return "La mise à jour proplay de cette semaine a déjà été effectuée."
             print(f"Update Database Proplayers ({trigger})...")
 
             try:
@@ -223,7 +226,7 @@ class LoLProplay(Extension):
                 print(f"Backup proplay créé : {backup_at}")
             except Exception as exc:
                 message = f"Update annulée : création du backup impossible ({exc})."
-                print(message)
+                LOGGER.exception("Création du backup proplay impossible (%s)", trigger)
                 return message
 
             df_pro_origin = lire_bdd_perso(
@@ -251,7 +254,8 @@ class LoLProplay(Extension):
                     print(message)
                     return message
 
-                if not df_leaguepedia.empty or not df_tracking.empty:
+                roster_refreshed = not df_leaguepedia.empty or not df_tracking.empty
+                if roster_refreshed:
                     sauvegarde_bdd(df_pro, "data_proplayers")
                     print(
                         f"data_proplayers mise à jour : {len(df_pro)} joueurs "
@@ -302,6 +306,7 @@ class LoLProplay(Extension):
 
                     sauvegarde_bdd(df_pro, "data_proplayers")
                     lolpros_teams = df_lolpros_roster["team_plug"].notna().sum()
+                    roster_refreshed = True
                     print(
                         f"Roster LoLPros appliqué : {len(df_lolpros_roster)} profils, "
                         f"{lolpros_teams} équipes renseignées."
@@ -352,6 +357,12 @@ class LoLProplay(Extension):
                         "data_acc_proplayers conservée."
                     )
 
+            if not roster_refreshed:
+                message = "Roster proplay non actualisé : aucune source n’a fourni de données joueurs."
+                LOGGER.warning(message)
+                return message
+
+            record_completed_proplay_week(week_start)
             message = (
                 f"Update proplay terminée : {len(df_pro)} joueurs, "
                 f"{len(df_lolpros_accounts)} comptes LoLPros, "
@@ -400,7 +411,7 @@ class LoLProplay(Extension):
 
         if progress_message is not None:
             try:
-                await progress_message.edit(content=f"✅ **{message}**")
+                await progress_message.edit(content=f"**{message}**")
             except Exception:
                 LOGGER.exception("Message final Discord non mis à jour")
 
