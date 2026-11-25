@@ -1,15 +1,19 @@
 # Radar de compte LoL
 
-`/lol_radar riot_id:MonPseudo riot_tag:EUW saison:16 role:SUPPORT`
+`/lol_radar riot_id:MonPseudo` compare la saison en cours, configurée dans le bot,
+à la saison précédente. Pour choisir une saison ou un rôle, par exemple,
+utiliser `/lol_radar riot_id:MonPseudo saison:16 role:SUPPORT`.
 
-Compte enregistré dans `tracker` sur le serveur courant. La saison est obligatoire
-(numéro enregistré dans `matchs.season`, par exemple 16). Filtres optionnels : rôle
-et champion. Le SQL impose toujours `mode = 'RANKED'` : aucun choix de file de jeu.
+Le bot recherche le tag dans les comptes suivis du serveur courant. En cas
+d’homonymie, il affiche les tags possibles et demande de préciser `riot_tag`.
+Le rôle et le champion sont facultatifs. Le SQL impose `mode = 'RANKED'`.
 Tous les matchs distincts enregistrés de la saison choisie sont pris en compte,
 sans limite de nombre de parties, et comparés à la saison précédente (S − 1).
 Les mêmes filtres s'appliquent aux deux saisons avant déduplication. Les effectifs
-réels sont affichés ; sans données de la saison précédente, les pointillés restent
-absents et ses valeurs indiquent N/D. Le tag distingue les comptes homonymes.
+réels figurent sous chaque moyenne. Un axe apparaît dès qu’une saison contient
+une mesure. Un tiret indique que seule l’autre saison est renseignée. Quand la
+saison précédente compte zéro partie, le tableau présente uniquement la saison choisie.
+En dessous de trois axes renseignés, les moyennes sont présentées en tableau seul.
 
 ## Mesures (version 1)
 
@@ -30,7 +34,8 @@ comparaison à la population du serveur ou au classement Riot.
 | Prox JG | Part des relevés valides proches du jungler allié | 100 % |
 
 Un dénominateur nul donne N/D. Les mesures à 15 minutes exigent un match d'au moins
-15 minutes et une timeline continue de 0 à 15 minutes (tolérance 1 seconde).
+15 minutes et une timeline continue jusqu’au premier relevé qui atteint ou dépasse
+15:00 (écart maximal de 61 secondes entre relevés).
 Les événements dupliqués ne comptent qu'une fois. Les exécutions ne sont pas
 comptées comme des kills d'équipe.
 
@@ -53,11 +58,23 @@ par le PUUID du compte, depuis le détail Riot et la timeline déjà chargés. A
 appel Riot/UGG supplémentaire. Aucun changement de schéma : le JSONB existant est
 réutilisé. La détection de table respecte le `search_path` PostgreSQL.
 
-Sans snapshot radar, seuls KDA, KP et VSPM sont reconstruits depuis `matchs`.
-La durée historique `mm.ss` est convertie en secondes pour la vision. Les autres
-axes restent N/D jusqu'à l'enregistrement de nouveaux matchs ; aucun faux zéro
-ni rétrocalcul de proximité depuis des positions sans santé. Les points manquants
-interrompent le contour et empêchent le remplissage du polygone.
+Les valeurs du snapshot radar sont prioritaires. Pour les champs manquants, le
+bot consulte les données locales disponibles pour chaque match.
+
+- KDA, KP et VSPM utilisent `matchs`, avec conversion de la durée historique `mm.ss`.
+- FB% utilise les indicateurs de premier sang et d’assistance du scoring si le
+  bénéficiaire du premier sang est enregistré et le compte identifiable par son Riot ID et son tag.
+- K+A@15 utilise les éliminations et assistances dédupliquées de la timeline du compte.
+  Leur total doit correspondre au bilan de fin de partie. Un événement horodaté à
+  15:00 dans l’ancienne timeline arrondie rend la mesure incertaine. Un bilan final
+  de zéro élimination et zéro assistance garantit zéro à 15 minutes si le match a duré jusque-là.
+- KP@15 utilise aussi les éliminations alliées horodatées de la carte du récap,
+  après vérification du total d’équipe sur toute la partie.
+- Le récap de proximité jungle donne la distance du joueur à son jungler allié
+  et, pour un jungler, celle à son ADC. Pour un ADC, la proximité à soi-même est inapplicable.
+
+Les moyennes ne comptent que les observations disponibles, y compris les vrais zéros.
+Les axes sans mesure dans les deux saisons sont nommés une seule fois en pied d’image.
 
 ## Mise en service
 

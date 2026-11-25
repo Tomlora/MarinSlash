@@ -16,9 +16,9 @@ def build_radar(riot_id, riot_tag, guild_id, saison, role, champion):
     data = load_radar(riot_id, riot_tag, guild_id, saison, role, champion)
     if not data["games"]:
         return None
-    title = f"{riot_id}#{riot_tag.strip().lstrip('#').upper()}"
+    title = f"{riot_id}#{data['tag']}"
     subtitle = " • ".join(str(v) for v in ("RANKED", role or "Tous rôles", champion,
-                                            f"Saison {saison}") if v)
+                                            f"Saison {data['season']}") if v)
     return render_radar(data, title, subtitle)
 
 
@@ -28,10 +28,10 @@ class LolRadar(Extension):
         options=[
             SlashCommandOption(name="riot_id", description="Pseudo LoL du compte suivi",
                                type=interactions.OptionType.STRING, required=True, autocomplete=True),
-            SlashCommandOption(name="riot_tag", description="Tag Riot du compte",
-                               type=interactions.OptionType.STRING, required=True),
-            SlashCommandOption(name="saison", description="Saison complète à analyser (ex. 16), comparée à la précédente",
-                               type=interactions.OptionType.INTEGER, required=True, min_value=1),
+            SlashCommandOption(name="riot_tag", description="Tag Riot pour distinguer deux comptes du même nom",
+                               type=interactions.OptionType.STRING, required=False),
+            SlashCommandOption(name="saison", description="Saison à comparer à la précédente (par défaut, la saison en cours)",
+                               type=interactions.OptionType.INTEGER, required=False, min_value=1),
             SlashCommandOption(name="role", description="Filtrer un rôle pour une comparaison plus homogène",
                                type=interactions.OptionType.STRING, required=False,
                                choices=[SlashCommandChoice(name=r, value=r) for r in ("TOP", "JUNGLE", "MID", "ADC", "SUPPORT")]),
@@ -39,7 +39,7 @@ class LolRadar(Extension):
                                type=interactions.OptionType.STRING, required=False),
         ],
     )
-    async def lol_radar(self, ctx, riot_id: str, riot_tag: str, saison: int,
+    async def lol_radar(self, ctx, riot_id: str, riot_tag: str = None, saison: int = None,
                         role: str = None, champion: str = None):
         await ctx.defer(ephemeral=False)
         if not ctx.guild_id:
