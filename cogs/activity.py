@@ -14,7 +14,7 @@ class activity(Extension):
     @listen()
     async def on_startup(self):
         currentHour, currentMinute = heure_actuelle()
-        print(f'Connecté au serveur ({currentHour}:{currentMinute})')
+        print(f'Connecté au serveur ({currentHour}:{currentMinute})', flush=True)
 
         await self.bot.change_presence(interactions.Status.ONLINE,
                                        activity=interactions.Activity(name='My Dress Up Darling',
@@ -25,7 +25,7 @@ class activity(Extension):
 
         liste_guild = self.bot.guilds
         
-        print(f'Serveurs connectés : {len(liste_guild)}')
+        print(f'Serveurs connectés : {len(liste_guild)}', flush=True)
         
         for server in liste_guild:
             
