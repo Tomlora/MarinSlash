@@ -1,0 +1,53 @@
+name: Tests pronostics Worlds 2026
+
+on:
+  push:
+    paths:
+      - 'fonctions/worlds2026/**'
+      - 'cogs/worlds2026.py'
+      - 'tests/test_worlds2026*.py'
+      - 'scripts/check_worlds2026_sources.py'
+      - '.github/workflows/test-worlds2026.yml'
+  pull_request:
+    paths:
+      - 'fonctions/worlds2026/**'
+      - 'cogs/worlds2026.py'
+      - 'tests/test_worlds2026*.py'
+      - 'scripts/check_worlds2026_sources.py'
+      - '.github/workflows/test-worlds2026.yml'
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: worlds_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      WORLDS_TEST_DATABASE_URL: postgresql+psycopg2://postgres:test@localhost:5432/worlds_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: python -m pip install pytest SQLAlchemy==2.0.4 psycopg2-binary aiohttp discord-py-interactions==5.13.2
+      - run: python -m pytest -q tests/test_worlds2026.py tests/test_worlds2026_postgres.py
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: python -m pip install pytest SQLAlchemy==2.0.4 aiohttp discord-py-interactions==5.13.2
+      - run: python -m pytest -q tests/test_worlds2026.py

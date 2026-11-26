@@ -169,6 +169,13 @@ Le bot est capable de détecter un nouveau patch, et de partager un résumé en 
 
 ## Competitif pro
 
+### Pronostics Worlds 2026
+
+Cog dédié `/worlds` : participants, calendrier, pronostics de scores et classement
+par serveur. Synchronisation Leaguepedia, LoL Esports et PandaScore, avec corrections
+administrateur et barème BO1 = 1 point ; BO3/BO5 = 1 pour le vainqueur ou 3 au total
+pour le score exact. [Configuration, commandes et validation](docs/worlds2026.md).
+
 ### Statistiques
 
 - Le bot peut afficher les statistiques principales des joueurs pros dans toutes les compétitions gérées par Riot Games. (Corée, Chine, USA, Europe, Amérique du Nord...)
