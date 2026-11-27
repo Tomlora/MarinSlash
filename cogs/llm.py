@@ -23,6 +23,9 @@ MODEL_CHOICES: Final = (
     SlashCommandChoice(name="Compact — Qwen 3.5 2B (~2,7 Go)", value="qwen3.5:2b"),
     SlashCommandChoice(name="Rapide — Qwen 3.5 4B (~3,4 Go)", value="qwen3.5:4b"),
     SlashCommandChoice(name="Qualité — Qwen 3.5 9B (~6,6 Go)", value="qwen3.5:9b"),
+    SlashCommandChoice(name="Polyvalent — Gemma 4 E2B (~4,6 Go)", value="gemma4:e2b"),
+    SlashCommandChoice(name="Qualité — Gemma 4 E4B (~6,6 Go)", value="gemma4:e4b"),
+    SlashCommandChoice(name="Ultra-léger — LFM3 1.7B (~1,1 Go)", value="lfm3:1.7b"),
 )
 
 MAX_INPUT_CHARS: Final = 6_000
