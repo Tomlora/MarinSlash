@@ -20,8 +20,12 @@ LOGGER = logging.getLogger(__name__)
 
 DEFAULT_MODEL: Final = "qwen3.5:4b"
 MODEL_CHOICES: Final = (
+    SlashCommandChoice(name="Compact — Qwen 3.5 2B (~2,7 Go)", value="qwen3.5:2b"),
     SlashCommandChoice(name="Rapide — Qwen 3.5 4B (~3,4 Go)", value="qwen3.5:4b"),
     SlashCommandChoice(name="Qualité — Qwen 3.5 9B (~6,6 Go)", value="qwen3.5:9b"),
+    SlashCommandChoice(name="Polyvalent — Gemma 4 E2B (~4,6 Go)", value="gemma4:e2b"),
+    SlashCommandChoice(name="Qualité — Gemma 4 E4B (~6,6 Go)", value="gemma4:e4b"),
+    SlashCommandChoice(name="Ultra-léger — LFM3 1.7B (~1,1 Go)", value="lfm3:1.7b"),
 )
 
 MAX_INPUT_CHARS: Final = 6_000
@@ -41,6 +45,7 @@ GENERATION_OPTIONS: Final = {
     "num_predict": 768,
     "temperature": 0.3,
 }
+REASONING_TOKEN_LIMIT: Final = 1_024
 
 
 def split_discord_message(text: str, limit: int = DISCORD_MESSAGE_LIMIT) -> tuple[str, str]:
@@ -141,12 +146,18 @@ class LLM(Extension):
                 )
 
             try:
-                await self._stream_answer(
-                    ctx=ctx,
-                    status_message=status_message,
-                    prompt=prompt,
-                    model=selected_model,
-                    reasoning=raisonnement,
+                modes = (True, False) if raisonnement else (False,)
+                for reasoning in modes:
+                    if raisonnement and not reasoning:
+                        await status_message.edit(
+                            content="Le raisonnement s’est terminé sans réponse. Nouvel essai en mode direct…"
+                        )
+                    if await self._stream_answer(
+                        ctx, status_message, prompt, selected_model, reasoning
+                    ):
+                        return
+                await status_message.edit(
+                    content="Le modèle n’a produit aucune réponse. Essaie de reformuler la question."
                 )
             except ResponseError as exc:
                 LOGGER.warning("Erreur Ollama pour le modèle %s : %s", selected_model, exc)
@@ -178,31 +189,40 @@ class LLM(Extension):
         prompt: str,
         model: str,
         reasoning: bool,
-    ) -> None:
-        """Diffuse la réponse en limitant les éditions Discord et la mémoire tampon."""
+    ) -> bool:
+        """Diffuse une génération et indique si elle a produit du texte visible."""
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ]
 
+        options = GENERATION_OPTIONS.copy()
+        if reasoning:
+            options["num_predict"] = REASONING_TOKEN_LIMIT
         stream = await self.ollama.chat(
             model=model,
             messages=messages,
             stream=True,
             think=reasoning,
             keep_alive=OLLAMA_KEEP_ALIVE,
-            options=GENERATION_OPTIONS,
+            options=options,
         )
 
         current_message = status_message
         buffer = ""
         last_edit = time.monotonic()
         received_content = False
+        thinking_announced = False
         final_chunk = None
 
         async for chunk in stream:
             final_chunk = chunk
             content = chunk.message.content or ""
+            if not received_content and not content.strip():
+                if reasoning and chunk.message.thinking and not thinking_announced:
+                    await status_message.edit(content=f"⏳ `{model}` réfléchit…")
+                    thinking_announced = True
+                continue
             if not content:
                 continue
 
@@ -223,15 +243,11 @@ class LLM(Extension):
                 await current_message.edit(content=buffer)
                 last_edit = now
 
-        if received_content:
-            if buffer:
-                await current_message.edit(content=buffer)
-        else:
-            await current_message.edit(
-                content="Le modèle n'a renvoyé aucun contenu exploitable."
-            )
+        if buffer.strip():
+            await current_message.edit(content=buffer)
 
         self._log_generation_metrics(model, reasoning, final_chunk)
+        return received_content
 
     @staticmethod
     def _log_generation_metrics(model: str, reasoning: bool, chunk) -> None:
@@ -247,9 +263,10 @@ class LLM(Extension):
             tokens_per_second = eval_count / (eval_duration / 1_000_000_000)
 
         LOGGER.info(
-            "LLM model=%s reasoning=%s load_ms=%s output_tokens=%s tokens_per_second=%s",
+            "LLM model=%s reasoning=%s done_reason=%s load_ms=%s output_tokens=%s tokens_per_second=%s",
             model,
             reasoning,
+            chunk.done_reason,
             round(load_duration / 1_000_000, 1) if load_duration else None,
             eval_count,
             round(tokens_per_second, 2) if tokens_per_second else None,
